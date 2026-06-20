@@ -1,2 +1,20 @@
-old/
+node_modules/
+dist/
 .env
+*.log
+
+# Generated library and any local copies of source modules
+data/library.db
+data/library.db-wal
+data/library.db-shm
+data/modules/
+
+# Bible modules live here in the project (large binaries, not version-controlled)
+modules/
+
+# Old apps and source assets kept locally, not part of the new build
+old/
+
+# AI-assisted dev tooling (Claude Code) — kept local, not part of the project
+.claude/
+.mcp.json

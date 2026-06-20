@@ -1,0 +1,187 @@
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import fs from 'node:fs';
+import Database from 'better-sqlite3';
+import { stripTags, normalizeForSearch } from '@vo/shared';
+import { SCHEMA_SQL } from './schema.js';
+import { readModule } from './mybible.js';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const DATA_DIR = path.join(repoRoot, 'data');
+const OUT_PATH = path.join(DATA_DIR, 'library.db');
+
+/**
+ * Pick the modules folder: $MODULES_DIR, else the project `modules/` folder,
+ * else `data/modules`, else fall back to the reference copy in `old/MyBible`.
+ */
+function resolveModulesDir(): string {
+  if (process.env.MODULES_DIR) return path.resolve(process.env.MODULES_DIR);
+  for (const dir of [path.join(repoRoot, 'modules'), path.join(DATA_DIR, 'modules')]) {
+    if (fs.existsSync(dir) && listModuleFiles(dir).length > 0) return dir;
+  }
+  return path.join(repoRoot, 'old', 'MyBible');
+}
+
+const SKIP = /\.(commentaries|dictionary|crossreferences|subheadings)\.SQLite3$/i;
+
+function listModuleFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.toLowerCase().endsWith('.sqlite3') && !SKIP.test(f))
+    .map((f) => path.join(dir, f));
+}
+
+function fileHash(file: string): string {
+  const s = fs.statSync(file);
+  return `${s.size}:${Math.round(s.mtimeMs)}`;
+}
+
+/**
+ * Some module files on disk have corrupted (mojibake) Cyrillic names — box-drawing
+ * characters from a UTF-8/CP866 mix-up at extraction time. When the filename-derived
+ * abbreviation is garbage, fall back to a short label taken from the (clean) title.
+ */
+function cleanAbbr(rawAbbr: string, title: string): string {
+  if (!/[─-╿�]/.test(rawAbbr)) return rawAbbr;
+  let label = (title || '').split(',')[0].trim();
+  const words = label.split(/\s+/);
+  if (label.length > 14 && words.length > 1) label = words.slice(0, 2).join(' ');
+  return label || rawAbbr;
+}
+
+function buildOnce(): void {
+  const modulesDir = resolveModulesDir();
+  const files = listModuleFiles(modulesDir);
+  console.log(`[builder] modules dir: ${modulesDir}`);
+  console.log(`[builder] candidate files: ${files.length}`);
+
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const db = new Database(OUT_PATH);
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('busy_timeout = 5000'); // tolerate the server reading concurrently
+
+  let translationId = 0;
+  let totalVerses = 0;
+
+  const run = db.transaction(() => {
+    // Create the schema first, then prepare statements against the new tables.
+    // Everything runs inside one transaction so readers (the server) keep seeing
+    // the previous data until the rebuild commits.
+    db.exec(SCHEMA_SQL);
+
+    const insTranslation = db.prepare(
+      `INSERT INTO translations (id, abbr, title, language, rtl, has_strong, source_file, source_hash)
+       VALUES (@id, @abbr, @title, @language, @rtl, @hasStrong, @sourceFile, @sourceHash)`,
+    );
+    const insBook = db.prepare(
+      `INSERT INTO books (translation_id, book_number, short_name, long_name, color)
+       VALUES (@translationId, @bookNumber, @shortName, @longName, @color)`,
+    );
+    const insVerse = db.prepare(
+      `INSERT INTO verses (translation_id, book_number, chapter, verse, text, text_norm)
+       VALUES (@translationId, @bookNumber, @chapter, @verse, @text, @textNorm)`,
+    );
+    const insName = db.prepare(
+      `INSERT INTO book_names (translation_id, book_number, name_norm)
+       VALUES (@translationId, @bookNumber, @nameNorm)`,
+    );
+
+    for (const file of files) {
+      const name = path.basename(file);
+      let mod;
+      try {
+        mod = readModule(file);
+      } catch (err) {
+        console.warn(`[builder]   skip ${name}: ${(err as Error).message}`);
+        continue;
+      }
+      if (!mod) continue;
+
+      translationId += 1;
+      const abbr = cleanAbbr(name.replace(/\.SQLite3$/i, ''), mod.info.description);
+      insTranslation.run({
+        id: translationId,
+        abbr,
+        title: mod.info.description || abbr,
+        language: mod.info.language,
+        rtl: mod.info.rtl ? 1 : 0,
+        hasStrong: mod.info.hasStrong ? 1 : 0,
+        sourceFile: name,
+        sourceHash: fileHash(file),
+      });
+
+      for (const b of mod.books) {
+        const shortName = b.short_name ?? '';
+        const longName = b.long_name ?? '';
+        insBook.run({
+          translationId,
+          bookNumber: b.book_number,
+          shortName,
+          longName,
+          color: b.book_color ?? '',
+        });
+        const names = new Set(
+          [longName, shortName].map((n) => normalizeForSearch(n)).filter(Boolean),
+        );
+        for (const nameNorm of names) {
+          insName.run({ translationId, bookNumber: b.book_number, nameNorm });
+        }
+      }
+
+      for (const v of mod.verses) {
+        const raw = v.text ?? '';
+        insVerse.run({
+          translationId,
+          bookNumber: v.book_number,
+          chapter: v.chapter,
+          verse: v.verse,
+          text: stripTags(raw),
+          textNorm: normalizeForSearch(raw),
+        });
+      }
+
+      totalVerses += mod.verses.length;
+      console.log(
+        `[builder]   + ${abbr} (${mod.info.language || '??'}) — ${mod.books.length} books, ${mod.verses.length} verses`,
+      );
+    }
+
+    db.exec("INSERT INTO verses_fts(verses_fts) VALUES('rebuild')");
+  });
+
+  const started = Date.now();
+  run();
+  // VACUUM needs exclusive access; skip it quietly if a reader (the server) is
+  // attached. The data is already committed by this point regardless.
+  try {
+    db.exec('VACUUM');
+  } catch (err) {
+    console.warn(`[builder] VACUUM skipped: ${(err as Error).message}`);
+  }
+  db.close();
+  console.log(
+    `[builder] done: ${translationId} translations, ${totalVerses} verses -> ${OUT_PATH} (${Date.now() - started}ms)`,
+  );
+}
+
+function watch(): void {
+  const modulesDir = resolveModulesDir();
+  console.log(`[builder] watching ${modulesDir} for changes...`);
+  let timer: NodeJS.Timeout | null = null;
+  fs.watch(modulesDir, () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      console.log('[builder] change detected, rebuilding...');
+      try {
+        buildOnce();
+      } catch (err) {
+        console.error('[builder] rebuild failed:', err);
+      }
+    }, 750);
+  });
+}
+
+buildOnce();
+if (process.argv.includes('--watch')) watch();

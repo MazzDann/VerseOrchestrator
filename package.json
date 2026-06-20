@@ -1,0 +1,39 @@
+{
+  "name": "verse-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local web app that reads Bible modules and projects verses onto a second screen.",
+  "engines": {
+    "node": ">=18"
+  },
+  "workspaces": [
+    "shared",
+    "builder",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "build:library": "npm run build --workspace @vo/builder",
+    "build:library:watch": "npm run watch --workspace @vo/builder",
+    "server": "npm run dev --workspace @vo/server",
+    "web": "npm run dev --workspace @vo/web",
+    "dev": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:web\"",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "prettier": "^3.8.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.61.1",
+    "vitest": "^2.1.8"
+  }
+}

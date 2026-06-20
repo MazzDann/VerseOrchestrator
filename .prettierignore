@@ -1,0 +1,7 @@
+node_modules
+dist
+old
+data
+modules
+package-lock.json
+*.SQLite3
