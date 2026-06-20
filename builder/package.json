@@ -1,0 +1,18 @@
+{
+  "name": "@vo/builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsx src/build.ts",
+    "watch": "tsx src/build.ts --watch"
+  },
+  "dependencies": {
+    "@vo/shared": "*",
+    "better-sqlite3": "^12.11.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "tsx": "^4.19.2"
+  }
+}

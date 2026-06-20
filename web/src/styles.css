@@ -1,0 +1,33 @@
+.vo-list-item {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 5px 10px;
+  user-select: none;
+  font-size: 14px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vo-list-item:hover {
+  background: var(--mantine-color-default-hover);
+}
+.vo-list-item[data-selected='true'] {
+  background: var(--mantine-color-blue-light);
+  color: var(--mantine-color-blue-light-color);
+  font-weight: 500;
+}
+
+.vo-verse-item {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 6px 10px;
+  user-select: none;
+  line-height: 1.4;
+}
+.vo-verse-item:hover {
+  background: var(--mantine-color-default-hover);
+}
+.vo-verse-item[data-selected='true'] {
+  background: var(--mantine-color-blue-light);
+}
