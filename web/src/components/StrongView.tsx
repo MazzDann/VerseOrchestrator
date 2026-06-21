@@ -16,8 +16,8 @@ export interface StrongPickRef {
 interface Props {
   verses: Verse[];
   hasStrong: boolean;
-  /** Project the current verse with this Strong "word — gloss" subline. */
-  onProjectStrong?: (subline: string) => void;
+  /** Project the current verse with this Strong "word — gloss" subline + highlighted word. */
+  onProjectStrong?: (subline: string, strong: string) => void;
   /** Open the concordance ("where else used") for this Strong number beside the verses. */
   onShowConcordance?: (strong: string) => void;
 }
@@ -196,7 +196,7 @@ export function StrongView({
               fullWidth
               mb={6}
               leftSection={<IconDeviceTv size={14} />}
-              onClick={() => onProjectStrong(projectSubline)}
+              onClick={() => onProjectStrong(projectSubline, active.strong!)}
             >
               На екран зі Стронгом
             </Button>

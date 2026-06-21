@@ -40,7 +40,15 @@ import {
 import { api, type Book, type Verse } from '../api';
 import { useStore } from '../store';
 import { useSettings, refKey, type RefItem } from '../settingsStore';
-import { publishSlide, type Slide, type SlideLine, type SlideStyle } from '../presenterBus';
+import {
+  publishSlide,
+  type Slide,
+  type SlideLine,
+  type SlideStyle,
+  type TextSpan,
+} from '../presenterBus';
+import { parseRedLetter } from '@vo/shared';
+import { parseStrongTokens } from '../lib/strong';
 import { openPresenterWindow } from '../openPresenter';
 import { SearchPanel, type SearchScope } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
@@ -178,7 +186,8 @@ export function Control() {
           .filter((s) => s.trim())
           .join('  ');
         if (!text.trim()) return null;
-        return { translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl } as SlideLine;
+        const segments = redLetterSegments(verses, selectedVerses, appearance.showVerseNumbers);
+        return { translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments } as SlideLine;
       })
       .filter((x): x is SlideLine => x !== null);
   }, [selectedIds, selectedVerses, versesByTranslation, translations, appearance.showVerseNumbers]);
@@ -196,6 +205,9 @@ export function Control() {
       padBottom: appearance.padBottom,
       padLeft: appearance.padLeft,
       padUnit: appearance.padUnit,
+      redLetter: appearance.redLetter,
+      jesusColor: appearance.jesusColor,
+      highlightColor: appearance.highlightColor,
     }),
     [appearance],
   );
@@ -224,15 +236,21 @@ export function Control() {
 
   // Project the Strong-bearing (primary) translation only, with a "word — gloss"
   // subline. Used contextually from the Strong tab; normal navigation reverts it.
-  const projectStrong = (subline: string) => {
+  const projectStrong = (subline: string, strong: string) => {
     const t = translations.find((x) => x.id === primaryId);
     const text = selectedPrimaryVerses
       .map((v) => `${appearance.showVerseNumbers ? `${v.verse} ` : ''}${(v.text ?? '').trim()}`)
       .filter((s) => s.trim())
       .join('  ');
     if (!text.trim()) return;
+    const segments = strongHighlightSegments(
+      selectedPrimaryVerses,
+      selectedVerses,
+      appearance.showVerseNumbers,
+      strong,
+    );
     publishSlide({
-      lines: [{ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl }],
+      lines: [{ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments }],
       reference,
       blank: false,
       visible: true,
@@ -634,7 +652,18 @@ export function Control() {
                       <Text span fw={700} c="brand" mr={8}>
                         {v.verse}
                       </Text>
-                      {v.text}
+                      {appearance.redLetter
+                        ? parseRedLetter(v.textRaw ?? v.text ?? '').map((s, j, arr) => (
+                            <Text
+                              span
+                              key={j}
+                              style={{ color: s.jesus ? appearance.jesusColor : undefined }}
+                            >
+                              {s.text}
+                              {j < arr.length - 1 ? ' ' : ''}
+                            </Text>
+                          ))
+                        : v.text}
                     </Text>
                   </div>
                 ))}
@@ -667,6 +696,43 @@ export function Control() {
       </AppShell>
     </>
   );
+}
+
+/** Build red-letter (words of Jesus) segments for a translation's selected verses. */
+function redLetterSegments(verses: Verse[], selected: number[], showNum: boolean): TextSpan[] {
+  const out: TextSpan[] = [];
+  for (const v of verses) {
+    if (!selected.includes(v.verse)) continue;
+    if (showNum) out.push({ text: String(v.verse) });
+    for (const s of parseRedLetter(v.textRaw ?? v.text ?? '')) {
+      out.push(s.jesus ? { text: s.text, jesus: true } : { text: s.text });
+    }
+  }
+  return out;
+}
+
+/** Build segments with the word(s) carrying `strong` emphasised (the projected Strong word). */
+function strongHighlightSegments(
+  verses: Verse[],
+  selected: number[],
+  showNum: boolean,
+  strong: string,
+): TextSpan[] {
+  const out: TextSpan[] = [];
+  for (const v of verses) {
+    if (!selected.includes(v.verse)) continue;
+    if (showNum) out.push({ text: String(v.verse) });
+    const tokens = parseStrongTokens(v.textRaw ?? '');
+    if (tokens.length === 0) {
+      const t = (v.text ?? '').trim();
+      if (t) out.push({ text: t });
+      continue;
+    }
+    for (const tk of tokens) {
+      out.push(tk.strong === strong ? { text: tk.text, hot: true } : { text: tk.text });
+    }
+  }
+  return out;
 }
 
 function formatReference(
