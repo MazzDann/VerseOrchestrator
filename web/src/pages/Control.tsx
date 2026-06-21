@@ -47,6 +47,7 @@ import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { RefList } from '../components/RefList';
 import { VirtualList } from '../components/VirtualList';
 import { TranslationPicker } from '../components/TranslationPicker';
+import { ConcordancePanel } from '../components/ConcordancePanel';
 
 const EMPTY_ARRAY: never[] = [];
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
@@ -88,6 +89,8 @@ export function Control() {
   const [pinnedPreview, { toggle: togglePin }] = useDisclosure(false);
   // When navigating via search/history/concordance, scroll this verse into view.
   const [scrollTarget, setScrollTarget] = useState<number | null>(null);
+  // Active Strong number for the concordance panel shown beside the verse list.
+  const [concordanceStrong, setConcordanceStrong] = useState<string | null>(null);
 
   const jumpTo = (r: Jumpable) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
@@ -381,8 +384,8 @@ export function Control() {
       scriptureFont={appearance.scriptureFont}
       previewSlide={previewSlide}
       selectedPrimaryVerses={selectedPrimaryVerses}
-      onPickRef={jumpTo}
       onProjectStrong={projectStrong}
+      onShowConcordance={setConcordanceStrong}
       onSend={sendAndNotify}
       onBlank={blankScreen}
       pinned={pinnedPreview}
@@ -603,8 +606,9 @@ export function Control() {
               </ScrollArea.Autosize>
             )}
             <Divider />
-            <ScrollArea style={{ flex: 1 }} px="md" py="xs">
-              <Stack gap={2}>
+            <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+              <ScrollArea style={{ flex: 1 }} px="md" py="xs">
+                <Stack gap={2}>
                 {primaryVerses.map((v) => (
                   <div
                     key={v.verse}
@@ -640,7 +644,16 @@ export function Control() {
                   </Text>
                 )}
               </Stack>
-            </ScrollArea>
+              </ScrollArea>
+              {concordanceStrong && (
+                <ConcordancePanel
+                  strong={concordanceStrong}
+                  primaryId={primaryId}
+                  onPick={jumpTo}
+                  onClose={() => setConcordanceStrong(null)}
+                />
+              )}
+            </div>
             {panelPlacement === 'bottom' && (
               <>
                 <Divider />

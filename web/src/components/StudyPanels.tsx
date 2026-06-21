@@ -26,7 +26,7 @@ import { type RefItem } from '../settingsStore';
 import { type Slide, type SlideLine } from '../presenterBus';
 import { SlidePreview } from './SlideCanvas';
 import { SettingsPanel } from './SettingsPanel';
-import { StrongView, type StrongPickRef } from './StrongView';
+import { StrongView } from './StrongView';
 
 export type AsideMode = 'preview' | 'settings' | 'strong';
 
@@ -43,8 +43,8 @@ interface Props {
   scriptureFont: string;
   previewSlide: Slide;
   selectedPrimaryVerses: Verse[];
-  onPickRef?: (r: StrongPickRef) => void;
   onProjectStrong?: (subline: string) => void;
+  onShowConcordance?: (strong: string) => void;
   onSend: () => void;
   onBlank: () => void;
   pinned: boolean;
@@ -67,8 +67,8 @@ export function StudyPanels({
   scriptureFont,
   previewSlide,
   selectedPrimaryVerses,
-  onPickRef,
   onProjectStrong,
+  onShowConcordance,
   onSend,
   onBlank,
   pinned,
@@ -187,8 +187,8 @@ export function StudyPanels({
             <StrongView
               verses={selectedPrimaryVerses}
               hasStrong={primaryHasStrong}
-              onPickRef={onPickRef}
               onProjectStrong={onProjectStrong}
+              onShowConcordance={onShowConcordance}
             />
           </ScrollArea>
         )}

@@ -5,6 +5,8 @@ export type TextAlign = 'left' | 'center' | 'right';
 export type PadUnit = 'px' | '%';
 /** How the four edge insets move together: all sides / vertical+horizontal pairs / independent. */
 export type PadLink = 'all' | 'axis' | 'none';
+/** How much of a Strong entry to show in the projected subline. */
+export type StrongSubline = 'lemma' | 'full';
 
 export interface Appearance {
   scriptureFont: string; // CSS font-family for projected text
@@ -19,6 +21,7 @@ export interface Appearance {
   padLeft: number;
   padUnit: PadUnit;
   padLink: PadLink;
+  strongSubline: StrongSubline; // lemma only vs full definition in the projected subline
 }
 
 export interface RefItem {
@@ -61,6 +64,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   padLeft: 4,
   padUnit: '%',
   padLink: 'all',
+  strongSubline: 'lemma',
 };
 
 export const FONT_OPTIONS = [
