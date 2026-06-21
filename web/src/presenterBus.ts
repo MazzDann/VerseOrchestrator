@@ -20,6 +20,8 @@ export interface SlideStyle {
   bgColor: string;
   bgImage: string | null;
   showVerseNumbers: boolean;
+  padX: number; // horizontal edge inset, % of slide width
+  padY: number; // vertical edge inset, % of slide height
 }
 
 export interface Slide {
@@ -37,6 +39,8 @@ export const DEFAULT_STYLE: SlideStyle = {
   bgColor: '#000000',
   bgImage: null,
   showVerseNumbers: false,
+  padX: 4,
+  padY: 4,
 };
 
 export const EMPTY_SLIDE: Slide = { lines: [], reference: '', blank: false, visible: false };

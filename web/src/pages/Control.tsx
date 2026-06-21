@@ -185,6 +185,8 @@ export function Control() {
       bgColor: appearance.bgColor,
       bgImage: appearance.bgImage,
       showVerseNumbers: appearance.showVerseNumbers,
+      padX: appearance.padX,
+      padY: appearance.padY,
     }),
     [appearance],
   );

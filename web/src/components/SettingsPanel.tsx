@@ -4,6 +4,7 @@ import {
   ColorInput,
   SegmentedControl,
   Switch,
+  Slider,
   Button,
   Text,
   Group,
@@ -21,6 +22,13 @@ export function SettingsPanel() {
   const reset = useSettings((s) => s.resetAppearance);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
+
+  // When linked, moving either axis sets both so the inset stays uniform.
+  const setPad = (axis: 'padX' | 'padY', value: number) => {
+    if (a.padLinked) set({ padX: value, padY: value });
+    else if (axis === 'padX') set({ padX: value });
+    else set({ padY: value });
+  };
 
   return (
     <Stack gap="md" p="md">
@@ -58,6 +66,47 @@ export function SettingsPanel() {
             { label: 'Центр', value: 'center' },
             { label: 'Праворуч', value: 'right' },
           ]}
+        />
+      </div>
+      <div>
+        <Group justify="space-between" mb={4} wrap="nowrap">
+          <Text size="sm" fw={500}>
+            Відступи від країв
+          </Text>
+          <Switch
+            size="xs"
+            label="Зв'язати"
+            checked={a.padLinked}
+            onChange={(e) =>
+              set(
+                e.currentTarget.checked
+                  ? { padLinked: true, padY: a.padX }
+                  : { padLinked: false },
+              )
+            }
+          />
+        </Group>
+        <Text size="xs" c="dimmed" mb={2}>
+          Горизонталь (ліво/право): {a.padX}%
+        </Text>
+        <Slider
+          min={0}
+          max={20}
+          step={1}
+          value={a.padX}
+          onChange={(v) => setPad('padX', v)}
+          label={(v) => `${v}%`}
+        />
+        <Text size="xs" c="dimmed" mt={8} mb={2}>
+          Вертикаль (верх/низ): {a.padY}%
+        </Text>
+        <Slider
+          min={0}
+          max={20}
+          step={1}
+          value={a.padY}
+          onChange={(v) => setPad('padY', v)}
+          label={(v) => `${v}%`}
         />
       </div>
       <ColorInput
