@@ -26,7 +26,7 @@ import { type RefItem } from '../settingsStore';
 import { type Slide, type SlideLine } from '../presenterBus';
 import { SlidePreview } from './SlideCanvas';
 import { SettingsPanel } from './SettingsPanel';
-import { StrongView } from './StrongView';
+import { StrongView, type StrongPickRef } from './StrongView';
 
 export type AsideMode = 'preview' | 'settings' | 'strong';
 
@@ -43,6 +43,7 @@ interface Props {
   scriptureFont: string;
   previewSlide: Slide;
   selectedPrimaryVerses: Verse[];
+  onPickRef?: (r: StrongPickRef) => void;
   onSend: () => void;
   onBlank: () => void;
   pinned: boolean;
@@ -65,6 +66,7 @@ export function StudyPanels({
   scriptureFont,
   previewSlide,
   selectedPrimaryVerses,
+  onPickRef,
   onSend,
   onBlank,
   pinned,
@@ -180,7 +182,11 @@ export function StudyPanels({
                 Номери Стронга
               </Text>
             </Group>
-            <StrongView verses={selectedPrimaryVerses} hasStrong={primaryHasStrong} />
+            <StrongView
+              verses={selectedPrimaryVerses}
+              hasStrong={primaryHasStrong}
+              onPickRef={onPickRef}
+            />
           </ScrollArea>
         )}
         {mode === 'settings' && (

@@ -1,5 +1,6 @@
 /** DDL for the merged library database, our own clean schema (not MyBible's). */
 export const SCHEMA_SQL = /* sql */ `
+DROP TABLE IF EXISTS verse_strongs;
 DROP TABLE IF EXISTS verses_fts;
 DROP TABLE IF EXISTS verses;
 DROP TABLE IF EXISTS book_names;
@@ -37,6 +38,16 @@ CREATE TABLE verses (
   text_raw       TEXT        -- original MyBible markup, kept for a future Strong's dictionary
 );
 CREATE INDEX idx_verses_loc ON verses (translation_id, book_number, chapter, verse);
+
+-- Concordance index: one row per (verse, distinct Strong number) for Strong-tagged
+-- modules. translation_id is denormalized so "occurrences of #N in this translation"
+-- is served straight from the index. Populated by the builder from verses.text_raw.
+CREATE TABLE verse_strongs (
+  translation_id INTEGER NOT NULL,
+  verse_id       INTEGER NOT NULL,
+  strong         INTEGER NOT NULL
+);
+CREATE INDEX idx_verse_strongs ON verse_strongs (strong, translation_id);
 
 CREATE TABLE book_names (
   translation_id INTEGER NOT NULL,

@@ -119,3 +119,25 @@ export function searchTokens(query: string): string[] {
   if (!normalized) return [];
   return normalized.split(' ').filter(Boolean);
 }
+
+/**
+ * Extract the unique Strong's numbers embedded in a verse's raw MyBible markup
+ * (`<S>7225</S>`), in first-seen order. Feeds the concordance index so we can
+ * answer "which verses use this Strong number" without re-scanning text at query
+ * time. Mirrors the tag shape used by the web parser (`parseStrongTokens`).
+ */
+export function strongNumbers(raw: string): number[] {
+  if (!raw || !raw.includes('<S>')) return [];
+  const out: number[] = [];
+  const seen = new Set<number>();
+  const re = /<S>\s*(\d+)\s*<\/S>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    const n = Number.parseInt(m[1], 10);
+    if (n > 0 && !seen.has(n)) {
+      seen.add(n);
+      out.push(n);
+    }
+  }
+  return out;
+}

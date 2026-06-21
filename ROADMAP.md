@@ -28,6 +28,7 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 - [x] Dictionary import (`*.dictionary.SQLite3`) into `library.db` — Strong's and explanatory
 - [x] **Strong's dictionary**: clickable Strong numbers on has-Strong modules (parsed from `text_raw`) → definition lookup (aside "Стронг" tab). Verified with a real Strong's dictionary (14k Hebrew+Greek entries); OT→Hebrew, NT→Greek; HTML entities decoded; definitions formatted (lemma/pronunciation on their own line via `cleanDefinition`).
 - [x] **Interlinear study + word lookup**: every word in the "Стронг" tab is clickable → highlights it and shows its Strong entry and any explanatory-dictionary entry (`/api/dict?q=`) below. Makes explanatory dictionaries (e.g. CathEn) usable.
+- [x] **Strong's concordance** ("where else is this word used") — builder writes a `verse_strongs(translation_id, verse_id, strong)` index from `text_raw`; `/api/strong/:num/refs` (scoped to the current translation, `total`/`truncated`) lists occurrences. In the "Стронг" tab a Strong entry expands into a clickable occurrence list (jump-to-verse), and `G####`/`H####` cross-refs inside definitions are clickable to follow the chain.
 
 ### Appearance & presenter
 
@@ -48,7 +49,6 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 
 ### Features
 
-- [ ] **Strong's concordance** ("where else is this word used") — find all verses containing a given Strong number. Design: the data already exists in `verses.text_raw` (`<S>####>`); build a `verse_strongs(translation_id, book, chapter, verse, strong)` index in the builder, add `/api/strong/:num/refs`, and make Strong numbers (incl. the `G####`/`H####` cross-refs inside definitions) clickable to list occurrences.
 - [ ] **Module downloader** — fetch from MyBible mirrors (`mybible.i-t.kz`, `myb.1gb.ru`, `mybible.infoo.pro`, `mph4.ru`; catalog in `old/MyBible/-downloads.cache.SQLite3`) → unzip → `modules/` → build
 - [ ] **Reading plan / slide playlist** — ordered passages, progress
 - [ ] **Resizable panels** — `react-resizable-panels`, persist widths

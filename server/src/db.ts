@@ -103,6 +103,12 @@ function rowToResult(r: any): SearchResult {
   return { ...rowToVerse(r), longName: r.long_name, shortName: r.short_name };
 }
 
+function tableExists(name: string): boolean {
+  return !!getDb()
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(name);
+}
+
 export interface DictionaryInfo {
   abbr: string;
   name: string;
@@ -175,6 +181,63 @@ export function lookupWord(word: string): StrongDefinition[] {
     topic: r.topic,
     definition: r.definition,
   }));
+}
+
+export interface StrongRefsResult {
+  strong: number;
+  /** Total occurrences matching the filter (may exceed `results.length`). */
+  total: number;
+  /** Whether more occurrences exist than were returned (`total > results.length`). */
+  truncated: boolean;
+  results: SearchResult[];
+}
+
+/**
+ * Concordance: every verse that carries a given Strong number, optionally scoped
+ * to one translation (so the listed verse text matches what the user is reading).
+ * Served from the `verse_strongs` index built by the builder.
+ */
+export function strongRefs(
+  num: string,
+  opts: { translationId?: number; limit?: number } = {},
+): StrongRefsResult {
+  const digits = String(num).match(/\d+/)?.[0];
+  if (!digits) return { strong: 0, total: 0, truncated: false, results: [] };
+  const strong = Number.parseInt(digits, 10);
+  const limit = Math.min(Math.max(opts.limit ?? 300, 1), 1000);
+
+  if (!tableExists('verse_strongs')) {
+    throw new ApiError(503, 'Strong index not built. Run: npm run build:library');
+  }
+
+  const where: string[] = ['vs.strong = ?'];
+  const filterParams: any[] = [strong];
+  if (opts.translationId != null) {
+    where.push('vs.translation_id = ?');
+    filterParams.push(opts.translationId);
+  }
+  const whereSql = where.join(' AND ');
+
+  const total = (
+    getDb()
+      .prepare(`SELECT COUNT(*) AS n FROM verse_strongs vs WHERE ${whereSql}`)
+      .get(...filterParams) as any
+  ).n as number;
+
+  const rows = getDb()
+    .prepare(
+      `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
+              b.long_name, b.short_name
+       FROM verse_strongs vs
+       JOIN verses v ON v.id = vs.verse_id
+       JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
+       WHERE ${whereSql}
+       ORDER BY v.translation_id, v.book_number, v.chapter, v.verse
+       LIMIT ?`,
+    )
+    .all(...filterParams, limit) as any[];
+
+  return { strong, total, truncated: total > rows.length, results: rows.map(rowToResult) };
 }
 
 export interface SearchResponse {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripTags, normalizeForSearch, searchTokens } from './normalize.js';
+import { stripTags, normalizeForSearch, searchTokens, strongNumbers } from './normalize.js';
 import { parseReference } from './reference.js';
 
 describe('stripTags', () => {
@@ -40,6 +40,22 @@ describe('normalizeForSearch', () => {
 
   it('tokenizes a query', () => {
     expect(searchTokens('Бог  любить!')).toEqual(['бог', 'любить']);
+  });
+});
+
+describe('strongNumbers', () => {
+  it('extracts Strong numbers from raw markup', () => {
+    const input = '<e>בְּרֵאשִׁ֖ית</e> <S>7225</S> <n>x</n> created <S>1254</S> God <S>430</S>';
+    expect(strongNumbers(input)).toEqual([7225, 1254, 430]);
+  });
+
+  it('deduplicates repeated numbers, keeping first-seen order', () => {
+    expect(strongNumbers('a<S>1961</S> b<S>430</S> c<S>1961</S>')).toEqual([1961, 430]);
+  });
+
+  it('returns an empty array when there is no Strong markup', () => {
+    expect(strongNumbers('На початку Бог створив')).toEqual([]);
+    expect(strongNumbers('')).toEqual([]);
   });
 });
 

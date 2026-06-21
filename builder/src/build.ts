@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
-import { stripTags, normalizeForSearch, cleanDefinition } from '@vo/shared';
+import { stripTags, normalizeForSearch, cleanDefinition, strongNumbers } from '@vo/shared';
 import { SCHEMA_SQL } from './schema.js';
 import { readModule } from './mybible.js';
 import { readDictionary, dictTopicNorm } from './dictionary.js';
@@ -95,6 +95,9 @@ function buildOnce(): void {
       `INSERT INTO verses (translation_id, book_number, chapter, verse, text, text_norm, text_raw)
        VALUES (@translationId, @bookNumber, @chapter, @verse, @text, @textNorm, @textRaw)`,
     );
+    const insVerseStrong = db.prepare(
+      `INSERT INTO verse_strongs (translation_id, verse_id, strong) VALUES (?, ?, ?)`,
+    );
     const insName = db.prepare(
       `INSERT INTO book_names (translation_id, book_number, name_norm)
        VALUES (@translationId, @bookNumber, @nameNorm)`,
@@ -142,9 +145,10 @@ function buildOnce(): void {
         }
       }
 
+      let strongRows = 0;
       for (const v of mod.verses) {
         const raw = v.text ?? '';
-        insVerse.run({
+        const info = insVerse.run({
           translationId,
           bookNumber: v.book_number,
           chapter: v.chapter,
@@ -153,9 +157,19 @@ function buildOnce(): void {
           textNorm: normalizeForSearch(raw),
           textRaw: raw,
         });
+        if (mod.info.hasStrong) {
+          const verseId = Number(info.lastInsertRowid);
+          for (const num of strongNumbers(raw)) {
+            insVerseStrong.run(translationId, verseId, num);
+            strongRows += 1;
+          }
+        }
       }
 
       totalVerses += mod.verses.length;
+      if (strongRows > 0) {
+        console.log(`[builder]     ${strongRows} Strong index rows`);
+      }
       console.log(
         `[builder]   + ${abbr} (${mod.info.language || '??'}) — ${mod.books.length} books, ${mod.verses.length} verses`,
       );

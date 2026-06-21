@@ -58,6 +58,14 @@ const SearchResponseSchema = z.object({
 });
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 
+const StrongRefsSchema = z.object({
+  strong: z.number(),
+  total: z.number(),
+  truncated: z.boolean(),
+  results: z.array(SearchResultSchema),
+});
+export type StrongRefs = z.infer<typeof StrongRefsSchema>;
+
 async function getJson<S extends z.ZodTypeAny>(url: string, schema: S): Promise<z.infer<S>> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -87,6 +95,16 @@ export const api = {
       `/api/strong/${encodeURIComponent(num)}${book != null ? `?book=${book}` : ''}`,
       z.array(StrongDefSchema),
     ),
+  strongRefs: (num: string, opts?: { translationId?: number; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (opts?.translationId != null) params.set('translation', String(opts.translationId));
+    if (opts?.limit != null) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    return getJson(
+      `/api/strong/${encodeURIComponent(num)}/refs${qs ? `?${qs}` : ''}`,
+      StrongRefsSchema,
+    );
+  },
   dict: (word: string) =>
     getJson(`/api/dict?q=${encodeURIComponent(word)}`, z.array(StrongDefSchema)),
 };
