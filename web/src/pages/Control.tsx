@@ -16,6 +16,7 @@ import {
   Tabs,
   FileButton,
   Burger,
+  Switch,
   useMantineColorScheme,
   useComputedColorScheme,
 } from '@mantine/core';
@@ -85,6 +86,8 @@ export function Control() {
   const toggleBookmark = useSettings((s) => s.toggleBookmark);
   const importBookmarks = useSettings((s) => s.importBookmarks);
   const panelPlacement = useSettings((s) => s.panelPlacement);
+  const liveFollow = useSettings((s) => s.liveFollow);
+  const setLiveFollow = useSettings((s) => s.setLiveFollow);
 
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
@@ -254,11 +257,12 @@ export function Control() {
     notifications.show({ message: `На екрані зі Стронгом: ${reference}`, color: 'green', autoClose: 1500 });
   };
 
-  // Republish while live when the selection, reference, or appearance changes.
+  // While following live, republish when the selection, reference, or appearance
+  // changes. With follow off, navigation only updates the preview — push with F5/F2.
   useEffect(() => {
-    if (live && slideLines.length > 0) send();
+    if (liveFollow && live && slideLines.length > 0) send();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideLines, reference, slideStyle]);
+  }, [slideLines, reference, slideStyle, liveFollow]);
 
   // After a search/history/concordance jump, scroll the target verse to centre.
   // Deferred a tick so the list (and the closing search panel) settle their layout.
@@ -329,6 +333,14 @@ export function Control() {
       notifications.show({ message: `На екрані: ${reference}`, color: 'green', autoClose: 1500 });
     }
   };
+
+  // F5 / F2: push the current selection to the screen (the way to project when
+  // live-follow is off; harmless while following).
+  useHotkeys('f5,f2', () => sendAndNotify(), { preventDefault: true, enableOnFormTags: true }, [
+    slideLines,
+    reference,
+    slideStyle,
+  ]);
 
   const blankScreen = () => {
     publishSlide({ lines: slideLines, reference, blank: true, visible: true, style: slideStyle });
@@ -437,6 +449,21 @@ export function Control() {
               </Tooltip>
             </Group>
             <Group gap="xs" wrap="nowrap">
+              <Tooltip
+                label="Наживо: показ повторює дії. Вимкнено — лише прев'ю, F5/F2 щоб показати"
+                multiline
+                w={230}
+                withArrow
+              >
+                <Switch
+                  size="sm"
+                  checked={liveFollow}
+                  onChange={(e) => setLiveFollow(e.currentTarget.checked)}
+                  onLabel="LIVE"
+                  offLabel="F5"
+                  aria-label="Слідкувати наживо"
+                />
+              </Tooltip>
               <Button
                 variant="light"
                 size="sm"
