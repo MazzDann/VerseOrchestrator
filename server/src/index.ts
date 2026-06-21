@@ -1,6 +1,16 @@
 import express from 'express';
 import cors from 'cors';
-import { ApiError, getTranslations, getBooks, getChapters, getVerses, search } from './db.js';
+import {
+  ApiError,
+  getTranslations,
+  getBooks,
+  getChapters,
+  getVerses,
+  search,
+  lookupStrong,
+  lookupWord,
+  listDictionaries,
+} from './db.js';
 
 const app = express();
 app.use(cors());
@@ -58,6 +68,27 @@ app.get(
       ),
     ),
   ),
+);
+
+app.get(
+  '/api/dictionaries',
+  wrap((_req, res) => res.json(listDictionaries())),
+);
+
+app.get(
+  '/api/strong/:num',
+  wrap((req, res) => {
+    const book = req.query.book != null ? Number(req.query.book) : undefined;
+    res.json(lookupStrong(String(req.params.num), Number.isFinite(book) ? book : undefined));
+  }),
+);
+
+app.get(
+  '/api/dict',
+  wrap((req, res) => {
+    const q = String(req.query.q ?? '').trim();
+    res.json(q ? lookupWord(q) : []);
+  }),
 );
 
 app.get(

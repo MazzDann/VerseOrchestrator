@@ -18,6 +18,41 @@
   font-weight: 500;
 }
 
+.vo-chip {
+  min-width: 32px;
+  padding: 3px 9px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.vo-chip:hover {
+  background: var(--mantine-color-default-hover);
+}
+.vo-chip[data-selected='true'] {
+  background: var(--mantine-primary-color-filled);
+  color: var(--mantine-primary-color-contrast);
+  border-color: transparent;
+}
+
+.vo-strong {
+  cursor: pointer;
+  border-bottom: 1px dotted var(--mantine-color-dimmed);
+}
+.vo-strong:hover,
+.vo-strong[data-active='true'] {
+  background: var(--mantine-color-brand-light);
+  border-radius: 3px;
+}
+.vo-strong sup {
+  font-size: 0.62em;
+  opacity: 0.5;
+  margin-left: 1px;
+}
+
 .vo-verse-item {
   cursor: pointer;
   border-radius: 6px;

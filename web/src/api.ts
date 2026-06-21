@@ -31,8 +31,20 @@ const VerseSchema = z.object({
   chapter: z.number(),
   verse: z.number(),
   text: str(),
+  textRaw: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? undefined),
 });
 export type Verse = z.infer<typeof VerseSchema>;
+
+const StrongDefSchema = z.object({
+  dictionary: str(),
+  language: str(),
+  topic: str(),
+  definition: str(),
+});
+export type StrongDef = z.infer<typeof StrongDefSchema>;
 
 const SearchResultSchema = VerseSchema.extend({
   longName: str(),
@@ -70,4 +82,11 @@ export const api = {
       `/api/search?q=${encodeURIComponent(q)}&translations=${translationIds.join(',')}`,
       SearchResponseSchema,
     ),
+  strong: (num: string, book?: number) =>
+    getJson(
+      `/api/strong/${encodeURIComponent(num)}${book != null ? `?book=${book}` : ''}`,
+      z.array(StrongDefSchema),
+    ),
+  dict: (word: string) =>
+    getJson(`/api/dict?q=${encodeURIComponent(word)}`, z.array(StrongDefSchema)),
 };

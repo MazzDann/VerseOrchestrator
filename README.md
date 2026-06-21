@@ -55,25 +55,25 @@ blocking the running app (the server picks up the new data with no restart).
 
 ### Hotkeys (control window)
 
-| Key | Action |
-| --- | --- |
-| `→` / `↓` | next verse | 
-| `←` / `↑` | previous verse |
-| `F3` / `Ctrl+F` | search current module |
-| `F4` | search all modules |
-| `b` | blank the screen |
-| `Esc` | clear the screen / close search |
+| Key             | Action                          |
+| --------------- | ------------------------------- |
+| `→` / `↓`       | next verse                      |
+| `←` / `↑`       | previous verse                  |
+| `F3` / `Ctrl+F` | search current module           |
+| `F4`            | search all modules              |
+| `b`             | blank the screen                |
+| `Esc`           | clear the screen / close search |
 
 ## Scripts
 
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | run server + web together |
-| `npm run build:library` | (re)build `data/library.db` from `modules/` |
-| `npm run build:library:watch` | rebuild on module changes |
-| `npm test` | Vitest: normalization (Cyrillic, tag stripping) + reference parsing |
-| `npm run lint` | ESLint (TypeScript, React hooks, jsx-a11y) |
-| `npm run format` | Prettier |
+| Script                        | Purpose                                                             |
+| ----------------------------- | ------------------------------------------------------------------- |
+| `npm run dev`                 | run server + web together                                           |
+| `npm run build:library`       | (re)build `data/library.db` from `modules/`                         |
+| `npm run build:library:watch` | rebuild on module changes                                           |
+| `npm test`                    | Vitest: normalization (Cyrillic, tag stripping) + reference parsing |
+| `npm run lint`                | ESLint (TypeScript, React hooks, jsx-a11y)                          |
+| `npm run format`              | Prettier                                                            |
 
 ## Architecture
 

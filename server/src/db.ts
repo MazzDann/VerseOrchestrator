@@ -9,6 +9,7 @@ import {
   type Book,
   type Verse,
   type SearchResult,
+  type StrongDefinition,
 } from '@vo/shared';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -79,13 +80,13 @@ export function getChapters(translationId: number, bookNumber: number): number[]
 export function getVerses(translationId: number, bookNumber: number, chapter: number): Verse[] {
   const rows = getDb()
     .prepare(
-      `SELECT translation_id, book_number, chapter, verse, text
+      `SELECT translation_id, book_number, chapter, verse, text, text_raw
        FROM verses
        WHERE translation_id = ? AND book_number = ? AND chapter = ?
        ORDER BY verse`,
     )
     .all(translationId, bookNumber, chapter) as any[];
-  return rows.map(rowToVerse);
+  return rows.map((r) => ({ ...rowToVerse(r), textRaw: r.text_raw ?? undefined }));
 }
 
 function rowToVerse(r: any): Verse {
@@ -100,6 +101,80 @@ function rowToVerse(r: any): Verse {
 
 function rowToResult(r: any): SearchResult {
   return { ...rowToVerse(r), longName: r.long_name, shortName: r.short_name };
+}
+
+export interface DictionaryInfo {
+  abbr: string;
+  name: string;
+  language: string;
+  type: string;
+  isStrong: boolean;
+}
+
+export function listDictionaries(): DictionaryInfo[] {
+  const rows = getDb()
+    .prepare('SELECT abbr, name, language, type, is_strong FROM dictionaries ORDER BY name')
+    .all() as any[];
+  return rows.map((r) => ({
+    abbr: r.abbr,
+    name: r.name,
+    language: r.language,
+    type: r.type,
+    isStrong: !!r.is_strong,
+  }));
+}
+
+/** Look up a Strong's number in any imported Strong's dictionary. */
+export function lookupStrong(num: string, book?: number): StrongDefinition[] {
+  const digits = String(num).match(/\d+/)?.[0];
+  if (!digits) return [];
+  const norm = String(Number.parseInt(digits, 10));
+  const rows = getDb()
+    .prepare(
+      `SELECT d.name, d.language, e.topic, e.definition
+       FROM dictionary_entries e
+       JOIN dictionaries d ON d.id = e.dictionary_id
+       WHERE d.is_strong = 1 AND e.topic_norm = ?`,
+    )
+    .all(norm) as any[];
+
+  // For OT books prefer Hebrew dictionaries; for NT prefer Greek.
+  const isOT = book != null && book < 470;
+  const rank = (lang: string) => {
+    const l = (lang || '').toLowerCase();
+    const heb = l.startsWith('he') || l.startsWith('iw');
+    const grk = l.startsWith('gr') || l === 'el' || l.startsWith('el');
+    return isOT ? (heb ? 0 : 1) : grk ? 0 : 1;
+  };
+  return rows
+    .map((r) => ({
+      dictionary: r.name,
+      language: r.language,
+      topic: r.topic,
+      definition: r.definition,
+    }))
+    .sort((a, b) => rank(a.language) - rank(b.language));
+}
+
+/** Look up a plain word in explanatory (non-Strong) dictionaries. */
+export function lookupWord(word: string): StrongDefinition[] {
+  const norm = word.trim().toLowerCase();
+  if (!norm) return [];
+  const rows = getDb()
+    .prepare(
+      `SELECT d.name, d.language, e.topic, e.definition
+       FROM dictionary_entries e
+       JOIN dictionaries d ON d.id = e.dictionary_id
+       WHERE d.is_strong = 0 AND e.topic_norm = ?
+       LIMIT 12`,
+    )
+    .all(norm) as any[];
+  return rows.map((r) => ({
+    dictionary: r.name,
+    language: r.language,
+    topic: r.topic,
+    definition: r.definition,
+  }));
 }
 
 export interface SearchResponse {
