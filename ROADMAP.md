@@ -22,6 +22,7 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 - [x] History (auto-recorded, deletable: clear-all + per-item, abbreviated names) + bookmarks (export/import JSON), in the left sidebar
 - [x] Responsive layout — navbar/aside collapse on narrow windows with Burger toggles (no more vanishing navigation)
 - [x] Hotkeys: arrows (verse step), `b` blank, `Esc` clear
+- [x] **Scroll-to-verse on jump** — search/history/concordance navigation centres the target verse in the list (`data-verse` + a deferred instant `scrollIntoView`; smooth is ignored by Radix ScrollArea, and clearing the target synchronously cancels the pending scroll — both learned the hard way)
 
 ### Study & dictionaries
 
@@ -34,6 +35,9 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 
 - [x] Presenter window synced via BroadcastChannel (abstracted in `presenterBus`)
 - [x] Appearance settings (persisted): font, text colour, background colour, background image, alignment, verse numbers
+- [x] **Configurable slide edge padding** — per-side `padTop/Right/Bottom/Left` with a **px/% unit toggle** and a **link mode** (all sides / vertical+horizontal pairs / independent); a four-input "square" in settings, applied in `SlideCanvas` via `SlideStyle`. Default 4% all sides, linked.
+- [x] **Project a Strong citation** — from the Strong tab, "На екран зі Стронгом" sends the Strong-bearing (primary) translation's verse with a "word · Стронг N — gloss" `subline` (rendered under a divider above the reference in `SlideCanvas`); contextual — normal navigation reverts it.
+- [x] **Fullscreen presenter** — the presenter window goes fullscreen on click or "F" (browsers can't auto-fullscreen `window.open` without a gesture); a hint fades out.
 - [x] Presenter applies the appearance; auto-fit text (binary search, refits on slide change/resize); fade transitions; vignette
 - [x] **WYSIWYG preview** — the aside preview renders via the same `SlideCanvas` as the presenter (identical background/font/colour/alignment), with a pin toggle to dock it at the bottom of the aside (visible while in any mode)
 - [x] **Panel placement switch** (Settings → Розташування панелей): the study panels (preview / Strong / appearance) live either in the right aside or docked at the bottom of the centre column (`StudyPanels` component, `panelPlacement` persisted)
@@ -49,9 +53,10 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 
 ### Features
 
-- [ ] **Project a Strong citation (highlighted word)** — send the verse to the presenter with the exact Strong-matched word emphasized. Needs `SlideLine` to carry segments (`{text, hot?}[]`) instead of plain text, so `SlideCanvas`/`Presenter` can style the hot word; an action in `StrongView`/concordance builds that slide (we already have the token via `parseStrongTokens`). Generalize later to manual highlight of any word/phrase.
+- [ ] **Styled slide segments** (in-text highlight + red-letter) — render the projected verse as styled segments (`{text, hot?}[]`) so a word can be emphasized *in place* (the Strong word, beyond the subline citation that's already done) and **words of Jesus** can be coloured. Data is ready: `parseStrongTokens` for the Strong word; `<J>…</J>` red-letter markup exists in **30k+ verses** (e.g. CARSA, OJB). Needs `SlideLine` to carry segments and `SlideCanvas`/`Presenter` to style them.
+- [ ] **Subheadings** — module subheadings live in separate `*.subheadings.SQLite3` companions (builder currently SKIPs them; main verse text has no `<h>` tags). Import into a `subheadings` table and render between verses in the reading list and (optionally) on slides.
 - [ ] **Concordance results in the verse panel** — show "where else used" occurrences in the main centre list (like search results) rather than only the small study panel; reuse the search-results UI + `jumpTo` (occurrence shape already == `SearchResult`). Add a scope toggle: this translation vs all Strong translations.
-- [ ] **Selection UX rework** (do *before* the downloader) — rethink how translations/books/chapters/verses are chosen. Candidates: persist the `useStore` selection across reloads (known gotcha — reload currently clears it), replace the Mantine `MultiSelect` translation picker, a first-class "go to reference" jump bar, better parallel-translation management (reorder / pick primary). *Needs a scope decision.*
+- [ ] **Selection UX rework** (do *before* the downloader) — rethink how translations/books/chapters/verses are chosen. Candidates: persist the `useStore` selection across reloads (known gotcha — reload currently clears it), replace the Mantine `MultiSelect` translation picker (e.g. a language-grouped **checklist** — user request), a first-class "go to reference" jump bar, better parallel-translation management (reorder / pick primary). **Scope confirmed (2026-06-21): all four** — persist on reload + new translation picker + go-to-reference jump bar + parallel-translation management.
 - [ ] **Export current slide as PNG** — render the live `SlideCanvas` to an image for sharing/printing (html-to-canvas of the same component the presenter uses).
 - [ ] **Presenter layout presets** — centred / lower-third / top-banner, plus auto-split a long passage across multiple slides (max-lines), advanced with arrows.
 - [ ] **Module downloader** — fetch from MyBible mirrors (`myb.1gb.ru`, `mybible.infoo.pro`, `mph4.ru`; `mybible.i-t.kz` is **dead** — expired TLS, dropped from the registry; catalog in `old/MyBible/-downloads.cache.SQLite3`) → unzip → `modules/` → build. The registry mechanism is first-party/sanctioned (MyBible ≥5.5.0 "extra registries"; canonical host `mybible.zone/repository/…`), but **read hosts from the registry's self-describing list, don't hardcode**; poll the tiny `registry_info.json` + cache; **allowlist by translation copyright, not by "it's in the registry"** (PD: Synodal 1876, Kulish 1903, CS Elizabeth 1900, WLC/WH1881; modern UBS/Ohienko/Turkonyak are ©). Sourcing decision (researched 2026-06-21): prefer a hybrid — keep user-supplied `.SQLite3` as primary; for an in-app downloader, **getBible v2** (keyless, per-text PD licenses, has uk/ru/CS) as the ship-safe default + **bolls.life** (keyless, richest: uk/ru/CS + WLC/LXX + Strong's, but no per-text license) as "advanced"; bundle **STEPBible TAHOT/TAGNT** (CC BY) for Hebrew/Greek + disambiguated Strong's.
@@ -68,12 +73,11 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 
 ### Polish
 
-- [ ] **Configurable slide edge padding** — appearance setting for inset from the screen edges (horizontal / vertical), applied in `SlideCanvas`/`Presenter` via `SlideStyle`; with a **link toggle** so left/right (and top/bottom, or all four) move together. Default keeps the current look.
 - [ ] **Named appearance presets** — save/load slide-style presets (font/colours/background/padding) so different rooms/screens are one click; presets persisted in `settingsStore`.
 - [ ] **Morphology in the Strong tab** — surface the `<m>` grammar codes (currently stripped) next to each word, e.g. on hover or under the active token.
 - [ ] **Strong dictionary H/G disambiguation** — the single combined "Strong" dict has no per-entry language, so `lookupStrong`'s OT→Hebrew/NT→Greek `rank` can't separate H#### from G#### sharing the same digits (e.g. OT verse on #430 shows both Greek *anechomai* G430 and Hebrew *Elohim* H430, Greek possibly first). Tag entries H/G at import (topic prefix / language column) and rank on that.
 - [ ] Visual "wow" pass now that Playwright gives screenshots (spacing, hover/focus states, micro-animations)
-- [ ] Bundle code-splitting (web bundle ~718 KB / 223 KB gzip)
+- [ ] Bundle code-splitting (web bundle ~744 KB / 233 KB gzip)
 - [ ] Optional desktop wrap (Tauri/Electron) for true multi-monitor control
 
 ## Notes & constraints

@@ -86,12 +86,15 @@ export function Control() {
   const [navOpened, { toggle: toggleNav }] = useDisclosure(false);
   const [asideOpened, { toggle: toggleAside }] = useDisclosure(false);
   const [pinnedPreview, { toggle: togglePin }] = useDisclosure(false);
+  // When navigating via search/history/concordance, scroll this verse into view.
+  const [scrollTarget, setScrollTarget] = useState<number | null>(null);
 
   const jumpTo = (r: Jumpable) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
     selectBook(r.bookNumber);
     selectChapter(r.chapter);
     setSelectedVerses([r.verse]);
+    setScrollTarget(r.verse);
   };
 
   const openSearch = (scope: SearchScope) => {
@@ -185,8 +188,11 @@ export function Control() {
       bgColor: appearance.bgColor,
       bgImage: appearance.bgImage,
       showVerseNumbers: appearance.showVerseNumbers,
-      padX: appearance.padX,
-      padY: appearance.padY,
+      padTop: appearance.padTop,
+      padRight: appearance.padRight,
+      padBottom: appearance.padBottom,
+      padLeft: appearance.padLeft,
+      padUnit: appearance.padUnit,
     }),
     [appearance],
   );
@@ -213,11 +219,50 @@ export function Control() {
     setLive(slide.visible && !slide.blank);
   };
 
+  // Project the Strong-bearing (primary) translation only, with a "word — gloss"
+  // subline. Used contextually from the Strong tab; normal navigation reverts it.
+  const projectStrong = (subline: string) => {
+    const t = translations.find((x) => x.id === primaryId);
+    const text = selectedPrimaryVerses
+      .map((v) => `${appearance.showVerseNumbers ? `${v.verse} ` : ''}${(v.text ?? '').trim()}`)
+      .filter((s) => s.trim())
+      .join('  ');
+    if (!text.trim()) return;
+    publishSlide({
+      lines: [{ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl }],
+      reference,
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      subline,
+    });
+    setLive(true);
+    notifications.show({ message: `На екрані зі Стронгом: ${reference}`, color: 'green', autoClose: 1500 });
+  };
+
   // Republish while live when the selection, reference, or appearance changes.
   useEffect(() => {
     if (live && slideLines.length > 0) send();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideLines, reference, slideStyle]);
+
+  // After a search/history/concordance jump, scroll the target verse to centre.
+  // Deferred a tick so the list (and the closing search panel) settle their layout.
+  // Clear scrollTarget only inside the timeout — clearing it synchronously would
+  // re-run this effect and its cleanup would cancel the pending scroll.
+  useEffect(() => {
+    if (scrollTarget == null || !primaryVerses.some((v) => v.verse === scrollTarget)) return;
+    const verse = scrollTarget;
+    const id = window.setTimeout(() => {
+      // Instant, not smooth: Mantine/Radix ScrollArea's viewport ignores
+      // smooth scrollIntoView (it never scrolls), instant centres reliably.
+      document
+        .querySelector(`.vo-verse-item[data-verse="${verse}"]`)
+        ?.scrollIntoView({ block: 'center' });
+      setScrollTarget(null);
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, [scrollTarget, primaryVerses]);
 
   // Record what was opened into history.
   useEffect(() => {
@@ -337,6 +382,7 @@ export function Control() {
       previewSlide={previewSlide}
       selectedPrimaryVerses={selectedPrimaryVerses}
       onPickRef={jumpTo}
+      onProjectStrong={projectStrong}
       onSend={sendAndNotify}
       onBlank={blankScreen}
       pinned={pinnedPreview}
@@ -573,6 +619,7 @@ export function Control() {
                     className="vo-verse-item"
                     role="button"
                     tabIndex={0}
+                    data-verse={v.verse}
                     data-selected={selectedVerses.includes(v.verse) ? 'true' : undefined}
                     onClick={(e) =>
                       e.ctrlKey || e.metaKey || e.shiftKey

@@ -44,6 +44,7 @@ interface Props {
   previewSlide: Slide;
   selectedPrimaryVerses: Verse[];
   onPickRef?: (r: StrongPickRef) => void;
+  onProjectStrong?: (subline: string) => void;
   onSend: () => void;
   onBlank: () => void;
   pinned: boolean;
@@ -67,6 +68,7 @@ export function StudyPanels({
   previewSlide,
   selectedPrimaryVerses,
   onPickRef,
+  onProjectStrong,
   onSend,
   onBlank,
   pinned,
@@ -186,6 +188,7 @@ export function StudyPanels({
               verses={selectedPrimaryVerses}
               hasStrong={primaryHasStrong}
               onPickRef={onPickRef}
+              onProjectStrong={onProjectStrong}
             />
           </ScrollArea>
         )}

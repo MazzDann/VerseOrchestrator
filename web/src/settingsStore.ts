@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type TextAlign = 'left' | 'center' | 'right';
+export type PadUnit = 'px' | '%';
+/** How the four edge insets move together: all sides / vertical+horizontal pairs / independent. */
+export type PadLink = 'all' | 'axis' | 'none';
 
 export interface Appearance {
   scriptureFont: string; // CSS font-family for projected text
@@ -10,9 +13,12 @@ export interface Appearance {
   bgColor: string;
   bgImage: string | null; // data URL
   showVerseNumbers: boolean;
-  padX: number; // horizontal inset from the screen edges, % of slide width
-  padY: number; // vertical inset from the screen edges, % of slide height
-  padLinked: boolean; // keep padX and padY equal (move together)
+  padTop: number; // edge insets from the screen edges, in padUnit
+  padRight: number;
+  padBottom: number;
+  padLeft: number;
+  padUnit: PadUnit;
+  padLink: PadLink;
 }
 
 export interface RefItem {
@@ -49,9 +55,12 @@ export const DEFAULT_APPEARANCE: Appearance = {
   bgColor: '#000000',
   bgImage: null,
   showVerseNumbers: false,
-  padX: 4,
-  padY: 4,
-  padLinked: true,
+  padTop: 4,
+  padRight: 4,
+  padBottom: 4,
+  padLeft: 4,
+  padUnit: '%',
+  padLink: 'all',
 };
 
 export const FONT_OPTIONS = [

@@ -4,7 +4,7 @@ import {
   ColorInput,
   SegmentedControl,
   Switch,
-  Slider,
+  NumberInput,
   Button,
   Text,
   Group,
@@ -12,7 +12,13 @@ import {
   ActionIcon,
 } from '@mantine/core';
 import { IconUpload, IconTrash, IconRefresh } from '@tabler/icons-react';
-import { useSettings, FONT_OPTIONS, type TextAlign } from '../settingsStore';
+import {
+  useSettings,
+  FONT_OPTIONS,
+  type TextAlign,
+  type PadUnit,
+  type PadLink,
+} from '../settingsStore';
 import { fileToDownscaledDataUrl } from '../lib/image';
 
 /** Appearance controls for the projected screen. Persisted via the settings store. */
@@ -23,12 +29,34 @@ export function SettingsPanel() {
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
 
-  // When linked, moving either axis sets both so the inset stays uniform.
-  const setPad = (axis: 'padX' | 'padY', value: number) => {
-    if (a.padLinked) set({ padX: value, padY: value });
-    else if (axis === 'padX') set({ padX: value });
-    else set({ padY: value });
+  const padMax = a.padUnit === '%' ? 25 : 400;
+  // Respect the link mode: all four together / vertical+horizontal pairs / independent.
+  const setSide = (side: 'padTop' | 'padRight' | 'padBottom' | 'padLeft', value: number) => {
+    const v = Number.isFinite(value) ? Math.max(0, value) : 0;
+    if (a.padLink === 'all') set({ padTop: v, padRight: v, padBottom: v, padLeft: v });
+    else if (a.padLink === 'axis') {
+      if (side === 'padTop' || side === 'padBottom') set({ padTop: v, padBottom: v });
+      else set({ padLeft: v, padRight: v });
+    } else if (side === 'padTop') set({ padTop: v });
+    else if (side === 'padRight') set({ padRight: v });
+    else if (side === 'padBottom') set({ padBottom: v });
+    else set({ padLeft: v });
   };
+  const padInput = (
+    side: 'padTop' | 'padRight' | 'padBottom' | 'padLeft',
+    label: string,
+  ) => (
+    <NumberInput
+      size="xs"
+      w={72}
+      min={0}
+      max={padMax}
+      value={a[side]}
+      onChange={(v) => setSide(side, Number(v))}
+      hideControls
+      aria-label={label}
+    />
+  );
 
   return (
     <Stack gap="md" p="md">
@@ -69,45 +97,58 @@ export function SettingsPanel() {
         />
       </div>
       <div>
-        <Group justify="space-between" mb={4} wrap="nowrap">
+        <Group justify="space-between" mb={6} wrap="nowrap">
           <Text size="sm" fw={500}>
             Відступи від країв
           </Text>
-          <Switch
+          <SegmentedControl
             size="xs"
-            label="Зв'язати"
-            checked={a.padLinked}
-            onChange={(e) =>
-              set(
-                e.currentTarget.checked
-                  ? { padLinked: true, padY: a.padX }
-                  : { padLinked: false },
-              )
-            }
+            value={a.padUnit}
+            onChange={(v) => set({ padUnit: v as PadUnit })}
+            data={[
+              { label: '%', value: '%' },
+              { label: 'px', value: 'px' },
+            ]}
           />
         </Group>
-        <Text size="xs" c="dimmed" mb={2}>
-          Горизонталь (ліво/право): {a.padX}%
-        </Text>
-        <Slider
-          min={0}
-          max={20}
-          step={1}
-          value={a.padX}
-          onChange={(v) => setPad('padX', v)}
-          label={(v) => `${v}%`}
+        <SegmentedControl
+          fullWidth
+          size="xs"
+          mb={8}
+          value={a.padLink}
+          onChange={(v) => set({ padLink: v as PadLink })}
+          data={[
+            { label: 'Усі разом', value: 'all' },
+            { label: 'Верт./Гориз.', value: 'axis' },
+            { label: 'Окремо', value: 'none' },
+          ]}
         />
-        <Text size="xs" c="dimmed" mt={8} mb={2}>
-          Вертикаль (верх/низ): {a.padY}%
-        </Text>
-        <Slider
-          min={0}
-          max={20}
-          step={1}
-          value={a.padY}
-          onChange={(v) => setPad('padY', v)}
-          label={(v) => `${v}%`}
-        />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 6,
+            alignItems: 'center',
+            justifyItems: 'center',
+          }}
+        >
+          <span />
+          {padInput('padTop', 'Відступ зверху')}
+          <span />
+          {padInput('padLeft', 'Відступ зліва')}
+          <div
+            style={{
+              width: 38,
+              height: 24,
+              border: '1px dashed var(--mantine-color-default-border)',
+              borderRadius: 4,
+            }}
+          />
+          {padInput('padRight', 'Відступ справа')}
+          <span />
+          {padInput('padBottom', 'Відступ знизу')}
+          <span />
+        </div>
       </div>
       <ColorInput
         label="Колір тексту"
