@@ -3,6 +3,9 @@ dist/
 .env
 *.log
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Generated library and any local copies of source modules
 data/library.db
 data/library.db-wal

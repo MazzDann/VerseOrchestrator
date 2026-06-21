@@ -32,8 +32,9 @@ CREATE TABLE verses (
   book_number    INTEGER NOT NULL,
   chapter        INTEGER NOT NULL,
   verse          INTEGER NOT NULL,
-  text           TEXT,
-  text_norm      TEXT
+  text           TEXT,       -- clean display text (tags + Strong/morphology stripped)
+  text_norm      TEXT,       -- normalized for search
+  text_raw       TEXT        -- original MyBible markup, kept for a future Strong's dictionary
 );
 CREATE INDEX idx_verses_loc ON verses (translation_id, book_number, chapter, verse);
 
@@ -50,4 +51,24 @@ CREATE VIRTUAL TABLE verses_fts USING fts5 (
   content_rowid='id',
   tokenize='unicode61 remove_diacritics 2'
 );
+
+DROP TABLE IF EXISTS dictionary_entries;
+DROP TABLE IF EXISTS dictionaries;
+
+CREATE TABLE dictionaries (
+  id        INTEGER PRIMARY KEY,
+  abbr      TEXT,
+  name      TEXT,
+  language  TEXT,
+  type      TEXT,
+  is_strong INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE dictionary_entries (
+  dictionary_id INTEGER NOT NULL,
+  topic         TEXT NOT NULL,
+  topic_norm    TEXT NOT NULL, -- normalized key for lookup (Strong digits, or lowercased word)
+  definition    TEXT
+);
+CREATE INDEX idx_dict_topic ON dictionary_entries (topic_norm, dictionary_id);
 `;

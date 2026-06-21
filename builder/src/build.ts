@@ -2,9 +2,10 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
-import { stripTags, normalizeForSearch } from '@vo/shared';
+import { stripTags, normalizeForSearch, cleanDefinition } from '@vo/shared';
 import { SCHEMA_SQL } from './schema.js';
 import { readModule } from './mybible.js';
+import { readDictionary, dictTopicNorm } from './dictionary.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DATA_DIR = path.join(repoRoot, 'data');
@@ -32,6 +33,14 @@ function listModuleFiles(dir: string): string[] {
     .map((f) => path.join(dir, f));
 }
 
+function listDictionaryFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => /\.dictionary\.SQLite3$/i.test(f))
+    .map((f) => path.join(dir, f));
+}
+
 function fileHash(file: string): string {
   const s = fs.statSync(file);
   return `${s.size}:${Math.round(s.mtimeMs)}`;
@@ -53,8 +62,11 @@ function cleanAbbr(rawAbbr: string, title: string): string {
 function buildOnce(): void {
   const modulesDir = resolveModulesDir();
   const files = listModuleFiles(modulesDir);
+  const dictFiles = listDictionaryFiles(modulesDir);
   console.log(`[builder] modules dir: ${modulesDir}`);
-  console.log(`[builder] candidate files: ${files.length}`);
+  console.log(
+    `[builder] candidate files: ${files.length} modules, ${dictFiles.length} dictionaries`,
+  );
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const db = new Database(OUT_PATH);
@@ -80,8 +92,8 @@ function buildOnce(): void {
        VALUES (@translationId, @bookNumber, @shortName, @longName, @color)`,
     );
     const insVerse = db.prepare(
-      `INSERT INTO verses (translation_id, book_number, chapter, verse, text, text_norm)
-       VALUES (@translationId, @bookNumber, @chapter, @verse, @text, @textNorm)`,
+      `INSERT INTO verses (translation_id, book_number, chapter, verse, text, text_norm, text_raw)
+       VALUES (@translationId, @bookNumber, @chapter, @verse, @text, @textNorm, @textRaw)`,
     );
     const insName = db.prepare(
       `INSERT INTO book_names (translation_id, book_number, name_norm)
@@ -139,6 +151,7 @@ function buildOnce(): void {
           verse: v.verse,
           text: stripTags(raw),
           textNorm: normalizeForSearch(raw),
+          textRaw: raw,
         });
       }
 
@@ -149,6 +162,48 @@ function buildOnce(): void {
     }
 
     db.exec("INSERT INTO verses_fts(verses_fts) VALUES('rebuild')");
+
+    // Import dictionary modules (*.dictionary.SQLite3) — Strong's and explanatory.
+    const insDict = db.prepare(
+      `INSERT INTO dictionaries (id, abbr, name, language, type, is_strong)
+       VALUES (@id, @abbr, @name, @language, @type, @isStrong)`,
+    );
+    const insEntry = db.prepare(
+      `INSERT INTO dictionary_entries (dictionary_id, topic, topic_norm, definition)
+       VALUES (@dictionaryId, @topic, @topicNorm, @definition)`,
+    );
+    let dictId = 0;
+    for (const file of dictFiles) {
+      const dictName = path.basename(file).replace(/\.dictionary\.SQLite3$/i, '');
+      let dict;
+      try {
+        dict = readDictionary(file);
+      } catch (err) {
+        console.warn(`[builder]   skip dict ${dictName}: ${(err as Error).message}`);
+        continue;
+      }
+      if (!dict) continue;
+      dictId += 1;
+      insDict.run({
+        id: dictId,
+        abbr: dictName,
+        name: dict.name || dictName,
+        language: dict.language,
+        type: dict.type,
+        isStrong: dict.isStrong ? 1 : 0,
+      });
+      for (const e of dict.entries) {
+        insEntry.run({
+          dictionaryId: dictId,
+          topic: String(e.topic),
+          topicNorm: dictTopicNorm(String(e.topic), dict.isStrong),
+          definition: cleanDefinition(e.definition ?? ''),
+        });
+      }
+      console.log(
+        `[builder]   dict ${dictName} (${dict.isStrong ? 'strong' : 'explanatory'}) — ${dict.entries.length} entries`,
+      );
+    }
   });
 
   const started = Date.now();

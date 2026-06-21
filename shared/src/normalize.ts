@@ -7,10 +7,11 @@
  * Strong's numbers `<S>7225</S>`, footnotes `<f>..</f>`, notes `<n>..</n>`,
  * italics `<i>..</i>`, and paragraph breaks `<pb/>`.
  *
- * Rule (matching the original): drop every `<...>` tag, AND for tag pairs whose
- * name starts with S / N / F also drop the inner content (Strong numbers and
- * footnotes are not meant to be displayed). Other tags (e.g. `<i>`) are removed
- * but their inner text is kept.
+ * Rule (matching the original, extended): drop every `<...>` tag, AND for tag
+ * pairs whose name starts with S / N / F / M also drop the inner content —
+ * Strong numbers (`<S>`), footnotes (`<f>`/`<n>`) and grammar/morphology codes
+ * (`<m>PREP</m>`, `<m>N-DSF</m>`) are not meant to be displayed. Other tags
+ * (e.g. `<i>`) are removed but their inner text is kept.
  */
 export function stripTags(input: string): string {
   if (!input) return '';
@@ -28,9 +29,16 @@ export function stripTags(input: string): string {
       endOfTag = true;
     } else if (
       insideTag &&
-      (ch === 'S' || ch === 's' || ch === 'N' || ch === 'n' || ch === 'F' || ch === 'f')
+      (ch === 'S' ||
+        ch === 's' ||
+        ch === 'N' ||
+        ch === 'n' ||
+        ch === 'F' ||
+        ch === 'f' ||
+        ch === 'M' ||
+        ch === 'm')
     ) {
-      // Opening S/N/F tag -> start swallowing inner content; closing tag -> stop.
+      // Opening S/N/F/M tag -> swallow inner content; closing tag -> stop.
       removeInside = !endOfTag;
     } else if (ch === '>') {
       endOfTag = false;
@@ -62,6 +70,46 @@ export function normalizeForSearch(text: string): string {
     .replace(/[̀-ͯ]/g, '') // strip combining diacritical marks
     .replace(/[^\p{L}\p{N}\s]/gu, ' ') // drop punctuation
     .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function safeFromCodePoint(n: number): string {
+  try {
+    return String.fromCodePoint(n);
+  } catch {
+    return '';
+  }
+}
+
+/** Decode HTML entities (`&#x03B1;` → α, `&amp;` → &) used in dictionary text. */
+export function decodeEntities(s: string): string {
+  if (!s || !s.includes('&')) return s;
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => safeFromCodePoint(Number.parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => safeFromCodePoint(Number.parseInt(d, 10)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+}
+
+/**
+ * Convert a dictionary definition's HTML to readable plain text: paragraph and
+ * line-break tags become newlines (so the lemma/pronunciation and the gloss stay
+ * on separate lines), other tags are dropped, entities are decoded.
+ */
+export function cleanDefinition(html: string): string {
+  if (!html) return '';
+  const withBreaks = html
+    .replace(/<\s*(p|br)\b[^>]*\/?\s*>/gi, '\n')
+    .replace(/<\/\s*(p|div|li|tr|h[1-6]|blockquote)\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '');
+  return decodeEntities(withBreaks)
+    .replace(/[ \t ]+/g, ' ')
+    .replace(/[ \t]*\n[ \t]*/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 

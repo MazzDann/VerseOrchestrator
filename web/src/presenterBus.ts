@@ -13,12 +13,31 @@ export interface SlideLine {
   rtl: boolean;
 }
 
+export interface SlideStyle {
+  font: string;
+  color: string;
+  align: 'left' | 'center' | 'right';
+  bgColor: string;
+  bgImage: string | null;
+  showVerseNumbers: boolean;
+}
+
 export interface Slide {
   lines: SlideLine[];
   reference: string;
   blank: boolean;
   visible: boolean;
+  style?: SlideStyle;
 }
+
+export const DEFAULT_STYLE: SlideStyle = {
+  font: '"Lora", Georgia, "Times New Roman", serif',
+  color: '#f4f4f6',
+  align: 'center',
+  bgColor: '#000000',
+  bgImage: null,
+  showVerseNumbers: false,
+};
 
 export const EMPTY_SLIDE: Slide = { lines: [], reference: '', blank: false, visible: false };
 

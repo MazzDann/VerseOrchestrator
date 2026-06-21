@@ -18,6 +18,10 @@ describe('stripTags', () => {
     expect(stripTags('word<f>a footnote</f> after')).toBe('word after');
   });
 
+  it('drops Strong numbers and morphology codes from Greek modules', () => {
+    expect(stripTags('εν <S>1722</S> <m>PREP</m> αρχη <S>746</S> <m>N-DSF</m>')).toBe('εν αρχη');
+  });
+
   it('passes through plain text untouched', () => {
     expect(stripTags('На початку Бог створив небо і землю.')).toBe(
       'На початку Бог створив небо і землю.',
