@@ -21,6 +21,7 @@ import {
   type StrongSubline,
 } from '../settingsStore';
 import { fileToDownscaledDataUrl } from '../lib/image';
+import { TemplateEditor } from './TemplateEditor';
 
 /** Appearance controls for the projected screen. Persisted via the settings store. */
 export function SettingsPanel() {
@@ -74,6 +75,12 @@ export function SettingsPanel() {
             { label: 'Унизу центру', value: 'bottom' },
           ]}
         />
+      </div>
+      <div>
+        <Text size="sm" fw={500} mb={4}>
+          Шаблон показу
+        </Text>
+        <TemplateEditor />
       </div>
       <Select
         label="Шрифт тексту"

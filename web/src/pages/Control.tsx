@@ -88,6 +88,7 @@ export function Control() {
   const panelPlacement = useSettings((s) => s.panelPlacement);
   const liveFollow = useSettings((s) => s.liveFollow);
   const setLiveFollow = useSettings((s) => s.setLiveFollow);
+  const slideTemplate = useSettings((s) => s.slideTemplate);
 
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
@@ -218,6 +219,7 @@ export function Control() {
     blank: false,
     visible: slideLines.length > 0,
     style: slideStyle,
+    template: slideTemplate,
   };
 
   const send = (overrides?: Partial<Slide>) => {
@@ -227,6 +229,7 @@ export function Control() {
       blank: false,
       visible: slideLines.length > 0,
       style: slideStyle,
+      template: slideTemplate,
       ...overrides,
     };
     publishSlide(slide);
@@ -251,6 +254,7 @@ export function Control() {
       blank: false,
       visible: true,
       style: slideStyle,
+      template: slideTemplate,
       subline,
     });
     setLive(true);
