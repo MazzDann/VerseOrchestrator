@@ -1,8 +1,9 @@
 import { type ReactNode, useState } from 'react';
-import { Stack, Text, Paper, Group, Badge, Loader, Button, UnstyledButton } from '@mantine/core';
-import { IconDeviceTv } from '@tabler/icons-react';
+import { Stack, Text, Paper, Group, Badge, Loader, Button } from '@mantine/core';
+import { IconDeviceTv, IconListSearch } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Verse } from '../api';
+import { useSettings } from '../settingsStore';
 import { parseStrongTokens } from '../lib/strong';
 
 export interface StrongPickRef {
@@ -15,10 +16,10 @@ export interface StrongPickRef {
 interface Props {
   verses: Verse[];
   hasStrong: boolean;
-  /** Jump to a verse when a concordance occurrence is clicked. */
-  onPickRef?: (r: StrongPickRef) => void;
   /** Project the current verse with this Strong "word — gloss" subline. */
   onProjectStrong?: (subline: string) => void;
+  /** Open the concordance ("where else used") for this Strong number beside the verses. */
+  onShowConcordance?: (strong: string) => void;
 }
 
 interface ActiveWord {
@@ -75,88 +76,22 @@ function DefinitionText({
   );
 }
 
-/** Concordance: list every verse (in this translation) that carries `num`. */
-function StrongOccurrences({
-  num,
-  translationId,
-  onPick,
-}: {
-  num: string;
-  translationId?: number;
-  onPick?: (r: StrongPickRef) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const query = useQuery({
-    queryKey: ['strongRefs', num, translationId],
-    queryFn: () => api.strongRefs(num, { translationId }),
-    enabled: open,
-  });
-
-  if (!open) {
-    return (
-      <Button variant="light" size="xs" color="brand" fullWidth mt={10} onClick={() => setOpen(true)}>
-        Де ще вживається · Стронг {num}
-      </Button>
-    );
-  }
-
-  const data = query.data;
-  return (
-    <div style={{ marginTop: 10 }}>
-      <Group justify="space-between" mb={4} wrap="nowrap">
-        <Text size="xs" fw={600} c="dimmed">
-          Входження{data ? `: ${data.total}` : ''}
-        </Text>
-        {query.isFetching && <Loader size="xs" />}
-      </Group>
-      {data?.truncated && (
-        <Text size="xs" c="dimmed" mb={4}>
-          Показано перші {data.results.length} із {data.total}.
-        </Text>
-      )}
-      <Stack gap={1}>
-        {data?.results.map((r, i) => (
-          <UnstyledButton
-            key={i}
-            className="vo-strong-occurrence"
-            onClick={() =>
-              onPick?.({
-                translationId: r.translationId,
-                bookNumber: r.bookNumber,
-                chapter: r.chapter,
-                verse: r.verse,
-              })
-            }
-          >
-            <Text size="xs" truncate>
-              <Text span fw={600} c="brand" mr={6}>
-                {(r.shortName || r.longName) ?? ''} {r.chapter}:{r.verse}
-              </Text>
-              {r.text}
-            </Text>
-          </UnstyledButton>
-        ))}
-        {data && data.results.length === 0 && (
-          <Text size="xs" c="dimmed">
-            Не знайдено входжень у цьому перекладі.
-          </Text>
-        )}
-      </Stack>
-    </div>
-  );
-}
-
 /**
  * Interlinear study view: the selected verse(s) word by word. Click any word to
  * see its Strong's entry (if the word carries a `<S>` number) and any explanatory
  * dictionary entry for the word, shown below with the word highlighted. A Strong
- * entry can be expanded into a concordance ("where else is this word used"), and
- * G####/H#### cross-references in definitions are clickable.
+ * entry can open the concordance ("where else is this word used") beside the verse
+ * list, and G####/H#### cross-references in definitions are clickable.
  */
-export function StrongView({ verses, hasStrong, onPickRef, onProjectStrong }: Props) {
+export function StrongView({
+  verses,
+  hasStrong,
+  onProjectStrong,
+  onShowConcordance,
+}: Props) {
   const [active, setActive] = useState<ActiveWord | null>(null);
   const book = verses[0]?.bookNumber;
-  const translationId = verses[0]?.translationId;
+  const strongSubline = useSettings((s) => s.appearance.strongSubline);
 
   const strongQuery = useQuery({
     queryKey: ['strong', active?.strong, book],
@@ -188,14 +123,16 @@ export function StrongView({ verses, hasStrong, onPickRef, onProjectStrong }: Pr
   const wordDefs = wordQuery.data ?? [];
   const loading = strongQuery.isFetching || wordQuery.isFetching;
 
-  // "word · Стронг N — first line of the gloss", used as the projection subline.
-  const firstGlossLine = strongDefs[0]?.definition
-    ?.split('\n')
+  // Projection subline from the active Strong gloss: just the lemma line, or the
+  // full definition, per the appearance setting (joined onto one line).
+  const glossLines = (strongDefs[0]?.definition ?? '')
+    .split('\n')
     .map((s) => s.trim())
-    .find(Boolean);
+    .filter(Boolean);
+  const gloss = strongSubline === 'full' ? glossLines.join(' — ') : (glossLines[0] ?? '');
   const projectSubline =
     active?.strong != null
-      ? `${active.text} · Стронг ${active.strong}${firstGlossLine ? ` — ${firstGlossLine}` : ''}`
+      ? `${active.text} · Стронг ${active.strong}${gloss ? ` — ${gloss}` : ''}`
       : null;
 
   return (
@@ -290,13 +227,18 @@ export function StrongView({ verses, hasStrong, onPickRef, onProjectStrong }: Pr
             </Text>
           )}
 
-          {active.strong && (
-            <StrongOccurrences
-              key={active.strong}
-              num={active.strong}
-              translationId={translationId}
-              onPick={onPickRef}
-            />
+          {active.strong && onShowConcordance && (
+            <Button
+              variant="light"
+              size="xs"
+              color="brand"
+              fullWidth
+              mt={10}
+              leftSection={<IconListSearch size={14} />}
+              onClick={() => onShowConcordance(active.strong!)}
+            >
+              Де ще вживається · Стронг {active.strong}
+            </Button>
           )}
         </Paper>
       )}

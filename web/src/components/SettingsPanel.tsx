@@ -18,6 +18,7 @@ import {
   type TextAlign,
   type PadUnit,
   type PadLink,
+  type StrongSubline,
 } from '../settingsStore';
 import { fileToDownscaledDataUrl } from '../lib/image';
 
@@ -203,6 +204,20 @@ export function SettingsPanel() {
         checked={a.showVerseNumbers}
         onChange={(e) => set({ showVerseNumbers: e.currentTarget.checked })}
       />
+      <div>
+        <Text size="sm" fw={500} mb={4}>
+          Текст Стронга на показі
+        </Text>
+        <SegmentedControl
+          fullWidth
+          value={a.strongSubline}
+          onChange={(v) => set({ strongSubline: v as StrongSubline })}
+          data={[
+            { label: 'Лема', value: 'lemma' },
+            { label: 'Повністю', value: 'full' },
+          ]}
+        />
+      </div>
       <Button variant="default" leftSection={<IconRefresh size={16} />} onClick={reset}>
         Скинути вигляд
       </Button>
