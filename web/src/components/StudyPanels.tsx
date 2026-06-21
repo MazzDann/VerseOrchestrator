@@ -172,8 +172,12 @@ export function StudyPanels({
                 )}
               </Stack>
             </ScrollArea>
-            <Divider />
-            {sendBlank('sm')}
+            {(!pinned || compact) && (
+              <>
+                <Divider />
+                {sendBlank('sm')}
+              </>
+            )}
           </>
         )}
         {mode === 'strong' && (
