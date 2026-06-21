@@ -79,6 +79,7 @@ CREATE TABLE dictionary_entries (
   dictionary_id INTEGER NOT NULL,
   topic         TEXT NOT NULL,
   topic_norm    TEXT NOT NULL, -- normalized key for lookup (Strong digits, or lowercased word)
+  strong_lang   TEXT,          -- 'H' (Hebrew/OT) or 'G' (Greek/NT) from the Strong topic prefix, else ''
   definition    TEXT
 );
 CREATE INDEX idx_dict_topic ON dictionary_entries (topic_norm, dictionary_id);
