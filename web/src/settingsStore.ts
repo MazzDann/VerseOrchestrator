@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { type SlideTemplate } from './presenterBus';
 
 export type TextAlign = 'left' | 'center' | 'right';
 export type PadUnit = 'px' | '%';
@@ -44,9 +45,12 @@ interface SettingsState {
   panelPlacement: PanelPlacement;
   /** When true, the presenter follows the selection live; when false, push manually (F5/F2). */
   liveFollow: boolean;
+  /** Active positioned layout; null → the default centred layout. */
+  slideTemplate: SlideTemplate | null;
   history: RefItem[];
   bookmarks: RefItem[];
   setLiveFollow: (v: boolean) => void;
+  setSlideTemplate: (t: SlideTemplate | null) => void;
   setPanelPlacement: (p: PanelPlacement) => void;
   setAppearance: (patch: Partial<Appearance>) => void;
   resetAppearance: () => void;
@@ -92,9 +96,11 @@ export const useSettings = create<SettingsState>()(
       appearance: DEFAULT_APPEARANCE,
       panelPlacement: 'aside',
       liveFollow: true,
+      slideTemplate: null,
       history: [],
       bookmarks: [],
       setLiveFollow: (v) => set({ liveFollow: v }),
+      setSlideTemplate: (t) => set({ slideTemplate: t }),
       setPanelPlacement: (p) => set({ panelPlacement: p }),
       setAppearance: (patch) => set((s) => ({ appearance: { ...s.appearance, ...patch } })),
       resetAppearance: () => set({ appearance: DEFAULT_APPEARANCE }),

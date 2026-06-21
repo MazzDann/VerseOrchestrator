@@ -40,6 +40,32 @@ export interface SlideStyle {
   highlightColor: string; // emphasised (hot) word colour
 }
 
+export type SlideObjectKind = 'quote' | 'reference' | 'subline' | 'divider';
+
+/**
+ * One positioned element of a slide template — VisioBible-style: geometry in % of
+ * the slide so the preview and the full-screen presenter match. `quote` auto-fits
+ * the verse text in its box; `reference`/`subline` use `size` (cqh) as a fixed
+ * font size; `divider` is a thin line (`h` = thickness %).
+ */
+export interface SlideObject {
+  kind: SlideObjectKind;
+  visible: boolean;
+  x: number; // % from the left edge
+  y: number; // % from the top edge
+  w: number; // % width
+  h: number; // % height
+  align: 'left' | 'center' | 'right';
+  size: number; // font size in cqh (% of slide height); ignored for `quote` (auto-fit) and `divider`
+  color?: string; // overrides the slide colour
+  tiedToSubline?: boolean; // divider: render only when the slide has a subline
+}
+
+export interface SlideTemplate {
+  name: string;
+  objects: SlideObject[];
+}
+
 export interface Slide {
   lines: SlideLine[];
   reference: string;
@@ -48,7 +74,50 @@ export interface Slide {
   style?: SlideStyle;
   /** Optional secondary line under a divider (e.g. a Strong "word — gloss"). */
   subline?: string;
+  /** Optional positioned layout. Absent/null → the default (legacy) centred layout. */
+  template?: SlideTemplate | null;
 }
+
+/** Built-in layout presets. The first (null template) is the default centred look. */
+export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }[] = [
+  { label: 'Класичний (за замовчуванням)', template: null },
+  {
+    label: 'По центру з рискою',
+    template: {
+      name: 'По центру з рискою',
+      objects: [
+        { kind: 'quote', visible: true, x: 6, y: 5, w: 88, h: 66, align: 'center', size: 0 },
+        { kind: 'divider', visible: true, x: 33, y: 75, w: 34, h: 0.4, align: 'center', size: 0, tiedToSubline: true },
+        { kind: 'subline', visible: true, x: 8, y: 77, w: 84, h: 10, align: 'center', size: 4 },
+        { kind: 'reference', visible: true, x: 8, y: 90, w: 84, h: 7, align: 'center', size: 3.4 },
+      ],
+    },
+  },
+  {
+    label: 'Нижня третина',
+    template: {
+      name: 'Нижня третина',
+      objects: [
+        { kind: 'quote', visible: true, x: 5, y: 58, w: 90, h: 27, align: 'left', size: 0 },
+        { kind: 'subline', visible: false, x: 5, y: 85, w: 90, h: 6, align: 'left', size: 3 },
+        { kind: 'divider', visible: false, x: 5, y: 86, w: 30, h: 0.4, align: 'left', size: 0 },
+        { kind: 'reference', visible: true, x: 5, y: 90, w: 90, h: 6, align: 'left', size: 3 },
+      ],
+    },
+  },
+  {
+    label: 'Мінімал',
+    template: {
+      name: 'Мінімал',
+      objects: [
+        { kind: 'quote', visible: true, x: 8, y: 12, w: 84, h: 66, align: 'center', size: 0 },
+        { kind: 'subline', visible: false, x: 8, y: 80, w: 84, h: 8, align: 'center', size: 3.6 },
+        { kind: 'divider', visible: false, x: 33, y: 79, w: 34, h: 0.4, align: 'center', size: 0 },
+        { kind: 'reference', visible: true, x: 8, y: 86, w: 84, h: 7, align: 'center', size: 3.6 },
+      ],
+    },
+  },
+];
 
 export const DEFAULT_STYLE: SlideStyle = {
   font: '"Lora", Georgia, "Times New Roman", serif',
