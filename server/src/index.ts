@@ -9,6 +9,7 @@ import {
   search,
   lookupStrong,
   lookupWord,
+  strongRefs,
   listDictionaries,
 } from './db.js';
 
@@ -80,6 +81,23 @@ app.get(
   wrap((req, res) => {
     const book = req.query.book != null ? Number(req.query.book) : undefined;
     res.json(lookupStrong(String(req.params.num), Number.isFinite(book) ? book : undefined));
+  }),
+);
+
+app.get(
+  '/api/strong/:num/refs',
+  wrap((req, res) => {
+    const translation = req.query.translation != null ? Number(req.query.translation) : undefined;
+    const limit = req.query.limit != null ? Number(req.query.limit) : undefined;
+    res.json(
+      strongRefs(String(req.params.num), {
+        translationId:
+          translation != null && Number.isInteger(translation) && translation > 0
+            ? translation
+            : undefined,
+        limit: limit != null && Number.isFinite(limit) ? limit : undefined,
+      }),
+    );
   }),
 );
 

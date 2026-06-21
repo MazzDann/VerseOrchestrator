@@ -1,12 +1,21 @@
-import { useState } from 'react';
-import { Stack, Text, Paper, Group, Badge, Loader } from '@mantine/core';
+import { type ReactNode, useState } from 'react';
+import { Stack, Text, Paper, Group, Badge, Loader, Button, UnstyledButton } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Verse } from '../api';
 import { parseStrongTokens } from '../lib/strong';
 
+export interface StrongPickRef {
+  translationId: number;
+  bookNumber: number;
+  chapter: number;
+  verse: number;
+}
+
 interface Props {
   verses: Verse[];
   hasStrong: boolean;
+  /** Jump to a verse when a concordance occurrence is clicked. */
+  onPickRef?: (r: StrongPickRef) => void;
 }
 
 interface ActiveWord {
@@ -16,14 +25,135 @@ interface ActiveWord {
 
 const stripPunct = (w: string) => w.replace(/[.,;:!?»«"'()[\]<>]/g, '').trim();
 
+// Cross-reference Strong tokens inside a definition, e.g. "see H7225" / "G2316".
+const CROSSREF_RE = /\b([GH])(\d{1,5})\b/g;
+
+/** Render a definition, turning embedded G####/H#### references into clickable links. */
+function DefinitionText({
+  text,
+  lineClamp,
+  onStrong,
+}: {
+  text: string;
+  lineClamp?: number;
+  onStrong: (label: string) => void;
+}) {
+  const parts: ReactNode[] = [];
+  const re = new RegExp(CROSSREF_RE);
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    const label = m[0];
+    parts.push(
+      <span
+        key={m.index}
+        className="vo-strong-ref"
+        role="button"
+        tabIndex={0}
+        onClick={() => onStrong(label)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onStrong(label);
+          }
+        }}
+      >
+        {label}
+      </span>,
+    );
+    last = m.index + label.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return (
+    <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={lineClamp}>
+      {parts}
+    </Text>
+  );
+}
+
+/** Concordance: list every verse (in this translation) that carries `num`. */
+function StrongOccurrences({
+  num,
+  translationId,
+  onPick,
+}: {
+  num: string;
+  translationId?: number;
+  onPick?: (r: StrongPickRef) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const query = useQuery({
+    queryKey: ['strongRefs', num, translationId],
+    queryFn: () => api.strongRefs(num, { translationId }),
+    enabled: open,
+  });
+
+  if (!open) {
+    return (
+      <Button variant="light" size="xs" color="brand" fullWidth mt={10} onClick={() => setOpen(true)}>
+        Де ще вживається · Стронг {num}
+      </Button>
+    );
+  }
+
+  const data = query.data;
+  return (
+    <div style={{ marginTop: 10 }}>
+      <Group justify="space-between" mb={4} wrap="nowrap">
+        <Text size="xs" fw={600} c="dimmed">
+          Входження{data ? `: ${data.total}` : ''}
+        </Text>
+        {query.isFetching && <Loader size="xs" />}
+      </Group>
+      {data?.truncated && (
+        <Text size="xs" c="dimmed" mb={4}>
+          Показано перші {data.results.length} із {data.total}.
+        </Text>
+      )}
+      <Stack gap={1}>
+        {data?.results.map((r, i) => (
+          <UnstyledButton
+            key={i}
+            className="vo-strong-occurrence"
+            onClick={() =>
+              onPick?.({
+                translationId: r.translationId,
+                bookNumber: r.bookNumber,
+                chapter: r.chapter,
+                verse: r.verse,
+              })
+            }
+          >
+            <Text size="xs" truncate>
+              <Text span fw={600} c="brand" mr={6}>
+                {(r.shortName || r.longName) ?? ''} {r.chapter}:{r.verse}
+              </Text>
+              {r.text}
+            </Text>
+          </UnstyledButton>
+        ))}
+        {data && data.results.length === 0 && (
+          <Text size="xs" c="dimmed">
+            Не знайдено входжень у цьому перекладі.
+          </Text>
+        )}
+      </Stack>
+    </div>
+  );
+}
+
 /**
  * Interlinear study view: the selected verse(s) word by word. Click any word to
  * see its Strong's entry (if the word carries a `<S>` number) and any explanatory
- * dictionary entry for the word, shown below with the word highlighted.
+ * dictionary entry for the word, shown below with the word highlighted. A Strong
+ * entry can be expanded into a concordance ("where else is this word used"), and
+ * G####/H#### cross-references in definitions are clickable.
  */
-export function StrongView({ verses, hasStrong }: Props) {
+export function StrongView({ verses, hasStrong, onPickRef }: Props) {
   const [active, setActive] = useState<ActiveWord | null>(null);
   const book = verses[0]?.bookNumber;
+  const translationId = verses[0]?.translationId;
 
   const strongQuery = useQuery({
     queryKey: ['strong', active?.strong, book],
@@ -35,6 +165,13 @@ export function StrongView({ verses, hasStrong }: Props) {
     queryFn: () => api.dict(active!.text),
     enabled: !!active?.text,
   });
+
+  // Follow a G####/H#### cross-reference: make it the active Strong number,
+  // keeping the original label (e.g. "G303") as the displayed word.
+  const followCrossRef = (label: string) => {
+    const digits = label.match(/\d+/)?.[0] ?? label;
+    setActive({ text: label, strong: digits });
+  };
 
   if (verses.length === 0) {
     return (
@@ -106,9 +243,7 @@ export function StrongView({ verses, hasStrong }: Props) {
               <Badge size="xs" variant="light" color="brand" mb={2}>
                 {d.dictionary}
               </Badge>
-              <Text size="sm" style={{ whiteSpace: 'pre-line' }}>
-                {d.definition}
-              </Text>
+              <DefinitionText text={d.definition} onStrong={followCrossRef} />
             </div>
           ))}
           {wordDefs.map((d, i) => (
@@ -116,9 +251,7 @@ export function StrongView({ verses, hasStrong }: Props) {
               <Badge size="xs" variant="light" color="gray" mb={2}>
                 {d.dictionary} · {d.topic}
               </Badge>
-              <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={12}>
-                {d.definition}
-              </Text>
+              <DefinitionText text={d.definition} lineClamp={12} onStrong={followCrossRef} />
             </div>
           ))}
 
@@ -128,6 +261,15 @@ export function StrongView({ verses, hasStrong }: Props) {
                 ? `Нічого для Стронг ${active.strong}. Додай Стронг-словник у modules/ і перезбудуй.`
                 : 'У словниках нічого не знайдено для цього слова.'}
             </Text>
+          )}
+
+          {active.strong && (
+            <StrongOccurrences
+              key={active.strong}
+              num={active.strong}
+              translationId={translationId}
+              onPick={onPickRef}
+            />
           )}
         </Paper>
       )}

@@ -53,6 +53,31 @@
   margin-left: 1px;
 }
 
+/* Clickable G####/H#### cross-references inside a Strong definition. */
+.vo-strong-ref {
+  cursor: pointer;
+  color: var(--mantine-color-brand-text);
+  border-bottom: 1px dotted currentColor;
+  white-space: nowrap;
+}
+.vo-strong-ref:hover {
+  background: var(--mantine-color-brand-light);
+  border-radius: 3px;
+}
+
+/* A single concordance occurrence row (book ref + verse text). */
+.vo-strong-occurrence {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.vo-strong-occurrence:hover {
+  background: var(--mantine-color-default-hover);
+}
+
 .vo-verse-item {
   cursor: pointer;
   border-radius: 6px;

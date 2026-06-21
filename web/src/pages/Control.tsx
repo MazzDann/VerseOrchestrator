@@ -334,6 +334,7 @@ export function Control() {
       scriptureFont={appearance.scriptureFont}
       previewSlide={previewSlide}
       selectedPrimaryVerses={selectedPrimaryVerses}
+      onPickRef={jumpTo}
       onSend={sendAndNotify}
       onBlank={blankScreen}
       pinned={pinnedPreview}
