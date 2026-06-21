@@ -180,11 +180,7 @@ export function Control() {
       .map((id) => {
         const t = translations.find((x) => x.id === id);
         const verses = versesByTranslation.get(id) ?? [];
-        const text = verses
-          .filter((v) => selectedVerses.includes(v.verse))
-          .map((v) => `${appearance.showVerseNumbers ? `${v.verse} ` : ''}${(v.text ?? '').trim()}`)
-          .filter((s) => s.trim())
-          .join('  ');
+        const text = joinVerses(verses, selectedVerses, appearance.showVerseNumbers);
         if (!text.trim()) return null;
         const segments = redLetterSegments(verses, selectedVerses, appearance.showVerseNumbers);
         return { translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments } as SlideLine;
@@ -238,10 +234,7 @@ export function Control() {
   // subline. Used contextually from the Strong tab; normal navigation reverts it.
   const projectStrong = (subline: string, strong: string) => {
     const t = translations.find((x) => x.id === primaryId);
-    const text = selectedPrimaryVerses
-      .map((v) => `${appearance.showVerseNumbers ? `${v.verse} ` : ''}${(v.text ?? '').trim()}`)
-      .filter((s) => s.trim())
-      .join('  ');
+    const text = joinVerses(selectedPrimaryVerses, selectedVerses, appearance.showVerseNumbers);
     if (!text.trim()) return;
     const segments = strongHighlightSegments(
       selectedPrimaryVerses,
@@ -698,15 +691,36 @@ export function Control() {
   );
 }
 
+/** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */
+const GAP = '…';
+
+/** Displayed text for the selected verses (chapter order), with gaps between non-contiguous ones. */
+function joinVerses(verses: Verse[], selected: number[], showNum: boolean): string {
+  const parts: string[] = [];
+  let prev: number | null = null;
+  for (const v of verses) {
+    if (!selected.includes(v.verse)) continue;
+    const t = (v.text ?? '').trim();
+    if (!t) continue;
+    if (prev != null && v.verse > prev + 1) parts.push(GAP);
+    parts.push(`${showNum ? `${v.verse} ` : ''}${t}`);
+    prev = v.verse;
+  }
+  return parts.join(' ');
+}
+
 /** Build red-letter (words of Jesus) segments for a translation's selected verses. */
 function redLetterSegments(verses: Verse[], selected: number[], showNum: boolean): TextSpan[] {
   const out: TextSpan[] = [];
+  let prev: number | null = null;
   for (const v of verses) {
     if (!selected.includes(v.verse)) continue;
+    if (prev != null && v.verse > prev + 1) out.push({ text: GAP });
     if (showNum) out.push({ text: String(v.verse) });
     for (const s of parseRedLetter(v.textRaw ?? v.text ?? '')) {
       out.push(s.jesus ? { text: s.text, jesus: true } : { text: s.text });
     }
+    prev = v.verse;
   }
   return out;
 }
@@ -719,20 +733,43 @@ function strongHighlightSegments(
   strong: string,
 ): TextSpan[] {
   const out: TextSpan[] = [];
+  let prev: number | null = null;
   for (const v of verses) {
     if (!selected.includes(v.verse)) continue;
+    if (prev != null && v.verse > prev + 1) out.push({ text: GAP });
     if (showNum) out.push({ text: String(v.verse) });
     const tokens = parseStrongTokens(v.textRaw ?? '');
     if (tokens.length === 0) {
       const t = (v.text ?? '').trim();
       if (t) out.push({ text: t });
-      continue;
+    } else {
+      for (const tk of tokens) {
+        out.push(tk.strong === strong ? { text: tk.text, hot: true } : { text: tk.text });
+      }
     }
-    for (const tk of tokens) {
-      out.push(tk.strong === strong ? { text: tk.text, hot: true } : { text: tk.text });
-    }
+    prev = v.verse;
   }
   return out;
+}
+
+/** Collapse a verse selection into contiguous runs: [3,9] → "3,9", [3,4,5] → "3-5", [3,4,9] → "3-4,9". */
+function formatVerseList(verses: number[]): string {
+  const sorted = [...new Set(verses)].sort((a, b) => a - b);
+  if (sorted.length === 0) return '';
+  const runs: string[] = [];
+  let start = sorted[0];
+  let prev = sorted[0];
+  for (let i = 1; i <= sorted.length; i++) {
+    const v = sorted[i];
+    if (i < sorted.length && v === prev + 1) {
+      prev = v;
+      continue;
+    }
+    runs.push(start === prev ? `${start}` : `${start}-${prev}`);
+    start = v;
+    prev = v;
+  }
+  return runs.join(',');
 }
 
 function formatReference(
@@ -742,9 +779,6 @@ function formatReference(
   short = false,
 ): string {
   if (!book || chapter == null || verses.length === 0) return '';
-  const min = verses[0];
-  const max = verses[verses.length - 1];
-  const range = min === max ? `${min}` : `${min}-${max}`;
   const name = short ? book.shortName || book.longName : book.longName || book.shortName;
-  return `${name} ${chapter}:${range}`;
+  return `${name} ${chapter}:${formatVerseList(verses)}`;
 }
