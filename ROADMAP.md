@@ -49,6 +49,11 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 
 ### Features
 
+- [ ] **Project a Strong citation (highlighted word)** — send the verse to the presenter with the exact Strong-matched word emphasized. Needs `SlideLine` to carry segments (`{text, hot?}[]`) instead of plain text, so `SlideCanvas`/`Presenter` can style the hot word; an action in `StrongView`/concordance builds that slide (we already have the token via `parseStrongTokens`). Generalize later to manual highlight of any word/phrase.
+- [ ] **Concordance results in the verse panel** — show "where else used" occurrences in the main centre list (like search results) rather than only the small study panel; reuse the search-results UI + `jumpTo` (occurrence shape already == `SearchResult`). Add a scope toggle: this translation vs all Strong translations.
+- [ ] **Selection UX rework** (do *before* the downloader) — rethink how translations/books/chapters/verses are chosen. Candidates: persist the `useStore` selection across reloads (known gotcha — reload currently clears it), replace the Mantine `MultiSelect` translation picker, a first-class "go to reference" jump bar, better parallel-translation management (reorder / pick primary). *Needs a scope decision.*
+- [ ] **Export current slide as PNG** — render the live `SlideCanvas` to an image for sharing/printing (html-to-canvas of the same component the presenter uses).
+- [ ] **Presenter layout presets** — centred / lower-third / top-banner, plus auto-split a long passage across multiple slides (max-lines), advanced with arrows.
 - [ ] **Module downloader** — fetch from MyBible mirrors (`myb.1gb.ru`, `mybible.infoo.pro`, `mph4.ru`; `mybible.i-t.kz` is **dead** — expired TLS, dropped from the registry; catalog in `old/MyBible/-downloads.cache.SQLite3`) → unzip → `modules/` → build. The registry mechanism is first-party/sanctioned (MyBible ≥5.5.0 "extra registries"; canonical host `mybible.zone/repository/…`), but **read hosts from the registry's self-describing list, don't hardcode**; poll the tiny `registry_info.json` + cache; **allowlist by translation copyright, not by "it's in the registry"** (PD: Synodal 1876, Kulish 1903, CS Elizabeth 1900, WLC/WH1881; modern UBS/Ohienko/Turkonyak are ©). Sourcing decision (researched 2026-06-21): prefer a hybrid — keep user-supplied `.SQLite3` as primary; for an in-app downloader, **getBible v2** (keyless, per-text PD licenses, has uk/ru/CS) as the ship-safe default + **bolls.life** (keyless, richest: uk/ru/CS + WLC/LXX + Strong's, but no per-text license) as "advanced"; bundle **STEPBible TAHOT/TAGNT** (CC BY) for Hebrew/Greek + disambiguated Strong's.
 - [ ] **Reading plan / slide playlist** — ordered passages, progress
 - [ ] **Resizable panels** — `react-resizable-panels`, persist widths
@@ -63,6 +68,9 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 
 ### Polish
 
+- [ ] **Configurable slide edge padding** — appearance setting for inset from the screen edges (horizontal / vertical), applied in `SlideCanvas`/`Presenter` via `SlideStyle`; with a **link toggle** so left/right (and top/bottom, or all four) move together. Default keeps the current look.
+- [ ] **Named appearance presets** — save/load slide-style presets (font/colours/background/padding) so different rooms/screens are one click; presets persisted in `settingsStore`.
+- [ ] **Morphology in the Strong tab** — surface the `<m>` grammar codes (currently stripped) next to each word, e.g. on hover or under the active token.
 - [ ] **Strong dictionary H/G disambiguation** — the single combined "Strong" dict has no per-entry language, so `lookupStrong`'s OT→Hebrew/NT→Greek `rank` can't separate H#### from G#### sharing the same digits (e.g. OT verse on #430 shows both Greek *anechomai* G430 and Hebrew *Elohim* H430, Greek possibly first). Tag entries H/G at import (topic prefix / language column) and rank on that.
 - [ ] Visual "wow" pass now that Playwright gives screenshots (spacing, hover/focus states, micro-animations)
 - [ ] Bundle code-splitting (web bundle ~718 KB / 223 KB gzip)
