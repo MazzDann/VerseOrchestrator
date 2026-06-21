@@ -44,21 +44,27 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
       ? 'radial-gradient(ellipse at 50% 42%, #0c0c14 0%, #000 78%)'
       : style.bgColor;
 
+  // Proportional insets so the preview and the full-screen presenter match.
+  // Top/bottom are % of height, left/right % of width (CSS % padding would use
+  // width for both — that's the "vertical looks too big" weirdness). px is read
+  // against a 1080p reference and converted to %, so it scales like everything else.
   const u = style.padUnit ?? '%';
-  const padding = `${style.padTop ?? 4}${u} ${style.padRight ?? 4}${u} ${style.padBottom ?? 4}${u} ${style.padLeft ?? 4}${u}`;
+  const vPad = (n: number | undefined) => (u === '%' ? (n ?? 4) : (n ?? 0) / 10.8);
+  const hPad = (n: number | undefined) => (u === '%' ? (n ?? 4) : (n ?? 0) / 19.2);
+  const inset = {
+    top: vPad(style.padTop),
+    bottom: vPad(style.padBottom),
+    left: hPad(style.padLeft),
+    right: hPad(style.padRight),
+  };
 
   return (
     <div
-      ref={containerRef}
       style={{
         position: 'absolute',
         inset: 0,
         background,
         color: style.color,
-        display: 'flex',
-        alignItems: ALIGN_ITEMS[style.align],
-        justifyContent: 'center',
-        padding,
         overflow: 'hidden',
         fontFamily: style.font,
       }}
@@ -66,7 +72,20 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
       {style.bgImage && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} />
       )}
-      <AnimatePresence mode="wait">
+      <div
+        ref={containerRef}
+        style={{
+          position: 'absolute',
+          top: `${inset.top}%`,
+          right: `${inset.right}%`,
+          bottom: `${inset.bottom}%`,
+          left: `${inset.left}%`,
+          display: 'flex',
+          alignItems: ALIGN_ITEMS[style.align],
+          justifyContent: 'center',
+        }}
+      >
+        <AnimatePresence mode="wait">
         {show && (
           <motion.div
             key={slideKey}
@@ -126,7 +145,8 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

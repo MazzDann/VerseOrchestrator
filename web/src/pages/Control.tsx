@@ -3,7 +3,6 @@ import {
   AppShell,
   Group,
   Button,
-  MultiSelect,
   ScrollArea,
   Stack,
   Text,
@@ -47,6 +46,7 @@ import { SearchPanel, type SearchScope } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { RefList } from '../components/RefList';
 import { VirtualList } from '../components/VirtualList';
+import { TranslationPicker } from '../components/TranslationPicker';
 
 const EMPTY_ARRAY: never[] = [];
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
@@ -416,20 +416,6 @@ export function Control() {
               <Title order={5} visibleFrom="xs">
                 VerseOrchestrator
               </Title>
-              <MultiSelect
-                w={280}
-                size="sm"
-                placeholder="Переклади"
-                data={translations.map((t) => ({
-                  value: String(t.id),
-                  label: `${t.abbr}${t.language ? ` · ${t.language}` : ''}`,
-                }))}
-                value={selectedIds.map(String)}
-                onChange={(vals) => setTranslations(vals.map(Number))}
-                searchable
-                clearable
-                maxValues={5}
-              />
               <Tooltip label="Пошук — F3 поточний, F4 усі, Ctrl+F">
                 <ActionIcon variant="default" size="lg" onClick={() => openSearch('current')}>
                   <IconSearch size={18} stroke={1.5} />
@@ -482,6 +468,12 @@ export function Control() {
 
         <AppShell.Navbar>
           <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <TranslationPicker
+              translations={translations}
+              selectedIds={selectedIds}
+              onChange={setTranslations}
+            />
+            <Divider />
             <Box p="xs" pb={4}>
               <TextInput
                 size="xs"
