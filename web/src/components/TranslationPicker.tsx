@@ -10,14 +10,24 @@ import {
   Badge,
   UnstyledButton,
   TextInput,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
-import { IconChevronDown, IconChevronRight, IconSearch } from '@tabler/icons-react';
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconSearch,
+  IconStar,
+  IconStarFilled,
+} from '@tabler/icons-react';
 import { type Translation } from '../api';
 
 interface Props {
   translations: Translation[];
   selectedIds: number[];
   onChange: (ids: number[]) => void;
+  /** Promote a checked translation to primary (first — drives navigation + top slide line). */
+  onMakePrimary?: (id: number) => void;
   max?: number;
 }
 
@@ -26,7 +36,13 @@ interface Props {
  * Inline (Collapse, not a Popover/Modal) because Mantine overlays don't render
  * their content reliably in this app. The first checked id is the primary.
  */
-export function TranslationPicker({ translations, selectedIds, onChange, max = 5 }: Props) {
+export function TranslationPicker({
+  translations,
+  selectedIds,
+  onChange,
+  onMakePrimary,
+  max = 5,
+}: Props) {
   const [open, setOpen] = useState(true);
   const [filter, setFilter] = useState('');
 
@@ -92,25 +108,42 @@ export function TranslationPicker({ translations, selectedIds, onChange, max = 5
                   </Text>
                   {items.map((t) => {
                     const checked = selectedIds.includes(t.id);
+                    const isPrimary = checked && selectedIds[0] === t.id;
                     return (
-                      <Checkbox
-                        key={t.id}
-                        size="xs"
-                        mb={4}
-                        checked={checked}
-                        disabled={!checked && atMax}
-                        onChange={() => toggle(t.id)}
-                        label={
-                          <Group gap={5} wrap="nowrap">
-                            <Text size="xs">{t.abbr}</Text>
-                            {t.hasStrong && (
-                              <Text size="9px" c="brand" fw={700}>
-                                S
-                              </Text>
-                            )}
-                          </Group>
-                        }
-                      />
+                      <Group key={t.id} gap={4} wrap="nowrap" justify="space-between" mb={3}>
+                        <Checkbox
+                          size="xs"
+                          checked={checked}
+                          disabled={!checked && atMax}
+                          onChange={() => toggle(t.id)}
+                          label={
+                            <Group gap={5} wrap="nowrap">
+                              <Text size="xs">{t.abbr}</Text>
+                              {t.hasStrong && (
+                                <Text size="9px" c="brand" fw={700}>
+                                  S
+                                </Text>
+                              )}
+                            </Group>
+                          }
+                        />
+                        {checked && onMakePrimary && (
+                          <Tooltip
+                            label={isPrimary ? 'Головний переклад' : 'Зробити головним'}
+                            withArrow
+                          >
+                            <ActionIcon
+                              size="sm"
+                              variant="subtle"
+                              color={isPrimary ? 'yellow' : 'gray'}
+                              onClick={() => onMakePrimary(t.id)}
+                              aria-label="Зробити головним"
+                            >
+                              {isPrimary ? <IconStarFilled size={13} /> : <IconStar size={13} />}
+                            </ActionIcon>
+                          </Tooltip>
+                        )}
+                      </Group>
                     );
                   })}
                 </div>

@@ -36,6 +36,7 @@ import {
   IconTrash,
   IconDownload,
   IconUpload,
+  IconArrowRight,
 } from '@tabler/icons-react';
 
 import { api, type Book, type Verse } from '../api';
@@ -71,6 +72,7 @@ export function Control() {
   const selectedVerses = useStore((s) => s.selectedVerses);
   const live = useStore((s) => s.live);
   const setTranslations = useStore((s) => s.setTranslations);
+  const makePrimary = useStore((s) => s.makePrimary);
   const selectBook = useStore((s) => s.selectBook);
   const selectChapter = useStore((s) => s.selectChapter);
   const setSelectedVerses = useStore((s) => s.setSelectedVerses);
@@ -103,6 +105,7 @@ export function Control() {
   const [scrollTarget, setScrollTarget] = useState<number | null>(null);
   // Active Strong number for the concordance panel shown beside the verse list.
   const [concordanceStrong, setConcordanceStrong] = useState<string | null>(null);
+  const [goToValue, setGoToValue] = useState('');
 
   const jumpTo = (r: Jumpable) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
@@ -110,6 +113,23 @@ export function Control() {
     selectChapter(r.chapter);
     setSelectedVerses([r.verse]);
     setScrollTarget(r.verse);
+  };
+
+  // Quick jump bar: resolve a reference/text query and jump to the first hit.
+  const goTo = async (q: string) => {
+    const query = q.trim();
+    if (!query || primaryId == null) return;
+    try {
+      const res = await api.search(query, [primaryId]);
+      if (res.results.length > 0) {
+        jumpTo(res.results[0]);
+        setGoToValue('');
+      } else {
+        notifications.show({ message: 'Нічого не знайдено', color: 'gray', autoClose: 1200 });
+      }
+    } catch {
+      notifications.show({ message: 'Не вдалося перейти', color: 'red', autoClose: 1500 });
+    }
   };
 
   const openSearch = (scope: SearchScope) => {
@@ -451,6 +471,19 @@ export function Control() {
                   <IconSearch size={18} stroke={1.5} />
                 </ActionIcon>
               </Tooltip>
+              <TextInput
+                size="sm"
+                w={180}
+                visibleFrom="sm"
+                placeholder="Перейти: Ів 3:16"
+                value={goToValue}
+                onChange={(e) => setGoToValue(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void goTo(goToValue);
+                }}
+                leftSection={<IconArrowRight size={14} />}
+                aria-label="Перейти до посилання"
+              />
             </Group>
             <Group gap="xs" wrap="nowrap">
               <Tooltip
@@ -517,6 +550,7 @@ export function Control() {
               translations={translations}
               selectedIds={selectedIds}
               onChange={setTranslations}
+              onMakePrimary={makePrimary}
             />
             <Divider />
             <Box p="xs" pb={4}>
