@@ -55,7 +55,7 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
         display: 'flex',
         alignItems: ALIGN_ITEMS[style.align],
         justifyContent: 'center',
-        padding: '4%',
+        padding: `${style.padY ?? 4}% ${style.padX ?? 4}%`,
         overflow: 'hidden',
         fontFamily: style.font,
       }}

@@ -10,6 +10,9 @@ export interface Appearance {
   bgColor: string;
   bgImage: string | null; // data URL
   showVerseNumbers: boolean;
+  padX: number; // horizontal inset from the screen edges, % of slide width
+  padY: number; // vertical inset from the screen edges, % of slide height
+  padLinked: boolean; // keep padX and padY equal (move together)
 }
 
 export interface RefItem {
@@ -46,6 +49,9 @@ export const DEFAULT_APPEARANCE: Appearance = {
   bgColor: '#000000',
   bgImage: null,
   showVerseNumbers: false,
+  padX: 4,
+  padY: 4,
+  padLinked: true,
 };
 
 export const FONT_OPTIONS = [
@@ -99,6 +105,20 @@ export const useSettings = create<SettingsState>()(
           return { bookmarks: merged.slice(0, 200) };
         }),
     }),
-    { name: 'vo:settings', version: 1 },
+    {
+      name: 'vo:settings',
+      version: 1,
+      // Deep-merge so appearance fields added later (e.g. padding) fall back to
+      // their defaults instead of being dropped for users with stored settings.
+      // (Additive change — no version bump/migrate needed; merge backfills.)
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<SettingsState>;
+        return {
+          ...current,
+          ...p,
+          appearance: { ...current.appearance, ...(p.appearance ?? {}) },
+        };
+      },
+    },
   ),
 );
