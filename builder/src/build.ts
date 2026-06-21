@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 import { stripTags, normalizeForSearch, cleanDefinition, strongNumbers } from '@vo/shared';
 import { SCHEMA_SQL } from './schema.js';
 import { readModule } from './mybible.js';
-import { readDictionary, dictTopicNorm } from './dictionary.js';
+import { readDictionary, dictTopicNorm, strongLang } from './dictionary.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DATA_DIR = path.join(repoRoot, 'data');
@@ -183,8 +183,8 @@ function buildOnce(): void {
        VALUES (@id, @abbr, @name, @language, @type, @isStrong)`,
     );
     const insEntry = db.prepare(
-      `INSERT INTO dictionary_entries (dictionary_id, topic, topic_norm, definition)
-       VALUES (@dictionaryId, @topic, @topicNorm, @definition)`,
+      `INSERT INTO dictionary_entries (dictionary_id, topic, topic_norm, strong_lang, definition)
+       VALUES (@dictionaryId, @topic, @topicNorm, @strongLang, @definition)`,
     );
     let dictId = 0;
     for (const file of dictFiles) {
@@ -211,6 +211,7 @@ function buildOnce(): void {
           dictionaryId: dictId,
           topic: String(e.topic),
           topicNorm: dictTopicNorm(String(e.topic), dict.isStrong),
+          strongLang: dict.isStrong ? strongLang(String(e.topic)) : '',
           definition: cleanDefinition(e.definition ?? ''),
         });
       }

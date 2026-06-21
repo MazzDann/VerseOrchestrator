@@ -130,36 +130,50 @@ export function listDictionaries(): DictionaryInfo[] {
   }));
 }
 
+function columnExists(table: string, column: string): boolean {
+  try {
+    return (getDb().prepare(`PRAGMA table_info(${table})`).all() as any[]).some(
+      (c) => c.name === column,
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Look up a Strong's number in any imported Strong's dictionary. */
 export function lookupStrong(num: string, book?: number): StrongDefinition[] {
   const digits = String(num).match(/\d+/)?.[0];
   if (!digits) return [];
   const norm = String(Number.parseInt(digits, 10));
+  const hasLang = columnExists('dictionary_entries', 'strong_lang');
   const rows = getDb()
     .prepare(
-      `SELECT d.name, d.language, e.topic, e.definition
+      `SELECT d.name, d.language, e.topic, e.definition,
+              ${hasLang ? 'e.strong_lang' : "'' AS strong_lang"}
        FROM dictionary_entries e
        JOIN dictionaries d ON d.id = e.dictionary_id
        WHERE d.is_strong = 1 AND e.topic_norm = ?`,
     )
     .all(norm) as any[];
 
-  // For OT books prefer Hebrew dictionaries; for NT prefer Greek.
-  const isOT = book != null && book < 470;
-  const rank = (lang: string) => {
-    const l = (lang || '').toLowerCase();
+  // OT books (MyBible number < 470) prefer the Hebrew (H) entry; NT prefer Greek (G).
+  const want = book != null && book < 470 ? 'H' : 'G';
+  const rank = (r: any): number => {
+    const tag = (r.strong_lang || '').toUpperCase();
+    if (tag) return tag === want ? 0 : 1;
+    // No per-entry tag (old build): fall back to the dictionary's own language.
+    const l = (r.language || '').toLowerCase();
     const heb = l.startsWith('he') || l.startsWith('iw');
-    const grk = l.startsWith('gr') || l === 'el' || l.startsWith('el');
-    return isOT ? (heb ? 0 : 1) : grk ? 0 : 1;
+    return (want === 'H' ? heb : !heb) ? 0 : 1;
   };
   return rows
+    .sort((a, b) => rank(a) - rank(b))
     .map((r) => ({
       dictionary: r.name,
       language: r.language,
       topic: r.topic,
       definition: r.definition,
-    }))
-    .sort((a, b) => rank(a.language) - rank(b.language));
+    }));
 }
 
 /** Look up a plain word in explanatory (non-Strong) dictionaries. */

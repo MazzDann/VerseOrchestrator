@@ -32,6 +32,7 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 - [x] Dictionary import (`*.dictionary.SQLite3`) into `library.db` — Strong's and explanatory
 - [x] **Strong's dictionary**: clickable Strong numbers on has-Strong modules (parsed from `text_raw`) → definition lookup (aside "Стронг" tab). Verified with a real Strong's dictionary (14k Hebrew+Greek entries); OT→Hebrew, NT→Greek; HTML entities decoded; definitions formatted (lemma/pronunciation on their own line via `cleanDefinition`).
 - [x] **Interlinear study + word lookup**: every word in the "Стронг" tab is clickable → highlights it and shows its Strong entry and any explanatory-dictionary entry (`/api/dict?q=`) below. Makes explanatory dictionaries (e.g. CathEn) usable.
+- [x] **Strong dictionary H/G disambiguation** — the builder now stores `dictionary_entries.strong_lang` ('H'/'G' from the topic prefix, e.g. `H3068`/`G3068`); `lookupStrong` ranks by it against the verse's testament (OT < 470 → Hebrew first, NT → Greek), so an OT #3068 shows יהוה (YHWH) first instead of the Greek λούω. Both entries are still returned, just ordered.
 - [x] **Strong's concordance** ("where else is this word used") — builder writes a `verse_strongs(translation_id, verse_id, strong)` index from `text_raw`; `/api/strong/:num/refs` (`total`/`truncated`) lists occurrences. A Strong entry opens a **concordance panel beside the verse list** (`ConcordancePanel`) with a this-translation / all-Strong-translations scope toggle; clicking a row jumps to that verse (and centres it). `G####`/`H####` cross-refs inside definitions are clickable to follow the chain.
 
 ### Appearance & presenter
@@ -79,7 +80,6 @@ Single place for what's done and what's next. Checklist style; kept in sync as w
 - [ ] **Appearance tab overhaul** — the current "Вигляд" tab can't configure everything; rework it (largely folds into the template engine above).
 - [ ] **Named appearance presets** — save/load slide-style presets (font/colours/background/padding) so different rooms/screens are one click; presets persisted in `settingsStore`.
 - [ ] **Morphology in the Strong tab** — surface the `<m>` grammar codes (currently stripped) next to each word, e.g. on hover or under the active token.
-- [ ] **Strong dictionary H/G disambiguation** — the single combined "Strong" dict has no per-entry language, so `lookupStrong`'s OT→Hebrew/NT→Greek `rank` can't separate H#### from G#### sharing the same digits (e.g. OT verse on #430 shows both Greek *anechomai* G430 and Hebrew *Elohim* H430, Greek possibly first). Tag entries H/G at import (topic prefix / language column) and rank on that.
 - [ ] Visual "wow" pass now that Playwright gives screenshots (spacing, hover/focus states, micro-animations)
 - [ ] Bundle code-splitting (web bundle ~744 KB / 233 KB gzip)
 - [ ] Optional desktop wrap (Tauri/Electron) for true multi-monitor control

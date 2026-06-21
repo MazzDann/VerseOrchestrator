@@ -51,6 +51,16 @@ export function readDictionary(path: string): DictModule | null {
   }
 }
 
+/**
+ * Testament tag of a Strong topic: 'H' (Hebrew/OT) or 'G' (Greek/NT) from a
+ * prefixed topic like "H7225" / "G2424"; '' when there's no prefix. Lets the
+ * server disambiguate H#### from G#### that share the same digits.
+ */
+export function strongLang(topic: string): string {
+  const m = String(topic).trim().match(/^([ghGH])/);
+  return m ? m[1].toUpperCase() : '';
+}
+
 /** Lookup key: Strong topics -> bare digits (no prefix/zeros); words -> lowercased. */
 export function dictTopicNorm(topic: string, isStrong: boolean): string {
   const t = String(topic).trim();
