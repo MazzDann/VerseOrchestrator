@@ -42,8 +42,11 @@ export type PanelPlacement = 'aside' | 'bottom';
 interface SettingsState {
   appearance: Appearance;
   panelPlacement: PanelPlacement;
+  /** When true, the presenter follows the selection live; when false, push manually (F5/F2). */
+  liveFollow: boolean;
   history: RefItem[];
   bookmarks: RefItem[];
+  setLiveFollow: (v: boolean) => void;
   setPanelPlacement: (p: PanelPlacement) => void;
   setAppearance: (patch: Partial<Appearance>) => void;
   resetAppearance: () => void;
@@ -88,8 +91,10 @@ export const useSettings = create<SettingsState>()(
     (set) => ({
       appearance: DEFAULT_APPEARANCE,
       panelPlacement: 'aside',
+      liveFollow: true,
       history: [],
       bookmarks: [],
+      setLiveFollow: (v) => set({ liveFollow: v }),
       setPanelPlacement: (p) => set({ panelPlacement: p }),
       setAppearance: (patch) => set((s) => ({ appearance: { ...s.appearance, ...patch } })),
       resetAppearance: () => set({ appearance: DEFAULT_APPEARANCE }),
