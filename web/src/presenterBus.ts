@@ -13,6 +13,8 @@ export interface SlideLine {
   rtl: boolean;
 }
 
+export type PadUnit = 'px' | '%';
+
 export interface SlideStyle {
   font: string;
   color: string;
@@ -20,8 +22,11 @@ export interface SlideStyle {
   bgColor: string;
   bgImage: string | null;
   showVerseNumbers: boolean;
-  padX: number; // horizontal edge inset, % of slide width
-  padY: number; // vertical edge inset, % of slide height
+  padTop: number; // edge insets (in padUnit)
+  padRight: number;
+  padBottom: number;
+  padLeft: number;
+  padUnit: PadUnit;
 }
 
 export interface Slide {
@@ -30,6 +35,8 @@ export interface Slide {
   blank: boolean;
   visible: boolean;
   style?: SlideStyle;
+  /** Optional secondary line under a divider (e.g. a Strong "word — gloss"). */
+  subline?: string;
 }
 
 export const DEFAULT_STYLE: SlideStyle = {
@@ -39,8 +46,11 @@ export const DEFAULT_STYLE: SlideStyle = {
   bgColor: '#000000',
   bgImage: null,
   showVerseNumbers: false,
-  padX: 4,
-  padY: 4,
+  padTop: 4,
+  padRight: 4,
+  padBottom: 4,
+  padLeft: 4,
+  padUnit: '%',
 };
 
 export const EMPTY_SLIDE: Slide = { lines: [], reference: '', blank: false, visible: false };

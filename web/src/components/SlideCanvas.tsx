@@ -34,7 +34,7 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
   const style = slide.style ?? DEFAULT_STYLE;
   const show = slide.visible && !slide.blank && slide.lines.length > 0;
   const slideKey = show
-    ? `${slide.reference}|${slide.lines.map((l) => l.text).join('¦')}`
+    ? `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`
     : 'blank';
   const { containerRef, contentRef } = useAutoFit([slideKey, style.font, style.align]);
 
@@ -43,6 +43,9 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
     : style.bgColor === '#000000'
       ? 'radial-gradient(ellipse at 50% 42%, #0c0c14 0%, #000 78%)'
       : style.bgColor;
+
+  const u = style.padUnit ?? '%';
+  const padding = `${style.padTop ?? 4}${u} ${style.padRight ?? 4}${u} ${style.padBottom ?? 4}${u} ${style.padLeft ?? 4}${u}`;
 
   return (
     <div
@@ -55,7 +58,7 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
         display: 'flex',
         alignItems: ALIGN_ITEMS[style.align],
         justifyContent: 'center',
-        padding: `${style.padY ?? 4}% ${style.padX ?? 4}%`,
+        padding,
         overflow: 'hidden',
         fontFamily: style.font,
       }}
@@ -99,6 +102,23 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
                 {line.text}
               </p>
             ))}
+            {slide.subline && (
+              <div
+                style={{
+                  marginTop: '0.35em',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.3em',
+                  maxWidth: '100%',
+                }}
+              >
+                <div style={{ width: '34%', borderTop: '1px solid currentColor', opacity: 0.3 }} />
+                <div style={{ fontSize: '0.55em', opacity: 0.92, textAlign: style.align }}>
+                  {slide.subline}
+                </div>
+              </div>
+            )}
             <div
               style={{ marginTop: '0.3em', fontSize: '0.42em', opacity: 0.75, letterSpacing: 1 }}
             >

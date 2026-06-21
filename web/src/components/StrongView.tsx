@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react';
 import { Stack, Text, Paper, Group, Badge, Loader, Button, UnstyledButton } from '@mantine/core';
+import { IconDeviceTv } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Verse } from '../api';
 import { parseStrongTokens } from '../lib/strong';
@@ -16,6 +17,8 @@ interface Props {
   hasStrong: boolean;
   /** Jump to a verse when a concordance occurrence is clicked. */
   onPickRef?: (r: StrongPickRef) => void;
+  /** Project the current verse with this Strong "word — gloss" subline. */
+  onProjectStrong?: (subline: string) => void;
 }
 
 interface ActiveWord {
@@ -150,7 +153,7 @@ function StrongOccurrences({
  * entry can be expanded into a concordance ("where else is this word used"), and
  * G####/H#### cross-references in definitions are clickable.
  */
-export function StrongView({ verses, hasStrong, onPickRef }: Props) {
+export function StrongView({ verses, hasStrong, onPickRef, onProjectStrong }: Props) {
   const [active, setActive] = useState<ActiveWord | null>(null);
   const book = verses[0]?.bookNumber;
   const translationId = verses[0]?.translationId;
@@ -184,6 +187,16 @@ export function StrongView({ verses, hasStrong, onPickRef }: Props) {
   const strongDefs = strongQuery.data ?? [];
   const wordDefs = wordQuery.data ?? [];
   const loading = strongQuery.isFetching || wordQuery.isFetching;
+
+  // "word · Стронг N — first line of the gloss", used as the projection subline.
+  const firstGlossLine = strongDefs[0]?.definition
+    ?.split('\n')
+    .map((s) => s.trim())
+    .find(Boolean);
+  const projectSubline =
+    active?.strong != null
+      ? `${active.text} · Стронг ${active.strong}${firstGlossLine ? ` — ${firstGlossLine}` : ''}`
+      : null;
 
   return (
     <Stack p="md" gap="sm">
@@ -237,6 +250,20 @@ export function StrongView({ verses, hasStrong, onPickRef }: Props) {
             </Text>
             {loading && <Loader size="xs" />}
           </Group>
+
+          {active.strong && onProjectStrong && projectSubline && (
+            <Button
+              size="xs"
+              variant="light"
+              color="green"
+              fullWidth
+              mb={6}
+              leftSection={<IconDeviceTv size={14} />}
+              onClick={() => onProjectStrong(projectSubline)}
+            >
+              На екран зі Стронгом
+            </Button>
+          )}
 
           {strongDefs.map((d, i) => (
             <div key={`s${i}`} style={{ marginTop: 6 }}>
