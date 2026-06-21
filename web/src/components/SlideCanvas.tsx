@@ -118,7 +118,24 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
                     {line.translationAbbr}
                   </span>
                 )}
-                {line.text}
+                {line.segments
+                  ? line.segments.map((s, j) => (
+                      <span
+                        key={j}
+                        style={{
+                          color: s.hot
+                            ? (style.highlightColor ?? '#ffd43b')
+                            : s.jesus && style.redLetter
+                              ? (style.jesusColor ?? '#ff6b6b')
+                              : undefined,
+                          fontWeight: s.hot ? 700 : undefined,
+                        }}
+                      >
+                        {s.text}
+                        {j < line.segments!.length - 1 ? ' ' : ''}
+                      </span>
+                    ))
+                  : line.text}
               </p>
             ))}
             {slide.subline && (

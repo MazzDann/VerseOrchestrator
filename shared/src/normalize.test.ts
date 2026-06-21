@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { stripTags, normalizeForSearch, searchTokens, strongNumbers } from './normalize.js';
+import {
+  stripTags,
+  normalizeForSearch,
+  searchTokens,
+  strongNumbers,
+  parseRedLetter,
+} from './normalize.js';
 import { parseReference } from './reference.js';
 
 describe('stripTags', () => {
@@ -56,6 +62,29 @@ describe('strongNumbers', () => {
   it('returns an empty array when there is no Strong markup', () => {
     expect(strongNumbers('На початку Бог створив')).toEqual([]);
     expect(strongNumbers('')).toEqual([]);
+  });
+});
+
+describe('parseRedLetter', () => {
+  it('returns a single plain segment when there are no red-letter tags', () => {
+    expect(parseRedLetter('In the beginning<S>7225</S> God')).toEqual([
+      { text: 'In the beginning God' },
+    ]);
+  });
+
+  it('marks the words of Jesus and strips other markup', () => {
+    const input = 'Но Иса ответил: <t><J>Написано<S>1125</S>: не хлебом одним</J></t> сказал';
+    expect(parseRedLetter(input)).toEqual([
+      { text: 'Но Иса ответил:' },
+      { text: 'Написано: не хлебом одним', jesus: true },
+      { text: 'сказал' },
+    ]);
+  });
+
+  it('handles a verse that is entirely red-letter', () => {
+    expect(parseRedLetter('<J>Let there be light</J>')).toEqual([
+      { text: 'Let there be light', jesus: true },
+    ]);
   });
 });
 

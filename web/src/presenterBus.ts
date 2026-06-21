@@ -7,10 +7,18 @@
  * wrapper later, swap the implementation here without touching the UI.
  */
 
+export interface TextSpan {
+  text: string;
+  jesus?: boolean; // words of Jesus (red-letter)
+  hot?: boolean; // emphasised word (e.g. the Strong word being projected)
+}
+
 export interface SlideLine {
   translationAbbr: string;
   text: string;
   rtl: boolean;
+  /** Rich rendering (red-letter / highlighted word); falls back to `text` if absent. */
+  segments?: TextSpan[];
 }
 
 export type PadUnit = 'px' | '%';
@@ -27,6 +35,9 @@ export interface SlideStyle {
   padBottom: number;
   padLeft: number;
   padUnit: PadUnit;
+  redLetter: boolean; // colour the words of Jesus
+  jesusColor: string;
+  highlightColor: string; // emphasised (hot) word colour
 }
 
 export interface Slide {
@@ -51,6 +62,9 @@ export const DEFAULT_STYLE: SlideStyle = {
   padBottom: 4,
   padLeft: 4,
   padUnit: '%',
+  redLetter: true,
+  jesusColor: '#ff6b6b',
+  highlightColor: '#ffd43b',
 };
 
 export const EMPTY_SLIDE: Slide = { lines: [], reference: '', blank: false, visible: false };

@@ -43,7 +43,7 @@ interface Props {
   scriptureFont: string;
   previewSlide: Slide;
   selectedPrimaryVerses: Verse[];
-  onProjectStrong?: (subline: string) => void;
+  onProjectStrong?: (subline: string, strong: string) => void;
   onShowConcordance?: (strong: string) => void;
   onSend: () => void;
   onBlank: () => void;

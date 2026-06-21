@@ -218,6 +218,27 @@ export function SettingsPanel() {
           ]}
         />
       </div>
+      <Switch
+        label="Слова Ісуса червоним"
+        checked={a.redLetter}
+        onChange={(e) => set({ redLetter: e.currentTarget.checked })}
+      />
+      {a.redLetter && (
+        <ColorInput
+          label="Колір слів Ісуса"
+          value={a.jesusColor}
+          onChange={(v) => set({ jesusColor: v })}
+          format="hex"
+          swatches={['#ff6b6b', '#e03131', '#fa5252', '#ffa94d']}
+        />
+      )}
+      <ColorInput
+        label="Колір виділеного слова (Стронг)"
+        value={a.highlightColor}
+        onChange={(v) => set({ highlightColor: v })}
+        format="hex"
+        swatches={['#ffd43b', '#ffe066', '#a9e34b', '#74c0fc']}
+      />
       <Button variant="default" leftSection={<IconRefresh size={16} />} onClick={reset}>
         Скинути вигляд
       </Button>

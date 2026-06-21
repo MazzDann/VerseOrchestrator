@@ -120,6 +120,40 @@ export function searchTokens(query: string): string[] {
   return normalized.split(' ').filter(Boolean);
 }
 
+export interface TextSegment {
+  text: string;
+  /** Inside `<J>…</J>` — the words of Jesus (red-letter). */
+  jesus?: boolean;
+}
+
+/**
+ * Split a verse's raw MyBible markup into display segments, marking the words of
+ * Jesus (`<J>…</J>`, "red-letter") while stripping all other markup. Adjacent
+ * segments are word-groups, so the renderer joins them with a single space.
+ */
+export function parseRedLetter(raw: string): TextSegment[] {
+  if (!raw) return [];
+  if (!/<J>/i.test(raw)) {
+    const t = stripTags(raw);
+    return t ? [{ text: t }] : [];
+  }
+  const out: TextSegment[] = [];
+  const push = (chunk: string, jesus: boolean) => {
+    const t = stripTags(chunk);
+    if (t) out.push(jesus ? { text: t, jesus: true } : { text: t });
+  };
+  const re = /<J>([\s\S]*?)<\/J>/gi;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    if (m.index > last) push(raw.slice(last, m.index), false);
+    push(m[1], true);
+    last = re.lastIndex;
+  }
+  if (last < raw.length) push(raw.slice(last), false);
+  return out;
+}
+
 /**
  * Extract the unique Strong's numbers embedded in a verse's raw MyBible markup
  * (`<S>7225</S>`), in first-seen order. Feeds the concordance index so we can

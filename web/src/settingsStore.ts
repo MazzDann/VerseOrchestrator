@@ -22,6 +22,9 @@ export interface Appearance {
   padUnit: PadUnit;
   padLink: PadLink;
   strongSubline: StrongSubline; // lemma only vs full definition in the projected subline
+  redLetter: boolean; // colour the words of Jesus (<J>)
+  jesusColor: string;
+  highlightColor: string; // emphasised (hot) word colour, e.g. the projected Strong word
 }
 
 export interface RefItem {
@@ -65,6 +68,9 @@ export const DEFAULT_APPEARANCE: Appearance = {
   padUnit: '%',
   padLink: 'all',
   strongSubline: 'lemma',
+  redLetter: true,
+  jesusColor: '#ff6b6b',
+  highlightColor: '#ffd43b',
 };
 
 export const FONT_OPTIONS = [
