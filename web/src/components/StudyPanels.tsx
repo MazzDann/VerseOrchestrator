@@ -21,14 +21,15 @@ import {
   IconPinnedOff,
 } from '@tabler/icons-react';
 
-import { type Verse } from '../api';
+import { type Verse, type Book } from '../api';
 import { type RefItem } from '../settingsStore';
 import { type Slide, type SlideLine } from '../presenterBus';
 import { SlidePreview } from './SlideCanvas';
 import { SettingsPanel } from './SettingsPanel';
-import { StrongView } from './StrongView';
+import { StrongView, type StrongPickRef } from './StrongView';
+import { StudyContext } from './StudyContext';
 
-export type AsideMode = 'preview' | 'settings' | 'strong';
+export type AsideMode = 'preview' | 'settings' | 'strong' | 'study';
 
 interface Props {
   mode: AsideMode;
@@ -43,8 +44,10 @@ interface Props {
   scriptureFont: string;
   previewSlide: Slide;
   selectedPrimaryVerses: Verse[];
+  books: Book[];
   onProjectStrong?: (subline: string, strong: string) => void;
   onShowConcordance?: (strong: string) => void;
+  onPickRef?: (r: StrongPickRef) => void;
   onSend: () => void;
   onBlank: () => void;
   pinned: boolean;
@@ -67,8 +70,10 @@ export function StudyPanels({
   scriptureFont,
   previewSlide,
   selectedPrimaryVerses,
+  books,
   onProjectStrong,
   onShowConcordance,
+  onPickRef,
   onSend,
   onBlank,
   pinned,
@@ -108,6 +113,7 @@ export function StudyPanels({
           data={[
             { value: 'preview', label: 'Прев’ю' },
             ...(primaryHasStrong ? [{ value: 'strong', label: 'Стронг' }] : []),
+            { value: 'study', label: 'Контекст' },
             { value: 'settings', label: 'Вигляд' },
           ]}
         />
@@ -194,6 +200,17 @@ export function StudyPanels({
               onProjectStrong={onProjectStrong}
               onShowConcordance={onShowConcordance}
             />
+          </ScrollArea>
+        )}
+        {mode === 'study' && (
+          <ScrollArea style={{ flex: 1 }}>
+            <Group gap={6} px="md" pt="sm">
+              <IconBook size={16} />
+              <Text fw={600} size="sm">
+                Контекст вірша
+              </Text>
+            </Group>
+            <StudyContext verses={selectedPrimaryVerses} books={books} onPickRef={onPickRef} />
           </ScrollArea>
         )}
         {mode === 'settings' && (

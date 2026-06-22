@@ -431,8 +431,10 @@ export function Control() {
       scriptureFont={appearance.scriptureFont}
       previewSlide={previewSlide}
       selectedPrimaryVerses={selectedPrimaryVerses}
+      books={books}
       onProjectStrong={projectStrong}
       onShowConcordance={setConcordanceStrong}
+      onPickRef={jumpTo}
       onSend={sendAndNotify}
       onBlank={blankScreen}
       pinned={pinnedPreview}
