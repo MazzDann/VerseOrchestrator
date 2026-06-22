@@ -66,6 +66,17 @@ const StrongRefsSchema = z.object({
 });
 export type StrongRefs = z.infer<typeof StrongRefsSchema>;
 
+const CrossRefSchema = z.object({
+  bookNumber: z.number(),
+  chapter: z.number(),
+  verseStart: z.number(),
+  verseEnd: z.number(),
+});
+export type CrossRef = z.infer<typeof CrossRefSchema>;
+
+const CommentarySchema = z.object({ source: str(), marker: str(), text: str() });
+export type CommentaryNote = z.infer<typeof CommentarySchema>;
+
 async function getJson<S extends z.ZodTypeAny>(url: string, schema: S): Promise<z.infer<S>> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -107,4 +118,8 @@ export const api = {
   },
   dict: (word: string) =>
     getJson(`/api/dict?q=${encodeURIComponent(word)}`, z.array(StrongDefSchema)),
+  crossrefs: (book: number, chapter: number, verse: number) =>
+    getJson(`/api/crossrefs?book=${book}&chapter=${chapter}&verse=${verse}`, z.array(CrossRefSchema)),
+  commentary: (book: number, chapter: number, verse: number) =>
+    getJson(`/api/commentary?book=${book}&chapter=${chapter}&verse=${verse}`, z.array(CommentarySchema)),
 };

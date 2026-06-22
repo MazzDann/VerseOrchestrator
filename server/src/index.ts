@@ -10,6 +10,8 @@ import {
   lookupStrong,
   lookupWord,
   strongRefs,
+  getCrossrefs,
+  getCommentary,
   listDictionaries,
 } from './db.js';
 
@@ -107,6 +109,32 @@ app.get(
     const q = String(req.query.q ?? '').trim();
     res.json(q ? lookupWord(q) : []);
   }),
+);
+
+app.get(
+  '/api/crossrefs',
+  wrap((req, res) =>
+    res.json(
+      getCrossrefs(
+        asInt(req.query.book, 'book'),
+        asInt(req.query.chapter, 'chapter'),
+        asInt(req.query.verse, 'verse'),
+      ),
+    ),
+  ),
+);
+
+app.get(
+  '/api/commentary',
+  wrap((req, res) =>
+    res.json(
+      getCommentary(
+        asInt(req.query.book, 'book'),
+        asInt(req.query.chapter, 'chapter'),
+        asInt(req.query.verse, 'verse'),
+      ),
+    ),
+  ),
 );
 
 app.get(

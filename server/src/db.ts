@@ -254,6 +254,53 @@ export function strongRefs(
   return { strong, total, truncated: total > rows.length, results: rows.map(rowToResult) };
 }
 
+export interface CrossRefTarget {
+  bookNumber: number;
+  chapter: number;
+  verseStart: number;
+  verseEnd: number;
+}
+
+/** Cross-references (related passages) for a verse — book/chapter/verse keyed. */
+export function getCrossrefs(book: number, chapter: number, verse: number): CrossRefTarget[] {
+  if (!tableExists('cross_references')) return [];
+  const rows = getDb()
+    .prepare(
+      `SELECT book_to, chapter_to, verse_to_start, verse_to_end
+       FROM cross_references
+       WHERE book = ? AND chapter = ? AND verse = ?
+       ORDER BY book_to, chapter_to, verse_to_start`,
+    )
+    .all(book, chapter, verse) as any[];
+  return rows.map((r) => ({
+    bookNumber: r.book_to,
+    chapter: r.chapter_to,
+    verseStart: r.verse_to_start,
+    verseEnd: r.verse_to_end || r.verse_to_start,
+  }));
+}
+
+export interface CommentaryNote {
+  source: string;
+  marker: string;
+  text: string;
+}
+
+/** Commentary notes whose verse range covers (book, chapter, verse). */
+export function getCommentary(book: number, chapter: number, verse: number): CommentaryNote[] {
+  if (!tableExists('commentaries')) return [];
+  const rows = getDb()
+    .prepare(
+      `SELECT source, marker, text FROM commentaries
+       WHERE book = ?
+         AND (chapter_from < ? OR (chapter_from = ? AND verse_from <= ?))
+         AND (chapter_to   > ? OR (chapter_to   = ? AND verse_to   >= ?))
+       ORDER BY source, chapter_from, verse_from`,
+    )
+    .all(book, chapter, chapter, verse, chapter, chapter, verse) as any[];
+  return rows.map((r) => ({ source: r.source, marker: r.marker ?? '', text: r.text ?? '' }));
+}
+
 export interface SearchResponse {
   kind: 'reference' | 'text' | 'empty';
   results: SearchResult[];

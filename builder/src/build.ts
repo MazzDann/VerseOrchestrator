@@ -6,6 +6,7 @@ import { stripTags, normalizeForSearch, cleanDefinition, strongNumbers } from '@
 import { SCHEMA_SQL } from './schema.js';
 import { readModule } from './mybible.js';
 import { readDictionary, dictTopicNorm, strongLang } from './dictionary.js';
+import { readCrossrefs, readCommentaries } from './extras.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DATA_DIR = path.join(repoRoot, 'data');
@@ -41,6 +42,14 @@ function listDictionaryFiles(dir: string): string[] {
     .map((f) => path.join(dir, f));
 }
 
+function listByExt(dir: string, re: RegExp): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => re.test(f))
+    .map((f) => path.join(dir, f));
+}
+
 function fileHash(file: string): string {
   const s = fs.statSync(file);
   return `${s.size}:${Math.round(s.mtimeMs)}`;
@@ -63,9 +72,12 @@ function buildOnce(): void {
   const modulesDir = resolveModulesDir();
   const files = listModuleFiles(modulesDir);
   const dictFiles = listDictionaryFiles(modulesDir);
+  const xrefFiles = listByExt(modulesDir, /\.crossreferences\.SQLite3$/i);
+  const commentaryFiles = listByExt(modulesDir, /\.commentaries\.SQLite3$/i);
   console.log(`[builder] modules dir: ${modulesDir}`);
   console.log(
-    `[builder] candidate files: ${files.length} modules, ${dictFiles.length} dictionaries`,
+    `[builder] candidate files: ${files.length} modules, ${dictFiles.length} dictionaries, ` +
+      `${xrefFiles.length} crossrefs, ${commentaryFiles.length} commentaries`,
   );
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -218,6 +230,49 @@ function buildOnce(): void {
       console.log(
         `[builder]   dict ${dictName} (${dict.isStrong ? 'strong' : 'explanatory'}) — ${dict.entries.length} entries`,
       );
+    }
+
+    // Cross-references — merge every crossref module into one table.
+    const insXref = db.prepare(
+      `INSERT INTO cross_references (book, chapter, verse, book_to, chapter_to, verse_to_start, verse_to_end)
+       VALUES (@book, @chapter, @verse, @bookTo, @chapterTo, @verseToStart, @verseToEnd)`,
+    );
+    for (const file of xrefFiles) {
+      const name = path.basename(file);
+      try {
+        const xrefs = readCrossrefs(file);
+        for (const x of xrefs) insXref.run(x);
+        console.log(`[builder]   xref ${name} — ${xrefs.length} refs`);
+      } catch (err) {
+        console.warn(`[builder]   skip xref ${name}: ${(err as Error).message}`);
+      }
+    }
+
+    // Commentaries — one `source` per module; clean the HTML to plain text at import.
+    const insComment = db.prepare(
+      `INSERT INTO commentaries (source, book, chapter_from, verse_from, chapter_to, verse_to, marker, text)
+       VALUES (@source, @book, @chapterFrom, @verseFrom, @chapterTo, @verseTo, @marker, @text)`,
+    );
+    for (const file of commentaryFiles) {
+      const source = path.basename(file).replace(/\.commentaries\.SQLite3$/i, '');
+      try {
+        const entries = readCommentaries(file);
+        for (const c of entries) {
+          insComment.run({
+            source,
+            book: c.book,
+            chapterFrom: c.chapterFrom,
+            verseFrom: c.verseFrom,
+            chapterTo: c.chapterTo,
+            verseTo: c.verseTo,
+            marker: c.marker,
+            text: cleanDefinition(c.text),
+          });
+        }
+        console.log(`[builder]   commentary ${source} — ${entries.length} notes`);
+      } catch (err) {
+        console.warn(`[builder]   skip commentary ${source}: ${(err as Error).message}`);
+      }
     }
   });
 

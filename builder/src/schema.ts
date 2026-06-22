@@ -83,4 +83,32 @@ CREATE TABLE dictionary_entries (
   definition    TEXT
 );
 CREATE INDEX idx_dict_topic ON dictionary_entries (topic_norm, dictionary_id);
+
+DROP TABLE IF EXISTS cross_references;
+DROP TABLE IF EXISTS commentaries;
+
+-- Cross-references (a verse → related passages), book/chapter/verse keyed (MyBible numbering).
+CREATE TABLE cross_references (
+  book           INTEGER NOT NULL,
+  chapter        INTEGER NOT NULL,
+  verse          INTEGER NOT NULL,
+  book_to        INTEGER NOT NULL,
+  chapter_to     INTEGER NOT NULL,
+  verse_to_start INTEGER NOT NULL,
+  verse_to_end   INTEGER NOT NULL
+);
+CREATE INDEX idx_xref ON cross_references (book, chapter, verse);
+
+-- Verse commentaries, one row per note; source is the module label.
+CREATE TABLE commentaries (
+  source       TEXT NOT NULL,
+  book         INTEGER NOT NULL,
+  chapter_from INTEGER NOT NULL,
+  verse_from   INTEGER NOT NULL,
+  chapter_to   INTEGER NOT NULL,
+  verse_to     INTEGER NOT NULL,
+  marker       TEXT,
+  text         TEXT
+);
+CREATE INDEX idx_commentary ON commentaries (book, chapter_from, verse_from);
 `;
