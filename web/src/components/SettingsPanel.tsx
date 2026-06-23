@@ -229,6 +229,14 @@ export function SettingsPanel() {
         checked={a.showVerseNumbers}
         onChange={(e) => set({ showVerseNumbers: e.currentTarget.checked })}
       />
+      <NumberInput
+        label="Віршів на слайд"
+        description="0 = увесь уривок на одному слайді; більше — розбивка на сторінки (← → / PageUp–PageDown)"
+        min={0}
+        max={20}
+        value={a.versesPerSlide}
+        onChange={(v) => set({ versesPerSlide: Math.max(0, Math.trunc(Number(v) || 0)) })}
+      />
       <div>
         <Text size="sm" fw={500} mb={4}>
           Текст Стронга на показі

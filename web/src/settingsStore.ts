@@ -26,6 +26,8 @@ export interface Appearance {
   redLetter: boolean; // colour the words of Jesus (<J>)
   jesusColor: string;
   highlightColor: string; // emphasised (hot) word colour, e.g. the projected Strong word
+  /** Split a long selection into pages of this many verses (0 = all on one slide). */
+  versesPerSlide: number;
 }
 
 export interface RefItem {
@@ -88,6 +90,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   redLetter: true,
   jesusColor: '#ff6b6b',
   highlightColor: '#ffd43b',
+  versesPerSlide: 0,
 };
 
 export const FONT_OPTIONS = [

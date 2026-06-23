@@ -40,6 +40,8 @@ import {
   IconMusic,
   IconLetterT,
   IconSquareFilled,
+  IconChevronLeft,
+  IconChevronRight,
 } from '@tabler/icons-react';
 
 import { api, type Book, type Verse, type SongStyle } from '../api';
@@ -115,6 +117,8 @@ export function Control() {
   const [goToValue, setGoToValue] = useState('');
   const [songsOpen, setSongsOpen] = useState(false);
   const [textOpen, setTextOpen] = useState(false);
+  // Active page when a long passage is split across multiple slides.
+  const [pageIndex, setPageIndex] = useState(0);
 
   const jumpTo = (r: Jumpable) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
@@ -202,24 +206,53 @@ export function Control() {
     [primaryVerses, selectedVerses],
   );
 
+  // --- Long-passage pagination -------------------------------------------------
+  // Split the selection into pages of `versesPerSlide` verses; the projected slide
+  // shows one page and PageDown/arrows step pages. 0 (or a selection that fits) →
+  // a single page = the whole selection (current behaviour, zero regression).
+  const versesPerSlide = appearance.versesPerSlide ?? 0;
+  const pages = useMemo<number[][]>(() => {
+    if (selectedVerses.length === 0) return [];
+    if (!versesPerSlide || versesPerSlide < 1 || selectedVerses.length <= versesPerSlide) {
+      return [selectedVerses];
+    }
+    const out: number[][] = [];
+    for (let i = 0; i < selectedVerses.length; i += versesPerSlide) {
+      out.push(selectedVerses.slice(i, i + versesPerSlide));
+    }
+    return out;
+  }, [selectedVerses, versesPerSlide]);
+  const pageCount = pages.length;
+  const safePageIndex = Math.min(pageIndex, Math.max(0, pageCount - 1));
+  const pageVerses = pages[safePageIndex] ?? selectedVerses;
+  const pageReference = useMemo(
+    () => formatReference(currentBook, chapter, pageVerses),
+    [currentBook, chapter, pageVerses],
+  );
+
+  // Back to the first page whenever the selection or the page size changes.
+  useEffect(() => {
+    setPageIndex(0);
+  }, [selectedVerses, versesPerSlide]);
+
   // Hide the Strong tab (and leave it) when the primary translation has no Strong numbers.
   useEffect(() => {
     if (asideMode === 'strong' && !primaryHasStrong) setAsideMode('preview');
   }, [asideMode, primaryHasStrong]);
 
   const slideLines = useMemo<SlideLine[]>(() => {
-    if (selectedVerses.length === 0) return [];
+    if (pageVerses.length === 0) return [];
     return selectedIds
       .map((id) => {
         const t = translations.find((x) => x.id === id);
         const verses = versesByTranslation.get(id) ?? [];
-        const text = joinVerses(verses, selectedVerses, appearance.showVerseNumbers);
+        const text = joinVerses(verses, pageVerses, appearance.showVerseNumbers);
         if (!text.trim()) return null;
-        const segments = redLetterSegments(verses, selectedVerses, appearance.showVerseNumbers);
+        const segments = redLetterSegments(verses, pageVerses, appearance.showVerseNumbers);
         return { translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments } as SlideLine;
       })
       .filter((x): x is SlideLine => x !== null);
-  }, [selectedIds, selectedVerses, versesByTranslation, translations, appearance.showVerseNumbers]);
+  }, [selectedIds, pageVerses, versesByTranslation, translations, appearance.showVerseNumbers]);
 
   const slideStyle: SlideStyle = useMemo(
     () => ({
@@ -241,10 +274,10 @@ export function Control() {
     [appearance],
   );
 
-  // WYSIWYG of the current selection — what would be projected.
+  // WYSIWYG of the current page — what would be projected.
   const previewSlide: Slide = {
     lines: slideLines,
-    reference,
+    reference: pageReference,
     blank: false,
     visible: slideLines.length > 0,
     style: slideStyle,
@@ -254,7 +287,7 @@ export function Control() {
   const send = (overrides?: Partial<Slide>) => {
     const slide: Slide = {
       lines: slideLines,
-      reference,
+      reference: pageReference,
       blank: false,
       visible: slideLines.length > 0,
       style: slideStyle,
@@ -267,19 +300,22 @@ export function Control() {
 
   // Project the Strong-bearing (primary) translation only, with a "word — gloss"
   // subline. Used contextually from the Strong tab; normal navigation reverts it.
+  // Scoped to the current page (like `send`/preview) so it stays WYSIWYG when a long
+  // passage is split across slides.
   const projectStrong = (subline: string, strong: string) => {
     const t = translations.find((x) => x.id === primaryId);
-    const text = joinVerses(selectedPrimaryVerses, selectedVerses, appearance.showVerseNumbers);
+    const pageStrongVerses = selectedPrimaryVerses.filter((v) => pageVerses.includes(v.verse));
+    const text = joinVerses(pageStrongVerses, pageVerses, appearance.showVerseNumbers);
     if (!text.trim()) return;
     const segments = strongHighlightSegments(
-      selectedPrimaryVerses,
-      selectedVerses,
+      pageStrongVerses,
+      pageVerses,
       appearance.showVerseNumbers,
       strong,
     );
     publishSlide({
       lines: [{ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments }],
-      reference,
+      reference: pageReference,
       blank: false,
       visible: true,
       style: slideStyle,
@@ -288,7 +324,7 @@ export function Control() {
     });
     setLive(true);
     notifications.show({
-      message: `На екрані зі Стронгом: ${reference}`,
+      message: `На екрані зі Стронгом: ${pageReference}`,
       color: 'green',
       autoClose: 1500,
     });
@@ -406,12 +442,23 @@ export function Control() {
     if (next != null) setSelectedVerses([next]);
   };
 
-  useHotkeys('right,down', () => stepVerse(1), [primaryVerses, selectedVerses]);
-  useHotkeys('left,up', () => stepVerse(-1), [primaryVerses, selectedVerses]);
-  // Wireless presenter / clicker: USB remotes emit PageDown/PageUp — step the verse
-  // (with live-follow on, the screen advances; off, it advances the preview).
-  useHotkeys('pagedown', () => stepVerse(1), [primaryVerses, selectedVerses]);
-  useHotkeys('pageup', () => stepVerse(-1), [primaryVerses, selectedVerses]);
+  // "Next/previous": with a long passage split across pages, step pages; otherwise
+  // step the single verse. Drives arrows, the PageDown/PageUp clicker keys, and the
+  // preview's page arrows — so the same gesture always means "advance the screen".
+  const advance = (delta: number) => {
+    if (pageCount > 1) {
+      setPageIndex((i) => Math.min(pageCount - 1, Math.max(0, Math.min(i, pageCount - 1) + delta)));
+    } else {
+      stepVerse(delta);
+    }
+  };
+
+  useHotkeys('right,down', () => advance(1), [pageCount, pageIndex, primaryVerses, selectedVerses]);
+  useHotkeys('left,up', () => advance(-1), [pageCount, pageIndex, primaryVerses, selectedVerses]);
+  // Wireless presenter / clicker: USB remotes emit PageDown/PageUp — advance the
+  // page-or-verse (with live-follow on, the screen advances; off, the preview does).
+  useHotkeys('pagedown', () => advance(1), [pageCount, pageIndex, primaryVerses, selectedVerses]);
+  useHotkeys('pageup', () => advance(-1), [pageCount, pageIndex, primaryVerses, selectedVerses]);
   useHotkeys('b', () => (live ? send({ blank: true }) : undefined), [live, slideLines, reference]);
   useHotkeys(
     'escape',
@@ -428,7 +475,11 @@ export function Control() {
   const sendAndNotify = () => {
     send();
     if (slideLines.length > 0) {
-      notifications.show({ message: `На екрані: ${reference}`, color: 'green', autoClose: 1500 });
+      notifications.show({
+        message: `На екрані: ${pageReference}`,
+        color: 'green',
+        autoClose: 1500,
+      });
     }
   };
 
@@ -797,7 +848,36 @@ export function Control() {
                   ? `${currentBook.longName} ${chapter ?? ''}`
                   : 'Оберіть книгу та розділ'}
               </Text>
-              {selectedVerses.length > 0 && <Badge variant="light">{reference}</Badge>}
+              <Group gap={6} wrap="nowrap">
+                {pageCount > 1 && (
+                  <Group gap={2} wrap="nowrap">
+                    <ActionIcon
+                      variant="default"
+                      size="sm"
+                      disabled={safePageIndex === 0}
+                      onClick={() => advance(-1)}
+                      aria-label="Попередня сторінка"
+                    >
+                      <IconChevronLeft size={14} />
+                    </ActionIcon>
+                    <Tooltip label="Сторінка довгого уривка (← → або PageUp/PageDown)">
+                      <Badge variant="filled" color="brand">
+                        {safePageIndex + 1}/{pageCount}
+                      </Badge>
+                    </Tooltip>
+                    <ActionIcon
+                      variant="default"
+                      size="sm"
+                      disabled={safePageIndex === pageCount - 1}
+                      onClick={() => advance(1)}
+                      aria-label="Наступна сторінка"
+                    >
+                      <IconChevronRight size={14} />
+                    </ActionIcon>
+                  </Group>
+                )}
+                {selectedVerses.length > 0 && <Badge variant="light">{reference}</Badge>}
+              </Group>
             </Group>
             {chapters.length > 0 && (
               <ScrollArea.Autosize mah={88} px="md" pb="xs">
