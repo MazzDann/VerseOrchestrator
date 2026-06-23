@@ -38,6 +38,8 @@ import {
   IconUpload,
   IconArrowRight,
   IconMusic,
+  IconLetterT,
+  IconSquareFilled,
 } from '@tabler/icons-react';
 
 import { api, type Book, type Verse, type SongStyle } from '../api';
@@ -61,6 +63,7 @@ import { VirtualList } from '../components/VirtualList';
 import { TranslationPicker } from '../components/TranslationPicker';
 import { ConcordancePanel } from '../components/ConcordancePanel';
 import { SongsPanel } from '../components/SongsPanel';
+import { TextPanel } from '../components/TextPanel';
 
 const EMPTY_ARRAY: never[] = [];
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
@@ -94,6 +97,7 @@ export function Control() {
   const liveFollow = useSettings((s) => s.liveFollow);
   const setLiveFollow = useSettings((s) => s.setLiveFollow);
   const slideTemplate = useSettings((s) => s.slideTemplate);
+  const pushRecentText = useSettings((s) => s.pushRecentText);
 
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
@@ -110,6 +114,7 @@ export function Control() {
   const [concordanceStrong, setConcordanceStrong] = useState<string | null>(null);
   const [goToValue, setGoToValue] = useState('');
   const [songsOpen, setSongsOpen] = useState(false);
+  const [textOpen, setTextOpen] = useState(false);
 
   const jumpTo = (r: Jumpable) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
@@ -282,7 +287,11 @@ export function Control() {
       subline,
     });
     setLive(true);
-    notifications.show({ message: `На екрані зі Стронгом: ${reference}`, color: 'green', autoClose: 1500 });
+    notifications.show({
+      message: `На екрані зі Стронгом: ${reference}`,
+      color: 'green',
+      autoClose: 1500,
+    });
   };
 
   // Project a text slide (song stanza). With `faithful`, reproduce the pptx look
@@ -329,6 +338,16 @@ export function Control() {
     setLive(true);
     if (reference) {
       notifications.show({ message: `На екрані: ${reference}`, color: 'green', autoClose: 1500 });
+    }
+  };
+
+  // Project a free-text slide (announcement / prayer / welcome) and keep it in recents.
+  const projectAnnouncement = (title: string, body: string) => {
+    if (!body.trim()) return;
+    projectText(body, title.trim());
+    pushRecentText({ title, body });
+    if (!title.trim()) {
+      notifications.show({ message: 'Текст на екрані', color: 'green', autoClose: 1500 });
     }
   };
 
@@ -389,6 +408,10 @@ export function Control() {
 
   useHotkeys('right,down', () => stepVerse(1), [primaryVerses, selectedVerses]);
   useHotkeys('left,up', () => stepVerse(-1), [primaryVerses, selectedVerses]);
+  // Wireless presenter / clicker: USB remotes emit PageDown/PageUp — step the verse
+  // (with live-follow on, the screen advances; off, it advances the preview).
+  useHotkeys('pagedown', () => stepVerse(1), [primaryVerses, selectedVerses]);
+  useHotkeys('pageup', () => stepVerse(-1), [primaryVerses, selectedVerses]);
   useHotkeys('b', () => (live ? send({ blank: true }) : undefined), [live, slideLines, reference]);
   useHotkeys(
     'escape',
@@ -422,6 +445,22 @@ export function Control() {
     setLive(false);
     notifications.show({ message: 'Екран затемнено', color: 'gray', autoClose: 1500 });
   };
+
+  // Pure-black screen, ignoring the background — distinct from "Затемнити" (blank),
+  // which keeps the background image/colour and only hides the text. Bound to ".".
+  const blackScreen = () => {
+    publishSlide({
+      lines: [],
+      reference: '',
+      blank: false,
+      visible: true,
+      forceBlack: true,
+      style: slideStyle,
+    });
+    setLive(false);
+    notifications.show({ message: 'Чорний екран', color: 'dark', autoClose: 1200 });
+  };
+  useHotkeys('period', () => blackScreen(), [slideStyle]);
 
   const openPresenter = async () => {
     const win = await openPresenterWindow();
@@ -535,6 +574,17 @@ export function Control() {
                   <IconMusic size={18} stroke={1.5} />
                 </ActionIcon>
               </Tooltip>
+              <Tooltip label="Текст на екран">
+                <ActionIcon
+                  variant={textOpen ? 'filled' : 'default'}
+                  color="brand"
+                  size="lg"
+                  onClick={() => setTextOpen((o) => !o)}
+                  aria-label="Текст"
+                >
+                  <IconLetterT size={18} stroke={1.5} />
+                </ActionIcon>
+              </Tooltip>
               <TextInput
                 size="sm"
                 w={180}
@@ -590,6 +640,16 @@ export function Control() {
               >
                 Затемнити
               </Button>
+              <Tooltip label="Чорний екран (.) — повністю чорний, ігнорує фон">
+                <ActionIcon
+                  variant="default"
+                  size="lg"
+                  onClick={blackScreen}
+                  aria-label="Чорний екран"
+                >
+                  <IconSquareFilled size={16} />
+                </ActionIcon>
+              </Tooltip>
               <Tooltip label="Тема">
                 <ActionIcon variant="default" size="lg" onClick={() => toggleColorScheme()}>
                   {colorScheme === 'dark' ? <IconSun size={18} /> : <IconMoonStars size={18} />}
@@ -726,6 +786,11 @@ export function Control() {
               onClose={() => setSongsOpen(false)}
               onProjectStanza={projectText}
             />
+            <TextPanel
+              open={textOpen}
+              onClose={() => setTextOpen(false)}
+              onProject={projectAnnouncement}
+            />
             <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
               <Text fw={600} size="sm" truncate>
                 {currentBook
@@ -754,52 +819,52 @@ export function Control() {
             <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
               <ScrollArea style={{ flex: 1 }} px="md" py="xs">
                 <Stack gap={2}>
-                {primaryVerses.map((v) => (
-                  <div
-                    key={v.verse}
-                    className="vo-verse-item"
-                    role="button"
-                    tabIndex={0}
-                    data-verse={v.verse}
-                    data-selected={selectedVerses.includes(v.verse) ? 'true' : undefined}
-                    onClick={(e) =>
-                      e.ctrlKey || e.metaKey || e.shiftKey
-                        ? toggleVerse(v.verse)
-                        : setSelectedVerses([v.verse])
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        if (e.ctrlKey || e.metaKey || e.shiftKey) toggleVerse(v.verse);
-                        else setSelectedVerses([v.verse]);
+                  {primaryVerses.map((v) => (
+                    <div
+                      key={v.verse}
+                      className="vo-verse-item"
+                      role="button"
+                      tabIndex={0}
+                      data-verse={v.verse}
+                      data-selected={selectedVerses.includes(v.verse) ? 'true' : undefined}
+                      onClick={(e) =>
+                        e.ctrlKey || e.metaKey || e.shiftKey
+                          ? toggleVerse(v.verse)
+                          : setSelectedVerses([v.verse])
                       }
-                    }}
-                  >
-                    <Text size="md">
-                      <Text span fw={700} c="brand" mr={8}>
-                        {v.verse}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          if (e.ctrlKey || e.metaKey || e.shiftKey) toggleVerse(v.verse);
+                          else setSelectedVerses([v.verse]);
+                        }
+                      }}
+                    >
+                      <Text size="md">
+                        <Text span fw={700} c="brand" mr={8}>
+                          {v.verse}
+                        </Text>
+                        {appearance.redLetter
+                          ? parseRedLetter(v.textRaw ?? v.text ?? '').map((s, j, arr) => (
+                              <Text
+                                span
+                                key={j}
+                                style={{ color: s.jesus ? appearance.jesusColor : undefined }}
+                              >
+                                {s.text}
+                                {j < arr.length - 1 ? ' ' : ''}
+                              </Text>
+                            ))
+                          : v.text}
                       </Text>
-                      {appearance.redLetter
-                        ? parseRedLetter(v.textRaw ?? v.text ?? '').map((s, j, arr) => (
-                            <Text
-                              span
-                              key={j}
-                              style={{ color: s.jesus ? appearance.jesusColor : undefined }}
-                            >
-                              {s.text}
-                              {j < arr.length - 1 ? ' ' : ''}
-                            </Text>
-                          ))
-                        : v.text}
+                    </div>
+                  ))}
+                  {primaryVerses.length === 0 && (
+                    <Text c="dimmed" size="sm" p="sm">
+                      {chapter == null ? 'Оберіть розділ.' : 'Немає віршів.'}
                     </Text>
-                  </div>
-                ))}
-                {primaryVerses.length === 0 && (
-                  <Text c="dimmed" size="sm" p="sm">
-                    {chapter == null ? 'Оберіть розділ.' : 'Немає віршів.'}
-                  </Text>
-                )}
-              </Stack>
+                  )}
+                </Stack>
               </ScrollArea>
               {concordanceStrong && (
                 <ConcordancePanel

@@ -1,7 +1,11 @@
+import { spawn } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import {
   ApiError,
+  closeDb,
   getTranslations,
   getBooks,
   getChapters,
@@ -21,6 +25,10 @@ const app = express();
 app.use(cors());
 
 const PORT = Number(process.env.PORT ?? 8787);
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+/** A library rebuild (builder process) is in flight — guard against overlapping runs. */
+let rebuilding = false;
 
 function asInt(value: unknown, name: string): number {
   const n = Number(value);
@@ -172,6 +180,47 @@ app.get(
     res.json(search(q, translations));
   }),
 );
+
+/**
+ * Rebuild the merged library from the modules folder (re-runs the builder process).
+ * Lets an operator add a translation/song and refresh without a terminal. The builder
+ * rebuilds in place; on success we drop the cached connection so reads see fresh data.
+ */
+app.post('/api/rebuild', (_req, res) => {
+  if (rebuilding) {
+    res.status(409).json({ error: 'Перебудова вже триває' });
+    return;
+  }
+  rebuilding = true;
+  let stderr = '';
+  let done = false;
+  const finish = (status: number, body: object) => {
+    if (done) return;
+    done = true;
+    rebuilding = false;
+    res.status(status).json(body);
+  };
+
+  // shell:true so `npm` resolves to npm.cmd on Windows.
+  const child = spawn('npm', ['run', 'build:library'], {
+    cwd: repoRoot,
+    shell: true,
+    windowsHide: true,
+  });
+  child.stderr?.on('data', (d) => {
+    stderr += d.toString();
+  });
+  child.stdout?.on('data', (d) => process.stdout.write(d));
+  child.on('error', (err) => finish(500, { error: `Не вдалося запустити збірку: ${err.message}` }));
+  child.on('close', (code) => {
+    if (code === 0) {
+      closeDb();
+      finish(200, { ok: true });
+    } else {
+      finish(500, { error: stderr.trim().slice(-500) || `Збірка завершилась з кодом ${code}` });
+    }
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`[server] http://localhost:${PORT}`);

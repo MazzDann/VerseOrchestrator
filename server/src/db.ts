@@ -37,6 +37,18 @@ function getDb(): Database.Database {
   return db;
 }
 
+/**
+ * Drop the cached connection so the next query reopens the database. Called after
+ * a rebuild so the server serves the freshly-built library (handles the case where
+ * the file was replaced, not just rewritten in place).
+ */
+export function closeDb(): void {
+  if (db) {
+    db.close();
+    db = null;
+  }
+}
+
 function placeholders(n: number): string {
   return Array.from({ length: n }, () => '?').join(',');
 }
@@ -337,7 +349,9 @@ export function searchSongs(q: string, limit = 60): SongInfo[] {
       )
       .all(`%${normalizeForSearch(query)}%`, limit) as any[];
   } else {
-    rows = db.prepare('SELECT id, number, title FROM songs ORDER BY number LIMIT ?').all(limit) as any[];
+    rows = db
+      .prepare('SELECT id, number, title FROM songs ORDER BY number LIMIT ?')
+      .all(limit) as any[];
   }
   return rows.map((r) => ({ id: r.id, number: r.number, title: r.title }));
 }

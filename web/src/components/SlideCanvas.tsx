@@ -13,7 +13,12 @@ function QuoteLines({ lines, style }: { lines: SlideLine[]; style: SlideStyle })
         <p
           key={i}
           dir={line.rtl ? 'rtl' : 'ltr'}
-          style={{ margin: 0, fontSize: '1em', fontWeight: style.bold ? 700 : 500, whiteSpace: 'pre-line' }}
+          style={{
+            margin: 0,
+            fontSize: '1em',
+            fontWeight: style.bold ? 700 : 500,
+            whiteSpace: 'pre-line',
+          }}
         >
           {lines.length > 1 && (
             <span style={{ opacity: 0.5, fontSize: '0.5em', marginRight: '0.6em' }}>
@@ -80,6 +85,12 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
     ? `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`
     : 'blank';
   const { containerRef, contentRef } = useAutoFit([slideKey, style.font, style.align]);
+
+  // Pure-black override: paint solid black over everything, ignoring the
+  // background image/colour (the operator's "force black" key/button).
+  if (slide.forceBlack) {
+    return <div style={{ position: 'absolute', inset: 0, background: '#000' }} />;
+  }
 
   const background = style.bgImage
     ? `center / cover no-repeat url(${JSON.stringify(style.bgImage)})`
@@ -247,13 +258,17 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
                     maxWidth: '100%',
                   }}
                 >
-                  <div style={{ width: '34%', borderTop: '1px solid currentColor', opacity: 0.3 }} />
+                  <div
+                    style={{ width: '34%', borderTop: '1px solid currentColor', opacity: 0.3 }}
+                  />
                   <div style={{ fontSize: '0.55em', opacity: 0.92, textAlign: style.align }}>
                     {slide.subline}
                   </div>
                 </div>
               )}
-              <div style={{ marginTop: '0.3em', fontSize: '0.42em', opacity: 0.75, letterSpacing: 1 }}>
+              <div
+                style={{ marginTop: '0.3em', fontSize: '0.42em', opacity: 0.75, letterSpacing: 1 }}
+              >
                 {slide.reference}
               </div>
             </motion.div>

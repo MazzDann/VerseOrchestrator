@@ -72,6 +72,11 @@ export interface Slide {
   reference: string;
   blank: boolean;
   visible: boolean;
+  /**
+   * Force a pure-black screen, ignoring the background image/colour. Distinct from
+   * `blank`, which keeps the background and only drops the text (two-level blank).
+   */
+  forceBlack?: boolean;
   style?: SlideStyle;
   /** Optional secondary line under a divider (e.g. a Strong "word — gloss"). */
   subline?: string;
@@ -88,7 +93,17 @@ export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }
       name: 'По центру з рискою',
       objects: [
         { kind: 'quote', visible: true, x: 6, y: 5, w: 88, h: 66, align: 'center', size: 0 },
-        { kind: 'divider', visible: true, x: 33, y: 75, w: 34, h: 0.4, align: 'center', size: 0, tiedToSubline: true },
+        {
+          kind: 'divider',
+          visible: true,
+          x: 33,
+          y: 75,
+          w: 34,
+          h: 0.4,
+          align: 'center',
+          size: 0,
+          tiedToSubline: true,
+        },
         { kind: 'subline', visible: true, x: 8, y: 77, w: 84, h: 10, align: 'center', size: 4 },
         { kind: 'reference', visible: true, x: 8, y: 90, w: 84, h: 7, align: 'center', size: 3.4 },
       ],
