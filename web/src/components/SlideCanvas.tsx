@@ -13,7 +13,7 @@ function QuoteLines({ lines, style }: { lines: SlideLine[]; style: SlideStyle })
         <p
           key={i}
           dir={line.rtl ? 'rtl' : 'ltr'}
-          style={{ margin: 0, fontSize: '1em', fontWeight: 500, whiteSpace: 'pre-line' }}
+          style={{ margin: 0, fontSize: '1em', fontWeight: style.bold ? 700 : 500, whiteSpace: 'pre-line' }}
         >
           {lines.length > 1 && (
             <span style={{ opacity: 0.5, fontSize: '0.5em', marginRight: '0.6em' }}>

@@ -40,7 +40,7 @@ import {
   IconMusic,
 } from '@tabler/icons-react';
 
-import { api, type Book, type Verse } from '../api';
+import { api, type Book, type Verse, type SongStyle } from '../api';
 import { useStore } from '../store';
 import { useSettings, refKey, type RefItem } from '../settingsStore';
 import {
@@ -48,6 +48,7 @@ import {
   type Slide,
   type SlideLine,
   type SlideStyle,
+  type SlideTemplate,
   type TextSpan,
 } from '../presenterBus';
 import { parseRedLetter } from '@vo/shared';
@@ -284,16 +285,46 @@ export function Control() {
     notifications.show({ message: `На екрані зі Стронгом: ${reference}`, color: 'green', autoClose: 1500 });
   };
 
-  // Project an arbitrary text slide (used by the songs panel for a stanza).
-  const projectText = (text: string, reference: string) => {
+  // Project a text slide (song stanza). With `faithful`, reproduce the pptx look
+  // (its background/colour/font/bold + a positioned quote box); else use the app style.
+  const projectText = (text: string, reference: string, faithful?: SongStyle | null) => {
     if (!text.trim()) return;
+    let style = slideStyle;
+    let template = slideTemplate;
+    if (faithful) {
+      style = {
+        ...slideStyle,
+        font: faithful.font,
+        color: faithful.color,
+        align: faithful.align,
+        bgColor: faithful.bg,
+        bgImage: null,
+        redLetter: false,
+        bold: faithful.bold,
+      };
+      template = {
+        name: 'pptx',
+        objects: [
+          {
+            kind: 'quote',
+            visible: true,
+            x: faithful.x,
+            y: faithful.y,
+            w: faithful.w,
+            h: faithful.h,
+            align: faithful.align,
+            size: 0,
+          },
+        ],
+      } satisfies SlideTemplate;
+    }
     publishSlide({
       lines: [{ translationAbbr: '', text, rtl: false }],
       reference,
       blank: false,
       visible: true,
-      style: slideStyle,
-      template: slideTemplate,
+      style,
+      template,
     });
     setLive(true);
     if (reference) {
