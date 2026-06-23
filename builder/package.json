@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@vo/shared": "*",
-    "better-sqlite3": "^12.11.1"
+    "better-sqlite3": "^12.11.1",
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
