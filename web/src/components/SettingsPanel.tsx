@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Stack,
   Select,
@@ -10,8 +11,11 @@ import {
   Group,
   FileButton,
   ActionIcon,
+  Divider,
 } from '@mantine/core';
-import { IconUpload, IconTrash, IconRefresh } from '@tabler/icons-react';
+import { IconUpload, IconTrash, IconRefresh, IconDatabaseImport } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { notifications } from '@mantine/notifications';
 import {
   useSettings,
   FONT_OPTIONS,
@@ -20,6 +24,7 @@ import {
   type PadLink,
   type StrongSubline,
 } from '../settingsStore';
+import { api } from '../api';
 import { fileToDownscaledDataUrl } from '../lib/image';
 import { TemplateEditor } from './TemplateEditor';
 
@@ -30,6 +35,22 @@ export function SettingsPanel() {
   const reset = useSettings((s) => s.resetAppearance);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
+  const queryClient = useQueryClient();
+  const [rebuilding, setRebuilding] = useState(false);
+
+  // Re-run the builder, then refresh all queries so new translations/songs appear.
+  const rebuildLibrary = async () => {
+    setRebuilding(true);
+    try {
+      await api.rebuild();
+      await queryClient.invalidateQueries();
+      notifications.show({ message: 'Бібліотеку оновлено', color: 'green' });
+    } catch (e) {
+      notifications.show({ message: `Не вдалося: ${(e as Error).message}`, color: 'red' });
+    } finally {
+      setRebuilding(false);
+    }
+  };
 
   const padMax = a.padUnit === '%' ? 25 : 400;
   // Respect the link mode: all four together / vertical+horizontal pairs / independent.
@@ -44,10 +65,7 @@ export function SettingsPanel() {
     else if (side === 'padBottom') set({ padBottom: v });
     else set({ padLeft: v });
   };
-  const padInput = (
-    side: 'padTop' | 'padRight' | 'padBottom' | 'padLeft',
-    label: string,
-  ) => (
+  const padInput = (side: 'padTop' | 'padRight' | 'padBottom' | 'padLeft', label: string) => (
     <NumberInput
       size="xs"
       w={72}
@@ -249,6 +267,25 @@ export function SettingsPanel() {
       <Button variant="default" leftSection={<IconRefresh size={16} />} onClick={reset}>
         Скинути вигляд
       </Button>
+      <Divider />
+      <div>
+        <Text size="sm" fw={500} mb={2}>
+          Бібліотека модулів
+        </Text>
+        <Text size="xs" c="dimmed" mb={8}>
+          Перебудувати з теки modules/ після додавання перекладу чи пісні.
+        </Text>
+        <Button
+          variant="light"
+          color="blue"
+          fullWidth
+          leftSection={<IconDatabaseImport size={16} />}
+          loading={rebuilding}
+          onClick={rebuildLibrary}
+        >
+          Пересканувати модулі
+        </Button>
+      </div>
     </Stack>
   );
 }

@@ -140,9 +140,23 @@ export const api = {
   dict: (word: string) =>
     getJson(`/api/dict?q=${encodeURIComponent(word)}`, z.array(StrongDefSchema)),
   crossrefs: (book: number, chapter: number, verse: number) =>
-    getJson(`/api/crossrefs?book=${book}&chapter=${chapter}&verse=${verse}`, z.array(CrossRefSchema)),
+    getJson(
+      `/api/crossrefs?book=${book}&chapter=${chapter}&verse=${verse}`,
+      z.array(CrossRefSchema),
+    ),
   commentary: (book: number, chapter: number, verse: number) =>
-    getJson(`/api/commentary?book=${book}&chapter=${chapter}&verse=${verse}`, z.array(CommentarySchema)),
+    getJson(
+      `/api/commentary?book=${book}&chapter=${chapter}&verse=${verse}`,
+      z.array(CommentarySchema),
+    ),
   songs: (q: string) => getJson(`/api/songs?q=${encodeURIComponent(q)}`, z.array(SongInfoSchema)),
   song: (id: number) => getJson(`/api/songs/${id}`, SongDetailSchema),
+  rebuild: async (): Promise<{ ok: boolean }> => {
+    const res = await fetch('/api/rebuild', { method: 'POST' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error((body as { error?: string }).error ?? `Request failed: ${res.status}`);
+    }
+    return res.json() as Promise<{ ok: boolean }>;
+  },
 };

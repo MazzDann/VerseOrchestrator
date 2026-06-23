@@ -40,6 +40,12 @@ export interface RefItem {
 
 export type PanelPlacement = 'aside' | 'bottom';
 
+/** A free-text slide (announcement / prayer / welcome), kept in a recents list. */
+export interface TextItem {
+  title: string;
+  body: string;
+}
+
 interface SettingsState {
   appearance: Appearance;
   panelPlacement: PanelPlacement;
@@ -49,6 +55,8 @@ interface SettingsState {
   slideTemplate: SlideTemplate | null;
   history: RefItem[];
   bookmarks: RefItem[];
+  /** Recently projected free-text slides (newest first). */
+  recentTexts: TextItem[];
   setLiveFollow: (v: boolean) => void;
   setSlideTemplate: (t: SlideTemplate | null) => void;
   setPanelPlacement: (p: PanelPlacement) => void;
@@ -59,6 +67,8 @@ interface SettingsState {
   clearHistory: () => void;
   toggleBookmark: (item: RefItem) => void;
   importBookmarks: (items: RefItem[]) => void;
+  pushRecentText: (item: TextItem) => void;
+  removeRecentText: (item: TextItem) => void;
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
@@ -89,6 +99,7 @@ export const FONT_OPTIONS = [
 ];
 
 export const refKey = (i: RefItem) => `${i.translationId}-${i.bookNumber}-${i.chapter}-${i.verse}`;
+export const textKey = (t: TextItem) => `${t.title}\n${t.body}`;
 
 export const useSettings = create<SettingsState>()(
   persist(
@@ -99,6 +110,7 @@ export const useSettings = create<SettingsState>()(
       slideTemplate: null,
       history: [],
       bookmarks: [],
+      recentTexts: [],
       setLiveFollow: (v) => set({ liveFollow: v }),
       setSlideTemplate: (t) => set({ slideTemplate: t }),
       setPanelPlacement: (p) => set({ panelPlacement: p }),
@@ -134,6 +146,20 @@ export const useSettings = create<SettingsState>()(
           }
           return { bookmarks: merged.slice(0, 200) };
         }),
+      pushRecentText: (item) =>
+        set((s) => {
+          const body = item.body.trim();
+          if (!body) return s;
+          const k = textKey({ title: item.title.trim(), body });
+          return {
+            recentTexts: [
+              { title: item.title.trim(), body },
+              ...s.recentTexts.filter((t) => textKey(t) !== k),
+            ].slice(0, 12),
+          };
+        }),
+      removeRecentText: (item) =>
+        set((s) => ({ recentTexts: s.recentTexts.filter((t) => textKey(t) !== textKey(item)) })),
     }),
     {
       name: 'vo:settings',
