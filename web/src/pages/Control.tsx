@@ -100,6 +100,7 @@ export function Control() {
   const setLiveFollow = useSettings((s) => s.setLiveFollow);
   const slideTemplate = useSettings((s) => s.slideTemplate);
   const pushRecentText = useSettings((s) => s.pushRecentText);
+  const keymap = useSettings((s) => s.keymap);
 
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
@@ -453,24 +454,41 @@ export function Control() {
     }
   };
 
-  useHotkeys('right,down', () => advance(1), [pageCount, pageIndex, primaryVerses, selectedVerses]);
-  useHotkeys('left,up', () => advance(-1), [pageCount, pageIndex, primaryVerses, selectedVerses]);
-  // Wireless presenter / clicker: USB remotes emit PageDown/PageUp — advance the
-  // page-or-verse (with live-follow on, the screen advances; off, the preview does).
-  useHotkeys('pagedown', () => advance(1), [pageCount, pageIndex, primaryVerses, selectedVerses]);
-  useHotkeys('pageup', () => advance(-1), [pageCount, pageIndex, primaryVerses, selectedVerses]);
-  useHotkeys('b', () => (live ? send({ blank: true }) : undefined), [live, slideLines, reference]);
+  // Hotkeys are user-rebindable (settingsStore.keymap; defaults in hotkeys.ts).
+  // "advanceNext/Prev" default to arrows + PageDown/PageUp (the keys USB clickers emit).
+  useHotkeys(keymap.advanceNext, () => advance(1), [
+    keymap.advanceNext,
+    pageCount,
+    pageIndex,
+    primaryVerses,
+    selectedVerses,
+  ]);
+  useHotkeys(keymap.advancePrev, () => advance(-1), [
+    keymap.advancePrev,
+    pageCount,
+    pageIndex,
+    primaryVerses,
+    selectedVerses,
+  ]);
+  useHotkeys(keymap.blank, () => (live ? send({ blank: true }) : undefined), [
+    keymap.blank,
+    live,
+    slideLines,
+    reference,
+  ]);
   useHotkeys(
-    'escape',
+    keymap.clear,
     () => publishSlide({ lines: [], reference: '', blank: false, visible: false }),
-    [],
+    [keymap.clear],
   );
-  useHotkeys('f3', () => openSearch('current'), { preventDefault: true, enableOnFormTags: true });
-  useHotkeys('ctrl+f', () => openSearch('current'), {
+  useHotkeys(keymap.searchCurrent, () => openSearch('current'), {
     preventDefault: true,
     enableOnFormTags: true,
   });
-  useHotkeys('f4', () => openSearch('all'), { preventDefault: true, enableOnFormTags: true });
+  useHotkeys(keymap.searchAll, () => openSearch('all'), {
+    preventDefault: true,
+    enableOnFormTags: true,
+  });
 
   const sendAndNotify = () => {
     send();
@@ -483,13 +501,14 @@ export function Control() {
     }
   };
 
-  // F5 / F2: push the current selection to the screen (the way to project when
-  // live-follow is off; harmless while following).
-  useHotkeys('f5,f2', () => sendAndNotify(), { preventDefault: true, enableOnFormTags: true }, [
-    slideLines,
-    reference,
-    slideStyle,
-  ]);
+  // "project" (default F5/F2): push the current selection to the screen (the way to
+  // project when live-follow is off; harmless while following).
+  useHotkeys(
+    keymap.project,
+    () => sendAndNotify(),
+    { preventDefault: true, enableOnFormTags: true },
+    [keymap.project, slideLines, reference, slideStyle],
+  );
 
   const blankScreen = () => {
     publishSlide({ lines: slideLines, reference, blank: true, visible: true, style: slideStyle });
@@ -511,7 +530,7 @@ export function Control() {
     setLive(false);
     notifications.show({ message: 'Чорний екран', color: 'dark', autoClose: 1200 });
   };
-  useHotkeys('period', () => blackScreen(), [slideStyle]);
+  useHotkeys(keymap.black, () => blackScreen(), [keymap.black, slideStyle]);
 
   const openPresenter = async () => {
     const win = await openPresenterWindow();

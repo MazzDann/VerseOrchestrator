@@ -27,6 +27,7 @@ import {
 import { api } from '../api';
 import { fileToDownscaledDataUrl } from '../lib/image';
 import { TemplateEditor } from './TemplateEditor';
+import { HotkeysSettings } from './HotkeysSettings';
 
 /** Appearance controls for the projected screen. Persisted via the settings store. */
 export function SettingsPanel() {
@@ -275,6 +276,13 @@ export function SettingsPanel() {
       <Button variant="default" leftSection={<IconRefresh size={16} />} onClick={reset}>
         Скинути вигляд
       </Button>
+      <Divider />
+      <div>
+        <Text size="sm" fw={500} mb={6}>
+          Гарячі клавіші
+        </Text>
+        <HotkeysSettings />
+      </div>
       <Divider />
       <div>
         <Text size="sm" fw={500} mb={2}>
