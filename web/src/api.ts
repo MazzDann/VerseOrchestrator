@@ -77,6 +77,11 @@ export type CrossRef = z.infer<typeof CrossRefSchema>;
 const CommentarySchema = z.object({ source: str(), marker: str(), text: str() });
 export type CommentaryNote = z.infer<typeof CommentarySchema>;
 
+const SongInfoSchema = z.object({ id: z.number(), number: z.number().nullable(), title: str() });
+export type SongInfo = z.infer<typeof SongInfoSchema>;
+const SongDetailSchema = SongInfoSchema.extend({ slides: z.array(z.string()) });
+export type SongDetail = z.infer<typeof SongDetailSchema>;
+
 async function getJson<S extends z.ZodTypeAny>(url: string, schema: S): Promise<z.infer<S>> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -122,4 +127,6 @@ export const api = {
     getJson(`/api/crossrefs?book=${book}&chapter=${chapter}&verse=${verse}`, z.array(CrossRefSchema)),
   commentary: (book: number, chapter: number, verse: number) =>
     getJson(`/api/commentary?book=${book}&chapter=${chapter}&verse=${verse}`, z.array(CommentarySchema)),
+  songs: (q: string) => getJson(`/api/songs?q=${encodeURIComponent(q)}`, z.array(SongInfoSchema)),
+  song: (id: number) => getJson(`/api/songs/${id}`, SongDetailSchema),
 };

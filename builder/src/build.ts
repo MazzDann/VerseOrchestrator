@@ -7,6 +7,7 @@ import { SCHEMA_SQL } from './schema.js';
 import { readModule } from './mybible.js';
 import { readDictionary, dictTopicNorm, strongLang } from './dictionary.js';
 import { readCrossrefs, readCommentaries } from './extras.js';
+import { readSong, listPptx } from './songs.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DATA_DIR = path.join(repoRoot, 'data');
@@ -25,6 +26,15 @@ function resolveModulesDir(): string {
 }
 
 const SKIP = /\.(commentaries|dictionary|crossreferences|subheadings)\.SQLite3$/i;
+
+/** Songs (.pptx hymns): $SONGS_DIR, else project `songs/`, else the reference `old/ПС укр 1-477`. */
+function resolveSongsDir(): string {
+  if (process.env.SONGS_DIR) return path.resolve(process.env.SONGS_DIR);
+  for (const dir of [path.join(repoRoot, 'songs'), path.join(repoRoot, 'old', 'ПС укр 1-477')]) {
+    if (fs.existsSync(dir)) return dir;
+  }
+  return path.join(repoRoot, 'songs');
+}
 
 function listModuleFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -74,10 +84,12 @@ function buildOnce(): void {
   const dictFiles = listDictionaryFiles(modulesDir);
   const xrefFiles = listByExt(modulesDir, /\.crossreferences\.SQLite3$/i);
   const commentaryFiles = listByExt(modulesDir, /\.commentaries\.SQLite3$/i);
+  const songsDir = resolveSongsDir();
+  const songFiles = listPptx(songsDir);
   console.log(`[builder] modules dir: ${modulesDir}`);
   console.log(
     `[builder] candidate files: ${files.length} modules, ${dictFiles.length} dictionaries, ` +
-      `${xrefFiles.length} crossrefs, ${commentaryFiles.length} commentaries`,
+      `${xrefFiles.length} crossrefs, ${commentaryFiles.length} commentaries, ${songFiles.length} songs`,
   );
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -274,6 +286,28 @@ function buildOnce(): void {
         console.warn(`[builder]   skip commentary ${source}: ${(err as Error).message}`);
       }
     }
+
+    // Songs/hymns extracted from .pptx (one slide = one stanza).
+    const insSong = db.prepare(
+      `INSERT INTO songs (id, number, title, title_norm) VALUES (@id, @number, @title, @titleNorm)`,
+    );
+    const insSongSlide = db.prepare(
+      `INSERT INTO song_slides (song_id, ord, text) VALUES (?, ?, ?)`,
+    );
+    let songId = 0;
+    for (const file of songFiles) {
+      const song = readSong(file);
+      if (!song) continue;
+      songId += 1;
+      insSong.run({
+        id: songId,
+        number: song.number,
+        title: song.title,
+        titleNorm: normalizeForSearch(song.title),
+      });
+      song.slides.forEach((text, i) => insSongSlide.run(songId, i, text));
+    }
+    if (songId > 0) console.log(`[builder]   songs — ${songId} indexed (${songsDir})`);
   });
 
   const started = Date.now();

@@ -37,6 +37,7 @@ import {
   IconDownload,
   IconUpload,
   IconArrowRight,
+  IconMusic,
 } from '@tabler/icons-react';
 
 import { api, type Book, type Verse } from '../api';
@@ -58,6 +59,7 @@ import { RefList } from '../components/RefList';
 import { VirtualList } from '../components/VirtualList';
 import { TranslationPicker } from '../components/TranslationPicker';
 import { ConcordancePanel } from '../components/ConcordancePanel';
+import { SongsPanel } from '../components/SongsPanel';
 
 const EMPTY_ARRAY: never[] = [];
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
@@ -106,6 +108,7 @@ export function Control() {
   // Active Strong number for the concordance panel shown beside the verse list.
   const [concordanceStrong, setConcordanceStrong] = useState<string | null>(null);
   const [goToValue, setGoToValue] = useState('');
+  const [songsOpen, setSongsOpen] = useState(false);
 
   const jumpTo = (r: Jumpable) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
@@ -279,6 +282,23 @@ export function Control() {
     });
     setLive(true);
     notifications.show({ message: `На екрані зі Стронгом: ${reference}`, color: 'green', autoClose: 1500 });
+  };
+
+  // Project an arbitrary text slide (used by the songs panel for a stanza).
+  const projectText = (text: string, reference: string) => {
+    if (!text.trim()) return;
+    publishSlide({
+      lines: [{ translationAbbr: '', text, rtl: false }],
+      reference,
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+    });
+    setLive(true);
+    if (reference) {
+      notifications.show({ message: `На екрані: ${reference}`, color: 'green', autoClose: 1500 });
+    }
   };
 
   // While following live, republish when the selection, reference, or appearance
@@ -473,6 +493,17 @@ export function Control() {
                   <IconSearch size={18} stroke={1.5} />
                 </ActionIcon>
               </Tooltip>
+              <Tooltip label="Пісні (.pptx)">
+                <ActionIcon
+                  variant={songsOpen ? 'filled' : 'default'}
+                  color="brand"
+                  size="lg"
+                  onClick={() => setSongsOpen((o) => !o)}
+                  aria-label="Пісні"
+                >
+                  <IconMusic size={18} stroke={1.5} />
+                </ActionIcon>
+              </Tooltip>
               <TextInput
                 size="sm"
                 w={180}
@@ -658,6 +689,11 @@ export function Control() {
               scope={searchScope}
               onScopeChange={setSearchScope}
               onPick={jumpTo}
+            />
+            <SongsPanel
+              open={songsOpen}
+              onClose={() => setSongsOpen(false)}
+              onProjectStanza={projectText}
             />
             <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
               <Text fw={600} size="sm" truncate>

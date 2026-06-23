@@ -111,4 +111,24 @@ CREATE TABLE commentaries (
   text         TEXT
 );
 CREATE INDEX idx_commentary ON commentaries (book, chapter_from, verse_from);
+
+DROP TABLE IF EXISTS song_slides;
+DROP TABLE IF EXISTS songs;
+
+-- Hymns/songs extracted from .pptx (one slide = one stanza).
+CREATE TABLE songs (
+  id         INTEGER PRIMARY KEY,
+  number     INTEGER,
+  title      TEXT,
+  title_norm TEXT
+);
+CREATE INDEX idx_songs_num ON songs (number);
+CREATE INDEX idx_songs_norm ON songs (title_norm);
+
+CREATE TABLE song_slides (
+  song_id INTEGER NOT NULL,
+  ord     INTEGER NOT NULL,
+  text    TEXT NOT NULL
+);
+CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
 `;

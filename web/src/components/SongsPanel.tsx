@@ -1,0 +1,167 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  Paper,
+  TextInput,
+  ScrollArea,
+  Stack,
+  Text,
+  Box,
+  Group,
+  ActionIcon,
+  Loader,
+  Badge,
+} from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
+import { useDebouncedValue } from '@mantine/hooks';
+import { IconMusic, IconX, IconChevronLeft } from '@tabler/icons-react';
+import { api } from '../api';
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  /** Project a stanza as a text slide. */
+  onProjectStanza: (text: string, reference: string) => void;
+}
+
+/**
+ * Songs/hymns panel: search by number or title, open a hymn, and project its
+ * stanzas (one .pptx slide each) as text slides on the presenter.
+ */
+export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
+  const [query, setQuery] = useState('');
+  const [debounced] = useDebouncedValue(query, 200);
+  const [songId, setSongId] = useState<number | null>(null);
+  const [activeStanza, setActiveStanza] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const listQuery = useQuery({ queryKey: ['songs', debounced], queryFn: () => api.songs(debounced), enabled: open });
+  const songQuery = useQuery({
+    queryKey: ['song', songId],
+    queryFn: () => api.song(songId!),
+    enabled: open && songId != null,
+  });
+
+  useEffect(() => {
+    if (open && songId == null) {
+      const t = setTimeout(() => inputRef.current?.focus(), 30);
+      return () => clearTimeout(t);
+    }
+  }, [open, songId]);
+
+  if (!open) return null;
+  const songs = listQuery.data ?? [];
+  const song = songQuery.data;
+
+  const project = (idx: number, text: string) => {
+    setActiveStanza(idx);
+    onProjectStanza(text, song ? `№${song.number ?? ''} ${song.title}`.trim() : '');
+  };
+
+  return (
+    <Paper withBorder shadow="sm" p="sm" m="sm">
+      {song ? (
+        <>
+          <Group justify="space-between" wrap="nowrap" mb="xs">
+            <Group gap={6} wrap="nowrap">
+              <ActionIcon
+                variant="subtle"
+                onClick={() => {
+                  setSongId(null);
+                  setActiveStanza(null);
+                }}
+                aria-label="Назад до пошуку"
+              >
+                <IconChevronLeft size={18} />
+              </ActionIcon>
+              <Text fw={600} size="sm" truncate>
+                {song.number != null ? `№${song.number} ` : ''}
+                {song.title}
+              </Text>
+            </Group>
+            <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
+              <IconX size={18} />
+            </ActionIcon>
+          </Group>
+          <ScrollArea.Autosize mah={340}>
+            <Stack gap={4}>
+              {song.slides.map((s, i) => (
+                <Box
+                  key={i}
+                  className="vo-verse-item"
+                  role="button"
+                  tabIndex={0}
+                  data-selected={activeStanza === i ? 'true' : undefined}
+                  onClick={() => project(i, s)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      project(i, s);
+                    }
+                  }}
+                >
+                  <Text size="10px" c="dimmed" fw={600} tt="uppercase">
+                    {i === 0 ? 'Заголовок' : `Куплет ${i}`}
+                  </Text>
+                  <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={5}>
+                    {s}
+                  </Text>
+                </Box>
+              ))}
+            </Stack>
+          </ScrollArea.Autosize>
+        </>
+      ) : (
+        <>
+          <Group gap="xs" wrap="nowrap">
+            <TextInput
+              ref={inputRef}
+              flex={1}
+              value={query}
+              onChange={(e) => setQuery(e.currentTarget.value)}
+              placeholder="Пісня: номер або назва"
+              leftSection={<IconMusic size={18} />}
+              rightSection={listQuery.isFetching ? <Loader size="xs" /> : null}
+            />
+            <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
+              <IconX size={18} />
+            </ActionIcon>
+          </Group>
+          <ScrollArea.Autosize mah={320} mt="xs">
+            <Stack gap={0}>
+              {songs.map((s) => (
+                <Box
+                  key={s.id}
+                  className="vo-list-item"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setSongId(s.id);
+                    setActiveStanza(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSongId(s.id);
+                    }
+                  }}
+                >
+                  {s.number != null && (
+                    <Badge size="xs" variant="light" mr={6}>
+                      {s.number}
+                    </Badge>
+                  )}
+                  {s.title}
+                </Box>
+              ))}
+              {debounced && songs.length === 0 && !listQuery.isFetching && (
+                <Text size="sm" c="dimmed" p="sm">
+                  Нічого не знайдено
+                </Text>
+              )}
+            </Stack>
+          </ScrollArea.Autosize>
+        </>
+      )}
+    </Paper>
+  );
+}

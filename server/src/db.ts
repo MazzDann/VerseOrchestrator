@@ -5,6 +5,7 @@ import Database from 'better-sqlite3';
 import {
   searchTokens,
   parseReference,
+  normalizeForSearch,
   type Translation,
   type Book,
   type Verse,
@@ -299,6 +300,52 @@ export function getCommentary(book: number, chapter: number, verse: number): Com
     )
     .all(book, chapter, chapter, verse, chapter, chapter, verse) as any[];
   return rows.map((r) => ({ source: r.source, marker: r.marker ?? '', text: r.text ?? '' }));
+}
+
+export interface SongInfo {
+  id: number;
+  number: number | null;
+  title: string;
+}
+export interface SongDetail extends SongInfo {
+  slides: string[];
+}
+
+/** Search hymns by number (prefix) or title (diacritic-insensitive); empty query lists by number. */
+export function searchSongs(q: string, limit = 60): SongInfo[] {
+  if (!tableExists('songs')) return [];
+  const query = q.trim();
+  const db = getDb();
+  let rows: any[];
+  if (/^\d+$/.test(query)) {
+    rows = db
+      .prepare(
+        `SELECT id, number, title FROM songs
+         WHERE number = ? OR CAST(number AS TEXT) LIKE ?
+         ORDER BY number LIMIT ?`,
+      )
+      .all(Number(query), `${query}%`, limit) as any[];
+  } else if (query) {
+    rows = db
+      .prepare(
+        `SELECT id, number, title FROM songs WHERE title_norm LIKE ? ORDER BY number LIMIT ?`,
+      )
+      .all(`%${normalizeForSearch(query)}%`, limit) as any[];
+  } else {
+    rows = db.prepare('SELECT id, number, title FROM songs ORDER BY number LIMIT ?').all(limit) as any[];
+  }
+  return rows.map((r) => ({ id: r.id, number: r.number, title: r.title }));
+}
+
+/** A hymn with its stanzas (one per slide). */
+export function getSong(id: number): SongDetail | null {
+  if (!tableExists('songs')) return null;
+  const s = getDb().prepare('SELECT id, number, title FROM songs WHERE id = ?').get(id) as any;
+  if (!s) return null;
+  const slides = (
+    getDb().prepare('SELECT text FROM song_slides WHERE song_id = ? ORDER BY ord').all(id) as any[]
+  ).map((r) => r.text as string);
+  return { id: s.id, number: s.number, title: s.title, slides };
 }
 
 export interface SearchResponse {

@@ -12,6 +12,8 @@ import {
   strongRefs,
   getCrossrefs,
   getCommentary,
+  searchSongs,
+  getSong,
   listDictionaries,
 } from './db.js';
 
@@ -71,6 +73,20 @@ app.get(
       ),
     ),
   ),
+);
+
+app.get(
+  '/api/songs',
+  wrap((req, res) => res.json(searchSongs(String(req.query.q ?? '')))),
+);
+
+app.get(
+  '/api/songs/:id',
+  wrap((req, res) => {
+    const song = getSong(asInt(req.params.id, 'song id'));
+    if (!song) throw new ApiError(404, 'Song not found');
+    res.json(song);
+  }),
 );
 
 app.get(
