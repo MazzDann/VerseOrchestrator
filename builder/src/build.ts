@@ -292,7 +292,7 @@ function buildOnce(): void {
       `INSERT INTO songs (id, number, title, title_norm) VALUES (@id, @number, @title, @titleNorm)`,
     );
     const insSongSlide = db.prepare(
-      `INSERT INTO song_slides (song_id, ord, text) VALUES (?, ?, ?)`,
+      `INSERT INTO song_slides (song_id, ord, text, render) VALUES (?, ?, ?, ?)`,
     );
     let songId = 0;
     for (const file of songFiles) {
@@ -305,7 +305,9 @@ function buildOnce(): void {
         title: song.title,
         titleNorm: normalizeForSearch(song.title),
       });
-      song.slides.forEach((text, i) => insSongSlide.run(songId, i, text));
+      song.slides.forEach((s, i) =>
+        insSongSlide.run(songId, i, s.text, s.style ? JSON.stringify(s.style) : null),
+      );
     }
     if (songId > 0) console.log(`[builder]   songs — ${songId} indexed (${songsDir})`);
   });

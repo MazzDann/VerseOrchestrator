@@ -307,8 +307,13 @@ export interface SongInfo {
   number: number | null;
   title: string;
 }
+export interface SongSlideOut {
+  text: string;
+  /** Faithful pptx style {bg,color,font,bold,align,x,y,w,h} or null. */
+  style: unknown | null;
+}
 export interface SongDetail extends SongInfo {
-  slides: string[];
+  slides: SongSlideOut[];
 }
 
 /** Search hymns by number (prefix) or title (diacritic-insensitive); empty query lists by number. */
@@ -343,8 +348,10 @@ export function getSong(id: number): SongDetail | null {
   const s = getDb().prepare('SELECT id, number, title FROM songs WHERE id = ?').get(id) as any;
   if (!s) return null;
   const slides = (
-    getDb().prepare('SELECT text FROM song_slides WHERE song_id = ? ORDER BY ord').all(id) as any[]
-  ).map((r) => r.text as string);
+    getDb()
+      .prepare('SELECT text, render FROM song_slides WHERE song_id = ? ORDER BY ord')
+      .all(id) as any[]
+  ).map((r) => ({ text: r.text as string, style: r.render ? JSON.parse(r.render) : null }));
   return { id: s.id, number: s.number, title: s.title, slides };
 }
 

@@ -38,6 +38,7 @@ export interface SlideStyle {
   redLetter: boolean; // colour the words of Jesus
   jesusColor: string;
   highlightColor: string; // emphasised (hot) word colour
+  bold?: boolean; // bold body text (e.g. faithful pptx song slides)
 }
 
 export type SlideObjectKind = 'quote' | 'reference' | 'subline' | 'divider';

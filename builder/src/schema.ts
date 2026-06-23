@@ -128,7 +128,8 @@ CREATE INDEX idx_songs_norm ON songs (title_norm);
 CREATE TABLE song_slides (
   song_id INTEGER NOT NULL,
   ord     INTEGER NOT NULL,
-  text    TEXT NOT NULL
+  text    TEXT NOT NULL,
+  render  TEXT          -- JSON faithful style {bg,color,font,bold,align,x,y,w,h}, or NULL
 );
 CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
 `;

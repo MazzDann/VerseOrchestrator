@@ -79,7 +79,23 @@ export type CommentaryNote = z.infer<typeof CommentarySchema>;
 
 const SongInfoSchema = z.object({ id: z.number(), number: z.number().nullable(), title: str() });
 export type SongInfo = z.infer<typeof SongInfoSchema>;
-const SongDetailSchema = SongInfoSchema.extend({ slides: z.array(z.string()) });
+const SongStyleSchema = z
+  .object({
+    bg: str(),
+    color: str(),
+    font: str(),
+    bold: z.boolean(),
+    align: z.enum(['left', 'center', 'right']),
+    x: z.number(),
+    y: z.number(),
+    w: z.number(),
+    h: z.number(),
+  })
+  .nullable();
+export type SongStyle = NonNullable<z.infer<typeof SongStyleSchema>>;
+const SongDetailSchema = SongInfoSchema.extend({
+  slides: z.array(z.object({ text: z.string(), style: SongStyleSchema })),
+});
 export type SongDetail = z.infer<typeof SongDetailSchema>;
 
 async function getJson<S extends z.ZodTypeAny>(url: string, schema: S): Promise<z.infer<S>> {

@@ -10,17 +10,18 @@ import {
   ActionIcon,
   Loader,
   Badge,
+  SegmentedControl,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconMusic, IconX, IconChevronLeft } from '@tabler/icons-react';
-import { api } from '../api';
+import { api, type SongStyle } from '../api';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  /** Project a stanza as a text slide. */
-  onProjectStanza: (text: string, reference: string) => void;
+  /** Project a stanza; `style` (when in faithful mode) reproduces the original pptx look. */
+  onProjectStanza: (text: string, reference: string, style?: SongStyle | null) => void;
 }
 
 /**
@@ -32,6 +33,7 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
   const [debounced] = useDebouncedValue(query, 200);
   const [songId, setSongId] = useState<number | null>(null);
   const [activeStanza, setActiveStanza] = useState<number | null>(null);
+  const [faithful, setFaithful] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const listQuery = useQuery({ queryKey: ['songs', debounced], queryFn: () => api.songs(debounced), enabled: open });
@@ -52,9 +54,13 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
   const songs = listQuery.data ?? [];
   const song = songQuery.data;
 
-  const project = (idx: number, text: string) => {
+  const project = (idx: number, slide: { text: string; style: SongStyle | null }) => {
     setActiveStanza(idx);
-    onProjectStanza(text, song ? `№${song.number ?? ''} ${song.title}`.trim() : '');
+    onProjectStanza(
+      slide.text,
+      song ? `№${song.number ?? ''} ${song.title}`.trim() : '',
+      faithful ? slide.style : null,
+    );
   };
 
   return (
@@ -82,6 +88,17 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
               <IconX size={18} />
             </ActionIcon>
           </Group>
+          <SegmentedControl
+            fullWidth
+            size="xs"
+            mb="xs"
+            value={faithful ? 'faithful' : 'text'}
+            onChange={(v) => setFaithful(v === 'faithful')}
+            data={[
+              { label: 'Точний показ', value: 'faithful' },
+              { label: 'Простий текст', value: 'text' },
+            ]}
+          />
           <ScrollArea.Autosize mah={340}>
             <Stack gap={4}>
               {song.slides.map((s, i) => (
@@ -103,7 +120,7 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
                     {i === 0 ? 'Заголовок' : `Куплет ${i}`}
                   </Text>
                   <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={5}>
-                    {s}
+                    {s.text}
                   </Text>
                 </Box>
               ))}
