@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { type SlideTemplate } from './presenterBus';
+import { DEFAULT_KEYMAP, sanitizeKeymap, type Keymap, type HotkeyActionId } from './hotkeys';
 
 export type TextAlign = 'left' | 'center' | 'right';
 export type PadUnit = 'px' | '%';
@@ -59,6 +60,8 @@ interface SettingsState {
   bookmarks: RefItem[];
   /** Recently projected free-text slides (newest first). */
   recentTexts: TextItem[];
+  /** Operator keyboard shortcuts (action id → react-hotkeys-hook combo). */
+  keymap: Keymap;
   setLiveFollow: (v: boolean) => void;
   setSlideTemplate: (t: SlideTemplate | null) => void;
   setPanelPlacement: (p: PanelPlacement) => void;
@@ -71,6 +74,8 @@ interface SettingsState {
   importBookmarks: (items: RefItem[]) => void;
   pushRecentText: (item: TextItem) => void;
   removeRecentText: (item: TextItem) => void;
+  setHotkey: (id: HotkeyActionId, combo: string) => void;
+  resetKeymap: () => void;
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
@@ -114,6 +119,7 @@ export const useSettings = create<SettingsState>()(
       history: [],
       bookmarks: [],
       recentTexts: [],
+      keymap: DEFAULT_KEYMAP,
       setLiveFollow: (v) => set({ liveFollow: v }),
       setSlideTemplate: (t) => set({ slideTemplate: t }),
       setPanelPlacement: (p) => set({ panelPlacement: p }),
@@ -163,6 +169,8 @@ export const useSettings = create<SettingsState>()(
         }),
       removeRecentText: (item) =>
         set((s) => ({ recentTexts: s.recentTexts.filter((t) => textKey(t) !== textKey(item)) })),
+      setHotkey: (id, combo) => set((s) => ({ keymap: { ...s.keymap, [id]: combo } })),
+      resetKeymap: () => set({ keymap: DEFAULT_KEYMAP }),
     }),
     {
       name: 'vo:settings',
@@ -176,6 +184,9 @@ export const useSettings = create<SettingsState>()(
           ...current,
           ...p,
           appearance: { ...current.appearance, ...(p.appearance ?? {}) },
+          // Backfill missing actions + drop any non-string/garbage values so every
+          // consumer (.split in useHotkeys / settings UI) always gets a valid chord.
+          keymap: sanitizeKeymap(p.keymap),
         };
       },
     },
