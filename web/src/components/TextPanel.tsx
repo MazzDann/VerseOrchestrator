@@ -22,7 +22,7 @@ interface Props {
 }
 
 /**
- * Free-text slide composer — announcements, prayers, welcome slides. Reuses the
+ * Free-text slide composer — announcements, notes, any custom text. Reuses the
  * active slide style/template; keeps a recents list so repeat texts are one click.
  */
 export function TextPanel({ open, onClose, onProject }: Props) {
@@ -76,7 +76,7 @@ export function TextPanel({ open, onClose, onProject }: Props) {
           autosize
           minRows={3}
           maxRows={8}
-          placeholder="Текст слайда — оголошення, молитва, вітання…"
+          placeholder="Текст слайда — оголошення, примітка, довільний текст…"
           value={body}
           onChange={(e) => setBody(e.currentTarget.value)}
           onKeyDown={(e) => {

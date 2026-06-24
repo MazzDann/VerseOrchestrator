@@ -43,7 +43,7 @@ export interface RefItem {
 
 export type PanelPlacement = 'aside' | 'bottom';
 
-/** A free-text slide (announcement / prayer / welcome), kept in a recents list. */
+/** A free-text slide (announcement / note / any custom text), kept in a recents list. */
 export interface TextItem {
   title: string;
   body: string;

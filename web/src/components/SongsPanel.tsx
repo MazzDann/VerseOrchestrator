@@ -25,8 +25,8 @@ interface Props {
 }
 
 /**
- * Songs/hymns panel: search by number or title, open a hymn, and project its
- * stanzas (one .pptx slide each) as text slides on the presenter.
+ * Songs panel: search by number or title, open a song, and project its
+ * stanzas (one .pptx slide each) as text slides on the output window.
  */
 export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
   const [query, setQuery] = useState('');
@@ -36,7 +36,11 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
   const [faithful, setFaithful] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const listQuery = useQuery({ queryKey: ['songs', debounced], queryFn: () => api.songs(debounced), enabled: open });
+  const listQuery = useQuery({
+    queryKey: ['songs', debounced],
+    queryFn: () => api.songs(debounced),
+    enabled: open,
+  });
   const songQuery = useQuery({
     queryKey: ['song', songId],
     queryFn: () => api.song(songId!),

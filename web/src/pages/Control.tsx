@@ -378,7 +378,7 @@ export function Control() {
     }
   };
 
-  // Project a free-text slide (announcement / prayer / welcome) and keep it in recents.
+  // Project a free-text slide (announcement / note / custom text) and keep it in recents.
   const projectAnnouncement = (title: string, body: string) => {
     if (!body.trim()) return;
     projectText(body, title.trim());
