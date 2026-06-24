@@ -1,11 +1,14 @@
 # VerseOrchestrator
 
-Local web app that reads Bible modules and projects selected verses onto a second
-screen (presentation-style): you control from the main window, the output shows in a
-separate `/presenter` window you place on another monitor — like presenting slides.
+A local web app for **multi-screen reading of structured texts**. You navigate and
+search in the main window; selected passages appear on a separate `/presenter` output
+window you place on a second monitor, with state synced live between the windows.
 
-UI language is Ukrainian; the app handles any MyBible module (Ukrainian, Russian,
-English, Greek, Hebrew, Arabic, …) and is case- and diacritic-insensitive in search.
+The primary content is the **Bible** (MyBible modules), but the model — _containers →
+sections → numbered units_ (books → chapters → verses) with full-text search — applies
+to any structured book (reference works, normative documents, manuals). The UI is
+Ukrainian; search is case- and diacritic-insensitive and handles any module language
+(Ukrainian, Russian, English, Greek, Hebrew, Arabic, …).
 
 ## Prerequisites
 
@@ -24,8 +27,8 @@ licensing). You provide them yourself, in the standard **MyBible** `.SQLite3` fo
 
 MyBible modules can be obtained via the MyBible app or its community module mirrors
 (the catalog the app uses lives at `https://mybible.zone` and mirror hosts such as
-`mybible.i-t.kz`, `myb.1gb.ru`, `mybible.infoo.pro`, `mph4.ru`, served as
-`http://<host>/m/<file>.zip`).
+`myb.1gb.ru`, `mybible.infoo.pro`, `mph4.ru`, served as `http://<host>/m/<file>.zip`;
+the older `mybible.i-t.kz` mirror is dead — expired TLS, dropped from the registry).
 
 The builder auto-detects the modules folder in this order: `$MODULES_DIR` →
 `modules/` → `data/modules/` → `old/MyBible/`.
@@ -51,18 +54,35 @@ blocking the running app (the server picks up the new data with no restart).
 - **Search (F3 / Ctrl+F = current module, F4 = all modules):**
   - text, case/diacritic-insensitive, e.g. `любов`
   - reference, e.g. `Ів 3:16`, `Jn 3:16-18`, `бут 2 3`, `бут 2 3-5`, `бут 2`
-- **Send / blank:** **На екран** projects the selection; **Затемнити** blanks it.
+- **Send / blank:** **На екран** (or F5/F2) projects the selection. Two blank levels:
+  **Затемнити** hides only the text but keeps the background; **Чорний екран** (`.`)
+  paints pure black. A header **LIVE** toggle makes the presenter follow the selection
+  live; with it off, navigation only updates the preview and you push with F5/F2.
+- **Songs («Пісні»):** project text from a `.pptx` collection (e.g. song lyrics) —
+  search by number or title, then tap a stanza. A faithful / plain-text toggle
+  reproduces the original slide look.
+- **Text («Текст»):** project a free-text slide — announcements, notes, any custom
+  text — with an optional title; recent texts are kept for one-click reuse.
+- **Study:** clickable Strong's numbers (**«Стронг»** tab) → definition + concordance
+  ("where else is this word used"); the **«Контекст»** tab shows cross-references and
+  commentary for the selected verse. These appear when a module that carries them is
+  installed.
 
 ### Hotkeys (control window)
 
-| Key             | Action                          |
-| --------------- | ------------------------------- |
-| `→` / `↓`       | next verse                      |
-| `←` / `↑`       | previous verse                  |
-| `F3` / `Ctrl+F` | search current module           |
-| `F4`            | search all modules              |
-| `b`             | blank the screen                |
-| `Esc`           | clear the screen / close search |
+Defaults — rebindable in **Settings → Вигляд → Гарячі клавіші**.
+
+| Key                   | Action                                    |
+| --------------------- | ----------------------------------------- |
+| `→` / `↓`             | next verse                                |
+| `←` / `↑`             | previous verse                            |
+| `PageDown` / `PageUp` | next / previous verse (presenter clicker) |
+| `F5` / `F2`           | push the selection to the screen          |
+| `F3` / `Ctrl+F`       | search current module                     |
+| `F4`                  | search all modules                        |
+| `b`                   | blank the screen (keeps the background)   |
+| `.`                   | black screen (pure black, ignores the bg) |
+| `Esc`                 | clear the screen / close search           |
 
 ## Scripts
 
