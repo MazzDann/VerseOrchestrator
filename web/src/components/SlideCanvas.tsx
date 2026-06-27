@@ -87,7 +87,15 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
   const slideKey = show
     ? `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`
     : 'blank';
-  const { containerRef, contentRef } = useAutoFit([slideKey, style.font, style.align]);
+  // A faithful pptx song's quote carries the original font size (cqh); cap the
+  // auto-fit at it so stanzas render "as made" and only shrink when too long.
+  const quoteMaxCqh = slide.template?.objects.find((o) => o.kind === 'quote')?.size ?? 0;
+  const { containerRef, contentRef } = useAutoFit(
+    [slideKey, style.font, style.align],
+    6,
+    240,
+    quoteMaxCqh > 0 ? quoteMaxCqh : undefined,
+  );
 
   // Pure-black override: paint solid black over everything, ignoring the
   // background image/colour (the operator's "force black" key/button).
@@ -171,6 +179,8 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
                   lineHeight: 1.25,
                 };
                 if (o.kind === 'quote') {
+                  // Auto-fit the box, capped at the original font size for faithful
+                  // songs (see `quoteMaxCqh` above) so the look matches the pptx.
                   return (
                     <div key={i} ref={containerRef} style={box}>
                       <div ref={contentRef} style={{ maxWidth: '100%', textAlign: o.align }}>

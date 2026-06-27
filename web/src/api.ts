@@ -90,6 +90,10 @@ const SongStyleSchema = z
     y: z.number(),
     w: z.number(),
     h: z.number(),
+    size: z
+      .number()
+      .nullish()
+      .transform((v) => v ?? 0),
   })
   .nullable();
 export type SongStyle = NonNullable<z.infer<typeof SongStyleSchema>>;

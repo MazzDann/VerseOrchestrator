@@ -367,7 +367,8 @@ export function Control() {
             w: faithful.w,
             h: faithful.h,
             align: faithful.align,
-            size: 0,
+            // Original pptx font size (cqh) → render the stanza "as made", not auto-fit.
+            size: faithful.size,
           },
         ],
       } satisfies SlideTemplate;
@@ -964,7 +965,12 @@ export function Control() {
                               <Text
                                 span
                                 key={j}
-                                style={{ color: s.jesus ? appearance.jesusColor : undefined }}
+                                style={{
+                                  // tint of the reading-list text colour toward the accent
+                                  color: s.jesus
+                                    ? `color-mix(in srgb, currentColor 50%, ${appearance.jesusColor})`
+                                    : undefined,
+                                }}
                               >
                                 {s.text}
                                 {j < arr.length - 1 ? ' ' : ''}

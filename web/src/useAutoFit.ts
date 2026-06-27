@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, type DependencyList } from 'react';
  * `contentRef` is a callback ref: attach it to the element that re-mounts per
  * slide. The low `min` lets long passages shrink enough to stay on screen.
  */
-export function useAutoFit(deps: DependencyList, min = 6, max = 240) {
+export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: number) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLElement | null>(null);
 
@@ -18,7 +18,12 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240) {
     const content = contentRef.current;
     if (!container || !content) return;
     let lo = min;
+    // Cap the upper bound at `maxCqh`% of the container height when given (faithful
+    // pptx songs: never exceed the original font size — shrink to fit like PowerPoint).
     let hi = max;
+    if (maxCqh != null && maxCqh > 0) {
+      hi = Math.min(max, Math.max(min, Math.floor((maxCqh / 100) * container.clientHeight)));
+    }
     let best = min;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
@@ -34,7 +39,7 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240) {
       }
     }
     content.style.fontSize = `${best}px`;
-  }, [min, max]);
+  }, [min, max, maxCqh]);
 
   // Fit whenever the (re-mounted) content element attaches.
   const setContentRef = useCallback(
