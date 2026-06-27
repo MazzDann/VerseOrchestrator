@@ -13,6 +13,7 @@ export interface SlideStyleSpec {
   y: number;
   w: number;
   h: number;
+  size: number; // original font size, % of slide height (cqh); 0 = unknown → auto-fit
 }
 
 export interface SongSlide {
@@ -67,7 +68,18 @@ interface Theme {
 function parseTheme(themeXml: string, masterXml: string): Theme {
   const colors: Record<string, string> = {};
   const scheme = first(themeXml, /<a:clrScheme[^>]*>([\s\S]*?)<\/a:clrScheme>/) ?? '';
-  for (const key of ['dk1', 'lt1', 'dk2', 'lt2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6']) {
+  for (const key of [
+    'dk1',
+    'lt1',
+    'dk2',
+    'lt2',
+    'accent1',
+    'accent2',
+    'accent3',
+    'accent4',
+    'accent5',
+    'accent6',
+  ]) {
     const block = first(scheme, new RegExp(`<a:${key}>([\\s\\S]*?)</a:${key}>`)) ?? '';
     const last = first(block, /lastClr="([0-9A-Fa-f]{6})"/);
     const srgb = first(block, /<a:srgbClr val="([0-9A-Fa-f]{6})"/);
@@ -98,14 +110,30 @@ function resolveFill(fillXml: string | undefined, theme: Theme): string | null {
 
 function resolveFont(typeface: string | undefined, theme: Theme): string {
   const t = typeface ?? '+mn-lt';
-  const name = t === '+mj-lt' ? theme.majorLatin : t === '+mn-lt' || t.startsWith('+mn') ? theme.minorLatin : t;
+  const name =
+    t === '+mj-lt'
+      ? theme.majorLatin
+      : t === '+mn-lt' || t.startsWith('+mn')
+        ? theme.minorLatin
+        : t;
   return `"${name}", Calibri, "Segoe UI", system-ui, sans-serif`;
 }
 
-const ALIGN: Record<string, SlideStyleSpec['align']> = { l: 'left', ctr: 'center', r: 'right', just: 'left' };
+const ALIGN: Record<string, SlideStyleSpec['align']> = {
+  l: 'left',
+  ctr: 'center',
+  r: 'right',
+  just: 'left',
+};
 
 /** Build the faithful render style for one slide (its first text shape on the master background). */
-function slideStyle(slideXml: string, sw: number, sh: number, bg: string, theme: Theme): SlideStyleSpec | null {
+function slideStyle(
+  slideXml: string,
+  sw: number,
+  sh: number,
+  bg: string,
+  theme: Theme,
+): SlideStyleSpec | null {
   // first shape that actually has text
   let shape: string | null = null;
   for (const m of slideXml.matchAll(/<p:sp>([\s\S]*?)<\/p:sp>/g)) {
@@ -123,11 +151,17 @@ function slideStyle(slideXml: string, sw: number, sh: number, bg: string, theme:
   const h = ext ? (Number(ext[2]) / sh) * 100 : 88;
   const rPr = first(shape, /<a:rPr\b([\s\S]*?)(?:\/>|<\/a:rPr>)/) ?? '';
   const runFill = first(shape, /<a:rPr\b[\s\S]*?<a:solidFill>([\s\S]*?)<\/a:solidFill>/);
-  const color = resolveFill(runFill ? `<a:solidFill>${runFill}</a:solidFill>` : undefined, theme) ?? '#ffffff';
+  const color =
+    resolveFill(runFill ? `<a:solidFill>${runFill}</a:solidFill>` : undefined, theme) ?? '#ffffff';
   const font = resolveFont(first(shape, /<a:latin typeface="([^"]*)"/), theme);
   const bold = /\bb="1"/.test(rPr) || /<a:rPr\b[^>]*\bb="1"/.test(shape);
   const align = ALIGN[first(shape, /<a:pPr[^>]*\balgn="(\w+)"/) ?? 'ctr'] ?? 'center';
-  return { bg, color, font, bold, align, x, y, w, h };
+  // Original font size: <a:rPr sz="N"> is in hundredths of a point; express it as a
+  // percentage of the slide height (cqh) so the projected slide matches the pptx
+  // exactly, regardless of screen size, instead of auto-fitting to the text box.
+  const szRaw = Number(first(shape, /<a:rPr\b[^>]*\bsz="(\d+)"/) ?? 0);
+  const size = szRaw && sh ? (szRaw * 12700) / sh : 0;
+  return { bg, color, font, bold, align, x, y, w, h, size };
 }
 
 /** Read a .pptx hymn — number+title from the filename, plus each slide's text and faithful style. */
@@ -152,7 +186,8 @@ export function readSong(file: string): Song | null {
   const sw = Number(first(presXml, /<p:sldSz cx="(\d+)"/) ?? 9144000);
   const sh = Number(first(presXml, /cy="(\d+)" type/) ?? 5143500);
   const bgFill = first(masterXml, /<p:bg>[\s\S]*?<a:solidFill>([\s\S]*?)<\/a:solidFill>/);
-  const bg = resolveFill(bgFill ? `<a:solidFill>${bgFill}</a:solidFill>` : undefined, theme) ?? '#000000';
+  const bg =
+    resolveFill(bgFill ? `<a:solidFill>${bgFill}</a:solidFill>` : undefined, theme) ?? '#000000';
 
   const slides: SongSlide[] = Object.keys(zip)
     .filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
