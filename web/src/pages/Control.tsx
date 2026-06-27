@@ -120,6 +120,9 @@ export function Control() {
   const [textOpen, setTextOpen] = useState(false);
   // Active page when a long passage is split across multiple slides.
   const [pageIndex, setPageIndex] = useState(0);
+  // Last song/text/Strong projection shown in the preview (so the preview reflects
+  // songs and free text, not only the verse selection). Cleared on navigation.
+  const [previewOverride, setPreviewOverride] = useState<Slide | null>(null);
 
   const jumpTo = (r: Jumpable) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
@@ -275,8 +278,8 @@ export function Control() {
     [appearance],
   );
 
-  // WYSIWYG of the current page — what would be projected.
-  const previewSlide: Slide = {
+  // WYSIWYG of the current page — what would be projected for the verse selection.
+  const versePreview: Slide = {
     lines: slideLines,
     reference: pageReference,
     blank: false,
@@ -284,6 +287,9 @@ export function Control() {
     style: slideStyle,
     template: slideTemplate,
   };
+  // Show the last song/text/Strong projection while one is active; otherwise the
+  // verse selection. The override is cleared on navigation (effect below).
+  const previewSlide: Slide = previewOverride ?? versePreview;
 
   const send = (overrides?: Partial<Slide>) => {
     const slide: Slide = {
@@ -314,7 +320,7 @@ export function Control() {
       appearance.showVerseNumbers,
       strong,
     );
-    publishSlide({
+    const slide: Slide = {
       lines: [{ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments }],
       reference: pageReference,
       blank: false,
@@ -322,7 +328,9 @@ export function Control() {
       style: slideStyle,
       template: slideTemplate,
       subline,
-    });
+    };
+    publishSlide(slide);
+    setPreviewOverride(slide);
     setLive(true);
     notifications.show({
       message: `На екрані зі Стронгом: ${pageReference}`,
@@ -364,14 +372,16 @@ export function Control() {
         ],
       } satisfies SlideTemplate;
     }
-    publishSlide({
+    const slide: Slide = {
       lines: [{ translationAbbr: '', text, rtl: false }],
       reference,
       blank: false,
       visible: true,
       style,
       template,
-    });
+    };
+    publishSlide(slide);
+    setPreviewOverride(slide);
     setLive(true);
     if (reference) {
       notifications.show({ message: `На екрані: ${reference}`, color: 'green', autoClose: 1500 });
@@ -394,6 +404,12 @@ export function Control() {
     if (liveFollow && live && slideLines.length > 0) send();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideLines, reference, slideStyle, liveFollow]);
+
+  // A song/text/Strong projection takes over the preview; navigating the verse
+  // selection reverts the preview to the verses.
+  useEffect(() => {
+    setPreviewOverride(null);
+  }, [selectedVerses, bookNumber, chapter, primaryId]);
 
   // After a search/history/concordance jump, scroll the target verse to centre.
   // Deferred a tick so the list (and the closing search panel) settle their layout.

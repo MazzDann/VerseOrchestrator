@@ -411,27 +411,15 @@ export function search(query: string, translationIds: number[]): SearchResponse 
 function resolveReference(query: string, ids: number[]): SearchResult[] {
   const ref = parseReference(query);
   if (!ref) return [];
+  const bookNumber = resolveBookNumber(ref.bookToken);
+  if (bookNumber == null) return [];
 
-  // Find the matching book per translation by normalized-name prefix.
-  const books = getDb()
-    .prepare(
-      `SELECT DISTINCT translation_id, book_number
-       FROM book_names
-       WHERE translation_id IN (${placeholders(ids.length)}) AND name_norm LIKE ?
-       ORDER BY translation_id, length(name_norm)`,
-    )
-    .all(...ids, `${ref.bookToken}%`) as any[];
-
-  // Keep the first (shortest-name) match per translation.
-  const byTranslation = new Map<number, number>();
-  for (const b of books) {
-    if (!byTranslation.has(b.translation_id)) {
-      byTranslation.set(b.translation_id, b.book_number);
-    }
-  }
-
+  // MyBible book numbers are canonical across modules, so the book resolved from
+  // ANY translation's names is fetched from each SELECTED translation. This makes
+  // reference search cross-translation: type the book in any language and read it
+  // in the chosen translation (e.g. an English name to read a Hebrew text).
   const out: SearchResult[] = [];
-  for (const [translationId, bookNumber] of byTranslation) {
+  for (const translationId of ids) {
     let sql = `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
                       b.long_name, b.short_name
                FROM verses v
@@ -443,10 +431,51 @@ function resolveReference(query: string, ids: number[]): SearchResult[] {
       params.push(ref.verseStart, ref.verseEnd ?? ref.verseStart);
     }
     sql += ' ORDER BY v.verse';
-    const rows = getDb()
-      .prepare(sql)
-      .all(...params) as any[];
-    out.push(...rows.map(rowToResult));
+    out.push(
+      ...(
+        getDb()
+          .prepare(sql)
+          .all(...params) as any[]
+      ).map(rowToResult),
+    );
   }
   return out;
+}
+
+/**
+ * Resolve a (normalized) book token to a canonical MyBible book number, matching
+ * forgivingly across ALL translations' names (any language), not just the selected
+ * ones. Three ways a token can match a stored name, scored best-first:
+ *   1. the name starts with the token            ("ів" → "Ів", "john" → "John");
+ *   2. the token starts at a word inside the name ("iva" → "Від Івана");
+ *   3. the token starts with the name             ("іва"/"івана" → the abbr "Ів"),
+ *      i.e. the user typed a longer form than the stored abbreviation.
+ * Because book numbers are canonical, the resolved book is then read from whichever
+ * translation the caller selected — which makes reference search cross-translation.
+ */
+function resolveBookNumber(token: string): number | null {
+  if (token.length < 2) return null; // too short to disambiguate
+  const rows = getDb()
+    .prepare(
+      `SELECT DISTINCT book_number, name_norm FROM book_names
+       WHERE name_norm LIKE ? OR name_norm LIKE ?
+          OR (length(name_norm) >= 2 AND ? LIKE name_norm || '%')`,
+    )
+    .all(`${token}%`, `% ${token}%`, token) as any[];
+
+  let bestBook: number | null = null;
+  let bestScore = -Infinity;
+  for (const r of rows) {
+    const nm = String(r.name_norm);
+    let score: number;
+    if (nm.startsWith(token)) score = 1000 - nm.length; // exact-ish: shorter name is more specific
+    else if (nm.includes(` ${token}`)) score = 800 - nm.length; // token at a word boundary
+    else if (nm.length >= 2 && token.startsWith(nm)) score = 600 + nm.length; // longer abbr is more specific
+    else continue;
+    if (score > bestScore) {
+      bestScore = score;
+      bestBook = r.book_number as number;
+    }
+  }
+  return bestBook;
 }

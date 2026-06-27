@@ -54,6 +54,36 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
     }
   }, [open, songId]);
 
+  // While a song is open, arrows / PageUp-PageDown step through its stanzas and
+  // project them. Capture phase + stopPropagation so the verse-navigation hotkeys
+  // don't also fire.
+  useEffect(() => {
+    if (!open || songId == null) return;
+    const onKey = (e: KeyboardEvent) => {
+      const dir = ['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key)
+        ? 1
+        : ['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)
+          ? -1
+          : 0;
+      if (!dir) return;
+      const s = songQuery.data;
+      if (!s || s.slides.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const cur = activeStanza ?? -1;
+      const idx = Math.max(0, Math.min(s.slides.length - 1, cur + dir));
+      if (activeStanza != null && idx === cur) return;
+      setActiveStanza(idx);
+      onProjectStanza(
+        s.slides[idx].text,
+        `№${s.number ?? ''} ${s.title}`.trim(),
+        faithful ? s.slides[idx].style : null,
+      );
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open, songId, activeStanza, faithful, songQuery.data, onProjectStanza]);
+
   if (!open) return null;
   const songs = listQuery.data ?? [];
   const song = songQuery.data;
