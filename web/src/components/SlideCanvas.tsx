@@ -2,6 +2,7 @@ import { type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { type Slide, type SlideLine, type SlideStyle, DEFAULT_STYLE } from '../presenterBus';
 import { useAutoFit } from '../useAutoFit';
+import { mixHex } from '../lib/color';
 
 const ALIGN_ITEMS = { left: 'flex-start', center: 'center', right: 'flex-end' } as const;
 
@@ -30,10 +31,12 @@ function QuoteLines({ lines, style }: { lines: SlideLine[]; style: SlideStyle })
                 <span
                   key={j}
                   style={{
+                    // Words of Jesus / highlighted words render as a *tint* of the
+                    // base text colour toward the chosen accent, not a flat colour.
                     color: s.hot
-                      ? (style.highlightColor ?? '#ffd43b')
+                      ? mixHex(style.color, style.highlightColor ?? '#ffd43b', 0.55)
                       : s.jesus && style.redLetter
-                        ? (style.jesusColor ?? '#ff6b6b')
+                        ? mixHex(style.color, style.jesusColor ?? '#ff6b6b', 0.5)
                         : undefined,
                     fontWeight: s.hot ? 700 : undefined,
                   }}
