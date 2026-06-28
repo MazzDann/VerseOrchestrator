@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { type SlideTemplate } from './presenterBus';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { type SlideTemplate, type SlideObject } from './presenterBus';
 import { DEFAULT_KEYMAP, sanitizeKeymap, type Keymap, type HotkeyActionId } from './hotkeys';
 
 export type TextAlign = 'left' | 'center' | 'right';
@@ -49,6 +49,22 @@ export interface TextItem {
   body: string;
 }
 
+/** A named appearance bundle (look + layout) that can be saved, applied, and shared as a file. */
+export interface AppearancePreset {
+  name: string;
+  appearance: Appearance;
+  template: SlideTemplate | null;
+}
+
+/** On-disk preset file shape (web/public/presets/*.json + export/import). */
+export interface PresetFile {
+  $type: 'verseorchestrator-preset';
+  version: 1;
+  name: string;
+  appearance: Partial<Appearance>;
+  template: SlideTemplate | null;
+}
+
 interface SettingsState {
   appearance: Appearance;
   panelPlacement: PanelPlacement;
@@ -64,6 +80,8 @@ interface SettingsState {
   recentTexts: TextItem[];
   /** Operator keyboard shortcuts (action id → react-hotkeys-hook combo). */
   keymap: Keymap;
+  /** Saved appearance presets (look + layout bundles). */
+  presets: AppearancePreset[];
   setLiveFollow: (v: boolean) => void;
   setFollowAlong: (v: boolean) => void;
   setSlideTemplate: (t: SlideTemplate | null) => void;
@@ -79,6 +97,15 @@ interface SettingsState {
   removeRecentText: (item: TextItem) => void;
   setHotkey: (id: HotkeyActionId, combo: string) => void;
   resetKeymap: () => void;
+  /** Snapshot the current appearance + template under `name` (overwrites same name). */
+  savePreset: (name: string) => void;
+  /** Apply a saved preset's appearance + template. */
+  applyPreset: (name: string) => void;
+  /** Apply a preset's look directly without adding it to the library (built-ins). */
+  applyPresetData: (preset: AppearancePreset) => void;
+  deletePreset: (name: string) => void;
+  /** Add a preset (from a file) to the library and apply it; returns its name. */
+  importPreset: (preset: AppearancePreset) => string;
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
@@ -112,6 +139,97 @@ export const FONT_OPTIONS = [
 export const refKey = (i: RefItem) => `${i.translationId}-${i.bookNumber}-${i.chapter}-${i.verse}`;
 export const textKey = (t: TextItem) => `${t.title}\n${t.body}`;
 
+const ALIGNS: TextAlign[] = ['left', 'center', 'right'];
+const PAD_UNITS: PadUnit[] = ['px', '%'];
+const PAD_LINKS: PadLink[] = ['all', 'axis', 'none'];
+const STRONG_SUBLINES: StrongSubline[] = ['lemma', 'full'];
+const OBJECT_KINDS = ['quote', 'reference', 'subline', 'divider'];
+
+const numOr = (v: unknown, d: number) => (Number.isFinite(Number(v)) ? Number(v) : d);
+const strOr = (v: unknown, d: string) => (typeof v === 'string' ? v : d);
+
+/**
+ * Validate/clamp an arbitrary appearance object field-by-field over the defaults, so
+ * an imported preset can't poison the store with wrong-typed values. `bgImage` is
+ * dropped — presets carry the *look*, not the (heavy) background image (keeps export
+ * files small and the persisted state under the localStorage quota).
+ */
+function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
+  const m = { ...DEFAULT_APPEARANCE, ...ap } as Appearance;
+  return {
+    scriptureFont: strOr(m.scriptureFont, DEFAULT_APPEARANCE.scriptureFont),
+    textColor: strOr(m.textColor, DEFAULT_APPEARANCE.textColor),
+    textAlign: ALIGNS.includes(m.textAlign) ? m.textAlign : DEFAULT_APPEARANCE.textAlign,
+    bgColor: strOr(m.bgColor, DEFAULT_APPEARANCE.bgColor),
+    bgImage: null,
+    showVerseNumbers: !!m.showVerseNumbers,
+    padTop: numOr(m.padTop, DEFAULT_APPEARANCE.padTop),
+    padRight: numOr(m.padRight, DEFAULT_APPEARANCE.padRight),
+    padBottom: numOr(m.padBottom, DEFAULT_APPEARANCE.padBottom),
+    padLeft: numOr(m.padLeft, DEFAULT_APPEARANCE.padLeft),
+    padUnit: PAD_UNITS.includes(m.padUnit) ? m.padUnit : DEFAULT_APPEARANCE.padUnit,
+    padLink: PAD_LINKS.includes(m.padLink) ? m.padLink : DEFAULT_APPEARANCE.padLink,
+    strongSubline: STRONG_SUBLINES.includes(m.strongSubline)
+      ? m.strongSubline
+      : DEFAULT_APPEARANCE.strongSubline,
+    redLetter: !!m.redLetter,
+    jesusColor: strOr(m.jesusColor, DEFAULT_APPEARANCE.jesusColor),
+    highlightColor: strOr(m.highlightColor, DEFAULT_APPEARANCE.highlightColor),
+    versesPerSlide: Math.max(0, Math.trunc(numOr(m.versesPerSlide, 0))),
+  };
+}
+
+/** Validate an imported template into a safe `SlideTemplate` (or null) — dropping
+ *  garbage so a malformed `objects` can never crash SlideCanvas/TemplateEditor. */
+function coerceTemplate(raw: unknown): SlideTemplate | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as { name?: unknown; objects?: unknown };
+  if (!Array.isArray(r.objects)) return null;
+  const objects = r.objects
+    .filter((o): o is Record<string, unknown> => !!o && typeof o === 'object')
+    .filter((o) => OBJECT_KINDS.includes(o.kind as string))
+    .map(
+      (o): SlideObject => ({
+        kind: o.kind as SlideObject['kind'],
+        visible: o.visible !== false,
+        x: numOr(o.x, 0),
+        y: numOr(o.y, 0),
+        w: numOr(o.w, 100),
+        h: numOr(o.h, 10),
+        align: ALIGNS.includes(o.align as TextAlign) ? (o.align as TextAlign) : 'center',
+        size: numOr(o.size, 0),
+        ...(typeof o.color === 'string' ? { color: o.color } : {}),
+        ...(o.tiedToSubline ? { tiedToSubline: true } : {}),
+      }),
+    );
+  if (objects.length === 0) return null;
+  return { name: strOr(r.name, 'Шаблон'), objects };
+}
+
+/** Coerce arbitrary parsed JSON into a safe preset, or null if it isn't a preset file. */
+export function coercePreset(raw: unknown, fallbackName = 'Імпортований'): AppearancePreset | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  // Reject unrelated JSON (a wrong file picked by mistake) rather than silently
+  // resetting the look to defaults under a "success" toast.
+  if (r.$type !== 'verseorchestrator-preset') return null;
+  const ap = r.appearance;
+  const apObj = ap && typeof ap === 'object' && !Array.isArray(ap) ? (ap as Record<string, unknown>) : {};
+  const name = (typeof r.name === 'string' && r.name.trim()) || fallbackName;
+  return { name, appearance: sanitizeAppearance(apObj), template: coerceTemplate(r.template) };
+}
+
+/** Serialize a preset to the shareable file shape. */
+export function presetToFile(p: AppearancePreset): PresetFile {
+  return {
+    $type: 'verseorchestrator-preset',
+    version: 1,
+    name: p.name,
+    appearance: p.appearance,
+    template: p.template,
+  };
+}
+
 export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
@@ -124,6 +242,7 @@ export const useSettings = create<SettingsState>()(
       bookmarks: [],
       recentTexts: [],
       keymap: DEFAULT_KEYMAP,
+      presets: [],
       setLiveFollow: (v) => set({ liveFollow: v }),
       setFollowAlong: (v) => set({ followAlong: v }),
       setSlideTemplate: (t) => set({ slideTemplate: t }),
@@ -176,10 +295,60 @@ export const useSettings = create<SettingsState>()(
         set((s) => ({ recentTexts: s.recentTexts.filter((t) => textKey(t) !== textKey(item)) })),
       setHotkey: (id, combo) => set((s) => ({ keymap: { ...s.keymap, [id]: combo } })),
       resetKeymap: () => set({ keymap: DEFAULT_KEYMAP }),
+      savePreset: (name) =>
+        set((s) => {
+          const n = name.trim();
+          if (!n) return s;
+          // Snapshot the look but NOT the background image — presets stay small so
+          // many can be saved/exported without blowing the localStorage quota.
+          const preset: AppearancePreset = {
+            name: n,
+            appearance: { ...s.appearance, bgImage: null },
+            template: s.slideTemplate,
+          };
+          return { presets: [preset, ...s.presets.filter((p) => p.name !== n)].slice(0, 100) };
+        }),
+      applyPreset: (name) =>
+        set((s) => {
+          const p = s.presets.find((x) => x.name === name);
+          if (!p) return s;
+          // Keep the current background image — presets don't manage it.
+          return {
+            appearance: { ...DEFAULT_APPEARANCE, ...p.appearance, bgImage: s.appearance.bgImage },
+            slideTemplate: p.template ?? null,
+          };
+        }),
+      applyPresetData: (preset) =>
+        set((s) => ({
+          appearance: { ...DEFAULT_APPEARANCE, ...preset.appearance, bgImage: s.appearance.bgImage },
+          slideTemplate: preset.template ?? null,
+        })),
+      deletePreset: (name) => set((s) => ({ presets: s.presets.filter((p) => p.name !== name) })),
+      importPreset: (preset) => {
+        set((s) => ({
+          presets: [preset, ...s.presets.filter((p) => p.name !== preset.name)].slice(0, 100),
+          appearance: { ...DEFAULT_APPEARANCE, ...preset.appearance, bgImage: s.appearance.bgImage },
+          slideTemplate: preset.template ?? null,
+        }));
+        return preset.name;
+      },
     }),
     {
       name: 'vo:settings',
       version: 1,
+      // Guard the write so a localStorage quota error (e.g. a large bgImage) can't
+      // throw out of an unrelated setState — it degrades to "not persisted" instead.
+      storage: createJSONStorage(() => ({
+        getItem: (k) => localStorage.getItem(k),
+        setItem: (k, v) => {
+          try {
+            localStorage.setItem(k, v);
+          } catch {
+            /* quota/availability — keep running with in-memory state */
+          }
+        },
+        removeItem: (k) => localStorage.removeItem(k),
+      })),
       // Deep-merge so appearance fields added later (e.g. padding) fall back to
       // their defaults instead of being dropped for users with stored settings.
       // (Additive change — no version bump/migrate needed; merge backfills.)

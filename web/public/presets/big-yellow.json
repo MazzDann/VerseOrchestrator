@@ -1,0 +1,14 @@
+{
+  "$type": "verseorchestrator-preset",
+  "version": 1,
+  "name": "Велике жовте на чорному",
+  "appearance": {
+    "scriptureFont": "Inter, system-ui, sans-serif",
+    "textColor": "#ffd966",
+    "textAlign": "center",
+    "bgColor": "#000000",
+    "redLetter": false,
+    "showVerseNumbers": false
+  },
+  "template": null
+}

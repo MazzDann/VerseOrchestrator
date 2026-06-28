@@ -657,7 +657,7 @@ export function Control() {
   useEffect(() => {
     if (liveFollow && live && slideLines.length > 0 && !previewOverride) send();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideLines, reference, slideStyle, liveFollow, previewOverride]);
+  }, [slideLines, reference, slideStyle, slideTemplate, liveFollow, previewOverride]);
 
   // A song/text/Strong projection takes over the preview; navigating the verse
   // selection reverts the preview to the verses.

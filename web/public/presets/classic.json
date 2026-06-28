@@ -1,0 +1,14 @@
+{
+  "$type": "verseorchestrator-preset",
+  "version": 1,
+  "name": "Класичний (сериф)",
+  "appearance": {
+    "scriptureFont": "\"Lora\", Georgia, \"Times New Roman\", serif",
+    "textColor": "#f4f4f6",
+    "textAlign": "center",
+    "bgColor": "#000000",
+    "redLetter": true,
+    "jesusColor": "#ff6b6b"
+  },
+  "template": null
+}

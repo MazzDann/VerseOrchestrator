@@ -28,6 +28,7 @@ import { api } from '../api';
 import { fileToDownscaledDataUrl } from '../lib/image';
 import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
+import { PresetsSection } from './PresetsSection';
 
 /** Appearance controls for the projected screen. Persisted via the settings store. */
 export function SettingsPanel() {
@@ -101,6 +102,8 @@ export function SettingsPanel() {
         </Text>
         <TemplateEditor />
       </div>
+      <Divider />
+      <PresetsSection />
       <Select
         label="Шрифт тексту"
         data={FONT_OPTIONS}

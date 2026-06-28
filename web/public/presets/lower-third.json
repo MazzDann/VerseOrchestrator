@@ -1,0 +1,21 @@
+{
+  "$type": "verseorchestrator-preset",
+  "version": 1,
+  "name": "Нижня третина",
+  "appearance": {
+    "scriptureFont": "Inter, system-ui, sans-serif",
+    "textColor": "#ffffff",
+    "textAlign": "left",
+    "bgColor": "#0b2545",
+    "redLetter": false
+  },
+  "template": {
+    "name": "Нижня третина",
+    "objects": [
+      { "kind": "quote", "visible": true, "x": 5, "y": 58, "w": 90, "h": 27, "align": "left", "size": 0 },
+      { "kind": "subline", "visible": false, "x": 5, "y": 85, "w": 90, "h": 6, "align": "left", "size": 3 },
+      { "kind": "divider", "visible": false, "x": 5, "y": 86, "w": 30, "h": 0.4, "align": "left", "size": 0 },
+      { "kind": "reference", "visible": true, "x": 5, "y": 90, "w": 90, "h": 6, "align": "left", "size": 3 }
+    ]
+  }
+}
