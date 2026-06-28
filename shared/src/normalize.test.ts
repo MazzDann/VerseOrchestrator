@@ -140,6 +140,26 @@ describe('parseReference', () => {
     });
   });
 
+  it('parses a multi-word book name', () => {
+    expect(parseReference('Ісус Навин 4:10')).toMatchObject({
+      bookToken: 'ісус навин',
+      chapter: 4,
+      verseStart: 10,
+    });
+  });
+
+  it('parses a multi-word book name with a space-separated verse', () => {
+    expect(parseReference('Пісня над піснями 3 1')).toMatchObject({
+      bookToken: 'пісня над піснями',
+      chapter: 3,
+      verseStart: 1,
+    });
+  });
+
+  it('parses a multi-word book + chapter only', () => {
+    expect(parseReference('ісус навин 4')).toMatchObject({ bookToken: 'ісус навин', chapter: 4 });
+  });
+
   it('returns null for non-references', () => {
     expect(parseReference('любов')).toBeNull();
     expect(parseReference('16')).toBeNull();

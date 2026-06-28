@@ -193,6 +193,13 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
               {template.objects.map((o, i) => {
                 if (!o.visible) return null;
                 if (o.kind === 'subline' && !slide.subline) return null;
+                // Clamp geometry to the slide so a box taller/wider than the screen
+                // (some .pptx text boxes extend past the slide — e.g. h ≈ 119%) can't
+                // push the auto-fit content off the visible area.
+                const cx = Math.max(0, Math.min(100, o.x));
+                const cy = Math.max(0, Math.min(100, o.y));
+                const cw = Math.max(0, Math.min(100 - cx, o.w));
+                const ch = Math.max(0, Math.min(100 - cy, o.h));
                 if (o.kind === 'divider') {
                   if (o.tiedToSubline && !slide.subline) return null;
                   return (
@@ -200,10 +207,10 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
                       key={i}
                       style={{
                         position: 'absolute',
-                        left: `${o.x}%`,
-                        top: `${o.y}%`,
-                        width: `${o.w}%`,
-                        height: `${Math.max(o.h, 0.2)}%`,
+                        left: `${cx}%`,
+                        top: `${cy}%`,
+                        width: `${cw}%`,
+                        height: `${Math.max(ch, 0.2)}%`,
                         background: o.color ?? 'currentColor',
                         opacity: 0.4,
                         borderRadius: 2,
@@ -213,10 +220,10 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
                 }
                 const box: CSSProperties = {
                   position: 'absolute',
-                  left: `${o.x}%`,
-                  top: `${o.y}%`,
-                  width: `${o.w}%`,
-                  height: `${o.h}%`,
+                  left: `${cx}%`,
+                  top: `${cy}%`,
+                  width: `${cw}%`,
+                  height: `${ch}%`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: ALIGN_ITEMS[o.align],
