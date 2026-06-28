@@ -121,11 +121,16 @@ export function Control() {
   const queryClient = useQueryClient();
   const playlistItems = usePlaylist((s) => s.items);
   const playlistCurrentId = usePlaylist((s) => s.currentId);
+  const playlistSaved = usePlaylist((s) => s.saved);
   const playlistAdd = usePlaylist((s) => s.add);
   const playlistRemove = usePlaylist((s) => s.removeItem);
   const playlistMove = usePlaylist((s) => s.move);
+  const playlistReorder = usePlaylist((s) => s.reorder);
   const playlistClear = usePlaylist((s) => s.clear);
   const playlistSetCurrent = usePlaylist((s) => s.setCurrent);
+  const playlistSaveProgram = usePlaylist((s) => s.saveProgram);
+  const playlistLoadProgram = usePlaylist((s) => s.loadProgram);
+  const playlistDeleteProgram = usePlaylist((s) => s.deleteProgram);
 
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
@@ -1419,12 +1424,28 @@ export function Control() {
         <PlaylistPanel
           items={playlistItems}
           currentId={playlistCurrentId}
+          saved={playlistSaved}
           onActivate={activateItem}
           onRemove={playlistRemove}
           onMove={playlistMove}
+          onReorder={playlistReorder}
           onClear={playlistClear}
           onNext={() => stepPlaylist(1)}
           onPrev={() => stepPlaylist(-1)}
+          onSave={(n) => {
+            const exists = playlistSaved.some((p) => p.name === n.trim());
+            playlistSaveProgram(n);
+            notifications.show({
+              message: exists ? `Програму оновлено: ${n}` : `Програму збережено: ${n}`,
+              color: 'green',
+              autoClose: 1500,
+            });
+          }}
+          onLoad={(n) => {
+            playlistLoadProgram(n);
+            notifications.show({ message: `Відкрито програму: ${n}`, color: 'blue', autoClose: 1500 });
+          }}
+          onDelete={playlistDeleteProgram}
         />
       </FloatingPanel>
 
