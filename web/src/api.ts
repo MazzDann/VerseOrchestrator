@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { type Slide } from './presenterBus';
 
 /** Nullable/optional string from the API, normalized to a plain string. */
 const str = () =>
@@ -155,6 +156,19 @@ export const api = {
     ),
   songs: (q: string) => getJson(`/api/songs?q=${encodeURIComponent(q)}`, z.array(SongInfoSchema)),
   song: (id: number) => getJson(`/api/songs/${id}`, SongDetailSchema),
+  // Audience follow-along relay (server-side in-memory state polled by phones).
+  livePost: async (slide: Slide): Promise<void> => {
+    await fetch('/api/live', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(slide),
+    }).catch(() => {
+      /* best-effort; phones poll and will catch up */
+    });
+  },
+  live: () =>
+    getJson('/api/live', z.object({ version: z.number(), slide: z.any().nullable() })),
+  host: () => getJson('/api/host', z.object({ ips: z.array(z.string()) })),
   rebuild: async (): Promise<{ ok: boolean }> => {
     const res = await fetch('/api/rebuild', { method: 'POST' });
     if (!res.ok) {

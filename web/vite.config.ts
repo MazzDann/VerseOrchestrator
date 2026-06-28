@@ -22,6 +22,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Bind to all interfaces so phones on the same Wi-Fi can reach the app for
+    // audience follow-along (the QR points at the machine's LAN IP).
+    host: true,
     proxy: {
       '/api': 'http://localhost:8787',
     },

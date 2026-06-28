@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -23,6 +24,7 @@ import {
 
 const app = express();
 app.use(cors());
+app.use(express.json({ limit: '1mb' }));
 
 const PORT = Number(process.env.PORT ?? 8787);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -52,6 +54,58 @@ const wrap =
   };
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+/**
+ * Audience "follow-along": the control window POSTs the current slide here and
+ * phones poll it (read-only). Kept in memory only — it's live state, not data.
+ * `version` lets pollers cheaply skip unchanged responses.
+ */
+let liveState: unknown = null;
+let liveVersion = 0;
+
+app.post(
+  '/api/live',
+  wrap((req, res) => {
+    liveState = req.body ?? null;
+    liveVersion += 1;
+    res.json({ ok: true, version: liveVersion });
+  }),
+);
+
+app.get(
+  '/api/live',
+  wrap((_req, res) => res.json({ version: liveVersion, slide: liveState })),
+);
+
+/**
+ * LAN IPv4 addresses so the control UI can build a phone-scannable follow URL.
+ * Ranked so a real Wi-Fi/Ethernet address sorts before virtual adapters
+ * (Hyper-V/WSL/VirtualBox/Docker), which are commonly enumerated first on Windows
+ * and aren't reachable from phones.
+ */
+app.get(
+  '/api/host',
+  wrap((_req, res) => {
+    const VIRTUAL = /(vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|default switch)/i;
+    // Rank by private-range likelihood: 192.168.x (home Wi-Fi) > 10.x > 172.16–31.x.
+    const rangeRank = (ip: string): number => {
+      if (ip.startsWith('192.168.')) return 0;
+      if (ip.startsWith('10.')) return 1;
+      if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return 2;
+      return 3;
+    };
+    const candidates: { ip: string; rank: number }[] = [];
+    for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+      for (const a of addrs ?? []) {
+        if (a.family !== 'IPv4' || a.internal) continue;
+        if (a.address.startsWith('169.254.')) continue; // link-local (no DHCP)
+        candidates.push({ ip: a.address, rank: rangeRank(a.address) + (VIRTUAL.test(name) ? 10 : 0) });
+      }
+    }
+    candidates.sort((x, y) => x.rank - y.rank);
+    res.json({ ips: candidates.map((c) => c.ip) });
+  }),
+);
 
 app.get(
   '/api/translations',

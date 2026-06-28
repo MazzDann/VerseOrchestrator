@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppShell,
   Group,
@@ -45,6 +45,8 @@ import {
   IconAdjustments,
   IconList,
   IconPlaylistAdd,
+  IconLayoutDashboard,
+  IconQrcode,
 } from '@tabler/icons-react';
 
 import { api, type Book, type Verse, type SongStyle } from '../api';
@@ -52,6 +54,8 @@ import { useStore } from '../store';
 import { useSettings, refKey, type RefItem } from '../settingsStore';
 import {
   publishSlide,
+  publishNext,
+  readSlide,
   subscribeCommand,
   type PresenterCommand,
   type Slide,
@@ -62,7 +66,7 @@ import {
 } from '../presenterBus';
 import { parseRedLetter } from '@vo/shared';
 import { parseStrongTokens } from '../lib/strong';
-import { openPresenterWindow } from '../openPresenter';
+import { openPresenterWindow, openStageWindow } from '../openPresenter';
 import { SearchPanel, type SearchScope } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { RefList } from '../components/RefList';
@@ -74,6 +78,7 @@ import { TextPanel } from '../components/TextPanel';
 import { FloatingPanel } from '../components/FloatingPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { PlaylistPanel } from '../components/PlaylistPanel';
+import { FollowPanel } from '../components/FollowPanel';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
@@ -107,6 +112,7 @@ export function Control() {
   const panelPlacement = useSettings((s) => s.panelPlacement);
   const liveFollow = useSettings((s) => s.liveFollow);
   const setLiveFollow = useSettings((s) => s.setLiveFollow);
+  const followAlong = useSettings((s) => s.followAlong);
   const slideTemplate = useSettings((s) => s.slideTemplate);
   const pushRecentText = useSettings((s) => s.pushRecentText);
   const keymap = useSettings((s) => s.keymap);
@@ -138,6 +144,7 @@ export function Control() {
   const [textOpen, setTextOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
+  const [followOpen, setFollowOpen] = useState(false);
   // The song + highlighted stanza in the Songs panel — lifted here so the playlist
   // can open a song and seed its stanza (and so forwarded clicker commands step it).
   const [songsPanelSongId, setSongsPanelSongId] = useState<number | null>(null);
@@ -152,6 +159,8 @@ export function Control() {
   // Last song/text/Strong projection shown in the preview (so the preview reflects
   // songs and free text, not only the verse selection). Cleared on navigation.
   const [previewOverride, setPreviewOverride] = useState<Slide | null>(null);
+  // The slide actually published to the output window (for the in-app live monitor).
+  const [liveSlide, setLiveSlide] = useState<Slide>(() => readSlide());
 
   const jumpTo = (r: Jumpable) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
@@ -273,19 +282,25 @@ export function Control() {
     if (asideMode === 'strong' && !primaryHasStrong) setAsideMode('preview');
   }, [asideMode, primaryHasStrong]);
 
-  const slideLines = useMemo<SlideLine[]>(() => {
-    if (pageVerses.length === 0) return [];
-    return selectedIds
-      .map((id) => {
-        const t = translations.find((x) => x.id === id);
-        const verses = versesByTranslation.get(id) ?? [];
-        const text = joinVerses(verses, pageVerses, appearance.showVerseNumbers);
-        if (!text.trim()) return null;
-        const segments = redLetterSegments(verses, pageVerses, appearance.showVerseNumbers);
-        return { translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments } as SlideLine;
-      })
-      .filter((x): x is SlideLine => x !== null);
-  }, [selectedIds, pageVerses, versesByTranslation, translations, appearance.showVerseNumbers]);
+  // Build slide lines for an arbitrary set of verse numbers in the current chapter
+  // (shared by the live slide and the stage "next" preview).
+  const buildLines = useCallback(
+    (verseNums: number[]): SlideLine[] => {
+      if (verseNums.length === 0) return [];
+      return selectedIds
+        .map((id) => {
+          const t = translations.find((x) => x.id === id);
+          const verses = versesByTranslation.get(id) ?? [];
+          const text = joinVerses(verses, verseNums, appearance.showVerseNumbers);
+          if (!text.trim()) return null;
+          const segments = redLetterSegments(verses, verseNums, appearance.showVerseNumbers);
+          return { translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments } as SlideLine;
+        })
+        .filter((x): x is SlideLine => x !== null);
+    },
+    [selectedIds, versesByTranslation, translations, appearance.showVerseNumbers],
+  );
+  const slideLines = useMemo(() => buildLines(pageVerses), [buildLines, pageVerses]);
 
   const slideStyle: SlideStyle = useMemo(
     () => ({
@@ -320,6 +335,70 @@ export function Control() {
   // verse selection. The override is cleared on navigation (effect below).
   const previewSlide: Slide = previewOverride ?? versePreview;
 
+  // What advancing once would project — fed to the stage display's "next" pane.
+  // Only meaningful for verse/page navigation; null while an override owns the screen.
+  const nextSlide = useMemo<Slide | null>(() => {
+    if (previewOverride || selectedVerses.length === 0) return null;
+    let nextVerses: number[] | null = null;
+    if (pageCount > 1 && safePageIndex < pageCount - 1) {
+      nextVerses = pages[safePageIndex + 1];
+    } else if (pageCount <= 1) {
+      const all = primaryVerses.map((v) => v.verse);
+      const last = selectedVerses[selectedVerses.length - 1];
+      const idx = all.indexOf(last);
+      if (idx >= 0 && idx < all.length - 1) nextVerses = [all[idx + 1]];
+    }
+    if (!nextVerses) return null;
+    const lines = buildLines(nextVerses);
+    if (lines.length === 0) return null;
+    return {
+      lines,
+      reference: formatReference(currentBook, chapter, nextVerses),
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+    };
+  }, [
+    previewOverride,
+    selectedVerses,
+    pageCount,
+    safePageIndex,
+    pages,
+    primaryVerses,
+    buildLines,
+    currentBook,
+    chapter,
+    slideStyle,
+    slideTemplate,
+  ]);
+
+  // Mirror the next-slide preview to the stage window.
+  useEffect(() => {
+    publishNext(nextSlide);
+  }, [nextSlide]);
+
+  // Publish to the output window AND record it as the live slide (the bus doesn't
+  // echo to the sender, so we track it here for the in-app "what's on screen" monitor).
+  // When follow-along is on, also mirror a background-stripped copy to the server.
+  // Read followAlong through a ref so handlers with frozen deps (the clear/black
+  // hotkeys, whose react-hotkeys-hook dep arrays exclude followAlong) still see the
+  // current value rather than the one captured when the hotkey was last memoized.
+  const followAlongRef = useRef(followAlong);
+  followAlongRef.current = followAlong;
+  const pushLive = (slide: Slide) => {
+    publishSlide(slide);
+    setLiveSlide(slide);
+    if (followAlongRef.current) void api.livePost(stripBg(slide));
+  };
+
+  // Push the current slide to the relay the moment follow-along is enabled, so
+  // phones that are already on the page jump to it without waiting for the next change.
+  useEffect(() => {
+    if (followAlong) void api.livePost(stripBg(liveSlide));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followAlong]);
+
   const send = (overrides?: Partial<Slide>) => {
     const slide: Slide = {
       lines: slideLines,
@@ -330,7 +409,7 @@ export function Control() {
       template: slideTemplate,
       ...overrides,
     };
-    publishSlide(slide);
+    pushLive(slide);
     setLive(slide.visible && !slide.blank);
     // Projecting the verse selection ends any song/text/Strong override, so the
     // preview and live-follow track the verses again (no preview/screen desync).
@@ -361,7 +440,7 @@ export function Control() {
       template: slideTemplate,
       subline,
     };
-    publishSlide(slide);
+    pushLive(slide);
     setPreviewOverride(slide);
     setLive(true);
     notifications.show({
@@ -413,7 +492,7 @@ export function Control() {
       style,
       template,
     };
-    publishSlide(slide);
+    pushLive(slide);
     setPreviewOverride(slide);
     setLive(true);
     if (reference) {
@@ -466,7 +545,7 @@ export function Control() {
       });
       return;
     }
-    publishSlide({
+    pushLive({
       lines,
       reference: it.label,
       blank: false,
@@ -666,7 +745,12 @@ export function Control() {
   ]);
   useHotkeys(
     keymap.clear,
-    () => publishSlide({ lines: [], reference: '', blank: false, visible: false }),
+    () => {
+      pushLive({ lines: [], reference: '', blank: false, visible: false });
+      // Drop out of live so the live-follow effect doesn't immediately re-project the
+      // selection (pushLive's setLiveSlide re-renders, which would re-run that effect).
+      setLive(false);
+    },
     [keymap.clear],
   );
   useHotkeys(keymap.searchCurrent, () => openSearch('current'), {
@@ -699,7 +783,7 @@ export function Control() {
   );
 
   const blankScreen = () => {
-    publishSlide({ lines: slideLines, reference, blank: true, visible: true, style: slideStyle });
+    pushLive({ lines: slideLines, reference, blank: true, visible: true, style: slideStyle });
     setLive(false);
     notifications.show({ message: 'Екран затемнено', color: 'gray', autoClose: 1500 });
   };
@@ -707,7 +791,7 @@ export function Control() {
   // Pure-black screen, ignoring the background — distinct from "Затемнити" (blank),
   // which keeps the background image/colour and only hides the text. Bound to ".".
   const blackScreen = () => {
-    publishSlide({
+    pushLive({
       lines: [],
       reference: '',
       blank: false,
@@ -745,6 +829,26 @@ export function Control() {
         : { message: 'Не вдалося відкрити вікно (перевірте блокувальник)', color: 'red' },
     );
   };
+
+  const openStage = async () => {
+    const win = await openStageWindow();
+    notifications.show(
+      win
+        ? { message: 'Вікно сцени відкрито', color: 'blue', autoClose: 1500 }
+        : { message: 'Не вдалося відкрити вікно (перевірте блокувальник)', color: 'red' },
+    );
+  };
+
+  // In-app "what's on screen now" monitor — reflects the actually-published slide.
+  const liveActive =
+    liveSlide.visible && !liveSlide.blank && !liveSlide.forceBlack && liveSlide.lines.length > 0;
+  const liveLabel = liveSlide.forceBlack
+    ? 'Чорний екран'
+    : liveSlide.blank
+      ? 'Затемнено'
+      : liveActive
+        ? liveSlide.reference || 'На екрані'
+        : 'Порожньо';
 
   const exportBookmarks = () => {
     const blob = new Blob([JSON.stringify(bookmarks, null, 2)], { type: 'application/json' });
@@ -909,6 +1013,27 @@ export function Control() {
               >
                 Показ
               </Button>
+              <Tooltip label="Сцена — монітор оператора (зараз / далі / годинник)">
+                <ActionIcon
+                  variant="default"
+                  size="lg"
+                  onClick={() => void openStage()}
+                  aria-label="Сцена"
+                >
+                  <IconLayoutDashboard size={18} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Трансляція на телефони глядачів (QR)">
+                <ActionIcon
+                  variant={followOpen ? 'filled' : 'default'}
+                  color={followAlong ? 'green' : 'brand'}
+                  size="lg"
+                  onClick={() => setFollowOpen((o) => !o)}
+                  aria-label="Трансляція глядачам"
+                >
+                  <IconQrcode size={18} />
+                </ActionIcon>
+              </Tooltip>
               <Button
                 color="green"
                 size="sm"
@@ -1101,6 +1226,16 @@ export function Control() {
                   : 'Оберіть книгу та розділ'}
               </Text>
               <Group gap={6} wrap="nowrap">
+                <Tooltip label="Що зараз на екрані показу">
+                  <Badge
+                    variant={liveActive ? 'filled' : 'light'}
+                    color={liveSlide.forceBlack ? 'dark' : liveActive ? 'green' : 'gray'}
+                    leftSection={<IconDeviceTv size={12} />}
+                    style={{ maxWidth: 220 }}
+                  >
+                    {liveLabel}
+                  </Badge>
+                </Tooltip>
                 {pageCount > 1 && (
                   <Group gap={2} wrap="nowrap">
                     <ActionIcon
@@ -1267,8 +1402,25 @@ export function Control() {
           onPrev={() => stepPlaylist(-1)}
         />
       </FloatingPanel>
+
+      <FloatingPanel
+        opened={followOpen}
+        onClose={() => setFollowOpen(false)}
+        title="Трансляція глядачам"
+        storageKey="vo:followPanelPos"
+        width={320}
+        icon={<IconQrcode size={16} />}
+      >
+        <FollowPanel />
+      </FloatingPanel>
     </>
   );
+}
+
+/** Drop the (potentially large) background image before mirroring to the follow relay. */
+function stripBg(slide: Slide): Slide {
+  if (!slide.style?.bgImage) return slide;
+  return { ...slide, style: { ...slide.style, bgImage: null } };
 }
 
 /** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */
