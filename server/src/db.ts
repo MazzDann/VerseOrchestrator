@@ -479,14 +479,24 @@ function resolveReference(query: string, ids: number[]): SearchResult[] {
   if (candidates.length === 0) return [];
   // Prefer the candidate book whose requested chapter:verse actually exists — this
   // disambiguates by validity, e.g. "іс 4:6" → Ісая (has v6) but "іс 4:7" → Ісус
-  // Навин (Ісая 4 has no v7). Falls back to the best name match if none has it.
-  let bookNumber = candidates[0];
+  // Навин (Ісая 4 has no v7). For a range, prefer a book that has the END verse too
+  // (so "іс 4:6-24" → Joshua, not Isaiah which ends at v6). Falls back to the first
+  // book with the start verse, then to the best name match.
+  let chosen: number | null = null;
+  let firstStartOk: number | null = null;
   for (const bn of candidates) {
-    if (locationExists(ids, bn, ref.chapter, ref.verseStart)) {
-      bookNumber = bn;
+    if (!locationExists(ids, bn, ref.chapter, ref.verseStart)) continue;
+    if (firstStartOk == null) firstStartOk = bn;
+    const rangeOk =
+      ref.verseEnd == null ||
+      ref.verseEnd === ref.verseStart ||
+      locationExists(ids, bn, ref.chapter, ref.verseEnd);
+    if (rangeOk) {
+      chosen = bn;
       break;
     }
   }
+  const bookNumber = chosen ?? firstStartOk ?? candidates[0];
 
   // MyBible book numbers are canonical across modules, so the book resolved from
   // ANY translation's names is fetched from each SELECTED translation. This makes

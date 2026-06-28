@@ -20,10 +20,23 @@ export type SearchScope = 'current' | 'all';
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// Search folds accents (й→и, ї→і, ё→е), so a bare-letter query can match an accented
+// verse word. Mirror that when highlighting: a base letter also matches its variant.
+const FOLD_VARIANTS: Record<string, string> = { и: 'й', і: 'ї', е: 'ё' };
+/** Build a regex source for a term where foldable base letters also match their variant. */
+function termPattern(term: string): string {
+  return [...term]
+    .map((ch) => {
+      const extra = FOLD_VARIANTS[ch.toLowerCase()];
+      return extra ? `[${escapeRe(ch)}${extra}]` : escapeRe(ch);
+    })
+    .join('');
+}
+
 /** Bold the matched query words inside a result snippet (case-insensitive). */
 function highlightTerms(text: string, terms: string[]): ReactNode {
   if (terms.length === 0) return text;
-  const re = new RegExp(`(${terms.map(escapeRe).join('|')})`, 'giu');
+  const re = new RegExp(`(${terms.map(termPattern).join('|')})`, 'giu');
   const parts = text.split(re);
   return parts.map((p, i) =>
     i % 2 === 1 ? (
