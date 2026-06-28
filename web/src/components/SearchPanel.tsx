@@ -10,6 +10,7 @@ import {
   Group,
   ActionIcon,
   Loader,
+  Button,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
@@ -77,6 +78,7 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
     enabled: open && debounced.trim().length >= 2,
   });
   const results = (data?.results ?? []).slice(0, 80);
+  const suggestions = data?.suggestions ?? [];
   // Words to highlight in text results (strip operators/quotes; ≥2 chars).
   const terms = useMemo(
     () =>
@@ -149,6 +151,24 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
           <IconX size={18} />
         </ActionIcon>
       </Group>
+      {suggestions.length > 0 && (
+        <Group gap={6} mt="xs" wrap="wrap">
+          <Text size="xs" c="dimmed">
+            Можливо:
+          </Text>
+          {suggestions.map((s) => (
+            <Button
+              key={`sug-${s.bookNumber}-${s.chapter}-${s.verse}`}
+              size="compact-xs"
+              variant="light"
+              color="brand"
+              onClick={() => pick(s)}
+            >
+              {s.shortName || s.longName} {s.chapter}:{s.verse}
+            </Button>
+          ))}
+        </Group>
+      )}
       {(debounced.trim().length >= 2 || results.length > 0) && (
         <ScrollArea.Autosize mah={320} mt="xs">
           <Stack gap={0}>

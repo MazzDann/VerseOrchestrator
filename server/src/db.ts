@@ -371,6 +371,8 @@ export function getSong(id: number): SongDetail | null {
 export interface SearchResponse {
   kind: 'reference' | 'text' | 'empty';
   results: SearchResult[];
+  /** Alternative books for an ambiguous reference token ("did you mean…"). */
+  suggestions?: SearchResult[];
 }
 
 /**
@@ -417,8 +419,8 @@ export function search(query: string, translationIds: number[]): SearchResponse 
 
   const ref = parseReference(query);
   if (ref) {
-    const results = resolveReference(query, ids);
-    if (results.length) return { kind: 'reference', results };
+    const { results, suggestions } = resolveReference(query, ids);
+    if (results.length) return { kind: 'reference', results, suggestions };
   }
 
   // Strong number search: "G2424" / "H0430" → verses carrying that Strong number.
@@ -472,11 +474,17 @@ function locationExists(
   return getDb().prepare(sql).get(...params) != null;
 }
 
-function resolveReference(query: string, ids: number[]): SearchResult[] {
+interface ReferenceResult {
+  results: SearchResult[];
+  /** Other plausible books for an ambiguous token ("did you mean…") — first verse of each. */
+  suggestions: SearchResult[];
+}
+
+function resolveReference(query: string, ids: number[]): ReferenceResult {
   const ref = parseReference(query);
-  if (!ref) return [];
+  if (!ref) return { results: [], suggestions: [] };
   const candidates = resolveBookCandidates(ref.bookToken);
-  if (candidates.length === 0) return [];
+  if (candidates.length === 0) return { results: [], suggestions: [] };
   // Prefer the candidate book whose requested chapter:verse actually exists — this
   // disambiguates by validity, e.g. "іс 4:6" → Ісая (has v6) but "іс 4:7" → Ісус
   // Навин (Ісая 4 has no v7). For a range, prefer a book that has the END verse too
@@ -523,7 +531,26 @@ function resolveReference(query: string, ids: number[]): SearchResult[] {
       ).map(rowToResult),
     );
   }
-  return out;
+
+  // "Did you mean…": other candidate books that also have this chapter:verse, so an
+  // ambiguous abbreviation offers the alternatives (e.g. "іс 5:1" → Ісая, suggest
+  // Ісус Навин 5:1). One representative verse each, from the primary translation.
+  const suggestions: SearchResult[] = [];
+  const sugSql = `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
+                         b.long_name, b.short_name
+                  FROM verses v
+                  JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
+                  WHERE v.translation_id = ? AND v.book_number = ? AND v.chapter = ? AND v.verse = ?
+                  LIMIT 1`;
+  for (const bn of candidates) {
+    if (bn === bookNumber || suggestions.length >= 4) continue;
+    if (!locationExists(ids, bn, ref.chapter, ref.verseStart)) continue;
+    const row = getDb()
+      .prepare(sugSql)
+      .get(ids[0], bn, ref.chapter, ref.verseStart ?? 1) as any;
+    if (row) suggestions.push(rowToResult(row));
+  }
+  return { results: out, suggestions };
 }
 
 /**
