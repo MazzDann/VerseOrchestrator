@@ -13,9 +13,20 @@ import { Control } from './pages/Control';
 import { Presenter } from './pages/Presenter';
 import { Stage } from './pages/Stage';
 import { Follow } from './pages/Follow';
+import { Settings } from './pages/Settings';
+import { useSettings } from './settingsStore';
+import { usePlaylist } from './playlistStore';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false } },
+});
+
+// Cross-window live sync: a `storage` event fires in OTHER windows when one writes
+// to localStorage, so rehydrate the persisted stores there — changes made in the
+// standalone settings window flow to the control/presenter windows immediately.
+window.addEventListener('storage', (e) => {
+  if (e.key === 'vo:settings') void useSettings.persist.rehydrate();
+  else if (e.key === 'vo:playlist') void usePlaylist.persist.rehydrate();
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -29,6 +40,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/presenter" element={<Presenter />} />
             <Route path="/stage" element={<Stage />} />
             <Route path="/follow" element={<Follow />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </BrowserRouter>
       </QueryClientProvider>
