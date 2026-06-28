@@ -587,5 +587,49 @@ export function resolveBookCandidates(token: string): number[] {
     const bn = r.book_number as number;
     if (!best.has(bn) || score > (best.get(bn) as number)) best.set(bn, score);
   }
+
+  // Fuzzy fallback for typos ("навен" → "навин") — only when nothing matched exactly,
+  // so normal queries stay fast and unambiguous. Tolerance scales with token length.
+  if (best.size === 0 && token.length >= 3) {
+    const tol = Math.max(1, Math.floor(token.length / 4));
+    const all = getDb()
+      .prepare('SELECT DISTINCT book_number, name_norm FROM book_names')
+      .all() as any[];
+    for (const r of all) {
+      const nm = String(r.name_norm);
+      // Compare against the closest single word of the name (book names may be multi-word).
+      let dmin = Infinity;
+      for (const w of [nm, ...nm.split(' ')]) {
+        if (Math.abs(w.length - token.length) > tol) continue;
+        const d = editDistance(token, w);
+        if (d < dmin) dmin = d;
+      }
+      if (dmin <= tol) {
+        const score = 400 - dmin * 20 - nm.length;
+        const bn = r.book_number as number;
+        if (!best.has(bn) || score > (best.get(bn) as number)) best.set(bn, score);
+      }
+    }
+  }
+
   return [...best.entries()].sort((a, b) => b[1] - a[1]).map(([bn]) => bn);
+}
+
+/** Levenshtein edit distance (small strings — book name tokens). */
+function editDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  let curr = new Array<number>(n + 1);
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
 }
