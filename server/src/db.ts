@@ -3,7 +3,6 @@ import path from 'node:path';
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import {
-  searchTokens,
   parseReference,
   normalizeForSearch,
   type Translation,
@@ -378,6 +377,40 @@ export interface SearchResponse {
  * Search either by reference ("Ів 3:16") or full text. Reference is tried first;
  * if the query does not look like a reference we fall back to FTS5 text search.
  */
+/**
+ * Build an FTS5 MATCH expression from a free-form query, supporting operators:
+ *   "exact phrase"   → a phrase match
+ *   -word / !word    → exclude (NOT)
+ *   word             → prefix term ("любов" matches "любов'ю")
+ * Everything is normalized the same way as the indexed column. Returns null when
+ * there is nothing positive to match.
+ */
+function buildFtsMatch(query: string): string | null {
+  const parts = query.match(/[-!]?"[^"]+"|\S+/g) ?? [];
+  const pos: string[] = [];
+  const neg: string[] = [];
+  for (const raw of parts) {
+    let p = raw;
+    let exclude = false;
+    if (p[0] === '-' || p[0] === '!') {
+      exclude = true;
+      p = p.slice(1);
+    }
+    const quoted = p.length >= 2 && p[0] === '"' && p[p.length - 1] === '"';
+    const norm = normalizeForSearch(quoted ? p.slice(1, -1) : p);
+    if (!norm) continue;
+    if (quoted) {
+      (exclude ? neg : pos).push(`"${norm}"`);
+    } else {
+      for (const w of norm.split(' ').filter(Boolean)) (exclude ? neg : pos).push(`"${w}"*`);
+    }
+  }
+  if (pos.length === 0) return null; // pure-exclusion has no anchor to match
+  let expr = pos.join(' AND ');
+  if (neg.length) expr += ` NOT (${neg.join(' OR ')})`;
+  return expr;
+}
+
 export function search(query: string, translationIds: number[]): SearchResponse {
   const ids = translationIds.length ? translationIds : getTranslations().map((t) => t.id);
   if (ids.length === 0) return { kind: 'empty', results: [] };
@@ -388,22 +421,34 @@ export function search(query: string, translationIds: number[]): SearchResponse 
     if (results.length) return { kind: 'reference', results };
   }
 
-  const tokens = searchTokens(query);
-  if (tokens.length === 0) return { kind: 'empty', results: [] };
-  const match = tokens.map((t) => `"${t.replace(/"/g, '""')}"*`).join(' ');
+  // Strong number search: "G2424" / "H0430" → verses carrying that Strong number.
+  const strongQ = query.trim().match(/^([GHgh])\s*0*(\d{1,5})$/);
+  if (strongQ && tableExists('verse_strongs')) {
+    const refs = strongRefs(strongQ[2], { translationId: ids[0], limit: 300 });
+    return { kind: 'text', results: refs.results };
+  }
 
-  const rows = getDb()
-    .prepare(
-      `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
-              b.long_name, b.short_name
-       FROM verses_fts
-       JOIN verses v ON v.id = verses_fts.rowid
-       JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
-       WHERE verses_fts MATCH ? AND v.translation_id IN (${placeholders(ids.length)})
-       ORDER BY rank
-       LIMIT 300`,
-    )
-    .all(match, ...ids) as any[];
+  const match = buildFtsMatch(query);
+  if (!match) return { kind: 'empty', results: [] };
+
+  let rows: any[];
+  try {
+    rows = getDb()
+      .prepare(
+        `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
+                b.long_name, b.short_name
+         FROM verses_fts
+         JOIN verses v ON v.id = verses_fts.rowid
+         JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
+         WHERE verses_fts MATCH ? AND v.translation_id IN (${placeholders(ids.length)})
+         ORDER BY rank
+         LIMIT 300`,
+      )
+      .all(match, ...ids) as any[];
+  } catch {
+    // A malformed MATCH (rare, from odd operator combos) → no results, not a 500.
+    return { kind: 'empty', results: [] };
+  }
 
   return { kind: 'text', results: rows.map(rowToResult) };
 }

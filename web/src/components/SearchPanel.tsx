@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Paper,
   TextInput,
@@ -17,6 +17,24 @@ import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
 
 export type SearchScope = 'current' | 'all';
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Bold the matched query words inside a result snippet (case-insensitive). */
+function highlightTerms(text: string, terms: string[]): ReactNode {
+  if (terms.length === 0) return text;
+  const re = new RegExp(`(${terms.map(escapeRe).join('|')})`, 'giu');
+  const parts = text.split(re);
+  return parts.map((p, i) =>
+    i % 2 === 1 ? (
+      <Text span key={i} fw={700} c="brand">
+        {p}
+      </Text>
+    ) : (
+      p
+    ),
+  );
+}
 
 interface Props {
   open: boolean;
@@ -46,6 +64,17 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
     enabled: open && debounced.trim().length >= 2,
   });
   const results = (data?.results ?? []).slice(0, 80);
+  // Words to highlight in text results (strip operators/quotes; ≥2 chars).
+  const terms = useMemo(
+    () =>
+      data?.kind === 'text'
+        ? debounced
+            .replace(/["!-]/g, ' ')
+            .split(/\s+/)
+            .filter((w) => w.length >= 2)
+        : [],
+    [debounced, data?.kind],
+  );
 
   useEffect(() => {
     if (open) {
@@ -90,7 +119,7 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
           onKeyDown={onKeyDown}
-          placeholder="Пошук: «любов», «Ів 3:16», «бут 2 3-5»"
+          placeholder='Пошук: «любов», «Ів 3:16», «"світло життя"», «-темрява», «G2424»'
           leftSection={<IconSearch size={18} />}
           rightSection={isFetching ? <Loader size="xs" /> : null}
         />
@@ -126,7 +155,7 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
                   {r.longName || r.shortName} {r.chapter}:{r.verse}
                 </Text>
                 <Text size="sm" lineClamp={1}>
-                  {r.text}
+                  {highlightTerms(r.text, terms)}
                 </Text>
               </Box>
             ))}
