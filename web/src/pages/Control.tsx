@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppShell,
   Group,
@@ -21,7 +21,7 @@ import {
   useComputedColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { notifications } from '@mantine/notifications';
 import {
@@ -42,6 +42,9 @@ import {
   IconSquareFilled,
   IconChevronLeft,
   IconChevronRight,
+  IconAdjustments,
+  IconList,
+  IconPlaylistAdd,
 } from '@tabler/icons-react';
 
 import { api, type Book, type Verse, type SongStyle } from '../api';
@@ -49,6 +52,8 @@ import { useStore } from '../store';
 import { useSettings, refKey, type RefItem } from '../settingsStore';
 import {
   publishSlide,
+  subscribeCommand,
+  type PresenterCommand,
   type Slide,
   type SlideLine,
   type SlideStyle,
@@ -66,6 +71,10 @@ import { TranslationPicker } from '../components/TranslationPicker';
 import { ConcordancePanel } from '../components/ConcordancePanel';
 import { SongsPanel } from '../components/SongsPanel';
 import { TextPanel } from '../components/TextPanel';
+import { FloatingPanel } from '../components/FloatingPanel';
+import { SettingsPanel } from '../components/SettingsPanel';
+import { PlaylistPanel } from '../components/PlaylistPanel';
+import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
@@ -102,6 +111,15 @@ export function Control() {
   const pushRecentText = useSettings((s) => s.pushRecentText);
   const keymap = useSettings((s) => s.keymap);
 
+  const queryClient = useQueryClient();
+  const playlistItems = usePlaylist((s) => s.items);
+  const playlistCurrentId = usePlaylist((s) => s.currentId);
+  const playlistAdd = usePlaylist((s) => s.add);
+  const playlistRemove = usePlaylist((s) => s.removeItem);
+  const playlistMove = usePlaylist((s) => s.move);
+  const playlistClear = usePlaylist((s) => s.clear);
+  const playlistSetCurrent = usePlaylist((s) => s.setCurrent);
+
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
   const [searchScope, setSearchScope] = useState<SearchScope>('current');
@@ -118,6 +136,17 @@ export function Control() {
   const [goToValue, setGoToValue] = useState('');
   const [songsOpen, setSongsOpen] = useState(false);
   const [textOpen, setTextOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [playlistOpen, setPlaylistOpen] = useState(false);
+  // The song + highlighted stanza in the Songs panel — lifted here so the playlist
+  // can open a song and seed its stanza (and so forwarded clicker commands step it).
+  const [songsPanelSongId, setSongsPanelSongId] = useState<number | null>(null);
+  const [songsPanelStanza, setSongsPanelStanza] = useState<number | null>(null);
+  // Switching the open song from search/back resets the stanza highlight.
+  const openSong = (id: number | null) => {
+    setSongsPanelSongId(id);
+    setSongsPanelStanza(null);
+  };
   // Active page when a long passage is split across multiple slides.
   const [pageIndex, setPageIndex] = useState(0);
   // Last song/text/Strong projection shown in the preview (so the preview reflects
@@ -303,6 +332,9 @@ export function Control() {
     };
     publishSlide(slide);
     setLive(slide.visible && !slide.blank);
+    // Projecting the verse selection ends any song/text/Strong override, so the
+    // preview and live-follow track the verses again (no preview/screen desync).
+    setPreviewOverride(null);
   };
 
   // Project the Strong-bearing (primary) translation only, with a "word — gloss"
@@ -399,12 +431,147 @@ export function Control() {
     }
   };
 
+  // --- Presentation sequence (playlist) ---------------------------------------
+  // Project a saved passage: set the selection (so the list/preview follow) and
+  // push the slide directly from freshly-fetched verses (don't wait on the
+  // selection-derived `slideLines`, which only updates on the next render/query).
+  const activatePassage = async (it: SeqPassage) => {
+    setTranslations(it.translationIds);
+    selectBook(it.bookNumber);
+    selectChapter(it.chapter);
+    setSelectedVerses(it.verses);
+    setScrollTarget(it.verses[0] ?? null);
+    const lines: SlideLine[] = [];
+    for (const id of it.translationIds) {
+      try {
+        const verses = await queryClient.fetchQuery({
+          queryKey: ['verses', id, it.bookNumber, it.chapter],
+          queryFn: () => api.verses(id, it.bookNumber, it.chapter),
+        });
+        const text = joinVerses(verses, it.verses, appearance.showVerseNumbers);
+        if (!text.trim()) continue;
+        const t = translations.find((x) => x.id === id);
+        const segments = redLetterSegments(verses, it.verses, appearance.showVerseNumbers);
+        lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
+      } catch {
+        /* skip a translation that fails to load */
+      }
+    }
+    if (lines.length === 0) {
+      // Every translation failed to load (e.g. ids changed after a library rebuild).
+      notifications.show({
+        message: 'Уривок недоступний — переклад змінився. Оновіть елемент показу.',
+        color: 'red',
+        autoClose: 2500,
+      });
+      return;
+    }
+    publishSlide({
+      lines,
+      reference: it.label,
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+    });
+    setPreviewOverride(null);
+    setLive(true);
+  };
+
+  // Open a saved song in the Songs panel and project its first stanza; further
+  // stanzas are stepped with the arrows inside the panel (existing behaviour).
+  const activateSong = async (it: SeqSong) => {
+    openSong(it.songId);
+    setSongsOpen(true);
+    try {
+      const s = await queryClient.fetchQuery({
+        queryKey: ['song', it.songId],
+        queryFn: () => api.song(it.songId),
+      });
+      if (s.slides.length > 0) {
+        projectText(
+          s.slides[0].text,
+          `№${s.number ?? ''} ${s.title}`.trim(),
+          it.faithful ? s.slides[0].style : null,
+        );
+        // Seed the panel's stanza highlight to 0 so the first arrow/clicker advances
+        // to stanza 1 (not re-projects the title we just put on screen).
+        setSongsPanelStanza(0);
+      }
+    } catch {
+      /* ignore a song that fails to load */
+    }
+  };
+
+  const activateItem = (it: SeqItem) => {
+    playlistSetCurrent(it.id);
+    if (it.kind === 'passage') void activatePassage(it);
+    else if (it.kind === 'text') projectText(it.body, it.title.trim());
+    else void activateSong(it);
+  };
+
+  const stepPlaylist = (delta: 1 | -1) => {
+    if (playlistItems.length === 0) return;
+    const idx = playlistItems.findIndex((i) => i.id === playlistCurrentId);
+    const next =
+      idx < 0
+        ? delta > 0
+          ? 0
+          : playlistItems.length - 1
+        : Math.min(playlistItems.length - 1, Math.max(0, idx + delta));
+    activateItem(playlistItems[next]);
+  };
+
+  const addCurrentPassage = () => {
+    if (
+      selectedIds.length === 0 ||
+      bookNumber == null ||
+      chapter == null ||
+      selectedVerses.length === 0
+    )
+      return;
+    playlistAdd({
+      kind: 'passage',
+      label: reference || referenceShort || 'Уривок',
+      translationIds: selectedIds,
+      bookNumber,
+      chapter,
+      verses: selectedVerses,
+    });
+    notifications.show({
+      message: `Додано у показ: ${referenceShort || reference}`,
+      color: 'green',
+      autoClose: 1200,
+    });
+  };
+
+  const addSongToPlaylist = (song: { songId: number; label: string; faithful: boolean }) => {
+    playlistAdd({
+      kind: 'song',
+      label: song.label || 'Пісня',
+      songId: song.songId,
+      faithful: song.faithful,
+    });
+    notifications.show({ message: `Додано у показ: ${song.label}`, color: 'green', autoClose: 1200 });
+  };
+
+  const addTextToPlaylist = (item: { title: string; body: string }) => {
+    if (!item.body.trim()) return;
+    const label = item.title.trim() || item.body.trim().split('\n')[0].slice(0, 40);
+    playlistAdd({ kind: 'text', label, title: item.title, body: item.body });
+    notifications.show({ message: 'Текст додано у показ', color: 'green', autoClose: 1200 });
+  };
+
   // While following live, republish when the selection, reference, or appearance
   // changes. With follow off, navigation only updates the preview — push with F5/F2.
+  // Skip while a song/text/Strong projection (`previewOverride`) owns the screen, or
+  // live-follow would clobber it back to the verse selection on the next render
+  // (slideLines gets a fresh identity every render via useQueries). Navigating the
+  // verses clears the override, after which live-follow resumes.
   useEffect(() => {
-    if (liveFollow && live && slideLines.length > 0) send();
+    if (liveFollow && live && slideLines.length > 0 && !previewOverride) send();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideLines, reference, slideStyle, liveFollow]);
+  }, [slideLines, reference, slideStyle, liveFollow, previewOverride]);
 
   // A song/text/Strong projection takes over the preview; navigating the verse
   // selection reverts the preview to the verses.
@@ -465,6 +632,10 @@ export function Control() {
   // preview's page arrows — so the same gesture always means "advance the screen".
   const advance = (delta: number) => {
     if (pageCount > 1) {
+      // Paging the verse selection ends any active projection override; clear it so
+      // live-follow pushes the new page (changing the page alone doesn't touch the
+      // selection, which is what otherwise clears the override).
+      setPreviewOverride(null);
       setPageIndex((i) => Math.min(pageCount - 1, Math.max(0, Math.min(i, pageCount - 1) + delta)));
     } else {
       stepVerse(delta);
@@ -548,6 +719,23 @@ export function Control() {
     notifications.show({ message: 'Чорний екран', color: 'dark', autoClose: 1200 });
   };
   useHotkeys(keymap.black, () => blackScreen(), [keymap.black, slideStyle]);
+
+  // Commands forwarded from the presenter window (clicker/keyboard pressed while
+  // the 2nd-monitor output window has focus). A ref keeps the latest closures so we
+  // subscribe once instead of re-binding the channel on every render.
+  const commandHandler = useRef<(cmd: PresenterCommand) => void>(() => {});
+  commandHandler.current = (cmd: PresenterCommand) => {
+    // While a song is open it owns next/prev (SongsPanel steps its stanzas off the
+    // same command channel); don't also advance the verse selection underneath it.
+    const songMode = songsOpen && songsPanelSongId != null;
+    if (cmd === 'next') {
+      if (!songMode) advance(1);
+    } else if (cmd === 'prev') {
+      if (!songMode) advance(-1);
+    } else if (cmd === 'blank') blankScreen();
+    else if (cmd === 'black') blackScreen();
+  };
+  useEffect(() => subscribeCommand((cmd) => commandHandler.current(cmd)), []);
 
   const openPresenter = async () => {
     const win = await openPresenterWindow();
@@ -672,6 +860,17 @@ export function Control() {
                   <IconLetterT size={18} stroke={1.5} />
                 </ActionIcon>
               </Tooltip>
+              <Tooltip label="Послідовність показу">
+                <ActionIcon
+                  variant={playlistOpen ? 'filled' : 'default'}
+                  color="brand"
+                  size="lg"
+                  onClick={() => setPlaylistOpen((o) => !o)}
+                  aria-label="Показ"
+                >
+                  <IconList size={18} stroke={1.5} />
+                </ActionIcon>
+              </Tooltip>
               <TextInput
                 size="sm"
                 w={180}
@@ -735,6 +934,17 @@ export function Control() {
                   aria-label="Чорний екран"
                 >
                   <IconSquareFilled size={16} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Налаштування показу">
+                <ActionIcon
+                  variant={settingsOpen ? 'filled' : 'default'}
+                  color="brand"
+                  size="lg"
+                  onClick={() => setSettingsOpen((o) => !o)}
+                  aria-label="Налаштування"
+                >
+                  <IconAdjustments size={18} />
                 </ActionIcon>
               </Tooltip>
               <Tooltip label="Тема">
@@ -872,11 +1082,17 @@ export function Control() {
               open={songsOpen}
               onClose={() => setSongsOpen(false)}
               onProjectStanza={projectText}
+              songId={songsPanelSongId}
+              onSongIdChange={openSong}
+              activeStanza={songsPanelStanza}
+              onActiveStanzaChange={setSongsPanelStanza}
+              onAddToPlaylist={addSongToPlaylist}
             />
             <TextPanel
               open={textOpen}
               onClose={() => setTextOpen(false)}
               onProject={projectAnnouncement}
+              onAddToPlaylist={addTextToPlaylist}
             />
             <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
               <Text fw={600} size="sm" truncate>
@@ -911,6 +1127,19 @@ export function Control() {
                       <IconChevronRight size={14} />
                     </ActionIcon>
                   </Group>
+                )}
+                {selectedVerses.length > 0 && (
+                  <Tooltip label="Додати уривок у показ">
+                    <ActionIcon
+                      variant="subtle"
+                      color="brand"
+                      size="sm"
+                      onClick={addCurrentPassage}
+                      aria-label="Додати уривок у показ"
+                    >
+                      <IconPlaylistAdd size={16} />
+                    </ActionIcon>
+                  </Tooltip>
                 )}
                 {selectedVerses.length > 0 && <Badge variant="light">{reference}</Badge>}
               </Group>
@@ -1007,6 +1236,37 @@ export function Control() {
 
         {panelPlacement === 'aside' && <AppShell.Aside>{renderStudyPanels(false)}</AppShell.Aside>}
       </AppShell>
+
+      <FloatingPanel
+        opened={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        title="Налаштування показу"
+        storageKey="vo:settingsPanelPos"
+        width={400}
+        icon={<IconAdjustments size={16} />}
+      >
+        <SettingsPanel />
+      </FloatingPanel>
+
+      <FloatingPanel
+        opened={playlistOpen}
+        onClose={() => setPlaylistOpen(false)}
+        title="Послідовність показу"
+        storageKey="vo:playlistPanelPos"
+        width={340}
+        icon={<IconList size={16} />}
+      >
+        <PlaylistPanel
+          items={playlistItems}
+          currentId={playlistCurrentId}
+          onActivate={activateItem}
+          onRemove={playlistRemove}
+          onMove={playlistMove}
+          onClear={playlistClear}
+          onNext={() => stepPlaylist(1)}
+          onPrev={() => stepPlaylist(-1)}
+        />
+      </FloatingPanel>
     </>
   );
 }
