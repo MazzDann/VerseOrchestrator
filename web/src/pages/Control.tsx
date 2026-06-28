@@ -62,6 +62,7 @@ import {
   type SlideLine,
   type SlideStyle,
   type SlideTemplate,
+  type SlideReveal,
   type TextSpan,
 } from '../presenterBus';
 import { parseRedLetter } from '@vo/shared';
@@ -163,6 +164,8 @@ export function Control() {
   };
   // Active page when a long passage is split across multiple slides.
   const [pageIndex, setPageIndex] = useState(0);
+  // How many verses are revealed so far in progressive-reveal mode (1-based).
+  const [revealCount, setRevealCount] = useState(1);
   // Last song/text/Strong projection shown in the preview (so the preview reflects
   // songs and free text, not only the verse selection). Cleared on navigation.
   const [previewOverride, setPreviewOverride] = useState<Slide | null>(null);
@@ -329,6 +332,30 @@ export function Control() {
     [appearance],
   );
 
+  // --- Progressive reveal --------------------------------------------------------
+  // Units = the current page's verses (primary translation), revealed one per step.
+  const revealUnits = useMemo<string[] | null>(() => {
+    if (!appearance.reveal) return null;
+    const verses = primaryId != null ? (versesByTranslation.get(primaryId) ?? []) : [];
+    const byNum = new Map(verses.map((v) => [v.verse, v]));
+    const units: string[] = [];
+    for (const n of pageVerses) {
+      const t = (byNum.get(n)?.text ?? '').trim();
+      if (t) units.push(`${appearance.showVerseNumbers ? `${n} ` : ''}${t}`);
+    }
+    return units.length ? units : null;
+  }, [appearance.reveal, appearance.showVerseNumbers, primaryId, versesByTranslation, pageVerses]);
+
+  const revealForSlide: SlideReveal | undefined =
+    appearance.reveal && revealUnits
+      ? {
+          units: revealUnits,
+          count: Math.min(Math.max(1, revealCount), revealUnits.length),
+          mode: appearance.revealSpotlight ? 'spotlight' : 'accumulate',
+          placeholders: appearance.revealPlaceholders,
+        }
+      : undefined;
+
   // WYSIWYG of the current page — what would be projected for the verse selection.
   const versePreview: Slide = {
     lines: slideLines,
@@ -337,6 +364,7 @@ export function Control() {
     visible: slideLines.length > 0,
     style: slideStyle,
     template: slideTemplate,
+    reveal: revealForSlide,
   };
   // Show the last song/text/Strong projection while one is active; otherwise the
   // verse selection. The override is cleared on navigation (effect below).
@@ -346,6 +374,24 @@ export function Control() {
   // Only meaningful for verse/page navigation; null while an override owns the screen.
   const nextSlide = useMemo<Slide | null>(() => {
     if (previewOverride || selectedVerses.length === 0) return null;
+    // Mid-reveal, the next press reveals one more verse of the CURRENT slide — show
+    // that on the stage "next" pane, not the following page/verse.
+    if (appearance.reveal && revealUnits && revealUnits.length > 1 && revealCount < revealUnits.length) {
+      return {
+        lines: slideLines,
+        reference: pageReference,
+        blank: false,
+        visible: true,
+        style: slideStyle,
+        template: slideTemplate,
+        reveal: {
+          units: revealUnits,
+          count: revealCount + 1,
+          mode: appearance.revealSpotlight ? 'spotlight' : 'accumulate',
+          placeholders: appearance.revealPlaceholders,
+        },
+      };
+    }
     let nextVerses: number[] | null = null;
     if (pageCount > 1 && safePageIndex < pageCount - 1) {
       nextVerses = pages[safePageIndex + 1];
@@ -378,6 +424,13 @@ export function Control() {
     chapter,
     slideStyle,
     slideTemplate,
+    appearance.reveal,
+    appearance.revealSpotlight,
+    appearance.revealPlaceholders,
+    revealUnits,
+    revealCount,
+    slideLines,
+    pageReference,
   ]);
 
   // Mirror the next-slide preview to the stage window.
@@ -414,6 +467,7 @@ export function Control() {
       visible: slideLines.length > 0,
       style: slideStyle,
       template: slideTemplate,
+      reveal: revealForSlide,
       ...overrides,
     };
     pushLive(slide);
@@ -657,7 +711,18 @@ export function Control() {
   useEffect(() => {
     if (liveFollow && live && slideLines.length > 0 && !previewOverride) send();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideLines, reference, slideStyle, slideTemplate, liveFollow, previewOverride]);
+  }, [
+    slideLines,
+    reference,
+    slideStyle,
+    slideTemplate,
+    liveFollow,
+    previewOverride,
+    revealCount,
+    appearance.reveal,
+    appearance.revealSpotlight,
+    appearance.revealPlaceholders,
+  ]);
 
   // A song/text/Strong projection takes over the preview; navigating the verse
   // selection reverts the preview to the verses.
@@ -717,6 +782,23 @@ export function Control() {
   // step the single verse. Drives arrows, the PageDown/PageUp clicker keys, and the
   // preview's page arrows — so the same gesture always means "advance the screen".
   const advance = (delta: number) => {
+    // Progressive reveal first: step through the verses of the current slide before
+    // moving on. Only while projecting the verse selection (no song/text override).
+    if (appearance.reveal && revealUnits && revealUnits.length > 1 && !previewOverride) {
+      if (delta > 0 && revealCount < revealUnits.length) {
+        setRevealCount((c) => Math.min(revealUnits.length, c + 1));
+        return;
+      }
+      if (delta < 0 && revealCount > 1) {
+        setRevealCount((c) => Math.max(1, c - 1));
+        return;
+      }
+      // Exhausted in this direction → fall through to step the page/verse.
+    }
+    // Moving to a new verse/page: start its reveal fresh in THIS batched update (not
+    // via the post-commit reset effect) so live-follow doesn't push the new content at
+    // the old reveal count for a frame.
+    setRevealCount(1);
     if (pageCount > 1) {
       // Paging the verse selection ends any active projection override; clear it so
       // live-follow pushes the new page (changing the page alone doesn't touch the
@@ -728,6 +810,11 @@ export function Control() {
     }
   };
 
+  // Reset the reveal to the first verse whenever the projected content changes.
+  useEffect(() => {
+    setRevealCount(1);
+  }, [selectedVerses, safePageIndex, primaryId]);
+
   // Hotkeys are user-rebindable (settingsStore.keymap; defaults in hotkeys.ts).
   // "advanceNext/Prev" default to arrows + PageDown/PageUp (the keys USB clickers emit).
   useHotkeys(keymap.advanceNext, () => advance(1), [
@@ -736,6 +823,10 @@ export function Control() {
     pageIndex,
     primaryVerses,
     selectedVerses,
+    revealCount,
+    revealUnits,
+    appearance.reveal,
+    previewOverride,
   ]);
   useHotkeys(keymap.advancePrev, () => advance(-1), [
     keymap.advancePrev,
@@ -743,6 +834,10 @@ export function Control() {
     pageIndex,
     primaryVerses,
     selectedVerses,
+    revealCount,
+    revealUnits,
+    appearance.reveal,
+    previewOverride,
   ]);
   // Remove the slide from the output. Drops out of live so the live-follow effect
   // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
@@ -788,7 +883,16 @@ export function Control() {
     keymap.project,
     () => sendAndNotify(),
     { preventDefault: true, enableOnFormTags: true },
-    [keymap.project, slideLines, reference, slideStyle],
+    [
+      keymap.project,
+      slideLines,
+      reference,
+      slideStyle,
+      revealCount,
+      appearance.reveal,
+      appearance.revealSpotlight,
+      appearance.revealPlaceholders,
+    ],
   );
 
   const blankScreen = () => {

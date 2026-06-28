@@ -29,6 +29,12 @@ export interface Appearance {
   highlightColor: string; // emphasised (hot) word colour, e.g. the projected Strong word
   /** Split a long selection into pages of this many verses (0 = all on one slide). */
   versesPerSlide: number;
+  /** Progressive reveal: show a passage verse-by-verse on each clicker step. */
+  reveal: boolean;
+  /** Reveal style: dim already-shown verses, brighten only the current one. */
+  revealSpotlight: boolean;
+  /** Show unrevealed verses faintly (else invisible but space kept). */
+  revealPlaceholders: boolean;
 }
 
 export interface RefItem {
@@ -126,6 +132,9 @@ export const DEFAULT_APPEARANCE: Appearance = {
   jesusColor: '#ff6b6b',
   highlightColor: '#ffd43b',
   versesPerSlide: 0,
+  reveal: false,
+  revealSpotlight: false,
+  revealPlaceholders: false,
 };
 
 export const FONT_OPTIONS = [
@@ -176,6 +185,9 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     jesusColor: strOr(m.jesusColor, DEFAULT_APPEARANCE.jesusColor),
     highlightColor: strOr(m.highlightColor, DEFAULT_APPEARANCE.highlightColor),
     versesPerSlide: Math.max(0, Math.trunc(numOr(m.versesPerSlide, 0))),
+    reveal: !!m.reveal,
+    revealSpotlight: !!m.revealSpotlight,
+    revealPlaceholders: !!m.revealPlaceholders,
   };
 }
 

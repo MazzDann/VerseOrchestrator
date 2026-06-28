@@ -242,6 +242,32 @@ export function SettingsPanel() {
         onChange={(v) => set({ versesPerSlide: Math.max(0, Math.trunc(Number(v) || 0)) })}
       />
       <div>
+        <Switch
+          label="Прогресивне розкриття"
+          description="Уривок з'являється по одному вірша на кожен крок клікера (накопичення)"
+          checked={a.reveal}
+          onChange={(e) => set({ reveal: e.currentTarget.checked })}
+        />
+        {a.reveal && (
+          <Stack gap={6} mt={8} pl="md">
+            <Switch
+              size="sm"
+              label="Прожектор"
+              description="Приглушувати показані вірші, яскравий лише поточний"
+              checked={a.revealSpotlight}
+              onChange={(e) => set({ revealSpotlight: e.currentTarget.checked })}
+            />
+            <Switch
+              size="sm"
+              label="Плейсхолдери"
+              description="Нерозкриті вірші видно ледь помітно (інакше — невидимі, місце збережено)"
+              checked={a.revealPlaceholders}
+              onChange={(e) => set({ revealPlaceholders: e.currentTarget.checked })}
+            />
+          </Stack>
+        )}
+      </div>
+      <div>
         <Text size="sm" fw={500} mb={4}>
           Текст Стронга на показі
         </Text>
