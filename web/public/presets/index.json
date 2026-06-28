@@ -1,0 +1,5 @@
+[
+  { "file": "classic.json", "name": "Класичний (сериф)" },
+  { "file": "lower-third.json", "name": "Нижня третина" },
+  { "file": "big-yellow.json", "name": "Велике жовте на чорному" }
+]
