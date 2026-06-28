@@ -408,11 +408,40 @@ export function search(query: string, translationIds: number[]): SearchResponse 
   return { kind: 'text', results: rows.map(rowToResult) };
 }
 
+/** Does (book, chapter[, verse]) exist in any of the given translations? */
+function locationExists(
+  ids: number[],
+  bookNumber: number,
+  chapter: number,
+  verse?: number,
+): boolean {
+  if (ids.length === 0) return false;
+  let sql = `SELECT 1 FROM verses
+             WHERE book_number = ? AND chapter = ? AND translation_id IN (${placeholders(ids.length)})`;
+  const params: any[] = [bookNumber, chapter, ...ids];
+  if (verse != null) {
+    sql += ' AND verse = ?';
+    params.push(verse);
+  }
+  sql += ' LIMIT 1';
+  return getDb().prepare(sql).get(...params) != null;
+}
+
 function resolveReference(query: string, ids: number[]): SearchResult[] {
   const ref = parseReference(query);
   if (!ref) return [];
-  const bookNumber = resolveBookNumber(ref.bookToken);
-  if (bookNumber == null) return [];
+  const candidates = resolveBookCandidates(ref.bookToken);
+  if (candidates.length === 0) return [];
+  // Prefer the candidate book whose requested chapter:verse actually exists — this
+  // disambiguates by validity, e.g. "іс 4:6" → Ісая (has v6) but "іс 4:7" → Ісус
+  // Навин (Ісая 4 has no v7). Falls back to the best name match if none has it.
+  let bookNumber = candidates[0];
+  for (const bn of candidates) {
+    if (locationExists(ids, bn, ref.chapter, ref.verseStart)) {
+      bookNumber = bn;
+      break;
+    }
+  }
 
   // MyBible book numbers are canonical across modules, so the book resolved from
   // ANY translation's names is fetched from each SELECTED translation. This makes
@@ -452,9 +481,11 @@ function resolveReference(query: string, ids: number[]): SearchResult[] {
  *      i.e. the user typed a longer form than the stored abbreviation.
  * Because book numbers are canonical, the resolved book is then read from whichever
  * translation the caller selected — which makes reference search cross-translation.
+ * Returns ALL matching book numbers ranked best-first, so the caller can prefer the
+ * one whose requested chapter:verse actually exists (validity disambiguation).
  */
-function resolveBookNumber(token: string): number | null {
-  if (token.length < 2) return null; // too short to disambiguate
+export function resolveBookCandidates(token: string): number[] {
+  if (token.length < 2) return []; // too short to disambiguate
   const rows = getDb()
     .prepare(
       `SELECT DISTINCT book_number, name_norm FROM book_names
@@ -463,8 +494,7 @@ function resolveBookNumber(token: string): number | null {
     )
     .all(`${token}%`, `% ${token}%`, token) as any[];
 
-  let bestBook: number | null = null;
-  let bestScore = -Infinity;
+  const best = new Map<number, number>(); // book_number -> best score
   for (const r of rows) {
     const nm = String(r.name_norm);
     let score: number;
@@ -472,10 +502,8 @@ function resolveBookNumber(token: string): number | null {
     else if (nm.includes(` ${token}`)) score = 800 - nm.length; // token at a word boundary
     else if (nm.length >= 2 && token.startsWith(nm)) score = 600 + nm.length; // longer abbr is more specific
     else continue;
-    if (score > bestScore) {
-      bestScore = score;
-      bestBook = r.book_number as number;
-    }
+    const bn = r.book_number as number;
+    if (!best.has(bn) || score > (best.get(bn) as number)) best.set(bn, score);
   }
-  return bestBook;
+  return [...best.entries()].sort((a, b) => b[1] - a[1]).map(([bn]) => bn);
 }
