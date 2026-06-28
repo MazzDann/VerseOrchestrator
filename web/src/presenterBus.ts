@@ -184,3 +184,26 @@ export function subscribeSlide(cb: (slide: Slide) => void): () => void {
   channel.addEventListener('message', handler);
   return () => channel.removeEventListener('message', handler);
 }
+
+/**
+ * Reverse channel: commands sent FROM the presenter window TO the control window.
+ * Lets the operator drive the show (advance, blank) with a clicker/keyboard while
+ * the presenter window on the second monitor holds keyboard focus — the control
+ * window owns the selection, so the keypress must travel back to it.
+ */
+export type PresenterCommand = 'next' | 'prev' | 'blank' | 'black';
+
+const CMD_CHANNEL_NAME = 'verse-orchestrator-cmd';
+const cmdChannel =
+  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CMD_CHANNEL_NAME) : null;
+
+export function sendCommand(cmd: PresenterCommand): void {
+  cmdChannel?.postMessage(cmd);
+}
+
+export function subscribeCommand(cb: (cmd: PresenterCommand) => void): () => void {
+  if (!cmdChannel) return () => {};
+  const handler = (e: MessageEvent) => cb(e.data as PresenterCommand);
+  cmdChannel.addEventListener('message', handler);
+  return () => cmdChannel.removeEventListener('message', handler);
+}

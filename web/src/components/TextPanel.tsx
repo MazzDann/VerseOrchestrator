@@ -11,7 +11,7 @@ import {
   Button,
   ActionIcon,
 } from '@mantine/core';
-import { IconLetterT, IconX, IconDeviceTv, IconTrash } from '@tabler/icons-react';
+import { IconLetterT, IconX, IconDeviceTv, IconTrash, IconPlaylistAdd } from '@tabler/icons-react';
 import { useSettings, type TextItem } from '../settingsStore';
 
 interface Props {
@@ -19,13 +19,15 @@ interface Props {
   onClose: () => void;
   /** Project a free-text slide: `title` becomes the reference line, `body` the quote. */
   onProject: (title: string, body: string) => void;
+  /** Add the composed text to the presentation sequence. */
+  onAddToPlaylist?: (item: { title: string; body: string }) => void;
 }
 
 /**
  * Free-text slide composer — announcements, notes, any custom text. Reuses the
  * active slide style/template; keeps a recents list so repeat texts are one click.
  */
-export function TextPanel({ open, onClose, onProject }: Props) {
+export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const recentTexts = useSettings((s) => s.recentTexts);
@@ -87,7 +89,18 @@ export function TextPanel({ open, onClose, onProject }: Props) {
             }
           }}
         />
-        <Group justify="flex-end">
+        <Group justify="flex-end" gap="xs">
+          {onAddToPlaylist && (
+            <Button
+              size="sm"
+              variant="default"
+              leftSection={<IconPlaylistAdd size={16} />}
+              disabled={!body.trim()}
+              onClick={() => onAddToPlaylist({ title, body })}
+            >
+              У показ
+            </Button>
+          )}
           <Button
             size="sm"
             color="green"

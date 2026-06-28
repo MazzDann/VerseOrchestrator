@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Paper,
   TextInput,
@@ -14,25 +14,41 @@ import {
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconMusic, IconX, IconChevronLeft } from '@tabler/icons-react';
+import { IconMusic, IconX, IconChevronLeft, IconPlaylistAdd } from '@tabler/icons-react';
 import { api, type SongStyle } from '../api';
+import { subscribeCommand } from '../presenterBus';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   /** Project a stanza; `style` (when in faithful mode) reproduces the original pptx look. */
   onProjectStanza: (text: string, reference: string, style?: SongStyle | null) => void;
+  /** Open song (controlled by the parent so the playlist can open a specific song). */
+  songId: number | null;
+  onSongIdChange: (id: number | null) => void;
+  /** Highlighted stanza (controlled by the parent so playlist activation can seed it). */
+  activeStanza: number | null;
+  onActiveStanzaChange: (idx: number | null) => void;
+  /** Add the open song to the presentation sequence. */
+  onAddToPlaylist?: (song: { songId: number; label: string; faithful: boolean }) => void;
 }
 
 /**
  * Songs panel: search by number or title, open a song, and project its
  * stanzas (one .pptx slide each) as text slides on the output window.
  */
-export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
+export function SongsPanel({
+  open,
+  onClose,
+  onProjectStanza,
+  songId,
+  onSongIdChange,
+  activeStanza,
+  onActiveStanzaChange,
+  onAddToPlaylist,
+}: Props) {
   const [query, setQuery] = useState('');
   const [debounced] = useDebouncedValue(query, 200);
-  const [songId, setSongId] = useState<number | null>(null);
-  const [activeStanza, setActiveStanza] = useState<number | null>(null);
   const [faithful, setFaithful] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,9 +70,26 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
     }
   }, [open, songId]);
 
-  // While a song is open, arrows / PageUp-PageDown step through its stanzas and
-  // project them. Capture phase + stopPropagation so the verse-navigation hotkeys
-  // don't also fire.
+  // Step to the next/previous stanza and project it.
+  const stepStanza = useCallback(
+    (dir: number) => {
+      const s = songQuery.data;
+      if (!s || s.slides.length === 0) return;
+      const cur = activeStanza ?? -1;
+      const idx = Math.max(0, Math.min(s.slides.length - 1, cur + dir));
+      if (activeStanza != null && idx === cur) return;
+      onActiveStanzaChange(idx);
+      onProjectStanza(
+        s.slides[idx].text,
+        `№${s.number ?? ''} ${s.title}`.trim(),
+        faithful ? s.slides[idx].style : null,
+      );
+    },
+    [songQuery.data, activeStanza, faithful, onActiveStanzaChange, onProjectStanza],
+  );
+
+  // While a song is open, arrows / PageUp-PageDown step through its stanzas.
+  // Capture phase + stopPropagation so the verse-navigation hotkeys don't also fire.
   useEffect(() => {
     if (!open || songId == null) return;
     const onKey = (e: KeyboardEvent) => {
@@ -65,31 +98,32 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
         : ['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)
           ? -1
           : 0;
-      if (!dir) return;
-      const s = songQuery.data;
-      if (!s || s.slides.length === 0) return;
+      if (!dir || !songQuery.data || songQuery.data.slides.length === 0) return;
       e.preventDefault();
       e.stopPropagation();
-      const cur = activeStanza ?? -1;
-      const idx = Math.max(0, Math.min(s.slides.length - 1, cur + dir));
-      if (activeStanza != null && idx === cur) return;
-      setActiveStanza(idx);
-      onProjectStanza(
-        s.slides[idx].text,
-        `№${s.number ?? ''} ${s.title}`.trim(),
-        faithful ? s.slides[idx].style : null,
-      );
+      stepStanza(dir);
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [open, songId, activeStanza, faithful, songQuery.data, onProjectStanza]);
+  }, [open, songId, stepStanza, songQuery.data]);
+
+  // The clicker can also arrive as a forwarded command from the presenter window
+  // (which holds focus on the 2nd monitor). Step stanzas for those too, so a song
+  // advances instead of being clobbered by verse navigation.
+  useEffect(() => {
+    if (!open || songId == null) return;
+    return subscribeCommand((cmd) => {
+      if (cmd === 'next') stepStanza(1);
+      else if (cmd === 'prev') stepStanza(-1);
+    });
+  }, [open, songId, stepStanza]);
 
   if (!open) return null;
   const songs = listQuery.data ?? [];
   const song = songQuery.data;
 
   const project = (idx: number, slide: { text: string; style: SongStyle | null }) => {
-    setActiveStanza(idx);
+    onActiveStanzaChange(idx);
     onProjectStanza(
       slide.text,
       song ? `№${song.number ?? ''} ${song.title}`.trim() : '',
@@ -105,10 +139,7 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
             <Group gap={6} wrap="nowrap">
               <ActionIcon
                 variant="subtle"
-                onClick={() => {
-                  setSongId(null);
-                  setActiveStanza(null);
-                }}
+                onClick={() => onSongIdChange(null)}
                 aria-label="Назад до пошуку"
               >
                 <IconChevronLeft size={18} />
@@ -118,9 +149,28 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
                 {song.title}
               </Text>
             </Group>
-            <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
-              <IconX size={18} />
-            </ActionIcon>
+            <Group gap={4} wrap="nowrap">
+              {onAddToPlaylist && (
+                <ActionIcon
+                  variant="subtle"
+                  color="brand"
+                  onClick={() =>
+                    onAddToPlaylist({
+                      songId: song.id,
+                      label: `${song.number != null ? `№${song.number} ` : ''}${song.title}`.trim(),
+                      faithful,
+                    })
+                  }
+                  aria-label="Додати у показ"
+                  title="Додати у показ"
+                >
+                  <IconPlaylistAdd size={18} />
+                </ActionIcon>
+              )}
+              <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
+                <IconX size={18} />
+              </ActionIcon>
+            </Group>
           </Group>
           <SegmentedControl
             fullWidth
@@ -185,14 +235,11 @@ export function SongsPanel({ open, onClose, onProjectStanza }: Props) {
                   className="vo-list-item"
                   role="button"
                   tabIndex={0}
-                  onClick={() => {
-                    setSongId(s.id);
-                    setActiveStanza(null);
-                  }}
+                  onClick={() => onSongIdChange(s.id)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      setSongId(s.id);
+                      onSongIdChange(s.id);
                     }
                   }}
                 >
