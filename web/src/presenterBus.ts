@@ -207,3 +207,39 @@ export function subscribeCommand(cb: (cmd: PresenterCommand) => void): () => voi
   cmdChannel.addEventListener('message', handler);
   return () => cmdChannel.removeEventListener('message', handler);
 }
+
+/**
+ * "Next slide" preview for the stage-display window — what advancing once would
+ * project. Separate from the live slide so the stage can show current + next.
+ */
+const NEXT_CHANNEL_NAME = 'verse-orchestrator-next';
+const NEXT_STORAGE_KEY = 'vo:slide-next';
+const nextChannel =
+  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(NEXT_CHANNEL_NAME) : null;
+
+export function publishNext(slide: Slide | null): void {
+  try {
+    if (slide) localStorage.setItem(NEXT_STORAGE_KEY, JSON.stringify(slide));
+    else localStorage.removeItem(NEXT_STORAGE_KEY);
+  } catch {
+    /* ignore quota/availability errors */
+  }
+  nextChannel?.postMessage(slide);
+}
+
+export function readNext(): Slide | null {
+  try {
+    const raw = localStorage.getItem(NEXT_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as Slide;
+  } catch {
+    /* ignore parse errors */
+  }
+  return null;
+}
+
+export function subscribeNext(cb: (slide: Slide | null) => void): () => void {
+  if (!nextChannel) return () => {};
+  const handler = (e: MessageEvent) => cb(e.data as Slide | null);
+  nextChannel.addEventListener('message', handler);
+  return () => nextChannel.removeEventListener('message', handler);
+}

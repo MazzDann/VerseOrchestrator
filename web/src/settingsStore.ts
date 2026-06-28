@@ -54,6 +54,8 @@ interface SettingsState {
   panelPlacement: PanelPlacement;
   /** When true, the presenter follows the selection live; when false, push manually (F5/F2). */
   liveFollow: boolean;
+  /** When true, mirror the live slide to the server so phones can follow along. */
+  followAlong: boolean;
   /** Active positioned layout; null → the default centred layout. */
   slideTemplate: SlideTemplate | null;
   history: RefItem[];
@@ -63,6 +65,7 @@ interface SettingsState {
   /** Operator keyboard shortcuts (action id → react-hotkeys-hook combo). */
   keymap: Keymap;
   setLiveFollow: (v: boolean) => void;
+  setFollowAlong: (v: boolean) => void;
   setSlideTemplate: (t: SlideTemplate | null) => void;
   setPanelPlacement: (p: PanelPlacement) => void;
   setAppearance: (patch: Partial<Appearance>) => void;
@@ -115,12 +118,14 @@ export const useSettings = create<SettingsState>()(
       appearance: DEFAULT_APPEARANCE,
       panelPlacement: 'aside',
       liveFollow: true,
+      followAlong: false,
       slideTemplate: null,
       history: [],
       bookmarks: [],
       recentTexts: [],
       keymap: DEFAULT_KEYMAP,
       setLiveFollow: (v) => set({ liveFollow: v }),
+      setFollowAlong: (v) => set({ followAlong: v }),
       setSlideTemplate: (t) => set({ slideTemplate: t }),
       setPanelPlacement: (p) => set({ panelPlacement: p }),
       setAppearance: (patch) => set((s) => ({ appearance: { ...s.appearance, ...patch } })),
