@@ -1,6 +1,12 @@
 import { type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { type Slide, type SlideLine, type SlideStyle, DEFAULT_STYLE } from '../presenterBus';
+import {
+  type Slide,
+  type SlideLine,
+  type SlideStyle,
+  type SlideReveal,
+  DEFAULT_STYLE,
+} from '../presenterBus';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 
@@ -48,6 +54,47 @@ function QuoteLines({ lines, style }: { lines: SlideLine[]; style: SlideStyle })
             : line.text}
         </p>
       ))}
+    </>
+  );
+}
+
+/**
+ * Progressive-reveal rendering: each unit is its own line. Unrevealed units always
+ * occupy their space (so the font/layout never jumps as you reveal) — invisible by
+ * default, faint when `placeholders` is on. In spotlight mode only the last revealed
+ * unit stays bright.
+ */
+function RevealLines({ reveal, style }: { reveal: SlideReveal; style: SlideStyle }) {
+  return (
+    <>
+      {reveal.units.map((u, i) => {
+        const revealed = i < reveal.count;
+        const isCurrent = i === reveal.count - 1;
+        const hidden = !revealed && !reveal.placeholders;
+        const opacity = revealed
+          ? reveal.mode === 'spotlight' && !isCurrent
+            ? 0.4
+            : 1
+          : reveal.placeholders
+            ? 0.12
+            : 0;
+        return (
+          <p
+            key={i}
+            style={{
+              margin: 0,
+              fontSize: '1em',
+              fontWeight: style.bold ? 700 : 500,
+              whiteSpace: 'pre-line',
+              opacity,
+              visibility: hidden ? 'hidden' : 'visible',
+              transition: 'opacity 0.25s ease',
+            }}
+          >
+            {u}
+          </p>
+        );
+      })}
     </>
   );
 }
@@ -184,7 +231,11 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
                   return (
                     <div key={i} ref={containerRef} style={box}>
                       <div ref={contentRef} style={{ maxWidth: '100%', textAlign: o.align }}>
-                        <QuoteLines lines={slide.lines} style={style} />
+                        {slide.reveal ? (
+                          <RevealLines reveal={slide.reveal} style={style} />
+                        ) : (
+                          <QuoteLines lines={slide.lines} style={style} />
+                        )}
                       </div>
                     </div>
                   );
@@ -259,7 +310,11 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
                 textShadow: style.bgImage ? '0 2px 12px rgba(0,0,0,0.6)' : 'none',
               }}
             >
-              <QuoteLines lines={slide.lines} style={style} />
+              {slide.reveal ? (
+                <RevealLines reveal={slide.reveal} style={style} />
+              ) : (
+                <QuoteLines lines={slide.lines} style={style} />
+              )}
               {slide.subline && (
                 <div
                   style={{

@@ -67,6 +67,21 @@ export interface SlideTemplate {
   objects: SlideObject[];
 }
 
+/**
+ * Progressive reveal ("build"): show the quote one unit at a time. `units` is the
+ * ordered list of lines (verses), `count` how many are revealed so far.
+ * - accumulate: revealed units stay bright;
+ * - spotlight: only the current (last revealed) unit is bright, earlier ones dim;
+ * - placeholders: unrevealed units show faintly (else they're invisible but keep
+ *   their space, so the layout/font never jumps as you reveal).
+ */
+export interface SlideReveal {
+  units: string[];
+  count: number;
+  mode: 'accumulate' | 'spotlight';
+  placeholders: boolean;
+}
+
 export interface Slide {
   lines: SlideLine[];
   reference: string;
@@ -82,6 +97,8 @@ export interface Slide {
   subline?: string;
   /** Optional positioned layout. Absent/null → the default (legacy) centred layout. */
   template?: SlideTemplate | null;
+  /** Progressive reveal state; absent → show the whole quote at once (default). */
+  reveal?: SlideReveal | null;
 }
 
 /** Built-in layout presets. The first (null template) is the default centred look. */
