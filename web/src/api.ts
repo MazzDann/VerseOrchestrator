@@ -56,6 +56,7 @@ export type SearchResult = z.infer<typeof SearchResultSchema>;
 const SearchResponseSchema = z.object({
   kind: z.enum(['reference', 'text', 'empty']),
   results: z.array(SearchResultSchema),
+  suggestions: z.array(SearchResultSchema).optional(),
 });
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 
