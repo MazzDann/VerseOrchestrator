@@ -4,25 +4,34 @@ import { useCallback, useEffect, useRef, type DependencyList } from 'react';
  * Fit multi-line content to its container by binary-searching the largest font
  * size that does not overflow (both width and height). Re-fits on container
  * resize, on `deps` change (font/alignment), and — crucially — whenever the
- * content element itself (re)mounts, so animated slide swaps refit correctly.
+ * content OR container element (re)mounts, so animated slide swaps refit correctly.
  *
- * `contentRef` is a callback ref: attach it to the element that re-mounts per
- * slide. The low `min` lets long passages shrink enough to stay on screen.
+ * Both refs are CALLBACK refs: when the framer-motion `AnimatePresence` swaps a
+ * slide, the whole box+content subtree remounts as new DOM nodes. The container
+ * callback re-points the ResizeObserver at the new box, and every (re)mount
+ * schedules a fit on the next animation frame (so layout has settled and both
+ * refs are attached — a plain ref-object container would still be null when the
+ * child content ref fires, leaving the new content at its inherited font size).
  */
 export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: number) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLElement | null>(null);
+  const containerEl = useRef<HTMLDivElement | null>(null);
+  const contentEl = useRef<HTMLElement | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
+  const rafRef = useRef(0);
 
   const fit = useCallback(() => {
-    const container = containerRef.current;
-    const content = contentRef.current;
+    const container = containerEl.current;
+    const content = contentEl.current;
     if (!container || !content) return;
     let lo = min;
-    // Cap the upper bound at `maxCqh`% of the container height when given (faithful
-    // pptx songs: never exceed the original font size — shrink to fit like PowerPoint).
+    // Cap the upper bound at `maxCqh`% of the SLIDE height when given (faithful pptx
+    // songs: never exceed the original font size — shrink to fit like PowerPoint).
+    // cqh is relative to the slide (the container-type:size root), not the (smaller)
+    // quote box, so measure against the box's positioned ancestor when present.
     let hi = max;
     if (maxCqh != null && maxCqh > 0) {
-      hi = Math.min(max, Math.max(min, Math.floor((maxCqh / 100) * container.clientHeight)));
+      const slideH = (container.offsetParent as HTMLElement | null)?.clientHeight ?? container.clientHeight;
+      hi = Math.min(max, Math.max(min, Math.floor((maxCqh / 100) * slideH)));
     }
     let best = min;
     while (lo <= hi) {
@@ -41,27 +50,41 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
     content.style.fontSize = `${best}px`;
   }, [min, max, maxCqh]);
 
-  // Fit whenever the (re-mounted) content element attaches.
-  const setContentRef = useCallback(
-    (el: HTMLElement | null) => {
-      contentRef.current = el;
-      if (el) fit();
-    },
-    [fit],
-  );
-
-  // Re-fit on dependency changes (font/alignment).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => fit(), deps);
-
-  // Re-fit when the container resizes (window/screen changes).
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const ro = new ResizeObserver(() => fit());
-    ro.observe(container);
-    return () => ro.disconnect();
+  // Defer to the next frame so layout has settled and both refs are attached.
+  const scheduleFit = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(fit);
   }, [fit]);
 
-  return { containerRef, contentRef: setContentRef };
+  // Container callback ref: re-point the ResizeObserver at the current box and refit.
+  const containerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      containerEl.current = el;
+      roRef.current?.disconnect();
+      if (el) {
+        const ro = new ResizeObserver(() => fit());
+        ro.observe(el);
+        roRef.current = ro;
+        scheduleFit();
+      }
+    },
+    [fit, scheduleFit],
+  );
+
+  // Content callback ref: refit whenever the (re-mounted) content attaches.
+  const contentRef = useCallback(
+    (el: HTMLElement | null) => {
+      contentEl.current = el;
+      if (el) scheduleFit();
+    },
+    [scheduleFit],
+  );
+
+  // Re-fit on dependency changes (slide key / font / alignment).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => scheduleFit(), deps);
+
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  return { containerRef, contentRef };
 }
