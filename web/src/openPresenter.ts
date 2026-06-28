@@ -47,3 +47,8 @@ export function openPresenterWindow(): Promise<Window | null> {
 export function openStageWindow(): Promise<Window | null> {
   return openOutputWindow('/stage', 'vo-stage', 'width=1100,height=700');
 }
+
+/** Open the settings in a standalone window (for a second monitor). */
+export function openSettingsWindow(): Promise<Window | null> {
+  return openOutputWindow('/settings', 'vo-settings', 'width=560,height=820');
+}

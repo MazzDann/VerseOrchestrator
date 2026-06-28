@@ -13,7 +13,13 @@ import {
   ActionIcon,
   Divider,
 } from '@mantine/core';
-import { IconUpload, IconTrash, IconRefresh, IconDatabaseImport } from '@tabler/icons-react';
+import {
+  IconUpload,
+  IconTrash,
+  IconRefresh,
+  IconDatabaseImport,
+  IconExternalLink,
+} from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import {
@@ -29,6 +35,7 @@ import { fileToDownscaledDataUrl } from '../lib/image';
 import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
+import { openSettingsWindow } from '../openPresenter';
 
 /** Appearance controls for the projected screen. Persisted via the settings store. */
 export function SettingsPanel() {
@@ -80,8 +87,20 @@ export function SettingsPanel() {
     />
   );
 
+  const inSettingsWindow =
+    typeof window !== 'undefined' && window.location.pathname === '/settings';
+
   return (
     <Stack gap="md" p="md">
+      {!inSettingsWindow && (
+        <Button
+          variant="default"
+          leftSection={<IconExternalLink size={16} />}
+          onClick={() => void openSettingsWindow()}
+        >
+          Відкрити окремим вікном
+        </Button>
+      )}
       <div>
         <Text size="sm" fw={500} mb={4}>
           Розташування панелей
