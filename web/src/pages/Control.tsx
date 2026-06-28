@@ -79,6 +79,7 @@ import { FloatingPanel } from '../components/FloatingPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { PlaylistPanel } from '../components/PlaylistPanel';
 import { FollowPanel } from '../components/FollowPanel';
+import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
@@ -145,6 +146,7 @@ export function Control() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   // The song + highlighted stanza in the Songs panel — lifted here so the playlist
   // can open a song and seed its stanza (and so forwarded clicker commands step it).
   const [songsPanelSongId, setSongsPanelSongId] = useState<number | null>(null);
@@ -737,27 +739,29 @@ export function Control() {
     primaryVerses,
     selectedVerses,
   ]);
+  // Remove the slide from the output. Drops out of live so the live-follow effect
+  // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
+  // which would re-run that effect).
+  const clearScreen = () => {
+    pushLive({ lines: [], reference: '', blank: false, visible: false });
+    setLive(false);
+  };
   useHotkeys(keymap.blank, () => (live ? send({ blank: true }) : undefined), [
     keymap.blank,
     live,
     slideLines,
     reference,
   ]);
-  useHotkeys(
-    keymap.clear,
-    () => {
-      pushLive({ lines: [], reference: '', blank: false, visible: false });
-      // Drop out of live so the live-follow effect doesn't immediately re-project the
-      // selection (pushLive's setLiveSlide re-renders, which would re-run that effect).
-      setLive(false);
-    },
-    [keymap.clear],
-  );
+  useHotkeys(keymap.clear, () => clearScreen(), [keymap.clear]);
   useHotkeys(keymap.searchCurrent, () => openSearch('current'), {
     preventDefault: true,
     enableOnFormTags: true,
   });
   useHotkeys(keymap.searchAll, () => openSearch('all'), {
+    preventDefault: true,
+    enableOnFormTags: true,
+  });
+  useHotkeys(keymap.palette, () => setPaletteOpen((o) => !o), {
     preventDefault: true,
     enableOnFormTags: true,
   });
@@ -849,6 +853,26 @@ export function Control() {
       : liveActive
         ? liveSlide.reference || 'На екрані'
         : 'Порожньо';
+
+  // Operator actions exposed in the command palette (Ctrl+K). Fresh closures each
+  // render so they never go stale; the palette only reads this while open.
+  const paletteCommands: CommandItem[] = [
+    { id: 'project', label: 'На екран', hint: 'Показати вибір', keywords: 'project show project', icon: <IconDeviceTv size={16} />, run: sendAndNotify },
+    { id: 'blank', label: 'Затемнити екран', keywords: 'blank zatemnyty', icon: <IconSquareOff size={16} />, run: blankScreen },
+    { id: 'black', label: 'Чорний екран', keywords: 'black chornyi', icon: <IconSquareFilled size={16} />, run: blackScreen },
+    { id: 'clear', label: 'Прибрати з екрана', keywords: 'clear ochystyty', run: clearScreen },
+    { id: 'addPassage', label: 'Додати уривок у показ', keywords: 'playlist add', icon: <IconPlaylistAdd size={16} />, run: addCurrentPassage },
+    { id: 'playlist', label: 'Послідовність показу', keywords: 'playlist sequence', icon: <IconList size={16} />, run: () => setPlaylistOpen(true) },
+    { id: 'songs', label: 'Пісні', keywords: 'songs pisni', icon: <IconMusic size={16} />, run: () => setSongsOpen(true) },
+    { id: 'text', label: 'Текст на екран', keywords: 'text tekst', icon: <IconLetterT size={16} />, run: () => setTextOpen(true) },
+    { id: 'search', label: 'Пошук в усіх модулях', keywords: 'search poshuk', icon: <IconSearch size={16} />, run: () => openSearch('all') },
+    { id: 'presenter', label: 'Відкрити вікно показу', keywords: 'presenter output', icon: <IconScreenShare size={16} />, run: () => void openPresenter() },
+    { id: 'stage', label: 'Відкрити сцену', keywords: 'stage monitor', icon: <IconLayoutDashboard size={16} />, run: () => void openStage() },
+    { id: 'follow', label: 'Трансляція глядачам (QR)', keywords: 'follow qr phones', icon: <IconQrcode size={16} />, run: () => setFollowOpen(true) },
+    { id: 'settings', label: 'Налаштування показу', keywords: 'settings nalashtuvannia', icon: <IconAdjustments size={16} />, run: () => setSettingsOpen(true) },
+    { id: 'liveFollow', label: `Стеження наживо: ${liveFollow ? 'вимкнути' : 'увімкнути'}`, keywords: 'live follow', run: () => setLiveFollow(!liveFollow) },
+    { id: 'theme', label: 'Перемкнути тему', keywords: 'theme tema dark light', icon: <IconSun size={16} />, run: () => toggleColorScheme() },
+  ];
 
   const exportBookmarks = () => {
     const blob = new Blob([JSON.stringify(bookmarks, null, 2)], { type: 'application/json' });
@@ -1212,6 +1236,7 @@ export function Control() {
               activeStanza={songsPanelStanza}
               onActiveStanzaChange={setSongsPanelStanza}
               onAddToPlaylist={addSongToPlaylist}
+              keysPaused={paletteOpen}
             />
             <TextPanel
               open={textOpen}
@@ -1413,6 +1438,19 @@ export function Control() {
       >
         <FollowPanel />
       </FloatingPanel>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        commands={paletteCommands}
+        books={books}
+        onJumpBook={(bn) => selectBook(bn)}
+        onOpenSong={(id) => {
+          openSong(id);
+          setSongsOpen(true);
+        }}
+        onGoReference={(q) => void goTo(q)}
+      />
     </>
   );
 }

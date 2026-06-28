@@ -31,6 +31,8 @@ interface Props {
   onActiveStanzaChange: (idx: number | null) => void;
   /** Add the open song to the presentation sequence. */
   onAddToPlaylist?: (song: { songId: number; label: string; faithful: boolean }) => void;
+  /** Suspend the stanza arrow-key listener (e.g. while the command palette is open). */
+  keysPaused?: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export function SongsPanel({
   activeStanza,
   onActiveStanzaChange,
   onAddToPlaylist,
+  keysPaused,
 }: Props) {
   const [query, setQuery] = useState('');
   const [debounced] = useDebouncedValue(query, 200);
@@ -91,7 +94,7 @@ export function SongsPanel({
   // While a song is open, arrows / PageUp-PageDown step through its stanzas.
   // Capture phase + stopPropagation so the verse-navigation hotkeys don't also fire.
   useEffect(() => {
-    if (!open || songId == null) return;
+    if (!open || songId == null || keysPaused) return;
     const onKey = (e: KeyboardEvent) => {
       const dir = ['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key)
         ? 1
@@ -105,7 +108,7 @@ export function SongsPanel({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [open, songId, stepStanza, songQuery.data]);
+  }, [open, songId, stepStanza, songQuery.data, keysPaused]);
 
   // The clicker can also arrive as a forwarded command from the presenter window
   // (which holds focus on the 2nd monitor). Step stanzas for those too, so a song

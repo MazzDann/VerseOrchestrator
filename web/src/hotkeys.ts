@@ -14,7 +14,8 @@ export type HotkeyActionId =
   | 'black'
   | 'clear'
   | 'searchCurrent'
-  | 'searchAll';
+  | 'searchAll'
+  | 'palette';
 
 export interface HotkeyActionDef {
   id: HotkeyActionId;
@@ -62,6 +63,13 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     hint: 'Пошук в усіх модулях',
     enableOnFormTags: true,
     default: 'f4',
+  },
+  {
+    id: 'palette',
+    label: 'Палітра команд',
+    hint: 'Швидкий пошук дій, книг і пісень',
+    enableOnFormTags: true,
+    default: 'ctrl+k,ctrl+p',
   },
 ];
 
