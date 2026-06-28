@@ -17,6 +17,8 @@ export interface ParsedReference {
  *   "бут 2:3-5"    -> Genesis 2:3-5
  *   "бут 2"        -> Genesis 2          (whole chapter)
  *   "1 Кор 13:4-7" -> 1 Corinthians 13:4-7 (leading ordinal kept on the book)
+ *   "Ісус Навин 4:10" -> Joshua 4:10       (multi-word book name)
+ *   "Пісня над піснями 3" -> Song of Songs 3
  * Returns null if the string is not a reference (then the caller does text search).
  */
 export function parseReference(query: string): ParsedReference | null {
@@ -31,8 +33,10 @@ export function parseReference(query: string): ParsedReference | null {
     q = q.slice(ord[0].length);
   }
 
-  // Book name: letters (with optional dots/apostrophes), then the rest.
-  const book = q.match(/^([\p{L}][\p{L}.'’]*)\s*(.*)$/u);
+  // Book name: one or more words of letters (with dots/apostrophes), up to where the
+  // chapter number begins — so multi-word names ("Ісус Навин", "Пісня над піснями")
+  // are captured, not just the first word. The location starts at the first digit.
+  const book = q.match(/^([\p{L}][\p{L}.'’\s]*?)\s*(\d.*)$/u);
   if (!book) return null;
   const bookRaw = `${ordinal}${book[1]}`.trim();
 

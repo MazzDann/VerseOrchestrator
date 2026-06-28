@@ -877,6 +877,35 @@ export function Control() {
     }
   };
 
+  // Enter on a verse projects it straight away (no need to enable live-follow / press
+  // F5). If it's already part of the selection, project the whole selection; otherwise
+  // select just this verse and push it directly (built from the loaded chapter, so we
+  // don't wait for the selection-derived slideLines to recompute).
+  const projectVerseOnEnter = (verseNum: number) => {
+    if (selectedVerses.includes(verseNum)) {
+      sendAndNotify();
+      return;
+    }
+    setSelectedVerses([verseNum]);
+    const lines = buildLines([verseNum]);
+    if (lines.length === 0) return;
+    pushLive({
+      lines,
+      reference: formatReference(currentBook, chapter, [verseNum]),
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+    });
+    setLive(true);
+    setPreviewOverride(null);
+    notifications.show({
+      message: `На екрані: ${formatReference(currentBook, chapter, [verseNum], true)}`,
+      color: 'green',
+      autoClose: 1500,
+    });
+  };
+
   // "project" (default F5/F2): push the current selection to the screen (the way to
   // project when live-follow is off; harmless while following).
   useHotkeys(
@@ -1447,10 +1476,17 @@ export function Control() {
                           : setSelectedVerses([v.verse])
                       }
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
+                        const mod = e.ctrlKey || e.metaKey || e.shiftKey;
+                        if (e.key === ' ') {
                           e.preventDefault();
-                          if (e.ctrlKey || e.metaKey || e.shiftKey) toggleVerse(v.verse);
+                          if (mod) toggleVerse(v.verse);
                           else setSelectedVerses([v.verse]);
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          // Enter projects to the screen immediately (no need to enable
+                          // live-follow or press F5); modifier+Enter extends the selection.
+                          if (mod) toggleVerse(v.verse);
+                          else projectVerseOnEnter(v.verse);
                         }
                       }}
                     >

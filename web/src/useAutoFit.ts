@@ -18,6 +18,7 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
   const contentEl = useRef<HTMLElement | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const rafRef = useRef(0);
+  const timerRef = useRef(0);
 
   const fit = useCallback(() => {
     const container = containerEl.current;
@@ -50,10 +51,15 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
     content.style.fontSize = `${best}px`;
   }, [min, max, maxCqh]);
 
-  // Defer to the next frame so layout has settled and both refs are attached.
+  // Fit next frame (refs attached) AND again shortly after, because on initial mount
+  // the box can be measured before its final size settles (percentage heights under
+  // `container-type: size`, framer-motion enter) — the first pass would otherwise
+  // lock in a too-large size and never refit.
   const scheduleFit = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
+    clearTimeout(timerRef.current);
     rafRef.current = requestAnimationFrame(fit);
+    timerRef.current = window.setTimeout(fit, 120);
   }, [fit]);
 
   // Container callback ref: re-point the ResizeObserver at the current box and refit.
@@ -84,7 +90,13 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => scheduleFit(), deps);
 
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(rafRef.current);
+      clearTimeout(timerRef.current);
+    },
+    [],
+  );
 
   return { containerRef, contentRef };
 }
