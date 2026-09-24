@@ -1533,7 +1533,7 @@ export function Control() {
               onAddToPlaylist={addTextToPlaylist}
             />
             <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
-              <Text fw={600} size="sm" truncate>
+              <Text fw={600} size="md" truncate>
                 {currentBook
                   ? `${currentBook.longName} ${chapter ?? ''}`
                   : 'Оберіть книгу та розділ'}
@@ -1593,19 +1593,20 @@ export function Control() {
               </Group>
             </Group>
             {chapters.length > 0 && (
-              <ScrollArea.Autosize mah={88} px="md" pb="xs">
-                <Group gap={6}>
+              <ScrollArea.Autosize mah={64} px="md" pb="xs">
+                <div className="vo-chapter-grid" role="group" aria-label="Розділи">
                   {chapters.map((c) => (
                     <button
                       key={c}
                       className="vo-chip"
                       data-selected={c === chapter ? 'true' : undefined}
                       onClick={() => selectChapter(c)}
+                      aria-current={c === chapter ? 'true' : undefined}
                     >
                       {c}
                     </button>
                   ))}
-                </Group>
+                </div>
               </ScrollArea.Autosize>
             )}
             <Divider />
@@ -1640,10 +1641,8 @@ export function Control() {
                         }
                       }}
                     >
-                      <Text size="md">
-                        <Text span fw={700} c="brand" mr={8}>
-                          {v.verse}
-                        </Text>
+                      <span className="vo-verse-num">{v.verse}</span>
+                      <span>
                         {appearance.redLetter
                           ? parseRedLetter(v.textRaw ?? v.text ?? '').map((s, j, arr) => (
                               <Text
@@ -1662,7 +1661,7 @@ export function Control() {
                               </Text>
                             ))
                           : v.text}
-                      </Text>
+                      </span>
                     </div>
                   ))}
                   {primaryVerses.length === 0 && (
