@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   Stack,
   Group,
-  Text,
   Button,
   ActionIcon,
   TextInput,
@@ -17,7 +16,6 @@ import {
   IconTrash,
   IconDownload,
   IconUpload,
-  IconPalette,
   IconBuildingStore,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
@@ -106,13 +104,7 @@ export function PresetsSection() {
 
   return (
     <div>
-      <Group gap={6} mb={6} wrap="nowrap">
-        <IconPalette size={16} />
-        <Text size="sm" fw={600}>
-          Пресети вигляду
-        </Text>
-      </Group>
-
+      {/* Titled by the «Пресети» settings section that hosts it. */}
       <Group gap="xs" wrap="nowrap" mb="xs">
         <TextInput
           size="xs"

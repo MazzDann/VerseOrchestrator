@@ -1709,7 +1709,7 @@ export function Control() {
       <FloatingPanel
         opened={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        title="Налаштування показу"
+        title="Налаштування вигляду"
         storageKey="vo:settingsPanelPos"
         width={400}
         icon={<IconAdjustments size={16} />}

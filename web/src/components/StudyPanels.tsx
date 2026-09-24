@@ -216,7 +216,7 @@ export function StudyPanels({
             <Group gap={6} px="md" pt="sm">
               <IconAdjustments size={16} />
               <Text fw={600} size="sm">
-                Вигляд екрана показу
+                Налаштування вигляду
               </Text>
             </Group>
             <SettingsPanel />
