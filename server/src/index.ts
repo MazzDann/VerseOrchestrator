@@ -3,7 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import cors from 'cors';
 import {
   ApiError,
   closeDb,
@@ -23,10 +22,14 @@ import {
 } from './db.js';
 
 const app = express();
-app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 const PORT = Number(process.env.PORT ?? 8787);
+/**
+ * Loopback only: phones reach the app through the Vite dev server (bound to the LAN
+ * for follow-along), which proxies `/api` here — nothing needs this port directly.
+ */
+const HOST = process.env.HOST ?? '127.0.0.1';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 /** A library rebuild (builder process) is in flight — guard against overlapping runs. */
@@ -53,6 +56,47 @@ const wrap =
     }
   };
 
+/** This machine's own addresses (loopback + every interface), so a control window
+ * opened via the LAN IP on the operator's own machine still counts as local. */
+function isOwnAddress(addr: string): boolean {
+  const ip = addr.replace(/^::ffff:/, '');
+  if (ip === '::1' || ip.startsWith('127.')) return true;
+  return Object.values(os.networkInterfaces()).some((list) =>
+    (list ?? []).some((a) => a.address === ip),
+  );
+}
+
+/**
+ * The real client address. Behind the Vite proxy (`xfwd: true`) the socket is always
+ * loopback, so use the LAST X-Forwarded-For hop — the one the proxy appended itself
+ * (earlier hops are client-supplied and can be forged). Since this server only listens
+ * on loopback, a direct connection is already local.
+ */
+function clientAddress(req: express.Request): string {
+  const socketAddr = req.socket.remoteAddress ?? '';
+  const fwd = req.get('x-forwarded-for');
+  if (fwd && isOwnAddress(socketAddr)) {
+    const hops = fwd.split(',').map((s) => s.trim()).filter(Boolean);
+    return hops[hops.length - 1] ?? socketAddr;
+  }
+  return socketAddr;
+}
+
+/**
+ * Guard for routes that change state. Only the operator's machine may write; phones on
+ * the LAN are read-only viewers. The custom header forces a CORS preflight (which this
+ * server never answers), so a random web page open in the operator's browser can't fire
+ * these as "simple" cross-site requests either. Future remote roles (e.g. a speaker
+ * remote paired via QR) would extend this check with a token rather than open the LAN.
+ */
+const requireLocalControl: express.RequestHandler = (req, res, next) => {
+  if (req.get('x-vo-control') !== '1' || !isOwnAddress(clientAddress(req))) {
+    res.status(403).json({ error: 'Керування доступне лише з цього комп’ютера' });
+    return;
+  }
+  next();
+};
+
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 /**
@@ -65,6 +109,7 @@ let liveVersion = 0;
 
 app.post(
   '/api/live',
+  requireLocalControl,
   wrap((req, res) => {
     liveState = req.body ?? null;
     liveVersion += 1;
@@ -240,7 +285,7 @@ app.get(
  * Lets an operator add a translation/song and refresh without a terminal. The builder
  * rebuilds in place; on success we drop the cached connection so reads see fresh data.
  */
-app.post('/api/rebuild', (_req, res) => {
+app.post('/api/rebuild', requireLocalControl, (_req, res) => {
   if (rebuilding) {
     res.status(409).json({ error: 'Перебудова вже триває' });
     return;
@@ -276,6 +321,6 @@ app.post('/api/rebuild', (_req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`[server] http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`[server] http://${HOST}:${PORT}`);
 });

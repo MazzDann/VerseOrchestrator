@@ -113,6 +113,10 @@ async function getJson<S extends z.ZodTypeAny>(url: string, schema: S): Promise<
   return schema.parse(await res.json());
 }
 
+/** Marks a state-changing request from the control UI; the server rejects writes
+ * without it (it forces a CORS preflight, so other sites can't forge them). */
+const CONTROL_HEADERS = { 'X-VO-Control': '1' };
+
 export const api = {
   translations: () => getJson('/api/translations', z.array(TranslationSchema)),
   books: (id: number) => getJson(`/api/translations/${id}/books`, z.array(BookSchema)),
@@ -161,7 +165,7 @@ export const api = {
   livePost: async (slide: Slide): Promise<void> => {
     await fetch('/api/live', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
       body: JSON.stringify(slide),
     }).catch(() => {
       /* best-effort; phones poll and will catch up */
@@ -171,7 +175,7 @@ export const api = {
     getJson('/api/live', z.object({ version: z.number(), slide: z.any().nullable() })),
   host: () => getJson('/api/host', z.object({ ips: z.array(z.string()) })),
   rebuild: async (): Promise<{ ok: boolean }> => {
-    const res = await fetch('/api/rebuild', { method: 'POST' });
+    const res = await fetch('/api/rebuild', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error((body as { error?: string }).error ?? `Request failed: ${res.status}`);

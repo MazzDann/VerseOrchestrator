@@ -26,7 +26,10 @@ export default defineConfig({
     // audience follow-along (the QR points at the machine's LAN IP).
     host: true,
     proxy: {
-      '/api': 'http://localhost:8787',
+      // The API listens on loopback only (127.0.0.1, not `localhost`, which may resolve
+      // to ::1). `xfwd` passes the real client IP so the server can keep LAN viewers
+      // read-only.
+      '/api': { target: 'http://127.0.0.1:8787', xfwd: true },
     },
   },
 });
