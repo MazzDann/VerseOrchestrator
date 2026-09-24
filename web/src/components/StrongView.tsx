@@ -83,12 +83,7 @@ function DefinitionText({
  * entry can open the concordance ("where else is this word used") beside the verse
  * list, and G####/H#### cross-references in definitions are clickable.
  */
-export function StrongView({
-  verses,
-  hasStrong,
-  onProjectStrong,
-  onShowConcordance,
-}: Props) {
+export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordance }: Props) {
   const [active, setActive] = useState<ActiveWord | null>(null);
   const book = verses[0]?.bookNumber;
   const strongSubline = useSettings((s) => s.appearance.strongSubline);
@@ -222,7 +217,7 @@ export function StrongView({
           {!loading && strongDefs.length === 0 && wordDefs.length === 0 && (
             <Text size="sm" c="dimmed">
               {active.strong
-                ? `Нічого для Стронг ${active.strong}. Додай Стронг-словник у modules/ і перезбудуй.`
+                ? `Немає статті для ${active.strong}. Додайте словник Стронга в теку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).`
                 : 'У словниках нічого не знайдено для цього слова.'}
             </Text>
           )}

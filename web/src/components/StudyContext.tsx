@@ -75,7 +75,8 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
       ) : (
         !xrefQuery.isFetching && (
           <Text size="xs" c="dimmed">
-            Немає (додай <code>*.crossreferences</code> у modules/ і перезбудуй).
+            Немає перехресних посилань. Додайте модуль <code>*.crossreferences</code> у теку
+            modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).
           </Text>
         )
       )}
@@ -83,25 +84,23 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
       <Text fw={600} size="sm" mt="xs">
         Коментарі
       </Text>
-      {notes.length > 0 ? (
-        notes.map((n, i) => (
-          <Box key={i}>
-            <Badge size="xs" variant="light" color="gray" mb={2}>
-              {n.source}
-              {n.marker ? ` ${n.marker}` : ''}
-            </Badge>
-            <Text size="sm" style={{ whiteSpace: 'pre-line' }}>
-              {n.text}
+      {notes.length > 0
+        ? notes.map((n, i) => (
+            <Box key={i}>
+              <Badge size="xs" variant="light" color="gray" mb={2}>
+                {n.source}
+                {n.marker ? ` ${n.marker}` : ''}
+              </Badge>
+              <Text size="sm" style={{ whiteSpace: 'pre-line' }}>
+                {n.text}
+              </Text>
+            </Box>
+          ))
+        : !comQuery.isFetching && (
+            <Text size="xs" c="dimmed">
+              Немає коментарів для цього вірша.
             </Text>
-          </Box>
-        ))
-      ) : (
-        !comQuery.isFetching && (
-          <Text size="xs" c="dimmed">
-            Немає коментарів для цього вірша.
-          </Text>
-        )
-      )}
+          )}
     </Stack>
   );
 }

@@ -233,10 +233,14 @@ export function Control() {
         jumpTo(res.results[0]);
         setGoToValue('');
       } else {
-        notifications.show({ message: 'Нічого не знайдено', color: 'gray', autoClose: 1200 });
+        notifications.show({
+          message: `«${query}» не знайдено. Спробуйте посилання, як-от «Ів 3:16», або слово з тексту`,
+          color: 'gray',
+          autoClose: 2500,
+        });
       }
-    } catch {
-      notifications.show({ message: 'Не вдалося перейти', color: 'red', autoClose: 1500 });
+    } catch (e) {
+      notifications.show({ message: `Не вдалося перейти: ${(e as Error).message}`, color: 'red' });
     }
   };
 
@@ -1167,7 +1171,10 @@ export function Control() {
         notifications.show({ message: `Імпортовано записів: ${items.length}`, color: 'green' });
       }
     } catch {
-      notifications.show({ message: 'Не вдалося прочитати файл', color: 'red' });
+      notifications.show({
+        message: 'Не вдалося прочитати файл закладок. Потрібен .json, збережений кнопкою «Експорт»',
+        color: 'red',
+      });
     }
   };
 
@@ -1424,7 +1431,13 @@ export function Control() {
                 onSelect={(b) => selectBook(b.bookNumber)}
                 renderRow={(b) => b.longName || b.shortName}
                 estimateSize={30}
-                empty={primaryId == null ? 'Оберіть переклад' : 'Немає книг'}
+                empty={
+                  primaryId == null
+                    ? 'Позначте переклад угорі, щоб побачити його книги'
+                    : bookFilter.trim()
+                      ? `Немає книг, що збігаються з «${bookFilter.trim()}»`
+                      : 'У цьому перекладі немає книг'
+                }
               />
             </Box>
             <Divider />
@@ -1490,7 +1503,7 @@ export function Control() {
                       items={history}
                       onPick={jumpTo}
                       onRemove={removeHistory}
-                      empty="Поки порожньо"
+                      empty="Тут з’являтимуться місця, які ви відкривали"
                     />
                   </Tabs.Panel>
                   <Tabs.Panel value="saved">
@@ -1498,7 +1511,7 @@ export function Control() {
                       items={bookmarks}
                       onPick={jumpTo}
                       onRemove={(it) => toggleBookmark(it)}
-                      empty="Нічого не збережено"
+                      empty="Збережіть вірш кнопкою-закладкою над прев’ю"
                     />
                   </Tabs.Panel>
                 </ScrollArea>
@@ -1668,7 +1681,11 @@ export function Control() {
                   ))}
                   {primaryVerses.length === 0 && (
                     <Text c="dimmed" size="sm" p="sm">
-                      {chapter == null ? 'Оберіть розділ.' : 'Немає віршів.'}
+                      {currentBook == null
+                        ? 'Оберіть книгу ліворуч, потім розділ угорі.'
+                        : chapter == null
+                          ? 'Оберіть розділ угорі.'
+                          : 'У цьому розділі немає віршів у головному перекладі.'}
                     </Text>
                   )}
                 </Stack>

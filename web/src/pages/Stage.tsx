@@ -96,7 +96,10 @@ export function Stage() {
         <div style={{ flex: '1 1 64%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1vmin' }}>
           <div style={{ fontSize: '2vmin', fontWeight: 600, opacity: 0.55, letterSpacing: 2 }}>ЗАРАЗ</div>
           <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center' }}>
-            <SlidePreview slide={slide} />
+            {/* Tally ring: red = what the audience sees now. */}
+            <div style={{ width: '100%', borderRadius: 8, boxShadow: '0 0 0 3px var(--mantine-color-live-filled)' }}>
+              <SlidePreview slide={slide} />
+            </div>
           </div>
         </div>
         <div style={{ flex: '1 1 36%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1vmin' }}>
@@ -105,7 +108,15 @@ export function Stage() {
           </div>
           <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'flex-start' }}>
             {next ? (
-              <div style={{ width: '100%', opacity: 0.85 }}>
+              <div
+                style={{
+                  width: '100%',
+                  opacity: 0.85,
+                  borderRadius: 8,
+                  // amber = queued next (same tally as the control window)
+                  boxShadow: '0 0 0 3px var(--mantine-color-cue-filled)',
+                }}
+              >
                 <SlidePreview slide={next} />
               </div>
             ) : (
