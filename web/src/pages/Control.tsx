@@ -9,7 +9,6 @@ import {
   Badge,
   ActionIcon,
   Tooltip,
-  Title,
   Box,
   TextInput,
   Divider,
@@ -20,7 +19,7 @@ import {
   useMantineColorScheme,
   useComputedColorScheme,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { notifications } from '@mantine/notifications';
@@ -81,6 +80,8 @@ import { SettingsPanel } from '../components/SettingsPanel';
 import { PlaylistPanel } from '../components/PlaylistPanel';
 import { FollowPanel } from '../components/FollowPanel';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
+import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
+import { formatCombo } from '../hotkeys';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
@@ -118,6 +119,10 @@ export function Control() {
   const slideTemplate = useSettings((s) => s.slideTemplate);
   const pushRecentText = useSettings((s) => s.pushRecentText);
   const keymap = useSettings((s) => s.keymap);
+  // Below ~1280px the text buttons in the header collapse to icons so the zones fit.
+  const wideHeader = useMediaQuery('(min-width: 80em)') ?? true;
+  // Below ~1120px also drop the title, the go-to field and the «Наживо» caption.
+  const midHeader = useMediaQuery('(min-width: 70em)') ?? true;
 
   const queryClient = useQueryClient();
   const playlistItems = usePlaylist((s) => s.items);
@@ -376,7 +381,12 @@ export function Control() {
     if (previewOverride || selectedVerses.length === 0) return null;
     // Mid-reveal, the next press reveals one more verse of the CURRENT slide — show
     // that on the stage "next" pane, not the following page/verse.
-    if (appearance.reveal && revealUnits && revealUnits.length > 1 && revealCount < revealUnits.length) {
+    if (
+      appearance.reveal &&
+      revealUnits &&
+      revealUnits.length > 1 &&
+      revealCount < revealUnits.length
+    ) {
       return {
         lines: slideLines,
         reference: pageReference,
@@ -692,7 +702,11 @@ export function Control() {
       songId: song.songId,
       faithful: song.faithful,
     });
-    notifications.show({ message: `Додано у показ: ${song.label}`, color: 'green', autoClose: 1200 });
+    notifications.show({
+      message: `Додано у показ: ${song.label}`,
+      color: 'green',
+      autoClose: 1200,
+    });
   };
 
   const addTextToPlaylist = (item: { title: string; body: string }) => {
@@ -995,21 +1009,105 @@ export function Control() {
   // Operator actions exposed in the command palette (Ctrl+K). Fresh closures each
   // render so they never go stale; the palette only reads this while open.
   const paletteCommands: CommandItem[] = [
-    { id: 'project', label: 'На екран', hint: 'Показати вибір', keywords: 'project show project', icon: <IconDeviceTv size={16} />, run: sendAndNotify },
-    { id: 'blank', label: 'Затемнити екран', keywords: 'blank zatemnyty', icon: <IconSquareOff size={16} />, run: blankScreen },
-    { id: 'black', label: 'Чорний екран', keywords: 'black chornyi', icon: <IconSquareFilled size={16} />, run: blackScreen },
+    {
+      id: 'project',
+      label: 'На екран',
+      hint: 'Показати вибір',
+      keywords: 'project show project',
+      icon: <IconDeviceTv size={16} />,
+      run: sendAndNotify,
+    },
+    {
+      id: 'blank',
+      label: 'Затемнити екран',
+      keywords: 'blank zatemnyty',
+      icon: <IconSquareOff size={16} />,
+      run: blankScreen,
+    },
+    {
+      id: 'black',
+      label: 'Чорний екран',
+      keywords: 'black chornyi',
+      icon: <IconSquareFilled size={16} />,
+      run: blackScreen,
+    },
     { id: 'clear', label: 'Прибрати з екрана', keywords: 'clear ochystyty', run: clearScreen },
-    { id: 'addPassage', label: 'Додати уривок у показ', keywords: 'playlist add', icon: <IconPlaylistAdd size={16} />, run: addCurrentPassage },
-    { id: 'playlist', label: 'Послідовність показу', keywords: 'playlist sequence', icon: <IconList size={16} />, run: () => setPlaylistOpen(true) },
-    { id: 'songs', label: 'Пісні', keywords: 'songs pisni', icon: <IconMusic size={16} />, run: () => setSongsOpen(true) },
-    { id: 'text', label: 'Текст на екран', keywords: 'text tekst', icon: <IconLetterT size={16} />, run: () => setTextOpen(true) },
-    { id: 'search', label: 'Пошук в усіх модулях', keywords: 'search poshuk', icon: <IconSearch size={16} />, run: () => openSearch('all') },
-    { id: 'presenter', label: 'Відкрити вікно показу', keywords: 'presenter output', icon: <IconScreenShare size={16} />, run: () => void openPresenter() },
-    { id: 'stage', label: 'Відкрити сцену', keywords: 'stage monitor', icon: <IconLayoutDashboard size={16} />, run: () => void openStage() },
-    { id: 'follow', label: 'Трансляція глядачам (QR)', keywords: 'follow qr phones', icon: <IconQrcode size={16} />, run: () => setFollowOpen(true) },
-    { id: 'settings', label: 'Налаштування показу', keywords: 'settings nalashtuvannia', icon: <IconAdjustments size={16} />, run: () => setSettingsOpen(true) },
-    { id: 'liveFollow', label: `Стеження наживо: ${liveFollow ? 'вимкнути' : 'увімкнути'}`, keywords: 'live follow', run: () => setLiveFollow(!liveFollow) },
-    { id: 'theme', label: 'Перемкнути тему', keywords: 'theme tema dark light', icon: <IconSun size={16} />, run: () => toggleColorScheme() },
+    {
+      id: 'addPassage',
+      label: 'Додати уривок у показ',
+      keywords: 'playlist add',
+      icon: <IconPlaylistAdd size={16} />,
+      run: addCurrentPassage,
+    },
+    {
+      id: 'playlist',
+      label: 'Послідовність показу',
+      keywords: 'playlist sequence',
+      icon: <IconList size={16} />,
+      run: () => setPlaylistOpen(true),
+    },
+    {
+      id: 'songs',
+      label: 'Пісні',
+      keywords: 'songs pisni',
+      icon: <IconMusic size={16} />,
+      run: () => setSongsOpen(true),
+    },
+    {
+      id: 'text',
+      label: 'Власний текст',
+      keywords: 'text tekst',
+      icon: <IconLetterT size={16} />,
+      run: () => setTextOpen(true),
+    },
+    {
+      id: 'search',
+      label: 'Пошук в усіх модулях',
+      keywords: 'search poshuk',
+      icon: <IconSearch size={16} />,
+      run: () => openSearch('all'),
+    },
+    {
+      id: 'presenter',
+      label: 'Відкрити вікно показу',
+      keywords: 'presenter output',
+      icon: <IconScreenShare size={16} />,
+      run: () => void openPresenter(),
+    },
+    {
+      id: 'stage',
+      label: 'Сцена',
+      keywords: 'stage monitor',
+      icon: <IconLayoutDashboard size={16} />,
+      run: () => void openStage(),
+    },
+    {
+      id: 'follow',
+      label: 'Глядачі (QR)',
+      keywords: 'follow qr phones',
+      icon: <IconQrcode size={16} />,
+      run: () => setFollowOpen(true),
+    },
+    {
+      id: 'settings',
+      label: 'Налаштування вигляду',
+      keywords: 'settings nalashtuvannia',
+      icon: <IconAdjustments size={16} />,
+      run: () => setSettingsOpen(true),
+    },
+    {
+      id: 'liveFollow',
+      label: `Наживо: ${liveFollow ? 'вимкнути' : 'увімкнути'}`,
+      keywords: 'live follow',
+      run: () => setLiveFollow(!liveFollow),
+    },
+    {
+      id: 'theme',
+      label: colorScheme === 'dark' ? 'Світла тема' : 'Темна тема',
+      keywords: 'theme tema dark light',
+      icon: <IconSun size={16} />,
+      run: () => toggleColorScheme(),
+    },
   ];
 
   const exportBookmarks = () => {
@@ -1087,7 +1185,8 @@ export function Control() {
         padding={0}
       >
         <AppShell.Header>
-          <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+          {/* Zones, left → right: navigate · sources | windows · live output · app. */}
+          <Group h="100%" px="md" justify="space-between" wrap="nowrap" gap="sm">
             <Group gap="sm" wrap="nowrap">
               <Burger
                 opened={navOpened}
@@ -1096,149 +1195,150 @@ export function Control() {
                 size="sm"
                 aria-label="Навігація"
               />
-              <Title order={5} visibleFrom="xs">
-                VerseOrchestrator
-              </Title>
-              <Tooltip label="Пошук — F3 поточний, F4 усі, Ctrl+F">
-                <ActionIcon variant="default" size="lg" onClick={() => openSearch('current')}>
-                  <IconSearch size={18} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Пісні (.pptx)">
-                <ActionIcon
-                  variant={songsOpen ? 'filled' : 'default'}
-                  color="brand"
-                  size="lg"
-                  onClick={() => setSongsOpen((o) => !o)}
-                  aria-label="Пісні"
-                >
-                  <IconMusic size={18} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Текст на екран">
-                <ActionIcon
-                  variant={textOpen ? 'filled' : 'default'}
-                  color="brand"
-                  size="lg"
-                  onClick={() => setTextOpen((o) => !o)}
-                  aria-label="Текст"
-                >
-                  <IconLetterT size={18} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Послідовність показу">
-                <ActionIcon
-                  variant={playlistOpen ? 'filled' : 'default'}
-                  color="brand"
-                  size="lg"
-                  onClick={() => setPlaylistOpen((o) => !o)}
-                  aria-label="Показ"
-                >
-                  <IconList size={18} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
-              <TextInput
-                size="sm"
-                w={180}
-                visibleFrom="sm"
-                placeholder="Перейти: Ів 3:16"
-                value={goToValue}
-                onChange={(e) => setGoToValue(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void goTo(goToValue);
-                }}
-                leftSection={<IconArrowRight size={14} />}
-                aria-label="Перейти до посилання"
-              />
-            </Group>
-            <Group gap="xs" wrap="nowrap">
-              <Tooltip
-                label="Наживо: показ повторює дії. Вимкнено — лише прев'ю, F5/F2 щоб показати"
-                multiline
-                w={230}
-                withArrow
-              >
-                <Switch
-                  size="sm"
-                  checked={liveFollow}
-                  onChange={(e) => setLiveFollow(e.currentTarget.checked)}
-                  onLabel="LIVE"
-                  offLabel="F5"
-                  aria-label="Слідкувати наживо"
+              {midHeader && (
+                <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
+                  VerseOrchestrator
+                </Text>
+              )}
+              <ToolZone label="Навігація">
+                <ToolIcon
+                  label="Пошук"
+                  hint={`У поточному перекладі; ${formatCombo(keymap.searchAll)} — в усіх`}
+                  combo={keymap.searchCurrent}
+                  icon={<IconSearch size={18} stroke={1.5} />}
+                  onClick={() => openSearch('current')}
                 />
-              </Tooltip>
-              <Button
-                variant="light"
-                size="sm"
-                leftSection={<IconScreenShare size={18} />}
-                onClick={() => void openPresenter()}
-              >
-                Показ
-              </Button>
-              <Tooltip label="Сцена — монітор оператора (зараз / далі / годинник)">
-                <ActionIcon
-                  variant="default"
-                  size="lg"
+                <TextInput
+                  size="sm"
+                  w={170}
+                  display={midHeader ? undefined : 'none'}
+                  placeholder="Перейти: Ів 3:16"
+                  value={goToValue}
+                  onChange={(e) => setGoToValue(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void goTo(goToValue);
+                  }}
+                  leftSection={<IconArrowRight size={14} />}
+                  aria-label="Перейти до посилання"
+                />
+              </ToolZone>
+              <ToolZone label="Джерела">
+                <ToolIcon
+                  label="Пісні"
+                  hint="Пошук пісень з .pptx і показ куплетів"
+                  icon={<IconMusic size={18} stroke={1.5} />}
+                  active={songsOpen}
+                  onClick={() => setSongsOpen((o) => !o)}
+                />
+                <ToolIcon
+                  label="Власний текст"
+                  hint="Скласти й показати довільний текст"
+                  icon={<IconLetterT size={18} stroke={1.5} />}
+                  active={textOpen}
+                  onClick={() => setTextOpen((o) => !o)}
+                />
+                <ToolIcon
+                  label="Послідовність показу"
+                  hint="Черга уривків, пісень і текстів; збережені програми"
+                  icon={<IconList size={18} stroke={1.5} />}
+                  active={playlistOpen}
+                  onClick={() => setPlaylistOpen((o) => !o)}
+                />
+              </ToolZone>
+            </Group>
+
+            <Group gap="sm" wrap="nowrap">
+              <ToolZone label="Вікна" divider={false}>
+                <ToolButton
+                  label="Відкрити вікно показу"
+                  hint="Вихідне вікно для другого монітора чи проєктора"
+                  text="Вікно показу"
+                  compact={!wideHeader}
+                  icon={<IconScreenShare size={18} stroke={1.5} />}
+                  onClick={() => void openPresenter()}
+                />
+                <ToolIcon
+                  label="Сцена"
+                  hint="Монітор доповідача: зараз, далі, годинник"
+                  icon={<IconLayoutDashboard size={18} stroke={1.5} />}
                   onClick={() => void openStage()}
-                  aria-label="Сцена"
-                >
-                  <IconLayoutDashboard size={18} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Трансляція на телефони глядачів (QR)">
-                <ActionIcon
-                  variant={followOpen ? 'filled' : 'default'}
-                  color={followAlong ? 'live' : 'brand'}
-                  size="lg"
+                />
+                <ToolIcon
+                  label={followAlong ? 'Глядачі: трансляція увімкнена' : 'Глядачі'}
+                  hint="QR, щоб глядачі стежили за текстом з телефона"
+                  icon={<IconQrcode size={18} stroke={1.5} />}
+                  active={followOpen}
+                  color={followAlong ? 'live' : undefined}
                   onClick={() => setFollowOpen((o) => !o)}
-                  aria-label="Трансляція глядачам"
+                />
+              </ToolZone>
+              <ToolZone label="Вихід на екран">
+                <Tooltip
+                  label="Увімкнено: екран одразу повторює вибір. Вимкнено: лише прев’ю, показ кнопкою «На екран»"
+                  multiline
+                  w={240}
+                  withArrow
+                  openDelay={250}
                 >
-                  <IconQrcode size={18} />
-                </ActionIcon>
-              </Tooltip>
-              <Button
-                color="live"
-                size="sm"
-                leftSection={<IconDeviceTv size={18} />}
-                disabled={slideLines.length === 0}
-                onClick={sendAndNotify}
-              >
-                На екран
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                leftSection={<IconSquareOff size={18} />}
-                onClick={blankScreen}
-              >
-                Затемнити
-              </Button>
-              <Tooltip label="Чорний екран (.) — повністю чорний, ігнорує фон">
-                <ActionIcon
-                  variant="default"
-                  size="lg"
+                  <Switch
+                    size="sm"
+                    color="live"
+                    checked={liveFollow}
+                    onChange={(e) => setLiveFollow(e.currentTarget.checked)}
+                    label={midHeader ? 'Наживо' : undefined}
+                    aria-label="Наживо"
+                    styles={{ label: { paddingInlineStart: 6, whiteSpace: 'nowrap' } }}
+                  />
+                </Tooltip>
+                <ToolButton
+                  label="На екран"
+                  hint="Показати поточний вибір"
+                  text="На екран"
+                  variant="filled"
+                  color="live"
+                  combo={keymap.project}
+                  icon={<IconDeviceTv size={18} stroke={1.5} />}
+                  disabled={slideLines.length === 0}
+                  onClick={sendAndNotify}
+                />
+                <ToolButton
+                  label="Затемнити"
+                  hint="Сховати текст, фон лишається"
+                  text="Затемнити"
+                  compact={!wideHeader}
+                  combo={keymap.blank}
+                  icon={<IconSquareOff size={18} stroke={1.5} />}
+                  onClick={blankScreen}
+                />
+                <ToolIcon
+                  label="Чорний екран"
+                  hint="Повністю чорний, ігнорує фон"
+                  combo={keymap.black}
+                  icon={<IconSquareFilled size={16} />}
+                  color="dark"
                   onClick={blackScreen}
-                  aria-label="Чорний екран"
-                >
-                  <IconSquareFilled size={16} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Налаштування показу">
-                <ActionIcon
-                  variant={settingsOpen ? 'filled' : 'default'}
-                  color="brand"
-                  size="lg"
+                />
+              </ToolZone>
+              <ToolZone label="Застосунок">
+                <ToolIcon
+                  label="Налаштування вигляду"
+                  hint="Шрифт, кольори, шаблон слайда, пресети, клавіші"
+                  icon={<IconAdjustments size={18} stroke={1.5} />}
+                  active={settingsOpen}
                   onClick={() => setSettingsOpen((o) => !o)}
-                  aria-label="Налаштування"
-                >
-                  <IconAdjustments size={18} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Тема">
-                <ActionIcon variant="default" size="lg" onClick={() => toggleColorScheme()}>
-                  {colorScheme === 'dark' ? <IconSun size={18} /> : <IconMoonStars size={18} />}
-                </ActionIcon>
-              </Tooltip>
+                />
+                <ToolIcon
+                  label={colorScheme === 'dark' ? 'Світла тема' : 'Темна тема'}
+                  icon={
+                    colorScheme === 'dark' ? (
+                      <IconSun size={18} stroke={1.5} />
+                    ) : (
+                      <IconMoonStars size={18} stroke={1.5} />
+                    )
+                  }
+                  onClick={() => toggleColorScheme()}
+                />
+              </ToolZone>
               {panelPlacement === 'aside' && (
                 <Burger
                   opened={asideOpened}
@@ -1584,7 +1684,11 @@ export function Control() {
           }}
           onLoad={(n) => {
             playlistLoadProgram(n);
-            notifications.show({ message: `Відкрито програму: ${n}`, color: 'brand', autoClose: 1500 });
+            notifications.show({
+              message: `Відкрито програму: ${n}`,
+              color: 'brand',
+              autoClose: 1500,
+            });
           }}
           onDelete={playlistDeleteProgram}
         />
