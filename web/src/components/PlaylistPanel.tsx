@@ -53,7 +53,8 @@ const KIND_ICON = {
   text: IconLetterT,
 } as const;
 
-const KIND_COLOR = { passage: 'blue', song: 'grape', text: 'teal' } as const;
+// Kinds are told apart by their icon; colour stays reserved for live/cue state.
+const KIND_COLOR = { passage: 'gray', song: 'gray', text: 'gray' } as const;
 
 /**
  * The running order: an ordered list of passages / songs / free texts. Click a row
@@ -108,7 +109,7 @@ export function PlaylistPanel({
           <Tooltip label="Наступний елемент">
             <Button
               variant="light"
-              color="green"
+              color="cue"
               size="xs"
               leftSection={<IconPlayerTrackNext size={16} />}
               onClick={onNext}

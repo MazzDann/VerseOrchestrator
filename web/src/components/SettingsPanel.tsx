@@ -341,7 +341,6 @@ export function SettingsPanel() {
         </Text>
         <Button
           variant="light"
-          color="blue"
           fullWidth
           leftSection={<IconDatabaseImport size={16} />}
           loading={rebuilding}

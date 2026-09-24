@@ -13,8 +13,8 @@
   background: var(--mantine-color-default-hover);
 }
 .vo-list-item[data-selected='true'] {
-  background: var(--mantine-color-blue-light);
-  color: var(--mantine-color-blue-light-color);
+  background: var(--mantine-color-brand-light);
+  color: var(--mantine-color-brand-light-color);
   font-weight: 500;
 }
 
@@ -89,5 +89,11 @@
   background: var(--mantine-color-default-hover);
 }
 .vo-verse-item[data-selected='true'] {
-  background: var(--mantine-color-blue-light);
+  background: var(--mantine-color-brand-light);
+}
+
+/* Light scheme: a faint warm-grey ground instead of pure white (less glare beside the
+   output preview); panels/inputs stay white so they read as raised. */
+:root[data-mantine-color-scheme='light'] {
+  --mantine-color-body: #f3f3f1;
 }

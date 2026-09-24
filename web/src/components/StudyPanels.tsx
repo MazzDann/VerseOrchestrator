@@ -83,7 +83,7 @@ export function StudyPanels({
   const sendBlank = (size: 'xs' | 'sm') => (
     <Group grow gap="xs" mt={size === 'xs' ? 6 : undefined} p={size === 'sm' ? 'sm' : undefined}>
       <Button
-        color="green"
+        color="live"
         size={size}
         leftSection={<IconEye size={size === 'xs' ? 14 : 16} />}
         disabled={slideLines.length === 0}
@@ -140,7 +140,7 @@ export function StudyPanels({
                 {reference || 'Оберіть вірші'}
               </Text>
               <Group gap={4} wrap="nowrap">
-                {live && <Badge color="green">Наживо</Badge>}
+                {live && <Badge color="live" variant="dot">Наживо</Badge>}
                 <Tooltip label={isSaved ? 'Прибрати зі збереженого' : 'Зберегти'}>
                   <ActionIcon
                     variant={isSaved ? 'filled' : 'subtle'}

@@ -135,7 +135,7 @@ export function TranslationPicker({
                             <ActionIcon
                               size="sm"
                               variant="subtle"
-                              color={isPrimary ? 'yellow' : 'gray'}
+                              color={isPrimary ? 'brand' : 'gray'}
                               onClick={() => onMakePrimary(t.id)}
                               aria-label="Зробити головним"
                             >

@@ -192,7 +192,7 @@ export function StrongView({
             <Button
               size="xs"
               variant="light"
-              color="green"
+              color="live"
               fullWidth
               mb={6}
               leftSection={<IconDeviceTv size={14} />}
