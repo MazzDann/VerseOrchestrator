@@ -103,7 +103,7 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
           )}
           <Button
             size="sm"
-            color="green"
+            color="live"
             leftSection={<IconDeviceTv size={16} />}
             disabled={!body.trim()}
             onClick={project}

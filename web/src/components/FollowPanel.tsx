@@ -75,7 +75,7 @@ export function FollowPanel() {
                 <Button
                   size="compact-xs"
                   variant="light"
-                  color={copied ? 'teal' : 'gray'}
+                  color={copied ? 'brand' : 'gray'}
                   leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
                   onClick={copy}
                 >

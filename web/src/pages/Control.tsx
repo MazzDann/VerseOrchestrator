@@ -506,7 +506,7 @@ export function Control() {
     setLive(true);
     notifications.show({
       message: `На екрані зі Стронгом: ${pageReference}`,
-      color: 'green',
+      color: 'live',
       autoClose: 1500,
     });
   };
@@ -557,7 +557,7 @@ export function Control() {
     setPreviewOverride(slide);
     setLive(true);
     if (reference) {
-      notifications.show({ message: `На екрані: ${reference}`, color: 'green', autoClose: 1500 });
+      notifications.show({ message: `На екрані: ${reference}`, color: 'live', autoClose: 1500 });
     }
   };
 
@@ -567,7 +567,7 @@ export function Control() {
     projectText(body, title.trim());
     pushRecentText({ title, body });
     if (!title.trim()) {
-      notifications.show({ message: 'Текст на екрані', color: 'green', autoClose: 1500 });
+      notifications.show({ message: 'Текст на екрані', color: 'live', autoClose: 1500 });
     }
   };
 
@@ -871,7 +871,7 @@ export function Control() {
     if (slideLines.length > 0) {
       notifications.show({
         message: `На екрані: ${pageReference}`,
-        color: 'green',
+        color: 'live',
         autoClose: 1500,
       });
     }
@@ -901,7 +901,7 @@ export function Control() {
     setPreviewOverride(null);
     notifications.show({
       message: `На екрані: ${formatReference(currentBook, chapter, [verseNum], true)}`,
-      color: 'green',
+      color: 'live',
       autoClose: 1500,
     });
   };
@@ -967,7 +967,7 @@ export function Control() {
     const win = await openPresenterWindow();
     notifications.show(
       win
-        ? { message: 'Вікно показу відкрито', color: 'blue', autoClose: 1500 }
+        ? { message: 'Вікно показу відкрито', color: 'brand', autoClose: 1500 }
         : { message: 'Не вдалося відкрити вікно (перевірте блокувальник)', color: 'red' },
     );
   };
@@ -976,7 +976,7 @@ export function Control() {
     const win = await openStageWindow();
     notifications.show(
       win
-        ? { message: 'Вікно сцени відкрито', color: 'blue', autoClose: 1500 }
+        ? { message: 'Вікно сцени відкрито', color: 'brand', autoClose: 1500 }
         : { message: 'Не вдалося відкрити вікно (перевірте блокувальник)', color: 'red' },
     );
   };
@@ -1188,7 +1188,7 @@ export function Control() {
               <Tooltip label="Трансляція на телефони глядачів (QR)">
                 <ActionIcon
                   variant={followOpen ? 'filled' : 'default'}
-                  color={followAlong ? 'green' : 'brand'}
+                  color={followAlong ? 'live' : 'brand'}
                   size="lg"
                   onClick={() => setFollowOpen((o) => !o)}
                   aria-label="Трансляція глядачам"
@@ -1197,7 +1197,7 @@ export function Control() {
                 </ActionIcon>
               </Tooltip>
               <Button
-                color="green"
+                color="live"
                 size="sm"
                 leftSection={<IconDeviceTv size={18} />}
                 disabled={slideLines.length === 0}
@@ -1392,7 +1392,7 @@ export function Control() {
                 <Tooltip label="Що зараз на екрані показу">
                   <Badge
                     variant={liveActive ? 'filled' : 'light'}
-                    color={liveSlide.forceBlack ? 'dark' : liveActive ? 'green' : 'gray'}
+                    color={liveSlide.forceBlack ? 'dark' : liveActive ? 'live' : 'gray'}
                     leftSection={<IconDeviceTv size={12} />}
                     style={{ maxWidth: 220 }}
                   >
@@ -1500,9 +1500,10 @@ export function Control() {
                                 span
                                 key={j}
                                 style={{
-                                  // tint of the reading-list text colour toward the accent
+                                  // a light tint toward the accent: the whole Gospel is often red-letter, so a
+                                  // strong tint turns the reading list into a wall of red (the slide keeps 50%)
                                   color: s.jesus
-                                    ? `color-mix(in srgb, currentColor 50%, ${appearance.jesusColor})`
+                                    ? `color-mix(in srgb, currentColor 70%, ${appearance.jesusColor})`
                                     : undefined,
                                 }}
                               >
@@ -1583,7 +1584,7 @@ export function Control() {
           }}
           onLoad={(n) => {
             playlistLoadProgram(n);
-            notifications.show({ message: `Відкрито програму: ${n}`, color: 'blue', autoClose: 1500 });
+            notifications.show({ message: `Відкрито програму: ${n}`, color: 'brand', autoClose: 1500 });
           }}
           onDelete={playlistDeleteProgram}
         />

@@ -181,7 +181,7 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
                   cursor: 'pointer',
                   borderRadius: 6,
                   padding: '6px 8px',
-                  background: i === highlight ? 'var(--mantine-color-blue-light)' : undefined,
+                  background: i === highlight ? 'var(--mantine-color-brand-light)' : undefined,
                 }}
               >
                 <Text size="xs" c="dimmed">
