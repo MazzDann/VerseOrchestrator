@@ -21,7 +21,8 @@ import {
 import { type Verse, type Book } from '../api';
 import { type RefItem } from '../settingsStore';
 import { type Slide, type SlideLine } from '../presenterBus';
-import { SlidePreview } from './SlideCanvas';
+import { Monitor, type TallyState } from './Monitor';
+import { sameContent } from '../lib/slide';
 import { SettingsPanel } from './SettingsPanel';
 import { StrongView, type StrongPickRef } from './StrongView';
 import { StudyContext } from './StudyContext';
@@ -33,7 +34,11 @@ interface Props {
   setMode: (m: AsideMode) => void;
   primaryHasStrong: boolean;
   reference: string;
-  live: boolean;
+  /** What the output window actually shows now (published slide). */
+  liveSlide: Slide;
+  liveActive: boolean;
+  /** Short status of the output: reference, «Затемнено», «Чорний екран», «Порожньо». */
+  liveLabel: string;
   isSaved: boolean;
   currentRef: RefItem | null;
   onToggleBookmark: (r: RefItem) => void;
@@ -60,7 +65,9 @@ export function StudyPanels({
   setMode,
   primaryHasStrong,
   reference,
-  live,
+  liveSlide,
+  liveActive,
+  liveLabel,
   isSaved,
   currentRef,
   onToggleBookmark,
@@ -76,6 +83,47 @@ export function StudyPanels({
   onTogglePin,
   compact = false,
 }: Props) {
+  // Program/preview monitors (video-switcher tally): when the prepared slide is already
+  // on screen show ONE red "На екрані" monitor; otherwise a large amber preview plus a
+  // smaller red/grey "На екрані" monitor, so the operator always sees both states.
+  const previewHas = previewSlide.lines.length > 0;
+  const merged = liveActive && previewHas && sameContent(previewSlide, liveSlide);
+  const previewState: TallyState = merged ? 'live' : previewHas ? 'cue' : 'idle';
+  const bookmarkButton = (
+    <Tooltip label={isSaved ? 'Прибрати зі збереженого' : 'Зберегти'}>
+      <ActionIcon
+        size="sm"
+        variant={isSaved ? 'filled' : 'subtle'}
+        color="brand"
+        disabled={!currentRef}
+        onClick={() => currentRef && onToggleBookmark(currentRef)}
+        aria-label={isSaved ? 'Прибрати зі збереженого' : 'Зберегти'}
+      >
+        <IconBookmark size={14} />
+      </ActionIcon>
+    </Tooltip>
+  );
+  const previewMonitor = (maxWidth?: number) => (
+    <Monitor
+      slide={previewSlide}
+      state={previewState}
+      title={merged ? 'На екрані' : 'Прев’ю'}
+      detail={reference || (previewHas ? undefined : 'оберіть вірші')}
+      actions={bookmarkButton}
+      maxWidth={maxWidth}
+    />
+  );
+  const programMonitor = !merged && (
+    <Box w="62%" mt="sm">
+      <Monitor
+        slide={liveSlide}
+        state={liveActive ? 'live' : 'idle'}
+        title="На екрані"
+        detail={liveActive ? liveSlide.reference : liveLabel}
+      />
+    </Box>
+  );
+
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Group p="xs" gap="xs" wrap="nowrap">
@@ -109,28 +157,10 @@ export function StudyPanels({
       <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {mode === 'preview' && (
           <>
-            <Group justify="space-between" px="md" py="xs" wrap="nowrap">
-              <Text size="xs" c="dimmed" truncate>
-                {reference || 'Оберіть вірші'}
-              </Text>
-              <Group gap={4} wrap="nowrap">
-                {live && <Badge color="live" variant="dot">Наживо</Badge>}
-                <Tooltip label={isSaved ? 'Прибрати зі збереженого' : 'Зберегти'}>
-                  <ActionIcon
-                    variant={isSaved ? 'filled' : 'subtle'}
-                    color="brand"
-                    disabled={!currentRef}
-                    onClick={() => currentRef && onToggleBookmark(currentRef)}
-                    aria-label="Зберегти"
-                  >
-                    <IconBookmark size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Group>
             {(!pinned || compact) && (
-              <Box px="md" pb="xs">
-                <SlidePreview slide={previewSlide} maxWidth={compact ? 460 : undefined} />
+              <Box px="md" pt="sm" pb="xs">
+                {previewMonitor(compact ? 460 : undefined)}
+                {programMonitor}
               </Box>
             )}
             <ScrollArea style={{ flex: 1 }} px="md">
@@ -198,7 +228,8 @@ export function StudyPanels({
         <>
           <Divider />
           <Box p="xs">
-            <SlidePreview slide={previewSlide} />
+            {previewMonitor()}
+            {programMonitor}
           </Box>
         </>
       )}

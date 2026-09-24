@@ -1190,7 +1190,9 @@ export function Control() {
       setMode={setAsideMode}
       primaryHasStrong={primaryHasStrong}
       reference={reference}
-      live={live}
+      liveSlide={liveSlide}
+      liveActive={liveActive}
+      liveLabel={liveLabel}
       isSaved={isSaved}
       currentRef={currentRef}
       onToggleBookmark={toggleBookmark}
