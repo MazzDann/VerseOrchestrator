@@ -50,7 +50,14 @@ import {
 
 import { api, type Book, type Verse, type SongStyle } from '../api';
 import { useStore } from '../store';
-import { useSettings, refKey, type RefItem } from '../settingsStore';
+import {
+  useSettings,
+  refKey,
+  DEFAULT_LAYOUT,
+  LAYOUT_LIMITS,
+  type PanelLayout,
+  type RefItem,
+} from '../settingsStore';
 import {
   publishSlide,
   publishNext,
@@ -81,6 +88,8 @@ import { PlaylistPanel } from '../components/PlaylistPanel';
 import { FollowPanel } from '../components/FollowPanel';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
+import { ResizeHandle } from '../components/ResizeHandle';
+import { setAppShellWidth } from '../lib/appShell';
 import { formatCombo } from '../hotkeys';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
@@ -119,6 +128,35 @@ export function Control() {
   const slideTemplate = useSettings((s) => s.slideTemplate);
   const pushRecentText = useSettings((s) => s.pushRecentText);
   const keymap = useSettings((s) => s.keymap);
+  const layout = useSettings((s) => s.layout);
+  const setLayout = useSettings((s) => s.setLayout);
+  const recentBoxRef = useRef<HTMLDivElement>(null);
+  const clampTo = (k: keyof PanelLayout, v: number) =>
+    Math.min(LAYOUT_LIMITS[k][1], Math.max(LAYOUT_LIMITS[k][0], v));
+  // Panel resize: drags write CSS directly (no re-render of this big page per move);
+  // the final size is committed to the persisted store once, on release.
+  const panelResize = (panel: 'navbar' | 'aside') => {
+    const key = panel === 'navbar' ? 'navWidth' : 'asideWidth';
+    return {
+      onDrag: (d: number) => setAppShellWidth(panel, clampTo(key, layout[key] + d)),
+      onCommit: (d: number) => {
+        setLayout({ [key]: layout[key] + d });
+        requestAnimationFrame(() => setAppShellWidth(panel, null));
+      },
+      onReset: () => setLayout({ [key]: DEFAULT_LAYOUT[key] }),
+    };
+  };
+  const recentResize = {
+    onDrag: (d: number) => {
+      if (recentBoxRef.current)
+        recentBoxRef.current.style.height = `${clampTo('recentHeight', layout.recentHeight + d)}px`;
+    },
+    onCommit: (d: number) => {
+      setLayout({ recentHeight: layout.recentHeight + d });
+      if (recentBoxRef.current) recentBoxRef.current.style.height = '';
+    },
+    onReset: () => setLayout({ recentHeight: DEFAULT_LAYOUT.recentHeight }),
+  };
   // Below ~1280px the text buttons in the header collapse to icons so the zones fit.
   const wideHeader = useMediaQuery('(min-width: 80em)') ?? true;
   // Below ~1120px also drop the title, the go-to field and the «Наживо» caption.
@@ -1164,8 +1202,6 @@ export function Control() {
       onProjectStrong={projectStrong}
       onShowConcordance={setConcordanceStrong}
       onPickRef={jumpTo}
-      onSend={sendAndNotify}
-      onBlank={blankScreen}
       pinned={pinnedPreview}
       onTogglePin={togglePin}
       compact={compact}
@@ -1176,10 +1212,10 @@ export function Control() {
     <>
       <AppShell
         header={{ height: 56 }}
-        navbar={{ width: 300, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
+        navbar={{ width: layout.navWidth, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
         aside={
           panelPlacement === 'aside'
-            ? { width: 380, breakpoint: 'md', collapsed: { mobile: !asideOpened } }
+            ? { width: layout.asideWidth, breakpoint: 'md', collapsed: { mobile: !asideOpened } }
             : undefined
         }
         padding={0}
@@ -1353,6 +1389,14 @@ export function Control() {
         </AppShell.Header>
 
         <AppShell.Navbar>
+          <Box visibleFrom="sm">
+            <ResizeHandle
+              axis="x"
+              edge="right"
+              label="Ширина бічної панелі"
+              {...panelResize('navbar')}
+            />
+          </Box>
           <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <TranslationPicker
               translations={translations}
@@ -1382,7 +1426,13 @@ export function Control() {
               />
             </Box>
             <Divider />
-            <Tabs value={sidebarTab} onChange={setSidebarTab} variant="default">
+            <Tabs
+              value={sidebarTab}
+              onChange={setSidebarTab}
+              variant="default"
+              style={{ position: 'relative' }}
+            >
+              <ResizeHandle axis="y" edge="top" label="Висота історії" {...recentResize} />
               <Tabs.List grow>
                 <Tabs.Tab value="history" leftSection={<IconHistory size={14} />}>
                   Історія
@@ -1431,8 +1481,8 @@ export function Control() {
                   </>
                 )}
               </Group>
-              <Box style={{ height: 170 }}>
-                <ScrollArea h={170}>
+              <Box ref={recentBoxRef} style={{ height: layout.recentHeight }}>
+                <ScrollArea h="100%">
                   <Tabs.Panel value="history">
                     <RefList
                       items={history}
@@ -1640,7 +1690,19 @@ export function Control() {
           </Box>
         </AppShell.Main>
 
-        {panelPlacement === 'aside' && <AppShell.Aside>{renderStudyPanels(false)}</AppShell.Aside>}
+        {panelPlacement === 'aside' && (
+          <AppShell.Aside>
+            <Box visibleFrom="md">
+              <ResizeHandle
+                axis="x"
+                edge="left"
+                label="Ширина правої панелі"
+                {...panelResize('aside')}
+              />
+            </Box>
+            {renderStudyPanels(false)}
+          </AppShell.Aside>
+        )}
       </AppShell>
 
       <FloatingPanel

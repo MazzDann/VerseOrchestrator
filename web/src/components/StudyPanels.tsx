@@ -4,7 +4,6 @@ import {
   Stack,
   Text,
   Badge,
-  Button,
   ActionIcon,
   Tooltip,
   Divider,
@@ -13,8 +12,6 @@ import {
 } from '@mantine/core';
 import {
   IconBookmark,
-  IconEye,
-  IconSquareOff,
   IconBook,
   IconAdjustments,
   IconPin,
@@ -48,15 +45,16 @@ interface Props {
   onProjectStrong?: (subline: string, strong: string) => void;
   onShowConcordance?: (strong: string) => void;
   onPickRef?: (r: StrongPickRef) => void;
-  onSend: () => void;
-  onBlank: () => void;
   pinned: boolean;
   onTogglePin: () => void;
   /** Bottom-of-centre placement: constrain the preview and hide the pin. */
   compact?: boolean;
 }
 
-/** Preview / Strong / appearance panels — used in the right aside or docked below the centre. */
+/**
+ * Preview / Strong / appearance panels — used in the right aside or docked below the centre.
+ * Go-live actions live only in the header toolbar (one place for «На екран»/«Затемнити»).
+ */
 export function StudyPanels({
   mode,
   setMode,
@@ -74,34 +72,10 @@ export function StudyPanels({
   onProjectStrong,
   onShowConcordance,
   onPickRef,
-  onSend,
-  onBlank,
   pinned,
   onTogglePin,
   compact = false,
 }: Props) {
-  const sendBlank = (size: 'xs' | 'sm') => (
-    <Group grow gap="xs" mt={size === 'xs' ? 6 : undefined} p={size === 'sm' ? 'sm' : undefined}>
-      <Button
-        color="live"
-        size={size}
-        leftSection={<IconEye size={size === 'xs' ? 14 : 16} />}
-        disabled={slideLines.length === 0}
-        onClick={onSend}
-      >
-        На екран
-      </Button>
-      <Button
-        variant="default"
-        size={size}
-        leftSection={<IconSquareOff size={size === 'xs' ? 14 : 16} />}
-        onClick={onBlank}
-      >
-        Затемнити
-      </Button>
-    </Group>
-  );
-
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Group p="xs" gap="xs" wrap="nowrap">
@@ -178,12 +152,6 @@ export function StudyPanels({
                 )}
               </Stack>
             </ScrollArea>
-            {(!pinned || compact) && (
-              <>
-                <Divider />
-                {sendBlank('sm')}
-              </>
-            )}
           </>
         )}
         {mode === 'strong' && (
@@ -231,7 +199,6 @@ export function StudyPanels({
           <Divider />
           <Box p="xs">
             <SlidePreview slide={previewSlide} />
-            {sendBlank('xs')}
           </Box>
         </>
       )}
