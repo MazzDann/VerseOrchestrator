@@ -13,7 +13,7 @@ export function Settings() {
       <Box maw={560} mx="auto" px="md" py="lg">
         <Group gap={8} mb="md">
           <IconAdjustments size={22} />
-          <Title order={4}>Налаштування показу</Title>
+          <Title order={4}>Налаштування вигляду</Title>
         </Group>
         <SettingsPanel />
       </Box>
