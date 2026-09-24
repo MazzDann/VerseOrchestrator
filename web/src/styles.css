@@ -79,17 +79,52 @@
 }
 
 .vo-verse-item {
+  /* Number column + text column: wrapped lines align under the text, not the number. */
+  display: grid;
+  grid-template-columns: 2.4em minmax(0, 68ch);
+  column-gap: 10px;
   cursor: pointer;
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 6px 10px 6px 4px;
   user-select: none;
-  line-height: 1.4;
+  font-size: 15px;
+  line-height: 1.55;
 }
 .vo-verse-item:hover {
   background: var(--mantine-color-default-hover);
 }
 .vo-verse-item[data-selected='true'] {
   background: var(--mantine-color-brand-light);
+  box-shadow: inset 2px 0 0 var(--mantine-color-brand-filled);
+}
+.vo-verse-item:focus-visible {
+  outline: 2px solid var(--mantine-color-brand-filled);
+  outline-offset: -2px;
+}
+.vo-verse-num {
+  text-align: right;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--mantine-color-dimmed);
+  /* optical alignment with the 15px text's first line */
+  padding-top: 3px;
+}
+.vo-verse-item[data-selected='true'] .vo-verse-num {
+  color: var(--mantine-color-brand-light-color);
+}
+
+/* Chapter picker: compact fixed-width cells so long books wrap into a tidy grid. */
+.vo-chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 4px;
+}
+.vo-chapter-grid .vo-chip {
+  min-width: 0;
+  padding: 2px 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Light scheme: a faint warm-grey ground instead of pure white (less glare beside the
