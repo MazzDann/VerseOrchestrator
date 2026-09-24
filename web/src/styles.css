@@ -97,3 +97,43 @@
 :root[data-mantine-color-scheme='light'] {
   --mantine-color-body: #f3f3f1;
 }
+
+/* Panel resize strips (ResizeHandle): invisible until hovered/focused/dragged. */
+.vo-resize-handle {
+  position: absolute;
+  z-index: 110;
+  touch-action: none;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.vo-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: transparent;
+  transition: background-color 120ms;
+}
+.vo-resize-handle[data-axis='x']::after {
+  width: 2px;
+}
+.vo-resize-handle[data-axis='y']::after {
+  height: 2px;
+}
+.vo-resize-handle:hover::after,
+.vo-resize-handle:focus-visible::after {
+  background: var(--mantine-color-brand-filled);
+}
+.vo-resize-handle:focus-visible {
+  outline: none;
+}
+/* While dragging: keep the resize cursor everywhere and stop text selection. */
+body[data-resizing='x'] {
+  cursor: col-resize;
+  user-select: none;
+}
+body[data-resizing='y'] {
+  cursor: row-resize;
+  user-select: none;
+}

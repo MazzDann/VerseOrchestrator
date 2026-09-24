@@ -71,9 +71,38 @@ export interface PresetFile {
   template: SlideTemplate | null;
 }
 
+/** Operator-window panel sizes in px (drag handles on the panel edges). */
+export interface PanelLayout {
+  navWidth: number;
+  asideWidth: number;
+  /** Height of the history/saved section at the bottom of the left sidebar. */
+  recentHeight: number;
+}
+
+export const DEFAULT_LAYOUT: PanelLayout = { navWidth: 300, asideWidth: 380, recentHeight: 170 };
+
+/** [min, max] per field — also applied to persisted values. */
+export const LAYOUT_LIMITS: Record<keyof PanelLayout, [number, number]> = {
+  navWidth: [220, 480],
+  asideWidth: [300, 640],
+  recentHeight: [80, 480],
+};
+
+export function clampLayout(raw: unknown): PanelLayout {
+  const r = (raw ?? {}) as Partial<Record<keyof PanelLayout, unknown>>;
+  const out = { ...DEFAULT_LAYOUT };
+  for (const k of Object.keys(LAYOUT_LIMITS) as (keyof PanelLayout)[]) {
+    const n = Number(r[k]);
+    const [min, max] = LAYOUT_LIMITS[k];
+    if (Number.isFinite(n)) out[k] = Math.round(Math.min(max, Math.max(min, n)));
+  }
+  return out;
+}
+
 interface SettingsState {
   appearance: Appearance;
   panelPlacement: PanelPlacement;
+  layout: PanelLayout;
   /** When true, the presenter follows the selection live; when false, push manually (F5/F2). */
   liveFollow: boolean;
   /** When true, mirror the live slide to the server so phones can follow along. */
@@ -92,6 +121,7 @@ interface SettingsState {
   setFollowAlong: (v: boolean) => void;
   setSlideTemplate: (t: SlideTemplate | null) => void;
   setPanelPlacement: (p: PanelPlacement) => void;
+  setLayout: (patch: Partial<PanelLayout>) => void;
   setAppearance: (patch: Partial<Appearance>) => void;
   resetAppearance: () => void;
   pushHistory: (item: RefItem) => void;
@@ -226,7 +256,8 @@ export function coercePreset(raw: unknown, fallbackName = 'Імпортован�
   // resetting the look to defaults under a "success" toast.
   if (r.$type !== 'verseorchestrator-preset') return null;
   const ap = r.appearance;
-  const apObj = ap && typeof ap === 'object' && !Array.isArray(ap) ? (ap as Record<string, unknown>) : {};
+  const apObj =
+    ap && typeof ap === 'object' && !Array.isArray(ap) ? (ap as Record<string, unknown>) : {};
   const name = (typeof r.name === 'string' && r.name.trim()) || fallbackName;
   return { name, appearance: sanitizeAppearance(apObj), template: coerceTemplate(r.template) };
 }
@@ -247,6 +278,7 @@ export const useSettings = create<SettingsState>()(
     (set) => ({
       appearance: DEFAULT_APPEARANCE,
       panelPlacement: 'aside',
+      layout: DEFAULT_LAYOUT,
       liveFollow: true,
       followAlong: false,
       slideTemplate: null,
@@ -259,6 +291,7 @@ export const useSettings = create<SettingsState>()(
       setFollowAlong: (v) => set({ followAlong: v }),
       setSlideTemplate: (t) => set({ slideTemplate: t }),
       setPanelPlacement: (p) => set({ panelPlacement: p }),
+      setLayout: (patch) => set((s) => ({ layout: clampLayout({ ...s.layout, ...patch }) })),
       setAppearance: (patch) => set((s) => ({ appearance: { ...s.appearance, ...patch } })),
       resetAppearance: () => set({ appearance: DEFAULT_APPEARANCE }),
       pushHistory: (item) =>
@@ -332,14 +365,22 @@ export const useSettings = create<SettingsState>()(
         }),
       applyPresetData: (preset) =>
         set((s) => ({
-          appearance: { ...DEFAULT_APPEARANCE, ...preset.appearance, bgImage: s.appearance.bgImage },
+          appearance: {
+            ...DEFAULT_APPEARANCE,
+            ...preset.appearance,
+            bgImage: s.appearance.bgImage,
+          },
           slideTemplate: preset.template ?? null,
         })),
       deletePreset: (name) => set((s) => ({ presets: s.presets.filter((p) => p.name !== name) })),
       importPreset: (preset) => {
         set((s) => ({
           presets: [preset, ...s.presets.filter((p) => p.name !== preset.name)].slice(0, 100),
-          appearance: { ...DEFAULT_APPEARANCE, ...preset.appearance, bgImage: s.appearance.bgImage },
+          appearance: {
+            ...DEFAULT_APPEARANCE,
+            ...preset.appearance,
+            bgImage: s.appearance.bgImage,
+          },
           slideTemplate: preset.template ?? null,
         }));
         return preset.name;
@@ -373,6 +414,7 @@ export const useSettings = create<SettingsState>()(
           // Backfill missing actions + drop any non-string/garbage values so every
           // consumer (.split in useHotkeys / settings UI) always gets a valid chord.
           keymap: sanitizeKeymap(p.keymap),
+          layout: clampLayout(p.layout),
         };
       },
     },
