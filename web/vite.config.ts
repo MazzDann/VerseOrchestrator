@@ -1,8 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import rootPkg from '../package.json' with { type: 'json' };
 
 export default defineConfig({
   plugins: [react()],
+  // One version for the whole app (root package.json), shown in the settings panel.
+  define: { __APP_VERSION__: JSON.stringify(rootPkg.version) },
   // Ensure single instances across all pre-bundled deps. Duplicated @mantine
   // packages break shared stores (e.g. the Spotlight store created by
   // createSpotlight would not match the <Spotlight> component's instance).
