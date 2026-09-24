@@ -104,12 +104,31 @@ const SongDetailSchema = SongInfoSchema.extend({
 });
 export type SongDetail = z.infer<typeof SongDetailSchema>;
 
-async function getJson<S extends z.ZodTypeAny>(url: string, schema: S): Promise<z.infer<S>> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `Request failed: ${res.status}`);
+/** Human-readable failure: the server's own message, else what went wrong in plain words. */
+async function failure(res: Response): Promise<Error> {
+  const body = await res.json().catch(() => ({}));
+  const msg = (body as { error?: string }).error;
+  if (msg) return new Error(msg);
+  // No JSON error body on a 5xx = the dev proxy couldn't reach the API process.
+  return new Error(
+    res.status >= 500
+      ? 'сервер недоступний. Перевірте термінал, де запущено npm run dev'
+      : `сервер відповів помилкою ${res.status}`,
+  );
+}
+
+/** fetch that turns "server not running" into an actionable message. */
+async function request(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new Error('сервер недоступний. Перевірте, чи запущено npm run dev');
   }
+}
+
+async function getJson<S extends z.ZodTypeAny>(url: string, schema: S): Promise<z.infer<S>> {
+  const res = await request(url);
+  if (!res.ok) throw await failure(res);
   return schema.parse(await res.json());
 }
 
@@ -171,15 +190,11 @@ export const api = {
       /* best-effort; phones poll and will catch up */
     });
   },
-  live: () =>
-    getJson('/api/live', z.object({ version: z.number(), slide: z.any().nullable() })),
+  live: () => getJson('/api/live', z.object({ version: z.number(), slide: z.any().nullable() })),
   host: () => getJson('/api/host', z.object({ ips: z.array(z.string()) })),
   rebuild: async (): Promise<{ ok: boolean }> => {
-    const res = await fetch('/api/rebuild', { method: 'POST', headers: CONTROL_HEADERS });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error((body as { error?: string }).error ?? `Request failed: ${res.status}`);
-    }
+    const res = await request('/api/rebuild', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
     return res.json() as Promise<{ ok: boolean }>;
   },
 };

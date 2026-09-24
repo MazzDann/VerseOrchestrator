@@ -74,7 +74,10 @@ export function SettingsPanel() {
       await queryClient.invalidateQueries();
       notifications.show({ message: 'Бібліотеку оновлено', color: 'green' });
     } catch (e) {
-      notifications.show({ message: `Не вдалося: ${(e as Error).message}`, color: 'red' });
+      notifications.show({
+        message: `Не вдалося перебудувати бібліотеку: ${(e as Error).message}`,
+        color: 'red',
+      });
     } finally {
       setRebuilding(false);
     }
