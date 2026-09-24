@@ -350,6 +350,9 @@ export function SettingsPanel() {
           Пересканувати модулі
         </Button>
       </div>
+      <Text size="xs" c="dimmed" ta="center">
+        VerseOrchestrator v{__APP_VERSION__}
+      </Text>
     </Stack>
   );
 }
