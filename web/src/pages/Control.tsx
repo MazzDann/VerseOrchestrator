@@ -96,6 +96,8 @@ import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../pla
 const EMPTY_ARRAY: never[] = [];
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
 
+type InlinePanel = 'search' | 'songs' | 'text';
+
 export function Control() {
   const { toggleColorScheme } = useMantineColorScheme();
   const colorScheme = useComputedColorScheme('dark');
@@ -178,8 +180,27 @@ export function Control() {
 
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
+  // The centre column holds ONE inline tool at a time (search / songs / own text):
+  // stacked, they pushed the verse list off screen. A single slot makes opening one close
+  // the others; each keeps a boolean-style setter so call sites stay `setXOpen(o => !o)`.
+  // Their content state (open song, stanza, draft) lives outside, so reopening restores it.
+  const [inlinePanel, setInlinePanel] = useState<InlinePanel | null>(null);
+  const inlineSetter = useCallback(
+    (which: InlinePanel) => (v: boolean | ((open: boolean) => boolean)) =>
+      setInlinePanel((cur) => {
+        const was = cur === which;
+        const next = typeof v === 'function' ? v(was) : v;
+        return next ? which : was ? null : cur;
+      }),
+    [],
+  );
+  const searchOpen = inlinePanel === 'search';
+  const songsOpen = inlinePanel === 'songs';
+  const textOpen = inlinePanel === 'text';
+  const setSearchOpen = useMemo(() => inlineSetter('search'), [inlineSetter]);
+  const setSongsOpen = useMemo(() => inlineSetter('songs'), [inlineSetter]);
+  const setTextOpen = useMemo(() => inlineSetter('text'), [inlineSetter]);
   const [searchScope, setSearchScope] = useState<SearchScope>('current');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [asideMode, setAsideMode] = useState<AsideMode>('preview');
   const [sidebarTab, setSidebarTab] = useState<string | null>('history');
   const [navOpened, { toggle: toggleNav }] = useDisclosure(false);
@@ -190,8 +211,6 @@ export function Control() {
   // Active Strong number for the concordance panel shown beside the verse list.
   const [concordanceStrong, setConcordanceStrong] = useState<string | null>(null);
   const [goToValue, setGoToValue] = useState('');
-  const [songsOpen, setSongsOpen] = useState(false);
-  const [textOpen, setTextOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
@@ -1631,7 +1650,7 @@ export function Control() {
                   {primaryVerses.map((v) => (
                     <div
                       key={v.verse}
-                      className="vo-verse-item"
+                      className="vo-verse-item vo-verse-row"
                       role="button"
                       tabIndex={0}
                       data-verse={v.verse}
@@ -1777,7 +1796,7 @@ export function Control() {
       <FloatingPanel
         opened={followOpen}
         onClose={() => setFollowOpen(false)}
-        title="Трансляція глядачам"
+        title="Глядачі"
         storageKey="vo:followPanelPos"
         width={320}
         icon={<IconQrcode size={16} />}
