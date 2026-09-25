@@ -1,7 +1,8 @@
 /**
  * Client side of the server's live hub (`/api/ws`, see server/src/live.ts): a WebSocket
- * that reconnects with capped exponential backoff and reports whether it is up, so
- * callers can fall back to HTTP polling only while it's down.
+ * that reconnects with capped exponential backoff, re-sends its `hello` (role) on every
+ * connect, and reports whether it is up — so callers can fall back to HTTP polling only
+ * while it's down.
  */
 export interface LiveFrame {
   type: 'slide';
@@ -9,10 +10,24 @@ export interface LiveFrame {
   slide: unknown;
 }
 
+/** Any frame the hub sends (slide · welcome · denied · ack · revoked · command · remotes). */
+export type HubFrame = { type: string } & Record<string, unknown>;
+
+export interface LiveConnection {
+  /** Send a JSON frame now; returns false while disconnected (caller decides what to show). */
+  send: (frame: object) => boolean;
+  stop: () => void;
+}
+
 export function connectLive(opts: {
-  onFrame: (f: LiveFrame) => void;
-  onStatus: (open: boolean) => void;
-}): () => void {
+  /** Sent on every (re)connect to claim a role: control / remote. Omit for a viewer. */
+  hello?: object;
+  onFrame?: (f: LiveFrame) => void;
+  onMessage?: (f: HubFrame) => void;
+  onStatus?: (open: boolean) => void;
+  /** Stop reconnecting when the server says we're not welcome (bad token, revoked). */
+  stopOn?: (f: HubFrame) => boolean;
+}): LiveConnection {
   let ws: WebSocket | null = null;
   let closed = false;
   let retry = 0;
@@ -30,18 +45,24 @@ export function connectLive(opts: {
     }
     ws.onopen = () => {
       retry = 0;
-      opts.onStatus(true);
+      if (opts.hello) ws?.send(JSON.stringify({ type: 'hello', ...opts.hello }));
+      opts.onStatus?.(true);
     };
     ws.onmessage = (e) => {
+      let f: HubFrame;
       try {
-        const f = JSON.parse(String(e.data)) as LiveFrame;
-        if (f && f.type === 'slide' && typeof f.version === 'number') opts.onFrame(f);
+        f = JSON.parse(String(e.data)) as HubFrame;
       } catch {
-        /* ignore malformed frames */
+        return; // ignore malformed frames
       }
+      if (!f || typeof f.type !== 'string') return;
+      if (f.type === 'slide' && typeof f.version === 'number')
+        opts.onFrame?.(f as unknown as LiveFrame);
+      opts.onMessage?.(f);
+      if (opts.stopOn?.(f)) closed = true;
     };
     ws.onclose = () => {
-      opts.onStatus(false);
+      opts.onStatus?.(false);
       schedule();
     };
     ws.onerror = () => ws?.close();
@@ -55,9 +76,16 @@ export function connectLive(opts: {
   };
 
   open();
-  return () => {
-    closed = true;
-    window.clearTimeout(timer);
-    ws?.close();
+  return {
+    send: (frame) => {
+      if (ws?.readyState !== WebSocket.OPEN) return false;
+      ws.send(JSON.stringify(frame));
+      return true;
+    },
+    stop: () => {
+      closed = true;
+      window.clearTimeout(timer);
+      ws?.close();
+    },
   };
 }

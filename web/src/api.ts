@@ -136,6 +136,18 @@ async function getJson<S extends z.ZodTypeAny>(url: string, schema: S): Promise<
  * without it (it forces a CORS preflight, so other sites can't forge them). */
 const CONTROL_HEADERS = { 'X-VO-Control': '1' };
 
+const RemoteCommandSchema = z.enum(['next', 'prev', 'blank', 'black']);
+export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
+const PairingSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  allowed: z.array(RemoteCommandSchema),
+  createdAt: z.number(),
+  lastSeen: z.number().nullable(),
+  online: z.boolean(),
+});
+export type Pairing = z.infer<typeof PairingSchema>;
+
 export const api = {
   translations: () => getJson('/api/translations', z.array(TranslationSchema)),
   books: (id: number) => getJson(`/api/translations/${id}/books`, z.array(BookSchema)),
@@ -192,6 +204,31 @@ export const api = {
   },
   live: () => getJson('/api/live', z.object({ version: z.number(), slide: z.any().nullable() })),
   host: () => getJson('/api/host', z.object({ ips: z.array(z.string()) })),
+  // Speaker remotes (server/src/remote.ts). The token comes back ONLY from create.
+  remotes: () => getJson('/api/remote', z.array(PairingSchema)),
+  createRemote: async (name: string, allowed: RemoteCommand[]) => {
+    const res = await request('/api/remote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ name, allowed }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({
+        id: z.string(),
+        name: z.string(),
+        allowed: z.array(RemoteCommandSchema),
+        token: z.string(),
+      })
+      .parse(await res.json());
+  },
+  revokeRemote: async (id: string) => {
+    const res = await request(`/api/remote/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+  },
   rebuild: async (): Promise<{ ok: boolean }> => {
     const res = await request('/api/rebuild', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);

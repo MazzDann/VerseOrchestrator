@@ -46,9 +46,10 @@ import {
   IconPlaylistAdd,
   IconLayoutDashboard,
   IconQrcode,
+  IconDeviceMobile,
 } from '@tabler/icons-react';
 
-import { api, type Book, type Verse, type SongStyle } from '../api';
+import { api, type Book, type Verse, type SongStyle, type RemoteCommand } from '../api';
 import { useStore } from '../store';
 import {
   useSettings,
@@ -86,6 +87,9 @@ import { FloatingPanel } from '../components/FloatingPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { PlaylistPanel } from '../components/PlaylistPanel';
 import { FollowPanel } from '../components/FollowPanel';
+import { RemotePanel } from '../components/RemotePanel';
+import { connectLive, type LiveConnection } from '../lib/liveSocket';
+import { REMOTE_LABEL } from '../lib/remote';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { ResizeHandle } from '../components/ResizeHandle';
@@ -214,6 +218,7 @@ export function Control() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
+  const [remoteOpen, setRemoteOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   // The song + highlighted stanza in the Songs panel — lifted here so the playlist
   // can open a song and seed its stanza (and so forwarded clicker commands step it).
@@ -1038,6 +1043,42 @@ export function Control() {
   };
   useEffect(() => subscribeCommand((cmd) => commandHandler.current(cmd)), []);
 
+  // Speaker remotes: this window holds the hub's control socket; paired phones' commands
+  // (already scope-checked by the server) run through the same handler as the output
+  // window's forwarded keys. A 'remotes' frame means the pairing list changed.
+  const controlConn = useRef<LiveConnection | null>(null);
+  const liveSlideRef = useRef(liveSlide);
+  liveSlideRef.current = liveSlide;
+  useEffect(() => {
+    const c = connectLive({
+      hello: { role: 'control' },
+      onMessage: (f) => {
+        // (Re)connected as control: give remotes the current screen straight away.
+        if (f.type === 'welcome') c.send({ type: 'screen', slide: stripBg(liveSlideRef.current) });
+        if (f.type === 'command' && typeof f.cmd === 'string' && f.cmd in REMOTE_LABEL) {
+          const cmd = f.cmd as RemoteCommand;
+          commandHandler.current(cmd);
+          notifications.show({
+            message: `Пульт «${String(f.from ?? '')}»: ${REMOTE_LABEL[cmd]}`,
+            color: 'brand',
+            autoClose: 1200,
+          });
+        } else if (f.type === 'remotes') {
+          void queryClient.invalidateQueries({ queryKey: ['remotes'] });
+        }
+      },
+    });
+    controlConn.current = c;
+    return () => {
+      controlConn.current = null;
+      c.stop();
+    };
+  }, [queryClient]);
+  // Keep remotes' «На екрані» in step with the output (independent of follow-along).
+  useEffect(() => {
+    controlConn.current?.send({ type: 'screen', slide: stripBg(liveSlide) });
+  }, [liveSlide]);
+
   const openPresenter = async () => {
     const win = await openPresenterWindow();
     notifications.show(
@@ -1148,6 +1189,13 @@ export function Control() {
       keywords: 'follow qr phones',
       icon: <IconQrcode size={16} />,
       run: () => setFollowOpen(true),
+    },
+    {
+      id: 'remote',
+      label: 'Пульт доповідача',
+      keywords: 'remote speaker phone pult',
+      icon: <IconDeviceMobile size={16} />,
+      run: () => setRemoteOpen(true),
     },
     {
       id: 'settings',
@@ -1334,6 +1382,13 @@ export function Control() {
                   active={followOpen}
                   color={followAlong ? 'live' : undefined}
                   onClick={() => setFollowOpen((o) => !o)}
+                />
+                <ToolIcon
+                  label="Пульт доповідача"
+                  hint="Телефон-пульт за QR: гортати показ без доступу до налаштувань"
+                  icon={<IconDeviceMobile size={18} stroke={1.5} />}
+                  active={remoteOpen}
+                  onClick={() => setRemoteOpen((o) => !o)}
                 />
               </ToolZone>
               <ToolZone label="Вихід на екран">
@@ -1802,6 +1857,17 @@ export function Control() {
         icon={<IconQrcode size={16} />}
       >
         <FollowPanel />
+      </FloatingPanel>
+
+      <FloatingPanel
+        opened={remoteOpen}
+        onClose={() => setRemoteOpen(false)}
+        title="Пульт доповідача"
+        storageKey="vo:remotePanelPos"
+        width={340}
+        icon={<IconDeviceMobile size={16} />}
+      >
+        <RemotePanel />
       </FloatingPanel>
 
       <CommandPalette

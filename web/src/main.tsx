@@ -13,6 +13,7 @@ import { Control } from './pages/Control';
 import { Presenter } from './pages/Presenter';
 import { Stage } from './pages/Stage';
 import { Follow } from './pages/Follow';
+import { Remote } from './pages/Remote';
 import { Settings } from './pages/Settings';
 import { useSettings } from './settingsStore';
 import { usePlaylist } from './playlistStore';
@@ -40,6 +41,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/presenter" element={<Presenter />} />
             <Route path="/stage" element={<Stage />} />
             <Route path="/follow" element={<Follow />} />
+            <Route path="/remote" element={<Remote />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </BrowserRouter>
