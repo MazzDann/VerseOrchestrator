@@ -59,11 +59,7 @@ export function FollowPanel() {
               padding: 12,
             }}
           >
-            {qr ? (
-              <Image src={qr} w={200} h={200} alt="QR для приєднання" />
-            ) : (
-              <Loader size="sm" />
-            )}
+            {qr ? <Image src={qr} w={200} h={200} alt="QR для приєднання" /> : <Loader size="sm" />}
           </div>
           <Text size="xs" c="dimmed" ta="center">
             Відскануйте або відкрийте на телефоні (та сама мережа Wi-Fi):

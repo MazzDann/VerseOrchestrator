@@ -83,26 +83,65 @@ export function Stage() {
             }}
           />
           <span style={{ fontSize: '2.6vmin', fontWeight: 700, letterSpacing: 1 }}>НА ЕКРАНІ</span>
-          <span style={{ fontSize: '2.6vmin', opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span
+            style={{
+              fontSize: '2.6vmin',
+              opacity: 0.75,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
             · {liveLabel}
           </span>
         </div>
-        <span style={{ fontSize: '5vmin', fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: 2 }}>
+        <span
+          style={{
+            fontSize: '5vmin',
+            fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: 2,
+          }}
+        >
           {clock}
         </span>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: '2vmin' }}>
-        <div style={{ flex: '1 1 64%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1vmin' }}>
-          <div style={{ fontSize: '2vmin', fontWeight: 600, opacity: 0.55, letterSpacing: 2 }}>ЗАРАЗ</div>
+        <div
+          style={{
+            flex: '1 1 64%',
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1vmin',
+          }}
+        >
+          <div style={{ fontSize: '2vmin', fontWeight: 600, opacity: 0.55, letterSpacing: 2 }}>
+            ЗАРАЗ
+          </div>
           <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center' }}>
             {/* Tally ring: red = what the audience sees now. */}
-            <div style={{ width: '100%', borderRadius: 8, boxShadow: '0 0 0 3px var(--mantine-color-live-filled)' }}>
+            <div
+              style={{
+                width: '100%',
+                borderRadius: 8,
+                boxShadow: '0 0 0 3px var(--mantine-color-live-filled)',
+              }}
+            >
               <SlidePreview slide={slide} />
             </div>
           </div>
         </div>
-        <div style={{ flex: '1 1 36%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1vmin' }}>
+        <div
+          style={{
+            flex: '1 1 36%',
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1vmin',
+          }}
+        >
           <div style={{ fontSize: '2vmin', fontWeight: 600, opacity: 0.55, letterSpacing: 2 }}>
             ДАЛІ{next?.reference ? ` · ${next.reference}` : ''}
           </div>

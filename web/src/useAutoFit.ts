@@ -31,7 +31,8 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
     // quote box, so measure against the box's positioned ancestor when present.
     let hi = max;
     if (maxCqh != null && maxCqh > 0) {
-      const slideH = (container.offsetParent as HTMLElement | null)?.clientHeight ?? container.clientHeight;
+      const slideH =
+        (container.offsetParent as HTMLElement | null)?.clientHeight ?? container.clientHeight;
       hi = Math.min(max, Math.max(min, Math.floor((maxCqh / 100) * slideH)));
     }
     let best = min;

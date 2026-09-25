@@ -80,7 +80,12 @@ export function Presenter() {
           toggleFullscreen();
         }
       }}
-      style={{ position: 'fixed', inset: 0, background: '#000', cursor: cursorHidden ? 'none' : 'auto' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: '#000',
+        cursor: cursorHidden ? 'none' : 'auto',
+      }}
     >
       <SlideCanvas slide={slide} />
       {hint && (

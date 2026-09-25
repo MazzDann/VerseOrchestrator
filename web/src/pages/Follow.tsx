@@ -69,59 +69,57 @@ export function Follow() {
       >
         {showText ? (
           <>
-            {slide!.reveal ? (
-              // Mirror progressive reveal so phones build in step with the projector.
-              slide!.reveal.units.map((u, i) => {
-                const revealed = i < slide!.reveal!.count;
-                const isCurrent = i === slide!.reveal!.count - 1;
-                const hidden = !revealed && !slide!.reveal!.placeholders;
-                const opacity = revealed
-                  ? slide!.reveal!.mode === 'spotlight' && !isCurrent
-                    ? 0.4
-                    : 1
-                  : slide!.reveal!.placeholders
-                    ? 0.12
-                    : 0;
-                return (
+            {slide!.reveal
+              ? // Mirror progressive reveal so phones build in step with the projector.
+                slide!.reveal.units.map((u, i) => {
+                  const revealed = i < slide!.reveal!.count;
+                  const isCurrent = i === slide!.reveal!.count - 1;
+                  const hidden = !revealed && !slide!.reveal!.placeholders;
+                  const opacity = revealed
+                    ? slide!.reveal!.mode === 'spotlight' && !isCurrent
+                      ? 0.4
+                      : 1
+                    : slide!.reveal!.placeholders
+                      ? 0.12
+                      : 0;
+                  return (
+                    <p
+                      key={i}
+                      style={{
+                        margin: 0,
+                        fontFamily: font,
+                        fontSize: 'clamp(20px, 6.2vw, 40px)',
+                        lineHeight: 1.45,
+                        whiteSpace: 'pre-line',
+                        opacity,
+                        visibility: hidden ? 'hidden' : 'visible',
+                        transition: 'opacity 0.25s ease',
+                      }}
+                    >
+                      {u}
+                    </p>
+                  );
+                })
+              : slide!.lines.map((line, i) => (
                   <p
                     key={i}
+                    dir={line.rtl ? 'rtl' : 'ltr'}
                     style={{
                       margin: 0,
                       fontFamily: font,
                       fontSize: 'clamp(20px, 6.2vw, 40px)',
                       lineHeight: 1.45,
                       whiteSpace: 'pre-line',
-                      opacity,
-                      visibility: hidden ? 'hidden' : 'visible',
-                      transition: 'opacity 0.25s ease',
                     }}
                   >
-                    {u}
+                    {slide!.lines.length > 1 && line.translationAbbr && (
+                      <span style={{ opacity: 0.45, fontSize: '0.6em', marginRight: '0.5em' }}>
+                        {line.translationAbbr}
+                      </span>
+                    )}
+                    {line.text}
                   </p>
-                );
-              })
-            ) : (
-              slide!.lines.map((line, i) => (
-                <p
-                  key={i}
-                  dir={line.rtl ? 'rtl' : 'ltr'}
-                  style={{
-                    margin: 0,
-                    fontFamily: font,
-                    fontSize: 'clamp(20px, 6.2vw, 40px)',
-                    lineHeight: 1.45,
-                    whiteSpace: 'pre-line',
-                  }}
-                >
-                  {slide!.lines.length > 1 && line.translationAbbr && (
-                    <span style={{ opacity: 0.45, fontSize: '0.6em', marginRight: '0.5em' }}>
-                      {line.translationAbbr}
-                    </span>
-                  )}
-                  {line.text}
-                </p>
-              ))
-            )}
+                ))}
             {slide!.subline && (
               <p style={{ margin: 0, opacity: 0.85, fontSize: 'clamp(14px, 4vw, 22px)' }}>
                 {slide!.subline}
