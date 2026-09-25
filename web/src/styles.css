@@ -184,3 +184,22 @@ body[data-resizing='y'] {
   cursor: row-resize;
   user-select: none;
 }
+
+/* Audience follow-along page (/follow on phones): follows the phone's colour scheme,
+   independent of the operator's app theme. */
+.vo-follow {
+  --vo-follow-bg: #0b0b12;
+  --vo-follow-fg: #f4f4f6;
+  --vo-follow-alert: #ffa8a8;
+  --vo-follow-alert-bg: rgba(255, 0, 0, 0.06);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  .vo-follow {
+    --vo-follow-bg: #f6f5f1;
+    --vo-follow-fg: #1d1d20;
+    --vo-follow-alert: #b3261e;
+    --vo-follow-alert-bg: rgba(179, 38, 30, 0.08);
+    color-scheme: light;
+  }
+}

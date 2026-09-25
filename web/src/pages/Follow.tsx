@@ -40,12 +40,15 @@ export function Follow() {
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
 
   return (
+    // Colours come from .vo-follow (styles.css), which follows the PHONE's own light/dark
+    // setting — viewers often read in daylight, where a black page is hard to read.
     <div
+      className="vo-follow"
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#0b0b12',
-        color: '#f4f4f6',
+        background: 'var(--vo-follow-bg)',
+        color: 'var(--vo-follow-fg)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'auto',
@@ -149,12 +152,12 @@ export function Follow() {
             padding: '8px 0',
             textAlign: 'center',
             fontSize: 13,
-            color: '#ffa8a8',
+            color: 'var(--vo-follow-alert)',
             fontFamily: 'Inter, system-ui, sans-serif',
-            background: 'rgba(255,0,0,0.06)',
+            background: 'var(--vo-follow-alert-bg)',
           }}
         >
-          Немає зв'язку — перепідключення…
+          Немає зв’язку з показом. Перепідключаюся…
         </div>
       )}
     </div>
