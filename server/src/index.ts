@@ -21,7 +21,16 @@ import {
   listDictionaries,
 } from './db.js';
 import { isLocalRequest } from './access.js';
-import { attachLiveHub, getLive, publishLive, viewerCount } from './live.js';
+import {
+  attachLiveHub,
+  dropRemote,
+  getLive,
+  isRemoteOnline,
+  notifyRemotesChanged,
+  publishLive,
+  viewerCount,
+} from './live.js';
+import { createPairing, listPairings, revokePairing } from './remote.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -92,6 +101,46 @@ app.post(
 app.get(
   '/api/live',
   wrap((_req, res) => res.json(getLive())),
+);
+
+/**
+ * Speaker remotes (remote.ts): the operator pairs a phone, which gets a scoped token via
+ * QR and then drives the show over the live WebSocket. All management is local-only; the
+ * token is returned once, at creation, and never listed again.
+ */
+const requireLocal: express.RequestHandler = (req, res, next) => {
+  if (!isLocalRequest(req)) {
+    res.status(403).json({ error: 'Керування доступне лише з цього комп’ютера' });
+    return;
+  }
+  next();
+};
+
+app.post(
+  '/api/remote',
+  requireLocalControl,
+  wrap((req, res) => {
+    const p = createPairing(String(req.body?.name ?? ''), req.body?.allowed);
+    notifyRemotesChanged();
+    res.json({ id: p.id, name: p.name, allowed: p.allowed, token: p.token });
+  }),
+);
+
+app.get(
+  '/api/remote',
+  requireLocal,
+  wrap((_req, res) => res.json(listPairings(isRemoteOnline))),
+);
+
+app.delete(
+  '/api/remote/:id',
+  requireLocalControl,
+  wrap((req, res) => {
+    const id = String(req.params.id);
+    if (!revokePairing(id)) throw new ApiError(404, 'Пульт не знайдено');
+    dropRemote(id);
+    res.json({ ok: true });
+  }),
 );
 
 /**

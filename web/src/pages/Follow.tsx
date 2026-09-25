@@ -22,7 +22,7 @@ export function Follow() {
       setSlide((next as Slide | null) ?? null);
     };
     // Primary: pushed frames over the live WebSocket (instant).
-    const stop = connectLive({
+    const { stop } = connectLive({
       onFrame: (f) => {
         if (!alive) return;
         setConnected(true);
