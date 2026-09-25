@@ -20,6 +20,8 @@ import {
   getSong,
   listDictionaries,
 } from './db.js';
+import { isLocalRequest } from './access.js';
+import { attachLiveHub, getLive, publishLive, viewerCount } from './live.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -56,35 +58,6 @@ const wrap =
     }
   };
 
-/** This machine's own addresses (loopback + every interface), so a control window
- * opened via the LAN IP on the operator's own machine still counts as local. */
-function isOwnAddress(addr: string): boolean {
-  const ip = addr.replace(/^::ffff:/, '');
-  if (ip === '::1' || ip.startsWith('127.')) return true;
-  return Object.values(os.networkInterfaces()).some((list) =>
-    (list ?? []).some((a) => a.address === ip),
-  );
-}
-
-/**
- * The real client address. Behind the Vite proxy (`xfwd: true`) the socket is always
- * loopback, so use the LAST X-Forwarded-For hop — the one the proxy appended itself
- * (earlier hops are client-supplied and can be forged). Since this server only listens
- * on loopback, a direct connection is already local.
- */
-function clientAddress(req: express.Request): string {
-  const socketAddr = req.socket.remoteAddress ?? '';
-  const fwd = req.get('x-forwarded-for');
-  if (fwd && isOwnAddress(socketAddr)) {
-    const hops = fwd
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    return hops[hops.length - 1] ?? socketAddr;
-  }
-  return socketAddr;
-}
-
 /**
  * Guard for routes that change state. Only the operator's machine may write; phones on
  * the LAN are read-only viewers. The custom header forces a CORS preflight (which this
@@ -93,7 +66,7 @@ function clientAddress(req: express.Request): string {
  * remote paired via QR) would extend this check with a token rather than open the LAN.
  */
 const requireLocalControl: express.RequestHandler = (req, res, next) => {
-  if (req.get('x-vo-control') !== '1' || !isOwnAddress(clientAddress(req))) {
+  if (req.get('x-vo-control') !== '1' || !isLocalRequest(req)) {
     res.status(403).json({ error: 'Керування доступне лише з цього комп’ютера' });
     return;
   }
@@ -103,26 +76,22 @@ const requireLocalControl: express.RequestHandler = (req, res, next) => {
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 /**
- * Audience "follow-along": the control window POSTs the current slide here and
- * phones poll it (read-only). Kept in memory only — it's live state, not data.
- * `version` lets pollers cheaply skip unchanged responses.
+ * Audience "follow-along": the control window POSTs the current slide here; it's pushed
+ * to phones over the WebSocket hub (live.ts), and `GET /api/live` stays as the polling
+ * fallback. In memory only — it's live state, not data.
  */
-let liveState: unknown = null;
-let liveVersion = 0;
-
 app.post(
   '/api/live',
   requireLocalControl,
   wrap((req, res) => {
-    liveState = req.body ?? null;
-    liveVersion += 1;
-    res.json({ ok: true, version: liveVersion });
+    const version = publishLive(req.body ?? null);
+    res.json({ ok: true, version, viewers: viewerCount() });
   }),
 );
 
 app.get(
   '/api/live',
-  wrap((_req, res) => res.json({ version: liveVersion, slide: liveState })),
+  wrap((_req, res) => res.json(getLive())),
 );
 
 /**
@@ -327,6 +296,7 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
   });
 });
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`[server] http://${HOST}:${PORT}`);
 });
+attachLiveHub(server);

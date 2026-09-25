@@ -32,7 +32,8 @@ export default defineConfig({
       // The API listens on loopback only (127.0.0.1, not `localhost`, which may resolve
       // to ::1). `xfwd` passes the real client IP so the server can keep LAN viewers
       // read-only.
-      '/api': { target: 'http://127.0.0.1:8787', xfwd: true },
+      // `ws: true` also forwards the live hub's WebSocket (/api/ws) to the API process.
+      '/api': { target: 'http://127.0.0.1:8787', xfwd: true, ws: true },
     },
   },
 });

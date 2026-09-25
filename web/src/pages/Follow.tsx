@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { type Slide } from '../presenterBus';
+import { connectLive } from '../lib/liveSocket';
 
 /**
- * Audience follow-along: a read-only, mobile-friendly view of the live slide,
- * polled from the server relay. Phones open this (via the QR in Control) to read
- * the current verse/text on their own screens. Never publishes.
+ * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
+ * over the server's live WebSocket (polling only as a fallback). Phones open this (via
+ * the QR in Control) to read the current verse/text on their own screens. Never publishes.
  */
 export function Follow() {
   const [slide, setSlide] = useState<Slide | null>(null);
@@ -14,15 +15,31 @@ export function Follow() {
 
   useEffect(() => {
     let alive = true;
+    let socketUp = false;
+    const apply = (v: number, next: unknown) => {
+      if (v === version.current) return;
+      version.current = v;
+      setSlide((next as Slide | null) ?? null);
+    };
+    // Primary: pushed frames over the live WebSocket (instant).
+    const stop = connectLive({
+      onFrame: (f) => {
+        if (!alive) return;
+        setConnected(true);
+        apply(f.version, f.slide);
+      },
+      onStatus: (open) => {
+        socketUp = open;
+      },
+    });
+    // Fallback: poll only while the socket is down (proxy/firewall without WS support).
     const poll = async () => {
+      if (socketUp) return;
       try {
         const r = await api.live();
         if (!alive) return;
         setConnected(true);
-        if (r.version !== version.current) {
-          version.current = r.version;
-          setSlide((r.slide as Slide | null) ?? null);
-        }
+        apply(r.version, r.slide);
       } catch {
         if (alive) setConnected(false);
       }
@@ -31,6 +48,7 @@ export function Follow() {
     const id = window.setInterval(poll, 1500);
     return () => {
       alive = false;
+      stop();
       window.clearInterval(id);
     };
   }, []);
