@@ -44,6 +44,7 @@ export function SettingsPanel() {
   const a = useSettings((s) => s.appearance);
   const set = useSettings((s) => s.setAppearance);
   const reset = useSettings((s) => s.resetAppearance);
+  const template = useSettings((s) => s.slideTemplate);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
   const queryClient = useQueryClient();
@@ -113,6 +114,7 @@ export function SettingsPanel() {
     typeof window !== 'undefined' && window.location.pathname === '/settings';
 
   const fontLabel = FONT_OPTIONS.find((f) => f.value === a.scriptureFont)?.label ?? 'власний';
+  const templateLabel = template?.name ?? 'класичний';
   const alignLabel = { left: 'ліворуч', center: 'по центру', right: 'праворуч' }[a.textAlign];
 
   return (
@@ -237,14 +239,9 @@ export function SettingsPanel() {
         <Section
           value="layout"
           title="Розкладка слайда"
-          summary={`відступи ${a.padTop}/${a.padRight}/${a.padBottom}/${a.padLeft} ${a.padUnit}`}
+          summary={`${templateLabel}, відступи ${a.padTop}/${a.padRight}/${a.padBottom}/${a.padLeft} ${a.padUnit}`}
         >
-          <div>
-            <Text size="sm" fw={500} mb={4}>
-              Шаблон
-            </Text>
-            <TemplateEditor />
-          </div>
+          <TemplateEditor />
           <div>
             <Group justify="space-between" mb={6} wrap="nowrap">
               <Text size="sm" fw={500}>

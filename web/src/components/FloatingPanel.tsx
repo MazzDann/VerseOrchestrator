@@ -154,7 +154,14 @@ export function FloatingPanel({
   useLayoutEffect(() => {
     if (!snapToBottom.current || !ref.current || !posRef.current) return;
     snapToBottom.current = false;
-    const h = ref.current.offsetHeight;
+    // Measure the NATURAL height: the first spot's max-height may already be clipping a tall
+    // panel (settings), and snapping by the clipped height would keep it short. Lifting the
+    // cap inside a layout effect is synchronous, so nothing flashes.
+    const el = ref.current;
+    const cap = el.style.maxHeight;
+    el.style.maxHeight = 'none';
+    const h = Math.min(el.offsetHeight, window.innerHeight - 72 - 16);
+    el.style.maxHeight = cap;
     applyPos(
       clampToViewport(
         { x: posRef.current.x, y: Math.max(72, window.innerHeight - h - 16) },
