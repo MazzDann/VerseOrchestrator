@@ -57,7 +57,9 @@ export function readDictionary(path: string): DictModule | null {
  * server disambiguate H#### from G#### that share the same digits.
  */
 export function strongLang(topic: string): string {
-  const m = String(topic).trim().match(/^([ghGH])/);
+  const m = String(topic)
+    .trim()
+    .match(/^([ghGH])/);
   return m ? m[1].toUpperCase() : '';
 }
 

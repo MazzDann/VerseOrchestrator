@@ -94,9 +94,7 @@ export function CommandPalette({
     }
 
     // Actions.
-    const acts = commands.filter(
-      (c) => !q || norm(`${c.label} ${c.keywords ?? ''}`).includes(q),
-    );
+    const acts = commands.filter((c) => !q || norm(`${c.label} ${c.keywords ?? ''}`).includes(q));
     for (const c of acts) {
       out.push({
         key: `act:${c.id}`,
@@ -148,9 +146,7 @@ export function CommandPalette({
 
   // Scroll the selected row into view.
   useEffect(() => {
-    listRef.current
-      ?.querySelector(`[data-row="${index}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
+    listRef.current?.querySelector(`[data-row="${index}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [index]);
 
   if (!open) return null;
@@ -212,7 +208,12 @@ export function CommandPalette({
         aria-modal
         aria-label="Палітра команд"
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 'min(620px, 92vw)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        style={{
+          width: 'min(620px, 92vw)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
       >
         <TextInput
           ref={inputRef}
@@ -231,7 +232,11 @@ export function CommandPalette({
         />
         <Box
           ref={listRef}
-          style={{ maxHeight: '52vh', overflowY: 'auto', borderTop: '1px solid var(--mantine-color-default-border)' }}
+          style={{
+            maxHeight: '52vh',
+            overflowY: 'auto',
+            borderTop: '1px solid var(--mantine-color-default-border)',
+          }}
         >
           {rows.length === 0 ? (
             <Text c="dimmed" size="sm" p="md" ta="center">
@@ -254,7 +259,10 @@ export function CommandPalette({
                     tabIndex={-1}
                     onMouseMove={(e) => {
                       // Ignore scroll-synthesized events (pointer didn't actually move).
-                      if (e.clientX === lastPointer.current.x && e.clientY === lastPointer.current.y)
+                      if (
+                        e.clientX === lastPointer.current.x &&
+                        e.clientY === lastPointer.current.y
+                      )
                         return;
                       lastPointer.current = { x: e.clientX, y: e.clientY };
                       setIndex(i);

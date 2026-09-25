@@ -54,7 +54,9 @@ export function PresetsSection() {
       .then((r) => (r.ok ? r.json() : []))
       .then((list) => {
         if (Array.isArray(list)) {
-          setBuiltIns(list.filter((x) => x && typeof x.file === 'string' && typeof x.name === 'string'));
+          setBuiltIns(
+            list.filter((x) => x && typeof x.file === 'string' && typeof x.name === 'string'),
+          );
         }
       })
       .catch(() => setBuiltIns([]));
@@ -63,7 +65,11 @@ export function PresetsSection() {
   const save = () => {
     if (!name.trim()) return;
     savePreset(name);
-    notifications.show({ message: `Пресет збережено: ${name.trim()}`, color: 'green', autoClose: 1500 });
+    notifications.show({
+      message: `Пресет збережено: ${name.trim()}`,
+      color: 'green',
+      autoClose: 1500,
+    });
     setName('');
   };
 
@@ -96,7 +102,11 @@ export function PresetsSection() {
       const preset = coercePreset(await res.json(), b.name);
       if (!preset) throw new Error('bad');
       applyPresetData(preset); // apply only — built-ins aren't copied into the library
-      notifications.show({ message: `Пресет застосовано: ${preset.name}`, color: 'green', autoClose: 1500 });
+      notifications.show({
+        message: `Пресет застосовано: ${preset.name}`,
+        color: 'green',
+        autoClose: 1500,
+      });
     } catch {
       notifications.show({ message: 'Не вдалося завантажити пресет', color: 'red' });
     }

@@ -96,13 +96,7 @@ export const usePlaylist = create<PlaylistState>()(
         }),
       reorder: (from, to) =>
         set((s) => {
-          if (
-            from === to ||
-            from < 0 ||
-            to < 0 ||
-            from >= s.items.length ||
-            to >= s.items.length
-          )
+          if (from === to || from < 0 || to < 0 || from >= s.items.length || to >= s.items.length)
             return s;
           const items = [...s.items];
           const [moved] = items.splice(from, 1);

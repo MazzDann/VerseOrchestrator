@@ -471,7 +471,11 @@ function locationExists(
     params.push(verse);
   }
   sql += ' LIMIT 1';
-  return getDb().prepare(sql).get(...params) != null;
+  return (
+    getDb()
+      .prepare(sql)
+      .get(...params) != null
+  );
 }
 
 interface ReferenceResult {
@@ -580,9 +584,12 @@ export function resolveBookCandidates(token: string): number[] {
   for (const r of rows) {
     const nm = String(r.name_norm);
     let score: number;
-    if (nm.startsWith(token)) score = 1000 - nm.length; // exact-ish: shorter name is more specific
-    else if (nm.includes(` ${token}`)) score = 800 - nm.length; // token at a word boundary
-    else if (nm.length >= 2 && token.startsWith(nm)) score = 600 + nm.length; // longer abbr is more specific
+    if (nm.startsWith(token))
+      score = 1000 - nm.length; // exact-ish: shorter name is more specific
+    else if (nm.includes(` ${token}`))
+      score = 800 - nm.length; // token at a word boundary
+    else if (nm.length >= 2 && token.startsWith(nm))
+      score = 600 + nm.length; // longer abbr is more specific
     else continue;
     const bn = r.book_number as number;
     if (!best.has(bn) || score > (best.get(bn) as number)) best.set(bn, score);

@@ -76,7 +76,10 @@ function clientAddress(req: express.Request): string {
   const socketAddr = req.socket.remoteAddress ?? '';
   const fwd = req.get('x-forwarded-for');
   if (fwd && isOwnAddress(socketAddr)) {
-    const hops = fwd.split(',').map((s) => s.trim()).filter(Boolean);
+    const hops = fwd
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     return hops[hops.length - 1] ?? socketAddr;
   }
   return socketAddr;
@@ -144,7 +147,10 @@ app.get(
       for (const a of addrs ?? []) {
         if (a.family !== 'IPv4' || a.internal) continue;
         if (a.address.startsWith('169.254.')) continue; // link-local (no DHCP)
-        candidates.push({ ip: a.address, rank: rangeRank(a.address) + (VIRTUAL.test(name) ? 10 : 0) });
+        candidates.push({
+          ip: a.address,
+          rank: rangeRank(a.address) + (VIRTUAL.test(name) ? 10 : 0),
+        });
       }
     }
     candidates.sort((x, y) => x.rank - y.rank);
