@@ -1,6 +1,6 @@
 {
   "name": "@vo/server",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,11 +10,13 @@
   "dependencies": {
     "@vo/shared": "*",
     "better-sqlite3": "^12.11.1",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/express": "^4.17.21",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.19.2"
   }
 }
