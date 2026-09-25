@@ -79,16 +79,28 @@
 }
 
 .vo-verse-item {
-  /* Number column + text column: wrapped lines align under the text, not the number. */
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 6px 10px;
+  user-select: none;
+  line-height: 1.4;
+}
+/* Reading list row: number column + text column, so wrapped lines align under the
+   text, not the number. */
+.vo-verse-row {
   display: grid;
   grid-template-columns: 2.4em minmax(0, 68ch);
   column-gap: 10px;
-  cursor: pointer;
-  border-radius: 6px;
-  padding: 6px 10px 6px 4px;
-  user-select: none;
+  padding-left: 4px;
   font-size: 15px;
   line-height: 1.55;
+}
+/* Song stanza row: the same idea with a wider label column («Заголовок», «Куплет 12»). */
+.vo-stanza-row {
+  display: grid;
+  grid-template-columns: 5.2em minmax(0, 1fr);
+  column-gap: 10px;
+  padding-left: 4px;
 }
 .vo-verse-item:hover {
   background: var(--mantine-color-default-hover);

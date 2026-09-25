@@ -170,7 +170,7 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
         </Group>
       )}
       {(debounced.trim().length >= 2 || results.length > 0) && (
-        <ScrollArea.Autosize mah={320} mt="xs">
+        <ScrollArea.Autosize mah="min(320px, 30vh)" mt="xs">
           <Stack gap={0}>
             {results.map((r, i) => (
               <Box

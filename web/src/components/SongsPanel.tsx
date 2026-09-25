@@ -186,12 +186,12 @@ export function SongsPanel({
               { label: 'Простий текст', value: 'text' },
             ]}
           />
-          <ScrollArea.Autosize mah={340}>
+          <ScrollArea.Autosize mah="min(340px, 30vh)">
             <Stack gap={4}>
               {song.slides.map((s, i) => (
                 <Box
                   key={i}
-                  className="vo-verse-item"
+                  className="vo-verse-item vo-stanza-row"
                   role="button"
                   tabIndex={0}
                   data-selected={activeStanza === i ? 'true' : undefined}
@@ -203,9 +203,7 @@ export function SongsPanel({
                     }
                   }}
                 >
-                  <Text size="10px" c="dimmed" fw={600} tt="uppercase">
-                    {i === 0 ? 'Заголовок' : `Куплет ${i}`}
-                  </Text>
+                  <span className="vo-verse-num">{i === 0 ? 'Заголовок' : `Куплет ${i}`}</span>
                   <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={5}>
                     {s.text}
                   </Text>
@@ -230,7 +228,7 @@ export function SongsPanel({
               <IconX size={18} />
             </ActionIcon>
           </Group>
-          <ScrollArea.Autosize mah={320} mt="xs">
+          <ScrollArea.Autosize mah="min(320px, 30vh)" mt="xs">
             <Stack gap={0}>
               {songs.map((s) => (
                 <Box

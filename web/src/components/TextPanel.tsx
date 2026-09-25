@@ -117,7 +117,7 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
           <Text size="10px" c="dimmed" fw={600} tt="uppercase" mt="sm" mb={4}>
             Нещодавні
           </Text>
-          <ScrollArea.Autosize mah={200}>
+          <ScrollArea.Autosize mah="min(200px, 20vh)">
             <Stack gap={4}>
               {recentTexts.map((t) => (
                 <Box
