@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   createLibrary,
   FTS_INSERT_SQL,
+  ftsFillSql,
   ftsRow,
   ftsSourceSql,
   mergeSql,
@@ -81,8 +82,10 @@ describe('library segments', () => {
     expect(manifest.segments.find((s) => s.kind === 'songs')?.items).toBe(1);
   });
 
-  it('a translation segment is a working library on its own', async () => {
+  it('a translation segment is a working library on its own (after filling its FTS)', async () => {
     const seg = new Database(gunzip('t-1.vodb.gz'));
+    expect(seg.prepare('SELECT COUNT(*) n FROM verses_fts').get()).toEqual({ n: 0 }); // no index shipped
+    seg.exec(ftsFillSql('main'));
     const lib = createLibrary(driver(seg));
     expect((await lib.getTranslations()).map((t) => t.abbr)).toEqual(['UKR']);
     expect((await lib.getVerses(1, 500, 3))[0]).toMatchObject({
@@ -91,6 +94,23 @@ describe('library segments', () => {
     });
     expect((await lib.search('полюбив', [1])).results[0].translationId).toBe(1);
     expect((await lib.strongRefs('G2316', { translationId: 1 })).total).toBe(1);
+  });
+
+  it('translation segments ship normalized text; SQL fill = JS fill', async () => {
+    const seg = new Database(gunzip('t-1.vodb.gz'));
+    expect(seg.prepare('SELECT id, text_norm FROM verses_norm').all()).toEqual([
+      { id: 101, text_norm: normalizeForSearch('Так бо Бог <S>2316</S> полюбив світ') },
+    ]);
+    const tmp = path.join(dir, 't1.sql.db');
+    fs.writeFileSync(tmp, gunzip('t-1.vodb.gz'));
+    const work = new Database(':memory:');
+    work.exec(SCHEMA_SQL);
+    work.exec(`ATTACH '${tmp.replace(/'/g, "''")}' AS seg`);
+    for (const sql of mergeSql('seg')) work.exec(sql);
+    work.exec(ftsFillSql('seg'));
+    work.exec('DETACH seg');
+    const lib = createLibrary(driver(work));
+    expect((await lib.search('полюбив', [1])).results.map((r) => r.verse)).toEqual([16]);
   });
 
   it('segments merge into one working DB (what a browser engine does)', async () => {

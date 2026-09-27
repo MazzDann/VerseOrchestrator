@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import sqlite3InitModule, { type Database, type Sqlite3Static } from '@sqlite.org/sqlite-wasm';
-import { FTS_INSERT_SQL, ftsRow, ftsSourceSql, mergeSql, SCHEMA_SQL } from '@vo/shared';
+import { FTS_INSERT_SQL, ftsFillSql, ftsRow, ftsSourceSql, mergeSql, SCHEMA_SQL } from '@vo/shared';
 import type { EngineRequest, EngineResponse } from './protocol';
 
 /**
@@ -61,18 +61,28 @@ async function add(key: string, gz: ArrayBuffer): Promise<{ verses: number; byte
           /* table absent in an older segment — nothing to copy */
         }
       }
-      const ins = conn.prepare(FTS_INSERT_SQL);
-      try {
-        conn.exec({
-          sql: ftsSourceSql('seg'),
-          rowMode: 'object',
-          callback: (row) => {
-            ins.bind(ftsRow(row as Parameters<typeof ftsRow>[0])).stepReset();
-            verses += 1;
-          },
-        });
-      } finally {
-        ins.finalize();
+      const hasNorm = !!conn.selectValue(
+        "SELECT 1 FROM seg.sqlite_master WHERE type = 'table' AND name = 'verses_norm'",
+      );
+      verses = Number(conn.selectValue('SELECT COUNT(*) FROM seg.verses') ?? 0);
+      if (hasNorm) {
+        // Segment format ≥ 2: normalized text shipped → fill FTS with one SQL statement,
+        // entirely inside SQLite (≈4× faster than feeding rows from JS).
+        conn.exec(ftsFillSql('seg'));
+      } else {
+        // Older segments / dropped files: normalize in JS, one insert per verse.
+        const ins = conn.prepare(FTS_INSERT_SQL);
+        try {
+          conn.exec({
+            sql: ftsSourceSql('seg'),
+            rowMode: 'object',
+            callback: (row) => {
+              ins.bind(ftsRow(row as Parameters<typeof ftsRow>[0])).stepReset();
+            },
+          });
+        } finally {
+          ins.finalize();
+        }
       }
     });
     const info = { verses, bytes: raw.byteLength };
