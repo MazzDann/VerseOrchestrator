@@ -35,6 +35,8 @@ import { fileToDownscaledDataUrl } from '../lib/image';
 import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
+import { DataSourceSection } from './DataSourceSection';
+import { useDataSource } from '../dataSourceStore';
 import { openSettingsWindow } from '../openPresenter';
 
 const SECTIONS_KEY = 'vo:settingsSections';
@@ -45,6 +47,7 @@ export function SettingsPanel() {
   const set = useSettings((s) => s.setAppearance);
   const reset = useSettings((s) => s.resetAppearance);
   const template = useSettings((s) => s.slideTemplate);
+  const dataSource = useDataSource((s) => s.source);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
   const queryClient = useQueryClient();
@@ -391,8 +394,15 @@ export function SettingsPanel() {
         <Section
           value="app"
           title="Застосунок"
-          summary={placement === 'aside' ? 'прев’ю праворуч' : 'прев’ю внизу'}
+          summary={`${dataSource === 'local' ? 'дані в браузері' : 'дані з сервера'}, ${placement === 'aside' ? 'прев’ю праворуч' : 'прев’ю внизу'}`}
         >
+          {inSettingsWindow ? (
+            <Text size="xs" c="dimmed">
+              Джерело даних налаштовується в головному вікні керування.
+            </Text>
+          ) : (
+            <DataSourceSection />
+          )}
           <div>
             <Text size="sm" fw={500} mb={4}>
               Розташування панелі прев’ю

@@ -6,6 +6,7 @@ import { Notifications } from '@mantine/notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
+import { restoreLocalSegments } from './lib/engine/restore';
 import './styles.css';
 
 import { theme } from './theme';
@@ -29,6 +30,9 @@ window.addEventListener('storage', (e) => {
   if (e.key === 'vo:settings') void useSettings.persist.rehydrate();
   else if (e.key === 'vo:playlist') void usePlaylist.persist.rehydrate();
 });
+
+// The control window may read the library from the browser engine: reload its segments.
+if (window.location.pathname === '/') restoreLocalSegments();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
