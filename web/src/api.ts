@@ -167,7 +167,7 @@ const SegmentInfoSchema = z.object({
   sha256: z.string(),
 });
 export type SegmentInfo = z.infer<typeof SegmentInfoSchema>;
-const SegmentManifestSchema = z.object({
+export const SegmentManifestSchema = z.object({
   format: z.number(),
   createdAt: z.string(),
   segments: z.array(SegmentInfoSchema),

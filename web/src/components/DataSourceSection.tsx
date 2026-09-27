@@ -12,11 +12,12 @@ import {
 import { IconDatabase, IconDownload, IconTrash } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { api, type SegmentInfo } from '../api';
+import { type SegmentInfo } from '../api';
 import { useDataSource } from '../dataSourceStore';
 import { localEngine } from '../lib/engine';
 import type { LoadedSegment } from '../lib/engine/protocol';
-import { loadSegments } from '../lib/engine/restore';
+import { addDroppedFile, getManifest, loadSegments, segmentLabel } from '../lib/engine/restore';
+import { cacheAvailable, cacheUsage, clearCache, requestPersistence } from '../lib/engine/cache';
 
 const mb = (b: number) => `${(b / 1048576).toFixed(b < 10 * 1048576 ? 1 : 0)} МБ`;
 
@@ -32,7 +33,9 @@ export function DataSourceSection() {
   const setSource = useDataSource((s) => s.setSource);
   const setSegments = useDataSource((s) => s.setSegments);
 
-  const manifest = useQuery({ queryKey: ['segments'], queryFn: api.segments, retry: false });
+  // From the server, or the last one seen when it's unreachable (offline).
+  const manifest = useQuery({ queryKey: ['segments'], queryFn: getManifest, retry: false });
+  const usage = useQuery({ queryKey: ['segment-cache'], queryFn: cacheUsage });
   const [picked, setPicked] = useState<string[]>(remembered);
   const [loaded, setLoaded] = useState<LoadedSegment[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(
@@ -40,8 +43,13 @@ export function DataSourceSection() {
   );
   const [dragOver, setDragOver] = useState(false);
 
-  const refreshStatus = () => void localEngine.status().then(setLoaded);
-  useEffect(refreshStatus, []);
+  const refreshStatus = () => {
+    void localEngine.status().then(setLoaded);
+    void qc.invalidateQueries({ queryKey: ['segment-cache'] });
+  };
+  useEffect(() => {
+    void localEngine.status().then(setLoaded);
+  }, []);
 
   const byFile = useMemo(
     () => new Map((manifest.data?.segments ?? []).map((s) => [s.file, s])),
@@ -57,16 +65,24 @@ export function DataSourceSection() {
     setProgress({ done: 0, total: picked.length, label: '' });
     try {
       let done = 0;
+      void requestPersistence(); // keep the cache from being evicted
+      const stateLabel = {
+        cache: 'З кешу',
+        download: 'Завантаження',
+        merge: 'Збирання',
+        done: 'Готово',
+      };
       await loadSegments(picked, (file, state) => {
         if (state === 'done') done += 1;
         const s = byFile.get(file);
         setProgress({
           done,
           total: picked.length,
-          label: `${state === 'download' ? 'Завантаження' : state === 'merge' ? 'Збирання' : 'Готово'}: ${s?.abbr ?? file}`,
+          label: `${stateLabel[state]}: ${s?.abbr ?? file}`,
         });
       });
-      setSegments(picked);
+      // keep previously dropped files in the remembered set
+      setSegments([...picked, ...remembered.filter((k) => !byFile.has(k))]);
       setSource('local');
       switchedData();
       notifications.show({
@@ -93,10 +109,12 @@ export function DataSourceSection() {
     }
     setProgress({ done: 0, total: list.length, label: '' });
     try {
+      const keys: string[] = [];
       for (const [i, f] of list.entries()) {
         setProgress({ done: i, total: list.length, label: `Збирання: ${f.name}` });
-        await localEngine.add(f.name, await f.arrayBuffer());
+        keys.push(await addDroppedFile(f));
       }
+      setSegments([...useDataSource.getState().segments, ...keys]);
       setSource('local');
       switchedData();
       notifications.show({
@@ -121,6 +139,12 @@ export function DataSourceSection() {
     setSource('server');
     switchedData();
     refreshStatus();
+  };
+
+  const dropCache = async () => {
+    await clearCache();
+    refreshStatus();
+    notifications.show({ message: 'Кеш сегментів очищено', color: 'green', autoClose: 1500 });
   };
 
   const kindLabel: Record<SegmentInfo['kind'], string> = {
@@ -160,6 +184,11 @@ export function DataSourceSection() {
         </Text>
       </div>
 
+      {manifest.data?.offline && (
+        <Text size="xs" c="orange">
+          Сервер недоступний — список сегментів з кешу браузера; працюють лише збережені сегменти.
+        </Text>
+      )}
       {manifest.isError ? (
         <Text size="xs" c="dimmed">
           Сегменти на сервері не зібрано (npm run build:segments). Можна перетягнути файли сюди.
@@ -198,6 +227,24 @@ export function DataSourceSection() {
         </ScrollArea.Autosize>
       )}
 
+      {loaded.some((l) => !byFile.has(l.key)) && (
+        <div>
+          <Text size="xs" c="dimmed" mb={2}>
+            Перетягнуті файли
+          </Text>
+          {loaded
+            .filter((l) => !byFile.has(l.key))
+            .map((l) => (
+              <Text key={l.key} size="xs">
+                {segmentLabel(l.key)}{' '}
+                <Text span size="xs" c="dimmed">
+                  {l.verses} віршів
+                </Text>
+              </Text>
+            ))}
+        </div>
+      )}
+
       {progress ? (
         <div>
           <Progress value={(progress.done / progress.total) * 100} size="sm" animated />
@@ -226,6 +273,29 @@ export function DataSourceSection() {
             Очистити
           </Button>
         </Group>
+      )}
+
+      {cacheAvailable() ? (
+        <Group gap="xs" justify="space-between" wrap="nowrap">
+          <Text size="xs" c="dimmed">
+            Кеш браузера:{' '}
+            {usage.data ? `${usage.data.segments} сегм., ${mb(usage.data.bytes)}` : '…'}
+          </Text>
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            color="gray"
+            disabled={!usage.data?.segments}
+            onClick={() => void dropCache()}
+          >
+            Очистити кеш
+          </Button>
+        </Group>
+      ) : (
+        <Text size="xs" c="dimmed">
+          Кеш браузера недоступний (сторінка відкрита не через localhost/HTTPS) — сегменти щоразу
+          завантажуються з сервера.
+        </Text>
       )}
 
       <div
