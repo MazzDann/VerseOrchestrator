@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarize } from './slide';
+import { sameSlide, summarize } from './slide';
 import type { Slide } from '../presenterBus';
 
 const base: Slide = {
@@ -26,5 +26,43 @@ describe('summarize', () => {
   it('caps long text', () => {
     const long = { ...base, lines: [{ ...base.lines[0], text: 'а'.repeat(2000) }] };
     expect(summarize(long).text).toHaveLength(400);
+  });
+});
+
+describe('sameSlide', () => {
+  const styled = (bgImage: string | null): Slide => ({
+    ...base,
+    style: {
+      font: 'serif',
+      color: '#fff',
+      align: 'center',
+      bgColor: '#000',
+      bgImage,
+      showVerseNumbers: false,
+      padTop: 4,
+      padRight: 4,
+      padBottom: 4,
+      padLeft: 4,
+      padUnit: '%',
+      redLetter: true,
+      jesusColor: '#f00',
+      highlightColor: '#ff0',
+    },
+  });
+  const bg = `data:image/jpeg;base64,${'A'.repeat(10_000)}`;
+
+  it('treats a re-built identical slide as the same', () => {
+    expect(sameSlide(styled(bg), styled(bg))).toBe(true);
+    expect(sameSlide(base, { ...base, lines: [...base.lines] })).toBe(true);
+  });
+
+  it('sees any real change — text, state, style or background', () => {
+    expect(sameSlide(base, { ...base, blank: true })).toBe(false);
+    expect(sameSlide(base, { ...base, reference: 'Ів 3:17' })).toBe(false);
+    expect(sameSlide(styled(bg), styled(null))).toBe(false);
+    expect(sameSlide(styled(bg), styled(`${bg}B`))).toBe(false);
+    expect(
+      sameSlide(styled(bg), { ...styled(bg), style: { ...styled(bg).style!, color: '#eee' } }),
+    ).toBe(false);
   });
 });

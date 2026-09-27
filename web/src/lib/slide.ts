@@ -8,6 +8,19 @@ export function sameContent(a: Slide, b: Slide): boolean {
   return a.lines.every((l, i) => l.text === b.lines[i].text);
 }
 
+/**
+ * Exactly the same slide (text, state, style, template, reveal)? The background image —
+ * a data URL of up to ~1.5 MB — is compared on its own: the same string instance (the
+ * appearance setting) is equal in O(1), so re-projecting never serializes it.
+ */
+export function sameSlide(a: Slide, b: Slide): boolean {
+  if (a === b) return true;
+  if ((a.style?.bgImage ?? null) !== (b.style?.bgImage ?? null)) return false;
+  const rest = (s: Slide) =>
+    JSON.stringify(s.style ? { ...s, style: { ...s.style, bgImage: null } } : s);
+  return rest(a) === rest(b);
+}
+
 /** What a speaker remote needs to know about a slide — compact, no styling or images. */
 export interface ScreenSummary {
   status: 'live' | 'blank' | 'black' | 'empty';
