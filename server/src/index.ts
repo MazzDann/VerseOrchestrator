@@ -3,23 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import {
-  ApiError,
-  closeDb,
-  getTranslations,
-  getBooks,
-  getChapters,
-  getVerses,
-  search,
-  lookupStrong,
-  lookupWord,
-  strongRefs,
-  getCrossrefs,
-  getCommentary,
-  searchSongs,
-  getSong,
-  listDictionaries,
-} from './db.js';
+import { ApiError, closeDb, library } from './db.js';
 import { isLocalRequest } from './access.js';
 import {
   attachLiveHub,
@@ -69,19 +53,23 @@ function asInt(value: unknown, name: string): number {
   return n;
 }
 
+/**
+ * Route adapter: runs a (sync or async) handler and maps errors to JSON — an ApiError
+ * (the library's LibraryError) keeps its status, anything else is a 500.
+ */
 const wrap =
-  (handler: (req: express.Request, res: express.Response) => void) =>
+  (handler: (req: express.Request, res: express.Response) => unknown) =>
   (req: express.Request, res: express.Response) => {
-    try {
-      handler(req, res);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        res.status(err.status).json({ error: err.message });
-      } else {
-        console.error(err);
-        res.status(500).json({ error: (err as Error).message });
-      }
-    }
+    Promise.resolve()
+      .then(() => handler(req, res))
+      .catch((err) => {
+        if (err instanceof ApiError) {
+          res.status(err.status).json({ error: err.message });
+        } else {
+          console.error(err);
+          res.status(500).json({ error: (err as Error).message });
+        }
+      });
   };
 
 /**
@@ -229,26 +217,33 @@ app.get(
 
 app.get(
   '/api/translations',
-  wrap((_req, res) => res.json(getTranslations())),
+  wrap(async (_req, res) => res.json(await library().getTranslations())),
 );
 
 app.get(
   '/api/translations/:id/books',
-  wrap((req, res) => res.json(getBooks(asInt(req.params.id, 'translation id')))),
+  wrap(async (req, res) =>
+    res.json(await library().getBooks(asInt(req.params.id, 'translation id'))),
+  ),
 );
 
 app.get(
   '/api/translations/:id/books/:book/chapters',
-  wrap((req, res) =>
-    res.json(getChapters(asInt(req.params.id, 'translation id'), asInt(req.params.book, 'book'))),
+  wrap(async (req, res) =>
+    res.json(
+      await library().getChapters(
+        asInt(req.params.id, 'translation id'),
+        asInt(req.params.book, 'book'),
+      ),
+    ),
   ),
 );
 
 app.get(
   '/api/translations/:id/books/:book/chapters/:chapter/verses',
-  wrap((req, res) =>
+  wrap(async (req, res) =>
     res.json(
-      getVerses(
+      await library().getVerses(
         asInt(req.params.id, 'translation id'),
         asInt(req.params.book, 'book'),
         asInt(req.params.chapter, 'chapter'),
@@ -259,13 +254,13 @@ app.get(
 
 app.get(
   '/api/songs',
-  wrap((req, res) => res.json(searchSongs(String(req.query.q ?? '')))),
+  wrap(async (req, res) => res.json(await library().searchSongs(String(req.query.q ?? '')))),
 );
 
 app.get(
   '/api/songs/:id',
-  wrap((req, res) => {
-    const song = getSong(asInt(req.params.id, 'song id'));
+  wrap(async (req, res) => {
+    const song = await library().getSong(asInt(req.params.id, 'song id'));
     if (!song) throw new ApiError(404, 'Song not found');
     res.json(song);
   }),
@@ -273,24 +268,29 @@ app.get(
 
 app.get(
   '/api/dictionaries',
-  wrap((_req, res) => res.json(listDictionaries())),
+  wrap(async (_req, res) => res.json(await library().listDictionaries())),
 );
 
 app.get(
   '/api/strong/:num',
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const book = req.query.book != null ? Number(req.query.book) : undefined;
-    res.json(lookupStrong(String(req.params.num), Number.isFinite(book) ? book : undefined));
+    res.json(
+      await library().lookupStrong(
+        String(req.params.num),
+        Number.isFinite(book) ? book : undefined,
+      ),
+    );
   }),
 );
 
 app.get(
   '/api/strong/:num/refs',
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const translation = req.query.translation != null ? Number(req.query.translation) : undefined;
     const limit = req.query.limit != null ? Number(req.query.limit) : undefined;
     res.json(
-      strongRefs(String(req.params.num), {
+      await library().strongRefs(String(req.params.num), {
         translationId:
           translation != null && Number.isInteger(translation) && translation > 0
             ? translation
@@ -303,17 +303,17 @@ app.get(
 
 app.get(
   '/api/dict',
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const q = String(req.query.q ?? '').trim();
-    res.json(q ? lookupWord(q) : []);
+    res.json(q ? await library().lookupWord(q) : []);
   }),
 );
 
 app.get(
   '/api/crossrefs',
-  wrap((req, res) =>
+  wrap(async (req, res) =>
     res.json(
-      getCrossrefs(
+      await library().getCrossrefs(
         asInt(req.query.book, 'book'),
         asInt(req.query.chapter, 'chapter'),
         asInt(req.query.verse, 'verse'),
@@ -324,9 +324,9 @@ app.get(
 
 app.get(
   '/api/commentary',
-  wrap((req, res) =>
+  wrap(async (req, res) =>
     res.json(
-      getCommentary(
+      await library().getCommentary(
         asInt(req.query.book, 'book'),
         asInt(req.query.chapter, 'chapter'),
         asInt(req.query.verse, 'verse'),
@@ -337,7 +337,7 @@ app.get(
 
 app.get(
   '/api/search',
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const q = String(req.query.q ?? '').trim();
     if (!q) {
       res.json({ kind: 'empty', results: [] });
@@ -351,7 +351,7 @@ app.get(
       .filter((s) => s !== '')
       .map(Number)
       .filter((n) => Number.isInteger(n) && n > 0);
-    res.json(search(q, translations));
+    res.json(await library().search(q, translations));
   }),
 );
 
