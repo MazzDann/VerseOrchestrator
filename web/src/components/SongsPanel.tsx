@@ -16,13 +16,19 @@ import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconMusic, IconX, IconChevronLeft, IconPlaylistAdd } from '@tabler/icons-react';
 import { api, type SongStyle } from '../api';
+import type { SlideSource } from '../presenterBus';
 import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   /** Project a stanza; `style` (when in faithful mode) reproduces the original pptx look. */
-  onProjectStanza: (text: string, reference: string, style?: SongStyle | null) => void;
+  onProjectStanza: (
+    text: string,
+    reference: string,
+    style: SongStyle | null,
+    source: SlideSource,
+  ) => void;
   /** Open song (controlled by the parent so the playlist can open a specific song). */
   songId: number | null;
   onSongIdChange: (id: number | null) => void;
@@ -88,6 +94,7 @@ export function SongsPanel({
         s.slides[idx].text,
         `№${s.number ?? ''} ${s.title}`.trim(),
         faithful ? s.slides[idx].style : null,
+        { kind: 'song', songId: s.id, stanza: idx },
       );
       return { ok: true };
     },
@@ -132,6 +139,7 @@ export function SongsPanel({
       slide.text,
       song ? `№${song.number ?? ''} ${song.title}`.trim() : '',
       faithful ? slide.style : null,
+      { kind: 'song', songId: song?.id ?? songId ?? 0, stanza: idx },
     );
   };
 

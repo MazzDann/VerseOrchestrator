@@ -72,6 +72,7 @@ import {
   type SlideStyle,
   type SlideTemplate,
   type SlideReveal,
+  type SlideSource,
   type TextSpan,
 } from '../presenterBus';
 import { parseRedLetter, strongLangFor } from '@vo/shared';
@@ -93,6 +94,7 @@ import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
 import { useOutputWindows } from '../lib/outputs';
 import { useControlLeader } from '../lib/leader';
+import { planTakeover } from '../lib/takeover';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
 import { commands, PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
@@ -477,6 +479,16 @@ export function Control() {
         }
       : undefined;
 
+  /** Where a verse slide comes from (1.4.10, SlideSource): the selection, page, reveal step. */
+  const verseSource = (
+    verses: number[] = selectedVerses,
+    page: number = safePageIndex,
+    reveal: number = revealCount,
+  ): SlideSource | undefined =>
+    bookNumber != null && chapter != null && verses.length > 0
+      ? { kind: 'verses', translationIds: selectedIds, bookNumber, chapter, verses, page, reveal }
+      : undefined;
+
   // WYSIWYG of the current page — what would be projected for the verse selection.
   const versePreview: Slide = {
     lines: slideLines,
@@ -593,6 +605,13 @@ export function Control() {
   // measured): each copy re-rendered this window, went to every output window, the
   // remotes' «screen» frame and the phones. An identical slide is now a no-op.
   const lastPushed = useRef<Slide | null>(null);
+  /** A takeover still restoring page / reveal (1.4.10): key = the selection it waits for. */
+  const adopting = useRef<{
+    key: string;
+    page: number;
+    reveal: number;
+    override: Slide | null;
+  } | null>(null);
   const pushLive = (slide: Slide) => {
     if (!leaderRef.current) return; // standby: never overrides the leader's screen
     if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
@@ -620,6 +639,7 @@ export function Control() {
       style: slideStyle,
       template: slideTemplate,
       reveal: revealForSlide,
+      source: verseSource(),
       ...overrides,
     };
     pushLive(slide);
@@ -652,6 +672,7 @@ export function Control() {
       style: slideStyle,
       template: slideTemplate,
       subline,
+      source: verseSource(),
     };
     pushLive(slide);
     setPreviewOverride(slide);
@@ -665,7 +686,12 @@ export function Control() {
 
   // Project a text slide (song stanza). With `faithful`, reproduce the pptx look
   // (its background/colour/font/bold + a positioned quote box); else use the app style.
-  const projectText = (text: string, reference: string, faithful?: SongStyle | null) => {
+  const projectText = (
+    text: string,
+    reference: string,
+    faithful?: SongStyle | null,
+    source?: SlideSource,
+  ) => {
     if (!text.trim()) return;
     let style = slideStyle;
     let template = slideTemplate;
@@ -704,6 +730,7 @@ export function Control() {
       visible: true,
       style,
       template,
+      source,
     };
     pushLive(slide);
     setPreviewOverride(slide);
@@ -765,6 +792,15 @@ export function Control() {
       visible: true,
       style: slideStyle,
       template: slideTemplate,
+      source: {
+        kind: 'verses',
+        translationIds: it.translationIds,
+        bookNumber: it.bookNumber,
+        chapter: it.chapter,
+        verses: it.verses,
+        page: 0,
+        reveal: 1,
+      },
     });
     setPreviewOverride(null);
     setLive(true);
@@ -785,6 +821,7 @@ export function Control() {
           s.slides[0].text,
           `№${s.number ?? ''} ${s.title}`.trim(),
           it.faithful ? s.slides[0].style : null,
+          { kind: 'song', songId: it.songId, stanza: 0 },
         );
         // Seed the panel's stanza highlight to 0 so the first arrow/clicker advances
         // to stanza 1 (not re-projects the title we just put on screen).
@@ -865,6 +902,7 @@ export function Control() {
   // (slideLines gets a fresh identity every render via useQueries). Navigating the
   // verses clears the override, after which live-follow resumes.
   useEffect(() => {
+    if (adopting.current) return; // taking over: the screen stays until page/reveal are set
     if (liveFollow && live && slideLines.length > 0 && !previewOverride) send();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -983,6 +1021,22 @@ export function Control() {
     setRevealCount(1);
   }, [selectedVerses, safePageIndex, primaryId]);
 
+  // Taking over (1.4.10): once the adopted selection is in, restore its page, then its
+  // reveal step and a Strong slide — declared after the reset effects above, so it runs
+  // after them in the same commit and wins. Live-follow waits until this is done.
+  useEffect(() => {
+    const a = adopting.current;
+    if (!a || JSON.stringify([selectedIds, bookNumber, chapter, selectedVerses]) !== a.key) return;
+    const page = Math.min(a.page, Math.max(0, pageCount - 1));
+    if (safePageIndex !== page) {
+      setPageIndex(page);
+      return;
+    }
+    setRevealCount(a.reveal);
+    if (a.override) setPreviewOverride(a.override);
+    adopting.current = null;
+  }, [selectedIds, bookNumber, chapter, selectedVerses, safePageIndex, pageCount]);
+
   // Hotkeys are user-rebindable (settingsStore.keymap; defaults in hotkeys.ts).
   // "advanceNext/Prev" default to arrows + PageDown/PageUp (the keys USB clickers emit).
   useHotkeys(keymap.advanceNext, () => advance(1), [
@@ -1065,6 +1119,7 @@ export function Control() {
       visible: true,
       style: slideStyle,
       template: slideTemplate,
+      source: verseSource([verseNum], 0, 1),
     });
     setLive(true);
     setPreviewOverride(null);
@@ -1095,7 +1150,14 @@ export function Control() {
 
   const blankScreen = () => {
     if (!leaderRef.current) return standbyNotice();
-    pushLive({ lines: slideLines, reference, blank: true, visible: true, style: slideStyle });
+    pushLive({
+      lines: slideLines,
+      reference,
+      blank: true,
+      visible: true,
+      style: slideStyle,
+      source: verseSource(),
+    });
     setLive(false);
     notifications.show({ message: 'Екран затемнено', color: 'gray', autoClose: 1500 });
   };
@@ -1154,12 +1216,61 @@ export function Control() {
   // (the «На екрані» monitor stays true). Becoming leader — at start, when the leading
   // window closes, or on «Взяти керування»: take the screen over as it is (republished
   // under this window's session, nothing visibly changes) and publish this window's «next».
+  //
+  // Taking over after another window led (1.4.10) — not at start, when nobody else did —
+  // also stands this window on what is on screen (lib/takeover.ts): the selection, page
+  // and reveal step, or the song and stanza, so its first «Далі» continues the show.
+  const mirrored = useRef(false);
+  /** A song taken over: «live» goes on only once its slide is the preview override. */
+  const songTakeover = useRef<Slide | null>(null);
+  const adoptScreen = (screen: Slide) => {
+    const t = planTakeover(screen);
+    if (t.kind === 'verses') {
+      const a = {
+        key: JSON.stringify([t.translationIds, t.bookNumber, t.chapter, t.verses]),
+        page: t.page,
+        reveal: t.reveal,
+        override: t.override,
+      };
+      adopting.current = a;
+      setTranslations(t.translationIds);
+      selectBook(t.bookNumber);
+      selectChapter(t.chapter);
+      setSelectedVerses(t.verses);
+      setLive(t.live);
+      setScrollTarget(t.verses[0]);
+      // never stuck: give up restoring page/reveal if the selection doesn't arrive
+      window.setTimeout(() => {
+        if (adopting.current === a) adopting.current = null;
+      }, 2000);
+    } else if (t.kind === 'song') {
+      openSong(t.songId);
+      setSongsPanelStanza(t.stanza);
+      setSongsOpen(true);
+      // «live» now would render before the override lands (the store updates first) and
+      // live-follow would push this window's verses over the song for a moment
+      songTakeover.current = t.override;
+      setPreviewOverride(t.override);
+    }
+  };
+  useEffect(() => {
+    if (!songTakeover.current || previewOverride !== songTakeover.current) return;
+    songTakeover.current = null;
+    setLive(true);
+  }, [previewOverride, setLive]);
   useEffect(() => {
     setPublishing(isLeader);
-    if (!isLeader) return subscribeSlide((s) => setLiveSlide(s));
+    if (!isLeader) {
+      return subscribeSlide((s) => {
+        mirrored.current = true; // another window leads and publishes
+        setLiveSlide(s);
+      });
+    }
     lastPushed.current = null;
     pushLive(liveSlideRef.current);
     publishNext(nextSlideRef.current);
+    if (mirrored.current) adoptScreen(liveSlideRef.current);
+    mirrored.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLeader]);
   /** Audience phones currently on /follow (pushed by the hub). */
