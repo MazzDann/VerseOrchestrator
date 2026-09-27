@@ -31,7 +31,15 @@ import {
   publishLive,
   viewerCount,
 } from './live.js';
-import { createPairing, listPairings, revokePairing } from './remote.js';
+import {
+  createPairing,
+  initRemoteStore,
+  listPairings,
+  reissuePairing,
+  revokePairing,
+  setRemotePersistence,
+} from './remote.js';
+import { getServerSettings, initServerSettings, updateServerSettings } from './serverSettings.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -43,6 +51,14 @@ const PORT = Number(process.env.PORT ?? 8787);
  */
 const HOST = process.env.HOST ?? '127.0.0.1';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+/**
+ * Server-side state files (git-ignored): `settings.json` = options, `secrets.json` =
+ * remote tokens (hashed) and any future credentials. Kept apart so options can be shared
+ * or edited freely while secrets stay private.
+ */
+const dataDir = process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data');
+const settings = initServerSettings(path.join(dataDir, 'settings.json'));
+initRemoteStore({ file: path.join(dataDir, 'secrets.json'), persist: settings.remotes.persist });
 
 /** A library rebuild (builder process) is in flight — guard against overlapping runs. */
 let rebuilding = false;
@@ -137,6 +153,34 @@ app.get(
   '/api/remote',
   requireLocal,
   wrap((_req, res) => res.json(listPairings(isRemoteOnline))),
+);
+
+app.post(
+  '/api/remote/:id/reissue',
+  requireLocalControl,
+  wrap((req, res) => {
+    const p = reissuePairing(String(req.params.id));
+    if (!p) throw new ApiError(404, 'Пульт не знайдено');
+    dropRemote(p.id, 'reissued'); // the phone holding the old code loses control now
+    res.json({ id: p.id, name: p.name, allowed: p.allowed, token: p.token });
+  }),
+);
+
+/** Server options (settings.json) — never secrets. */
+app.get(
+  '/api/server-settings',
+  requireLocal,
+  wrap((_req, res) => res.json(getServerSettings())),
+);
+
+app.put(
+  '/api/server-settings',
+  requireLocalControl,
+  wrap((req, res) => {
+    const next = updateServerSettings(req.body);
+    setRemotePersistence(next.remotes.persist); // off → secrets.json no longer lists remotes
+    res.json(next);
+  }),
 );
 
 app.delete(

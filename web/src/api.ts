@@ -148,6 +148,11 @@ const PairingSchema = z.object({
 });
 export type Pairing = z.infer<typeof PairingSchema>;
 
+const ServerSettingsSchema = z.object({
+  version: z.number(),
+  remotes: z.object({ persist: z.boolean() }),
+});
+
 export const api = {
   translations: () => getJson('/api/translations', z.array(TranslationSchema)),
   books: (id: number) => getJson(`/api/translations/${id}/books`, z.array(BookSchema)),
@@ -231,6 +236,28 @@ export const api = {
         token: z.string(),
       })
       .parse(await res.json());
+  },
+  /** New code for an existing remote: the phone holding the old one loses control. */
+  reissueRemote: async (id: string) => {
+    const res = await request(`/api/remote/${encodeURIComponent(id)}/reissue`, {
+      method: 'POST',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({ id: z.string(), name: z.string(), token: z.string() })
+      .parse(await res.json());
+  },
+  /** Server options (data/settings.json) — not secrets. */
+  serverSettings: () => getJson('/api/server-settings', ServerSettingsSchema),
+  updateServerSettings: async (patch: { remotes?: { persist?: boolean } }) => {
+    const res = await request('/api/server-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw await failure(res);
+    return ServerSettingsSchema.parse(await res.json());
   },
   revokeRemote: async (id: string) => {
     const res = await request(`/api/remote/${encodeURIComponent(id)}`, {

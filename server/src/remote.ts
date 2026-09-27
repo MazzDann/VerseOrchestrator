@@ -1,9 +1,14 @@
-import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { readJson, writeJson } from './jsonFile.js';
 
 /**
  * Speaker remotes: phones paired by the operator (QR) that may send a SCOPED set of
- * commands to the control window. Pairings live in memory only — a server restart
- * revokes them all, which is the safe default for a live-event tool.
+ * commands to the control window.
+ *
+ * Only a SHA-256 of each token is kept — in memory and on disk. The plain token exists
+ * once, in the create/reissue response (→ QR); a leaked secrets file can't be used to
+ * drive the show. Pairings persist in `<data>/secrets.json` when the server setting
+ * `remotes.persist` is on (see serverSettings.ts); otherwise a restart revokes them all.
  */
 
 /** Commands a remote may send. Settings, library rebuild etc. are never remote-able. */
@@ -16,25 +21,98 @@ export const DEFAULT_ALLOWED: RemoteCommand[] = ['next', 'prev', 'blank'];
 export interface Pairing {
   id: string;
   name: string;
-  token: string;
+  /** hex SHA-256 of the token */
+  tokenHash: string;
   allowed: RemoteCommand[];
   createdAt: number;
   lastSeen: number | null;
 }
 
-const pairings = new Map<string, Pairing>();
+interface SecretsFile {
+  version: 1;
+  remotes: Pairing[];
+}
 
-export function createPairing(name: string, allowed?: unknown): Pairing {
+const pairings = new Map<string, Pairing>();
+let secretsFile: string | null = null;
+let persist = false;
+
+const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
+const newToken = () => randomBytes(18).toString('base64url');
+
+/** Read persisted pairings (call once at startup). */
+export function initRemoteStore(opts: { file: string | null; persist: boolean }): void {
+  secretsFile = opts.file;
+  persist = opts.persist;
+  pairings.clear();
+  if (!secretsFile || !persist) return;
+  const data = readJson<Partial<SecretsFile>>(secretsFile, { version: 1, remotes: [] });
+  for (const raw of Array.isArray(data.remotes) ? data.remotes : []) {
+    if (!raw || typeof raw.id !== 'string' || !/^[0-9a-f]{64}$/.test(String(raw.tokenHash)))
+      continue;
+    pairings.set(raw.id, {
+      id: raw.id,
+      name: String(raw.name ?? 'Пульт').slice(0, 40),
+      tokenHash: raw.tokenHash,
+      allowed: sanitizeAllowed(raw.allowed),
+      createdAt: Number(raw.createdAt) || Date.now(),
+      lastSeen: typeof raw.lastSeen === 'number' ? raw.lastSeen : null,
+    });
+  }
+}
+
+/** Turn persistence on/off at runtime (server setting changed). Off also wipes the file. */
+export function setRemotePersistence(on: boolean): void {
+  persist = on;
+  save();
+}
+
+function save(): void {
+  if (!secretsFile) return;
+  const remotes = persist ? [...pairings.values()] : [];
+  writeJson(secretsFile, { version: 1, remotes } satisfies SecretsFile, { secret: true });
+}
+
+/** lastSeen changes on every press — batch those writes. */
+let saveTimer: NodeJS.Timeout | null = null;
+function saveSoon(): void {
+  if (!persist || !secretsFile || saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    save();
+  }, 5000);
+  saveTimer.unref?.();
+}
+
+export function touchPairing(p: Pairing): void {
+  p.lastSeen = Date.now();
+  saveSoon();
+}
+
+/** Create a pairing; the returned `token` is the only time it exists in plain form. */
+export function createPairing(name: string, allowed?: unknown): Pairing & { token: string } {
+  const token = newToken();
   const p: Pairing = {
     id: randomUUID(),
     name: name.trim().slice(0, 40) || `Пульт ${pairings.size + 1}`,
-    token: randomBytes(18).toString('base64url'),
+    tokenHash: hashToken(token),
     allowed: sanitizeAllowed(allowed),
     createdAt: Date.now(),
     lastSeen: null,
   };
   pairings.set(p.id, p);
-  return p;
+  save();
+  return { ...p, token };
+}
+
+/** Issue a new token for an existing pairing (the old one stops working at once). */
+export function reissuePairing(id: string): (Pairing & { token: string }) | null {
+  const p = pairings.get(id);
+  if (!p) return null;
+  const token = newToken();
+  p.tokenHash = hashToken(token);
+  save();
+  return { ...p, token };
 }
 
 export function sanitizeAllowed(raw: unknown): RemoteCommand[] {
@@ -43,26 +121,28 @@ export function sanitizeAllowed(raw: unknown): RemoteCommand[] {
   return [...new Set(ok)];
 }
 
-/** Constant-time token lookup (don't leak which prefix matched). */
+/** Constant-time lookup by hash (don't leak which pairing / prefix matched). */
 export function findByToken(token: unknown): Pairing | null {
   if (typeof token !== 'string' || token.length < 10) return null;
-  const a = Buffer.from(token);
+  const h = Buffer.from(hashToken(token), 'hex');
+  let found: Pairing | null = null;
   for (const p of pairings.values()) {
-    const b = Buffer.from(p.token);
-    if (a.length === b.length && timingSafeEqual(a, b)) return p;
+    if (timingSafeEqual(h, Buffer.from(p.tokenHash, 'hex'))) found = p;
   }
-  return null;
+  return found;
 }
 
 export function revokePairing(id: string): boolean {
-  return pairings.delete(id);
+  const ok = pairings.delete(id);
+  if (ok) save();
+  return ok;
 }
 
 export function getPairing(id: string): Pairing | undefined {
   return pairings.get(id);
 }
 
-/** Public view for the control UI — never includes the token after creation. */
+/** Public view for the control UI — never includes the token or its hash. */
 export function listPairings(online: (id: string) => boolean) {
   return [...pairings.values()].map((p) => ({
     id: p.id,

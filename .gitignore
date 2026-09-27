@@ -11,6 +11,10 @@ data/library.db
 data/library.db-wal
 data/library.db-shm
 data/modules/
+# Server state: options + secrets (remote-token hashes, future credentials) — never commit
+data/settings.json
+data/secrets.json
+data/*.tmp
 
 # Bible modules live here in the project (large binaries, not version-controlled)
 modules/

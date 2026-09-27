@@ -1,7 +1,13 @@
 import type { IncomingMessage, Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { isLocalRequest } from './access.js';
-import { findByToken, getPairing, isRemoteCommand, type RemoteCommand } from './remote.js';
+import {
+  findByToken,
+  getPairing,
+  isRemoteCommand,
+  touchPairing,
+  type RemoteCommand,
+} from './remote.js';
 
 /**
  * Live hub: the in-memory "what's on screen now" state plus a WebSocket channel at
@@ -109,12 +115,20 @@ export function notifyRemotesChanged(): void {
   for (const c of sockets('control')) send(c, { type: 'remotes' });
 }
 
-/** Disconnect every socket of a revoked pairing. */
-export function dropRemote(pairingId: string): void {
+/**
+ * Disconnect every socket of a pairing: `revoked` (pairing deleted, close 4001) or
+ * `reissued` (a new code was issued — the phone must scan the new QR, close 4002).
+ */
+export function dropRemote(pairingId: string, why: 'revoked' | 'reissued' = 'revoked'): void {
   for (const c of sockets('remote')) {
     if (meta.get(c)?.pairingId === pairingId) {
-      send(c, { type: 'revoked' });
-      c.close(4001, 'revoked');
+      if (why === 'revoked') send(c, { type: 'revoked' });
+      else
+        send(c, {
+          type: 'denied',
+          reason: 'Код цього пульта перевипущено. Відскануйте новий QR у вікні керування.',
+        });
+      c.close(why === 'revoked' ? 4001 : 4002, why);
     }
   }
   notifyRemotesChanged();
@@ -152,7 +166,7 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     }
     m.role = 'remote';
     m.pairingId = p.id;
-    p.lastSeen = Date.now();
+    touchPairing(p);
     send(ws, { type: 'welcome', role: 'remote', name: p.name, allowed: p.allowed });
     send(ws, { type: 'screen', ...screenState });
     notifyRemotesChanged();
@@ -173,7 +187,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
     return send(ws, { type: 'ack', cmd, ok: false, reason: 'Забагато натискань' });
   }
   m.recent.push(now);
-  p.lastSeen = now;
+  touchPairing(p);
   const controls = sockets('control');
   if (controls.length === 0) {
     return send(ws, { type: 'ack', cmd, ok: false, reason: 'Вікно керування не відкрите' });
