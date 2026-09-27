@@ -68,6 +68,7 @@ export function OutputsPanel() {
   windowsRef.current = windows;
   const multiple = useSettings((s) => s.outputs.multiple);
   const fullscreen = useSettings((s) => s.outputs.fullscreen);
+  const separate = useSettings((s) => s.outputs.separate);
   const layout = useSettings((s) => s.outputs.layout);
   const setOutputs = useSettings((s) => s.setOutputs);
   const [screens, setScreens] = useState<ScreenInfo[]>([]);
@@ -87,10 +88,12 @@ export function OutputsPanel() {
   );
 
   const labels = outputLabels(windows);
-  const opened = (w: Window | null, what: string) => {
-    if (!w) {
+  const opened = (ok: boolean, what: string) => {
+    if (!ok) {
       notifications.show({
-        message: 'Браузер заблокував вікно — дозвольте спливні вікна для цього сайту',
+        message: separate
+          ? 'Вікно не озвалося — можливо, браузер його заблокував: дозвольте спливні вікна для цього сайту'
+          : 'Браузер заблокував вікно — дозвольте спливні вікна для цього сайту',
         color: 'red',
       });
     } else {
@@ -153,8 +156,7 @@ export function OutputsPanel() {
       const s =
         now.find((x) => x.key === item.screenKey) ?? now.find((x) => x.label === item.screenLabel);
       if (!s) continue;
-      const w = await openOutput(item.kind, { screen: s, another: seen[item.kind]++ > 0 });
-      if (w) ok++;
+      if (await openOutput(item.kind, { screen: s, another: seen[item.kind]++ > 0 })) ok++;
     }
     notifications.show(
       ok === layout.length
@@ -365,10 +367,22 @@ export function OutputsPanel() {
         />
         <Switch
           size="xs"
-          checked={fullscreen}
+          checked={fullscreen && !separate}
+          disabled={separate}
           onChange={(e) => setOutputs({ fullscreen: e.currentTarget.checked })}
           label="Відкривати на весь екран"
-          description="Нове вікно стає на весь екран з вашим наступним кліком у цьому вікні — по одному вікну на клік (Chrome, Edge); в інших браузерах — F у самому вікні"
+          description={
+            separate
+              ? 'З окремими процесами вікно стає на весь екран клавішею F або кліком у ньому самому'
+              : 'Нове вікно стає на весь екран з вашим наступним кліком у цьому вікні — по одному вікну на клік (Chrome, Edge); в інших браузерах — F у самому вікні'
+          }
+        />
+        <Switch
+          size="xs"
+          checked={separate}
+          onChange={(e) => setOutputs({ separate: e.currentTarget.checked })}
+          label="Окремий процес для кожного вікна"
+          description="Збій одного вікна виводу не зачепить вікно керування й інші вікна (Chrome, Edge). Діє для нових вікон; на весь екран — F або клік у самому вікні"
         />
         {/* natural widths: a narrow panel wraps them to two rows instead of cutting labels */}
         <Group gap="xs">

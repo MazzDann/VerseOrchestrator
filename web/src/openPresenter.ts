@@ -1,4 +1,11 @@
-import { CONTROL_PAGE_ID, outputs, type OutputInfo, type OutputKind } from './lib/outputs';
+import {
+  CONTROL_PAGE_ID,
+  currentOutputs,
+  outputs,
+  waitForNewOutput,
+  type OutputInfo,
+  type OutputKind,
+} from './lib/outputs';
 import { featuresFor, listScreens, type ScreenInfo } from './lib/screens';
 import { delegateFullscreen } from './lib/fullscreen';
 import { useSettings } from './settingsStore';
@@ -145,32 +152,35 @@ export function fullscreenOutput(o: Target, on: boolean): boolean {
   return !!w && delegateFullscreen(w, true);
 }
 
+/** How long a window opened with `noopener` may take to announce itself (dev build: ~1–3 s). */
+const ANNOUNCE_MS = 10_000;
+
 /**
- * Open an output window. `screen` — where (default: the first secondary screen, if the
- * browser tells us about screens; asking may show its permission prompt, so call this
- * from a user action). `another` — a new window even if one of this kind is open;
- * otherwise the open one is brought forward (and moved, when a screen is given).
- * `fullscreen` (default: the «Відкривати на весь екран» setting) — an open window is
- * asked at once; a new one gets the operator's next click (Chrome/Edge, lib/fullscreen.ts).
+ * Open an output window; resolves to whether it opened (false: the browser blocked it).
+ * `screen` — where (default: the first secondary screen, if the browser tells us about
+ * screens; asking may show its permission prompt, so call this from a user action).
+ * `another` — a new window even if one of this kind is open; otherwise the open one is
+ * brought forward (and moved, when a screen is given). `fullscreen` (default: the
+ * «Відкривати на весь екран» setting) — an open window is asked at once; a new one gets
+ * the operator's next click (Chrome/Edge, lib/fullscreen.ts). With «Окремий процес»
+ * (1.4.13) the window opens with `noopener` — see openSeparate.
  */
 export async function openOutput(
   kind: OutputKind,
   opts: { screen?: ScreenInfo; another?: boolean; fullscreen?: boolean } = {},
-): Promise<Window | null> {
+): Promise<boolean> {
   const name = opts.another ? `vo-${kind}-${Date.now().toString(36)}` : `vo-${kind}`;
-  const fullscreen = opts.fullscreen ?? useSettings.getState().outputs.fullscreen;
+  const settings = useSettings.getState().outputs;
+  if (settings.separate) return openSeparate(kind, name, opts);
+  const fullscreen = opts.fullscreen ?? settings.fullscreen;
   const open = windowRef(name);
   if (open) {
     if (opts.screen) place(open, opts.screen);
     open.focus();
     if (fullscreen && !isFullscreen(open)) delegateFullscreen(open, true);
-    return open;
+    return true;
   }
-  let screen = opts.screen;
-  if (!screen) {
-    const { screens } = await listScreens(true);
-    screen = screens.find((s) => !s.primary);
-  }
+  const screen = opts.screen ?? (await defaultScreen());
   const w = window.open(
     `${location.origin}${PATH[kind]}`,
     name,
@@ -181,7 +191,44 @@ export async function openOutput(
     if (screen) place(w, screen); // some browsers ignore left/top in the features
     if (fullscreen) lendNextClick(name);
   }
-  return w;
+  return !!w;
+}
+
+async function defaultScreen(): Promise<ScreenInfo | undefined> {
+  const { screens } = await listScreens(true);
+  return screens.find((s) => !s.primary);
+}
+
+/**
+ * «Окремий процес для кожного вікна» (1.4.13): `noopener` puts the window in a browsing
+ * context group of its own — its own renderer in Chrome/Edge, so a crash there leaves the
+ * control window and the other outputs running (Windows test). The price: no reference
+ * back (window.open returns null), so it counts as opened once it announces itself, it
+ * is placed / brought forward by bus commands, and it goes fullscreen by F / a click in
+ * it. An open window of this kind is brought forward instead of opening a second one.
+ */
+async function openSeparate(
+  kind: OutputKind,
+  name: string,
+  opts: { screen?: ScreenInfo; another?: boolean },
+): Promise<boolean> {
+  const open = opts.another ? null : currentOutputs().find((o) => o.kind === kind);
+  if (open) {
+    if (opts.screen) moveOutput(open, opts.screen);
+    focusOutput(open);
+    return true;
+  }
+  const screen = opts.screen ?? (await defaultScreen());
+  const before = new Set(currentOutputs().map((o) => o.id));
+  window.open(
+    `${location.origin}${PATH[kind]}`,
+    name,
+    `${screen ? featuresFor(screen) : `popup,${FALLBACK[kind]}`},noopener`,
+  );
+  const o = await waitForNewOutput(kind, before, ANNOUNCE_MS);
+  // some browsers ignore left/top in the features: put it there by command
+  if (o && screen && (o.bounds.x !== screen.x || o.bounds.y !== screen.y)) moveOutput(o, screen);
+  return !!o;
 }
 
 /** Move an output window to a screen — it leaves fullscreen and moves itself. */
@@ -210,12 +257,12 @@ export function closeOutput(o: Target): void {
 }
 
 /** Open the presenter (audience) output window — on a secondary screen if possible. */
-export function openPresenterWindow(another = false): Promise<Window | null> {
+export function openPresenterWindow(another = false): Promise<boolean> {
   return openOutput('presenter', { another });
 }
 
 /** Open the stage-display (operator/speaker confidence) window. */
-export function openStageWindow(another = false): Promise<Window | null> {
+export function openStageWindow(another = false): Promise<boolean> {
   return openOutput('stage', { another });
 }
 
