@@ -175,6 +175,60 @@
 .vo-resize-handle:focus-visible {
   outline: none;
 }
+/* Floating panel corner grip (1.4.8): two short diagonal strokes, brand-coloured on hover. */
+.vo-panel-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 1;
+}
+.vo-panel-resize::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 9px;
+  height: 9px;
+  background: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    var(--mantine-color-dimmed) 45% 55%,
+    transparent 55% 70%,
+    var(--mantine-color-dimmed) 70% 80%,
+    transparent 80%
+  );
+  opacity: 0.6;
+  transition:
+    opacity 120ms,
+    background-color 120ms;
+}
+.vo-panel-resize:hover::after,
+.vo-panel-resize:focus-visible::after {
+  opacity: 1;
+  background: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    var(--mantine-color-brand-filled) 45% 55%,
+    transparent 55% 70%,
+    var(--mantine-color-brand-filled) 70% 80%,
+    transparent 80%
+  );
+}
+.vo-panel-resize:focus-visible {
+  outline: none;
+}
+body[data-resizing='xy'] {
+  cursor: nwse-resize;
+  user-select: none;
+}
+
 /* While dragging: keep the resize cursor everywhere and stop text selection. */
 body[data-resizing='x'] {
   cursor: col-resize;
