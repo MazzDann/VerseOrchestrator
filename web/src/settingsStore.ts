@@ -92,10 +92,21 @@ export interface OutputSettings {
   multiple: boolean;
   /** a window goes fullscreen as soon as it opens (Chrome/Edge: gesture delegation, 1.4.7) */
   fullscreen: boolean;
+  /**
+   * each output window in its own browsing context group (`noopener`, 1.4.13): its own
+   * renderer process in Chrome/Edge, so its crash doesn't take the control window down;
+   * managed over the bus only, fullscreen by F / a click in the window itself
+   */
+  separate: boolean;
   layout: SavedOutput[];
 }
 
-export const DEFAULT_OUTPUTS: OutputSettings = { multiple: false, fullscreen: false, layout: [] };
+export const DEFAULT_OUTPUTS: OutputSettings = {
+  multiple: false,
+  fullscreen: false,
+  separate: false,
+  layout: [],
+};
 
 export function sanitizeOutputs(raw: unknown): OutputSettings {
   const r = (raw ?? {}) as Partial<Record<keyof OutputSettings, unknown>>;
@@ -111,7 +122,12 @@ export function sanitizeOutputs(raw: unknown): OutputSettings {
         .slice(0, 8)
         .map(({ kind, screenKey, screenLabel }) => ({ kind, screenKey, screenLabel }))
     : [];
-  return { multiple: r.multiple === true, fullscreen: r.fullscreen === true, layout };
+  return {
+    multiple: r.multiple === true,
+    fullscreen: r.fullscreen === true,
+    separate: r.separate === true,
+    layout,
+  };
 }
 
 export const DEFAULT_LAYOUT: PanelLayout = { navWidth: 300, asideWidth: 380, recentHeight: 170 };

@@ -273,12 +273,62 @@ export function useAnnounceOutput(kind: OutputKind): string | null {
   return identify;
 }
 
+// One tracker per control page, shared by the hooks and openOutput (which needs to know
+// what is open: with `noopener` it gets no window reference back — 1.4.13).
+let known: TrackedOutput[] = [];
+const knownSubs = new Set<(list: TrackedOutput[]) => void>();
+let tracking = false;
+
+function startTracking(): void {
+  if (tracking || !outputs) return;
+  tracking = true;
+  window.__voControlPage = CONTROL_PAGE_ID; // windows opened from here report it
+  outputs.track((list) => {
+    known = list;
+    for (const cb of knownSubs) cb(list);
+  });
+}
+
+/** The output windows open right now (starts listening on first use). */
+export function currentOutputs(): TrackedOutput[] {
+  startTracking();
+  return known;
+}
+
+/** The first window of `kind` that announces itself and isn't in `before` — null after `ms`. */
+export function waitForNewOutput(
+  kind: OutputKind,
+  before: Set<string>,
+  ms: number,
+): Promise<TrackedOutput | null> {
+  startTracking();
+  const fresh = () => known.find((o) => o.kind === kind && !before.has(o.id)) ?? null;
+  return new Promise((resolve) => {
+    const now = fresh();
+    if (now) return resolve(now);
+    const done = (o: TrackedOutput | null) => {
+      knownSubs.delete(check);
+      window.clearTimeout(timer);
+      resolve(o);
+    };
+    const check = () => {
+      const o = fresh();
+      if (o) done(o);
+    };
+    const timer = window.setTimeout(() => done(null), ms);
+    knownSubs.add(check);
+  });
+}
+
 /** For the control window: the output windows open right now. */
 export function useOutputWindows(): TrackedOutput[] {
-  const [list, setList] = useState<TrackedOutput[]>([]);
+  const [list, setList] = useState<TrackedOutput[]>(() => currentOutputs());
   useEffect(() => {
-    window.__voControlPage = CONTROL_PAGE_ID; // windows opened from here report it
-    return outputs?.track(setList);
+    knownSubs.add(setList);
+    setList(currentOutputs());
+    return () => {
+      knownSubs.delete(setList);
+    };
   }, []);
   return list;
 }
