@@ -226,6 +226,9 @@ export function attachLiveHub(server: Server): void {
         // Audience follow-along over the control socket (HTTP POST /api/live is the fallback).
         if (msg.paused === true) pauseLive();
         else publishLive(msg.slide ?? null);
+      } else if (msg?.type === 'echo' && m.role === 'control') {
+        // Sync benchmark (/bench): a tiny reply, so a round trip = payload in + ack out.
+        send(ws, { type: 'echo', id: msg.id });
       } else if (msg?.type === 'screen' && m.role === 'control') {
         screenState = { screen: msg.screen ?? null, next: msg.next ?? null };
         for (const c of sockets('remote')) send(c, { type: 'screen', ...screenState });
