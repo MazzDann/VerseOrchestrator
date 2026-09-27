@@ -152,7 +152,9 @@ describe('standby waiter', () => {
 
     const b = await waiter({ idleMs: 60, checkMs: 20 });
     await fetch(b.url('/api/x'));
-    const poll = setInterval(() => void fetch(b.url('/__standby')), 10); // the settings panel
+    // The settings panel keeps polling; once the waiter has closed the polls are refused —
+    // at once on macOS/Linux, so they must not surface as unhandled rejections.
+    const poll = setInterval(() => void fetch(b.url('/__standby')).catch(() => undefined), 10);
     setTimeout(() => clearInterval(poll), 400);
     b.s.retire();
     await sleep(20);
