@@ -3,6 +3,15 @@ import { type Slide, EMPTY_SLIDE, readSlide, subscribeSlide, sendCommand } from 
 import { SlideCanvas } from '../components/SlideCanvas';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
+import { listenFullscreen } from '../lib/fullscreen';
+
+/** Fullscreen needs a user gesture in this window — or one lent by the control window. */
+const setFullscreen = (on: boolean) => {
+  if (on === !!document.fullscreenElement) return;
+  if (on) void document.documentElement.requestFullscreen?.().catch(() => {});
+  else void document.exitFullscreen?.();
+};
+const toggleFullscreen = () => setFullscreen(!document.fullscreenElement);
 
 export function Presenter() {
   const [slide, setSlide] = useState<Slide>(EMPTY_SLIDE);
@@ -19,13 +28,8 @@ export function Presenter() {
 
   // The browser only grants fullscreen from a user gesture, so we can't do it on
   // window.open — toggle it on a click anywhere or the "F" key instead.
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen?.();
-    } else {
-      void document.documentElement.requestFullscreen?.().catch(() => {});
-    }
-  };
+  // The control window can lend its click («На весь екран», open-fullscreen option).
+  useEffect(() => listenFullscreen(setFullscreen), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
