@@ -7,3 +7,29 @@ export function sameContent(a: Slide, b: Slide): boolean {
   if ((a.subline ?? '') !== (b.subline ?? '')) return false;
   return a.lines.every((l, i) => l.text === b.lines[i].text);
 }
+
+/** What a speaker remote needs to know about a slide — compact, no styling or images. */
+export interface ScreenSummary {
+  status: 'live' | 'blank' | 'black' | 'empty';
+  reference: string;
+  /** First line's text, capped — enough to recognise the slide on a phone. */
+  text: string;
+  font?: string;
+}
+
+export function summarize(slide: Slide | null | undefined): ScreenSummary {
+  if (!slide) return { status: 'empty', reference: '', text: '' };
+  const status: ScreenSummary['status'] = slide.forceBlack
+    ? 'black'
+    : slide.blank
+      ? 'blank'
+      : slide.visible && slide.lines.length > 0
+        ? 'live'
+        : 'empty';
+  return {
+    status,
+    reference: slide.reference ?? '',
+    text: (slide.lines[0]?.text ?? '').slice(0, 400),
+    font: slide.style?.font,
+  };
+}

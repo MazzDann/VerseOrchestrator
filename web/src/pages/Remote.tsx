@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RemoteCommand } from '../api';
-import { type Slide } from '../presenterBus';
 import { connectLive, type HubFrame, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
+import { type ScreenSummary } from '../lib/slide';
 
 /**
  * Speaker remote (/remote#<token>): a phone paired by the operator via QR. It can only
@@ -21,7 +21,8 @@ export function Remote() {
   const [state, setState] = useState<State>(
     token ? { kind: 'connecting' } : { kind: 'denied', reason: '' },
   );
-  const [slide, setSlide] = useState<Slide | null>(null);
+  const [screen, setScreen] = useState<ScreenSummary | null>(null);
+  const [next, setNext] = useState<ScreenSummary | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const conn = useRef<LiveConnection | null>(null);
   const noticeTimer = useRef<number | undefined>();
@@ -49,7 +50,8 @@ export function Remote() {
         // «На екрані» comes from the control window's screen relay (remotes only), not
         // the audience slide — so it works even with follow-along switched off.
         if (f.type === 'screen') {
-          setSlide((f.slide as Slide | null) ?? null);
+          setScreen((f.screen as ScreenSummary | null) ?? null);
+          setNext((f.next as ScreenSummary | null) ?? null);
         } else if (f.type === 'welcome') {
           setState({
             kind: 'ready',
@@ -102,16 +104,14 @@ export function Remote() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const onScreen =
-    slide && slide.visible && !slide.blank && !slide.forceBlack && slide.lines.length > 0;
-  const screenLabel = !slide
-    ? 'Порожньо'
-    : slide.forceBlack
+  const onScreen = screen?.status === 'live';
+  const screenLabel =
+    screen?.status === 'black'
       ? 'Чорний екран'
-      : slide.blank
+      : screen?.status === 'blank'
         ? 'Затемнено'
         : onScreen
-          ? slide.reference || 'На екрані'
+          ? screen!.reference || 'На екрані'
           : 'Порожньо';
 
   if (state.kind === 'denied') {
@@ -163,21 +163,29 @@ export function Remote() {
         </div>
         {onScreen && (
           <p
-            style={{
-              margin: '10px 0 0',
-              fontFamily: slide!.style?.font ?? '"Lora", Georgia, serif',
-              fontSize: 17,
-              lineHeight: 1.45,
-              display: '-webkit-box',
-              WebkitLineClamp: 5,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
+            className="vo-remote-text"
+            style={{ fontFamily: screen!.font ?? '"Lora", Georgia, serif' }}
           >
-            {slide!.lines[0]?.text}
+            {screen!.text}
           </p>
         )}
       </section>
+
+      {/* What «Далі» will show — so the speaker knows where the next press goes. */}
+      {next && next.text && (
+        <section className="vo-remote-next" aria-label="Далі">
+          <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
+            <span style={{ fontWeight: 600 }}>Далі</span>
+            <span style={{ opacity: 0.65 }}>{next.reference}</span>
+          </div>
+          <p
+            className="vo-remote-text vo-remote-text-small"
+            style={{ fontFamily: next.font ?? '"Lora", Georgia, serif' }}
+          >
+            {next.text}
+          </p>
+        </section>
+      )}
 
       <div className="vo-remote-pad">
         {allowed.includes('prev') && (

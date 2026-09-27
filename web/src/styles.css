@@ -260,3 +260,23 @@ body[data-resizing='y'] {
 .vo-remote-btn-primary:active:not(:disabled) {
   background: var(--mantine-color-brand-filled-hover);
 }
+.vo-remote-text {
+  margin: 10px 0 0;
+  font-size: 17px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.vo-remote-text-small {
+  font-size: 15px;
+  -webkit-line-clamp: 2;
+  opacity: 0.7;
+}
+/* «Далі» preview: the amber cue colour, as on the control window's monitors. */
+.vo-remote-next {
+  border-radius: 12px;
+  padding: 10px 14px;
+  border: 1px dashed var(--mantine-color-cue-filled);
+}

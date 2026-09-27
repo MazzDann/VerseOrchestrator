@@ -90,6 +90,7 @@ import { FollowPanel } from '../components/FollowPanel';
 import { RemotePanel } from '../components/RemotePanel';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
+import { summarize } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { ResizeHandle } from '../components/ResizeHandle';
@@ -1047,14 +1048,25 @@ export function Control() {
   // (already scope-checked by the server) run through the same handler as the output
   // window's forwarded keys. A 'remotes' frame means the pairing list changed.
   const controlConn = useRef<LiveConnection | null>(null);
+  // Remotes get compact summaries (lib/slide.ts) of what's on screen and what «Далі» shows.
+  const screenFrame = () => ({
+    type: 'screen',
+    screen: summarize(liveSlideRef.current),
+    next: nextSlideRef.current ? summarize(nextSlideRef.current) : null,
+  });
   const liveSlideRef = useRef(liveSlide);
   liveSlideRef.current = liveSlide;
+  const nextSlideRef = useRef(nextSlide);
+  nextSlideRef.current = nextSlide;
+  /** Audience phones currently on /follow (pushed by the hub). */
+  const [viewers, setViewers] = useState(0);
   useEffect(() => {
     const c = connectLive({
       hello: { role: 'control' },
       onMessage: (f) => {
         // (Re)connected as control: give remotes the current screen straight away.
-        if (f.type === 'welcome') c.send({ type: 'screen', slide: stripBg(liveSlideRef.current) });
+        if (f.type === 'welcome') c.send(screenFrame());
+        if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
         if (f.type === 'command' && typeof f.cmd === 'string' && f.cmd in REMOTE_LABEL) {
           const cmd = f.cmd as RemoteCommand;
           commandHandler.current(cmd);
@@ -1074,10 +1086,10 @@ export function Control() {
       c.stop();
     };
   }, [queryClient]);
-  // Keep remotes' «На екрані» in step with the output (independent of follow-along).
+  // Keep remotes' «На екрані» / «Далі» in step with the output (independent of follow-along).
   useEffect(() => {
-    controlConn.current?.send({ type: 'screen', slide: stripBg(liveSlide) });
-  }, [liveSlide]);
+    controlConn.current?.send(screenFrame());
+  }, [liveSlide, nextSlide]);
 
   const openPresenter = async () => {
     const win = await openPresenterWindow();
@@ -1376,7 +1388,9 @@ export function Control() {
                   onClick={() => void openStage()}
                 />
                 <ToolIcon
-                  label={followAlong ? 'Глядачі: трансляція увімкнена' : 'Глядачі'}
+                  label={
+                    followAlong ? `Глядачі: трансляція увімкнена, на зв’язку ${viewers}` : 'Глядачі'
+                  }
                   hint="QR, щоб глядачі стежили за текстом з телефона"
                   icon={<IconQrcode size={18} stroke={1.5} />}
                   active={followOpen}
@@ -1856,7 +1870,7 @@ export function Control() {
         width={320}
         icon={<IconQrcode size={16} />}
       >
-        <FollowPanel />
+        <FollowPanel viewers={viewers} />
       </FloatingPanel>
 
       <FloatingPanel
