@@ -8,6 +8,7 @@ import {
   type EngineRequest,
   type EngineResponse,
   type LoadedSegment,
+  type ReopenResult,
   type SegmentCounts,
 } from './protocol';
 
@@ -39,12 +40,18 @@ export interface Engine {
   convert(name: string, bytes: ArrayBuffer): Promise<ConvertResult>;
   status(): Promise<LoadedSegment[]>;
   info(): Promise<EngineInfo>;
+  /** Benchmark: save the whole database as one image and reopen the engine from it. */
+  reopen(): Promise<ReopenResult>;
   reset(): Promise<void>;
   /** Stop the worker (and free its memory); pending calls fail. */
   terminate(): void;
 }
 
-export function createEngine(kind: EngineKind): Engine {
+/**
+ * `persist: false` makes a throwaway engine (the benchmark): it never reads or writes the
+ * PGlite snapshot, so it can't disturb — or be sped up by — the app's own database.
+ */
+export function createEngine(kind: EngineKind, opts: { persist?: boolean } = {}): Engine {
   let worker: Worker | null = null;
   let nextId = 1;
   const pending = new Map<number, Pending>();
@@ -65,7 +72,12 @@ export function createEngine(kind: EngineKind): Engine {
     };
     w.onerror = (e) => failAll(e.message || 'Помилка рушія бази');
     // The worker handles messages in order, so this runs before anything else.
-    w.postMessage({ id: 0, op: 'init', engine: kind } satisfies EngineRequest);
+    w.postMessage({
+      id: 0,
+      op: 'init',
+      engine: kind,
+      persist: opts.persist ?? true,
+    } satisfies EngineRequest);
     worker = w;
     return w;
   }
@@ -99,6 +111,7 @@ export function createEngine(kind: EngineKind): Engine {
     convert: (name, bytes) => call<ConvertResult>({ op: 'convert', name, bytes }, [bytes]),
     status: async () => (await call<{ segments: LoadedSegment[] }>({ op: 'status' })).segments,
     info: () => call<EngineInfo>({ op: 'info' }),
+    reopen: () => call<ReopenResult>({ op: 'reopen' }),
     async reset() {
       await call({ op: 'reset' });
       lib = createLibrary(driver);

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActionIcon,
   Button,
   Checkbox,
   FileButton,
@@ -9,8 +10,9 @@ import {
   SegmentedControl,
   Stack,
   Text,
+  Tooltip,
 } from '@mantine/core';
-import { IconDatabase, IconDownload, IconTrash } from '@tabler/icons-react';
+import { IconChartBar, IconDatabase, IconDownload, IconTrash } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { type SegmentInfo } from '../api';
@@ -264,6 +266,17 @@ export function DataSourceSection() {
             { label: 'PostgreSQL', value: 'pglite' },
           ]}
         />
+        <Tooltip label="Порівняти рушії бази на тих самих запитах (нове вікно)">
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="sm"
+            aria-label="Порівняти рушії бази"
+            onClick={() => window.open('/bench', 'vo-bench')}
+          >
+            <IconChartBar size={14} />
+          </ActionIcon>
+        </Tooltip>
       </Group>
 
       {manifest.data?.offline && (

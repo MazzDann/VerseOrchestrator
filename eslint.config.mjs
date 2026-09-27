@@ -11,6 +11,7 @@ export default tseslint.config(
       '**/dist/**',
       '**/node_modules/**',
       'old/**',
+      '.claude/**',
       'data/**',
       'modules/**',
       '**/*.SQLite3',

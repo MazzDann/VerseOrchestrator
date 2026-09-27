@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ApiError, closeDb, library } from './db.js';
+import { ApiError, closeDb, library, libraryInfo } from './db.js';
 import { isLocalRequest } from './access.js';
 import {
   attachLiveHub,
@@ -249,6 +249,11 @@ app.get(
 app.get(
   '/api/translations',
   wrap(async (_req, res) => res.json(await library().getTranslations())),
+);
+
+app.get(
+  '/api/library/info',
+  wrap(async (_req, res) => res.json(libraryInfo())),
 );
 
 app.get(
