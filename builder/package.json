@@ -1,11 +1,12 @@
 {
   "name": "@vo/builder",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "tsx src/build.ts",
-    "watch": "tsx src/build.ts --watch"
+    "watch": "tsx src/build.ts --watch",
+    "segments": "tsx src/segments-cli.ts"
   },
   "dependencies": {
     "@vo/shared": "*",

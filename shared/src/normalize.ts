@@ -17,36 +17,48 @@ export function stripTags(input: string): string {
   if (!input) return '';
   if (!input.includes('<') || !input.includes('>')) return input.replace(/\s+/g, ' ').trim();
 
+  // Same state machine as the original char-by-char port, but it walks char codes and
+  // copies whole visible runs with slice() instead of appending one char at a time
+  // (hot path: every verse at build time, and in the browser when merging segments).
   let out = '';
   let insideTag = false;
   let endOfTag = false;
   let removeInside = false;
+  let runStart = 0; // start of the current visible run
 
-  for (const ch of input) {
-    if (ch === '<') {
+  for (let i = 0; i < input.length; i++) {
+    const c = input.charCodeAt(i);
+    if (c === 60 /* < */) {
+      if (!insideTag && i > runStart) out += input.slice(runStart, i);
       insideTag = true;
-    } else if (ch === '/' && insideTag) {
+    } else if (c === 47 /* / */ && insideTag) {
       endOfTag = true;
     } else if (
       insideTag &&
-      (ch === 'S' ||
-        ch === 's' ||
-        ch === 'N' ||
-        ch === 'n' ||
-        ch === 'F' ||
-        ch === 'f' ||
-        ch === 'M' ||
-        ch === 'm')
+      // S/s N/n F/f M/m: opening tag -> swallow inner content; closing tag -> stop.
+      (c === 83 ||
+        c === 115 ||
+        c === 78 ||
+        c === 110 ||
+        c === 70 ||
+        c === 102 ||
+        c === 77 ||
+        c === 109)
     ) {
-      // Opening S/N/F/M tag -> swallow inner content; closing tag -> stop.
       removeInside = !endOfTag;
-    } else if (ch === '>') {
+    } else if (c === 62 /* > */) {
       endOfTag = false;
-      if (!removeInside) insideTag = false;
-    } else if (!insideTag) {
-      out += ch;
+      if (!insideTag) {
+        // a stray '>' outside any tag is dropped (as in the original)
+        if (i > runStart) out += input.slice(runStart, i);
+        runStart = i + 1;
+      } else if (!removeInside) {
+        insideTag = false;
+        runStart = i + 1;
+      }
     }
   }
+  if (!insideTag && runStart < input.length) out += input.slice(runStart);
 
   return out.replace(/\s+/g, ' ').trim();
 }
@@ -67,9 +79,8 @@ export function normalizeForSearch(text: string): string {
   return stripTags(text)
     .toLowerCase()
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip combining diacritical marks
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ') // drop punctuation
-    .replace(/\s+/g, ' ')
+    .replace(/[̀-ͯ]+/g, '') // strip combining diacritical marks
+    .replace(/[^\p{L}\p{N}]+/gu, ' ') // punctuation and whitespace runs -> one space
     .trim();
 }
 

@@ -11,6 +11,8 @@ data/library.db
 data/library.db-wal
 data/library.db-shm
 data/modules/
+# Library segments (npm run build:segments) — generated from library.db
+data/segments/
 # Server state: options + secrets (remote-token hashes, future credentials) — never commit
 data/settings.json
 data/secrets.json

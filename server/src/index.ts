@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -151,6 +152,36 @@ app.post(
     if (!p) throw new ApiError(404, 'Пульт не знайдено');
     dropRemote(p.id, 'reissued'); // the phone holding the old code loses control now
     res.json({ id: p.id, name: p.name, allowed: p.allowed, token: p.token });
+  }),
+);
+
+/**
+ * Library segments (npm run build:segments): per-translation / per-dictionary gzip'd
+ * SQLite files a browser engine downloads selectively. The manifest lists sizes and
+ * SHA-256; files are served as opaque gzip bytes (the client inflates them, exactly as
+ * it does for a dropped file) with an ETag so a cached copy is revalidated, not refetched.
+ */
+const segmentsDir = path.join(dataDir, 'segments');
+app.get(
+  '/api/segments',
+  wrap((_req, res) => {
+    const file = path.join(segmentsDir, 'manifest.json');
+    if (!fs.existsSync(file)) {
+      throw new ApiError(404, 'Сегменти ще не зібрано. Запустіть: npm run build:segments');
+    }
+    res.set('Cache-Control', 'no-cache').type('json').send(fs.readFileSync(file));
+  }),
+);
+app.use(
+  '/api/segments',
+  express.static(segmentsDir, {
+    index: false,
+    dotfiles: 'deny',
+    etag: true,
+    setHeaders: (res, filePath) => {
+      res.setHeader('Cache-Control', 'no-cache'); // revalidate by ETag
+      if (filePath.endsWith('.gz')) res.setHeader('Content-Type', 'application/gzip');
+    },
   }),
 );
 
