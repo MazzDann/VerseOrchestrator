@@ -37,7 +37,7 @@ import {
   type ScreenAccess,
   type ScreenInfo,
 } from '../lib/screens';
-import { closeOutput, focusOutput, moveOutput, openOutput, windowRef } from '../openPresenter';
+import { adoptOutput, closeOutput, focusOutput, moveOutput, openOutput } from '../openPresenter';
 
 const KIND_ICON: Record<OutputKind, typeof IconScreenShare> = {
   presenter: IconScreenShare,
@@ -203,7 +203,9 @@ export function OutputsPanel() {
             {windows.map((o) => {
               const Icon = KIND_ICON[o.kind];
               const label = labels.get(o.id)!;
-              const ours = !!windowRef(o.name);
+              // A window this page didn't open (control reloaded, or taken over from
+              // another control window) is re-acquired by its name — it is open: it beats.
+              const ours = !!adoptOutput(o.name);
               const on = screenOf(o.bounds, screens);
               const state = [
                 on?.label ?? 'екран невідомий',

@@ -23,6 +23,49 @@ export function windowRef(name: string): Window | null {
   return w && !w.closed ? w : null;
 }
 
+/** Names that could not be re-acquired just now (no window of that name any more). */
+const missing = new Map<string, number>();
+const RETRY_MS = 10_000;
+
+/**
+ * The window of this name even if this page didn't open it — after a reload of the
+ * control window, or when another control window took over (Mac test, 1.4.5): the
+ * references were in the old page. `window.open('', name)` hands back an existing
+ * same-origin window of that name without navigating it. Call it only for a window
+ * that is known to be open (it announces itself — lib/outputs.ts): for a name nobody
+ * holds any more the browser would open a blank pop-up, which is closed at once.
+ */
+export function adoptOutput(name: string): Window | null {
+  const held = windowRef(name);
+  if (held) return held;
+  if (!name.startsWith('vo-')) return null;
+  const tried = missing.get(name);
+  if (tried && Date.now() - tried < RETRY_MS) return null;
+  missing.set(name, Date.now());
+  // Ours and just closed: the list still shows it for a moment — don't open a blank one
+  // (another window may take the name later; the next try, after RETRY_MS, adopts it).
+  if (refs.has(name)) {
+    refs.delete(name);
+    return null;
+  }
+  try {
+    const w = window.open('', name);
+    if (!w) return null;
+    // A window that did not exist comes back as a fresh about:blank (its origin reads
+    // "null"): close it before anyone sees it.
+    if (w.location.href === 'about:blank') {
+      w.close();
+      return null;
+    }
+    if (w.location.origin !== location.origin) return null;
+    refs.set(name, w);
+    missing.delete(name);
+    return w;
+  } catch {
+    return null; // a cross-origin document under that name: not ours
+  }
+}
+
 function place(w: Window, s: ScreenInfo): void {
   try {
     w.moveTo(s.x, s.y);
