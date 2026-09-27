@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { comboFromEvent, sanitizeKeymap, DEFAULT_KEYMAP } from './hotkeys';
+import {
+  comboFromEvent,
+  sanitizeKeymap,
+  DEFAULT_KEYMAP,
+  defaultKeymap,
+  formatChord,
+  matchesCombo,
+} from './hotkeys';
 
 /** Minimal KeyboardEvent stand-in carrying just the fields comboFromEvent reads. */
 function evt(key: string, code: string, mods: Partial<KeyboardEvent> = {}): KeyboardEvent {
@@ -75,5 +82,43 @@ describe('sanitizeKeymap', () => {
     expect((km as Record<string, unknown>).bogus).toBeUndefined();
     // every real action is present
     expect(Object.keys(km).sort()).toEqual(Object.keys(DEFAULT_KEYMAP).sort());
+  });
+});
+
+describe('macOS (⌘ chords next to the F-keys)', () => {
+  it('the Mac defaults add ⌘↩ / ⌘F / ⌘⇧F / ⌘K and keep every F-key', () => {
+    const mac = defaultKeymap(true);
+    expect(mac.project).toBe('f5,f2,meta+enter');
+    expect(mac.searchCurrent).toBe('f3,ctrl+f,meta+f');
+    expect(mac.searchAll).toBe('f4,meta+shift+f');
+    expect(mac.palette).toBe('ctrl+k,ctrl+p,meta+k');
+    expect(mac.blank).toBe('b');
+    expect(defaultKeymap(false).project).toBe('f5,f2'); // Windows / Linux unchanged
+  });
+
+  it('a keymap saved before stays the user’s, but untouched old defaults get the ⌘ chords', () => {
+    const km = sanitizeKeymap(
+      { project: 'f5,f2', searchAll: 'f9', palette: 'ctrl+k,ctrl+p' },
+      true,
+    );
+    expect(km.project).toBe('f5,f2,meta+enter'); // was the old default
+    expect(km.searchAll).toBe('f9'); // changed by the user: kept
+    expect(km.palette).toBe('ctrl+k,ctrl+p,meta+k');
+    expect(sanitizeKeymap({ project: 'f5,f2' }, false).project).toBe('f5,f2');
+  });
+
+  it('shows chords the Mac way, modifiers in ⌃⌥⇧⌘ order', () => {
+    expect(formatChord('meta+shift+f', true)).toBe('⇧⌘F'); // Apple's order: ⌃⌥⇧⌘
+    expect(formatChord('meta+enter', true)).toBe('⌘↩');
+    expect(formatChord('ctrl+k', true)).toBe('⌃K');
+    expect(formatChord('pagedown', true)).toBe('PageDown');
+    expect(formatChord('meta+shift+f', false)).toBe('Meta + Shift + F');
+  });
+
+  it('⌘↩ on a focused verse is left to «На екран» when bound there', () => {
+    const e = evt('Enter', 'Enter', { metaKey: true });
+    expect(matchesCombo(e, 'f5,f2,meta+enter')).toBe(true);
+    expect(matchesCombo(e, 'f5,f2')).toBe(false);
+    expect(matchesCombo(evt('Enter', 'Enter', { ctrlKey: true }), 'f5,f2,meta+enter')).toBe(false);
   });
 });

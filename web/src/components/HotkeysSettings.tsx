@@ -5,6 +5,7 @@ import { useSettings } from '../settingsStore';
 import {
   HOTKEY_ACTIONS,
   DEFAULT_KEYMAP,
+  IS_MAC,
   comboFromEvent,
   formatChord,
   conflictsForAction,
@@ -48,6 +49,12 @@ export function HotkeysSettings() {
 
   return (
     <Stack gap="xs">
+      {IS_MAC && (
+        <Text size="xs" c="dimmed">
+          На Mac F-клавіші натискають разом із Fn, тому типово працюють і поєднання з ⌘: ⌘↩ — на
+          екран, ⌘F — пошук у перекладі, ⇧⌘F — пошук скрізь, ⌘K — палітра команд.
+        </Text>
+      )}
       {HOTKEY_ACTIONS.map((a) => {
         const isRec = recording === a.id;
         const chords = keymap[a.id].split(',').filter(Boolean);

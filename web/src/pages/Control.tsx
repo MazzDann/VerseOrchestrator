@@ -105,7 +105,7 @@ import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { setAppShellWidth } from '../lib/appShell';
-import { formatCombo } from '../hotkeys';
+import { formatCombo, matchesCombo } from '../hotkeys';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
@@ -2025,6 +2025,8 @@ export function Control() {
                           if (mod) toggleVerse(v.verse);
                           else setSelectedVerses([v.verse]);
                         } else if (e.key === 'Enter') {
+                          // bound to «На екран» (⌘↩ on a Mac): that hotkey projects
+                          if (matchesCombo(e.nativeEvent, keymap.project)) return;
                           e.preventDefault();
                           // Enter projects to the screen immediately (no need to enable
                           // live-follow or press F5); modifier+Enter extends the selection.
