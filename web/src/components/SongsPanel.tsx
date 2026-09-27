@@ -16,7 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconMusic, IconX, IconChevronLeft, IconPlaylistAdd } from '@tabler/icons-react';
 import { api, type SongStyle } from '../api';
-import { subscribeCommand } from '../presenterBus';
+import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 
 interface Props {
   open: boolean;
@@ -75,18 +75,21 @@ export function SongsPanel({
 
   // Step to the next/previous stanza and project it.
   const stepStanza = useCallback(
-    (dir: number) => {
+    (dir: number): Outcome => {
       const s = songQuery.data;
-      if (!s || s.slides.length === 0) return;
+      if (!s || s.slides.length === 0) return { ok: false, reason: 'Пісня ще завантажується' };
       const cur = activeStanza ?? -1;
       const idx = Math.max(0, Math.min(s.slides.length - 1, cur + dir));
-      if (activeStanza != null && idx === cur) return;
+      if (activeStanza != null && idx === cur) {
+        return { ok: false, reason: dir > 0 ? 'Це остання строфа' : 'Це перша строфа' };
+      }
       onActiveStanzaChange(idx);
       onProjectStanza(
         s.slides[idx].text,
         `№${s.number ?? ''} ${s.title}`.trim(),
         faithful ? s.slides[idx].style : null,
       );
+      return { ok: true };
     },
     [songQuery.data, activeStanza, faithful, onActiveStanzaChange, onProjectStanza],
   );
@@ -110,16 +113,14 @@ export function SongsPanel({
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open, songId, stepStanza, songQuery.data, keysPaused]);
 
-  // The clicker can also arrive as a forwarded command from the presenter window
-  // (which holds focus on the 2nd monitor). Step stanzas for those too, so a song
-  // advances instead of being clobbered by verse navigation.
-  useEffect(() => {
-    if (!open || songId == null) return;
-    return subscribeCommand((cmd) => {
-      if (cmd === 'next') stepStanza(1);
-      else if (cmd === 'prev') stepStanza(-1);
-    });
-  }, [open, songId, stepStanza]);
+  // Show commands from outside the keyboard — an output window's clicker keys and speaker
+  // remotes (lib/commands.ts): while a song is open it owns next/prev, ahead of the verse
+  // navigation, so a song advances instead of being clobbered by it.
+  useCommandHandler(
+    (cmd) => (cmd === 'next' ? stepStanza(1) : cmd === 'prev' ? stepStanza(-1) : null),
+    PRIORITY.song,
+    open && songId != null,
+  );
 
   if (!open) return null;
   const songs = listQuery.data ?? [];

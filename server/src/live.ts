@@ -18,8 +18,9 @@ import {
  * Every socket starts as a read-only VIEWER. It can upgrade with a hello:
  *   { type: 'hello', role: 'control' }        — only from this machine + same origin
  *   { type: 'hello', role: 'remote', token }  — a paired speaker remote (remote.ts)
- * A remote may then send { type: 'command', cmd } for the commands its pairing allows;
- * the hub forwards them to the control socket(s) as { type: 'command', cmd, from }.
+ * A remote may then send { type: 'command', cmd, id } for the commands its pairing allows;
+ * the hub forwards them to the control socket(s) as { type: 'command', cmd, id, from } and
+ * acks the remote with the control window's { type: 'result' } (see onCommand).
  * The control socket publishes the audience slide with { type: 'publish', slide } (or
  * { type: 'publish', paused: true } when follow-along is switched off) and reports
  * { type: 'screen', screen, next } (compact summaries) whenever
@@ -174,26 +175,91 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
   }
 }
 
+/**
+ * Remote commands (1.3.3): the remote is acked with the REAL outcome — the control window
+ * applies the command and answers `{ type: 'result', id, ok, reason }` — or told it didn't
+ * answer in time. Every command has an id (made up here for older remote pages); a retry
+ * with the same id (the phone resending after a reconnect) is not forwarded again, it just
+ * gets the ack of the first one — so a flaky connection can't advance the show twice.
+ */
+interface Pending {
+  remote: WebSocket;
+  cmd: RemoteCommand;
+  timer: ReturnType<typeof setTimeout>;
+}
+const pending = new Map<string, Pending>();
+/** Outcomes of recent commands, by id, to answer retries (30 s). */
+const answered = new Map<string, { at: number; ack: object }>();
+const ANSWERED_MS = 30_000;
+let resultTimeoutMs = 2500;
+/** Tests shorten the wait for a control window's answer. */
+export function setCommandTimeout(ms: number): void {
+  resultTimeoutMs = ms;
+}
+
+const commandId = (raw: unknown, pairingId: string) =>
+  typeof raw === 'string' && /^[\w.-]{1,64}$/.test(raw)
+    ? `${pairingId}:${raw}` // scoped per pairing: one remote can't touch another's ids
+    : `${pairingId}:srv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+function finish(id: string, ack: Record<string, unknown>): void {
+  const p = pending.get(id);
+  if (!p) return;
+  pending.delete(id);
+  clearTimeout(p.timer);
+  const frame = { type: 'ack', cmd: p.cmd, ...ack };
+  answered.set(id, { at: Date.now(), ack: frame });
+  send(p.remote, frame);
+}
+
 function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   const cmd = msg.cmd;
+  const clientId = typeof msg.id === 'string' ? msg.id : undefined;
   const p = m.role === 'remote' && m.pairingId ? getPairing(m.pairingId) : undefined;
-  if (!p) return send(ws, { type: 'ack', cmd, ok: false, reason: 'Немає доступу' });
-  if (!isRemoteCommand(cmd) || !p.allowed.includes(cmd)) {
-    return send(ws, { type: 'ack', cmd, ok: false, reason: 'Ця дія пульту не дозволена' });
-  }
+  const reject = (reason: string) =>
+    send(ws, { type: 'ack', id: clientId, cmd, ok: false, reason });
+  if (!p) return reject('Немає доступу');
+  if (!isRemoteCommand(cmd) || !p.allowed.includes(cmd))
+    return reject('Ця дія пульту не дозволена');
+
+  const id = commandId(clientId, p.id);
   const now = Date.now();
-  m.recent = m.recent.filter((t) => now - t < 1000);
-  if (m.recent.length >= MAX_COMMANDS_PER_SEC) {
-    return send(ws, { type: 'ack', cmd, ok: false, reason: 'Забагато натискань' });
+  for (const [k, v] of answered) if (now - v.at > ANSWERED_MS) answered.delete(k);
+  const done = answered.get(id);
+  if (done) return send(ws, done.ack); // a retry of something already applied
+  if (pending.has(id)) {
+    pending.get(id)!.remote = ws; // a retry while waiting: answer on the new socket
+    return;
   }
+
+  m.recent = m.recent.filter((t) => now - t < 1000);
+  if (m.recent.length >= MAX_COMMANDS_PER_SEC) return reject('Забагато натискань');
   m.recent.push(now);
   touchPairing(p);
   const controls = sockets('control');
-  if (controls.length === 0) {
-    return send(ws, { type: 'ack', cmd, ok: false, reason: 'Вікно керування не відкрите' });
+  if (controls.length === 0) return reject('Вікно керування не відкрите');
+  pending.set(id, {
+    remote: ws,
+    cmd: cmd as RemoteCommand,
+    timer: setTimeout(
+      () => finish(id, { id: clientId, ok: false, reason: 'Вікно керування не відповіло' }),
+      resultTimeoutMs,
+    ),
+  });
+  for (const c of controls) {
+    send(c, { type: 'command', cmd: cmd as RemoteCommand, id, from: p.name });
   }
-  for (const c of controls) send(c, { type: 'command', cmd: cmd as RemoteCommand, from: p.name });
-  send(ws, { type: 'ack', cmd, ok: true });
+}
+
+/** A control window's answer to a forwarded command (the first one wins). */
+function onResult(msg: Record<string, unknown>) {
+  const id = typeof msg.id === 'string' ? msg.id : '';
+  const clientId = id.slice(id.indexOf(':') + 1);
+  finish(id, {
+    id: clientId.startsWith('srv-') ? undefined : clientId,
+    ok: msg.ok === true,
+    reason: typeof msg.reason === 'string' ? msg.reason.slice(0, 200) : undefined,
+  });
 }
 
 /** Attach the WebSocket endpoint to the HTTP server (upgrade on WS_PATH only). */
@@ -222,6 +288,7 @@ export function attachLiveHub(server: Server): void {
       }
       if (msg?.type === 'hello') onHello(ws, m, req, msg);
       else if (msg?.type === 'command') onCommand(ws, m, msg);
+      else if (msg?.type === 'result' && m.role === 'control') onResult(msg);
       else if (msg?.type === 'publish' && m.role === 'control') {
         // Audience follow-along over the control socket (HTTP POST /api/live is the fallback).
         if (msg.paused === true) pauseLive();

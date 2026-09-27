@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { RemoteCommand } from '../api';
 import { connectLive, type HubFrame, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
+import { newCommandId } from '../lib/commands';
 import { type ScreenSummary } from '../lib/slide';
 
 /**
@@ -9,6 +10,9 @@ import { type ScreenSummary } from '../lib/slide';
  * send the commands its pairing allows (server-enforced) and shows what's on screen now.
  * The token rides in the URL fragment, so it never reaches server logs or Referer headers.
  */
+
+/** A press made while offline is resent on reconnect within this window, then dropped. */
+const RESEND_MS = 5000;
 
 type State =
   | { kind: 'connecting' }
@@ -26,6 +30,14 @@ export function Remote() {
   const [notice, setNotice] = useState<string | null>(null);
   const conn = useRef<LiveConnection | null>(null);
   const noticeTimer = useRef<number | undefined>();
+  /**
+   * Presses not yet answered, by id (1.3.3). The server acks with the control window's
+   * real outcome; a press made while the connection is down is resent on reconnect with
+   * the SAME id — applied once even if the first copy did get through.
+   */
+  const pending = useRef(new Map<string, { cmd: RemoteCommand; at: number; sent: boolean }>());
+  /** Last press → ack round trip, ms — shown next to the name. */
+  const [rtt, setRtt] = useState<number | null>(null);
 
   const flash = (msg: string) => {
     setNotice(msg);
@@ -58,12 +70,25 @@ export function Remote() {
             name: String(f.name ?? 'Пульт'),
             allowed: (f.allowed as RemoteCommand[]) ?? [],
           });
+          // Back online: resend what was pressed in the last few seconds (same ids).
+          for (const [id, p] of pending.current) {
+            if (Date.now() - p.at > RESEND_MS) {
+              pending.current.delete(id);
+              continue;
+            }
+            p.sent = c.send({ type: 'command', cmd: p.cmd, id });
+          }
         } else if (f.type === 'denied') {
           setState({ kind: 'denied', reason: String(f.reason ?? '') });
         } else if (f.type === 'revoked') {
           setState({ kind: 'denied', reason: 'Оператор відкликав цей пульт.' });
-        } else if (f.type === 'ack' && !f.ok) {
-          flash(String(f.reason ?? 'Команду не виконано'));
+        } else if (f.type === 'ack') {
+          const p = typeof f.id === 'string' ? pending.current.get(f.id) : undefined;
+          if (p) {
+            pending.current.delete(f.id as string);
+            setRtt(Date.now() - p.at);
+          }
+          if (!f.ok) flash(String(f.reason ?? 'Команду не виконано'));
         }
       },
       stopOn: (f) => f.type === 'denied' || f.type === 'revoked',
@@ -76,10 +101,16 @@ export function Remote() {
   const ready = state.kind === 'ready';
 
   const press = (cmd: RemoteCommand) => {
-    if (!ready || !allowed.includes(cmd)) return;
+    if (!allowed.includes(cmd) || state.kind === 'connecting') return;
     navigator.vibrate?.(12);
-    if (!conn.current?.send({ type: 'command', cmd }))
-      flash('Немає зв’язку. Команду не надіслано.');
+    const id = newCommandId();
+    const sent = !!conn.current?.send({ type: 'command', cmd, id });
+    pending.current.set(id, { cmd, at: Date.now(), sent });
+    if (!sent) flash('Немає зв’язку — надішлю, щойно підключуся');
+    // No answer at all (server gone mid-press): say so instead of leaving it silent.
+    window.setTimeout(() => {
+      if (pending.current.delete(id)) flash('Немає відповіді. Команду, можливо, не виконано.');
+    }, RESEND_MS);
   };
 
   // Scanning a NEW QR into an open tab only changes the #fragment (no navigation), which
@@ -142,7 +173,11 @@ export function Remote() {
         />
         <strong>{state.kind === 'connecting' ? 'Підключення…' : (state.name ?? 'Пульт')}</strong>
         <span style={{ opacity: 0.6 }}>
-          {state.kind === 'offline' ? '· немає зв’язку, перепідключаюся' : ''}
+          {state.kind === 'offline'
+            ? '· немає зв’язку, перепідключаюся'
+            : ready && rtt != null
+              ? `· відповідь ${rtt} мс`
+              : ''}
         </span>
       </header>
 

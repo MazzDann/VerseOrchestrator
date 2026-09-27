@@ -8,6 +8,7 @@ import {
   getLive,
   pauseLive,
   publishLive,
+  setCommandTimeout,
   viewerCount,
   WS_PATH,
 } from './live';
@@ -104,7 +105,7 @@ describe('speaker remote over the hub', () => {
           resolve(seen);
         } else waiters.push({ type, resolve });
       });
-    return { ws, next };
+    return { ws, next, frames };
   }
   const origin = () => ({ origin: base.replace('ws:', 'http:') });
 
@@ -116,18 +117,66 @@ describe('speaker remote over the hub', () => {
     const welcome = await remote.next('welcome');
     expect(welcome).toMatchObject({ role: 'remote', name: 'Доповідач', allowed: DEFAULT_ALLOWED });
 
-    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'next' }));
-    expect(await control.next('command')).toEqual({
-      type: 'command',
-      cmd: 'next',
-      from: 'Доповідач',
-    });
-    expect(await remote.next('ack')).toMatchObject({ cmd: 'next', ok: true });
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'next', id: 'a1' }));
+    const cmd = await control.next('command');
+    expect(cmd).toMatchObject({ type: 'command', cmd: 'next', from: 'Доповідач' });
+    expect(String(cmd.id)).toMatch(/:a1$/); // scoped to the pairing
+    // the ack waits for the control window's real outcome
+    control.ws.send(JSON.stringify({ type: 'result', id: cmd.id, ok: true }));
+    expect(await remote.next('ack')).toMatchObject({ id: 'a1', cmd: 'next', ok: true });
 
     // 'black' is not in the default scope
     remote.ws.send(JSON.stringify({ type: 'command', cmd: 'black' }));
     expect(await remote.next('ack')).toMatchObject({ cmd: 'black', ok: false });
 
+    control.ws.close();
+    remote.ws.close();
+  });
+
+  it('a retried command id is applied once; the retry gets the same answer', async () => {
+    const p = createPairing('Повтор');
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const remote = client({ role: 'remote', token: p.token });
+    await remote.next('welcome');
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'next', id: 'r1' }));
+    const cmd = await control.next('command');
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'next', id: 'r1' })); // resent while pending
+    control.ws.send(
+      JSON.stringify({ type: 'result', id: cmd.id, ok: false, reason: 'Це останній вірш' }),
+    );
+    expect(await remote.next('ack')).toMatchObject({
+      id: 'r1',
+      ok: false,
+      reason: 'Це останній вірш',
+    });
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'next', id: 'r1' })); // resent after the answer
+    expect(await remote.next('ack')).toMatchObject({
+      id: 'r1',
+      ok: false,
+      reason: 'Це останній вірш',
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(control.frames.filter((f) => f.type === 'command')).toEqual([]); // forwarded once
+    control.ws.close();
+    remote.ws.close();
+  });
+
+  it('tells the remote when the control window does not answer', async () => {
+    setCommandTimeout(60);
+    const p = createPairing('Тиша');
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const remote = client({ role: 'remote', token: p.token });
+    await remote.next('welcome');
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'prev', id: 't1' }));
+    await control.next('command'); // received, never answered (e.g. an older control page)
+    expect(await remote.next('ack')).toMatchObject({
+      id: 't1',
+      ok: false,
+      reason: 'Вікно керування не відповіло',
+    });
+    setCommandTimeout(2500);
     control.ws.close();
     remote.ws.close();
   });
