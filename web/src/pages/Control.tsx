@@ -72,7 +72,7 @@ import {
   type SlideReveal,
   type TextSpan,
 } from '../presenterBus';
-import { parseRedLetter } from '@vo/shared';
+import { parseRedLetter, strongLangFor } from '@vo/shared';
 import { parseStrongTokens } from '../lib/strong';
 import { openPresenterWindow, openStageWindow } from '../openPresenter';
 import { SearchPanel, type SearchScope } from '../components/SearchPanel';
@@ -1304,7 +1304,15 @@ export function Control() {
       selectedPrimaryVerses={selectedPrimaryVerses}
       books={books}
       onProjectStrong={projectStrong}
-      onShowConcordance={setConcordanceStrong}
+      onShowConcordance={(strong) =>
+        // Tag the lexicon (H/G) from where the word was clicked — the bare number is
+        // ambiguous (H2424 ≠ G2424); a Greek OT (LXX) module uses G throughout.
+        setConcordanceStrong(
+          /^[GH]/i.test(strong)
+            ? strong.toUpperCase()
+            : `${strongLangFor(bookNumber ?? 0, translations.find((t) => t.id === primaryId)?.language)}${strong}`,
+        )
+      }
       onPickRef={jumpTo}
       pinned={pinnedPreview}
       onTogglePin={togglePin}

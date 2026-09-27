@@ -81,18 +81,26 @@ function rowToResult(r: AnyRow): SearchResult {
   return { ...rowToVerse(r), longName: r.long_name, shortName: r.short_name };
 }
 
+/** A positive search term: exact word, prefix, or the words of a quoted phrase. */
+export interface FtsTerm {
+  word: string;
+  prefix: boolean;
+}
+
 /**
- * Build an FTS5 MATCH expression from a free-form query, supporting operators:
+ * Parse a free-form query into an FTS5 MATCH expression, supporting operators:
  *   "exact phrase"   → a phrase match
  *   -word / !word    → exclude (NOT)
  *   word             → prefix term ("любов" matches "любов'ю")
- * Everything is normalized the same way as the indexed column. Returns null when
- * there is nothing positive to match.
+ * Everything is normalized the same way as the indexed column. `terms` lists the
+ * positive words (for the planner's frequency estimate). `expr` is null when there is
+ * nothing positive to match.
  */
-export function buildFtsMatch(query: string): string | null {
+export function parseFtsQuery(query: string): { expr: string | null; terms: FtsTerm[] } {
   const parts = query.match(/[-!]?"[^"]+"|\S+/g) ?? [];
   const pos: string[] = [];
   const neg: string[] = [];
+  const terms: FtsTerm[] = [];
   for (const raw of parts) {
     let p = raw;
     let exclude = false;
@@ -105,15 +113,42 @@ export function buildFtsMatch(query: string): string | null {
     if (!norm) continue;
     if (quoted) {
       (exclude ? neg : pos).push(`"${norm}"`);
+      if (!exclude)
+        for (const w of norm.split(' ').filter(Boolean)) terms.push({ word: w, prefix: false });
     } else {
-      for (const w of norm.split(' ').filter(Boolean)) (exclude ? neg : pos).push(`"${w}"*`);
+      for (const w of norm.split(' ').filter(Boolean)) {
+        (exclude ? neg : pos).push(`"${w}"*`);
+        if (!exclude) terms.push({ word: w, prefix: true });
+      }
     }
   }
-  if (pos.length === 0) return null; // pure-exclusion has no anchor to match
+  if (pos.length === 0) return { expr: null, terms }; // pure-exclusion has no anchor to match
   let expr = pos.join(' AND ');
   if (neg.length) expr += ` NOT (${neg.join(' OR ')})`;
-  return expr;
+  return { expr, terms };
 }
+
+export function buildFtsMatch(query: string): string | null {
+  return parseFtsQuery(query).expr;
+}
+
+/** Smallest string greater than every string starting with `s` (prefix range end). */
+function prefixEnd(s: string): string {
+  const last = s.codePointAt(s.length - 1)!;
+  return s.slice(0, s.length - String.fromCodePoint(last).length) + String.fromCodePoint(last + 1);
+}
+
+/**
+ * Full-text planner thresholds, calibrated on the 20-translation / 537k-verse library
+ * (npm run bench:db, 1.2.2). Filtering by translation INSIDE the MATCH (the segmented
+ * `tr` token) costs ~1 ms per selected translation's posting list; filtering AFTER the
+ * MATCH costs ~2 µs per matching verse in the whole library. So:
+ *   rare word (few matches)          → post-filter  («никодим» 0.1 ms vs 1–20 ms)
+ *   frequent word, ≤ 60 % selected   → in-MATCH     («бог» ×1: 9 ms vs 56 ms)
+ *   frequent word, most selected     → post-filter  («бог» ×20: 78 ms vs 113 ms)
+ */
+export const FTS_RARE_DOCS = 5000;
+export const FTS_SEGMENT_SHARE = 0.6;
 
 /** Levenshtein edit distance (small strings — book name tokens). */
 export function editDistance(a: string, b: string): number {
@@ -292,11 +327,14 @@ export function createLibrary(db: SqlDriver) {
    */
   async function strongRefs(
     num: string,
-    opts: { translationId?: number; limit?: number } = {},
+    opts: { translationId?: number; limit?: number; lang?: 'H' | 'G' } = {},
   ): Promise<StrongRefsResult> {
     const digits = String(num).match(/\d+/)?.[0];
     if (!digits) return { strong: 0, total: 0, truncated: false, results: [] };
     const strong = Number.parseInt(digits, 10);
+    // "G2424" / "H2424": the prefix picks the lexicon (the number alone is ambiguous).
+    const prefix = String(num).trim().charAt(0).toUpperCase();
+    const lang = opts.lang ?? (prefix === 'G' || prefix === 'H' ? prefix : undefined);
     const limit = Math.min(Math.max(opts.limit ?? 300, 1), 1000);
 
     if (!(await tableExists('verse_strongs'))) {
@@ -305,6 +343,10 @@ export function createLibrary(db: SqlDriver) {
 
     const where: string[] = ['vs.strong = ?'];
     const filterParams: SqlParam[] = [strong];
+    if (lang && (await columnExists('verse_strongs', 'lang'))) {
+      where.push('vs.lang = ?');
+      filterParams.push(lang);
+    }
     if (opts.translationId != null) {
       where.push('vs.translation_id = ?');
       filterParams.push(opts.translationId);
@@ -561,6 +603,36 @@ export function createLibrary(db: SqlDriver) {
   }
 
   /**
+   * Upper bound on verses matching all positive terms = the rarest term's document
+   * count (from the fts5vocab view over the index; a prefix sums its term range).
+   * null when the vocab view is absent (older library).
+   */
+  async function estimateDocs(terms: FtsTerm[]): Promise<number | null> {
+    if (terms.length === 0 || !(await tableExists('verses_fts_vocab'))) return null;
+    let min = Infinity;
+    for (const t of terms) {
+      const row = t.prefix
+        ? await db.get<AnyRow>(
+            'SELECT SUM(doc) AS d FROM verses_fts_vocab WHERE term >= ? AND term < ?',
+            [t.word, prefixEnd(t.word)],
+          )
+        : await db.get<AnyRow>('SELECT doc AS d FROM verses_fts_vocab WHERE term = ?', [t.word]);
+      min = Math.min(min, Number(row?.d ?? 0));
+      if (min < FTS_RARE_DOCS) break; // already decided: rare
+    }
+    return min;
+  }
+
+  let translationCount: number | null = null;
+  /** Choose where to filter by translation (see FTS_RARE_DOCS / FTS_SEGMENT_SHARE). */
+  async function ftsStrategy(terms: FtsTerm[], selected: number): Promise<'in-match' | 'post'> {
+    translationCount ??= (await getTranslations()).length;
+    const docs = await estimateDocs(terms);
+    if (docs != null && docs < FTS_RARE_DOCS) return 'post';
+    return selected <= Math.max(1, translationCount * FTS_SEGMENT_SHARE) ? 'in-match' : 'post';
+  }
+
+  /**
    * Search either by reference ("Ів 3:16") or full text. Reference is tried first;
    * if the query does not look like a reference we fall back to FTS5 text search.
    */
@@ -577,26 +649,64 @@ export function createLibrary(db: SqlDriver) {
     // Strong number search: "G2424" / "H0430" → verses carrying that Strong number.
     const strongQ = query.trim().match(/^([GHgh])\s*0*(\d{1,5})$/);
     if (strongQ && (await tableExists('verse_strongs'))) {
-      const refs = await strongRefs(strongQ[2], { translationId: ids[0], limit: 300 });
+      const refs = await strongRefs(strongQ[2], {
+        translationId: ids[0],
+        limit: 300,
+        lang: strongQ[1].toUpperCase() as 'H' | 'G',
+      });
       return { kind: 'text', results: refs.results };
     }
 
-    const match = buildFtsMatch(query);
+    const { expr: match, terms } = parseFtsQuery(query);
     if (!match) return { kind: 'empty', results: [] };
 
     let rows: AnyRow[];
     try {
-      rows = await db.all(
-        `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
-                b.long_name, b.short_name
-         FROM verses_fts
-         JOIN verses v ON v.id = verses_fts.rowid
-         JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
-         WHERE verses_fts MATCH ? AND v.translation_id IN (${placeholders(ids.length)})
-         ORDER BY rank
-         LIMIT 300`,
-        [match, ...ids],
-      );
+      const segmented = await columnExists('verses_fts', 'tr');
+      if (segmented && (await ftsStrategy(terms, ids.length)) === 'in-match') {
+        // Segmented index (1.2.2+): restrict to the selected translations INSIDE the
+        // MATCH, so FTS intersects posting lists instead of ranking the whole library.
+        // bm25 weight 0 for the `tr` column: it's a filter, not relevance.
+        const tr = ids.map((id) => `t${id}`).join(' OR ');
+        rows = await db.all(
+          `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
+                  b.long_name, b.short_name
+           FROM verses_fts
+           JOIN verses v ON v.id = verses_fts.rowid
+           JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
+           WHERE verses_fts MATCH ?
+           ORDER BY bm25(verses_fts, 1.0, 0.0)
+           LIMIT 300`,
+          [`{text_norm}: (${match}) AND {tr}: (${tr})`],
+        );
+      } else if (segmented) {
+        // Segmented index, but post-filtering is cheaper here (rare word, or most
+        // translations selected). Restrict the text to its column so `tr` tokens can't match.
+        rows = await db.all(
+          `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
+                  b.long_name, b.short_name
+           FROM verses_fts
+           JOIN verses v ON v.id = verses_fts.rowid
+           JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
+           WHERE verses_fts MATCH ? AND v.translation_id IN (${placeholders(ids.length)})
+           ORDER BY bm25(verses_fts, 1.0, 0.0)
+           LIMIT 300`,
+          [`{text_norm}: (${match})`, ...ids],
+        );
+      } else {
+        // Older libraries: one shared index, filter by translation after matching.
+        rows = await db.all(
+          `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
+                  b.long_name, b.short_name
+           FROM verses_fts
+           JOIN verses v ON v.id = verses_fts.rowid
+           JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
+           WHERE verses_fts MATCH ? AND v.translation_id IN (${placeholders(ids.length)})
+           ORDER BY rank
+           LIMIT 300`,
+          [match, ...ids],
+        );
+      }
     } catch {
       // A malformed MATCH (rare, from odd operator combos) → no results, not a 500.
       return { kind: 'empty', results: [] };
