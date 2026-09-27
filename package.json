@@ -1,6 +1,6 @@
 {
   "name": "verse-orchestrator",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "private": true,
   "description": "Local web app that reads Bible modules and projects verses onto a second screen.",
   "engines": {
@@ -17,6 +17,7 @@
     "build:library:watch": "npm run watch --workspace @vo/builder",
     "build:segments": "npm run segments --workspace @vo/builder --",
     "build:static": "npm run build:static --workspace @vo/web",
+    "app": "npm run build --workspace @vo/web && npm run start --workspace @vo/server",
     "server": "npm run dev --workspace @vo/server",
     "bench:db": "npm run bench --workspace @vo/server --",
     "web": "npm run dev --workspace @vo/web",

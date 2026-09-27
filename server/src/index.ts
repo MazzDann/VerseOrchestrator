@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
+import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -432,7 +433,38 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
   });
 });
 
+/**
+ * The built UI (web/dist — `npm run build --workspace @vo/web`), served next to the API so
+ * the whole app is ONE process (1.4.0): what the standby waiter starts (standby.ts). In
+ * development Vite serves the UI on :5173 instead; without a build this is skipped.
+ * Registered after the API, so an unknown /api path still gets a JSON-less 404.
+ */
+const webDist = process.env.VO_WEB_DIST ?? path.join(repoRoot, 'web', 'dist');
+if (fs.existsSync(path.join(webDist, 'index.html'))) {
+  app.use(
+    express.static(webDist, {
+      index: false,
+      setHeaders: (res, file) =>
+        // hashed bundles never change; everything else revalidates
+        res.setHeader(
+          'Cache-Control',
+          path.basename(path.dirname(file)) === 'assets'
+            ? 'public, max-age=31536000, immutable'
+            : 'no-cache',
+        ),
+    }),
+  );
+  // Client-side routes (/presenter, /follow, /remote#…, /bench …) → the app shell.
+  app.get(/^\/(?!api(\/|$)).*/, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(webDist, 'index.html'));
+  });
+}
+
 const server = app.listen(PORT, HOST, () => {
-  console.log(`[server] http://${HOST}:${PORT}`);
+  const port = (server.address() as AddressInfo).port;
+  console.log(`[server] http://${HOST}:${port}`);
+  // Started by the standby waiter (standby.ts, PORT=0 → any free port): tell it where.
+  process.send?.({ type: 'ready', port });
 });
 attachLiveHub(server);
