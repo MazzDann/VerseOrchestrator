@@ -163,11 +163,16 @@ describe('window bus v2', () => {
     const control = createBus(h.endpoint(), memory());
     const presenter = createBus(h.endpoint(), memory());
     const cmds: string[] = [];
-    control.subscribeCommand((c) => cmds.push(c));
+    const ids = new Set<string>();
+    control.subscribeCommand((c, id) => {
+      cmds.push(c);
+      ids.add(id);
+    });
     presenter.sendCommand('next');
     presenter.sendCommand('black');
     await flush();
     expect(cmds).toEqual(['next', 'black']);
+    expect(ids.size).toBe(2); // each press has its own id (the dispatcher applies an id once)
   });
 
   it('an identical publish is dropped: no message, no storage write', async () => {

@@ -65,7 +65,6 @@ import {
   publishNext,
   readSlide,
   subscribeCommand,
-  type PresenterCommand,
   type Slide,
   type SlideLine,
   type SlideStyle,
@@ -93,6 +92,7 @@ import { OutputsPanel } from '../components/OutputsPanel';
 import { useOutputWindows } from '../lib/outputs';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
+import { commands, PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { useDataSource } from '../dataSourceStore';
 import { sameSlide, summarize } from '../lib/slide';
@@ -904,45 +904,57 @@ export function Control() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference]);
 
-  const stepVerse = (delta: number) => {
-    if (primaryVerses.length === 0) return;
+  const stepVerse = (delta: number): Outcome => {
+    if (primaryVerses.length === 0) return { ok: false, reason: 'Спершу виберіть розділ' };
     const all = primaryVerses.map((v) => v.verse);
     const current = selectedVerses.length ? selectedVerses[selectedVerses.length - 1] : all[0] - 1;
     const idx = all.indexOf(current);
     const next = all[Math.min(all.length - 1, Math.max(0, idx + delta))];
-    if (next != null) setSelectedVerses([next]);
+    if (next == null || next === current) {
+      return {
+        ok: false,
+        reason: delta > 0 ? 'Це останній вірш розділу' : 'Це перший вірш розділу',
+      };
+    }
+    setSelectedVerses([next]);
+    return { ok: true };
   };
 
   // "Next/previous": with a long passage split across pages, step pages; otherwise
   // step the single verse. Drives arrows, the PageDown/PageUp clicker keys, and the
   // preview's page arrows — so the same gesture always means "advance the screen".
-  const advance = (delta: number) => {
+  /** One step of the show (reveal → page → verse); says whether anything moved. */
+  const advance = (delta: number): Outcome => {
     // Progressive reveal first: step through the verses of the current slide before
     // moving on. Only while projecting the verse selection (no song/text override).
     if (appearance.reveal && revealUnits && revealUnits.length > 1 && !previewOverride) {
       if (delta > 0 && revealCount < revealUnits.length) {
         setRevealCount((c) => Math.min(revealUnits.length, c + 1));
-        return;
+        return { ok: true };
       }
       if (delta < 0 && revealCount > 1) {
         setRevealCount((c) => Math.max(1, c - 1));
-        return;
+        return { ok: true };
       }
       // Exhausted in this direction → fall through to step the page/verse.
     }
-    // Moving to a new verse/page: start its reveal fresh in THIS batched update (not
-    // via the post-commit reset effect) so live-follow doesn't push the new content at
-    // the old reveal count for a frame.
-    setRevealCount(1);
     if (pageCount > 1) {
-      // Paging the verse selection ends any active projection override; clear it so
-      // live-follow pushes the new page (changing the page alone doesn't touch the
-      // selection, which is what otherwise clears the override).
+      const target = Math.min(pageCount - 1, Math.max(0, safePageIndex + delta));
+      if (target === safePageIndex) {
+        return { ok: false, reason: delta > 0 ? 'Це остання сторінка' : 'Це перша сторінка' };
+      }
+      // Moving to a new page: start its reveal fresh in THIS batched update (not via the
+      // post-commit reset effect) so live-follow doesn't push the new content at the old
+      // reveal count for a frame. Paging also ends any projection override, so
+      // live-follow pushes the new page (the page alone doesn't touch the selection).
+      setRevealCount(1);
       setPreviewOverride(null);
-      setPageIndex((i) => Math.min(pageCount - 1, Math.max(0, Math.min(i, pageCount - 1) + delta)));
-    } else {
-      stepVerse(delta);
+      setPageIndex(target);
+      return { ok: true };
     }
+    const moved = stepVerse(delta);
+    if (moved.ok) setRevealCount(1); // same batched update as the new verse
+    return moved;
   };
 
   // Reset the reveal to the first verse whenever the projected content changes.
@@ -1081,22 +1093,21 @@ export function Control() {
   };
   useHotkeys(keymap.black, () => blackScreen(), [keymap.black, slideStyle]);
 
-  // Commands forwarded from the presenter window (clicker/keyboard pressed while
-  // the 2nd-monitor output window has focus). A ref keeps the latest closures so we
-  // subscribe once instead of re-binding the channel on every render.
-  const commandHandler = useRef<(cmd: PresenterCommand) => void>(() => {});
-  commandHandler.current = (cmd: PresenterCommand) => {
-    // While a song is open it owns next/prev (SongsPanel steps its stanzas off the
-    // same command channel); don't also advance the verse selection underneath it.
-    const songMode = songsOpen && songsPanelSongId != null;
-    if (cmd === 'next') {
-      if (!songMode) advance(1);
-    } else if (cmd === 'prev') {
-      if (!songMode) advance(-1);
-    } else if (cmd === 'blank') blankScreen();
-    else if (cmd === 'black') blackScreen();
-  };
-  useEffect(() => subscribeCommand((cmd) => commandHandler.current(cmd)), []);
+  // Show commands from outside the operator's keyboard — an output window's keys (a
+  // clicker on the 2nd monitor) and speaker remotes — all go through one dispatcher
+  // (lib/commands.ts). This is the default handler; an open song registers a
+  // higher-priority one for next/prev (SongsPanel).
+  useCommandHandler((cmd) => {
+    if (cmd === 'next') return advance(1);
+    if (cmd === 'prev') return advance(-1);
+    if (cmd === 'blank') blankScreen();
+    else blackScreen();
+    return { ok: true };
+  }, PRIORITY.verses);
+  useEffect(
+    () => subscribeCommand((cmd, id) => void commands.dispatch(id, cmd, { kind: 'output' })),
+    [],
+  );
 
   // Speaker remotes: this window holds the hub's control socket; paired phones' commands
   // (already scope-checked by the server) run through the same handler as the output
@@ -1129,12 +1140,18 @@ export function Control() {
         if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
         if (f.type === 'command' && typeof f.cmd === 'string' && f.cmd in REMOTE_LABEL) {
           const cmd = f.cmd as RemoteCommand;
-          commandHandler.current(cmd);
-          notifications.show({
-            message: `Пульт «${String(f.from ?? '')}»: ${REMOTE_LABEL[cmd]}`,
-            color: 'brand',
-            autoClose: 1200,
-          });
+          const from = String(f.from ?? '');
+          const id = typeof f.id === 'string' ? f.id : `ws-${Date.now()}`;
+          const outcome = commands.dispatch(id, cmd, { kind: 'remote', name: from });
+          // The remote is acked with what really happened (server/src/live.ts onCommand).
+          if (typeof f.id === 'string') c.send({ type: 'result', id: f.id, ...outcome });
+          if (!outcome.duplicate) {
+            notifications.show({
+              message: `Пульт «${from}»: ${REMOTE_LABEL[cmd]}${outcome.ok ? '' : ` — ${outcome.reason ?? 'не виконано'}`}`,
+              color: outcome.ok ? 'brand' : 'orange',
+              autoClose: 1200,
+            });
+          }
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
         }

@@ -26,7 +26,7 @@ export type Wire =
   | { t: 'asset'; id: string; data: string }
   | { t: 'hello' }
   | { t: 'need'; id: string }
-  | { t: 'cmd'; cmd: PresenterCommand };
+  | { t: 'cmd'; cmd: PresenterCommand; id: string };
 
 export interface BusChannel {
   post(msg: Wire): void;
@@ -59,6 +59,7 @@ const isInline = (bg: string | null | undefined): bg is string =>
 export function createBus(channel: BusChannel | null, storage: BusStorage | null) {
   const epoch = Math.random().toString(36).slice(2, 10);
   let seq = 0;
+  let cmdSeq = 0;
 
   // ---- publisher side (the control window)
   const published = new Map<string, string>(); // id → data, what we've announced
@@ -177,7 +178,7 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
     return true;
   };
 
-  const cmdSubs = new Set<(cmd: PresenterCommand) => void>();
+  const cmdSubs = new Set<(cmd: PresenterCommand, id: string) => void>();
 
   channel?.listen((msg) => {
     switch (msg.t) {
@@ -208,7 +209,8 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
         return;
       }
       case 'cmd':
-        for (const cb of cmdSubs) cb(msg.cmd);
+        // older windows sent no id — give it one so the dispatcher can still track it
+        for (const cb of cmdSubs) cb(msg.cmd, msg.id ?? `bus-${Date.now()}-${Math.random()}`);
     }
   });
 
@@ -243,8 +245,10 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
       hello();
       return () => nextSubs.delete(cb);
     },
-    sendCommand: (cmd: PresenterCommand) => channel?.post({ t: 'cmd', cmd }),
-    subscribeCommand(cb: (cmd: PresenterCommand) => void): () => void {
+    /** A command from an output window; `id` makes it apply once (lib/commands.ts). */
+    sendCommand: (cmd: PresenterCommand, id = `${epoch}-${++cmdSeq}`) =>
+      channel?.post({ t: 'cmd', cmd, id }),
+    subscribeCommand(cb: (cmd: PresenterCommand, id: string) => void): () => void {
       cmdSubs.add(cb);
       return () => cmdSubs.delete(cb);
     },
