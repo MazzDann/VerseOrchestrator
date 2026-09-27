@@ -22,7 +22,7 @@
  * Only node: imports, no TS-only syntax — Node runs this file as it is
  * (`node server/src/standby.ts`, type stripping); tsx is loaded only for the app itself.
  */
-import { fork, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
@@ -42,6 +42,8 @@ export interface StandbyOptions {
   host: string;
   /** stop the app after this long without requests or open sockets */
   idleMs: number;
+  /** …or this long once switched off (retiring): quick, but never under an open page */
+  retireIdleMs?: number;
   /** start the real app; `progress` feeds the «Запуск…» page */
   startApp: (progress: (msg: string) => void) => Promise<RunningApp>;
   log?: (msg: string) => void;
@@ -217,8 +219,9 @@ export function createStandby(o: StandbyOptions) {
   }
 
   const server = http.createServer((req, res) => {
-    touch();
+    // status checks (the settings panel polls them) are not use of the app
     if (control(req, res)) return;
+    touch();
     if (app) return proxy(req, res, app);
     const starting = ensureApp();
     if (req.method === 'GET' && /text\/html/.test(req.headers.accept ?? '')) {
@@ -259,11 +262,12 @@ export function createStandby(o: StandbyOptions) {
 
   const idle = setInterval(() => {
     if (state !== 'running' || inflight > 0 || tunnels.size > 0) return;
-    if (now() - lastActivity < o.idleMs) return;
+    const limit = retiring ? Math.min(o.idleMs, o.retireIdleMs ?? 30_000) : o.idleMs;
+    if (now() - lastActivity < limit) return;
     void stopApp('idle').then(() => {
       if (retiring) void shutdown();
     });
-  }, o.checkMs ?? 30_000);
+  }, o.checkMs ?? 10_000);
 
   let closed = false;
   async function shutdown(): Promise<void> {
@@ -338,14 +342,24 @@ export function appProcess(root: string, log: (m: string) => void) {
       fs.writeFileSync(path.join(root, 'web', 'dist', '.vo-version'), version);
     }
     progress('Запускаю сервер…');
-    const child = fork(path.join(root, 'server', 'src', 'index.ts'), [], {
-      cwd: root,
-      execArgv: ['--import', 'tsx'],
-      env: { ...process.env, PORT: '0', HOST: '127.0.0.1', VO_STANDBY: '1' },
-      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-    });
+    // fork() by hand (spawn + an IPC channel) — fork's options don't take windowsHide:
+    // a detached waiter has no console, so Windows would give the app a new, VISIBLE one,
+    // and closing that window kills the app (exit 0xC000013A).
+    const child = spawn(
+      process.execPath,
+      ['--import', 'tsx', path.join(root, 'server', 'src', 'index.ts')],
+      {
+        cwd: root,
+        env: { ...process.env, PORT: '0', HOST: '127.0.0.1', VO_STANDBY: '1' },
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+        windowsHide: true,
+      },
+    );
     child.stdout?.on('data', (d) => log(`[app] ${String(d).trim()}`));
     child.stderr?.on('data', (d) => log(`[app] ${String(d).trim()}`));
+    child.once('exit', (code, signal) =>
+      log(`[app] exit code ${code}${signal ? ` (${signal})` : ''}`),
+    );
     const port = await new Promise<number>((resolve, reject) => {
       const t = setTimeout(() => reject(new Error('сервер не запустився за 60 с')), 60_000);
       child.on('message', (m: { type?: string; port?: number }) => {
@@ -407,7 +421,12 @@ async function main(): Promise<void> {
   }
   const log = (m: string) => {
     const line = `${new Date().toISOString()} ${m}\n`;
-    fs.appendFile(logFile, line, () => undefined);
+    // sync: the last lines before process.exit (retire, relaunch) must not be lost
+    try {
+      fs.appendFileSync(logFile, line);
+    } catch {
+      /* a full or locked disk must not stop the waiter */
+    }
     if (process.stdout.isTTY) process.stdout.write(line);
   };
   const settings = readStandbySettings(dataDir);

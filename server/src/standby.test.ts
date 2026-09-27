@@ -152,10 +152,21 @@ describe('standby waiter', () => {
 
     const b = await waiter({ idleMs: 60, checkMs: 20 });
     await fetch(b.url('/api/x'));
+    const poll = setInterval(() => void fetch(b.url('/__standby')), 10); // the settings panel
+    setTimeout(() => clearInterval(poll), 400);
     b.s.retire();
     await sleep(20);
     expect(b.events).toEqual([]); // the app is still in use
     await sleep(250); // …until it goes idle
     expect(b.events).toEqual(['retired']);
+
+    // switched off: a much shorter idle than the everyday one
+    const c = await waiter({ idleMs: 60_000, retireIdleMs: 60, checkMs: 20 });
+    await fetch(c.url('/api/x'));
+    await sleep(150);
+    expect(c.app.stopped).toBe(0); // everyday idle: still running
+    c.s.retire();
+    await sleep(250);
+    expect(c.events).toEqual(['retired']);
   });
 });

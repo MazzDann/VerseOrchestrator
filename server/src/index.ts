@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
-import type { AddressInfo } from 'node:net';
+import net, { type AddressInfo } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -25,7 +25,14 @@ import {
   revokePairing,
   setRemotePersistence,
 } from './remote.js';
-import { getServerSettings, initServerSettings, updateServerSettings } from './serverSettings.js';
+import {
+  getServerSettings,
+  initServerSettings,
+  updateServerSettings,
+  validStandbyPort,
+} from './serverSettings.js';
+import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
+import { CONTROL_HEADER } from './standby.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -200,6 +207,110 @@ app.put(
     const next = updateServerSettings(req.body);
     setRemotePersistence(next.remotes.persist); // off → secrets.json no longer lists remotes
     res.json(next);
+  }),
+);
+
+// --- Standby waiter (1.4.2): «Запускати застосунок за адресою» in the control window.
+
+const standbyScript = path.join(repoRoot, 'server', 'src', 'standby.ts');
+const autostart = currentEntry(repoRoot);
+
+type WaiterStatus = { state: string; retiring?: boolean } & Record<string, unknown>;
+
+async function waiterAt(port: number): Promise<WaiterStatus | null> {
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/__standby`, {
+      signal: AbortSignal.timeout(800),
+    });
+    return r.ok ? ((await r.json()) as WaiterStatus) : null;
+  } catch {
+    return null;
+  }
+}
+
+function tellWaiter(port: number, action: 'retire' | 'resume' | 'relaunch'): Promise<unknown> {
+  return fetch(`http://127.0.0.1:${port}/__standby/${action}`, {
+    method: 'POST',
+    headers: { [CONTROL_HEADER]: '1' },
+    signal: AbortSignal.timeout(1500),
+  }).catch(() => undefined);
+}
+
+function startWaiter(): void {
+  spawn(process.execPath, ['--disable-warning=ExperimentalWarning', standbyScript], {
+    cwd: repoRoot,
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  }).unref();
+}
+
+function portFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once('error', () => resolve(false));
+    probe.listen(port, '0.0.0.0', () => probe.close(() => resolve(true)));
+  });
+}
+
+async function standbyState() {
+  const { port, idleMinutes } = getServerSettings().standby;
+  const lan = Object.values(os.networkInterfaces())
+    .flat()
+    .filter((a) => a && a.family === 'IPv4' && !a.internal)
+    .map((a) => `http://${a!.address}:${port}`);
+  return {
+    enabled: isAutostartOn(autostart),
+    supported: !!autostart,
+    port,
+    idleMinutes,
+    waiter: await waiterAt(port),
+    /** this app was started by the waiter (so a relaunch reloads this very page elsewhere) */
+    underWaiter: process.env.VO_STANDBY === '1',
+    urls: { local: `http://localhost:${port}`, lan },
+  };
+}
+
+app.get(
+  '/api/standby',
+  requireLocal,
+  wrap(async (_req, res) => res.json(await standbyState())),
+);
+
+app.put(
+  '/api/standby',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const body = (req.body ?? {}) as { enabled?: unknown; port?: unknown };
+    const before = getServerSettings().standby;
+    const running = await waiterAt(before.port);
+    let relaunch = false;
+    if (body.port !== undefined && body.port !== before.port) {
+      if (!validStandbyPort(body.port)) {
+        throw new ApiError(400, 'Порт — ціле число від 1024 до 65535, крім 5173 і 8787');
+      }
+      if (!(await portFree(body.port))) {
+        throw new ApiError(409, `Порт ${body.port} уже зайнятий іншою програмою — виберіть інший`);
+      }
+      updateServerSettings({ standby: { port: body.port } });
+      relaunch = !!running; // a waiter on the old port moves over
+    }
+    const port = getServerSettings().standby.port;
+    if (body.enabled === true) {
+      if (!running && !relaunch && !(await portFree(port))) {
+        throw new ApiError(409, `Порт ${port} зайнятий іншою програмою — змініть порт`);
+      }
+      setAutostart(autostart, true);
+      if (!running) startWaiter();
+      else if (running.retiring) await tellWaiter(before.port, 'resume');
+    } else if (body.enabled === false) {
+      setAutostart(autostart, false);
+      if (running) await tellWaiter(before.port, 'retire'); // exits once the app is idle
+      relaunch = false;
+    }
+    res.json({ ...(await standbyState()), relaunching: relaunch });
+    // Relaunch AFTER answering: when this very app runs under the waiter, it is stopped.
+    if (relaunch) setTimeout(() => void tellWaiter(before.port, 'relaunch'), 300);
   }),
 );
 
@@ -468,3 +579,5 @@ const server = app.listen(PORT, HOST, () => {
   process.send?.({ type: 'ready', port });
 });
 attachLiveHub(server);
+// …and go with it: a waiter killed outright must not leave the app on a stray port.
+if (process.send) process.on('disconnect', () => process.exit(0));

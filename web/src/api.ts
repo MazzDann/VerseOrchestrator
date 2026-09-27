@@ -214,6 +214,27 @@ const PairingSchema = z.object({
 });
 export type Pairing = z.infer<typeof PairingSchema>;
 
+/** The standby waiter (server/src/standby.ts) and its autostart — GET/PUT /api/standby. */
+const StandbySchema = z.object({
+  enabled: z.boolean(),
+  supported: z.boolean(),
+  port: z.number(),
+  idleMinutes: z.number(),
+  waiter: z
+    .object({
+      state: z.string(),
+      appPort: z.number().nullable().optional(),
+      rssBytes: z.number().optional(),
+      retiring: z.boolean().optional(),
+      openSockets: z.number().optional(),
+    })
+    .nullable(),
+  underWaiter: z.boolean(),
+  urls: z.object({ local: z.string(), lan: z.array(z.string()) }),
+  relaunching: z.boolean().optional(),
+});
+export type StandbyStatus = z.infer<typeof StandbySchema>;
+
 const ServerSettingsSchema = z.object({
   version: z.number(),
   remotes: z.object({ persist: z.boolean() }),
@@ -371,6 +392,16 @@ export const api = {
   },
   /** Server options (data/settings.json) — not secrets. */
   serverSettings: () => getJson('/api/server-settings', ServerSettingsSchema),
+  standby: () => getJson('/api/standby', StandbySchema),
+  updateStandby: async (patch: { enabled?: boolean; port?: number }) => {
+    const res = await request('/api/standby', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw await failure(res);
+    return StandbySchema.parse(await res.json());
+  },
   updateServerSettings: async (patch: { remotes?: { persist?: boolean } }) => {
     const res = await request('/api/server-settings', {
       method: 'PUT',

@@ -36,6 +36,7 @@ import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
+import { StandbySection } from './StandbySection';
 import { useEffectiveSource } from '../dataSourceStore';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
@@ -438,6 +439,7 @@ export function SettingsPanel() {
               Пересканувати модулі
             </Button>
           </div>
+          <StandbySection active={openSections.includes('app')} />
         </Section>
       </Accordion>
       <Text size="xs" c="dimmed" ta="center">

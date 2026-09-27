@@ -18,16 +18,40 @@ export interface ServerSettings {
   };
   /** Module files the builder imports (see @vo/shared LibrarySelection). */
   library?: LibrarySelection;
+  /** The standby waiter (standby.ts reads this key too): its address and idle stop. */
+  standby: { port: number; idleMinutes: number };
 }
 
-export const DEFAULT_SERVER_SETTINGS: ServerSettings = { version: 1, remotes: { persist: true } };
+export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
+  version: 1,
+  remotes: { persist: true },
+  standby: { port: 4747, idleMinutes: 15 },
+};
+
+/** The app's own ports (web dev server, API / single-process app) — not for the waiter. */
+export const RESERVED_PORTS = [5173, 8787];
+
+/** Ports the waiter may use: unprivileged, not the app's own. */
+export function validStandbyPort(n: unknown): n is number {
+  return (
+    Number.isInteger(n) &&
+    (n as number) >= 1024 &&
+    (n as number) <= 65535 &&
+    !RESERVED_PORTS.includes(n as number)
+  );
+}
 
 let file: string | null = null;
 let current: ServerSettings = DEFAULT_SERVER_SETTINGS;
 
 /** Coerce anything (hand-edited file, API body) into valid settings. */
 export function sanitizeServerSettings(raw: unknown): ServerSettings {
-  const r = (raw ?? {}) as { remotes?: { persist?: unknown }; library?: unknown };
+  const r = (raw ?? {}) as {
+    remotes?: { persist?: unknown };
+    library?: unknown;
+    standby?: { port?: unknown; idleMinutes?: unknown };
+  };
+  const idle = Number(r.standby?.idleMinutes);
   const out: ServerSettings = {
     version: 1,
     remotes: {
@@ -35,6 +59,13 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
         typeof r.remotes?.persist === 'boolean'
           ? r.remotes.persist
           : DEFAULT_SERVER_SETTINGS.remotes.persist,
+    },
+    standby: {
+      port: validStandbyPort(r.standby?.port)
+        ? (r.standby!.port as number)
+        : DEFAULT_SERVER_SETTINGS.standby.port,
+      idleMinutes:
+        idle >= 1 && idle <= 24 * 60 ? idle : DEFAULT_SERVER_SETTINGS.standby.idleMinutes,
     },
   };
   const library = sanitizeLibrarySelection(r.library);
@@ -55,11 +86,15 @@ export function getServerSettings(): ServerSettings {
   return current;
 }
 
-/** Apply a patch to the server-owned keys (remotes). `library` is edited by the builder / by hand. */
+/** Apply a patch to the server-owned keys (remotes, standby). `library` is edited by the builder / by hand. */
 export function updateServerSettings(patch: unknown): ServerSettings {
-  const p = (patch ?? {}) as { remotes?: object };
+  const p = (patch ?? {}) as { remotes?: object; standby?: object };
   const base = getServerSettings();
-  current = sanitizeServerSettings({ ...base, remotes: { ...base.remotes, ...p.remotes } });
+  current = sanitizeServerSettings({
+    ...base,
+    remotes: { ...base.remotes, ...p.remotes },
+    standby: { ...base.standby, ...p.standby },
+  });
   if (file) writeJson(file, current);
   return current;
 }
