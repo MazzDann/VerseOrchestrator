@@ -98,8 +98,14 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
 
   /** The last wire JSON per stream: an identical publish is dropped (no message, no write). */
   const lastJson = { live: '', next: '' };
+  /**
+   * Is this window allowed to publish (1.3.4)? A standby control window (another one
+   * leads — lib/leader.ts) neither publishes nor answers handshakes with stale state.
+   */
+  let publishing = true;
 
   function publish(t: 'live' | 'next', slide: Slide | null): void {
+    if (!publishing) return;
     const wire = toWire(slide);
     const json = wire ? JSON.stringify(wire) : 'null'; // small: the background is a reference
     if (json === lastJson[t]) return;
@@ -118,6 +124,7 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
 
   /** A window (re)opened: give it everything the current state refers to. */
   function answerHello(): void {
+    if (!publishing) return;
     if (live === undefined && next === undefined) return; // not a publisher
     for (const s of [live, next]) {
       const ref = s?.style?.bgImage;
@@ -204,6 +211,7 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
         answerHello();
         return;
       case 'need': {
+        if (!publishing) return;
         const data = published.get(msg.id);
         if (data) channel?.post({ t: 'asset', id: msg.id, data });
         return;
@@ -232,6 +240,14 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
 
   return {
     publishSlide: (slide: Slide) => publish('live', slide),
+    /** Leader or standby (1.3.4); stopping also forgets what this window last sent. */
+    setPublishing(on: boolean): void {
+      publishing = on;
+      if (!on) {
+        live = next = undefined;
+        lastJson.live = lastJson.next = '';
+      }
+    },
     publishNext: (slide: Slide | null) => publish('next', slide),
     readSlide: (): Slide => read(KEY_LIVE) ?? EMPTY,
     readNext: (): Slide | null => read(KEY_NEXT),

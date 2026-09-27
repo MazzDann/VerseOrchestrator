@@ -221,3 +221,5 @@ export const readNext = bus.readNext;
 export const subscribeNext = bus.subscribeNext;
 export const sendCommand = bus.sendCommand;
 export const subscribeCommand = bus.subscribeCommand;
+/** Leader / standby control window (lib/leader.ts): only the leader publishes. */
+export const setPublishing = bus.setPublishing;

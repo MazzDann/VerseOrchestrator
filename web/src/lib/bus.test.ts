@@ -189,6 +189,21 @@ describe('window bus v2', () => {
     expect(store.writes.filter((k) => k === KEY_LIVE)).toHaveLength(2);
   });
 
+  it('a standby control window neither publishes nor answers a handshake', async () => {
+    const h = hub();
+    const standby = createBus(h.endpoint(), memory());
+    standby.publishSlide(slide('A')); // it led before…
+    standby.setPublishing(false); // …then another window took over
+    standby.publishSlide(slide('B'));
+    const output = createBus(h.endpoint(), memory());
+    const got: string[] = [];
+    output.subscribeSlide((s) => got.push(s.reference));
+    await flush();
+    await flush();
+    expect(h.log.filter((m) => m.t === 'live')).toHaveLength(1); // only 'A', before standby
+    expect(got).toEqual([]); // no stale 'A' in reply to the hello
+  });
+
   it('content ids differ with content, not with the string instance', () => {
     expect(assetId(BG)).toBe(assetId(`${BG}`.slice(0)));
     expect(assetId(BG)).not.toBe(assetId(BG.replace('/9j/', '/9k/')));

@@ -65,6 +65,8 @@ import {
   publishNext,
   readSlide,
   subscribeCommand,
+  subscribeSlide,
+  setPublishing,
   type Slide,
   type SlideLine,
   type SlideStyle,
@@ -90,6 +92,7 @@ import { FollowPanel } from '../components/FollowPanel';
 import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
 import { useOutputWindows } from '../lib/outputs';
+import { useControlLeader } from '../lib/leader';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
 import { commands, PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
@@ -251,6 +254,21 @@ export function Control() {
   const [outputsOpen, setOutputsOpen] = useState(false);
   /** Output windows open right now (they announce themselves — lib/outputs.ts). */
   const outputWindows = useOutputWindows();
+  /**
+   * One control window in charge (1.3.4, lib/leader.ts): only the leader publishes to the
+   * outputs, takes commands and holds the server's control socket; a second control window
+   * is on standby — it mirrors what is on screen and can «Взяти керування».
+   */
+  const { state: leaderState, takeOver } = useControlLeader();
+  const isLeader = leaderState === 'leader';
+  const leaderRef = useRef(isLeader);
+  leaderRef.current = isLeader;
+  const standbyNotice = () =>
+    notifications.show({
+      message: 'Показом керує інше вікно керування — натисніть «Взяти керування», щоб вести звідси',
+      color: 'orange',
+      autoClose: 2500,
+    });
   const [paletteOpen, setPaletteOpen] = useState(false);
   // The song + highlighted stanza in the Songs panel — lifted here so the playlist
   // can open a song and seed its stanza (and so forwarded clicker commands step it).
@@ -543,8 +561,8 @@ export function Control() {
 
   // Mirror the next-slide preview to the stage window.
   useEffect(() => {
-    publishNext(nextSlide);
-  }, [nextSlide]);
+    if (isLeader) publishNext(nextSlide);
+  }, [nextSlide, isLeader]);
 
   // Publish to the output window AND record it as the live slide (the bus doesn't
   // echo to the sender, so we track it here for the in-app "what's on screen" monitor).
@@ -558,6 +576,7 @@ export function Control() {
   const controlConn = useRef<LiveConnection | null>(null);
   // Audience follow-along goes over the control socket when it's up, HTTP otherwise.
   const publishAudience = (slide: Slide) => {
+    if (!leaderRef.current) return; // standby: the leader feeds the phones
     // Only with a confirmed server: at startup (probe pending) the control socket's welcome
     // re-publishes anyway; without a server there is no audience relay at all.
     if (useServer.getState().available !== true) return;
@@ -565,6 +584,7 @@ export function Control() {
     if (!controlConn.current?.send({ type: 'publish', slide: s })) void api.livePost(s);
   };
   const pauseAudience = () => {
+    if (!leaderRef.current) return;
     if (useServer.getState().available !== true) return; // the relay starts paused anyway
     if (!controlConn.current?.send({ type: 'publish', paused: true })) void api.livePause();
   };
@@ -574,6 +594,7 @@ export function Control() {
   // remotes' «screen» frame and the phones. An identical slide is now a no-op.
   const lastPushed = useRef<Slide | null>(null);
   const pushLive = (slide: Slide) => {
+    if (!leaderRef.current) return; // standby: never overrides the leader's screen
     if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
     lastPushed.current = slide;
     publishSlide(slide);
@@ -1014,6 +1035,7 @@ export function Control() {
   });
 
   const sendAndNotify = () => {
+    if (!leaderRef.current) return standbyNotice();
     send();
     if (slideLines.length > 0) {
       notifications.show({
@@ -1072,6 +1094,7 @@ export function Control() {
   );
 
   const blankScreen = () => {
+    if (!leaderRef.current) return standbyNotice();
     pushLive({ lines: slideLines, reference, blank: true, visible: true, style: slideStyle });
     setLive(false);
     notifications.show({ message: 'Екран затемнено', color: 'gray', autoClose: 1500 });
@@ -1080,6 +1103,7 @@ export function Control() {
   // Pure-black screen, ignoring the background — distinct from "Затемнити" (blank),
   // which keeps the background image/colour and only hides the text. Bound to ".".
   const blackScreen = () => {
+    if (!leaderRef.current) return standbyNotice();
     pushLive({
       lines: [],
       reference: '',
@@ -1105,7 +1129,10 @@ export function Control() {
     return { ok: true };
   }, PRIORITY.verses);
   useEffect(
-    () => subscribeCommand((cmd, id) => void commands.dispatch(id, cmd, { kind: 'output' })),
+    () =>
+      subscribeCommand((cmd, id) => {
+        if (leaderRef.current) commands.dispatch(id, cmd, { kind: 'output' });
+      }),
     [],
   );
 
@@ -1122,11 +1149,25 @@ export function Control() {
   liveSlideRef.current = liveSlide;
   const nextSlideRef = useRef(nextSlide);
   nextSlideRef.current = nextSlide;
+
+  // Leader ⇄ standby (1.3.4). Standby: publish nothing and mirror what the leader shows
+  // (the «На екрані» monitor stays true). Becoming leader — at start, when the leading
+  // window closes, or on «Взяти керування»: take the screen over as it is (republished
+  // under this window's session, nothing visibly changes) and publish this window's «next».
+  useEffect(() => {
+    setPublishing(isLeader);
+    if (!isLeader) return subscribeSlide((s) => setLiveSlide(s));
+    lastPushed.current = null;
+    pushLive(liveSlideRef.current);
+    publishNext(nextSlideRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLeader]);
   /** Audience phones currently on /follow (pushed by the hub). */
   const [viewers, setViewers] = useState(0);
   useEffect(() => {
-    // No server (static deployment / stopped): there is no hub to talk to.
-    if (serverAvailable !== true) return;
+    // No server (static deployment / stopped): there is no hub to talk to. Standby: the
+    // leading window holds the control socket, so remote commands reach one window only.
+    if (serverAvailable !== true || !isLeader) return;
     const c = connectLive({
       hello: { role: 'control' },
       onMessage: (f) => {
@@ -1162,7 +1203,7 @@ export function Control() {
       controlConn.current = null;
       c.stop();
     };
-  }, [queryClient, serverAvailable]);
+  }, [queryClient, serverAvailable, isLeader]);
   // Keep remotes' «На екрані» / «Далі» in step with the output (independent of follow-along).
   useEffect(() => {
     controlConn.current?.send(screenFrame());
@@ -1545,7 +1586,7 @@ export function Control() {
                   color="live"
                   combo={keymap.project}
                   icon={<IconDeviceTv size={18} stroke={1.5} />}
-                  disabled={slideLines.length === 0}
+                  disabled={slideLines.length === 0 || !isLeader}
                   onClick={sendAndNotify}
                 />
                 <ToolButton
@@ -1555,6 +1596,7 @@ export function Control() {
                   compact={!wideHeader}
                   combo={keymap.blank}
                   icon={<IconSquareOff size={18} stroke={1.5} />}
+                  disabled={!isLeader}
                   onClick={blankScreen}
                 />
                 <ToolIcon
@@ -1563,6 +1605,7 @@ export function Control() {
                   combo={keymap.black}
                   icon={<IconSquareFilled size={16} />}
                   color="dark"
+                  disabled={!isLeader}
                   onClick={blackScreen}
                 />
               </ToolZone>
@@ -1724,6 +1767,27 @@ export function Control() {
 
         <AppShell.Main>
           <Box style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)' }}>
+            {!isLeader && (
+              <Group
+                gap="sm"
+                wrap="nowrap"
+                px="md"
+                py={6}
+                role="status"
+                style={{
+                  background: 'var(--mantine-color-default-hover)',
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                }}
+              >
+                <Text size="sm" style={{ flex: 1 }}>
+                  Показом керує інше вікно керування. Тут можна готувати наступне — на екран іде
+                  лише звідти.
+                </Text>
+                <Button size="xs" variant="light" onClick={takeOver}>
+                  Взяти керування
+                </Button>
+              </Group>
+            )}
             <SearchPanel
               open={searchOpen}
               onClose={() => setSearchOpen(false)}
