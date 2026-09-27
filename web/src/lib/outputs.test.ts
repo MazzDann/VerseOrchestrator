@@ -3,6 +3,7 @@ import {
   createOutputs,
   HEARTBEAT_MS,
   outputLabels,
+  STALE_HIDDEN_MS,
   STALE_MS,
   type OutputChannel,
   type OutputInfo,
@@ -107,6 +108,23 @@ describe('output windows registry', () => {
     await flush();
     expect(list).toHaveLength(1);
     vi.advanceTimersByTime(STALE_MS + HEARTBEAT_MS);
+    await flush();
+    expect(list).toEqual([]);
+  });
+
+  it('keeps a hidden window through throttled heartbeats, drops it once truly silent', async () => {
+    const h = hub();
+    const control = createOutputs(h.endpoint(), () => Date.now());
+    let list: TrackedOutput[] = [];
+    control.track((l) => (list = l));
+    // fullscreen on the projector, but its Space is not the one shown right now
+    h.endpoint().post({ t: 'win', info: info('w5', 'presenter', { visible: false }) });
+    await flush();
+    expect(list).toHaveLength(1);
+    vi.advanceTimersByTime(STALE_MS + HEARTBEAT_MS); // a visible window would be gone by now
+    await flush();
+    expect(list.map((o) => o.id)).toEqual(['w5']);
+    vi.advanceTimersByTime(STALE_HIDDEN_MS);
     await flush();
     expect(list).toEqual([]);
   });
