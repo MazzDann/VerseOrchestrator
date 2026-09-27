@@ -1,5 +1,5 @@
 import { api, SegmentManifestSchema, type SegmentInfo } from '../../api';
-import { useDataSource } from '../../dataSourceStore';
+import { effectiveSource, useDataSource } from '../../dataSourceStore';
 import { localEngine } from './index';
 import {
   cacheDropped,
@@ -89,8 +89,8 @@ export async function addDroppedFile(file: File): Promise<string> {
 
 /** On app start in «у браузері» mode: bring back the remembered segments. */
 export function restoreLocalSegments(): void {
-  const { source, segments } = useDataSource.getState();
-  if (source !== 'local' || segments.length === 0) return;
+  const { segments } = useDataSource.getState();
+  if (effectiveSource() !== 'local' || segments.length === 0) return;
   void requestPersistence();
   // `file:` keys (dropped without a cache) can't come back — skip them.
   localEngine.setReady(loadSegments(segments.filter((k) => !k.startsWith('file:'))));

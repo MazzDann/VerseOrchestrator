@@ -90,6 +90,8 @@ import { FollowPanel } from '../components/FollowPanel';
 import { RemotePanel } from '../components/RemotePanel';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
+import { useServer, NEEDS_SERVER } from '../serverStore';
+import { useDataSource } from '../dataSourceStore';
 import { summarize } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
@@ -217,6 +219,29 @@ export function Control() {
   const [concordanceStrong, setConcordanceStrong] = useState<string | null>(null);
   const [goToValue, setGoToValue] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const serverAvailable = useServer((s) => s.available);
+  // First run with no server and nothing loaded: the library can only come from the
+  // browser engine — open the settings on «Джерело даних» and say why.
+  useEffect(() => {
+    if (serverAvailable !== false || useDataSource.getState().segments.length > 0) return;
+    try {
+      const open = JSON.parse(localStorage.getItem('vo:settingsSections') ?? '[]');
+      if (Array.isArray(open) && !open.includes('app'))
+        localStorage.setItem('vo:settingsSections', JSON.stringify([...open, 'app']));
+    } catch {
+      /* storage unavailable */
+    }
+    setSettingsOpen(true);
+    // next tick: on first paint the notifications host may not be mounted yet
+    window.setTimeout(() =>
+      notifications.show({
+        message:
+          'Сервера немає — бібліотека працюватиме в браузері. Виберіть переклади в «Джерело даних».',
+        color: 'brand',
+        autoClose: 8000,
+      }),
+    );
+  }, [serverAvailable]);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false);
@@ -527,10 +552,14 @@ export function Control() {
   const controlConn = useRef<LiveConnection | null>(null);
   // Audience follow-along goes over the control socket when it's up, HTTP otherwise.
   const publishAudience = (slide: Slide) => {
+    // Only with a confirmed server: at startup (probe pending) the control socket's welcome
+    // re-publishes anyway; without a server there is no audience relay at all.
+    if (useServer.getState().available !== true) return;
     const s = stripBg(slide);
     if (!controlConn.current?.send({ type: 'publish', slide: s })) void api.livePost(s);
   };
   const pauseAudience = () => {
+    if (useServer.getState().available !== true) return; // the relay starts paused anyway
     if (!controlConn.current?.send({ type: 'publish', paused: true })) void api.livePause();
   };
   const pushLive = (slide: Slide) => {
@@ -1072,6 +1101,8 @@ export function Control() {
   /** Audience phones currently on /follow (pushed by the hub). */
   const [viewers, setViewers] = useState(0);
   useEffect(() => {
+    // No server (static deployment / stopped): there is no hub to talk to.
+    if (serverAvailable !== true) return;
     const c = connectLive({
       hello: { role: 'control' },
       onMessage: (f) => {
@@ -1101,7 +1132,7 @@ export function Control() {
       controlConn.current = null;
       c.stop();
     };
-  }, [queryClient]);
+  }, [queryClient, serverAvailable]);
   // Keep remotes' «На екрані» / «Далі» in step with the output (independent of follow-along).
   useEffect(() => {
     controlConn.current?.send(screenFrame());
@@ -1415,16 +1446,26 @@ export function Control() {
                   label={
                     followAlong ? `Глядачі: трансляція увімкнена, на зв’язку ${viewers}` : 'Глядачі'
                   }
-                  hint="QR, щоб глядачі стежили за текстом з телефона"
+                  hint={
+                    serverAvailable === false
+                      ? NEEDS_SERVER
+                      : 'QR, щоб глядачі стежили за текстом з телефона'
+                  }
                   icon={<IconQrcode size={18} stroke={1.5} />}
+                  disabled={serverAvailable === false}
                   active={followOpen}
                   color={followAlong ? 'live' : undefined}
                   onClick={() => setFollowOpen((o) => !o)}
                 />
                 <ToolIcon
                   label="Пульт доповідача"
-                  hint="Телефон-пульт за QR: гортати показ без доступу до налаштувань"
+                  hint={
+                    serverAvailable === false
+                      ? NEEDS_SERVER
+                      : 'Телефон-пульт за QR: гортати показ без доступу до налаштувань'
+                  }
                   icon={<IconDeviceMobile size={18} stroke={1.5} />}
+                  disabled={serverAvailable === false}
                   active={remoteOpen}
                   onClick={() => setRemoteOpen((o) => !o)}
                 />

@@ -36,6 +36,11 @@ export default tseslint.config(
     },
   },
   {
+    // Node build scripts (plain .mjs).
+    files: ['**/scripts/**/*.mjs'],
+    languageOptions: { globals: { process: 'readonly', console: 'readonly' } },
+  },
+  {
     // Relax a few rules that are noisy for this codebase.
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
