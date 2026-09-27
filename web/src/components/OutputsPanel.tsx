@@ -116,7 +116,7 @@ export function OutputsPanel() {
     });
     setOutputs({ layout: saved });
     notifications.show({
-      message: `Розкладку запам’ятано: ${saved.length} вікн.`,
+      message: `Розкладку збережено: ${saved.length} вікн.`,
       color: 'green',
       autoClose: 1500,
     });
@@ -144,7 +144,7 @@ export function OutputsPanel() {
   };
 
   return (
-    <Stack gap="sm">
+    <Stack gap="sm" p="sm">
       <div>
         <Text size="xs" c="dimmed" mb={4}>
           Екрани
@@ -350,7 +350,8 @@ export function OutputsPanel() {
           label="Відкривати на весь екран"
           description="Нове вікно стає на весь екран з вашим наступним кліком у цьому вікні — по одному вікну на клік (Chrome, Edge); в інших браузерах — F у самому вікні"
         />
-        <Group gap="xs" grow>
+        {/* natural widths: a narrow panel wraps them to two rows instead of cutting labels */}
+        <Group gap="xs">
           <Button
             size="xs"
             variant="default"
@@ -358,7 +359,7 @@ export function OutputsPanel() {
             disabled={windows.length === 0}
             onClick={saveLayout}
           >
-            Запам’ятати розкладку
+            Зберегти розкладку
           </Button>
           <Button
             size="xs"
