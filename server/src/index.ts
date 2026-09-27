@@ -25,6 +25,7 @@ import {
   attachLiveHub,
   dropRemote,
   getLive,
+  pauseLive,
   isRemoteOnline,
   notifyRemotesChanged,
   publishLive,
@@ -96,6 +97,12 @@ app.post(
     const version = publishLive(req.body ?? null);
     res.json({ ok: true, version, viewers: viewerCount() });
   }),
+);
+
+app.post(
+  '/api/live/pause',
+  requireLocalControl,
+  wrap((_req, res) => res.json({ ok: true, version: pauseLive() })),
 );
 
 app.get(

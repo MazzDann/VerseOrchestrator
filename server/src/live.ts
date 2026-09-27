@@ -14,7 +14,9 @@ import { findByToken, getPairing, isRemoteCommand, type RemoteCommand } from './
  *   { type: 'hello', role: 'remote', token }  — a paired speaker remote (remote.ts)
  * A remote may then send { type: 'command', cmd } for the commands its pairing allows;
  * the hub forwards them to the control socket(s) as { type: 'command', cmd, from }.
- * The control socket reports { type: 'screen', screen, next } (compact summaries) whenever
+ * The control socket publishes the audience slide with { type: 'publish', slide } (or
+ * { type: 'publish', paused: true } when follow-along is switched off) and reports
+ * { type: 'screen', screen, next } (compact summaries) whenever
  * the output changes; the hub relays it to remotes only (never to audience viewers), and
  * sends control sockets { type: 'viewers', count } whenever the audience count changes.
  *
@@ -34,6 +36,12 @@ interface Meta {
 let liveState: unknown = null;
 let liveVersion = 0;
 /**
+ * Audience follow-along is OFF (or not started yet): viewers show a «paused» notice
+ * instead of freezing on whatever was last published. Starts paused — nothing is
+ * broadcast until the operator switches follow-along on.
+ */
+let livePaused = true;
+/**
  * What the output window shows now and what «Далі» would show — compact summaries sent
  * by the control socket for REMOTES only. Separate from liveState on purpose: the
  * audience follow-along is opt-in (the operator may keep it off), but a speaker's
@@ -50,7 +58,7 @@ const MAX_COMMANDS_PER_SEC = 8;
 const MAX_FRAME_BYTES = 256 * 1024;
 
 export function getLive() {
-  return { version: liveVersion, slide: liveState };
+  return { version: liveVersion, slide: liveState, paused: livePaused };
 }
 
 const slideFrame = () => JSON.stringify({ type: 'slide', ...getLive() });
@@ -60,9 +68,21 @@ const send = (ws: WebSocket, frame: object) => {
 const sockets = (role?: Role) =>
   wss ? [...wss.clients].filter((c) => !role || meta.get(c)?.role === role) : [];
 
-/** Store a new live slide and push it to every open socket. */
+/** Store a new live slide and push it to every open socket (this also un-pauses). */
 export function publishLive(slide: unknown): number {
   liveState = slide ?? null;
+  livePaused = false;
+  return pushLive();
+}
+
+/** Follow-along switched off: clear the slide so phones stop showing stale text. */
+export function pauseLive(): number {
+  liveState = null;
+  livePaused = true;
+  return pushLive();
+}
+
+function pushLive(): number {
   liveVersion += 1;
   const frame = slideFrame();
   for (const c of sockets()) if (c.readyState === WebSocket.OPEN) c.send(frame);
@@ -188,7 +208,11 @@ export function attachLiveHub(server: Server): void {
       }
       if (msg?.type === 'hello') onHello(ws, m, req, msg);
       else if (msg?.type === 'command') onCommand(ws, m, msg);
-      else if (msg?.type === 'screen' && m.role === 'control') {
+      else if (msg?.type === 'publish' && m.role === 'control') {
+        // Audience follow-along over the control socket (HTTP POST /api/live is the fallback).
+        if (msg.paused === true) pauseLive();
+        else publishLive(msg.slide ?? null);
+      } else if (msg?.type === 'screen' && m.role === 'control') {
         screenState = { screen: msg.screen ?? null, next: msg.next ?? null };
         for (const c of sockets('remote')) send(c, { type: 'screen', ...screenState });
       }
