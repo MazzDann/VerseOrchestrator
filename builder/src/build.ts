@@ -8,10 +8,13 @@ import { readModule } from './mybible.js';
 import { readDictionary, dictTopicNorm, strongLang } from './dictionary.js';
 import { readCrossrefs, readCommentaries } from './extras.js';
 import { readSong, listPptx } from './songs.js';
+import { selectModules, SelectionError } from './selection.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const DATA_DIR = path.join(repoRoot, 'data');
-const OUT_PATH = path.join(DATA_DIR, 'library.db');
+const DATA_DIR = process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data');
+const OUT_PATH = process.env.LIBRARY_DB ?? path.join(DATA_DIR, 'library.db');
+/** Server options file; its `library` key says which module files to import. */
+const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json');
 
 /**
  * Pick the modules folder: $MODULES_DIR, else the project `modules/` folder,
@@ -25,7 +28,10 @@ function resolveModulesDir(): string {
   return path.join(repoRoot, 'old', 'MyBible');
 }
 
-const SKIP = /\.(commentaries|dictionary|crossreferences|subheadings)\.SQLite3$/i;
+// Not Bible texts: companion modules (imported separately) and MyBible content types
+// the app doesn't use (devotionals, reading plans, bundles).
+const SKIP =
+  /\.(commentaries|dictionary|crossreferences|subheadings|devotions|plan|bundle|referencedata)\.SQLite3$/i;
 
 /** Songs (.pptx hymns): $SONGS_DIR, else project `songs/`, else the reference `old/ПС укр 1-477`. */
 function resolveSongsDir(): string {
@@ -80,16 +86,35 @@ function cleanAbbr(rawAbbr: string, title: string): string {
 
 function buildOnce(): void {
   const modulesDir = resolveModulesDir();
-  const files = listModuleFiles(modulesDir);
-  const dictFiles = listDictionaryFiles(modulesDir);
-  const xrefFiles = listByExt(modulesDir, /\.crossreferences\.SQLite3$/i);
-  const commentaryFiles = listByExt(modulesDir, /\.commentaries\.SQLite3$/i);
+  const candidates = {
+    bibles: listModuleFiles(modulesDir),
+    dictionaries: listDictionaryFiles(modulesDir),
+    commentaries: listByExt(modulesDir, /\.commentaries\.SQLite3$/i),
+    crossreferences: listByExt(modulesDir, /\.crossreferences\.SQLite3$/i),
+  };
   const songsDir = resolveSongsDir();
   const songFiles = listPptx(songsDir);
   console.log(`[builder] modules dir: ${modulesDir}`);
   console.log(
-    `[builder] candidate files: ${files.length} modules, ${dictFiles.length} dictionaries, ` +
-      `${xrefFiles.length} crossrefs, ${commentaryFiles.length} commentaries, ${songFiles.length} songs`,
+    `[builder] available: ${candidates.bibles.length} Bibles, ${candidates.dictionaries.length} dictionaries, ` +
+      `${candidates.crossreferences.length} crossrefs, ${candidates.commentaries.length} commentaries, ${songFiles.length} songs`,
+  );
+
+  // Which of them go into the library — data/settings.json → library (seeded on first run).
+  const picked = selectModules({
+    settingsFile: SETTINGS_PATH,
+    libraryPath: OUT_PATH,
+    candidates,
+  });
+  if (picked.seeded) console.log(`[builder] seeded library selection in ${SETTINGS_PATH}`);
+  for (const m of picked.missing) console.warn(`[builder]   selected but not found — ${m}`);
+  const files = picked.files.bibles;
+  const dictFiles = picked.files.dictionaries;
+  const xrefFiles = picked.files.crossreferences;
+  const commentaryFiles = picked.files.commentaries;
+  console.log(
+    `[builder] importing: ${files.length} Bibles, ${dictFiles.length} dictionaries, ` +
+      `${xrefFiles.length} crossrefs, ${commentaryFiles.length} commentaries`,
   );
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -99,6 +124,7 @@ function buildOnce(): void {
   db.pragma('busy_timeout = 5000'); // tolerate the server reading concurrently
 
   let translationId = 0;
+  const notBibles: string[] = [];
   let totalVerses = 0;
 
   const run = db.transaction(() => {
@@ -119,6 +145,12 @@ function buildOnce(): void {
       `INSERT INTO verses (translation_id, book_number, chapter, verse, text, text_norm, text_raw)
        VALUES (@translationId, @bookNumber, @chapter, @verse, @text, @textNorm, @textRaw)`,
     );
+    // Provenance: every imported module file, so the next build (and a future module
+    // manager UI) knows exactly what this library was made of.
+    const insSource = db.prepare('INSERT INTO sources (kind, file) VALUES (?, ?)');
+    for (const [kind, list] of Object.entries(picked.files)) {
+      for (const f of list) insSource.run(kind, path.basename(f));
+    }
     const insVerseStrong = db.prepare(
       `INSERT INTO verse_strongs (translation_id, verse_id, strong) VALUES (?, ?, ?)`,
     );
@@ -136,7 +168,14 @@ function buildOnce(): void {
         console.warn(`[builder]   skip ${name}: ${(err as Error).message}`);
         continue;
       }
-      if (!mod) continue;
+      if (!mod) {
+        // A selected Bible that has no books/verses — e.g. a catalog download that saved a
+        // commentary module under the Bible's file name. Say so loudly: silently skipping it
+        // would quietly shrink the library.
+        notBibles.push(name);
+        console.warn(`[builder]   ! ${name} is not a Bible module (no books/verses) — skipped`);
+        continue;
+      }
 
       translationId += 1;
       const abbr = cleanAbbr(name.replace(/\.SQLite3$/i, ''), mod.info.description);
@@ -322,6 +361,12 @@ function buildOnce(): void {
     console.warn(`[builder] VACUUM skipped: ${(err as Error).message}`);
   }
   db.close();
+  if (notBibles.length) {
+    console.warn(
+      `[builder] WARNING: ${notBibles.length} selected Bible file(s) are not Bibles: ${notBibles.join(', ')}. ` +
+        'Replace them with the real modules or remove them from library.bibles in data/settings.json.',
+    );
+  }
   console.log(
     `[builder] done: ${translationId} translations, ${totalVerses} verses -> ${OUT_PATH} (${Date.now() - started}ms)`,
   );
@@ -344,5 +389,14 @@ function watch(): void {
   });
 }
 
-buildOnce();
+try {
+  buildOnce();
+} catch (err) {
+  if (err instanceof SelectionError) {
+    // Nothing was written: the existing library stays as it is.
+    console.error(`[builder] ${err.message}`);
+    process.exit(1);
+  }
+  throw err;
+}
 if (process.argv.includes('--watch')) watch();
