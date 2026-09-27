@@ -202,7 +202,17 @@ export const api = {
       /* best-effort; phones poll and will catch up */
     });
   },
-  live: () => getJson('/api/live', z.object({ version: z.number(), slide: z.any().nullable() })),
+  live: () =>
+    getJson(
+      '/api/live',
+      z.object({ version: z.number(), slide: z.any().nullable(), paused: z.boolean().optional() }),
+    ),
+  /** Follow-along switched off: phones show «paused» instead of the last slide. */
+  livePause: async (): Promise<void> => {
+    await fetch('/api/live/pause', { method: 'POST', headers: CONTROL_HEADERS }).catch(() => {
+      /* best-effort, like livePost */
+    });
+  },
   host: () => getJson('/api/host', z.object({ ips: z.array(z.string()) })),
   // Speaker remotes (server/src/remote.ts). The token comes back ONLY from create.
   remotes: () => getJson('/api/remote', z.array(PairingSchema)),

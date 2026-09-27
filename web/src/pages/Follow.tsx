@@ -10,23 +10,26 @@ import { connectLive } from '../lib/liveSocket';
  */
 export function Follow() {
   const [slide, setSlide] = useState<Slide | null>(null);
+  /** The operator switched follow-along off (or hasn't started it yet). */
+  const [paused, setPaused] = useState(false);
   const [connected, setConnected] = useState(true);
   const version = useRef(-1);
 
   useEffect(() => {
     let alive = true;
     let socketUp = false;
-    const apply = (v: number, next: unknown) => {
+    const apply = (v: number, next: unknown, isPaused?: boolean) => {
       if (v === version.current) return;
       version.current = v;
       setSlide((next as Slide | null) ?? null);
+      setPaused(isPaused === true);
     };
     // Primary: pushed frames over the live WebSocket (instant).
     const { stop } = connectLive({
       onFrame: (f) => {
         if (!alive) return;
         setConnected(true);
-        apply(f.version, f.slide);
+        apply(f.version, f.slide, f.paused);
       },
       onStatus: (open) => {
         socketUp = open;
@@ -39,7 +42,7 @@ export function Follow() {
         const r = await api.live();
         if (!alive) return;
         setConnected(true);
-        apply(r.version, r.slide);
+        apply(r.version, r.slide, r.paused);
       } catch {
         if (alive) setConnected(false);
       }
@@ -156,6 +159,15 @@ export function Follow() {
               </p>
             )}
           </>
+        ) : paused ? (
+          <div style={{ fontFamily: 'Inter, system-ui, sans-serif', maxWidth: 420 }}>
+            <p style={{ margin: 0, fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 600 }}>
+              Трансляцію призупинено
+            </p>
+            <p style={{ margin: '0.6em 0 0', opacity: 0.65, fontSize: 'clamp(14px, 4vw, 17px)' }}>
+              Текст з’явиться тут, щойно оператор її ввімкне. Сторінку можна не закривати.
+            </p>
+          </div>
         ) : (
           <div style={{ opacity: 0.3, fontSize: 'clamp(22px, 8vw, 44px)', letterSpacing: 6 }}>
             · · ·

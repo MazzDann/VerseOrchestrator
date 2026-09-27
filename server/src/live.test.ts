@@ -2,7 +2,15 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
-import { attachLiveHub, dropRemote, getLive, publishLive, viewerCount, WS_PATH } from './live';
+import {
+  attachLiveHub,
+  dropRemote,
+  getLive,
+  pauseLive,
+  publishLive,
+  viewerCount,
+  WS_PATH,
+} from './live';
 import { createPairing, DEFAULT_ALLOWED, findByToken, revokePairing } from './remote';
 
 let server: Server;
@@ -208,5 +216,42 @@ describe('frame size', () => {
     control.send(JSON.stringify({ type: 'screen', screen: { text: big }, next: null }));
     await new Promise((r) => setTimeout(r, 150));
     expect(control.readyState).toBe(WebSocket.OPEN);
+  });
+});
+
+describe('follow-along publish / pause', () => {
+  it('starts paused, un-pauses on publish, and pause clears the slide', async () => {
+    // (earlier tests published, so reset to the documented start state first)
+    pauseLive();
+    expect(getLive()).toMatchObject({ paused: true, slide: null });
+    publishLive({ reference: 'Ів 3:16' });
+    expect(getLive()).toMatchObject({ paused: false, slide: { reference: 'Ів 3:16' } });
+
+    const v = viewer();
+    await v.next();
+    const frame = v.next();
+    pauseLive();
+    expect(await frame).toMatchObject({ type: 'slide', paused: true, slide: null });
+    v.ws.close();
+  });
+
+  it('control socket can publish and pause; a viewer cannot', async () => {
+    const origin = { origin: base.replace('ws:', 'http:') };
+    const control = new WebSocket(base + WS_PATH, { headers: origin });
+    const intruder = new WebSocket(base + WS_PATH);
+    open.push(control, intruder);
+    await Promise.all([control, intruder].map((w) => new Promise((r) => w.once('open', r))));
+    intruder.send(JSON.stringify({ type: 'publish', slide: { reference: 'spoof' } }));
+    await new Promise((r) => setTimeout(r, 80));
+    expect(getLive().slide).not.toEqual({ reference: 'spoof' });
+
+    control.send(JSON.stringify({ type: 'hello', role: 'control' }));
+    await new Promise((r) => setTimeout(r, 80));
+    control.send(JSON.stringify({ type: 'publish', slide: { reference: 'Пс 23:1' } }));
+    await new Promise((r) => setTimeout(r, 80));
+    expect(getLive()).toMatchObject({ paused: false, slide: { reference: 'Пс 23:1' } });
+    control.send(JSON.stringify({ type: 'publish', paused: true }));
+    await new Promise((r) => setTimeout(r, 80));
+    expect(getLive()).toMatchObject({ paused: true, slide: null });
   });
 });

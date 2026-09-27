@@ -523,16 +523,28 @@ export function Control() {
   // current value rather than the one captured when the hotkey was last memoized.
   const followAlongRef = useRef(followAlong);
   followAlongRef.current = followAlong;
+  /** The hub's control socket (opened further down); preferred path for publishing. */
+  const controlConn = useRef<LiveConnection | null>(null);
+  // Audience follow-along goes over the control socket when it's up, HTTP otherwise.
+  const publishAudience = (slide: Slide) => {
+    const s = stripBg(slide);
+    if (!controlConn.current?.send({ type: 'publish', slide: s })) void api.livePost(s);
+  };
+  const pauseAudience = () => {
+    if (!controlConn.current?.send({ type: 'publish', paused: true })) void api.livePause();
+  };
   const pushLive = (slide: Slide) => {
     publishSlide(slide);
     setLiveSlide(slide);
-    if (followAlongRef.current) void api.livePost(stripBg(slide));
+    if (followAlongRef.current) publishAudience(slide);
   };
 
-  // Push the current slide to the relay the moment follow-along is enabled, so
-  // phones that are already on the page jump to it without waiting for the next change.
+  // Switching follow-along on pushes the current slide at once (phones already on the
+  // page jump to it); switching it OFF pauses the relay, so phones show «paused» instead
+  // of freezing on the last slide.
   useEffect(() => {
-    if (followAlong) void api.livePost(stripBg(liveSlide));
+    if (followAlong) publishAudience(liveSlide);
+    else pauseAudience();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followAlong]);
 
@@ -1047,7 +1059,6 @@ export function Control() {
   // Speaker remotes: this window holds the hub's control socket; paired phones' commands
   // (already scope-checked by the server) run through the same handler as the output
   // window's forwarded keys. A 'remotes' frame means the pairing list changed.
-  const controlConn = useRef<LiveConnection | null>(null);
   // Remotes get compact summaries (lib/slide.ts) of what's on screen and what «Далі» shows.
   const screenFrame = () => ({
     type: 'screen',
@@ -1065,7 +1076,12 @@ export function Control() {
       hello: { role: 'control' },
       onMessage: (f) => {
         // (Re)connected as control: give remotes the current screen straight away.
-        if (f.type === 'welcome') c.send(screenFrame());
+        if (f.type === 'welcome') {
+          c.send(screenFrame());
+          // After a server restart the relay starts paused — restore what phones should see.
+          if (followAlongRef.current)
+            c.send({ type: 'publish', slide: stripBg(liveSlideRef.current) });
+        }
         if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
         if (f.type === 'command' && typeof f.cmd === 'string' && f.cmd in REMOTE_LABEL) {
           const cmd = f.cmd as RemoteCommand;

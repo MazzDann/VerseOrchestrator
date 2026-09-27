@@ -8,6 +8,8 @@ export interface LiveFrame {
   type: 'slide';
   version: number;
   slide: unknown;
+  /** Follow-along is off / not started: show a notice, not the (cleared) slide. */
+  paused?: boolean;
 }
 
 /** Any frame the hub sends (slide · welcome · denied · ack · revoked · command · remotes). */
