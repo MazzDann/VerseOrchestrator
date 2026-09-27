@@ -45,6 +45,23 @@ export function Stage() {
     };
   }, []);
 
+  // Like the presenter window (Mac test, 1.4.6): fullscreen needs a user gesture, so
+  // «F» or a click anywhere toggles it once the window sits on its screen.
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen?.();
+    } else {
+      void document.documentElement.requestFullscreen?.().catch(() => {});
+    }
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const liveLabel = slide.forceBlack
     ? 'Чорний екран'
     : slide.blank
@@ -55,6 +72,16 @@ export function Stage() {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label="Перемкнути повний екран"
+      onClick={toggleFullscreen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleFullscreen();
+        }
+      }}
       style={{
         position: 'fixed',
         inset: 0,
