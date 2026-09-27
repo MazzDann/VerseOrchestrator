@@ -49,6 +49,13 @@ export function outputLabels(list: OutputInfo[]): Map<string, string> {
 export const HEARTBEAT_MS = 5000;
 /** Three missed heartbeats and a window counts as gone (crashed, or closed without `bye`). */
 export const STALE_MS = 3 * HEARTBEAT_MS;
+/**
+ * A hidden window (its Space isn't shown, another window covers it — macOS test, 1.4.4)
+ * gets its timers throttled by the browser: Chrome lets a hidden page's chained timers
+ * run about once a minute, so its heartbeats arrive 30–45 s apart. Such a window is
+ * kept until it has been silent for longer than that; it still says `bye` when closed.
+ */
+export const STALE_HIDDEN_MS = 75_000;
 
 export function createOutputs(channel: OutputChannel, now: () => number = Date.now) {
   /** Output side: announce `info()` now, on `changed()`, on request and as a heartbeat. */
@@ -89,7 +96,7 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
     const prune = setInterval(() => {
       let gone = false;
       for (const [id, o] of map) {
-        if (now() - o.lastSeen > STALE_MS) {
+        if (now() - o.lastSeen > (o.visible ? STALE_MS : STALE_HIDDEN_MS)) {
           map.delete(id);
           gone = true;
         }
