@@ -4,6 +4,8 @@ import rootPkg from '../package.json' with { type: 'json' };
 
 export default defineConfig({
   plugins: [react()],
+  // The browser DB engine runs in a module worker (lib/engine/worker.ts).
+  worker: { format: 'es' },
   // One version for the whole app (root package.json), shown in the settings panel.
   define: { __APP_VERSION__: JSON.stringify(rootPkg.version) },
   // Ensure single instances across all pre-bundled deps. Duplicated @mantine
@@ -13,6 +15,9 @@ export default defineConfig({
     dedupe: ['react', 'react-dom', '@mantine/core', '@mantine/hooks', '@mantine/store'],
   },
   optimizeDeps: {
+    // The official SQLite WASM build loads its .wasm relative to its own module file —
+    // pre-bundling would move the JS away from it.
+    exclude: ['@sqlite.org/sqlite-wasm'],
     include: [
       'react',
       'react-dom',

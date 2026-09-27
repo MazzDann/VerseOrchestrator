@@ -1,5 +1,8 @@
 import { z } from 'zod';
+import { type Library } from '@vo/shared';
 import { type Slide } from './presenterBus';
+import { useDataSource } from './dataSourceStore';
+import { localEngine } from './lib/engine';
 
 /** Nullable/optional string from the API, normalized to a plain string. */
 const str = () =>
@@ -132,6 +135,44 @@ async function getJson<S extends z.ZodTypeAny>(url: string, schema: S): Promise<
   return schema.parse(await res.json());
 }
 
+/**
+ * Library reads go to the server over HTTP, or — when the data source is «у браузері» —
+ * to the browser engine running the very same shared queries on SQLite-in-WASM. Both
+ * paths are validated by the same schema, so the UI can't tell them apart.
+ */
+function fromLibrary<S extends z.ZodTypeAny>(
+  schema: S,
+  local: (lib: Library) => Promise<unknown>,
+  url: string,
+): Promise<z.infer<S>> {
+  if (useDataSource.getState().source === 'local') {
+    return localEngine
+      .whenReady()
+      .then(() => local(localEngine.library()))
+      .then((r) => schema.parse(r));
+  }
+  return getJson(url, schema);
+}
+
+const SegmentInfoSchema = z.object({
+  file: z.string(),
+  kind: z.enum(['translation', 'dictionary', 'study', 'songs']),
+  id: z.number().optional(),
+  abbr: z.string(),
+  title: z.string(),
+  language: z.string(),
+  items: z.number(),
+  bytes: z.number(),
+  rawBytes: z.number(),
+  sha256: z.string(),
+});
+export type SegmentInfo = z.infer<typeof SegmentInfoSchema>;
+const SegmentManifestSchema = z.object({
+  format: z.number(),
+  createdAt: z.string(),
+  segments: z.array(SegmentInfoSchema),
+});
+
 /** Marks a state-changing request from the control UI; the server rejects writes
  * without it (it forces a CORS preflight, so other sites can't forge them). */
 const CONTROL_HEADERS = { 'X-VO-Control': '1' };
@@ -154,49 +195,87 @@ const ServerSettingsSchema = z.object({
 });
 
 export const api = {
-  translations: () => getJson('/api/translations', z.array(TranslationSchema)),
-  books: (id: number) => getJson(`/api/translations/${id}/books`, z.array(BookSchema)),
+  // --- Library reads: server or browser engine (see fromLibrary) ---
+  translations: () =>
+    fromLibrary(z.array(TranslationSchema), (l) => l.getTranslations(), '/api/translations'),
+  books: (id: number) =>
+    fromLibrary(z.array(BookSchema), (l) => l.getBooks(id), `/api/translations/${id}/books`),
   chapters: (id: number, book: number) =>
-    getJson(`/api/translations/${id}/books/${book}/chapters`, z.array(z.number())),
+    fromLibrary(
+      z.array(z.number()),
+      (l) => l.getChapters(id, book),
+      `/api/translations/${id}/books/${book}/chapters`,
+    ),
   verses: (id: number, book: number, chapter: number) =>
-    getJson(
-      `/api/translations/${id}/books/${book}/chapters/${chapter}/verses`,
+    fromLibrary(
       z.array(VerseSchema),
+      (l) => l.getVerses(id, book, chapter),
+      `/api/translations/${id}/books/${book}/chapters/${chapter}/verses`,
     ),
   search: (q: string, translationIds: number[]) =>
-    getJson(
-      `/api/search?q=${encodeURIComponent(q)}&translations=${translationIds.join(',')}`,
+    fromLibrary(
       SearchResponseSchema,
+      (l) => l.search(q, translationIds),
+      `/api/search?q=${encodeURIComponent(q)}&translations=${translationIds.join(',')}`,
     ),
   strong: (num: string, book?: number) =>
-    getJson(
-      `/api/strong/${encodeURIComponent(num)}${book != null ? `?book=${book}` : ''}`,
+    fromLibrary(
       z.array(StrongDefSchema),
+      (l) => l.lookupStrong(num, book),
+      `/api/strong/${encodeURIComponent(num)}${book != null ? `?book=${book}` : ''}`,
     ),
   strongRefs: (num: string, opts?: { translationId?: number; limit?: number }) => {
     const params = new URLSearchParams();
     if (opts?.translationId != null) params.set('translation', String(opts.translationId));
     if (opts?.limit != null) params.set('limit', String(opts.limit));
     const qs = params.toString();
-    return getJson(
-      `/api/strong/${encodeURIComponent(num)}/refs${qs ? `?${qs}` : ''}`,
+    return fromLibrary(
       StrongRefsSchema,
+      (l) => l.strongRefs(num, opts),
+      `/api/strong/${encodeURIComponent(num)}/refs${qs ? `?${qs}` : ''}`,
     );
   },
   dict: (word: string) =>
-    getJson(`/api/dict?q=${encodeURIComponent(word)}`, z.array(StrongDefSchema)),
+    fromLibrary(
+      z.array(StrongDefSchema),
+      (l) => l.lookupWord(word),
+      `/api/dict?q=${encodeURIComponent(word)}`,
+    ),
   crossrefs: (book: number, chapter: number, verse: number) =>
-    getJson(
-      `/api/crossrefs?book=${book}&chapter=${chapter}&verse=${verse}`,
+    fromLibrary(
       z.array(CrossRefSchema),
+      (l) => l.getCrossrefs(book, chapter, verse),
+      `/api/crossrefs?book=${book}&chapter=${chapter}&verse=${verse}`,
     ),
   commentary: (book: number, chapter: number, verse: number) =>
-    getJson(
-      `/api/commentary?book=${book}&chapter=${chapter}&verse=${verse}`,
+    fromLibrary(
       z.array(CommentarySchema),
+      (l) => l.getCommentary(book, chapter, verse),
+      `/api/commentary?book=${book}&chapter=${chapter}&verse=${verse}`,
     ),
-  songs: (q: string) => getJson(`/api/songs?q=${encodeURIComponent(q)}`, z.array(SongInfoSchema)),
-  song: (id: number) => getJson(`/api/songs/${id}`, SongDetailSchema),
+  songs: (q: string) =>
+    fromLibrary(
+      z.array(SongInfoSchema),
+      (l) => l.searchSongs(q),
+      `/api/songs?q=${encodeURIComponent(q)}`,
+    ),
+  song: (id: number) =>
+    fromLibrary(
+      SongDetailSchema,
+      async (l) => {
+        const song = await l.getSong(id);
+        if (!song) throw new Error('Пісню не знайдено');
+        return song;
+      },
+      `/api/songs/${id}`,
+    ),
+  // --- Library segments for the browser engine (server/src/index.ts) ---
+  segments: () => getJson('/api/segments', SegmentManifestSchema),
+  segmentBytes: async (file: string): Promise<ArrayBuffer> => {
+    const res = await request(`/api/segments/${encodeURIComponent(file)}`);
+    if (!res.ok) throw await failure(res);
+    return res.arrayBuffer();
+  },
   // Audience follow-along relay (server-side in-memory state polled by phones).
   livePost: async (slide: Slide): Promise<void> => {
     await fetch('/api/live', {
