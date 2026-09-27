@@ -167,6 +167,46 @@ describe('output windows registry', () => {
     b.stop();
   });
 
+  it('commands (move / close / focus / leave fullscreen) reach only the named window', async () => {
+    const h = hub();
+    // a control window that did NOT open the outputs (another group of windows): the
+    // channel is all it needs (Windows two-monitor test, 1.4.11)
+    const other = createOutputs(h.endpoint());
+    const got: string[] = [];
+    const a = createOutputs(h.endpoint()).announce(
+      () => info('w1', 'presenter', { opener: 'page-a' }),
+      () => undefined,
+      (c) => got.push(`w1:${JSON.stringify(c)}`),
+    );
+    const b = createOutputs(h.endpoint()).announce(
+      () => info('w2'),
+      () => undefined,
+      (c) => got.push(`w2:${c.do}`),
+    );
+    other.command('w1', { do: 'move', to: { x: 1920, y: 0, w: 1600, h: 900 } });
+    other.command('w2', { do: 'close' });
+    other.command('w9', { do: 'focus' }); // gone: nobody answers
+    await flush();
+    expect(got).toEqual(['w1:{"do":"move","to":{"x":1920,"y":0,"w":1600,"h":900}}', 'w2:close']);
+    a.stop();
+    b.stop();
+  });
+
+  it('the tracked list keeps who opened each window', async () => {
+    const h = hub();
+    const control = createOutputs(h.endpoint());
+    let list: TrackedOutput[] = [];
+    const off = control.track((l) => (list = l));
+    const a = createOutputs(h.endpoint()).announce(
+      () => info('w1', 'presenter', { opener: 'page-a' }),
+      () => undefined,
+    );
+    await flush();
+    expect(list.map((o) => o.opener)).toEqual(['page-a']);
+    a.stop();
+    off();
+  });
+
   it('numbers windows per kind in the order they opened', () => {
     const labels = outputLabels([info('w1'), info('w2', 'stage'), info('w3')]);
     expect([...labels.values()]).toEqual(['Показ 1', 'Сцена 1', 'Показ 2']);

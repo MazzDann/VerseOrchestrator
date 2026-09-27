@@ -1,4 +1,4 @@
-import type { OutputKind } from './lib/outputs';
+import { CONTROL_PAGE_ID, outputs, type OutputInfo, type OutputKind } from './lib/outputs';
 import { featuresFor, listScreens, type ScreenInfo } from './lib/screens';
 import { delegateFullscreen } from './lib/fullscreen';
 import { useSettings } from './settingsStore';
@@ -7,8 +7,9 @@ import { useSettings } from './settingsStore';
  * Opening output windows (`/presenter`, `/stage`) and the settings window. With the
  * Window Management API (Chrome/Edge, one-time permission) a window goes to a chosen
  * screen — by default the first secondary one; otherwise a plain pop-up the user drags
- * over. The references of windows opened here are kept, so the control window can
- * focus, move and close them (the «Вікна виводу» panel).
+ * over. The «Вікна виводу» panel moves and closes output windows by COMMANDS they carry
+ * out on themselves (1.4.11, lib/outputs.ts) — any control window, whichever opened them;
+ * the references of windows opened here serve focusing and going fullscreen.
  */
 
 const PATH: Record<OutputKind, string> = { presenter: '/presenter', stage: '/stage' };
@@ -118,14 +119,30 @@ function isFullscreen(w: Window): boolean {
   }
 }
 
+type Target = Pick<OutputInfo, 'id' | 'name' | 'opener'>;
+
 /**
- * Ask an output window to go fullscreen (or leave it) — from a click handler in this
- * window, whose gesture is lent to it (lib/fullscreen.ts). False: the browser can't
- * delegate — the window still takes F / a click on its own.
+ * Our reference to an output window — only for one this control page opened (it reports
+ * its opener): another group's window can't be reached by name, and asking would open
+ * a blank pop-up instead.
  */
-export function fullscreenOutput(name: string, on: boolean): boolean {
-  const w = adoptOutput(name);
-  return !!w && delegateFullscreen(w, on);
+export function outputRef(o: Target): Window | null {
+  return o.opener === CONTROL_PAGE_ID ? adoptOutput(o.name) : null;
+}
+
+/**
+ * Fullscreen on / off for an output window. On: from a click handler in this window,
+ * whose gesture is lent to it (lib/fullscreen.ts) — needs our reference; false when
+ * there is none or the browser can't delegate (the window still takes F / a click).
+ * Off needs no gesture: the window is told to leave.
+ */
+export function fullscreenOutput(o: Target, on: boolean): boolean {
+  if (!on) {
+    outputs?.command(o.id, { do: 'exitFullscreen' });
+    return true;
+  }
+  const w = outputRef(o);
+  return !!w && delegateFullscreen(w, true);
 }
 
 /**
@@ -167,24 +184,29 @@ export async function openOutput(
   return w;
 }
 
-export function moveOutput(name: string, screen: ScreenInfo): boolean {
-  const w = windowRef(name);
-  if (!w) return false;
-  place(w, screen);
-  w.focus();
-  return true;
+/** Move an output window to a screen — it leaves fullscreen and moves itself. */
+export function moveOutput(o: Target, s: ScreenInfo): void {
+  outputs?.command(o.id, { do: 'move', to: { x: s.x, y: s.y, w: s.w, h: s.h } });
 }
 
-export function focusOutput(name: string): boolean {
-  const w = windowRef(name);
-  w?.focus();
-  return !!w;
+/**
+ * Bring an output window forward. With our reference the browser does it; otherwise the
+ * window is asked to focus itself, which browsers may ignore — false then (the panel
+ * shows the window's number on it instead).
+ */
+export function focusOutput(o: Target): boolean {
+  const w = outputRef(o);
+  if (w) {
+    w.focus();
+    return true;
+  }
+  outputs?.command(o.id, { do: 'focus' });
+  return false;
 }
 
-export function closeOutput(name: string): boolean {
-  const w = windowRef(name);
-  w?.close();
-  return !!w;
+/** Close an output window — it closes itself (a script-opened window may). */
+export function closeOutput(o: Target): void {
+  outputs?.command(o.id, { do: 'close' });
 }
 
 /** Open the presenter (audience) output window — on a secondary screen if possible. */

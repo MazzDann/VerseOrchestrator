@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -31,6 +31,7 @@ import {
   outputs,
   useOutputWindows,
   type OutputKind,
+  type TrackedOutput,
 } from '../lib/outputs';
 import {
   listScreens,
@@ -40,12 +41,12 @@ import {
   type ScreenInfo,
 } from '../lib/screens';
 import {
-  adoptOutput,
   closeOutput,
   focusOutput,
   fullscreenOutput,
   moveOutput,
   openOutput,
+  outputRef,
 } from '../openPresenter';
 
 const KIND_ICON: Record<OutputKind, typeof IconScreenShare> = {
@@ -53,7 +54,8 @@ const KIND_ICON: Record<OutputKind, typeof IconScreenShare> = {
   stage: IconLayoutDashboard,
 };
 
-const NOT_OURS = 'Це вікно відкрите не з цього вікна керування — керуйте ним там';
+const NOT_OURS_FULLSCREEN =
+  'Відкрите з іншого вікна керування: на весь екран його переведе F або клік у самому вікні';
 
 /**
  * «Вікна виводу» (1.3.2): the screens of this computer with «open here» buttons, the
@@ -62,6 +64,8 @@ const NOT_OURS = 'Це вікно відкрите не з цього вікна
  */
 export function OutputsPanel() {
   const windows = useOutputWindows();
+  const windowsRef = useRef(windows);
+  windowsRef.current = windows;
   const multiple = useSettings((s) => s.outputs.multiple);
   const fullscreen = useSettings((s) => s.outputs.fullscreen);
   const layout = useSettings((s) => s.outputs.layout);
@@ -95,13 +99,32 @@ export function OutputsPanel() {
   };
 
   // Lends this click to the window (Chrome/Edge); elsewhere the window takes F itself.
-  const setFullscreen = (name: string, on: boolean) => {
-    if (!fullscreenOutput(name, on)) {
+  const setFullscreen = (o: TrackedOutput, on: boolean) => {
+    if (!fullscreenOutput(o, on)) {
       notifications.show({
         message: 'Цей браузер не передає жест іншому вікну — натисніть F у самому вікні',
         color: 'orange',
       });
     }
+  };
+
+  // Without a reference the window focuses itself, which browsers may ignore: show its
+  // number on it, so the operator at least sees which one it is.
+  const focus = (o: TrackedOutput, label: string) => {
+    if (!focusOutput(o)) outputs?.identify(o.id, label);
+  };
+
+  // The window closes itself; one that isn't a pop-up (opened by hand in a tab) may not.
+  const close = (o: TrackedOutput, label: string) => {
+    closeOutput(o);
+    window.setTimeout(() => {
+      if (windowsRef.current.some((w) => w.id === o.id)) {
+        notifications.show({
+          message: `${label} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну`,
+          color: 'orange',
+        });
+      }
+    }, 2000);
   };
 
   const openOn = async (kind: OutputKind, screen: ScreenInfo) => {
@@ -223,9 +246,10 @@ export function OutputsPanel() {
             {windows.map((o) => {
               const Icon = KIND_ICON[o.kind];
               const label = labels.get(o.id)!;
-              // A window this page didn't open (control reloaded, or taken over from
-              // another control window) is re-acquired by its name — it is open: it beats.
-              const ours = !!adoptOutput(o.name);
+              // Move / close / focus go to the window itself (any control window); going
+              // fullscreen needs our reference — a window this page opened, re-acquired
+              // by name after a reload of this page (1.4.5).
+              const canFullscreen = o.fullscreen || !!outputRef(o);
               const on = screenOf(o.bounds, screens);
               const state = [
                 on?.label ?? 'екран невідомий',
@@ -253,8 +277,8 @@ export function OutputsPanel() {
                   </Tooltip>
                   <Tooltip
                     label={
-                      !ours
-                        ? NOT_OURS
+                      !canFullscreen
+                        ? NOT_OURS_FULLSCREEN
                         : o.fullscreen
                           ? 'Вийти з повного екрана'
                           : 'На весь екран (або F у вікні)'
@@ -264,39 +288,36 @@ export function OutputsPanel() {
                       variant="subtle"
                       size="sm"
                       aria-label={`${o.fullscreen ? 'Вийти з повного екрана' : 'На весь екран'}: ${label}`}
-                      disabled={!ours}
-                      onClick={() => setFullscreen(o.name, !o.fullscreen)}
+                      disabled={!canFullscreen}
+                      onClick={() => setFullscreen(o, !o.fullscreen)}
                     >
                       {o.fullscreen ? <IconMinimize size={14} /> : <IconMaximize size={14} />}
                     </ActionIcon>
                   </Tooltip>
-                  <Tooltip label={ours ? 'Перейти до вікна' : NOT_OURS}>
+                  <Tooltip label="Перейти до вікна">
                     <ActionIcon
                       variant="subtle"
                       size="sm"
                       aria-label={`Перейти до вікна: ${label}`}
-                      disabled={!ours}
-                      onClick={() => focusOutput(o.name)}
+                      onClick={() => focus(o, label)}
                     >
                       <IconExternalLink size={14} />
                     </ActionIcon>
                   </Tooltip>
-                  <Menu position="bottom-end" withinPortal disabled={!ours || screens.length < 2}>
+                  <Menu position="bottom-end" withinPortal disabled={screens.length < 2}>
                     <Menu.Target>
                       <Tooltip
                         label={
-                          !ours
-                            ? NOT_OURS
-                            : screens.length < 2
-                              ? 'Інший екран не видно — дозвольте доступ до екранів'
-                              : 'Перенести на інший екран'
+                          screens.length < 2
+                            ? 'Інший екран не видно — дозвольте доступ до екранів'
+                            : 'Перенести на інший екран'
                         }
                       >
                         <ActionIcon
                           variant="subtle"
                           size="sm"
                           aria-label={`Перенести: ${label}`}
-                          disabled={!ours || screens.length < 2}
+                          disabled={screens.length < 2}
                         >
                           <IconArrowsMove size={14} />
                         </ActionIcon>
@@ -307,21 +328,20 @@ export function OutputsPanel() {
                         <Menu.Item
                           key={s.key}
                           disabled={s.key === on?.key}
-                          onClick={() => moveOutput(o.name, s)}
+                          onClick={() => moveOutput(o, s)}
                         >
                           {s.label}
                         </Menu.Item>
                       ))}
                     </Menu.Dropdown>
                   </Menu>
-                  <Tooltip label={ours ? 'Закрити вікно' : NOT_OURS}>
+                  <Tooltip label="Закрити вікно">
                     <ActionIcon
                       variant="subtle"
                       color="red"
                       size="sm"
                       aria-label={`Закрити: ${label}`}
-                      disabled={!ours}
-                      onClick={() => closeOutput(o.name)}
+                      onClick={() => close(o, label)}
                     >
                       <IconX size={14} />
                     </ActionIcon>

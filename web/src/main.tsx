@@ -52,7 +52,10 @@ if (window.location.pathname === '/') {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <MantineProvider theme={theme} defaultColorScheme="dark">
-      <Notifications position="bottom-right" />
+      {/* bottom-left: the monitor column and the top of the centre stay free, and floating
+          panels tile from the bottom-right — a toast there took the click meant for a
+          panel's button (Windows test) */}
+      <Notifications position="bottom-left" />
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>

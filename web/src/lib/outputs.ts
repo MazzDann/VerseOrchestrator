@@ -6,6 +6,13 @@ import { useEffect, useState } from 'react';
  * on open, on every change and as a heartbeat; it says `bye` when it closes. The control
  * window tracks the list (a window that stops beating is dropped) and can ask one window
  * to identify itself (a big «Показ 1» on that screen, like an OS «identify displays»).
+ *
+ * Since 1.4.11 it also sends it COMMANDS — move / close / focus / leave fullscreen — that
+ * the window carries out on itself. A control window opened separately (a new window, a
+ * typed address) can't reach the windows another one opened: window names only resolve
+ * within one group of windows that opened each other (Windows two-monitor test). An
+ * output window can move, resize and close itself, so over this channel every control
+ * window manages every output window. Only going fullscreen needs the opener's click.
  */
 
 export type OutputKind = 'presenter' | 'stage';
@@ -21,13 +28,23 @@ export interface OutputInfo {
   fullscreen: boolean;
   visible: boolean;
   openedAt: number;
+  /** the control page that opened it (its CONTROL_PAGE_ID) — null: another / none */
+  opener?: string | null;
 }
+
+/** What a control window can ask an output window to do to itself. */
+export type OutputCommand =
+  | { do: 'move'; to: { x: number; y: number; w: number; h: number } }
+  | { do: 'close' }
+  | { do: 'focus' }
+  | { do: 'exitFullscreen' };
 
 export type OutputWire =
   | { t: 'win'; info: OutputInfo }
   | { t: 'bye'; id: string }
   | { t: 'who' }
-  | { t: 'identify'; id: string; label: string };
+  | { t: 'identify'; id: string; label: string }
+  | { t: 'do'; id: string; cmd: OutputCommand };
 
 export interface OutputChannel {
   post(msg: OutputWire): void;
@@ -59,11 +76,16 @@ export const STALE_HIDDEN_MS = 75_000;
 
 export function createOutputs(channel: OutputChannel, now: () => number = Date.now) {
   /** Output side: announce `info()` now, on `changed()`, on request and as a heartbeat. */
-  function announce(info: () => OutputInfo, onIdentify: (label: string) => void) {
+  function announce(
+    info: () => OutputInfo,
+    onIdentify: (label: string) => void,
+    onCommand: (cmd: OutputCommand) => void = () => undefined,
+  ) {
     const send = () => channel.post({ t: 'win', info: info() });
     const off = channel.listen((m) => {
       if (m.t === 'who') send();
       else if (m.t === 'identify' && m.id === info().id) onIdentify(m.label);
+      else if (m.t === 'do' && m.id === info().id) onCommand(m.cmd);
     });
     send();
     const beat = setInterval(send, HEARTBEAT_MS);
@@ -114,6 +136,7 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
     announce,
     track,
     identify: (id: string, label: string) => channel.post({ t: 'identify', id, label }),
+    command: (id: string, cmd: OutputCommand) => channel.post({ t: 'do', id, cmd }),
   };
 }
 
@@ -135,6 +158,49 @@ const channel: OutputChannel | null =
     : null;
 
 export const outputs = channel ? createOutputs(channel) : null;
+
+/**
+ * This control page (a new id on every load). An output window reports the page that
+ * opened it (`window.opener`), so the panel knows which windows it may hold a reference
+ * to: asking the browser for another group's window by name would open a blank pop-up.
+ */
+export const CONTROL_PAGE_ID = Math.random().toString(36).slice(2, 10);
+
+declare global {
+  interface Window {
+    __voControlPage?: string;
+  }
+}
+
+/** The control page that opened this window, if any (null with noopener / closed / none). */
+function openerControlPage(): string | null {
+  try {
+    return (window.opener as Window | null)?.__voControlPage ?? null;
+  } catch {
+    return null; // not ours
+  }
+}
+
+/** Carry out a command on this output window. */
+async function runCommand(cmd: OutputCommand): Promise<void> {
+  try {
+    if (cmd.do === 'close') window.close();
+    else if (cmd.do === 'focus') window.focus();
+    else if (cmd.do === 'exitFullscreen') {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } else {
+      // a fullscreen window doesn't move: leave it first (no click needed for that)
+      if (document.fullscreenElement) await document.exitFullscreen();
+      // move, resize, move again: a window still as big as its screen gets clamped by the
+      // OS on the first move (seen on Windows: the size changed, the place didn't)
+      window.moveTo(cmd.to.x, cmd.to.y);
+      window.resizeTo(cmd.to.w, cmd.to.h);
+      window.moveTo(cmd.to.x, cmd.to.y);
+    }
+  } catch {
+    /* the browser may refuse (a tab rather than a pop-up): nothing to do */
+  }
+}
 
 /** This window's id, kept across reloads of the same window. */
 function windowId(): string {
@@ -167,13 +233,18 @@ export function useAnnounceOutput(kind: OutputKind): string | null {
       fullscreen: !!document.fullscreenElement,
       visible: document.visibilityState === 'visible',
       openedAt,
+      opener: openerControlPage(),
     });
     let timer: number | undefined;
-    const a = outputs.announce(info, (label) => {
-      setIdentify(label);
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => setIdentify(null), 3000);
-    });
+    const a = outputs.announce(
+      info,
+      (label) => {
+        setIdentify(label);
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => setIdentify(null), 3000);
+      },
+      (cmd) => void runCommand(cmd),
+    );
     // Moving a window fires no event: compare the position once a second.
     let last = JSON.stringify(info().bounds);
     const poll = window.setInterval(() => {
@@ -205,6 +276,9 @@ export function useAnnounceOutput(kind: OutputKind): string | null {
 /** For the control window: the output windows open right now. */
 export function useOutputWindows(): TrackedOutput[] {
   const [list, setList] = useState<TrackedOutput[]>([]);
-  useEffect(() => outputs?.track(setList), []);
+  useEffect(() => {
+    window.__voControlPage = CONTROL_PAGE_ID; // windows opened from here report it
+    return outputs?.track(setList);
+  }, []);
   return list;
 }
