@@ -3,11 +3,12 @@
  * DB" of the thesis. One schema (schema.ts), one set of queries (queries.ts), several
  * engines implementing this tiny interface:
  *   - better-sqlite3 on the server (server/src/db.ts)
- *   - sql.js (SQLite compiled to WASM) in the browser — offline, drag & drop a file
- *   - PGlite / PostgreSQL later (needs dialect care: FTS5 → tsvector)
+ *   - SQLite compiled to WASM in the browser — offline, segments and dropped modules
+ *   - PGlite (PostgreSQL compiled to WASM) in the browser — postgres.ts: same tables,
+ *     FTS5 → tsvector, `?` → `$n`
  *
- * It is async on purpose: better-sqlite3 and sql.js are synchronous, but PGlite and a
- * remote engine are not, and the queries must not care.
+ * It is async on purpose: better-sqlite3 and SQLite-WASM are synchronous, but PGlite and
+ * a remote engine are not, and the queries must not care.
  */
 export type SqlParam = string | number | null;
 export type Row = Record<string, unknown>;

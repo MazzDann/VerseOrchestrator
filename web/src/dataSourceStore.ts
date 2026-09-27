@@ -1,18 +1,22 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import type { EngineKind } from './lib/engine/protocol';
 import { useServer } from './serverStore';
 
 /**
  * Where library reads go: the server (full library over HTTP) or the browser engine
- * (SQLite-in-WASM assembled from library segments — lib/engine). Persisted per browser;
- * `segments` remembers which segment files to (re)load for the local engine.
+ * (assembled from library segments — lib/engine). Persisted per browser; `segments`
+ * remembers which segment files to (re)load for the local engine, `engine` which
+ * database runs it (SQLite-WASM, or PostgreSQL via PGlite).
  */
 export type DataSource = 'server' | 'local';
 
 interface DataSourceState {
   source: DataSource;
   segments: string[];
+  engine: EngineKind;
   setSource: (s: DataSource) => void;
+  setEngine: (e: EngineKind) => void;
   setSegments: (files: string[]) => void;
 }
 
@@ -21,7 +25,9 @@ export const useDataSource = create<DataSourceState>()(
     (set) => ({
       source: 'server',
       segments: [],
+      engine: 'sqlite',
       setSource: (source) => set({ source }),
+      setEngine: (engine) => set({ engine }),
       setSegments: (segments) => set({ segments: [...new Set(segments)] }),
     }),
     {
@@ -36,6 +42,7 @@ export const useDataSource = create<DataSourceState>()(
           segments: Array.isArray(p.segments)
             ? p.segments.filter((s) => typeof s === 'string')
             : [],
+          engine: p.engine === 'pglite' ? 'pglite' : 'sqlite',
         };
       },
     },

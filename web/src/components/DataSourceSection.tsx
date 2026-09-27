@@ -16,14 +16,15 @@ import { notifications } from '@mantine/notifications';
 import { type SegmentInfo } from '../api';
 import { useDataSource, useEffectiveSource } from '../dataSourceStore';
 import { useServer } from '../serverStore';
-import { localEngine } from '../lib/engine';
-import type { LoadedSegment } from '../lib/engine/protocol';
+import { ENGINE_LABEL, localEngine } from '../lib/engine';
+import type { EngineKind, LoadedSegment } from '../lib/engine/protocol';
 import {
   addDroppedFile,
   getManifest,
   loadSegments,
   segmentItems,
   segmentLabel,
+  switchEngine,
   type Dropped,
 } from '../lib/engine/restore';
 import { cacheAvailable, cacheUsage, clearCache, requestPersistence } from '../lib/engine/cache';
@@ -35,8 +36,9 @@ const DROPPABLE = /\.(sqlite3|vodb|vodb\.gz)$/i;
 
 /**
  * «Джерело даних»: read the library from the server, or from the browser engine
- * (SQLite-in-WASM in a worker) assembled from chosen segments — downloaded from the
- * server or dropped as files. Lives in the control window only: the engine is per window.
+ * (SQLite or PostgreSQL in WASM, in a worker) assembled from chosen segments — downloaded
+ * from the server or dropped as files. Lives in the control window only: the engine is
+ * per window.
  */
 export function DataSourceSection() {
   const qc = useQueryClient();
@@ -46,6 +48,7 @@ export function DataSourceSection() {
   const remembered = useDataSource((s) => s.segments);
   const setSource = useDataSource((s) => s.setSource);
   const setSegments = useDataSource((s) => s.setSegments);
+  const engine = useDataSource((s) => s.engine);
 
   // From the server, or the last one seen when it's unreachable (offline).
   const manifest = useQuery({ queryKey: ['segments'], queryFn: getManifest, retry: false });
@@ -56,10 +59,17 @@ export function DataSourceSection() {
     null,
   );
   const [dragOver, setDragOver] = useState(false);
+  // engine name/version and its database size (asked only once it holds something)
+  const engineInfo = useQuery({
+    queryKey: ['engine-info', engine],
+    queryFn: () => localEngine.info(),
+    enabled: loaded.length > 0,
+  });
 
   const refreshStatus = () => {
     void localEngine.status().then(setLoaded);
     void qc.invalidateQueries({ queryKey: ['segment-cache'] });
+    void qc.invalidateQueries({ queryKey: ['engine-info'] });
   };
   useEffect(() => {
     void localEngine.status().then(setLoaded);
@@ -165,6 +175,37 @@ export function DataSourceSection() {
     refreshStatus();
   };
 
+  /** Same segments, another database: rebuild the browser library on the chosen engine. */
+  const changeEngine = async (kind: EngineKind) => {
+    if (kind === engine) return;
+    const total = loaded.length;
+    setProgress({ done: 0, total: Math.max(total, 1), label: `Запуск: ${ENGINE_LABEL[kind]}` });
+    try {
+      let done = 0;
+      const ms = await switchEngine(kind, (key, state) => {
+        if (state === 'done') done += 1;
+        setProgress({
+          done,
+          total: Math.max(total, 1),
+          label: `${ENGINE_LABEL[kind]}: ${byFile.get(key)?.abbr ?? segmentLabel(key)}`,
+        });
+      });
+      switchedData();
+      notifications.show({
+        message: total
+          ? `${ENGINE_LABEL[kind]}: ${total} сегм. за ${(ms / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} с`
+          : `Рушій: ${ENGINE_LABEL[kind]}`,
+        color: 'green',
+        autoClose: 2500,
+      });
+    } catch (e) {
+      notifications.show({ message: `Не вдалося: ${(e as Error).message}`, color: 'red' });
+    } finally {
+      setProgress(null);
+      refreshStatus();
+    }
+  };
+
   const dropCache = async () => {
     await clearCache();
     refreshStatus();
@@ -203,10 +244,27 @@ export function DataSourceSection() {
         />
         <Text size="xs" c="dimmed" mt={4}>
           {source === 'server'
-            ? 'Уся бібліотека з сервера. «У браузері» — вибрані переклади працюють прямо тут (SQLite у WebAssembly), без запитів до сервера.'
-            : `У браузері: ${loaded.length} сегм., ${mb(loadedBytes)} у пам’яті.`}
+            ? 'Уся бібліотека з сервера. «У браузері» — вибрані переклади працюють прямо тут (база в WebAssembly), без запитів до сервера.'
+            : `У браузері: ${loaded.length} сегм., ${mb(engineInfo.data?.dbBytes ?? loadedBytes)} у пам’яті${engineInfo.data ? ` · ${engineInfo.data.version}` : ''}.`}
         </Text>
       </div>
+
+      <Group gap="xs" wrap="nowrap">
+        <Text size="xs" c="dimmed">
+          Рушій бази
+        </Text>
+        <SegmentedControl
+          size="xs"
+          style={{ flex: 1 }}
+          value={engine}
+          disabled={!!progress}
+          onChange={(v) => void changeEngine(v as EngineKind)}
+          data={[
+            { label: 'SQLite', value: 'sqlite' },
+            { label: 'PostgreSQL', value: 'pglite' },
+          ]}
+        />
+      </Group>
 
       {manifest.data?.offline && (
         <Text size="xs" c="orange">
