@@ -3,14 +3,21 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
-import { normalizeForSearch, SCHEMA_SQL, type SegmentManifest, type SegmentInfo } from '@vo/shared';
+import {
+  normalizeForSearch,
+  SCHEMA_SQL,
+  SEGMENT_NORM_TABLE_SQL,
+  type SegmentManifest,
+  type SegmentInfo,
+} from '@vo/shared';
 
 /**
  * Split a built library into SEGMENTS — small, self-contained SQLite files (same schema)
  * that a browser engine downloads only as needed and merges into one working database:
  *
  *   t-<id>.vodb.gz        one translation: translations/books/book_names/verses rows,
- *                         its slice of the segmented FTS and of verse_strongs
+ *                         its verse_strongs, and verses_norm (normalized text → the
+ *                         engine builds its FTS from it; no index is shipped)
  *   d-<id>.vodb.gz        one dictionary (they're big: 111 MB together)
  *   study.vodb.gz         cross-references + commentaries
  *   songs.vodb.gz         hymns
@@ -21,7 +28,8 @@ import { normalizeForSearch, SCHEMA_SQL, type SegmentManifest, type SegmentInfo 
  * each segment with its size and SHA-256 (the cache key).
  */
 
-export const SEGMENT_FORMAT = 1;
+/** 2: translation segments carry verses_norm (see @vo/shared ftsFillSql). */
+export const SEGMENT_FORMAT = 2;
 
 function sha256(buf: Buffer): string {
   return createHash('sha256').update(buf).digest('hex');
@@ -43,7 +51,6 @@ function seal(
   file: string,
   info: Omit<SegmentInfo, 'file' | 'bytes' | 'rawBytes' | 'sha256'>,
 ): SegmentInfo {
-  db.exec("INSERT INTO verses_fts(verses_fts) VALUES('optimize')");
   db.exec('VACUUM');
   db.close();
   const raw = fs.readFileSync(file);
@@ -99,18 +106,16 @@ export function buildSegments(libraryPath: string, outDir: string): SegmentManif
     copy('book_names', 'translation_id = ?', [id]);
     const verses = copy('verses', 'translation_id = ?', [id]);
     if (has('verse_strongs')) copy('verse_strongs', 'translation_id = ?', [id]);
-    // FTS is contentless in the library, so rebuild this translation's slice from the
-    // verse text (same normalization the builder used).
-    const insFts = seg.prepare('INSERT INTO verses_fts (rowid, text_norm, tr) VALUES (?, ?, ?)');
+    // FTS is contentless in the library, so the segment carries the NORMALIZED TEXT
+    // instead of an index: the engine fills its own FTS from it with one SQL statement
+    // (ftsFillSql). Shipping a built index too would only add size — it can't be merged.
+    seg.exec(SEGMENT_NORM_TABLE_SQL);
+    const insNorm = seg.prepare('INSERT INTO verses_norm (id, text_norm) VALUES (?, ?)');
     seg.transaction(() => {
       for (const v of lib
         .prepare('SELECT id, text, text_raw FROM verses WHERE translation_id = ?')
-        .iterate(id) as Iterable<{
-        id: number;
-        text: string;
-        text_raw: string | null;
-      }>) {
-        insFts.run(v.id, normalizeForSearch(v.text_raw ?? v.text ?? ''), `t${id}`);
+        .iterate(id) as Iterable<{ id: number; text: string; text_raw: string | null }>) {
+        insNorm.run(v.id, normalizeForSearch(v.text_raw ?? v.text ?? ''));
       }
     })();
     segments.push(

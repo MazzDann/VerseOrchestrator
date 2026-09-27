@@ -44,3 +44,18 @@ export function ftsRow(v: {
 }): [number, string, string] {
   return [v.id, normalizeForSearch(v.text_raw ?? v.text ?? ''), `t${v.translation_id}`];
 }
+
+/**
+ * Segments (format ≥ 2) also carry `verses_norm (id, text_norm)` — the normalized text
+ * the builder already computed. With it the engine fills the FTS index with ONE SQL
+ * statement inside SQLite (measured in WASM: 1373 → 346 ms for a 31k-verse translation)
+ * instead of normalizing in JS and crossing into WASM once per verse.
+ */
+export const SEGMENT_NORM_TABLE_SQL =
+  'CREATE TABLE verses_norm (id INTEGER PRIMARY KEY, text_norm TEXT)';
+
+export function ftsFillSql(alias: string): string {
+  return `INSERT INTO main.verses_fts (rowid, text_norm, tr)
+          SELECT n.id, n.text_norm, 't' || v.translation_id
+          FROM ${alias}.verses_norm n JOIN ${alias}.verses v ON v.id = n.id`;
+}
