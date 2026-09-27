@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { type Slide, EMPTY_SLIDE, readSlide, subscribeSlide, sendCommand } from '../presenterBus';
 import { SlideCanvas } from '../components/SlideCanvas';
+import { IdentifyOverlay } from '../components/IdentifyOverlay';
+import { useAnnounceOutput } from '../lib/outputs';
 
 export function Presenter() {
   const [slide, setSlide] = useState<Slide>(EMPTY_SLIDE);
   const [hint, setHint] = useState(true);
   // Hide the cursor over the projected image when the mouse sits idle.
   const [cursorHidden, setCursorHidden] = useState(false);
+  // Tell the control window this output exists (its «Вікна виводу» list).
+  const identify = useAnnounceOutput('presenter');
 
   useEffect(() => {
     setSlide(readSlide());
@@ -88,6 +92,7 @@ export function Presenter() {
       }}
     >
       <SlideCanvas slide={slide} />
+      <IdentifyOverlay label={identify} />
       {hint && (
         <div
           style={{

@@ -47,6 +47,7 @@ import {
   IconLayoutDashboard,
   IconQrcode,
   IconDeviceMobile,
+  IconAppWindow,
 } from '@tabler/icons-react';
 
 import { api, type Book, type Verse, type SongStyle, type RemoteCommand } from '../api';
@@ -88,6 +89,8 @@ import { SettingsPanel } from '../components/SettingsPanel';
 import { PlaylistPanel } from '../components/PlaylistPanel';
 import { FollowPanel } from '../components/FollowPanel';
 import { RemotePanel } from '../components/RemotePanel';
+import { OutputsPanel } from '../components/OutputsPanel';
+import { useOutputWindows } from '../lib/outputs';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
 import { useServer, NEEDS_SERVER } from '../serverStore';
@@ -245,6 +248,9 @@ export function Control() {
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false);
+  const [outputsOpen, setOutputsOpen] = useState(false);
+  /** Output windows open right now (they announce themselves — lib/outputs.ts). */
+  const outputWindows = useOutputWindows();
   const [paletteOpen, setPaletteOpen] = useState(false);
   // The song + highlighted stanza in the Songs panel — lifted here so the playlist
   // can open a song and seed its stanza (and so forwarded clicker commands step it).
@@ -1146,7 +1152,8 @@ export function Control() {
   }, [liveSlide, nextSlide]);
 
   const openPresenter = async () => {
-    const win = await openPresenterWindow();
+    // «Кілька вікон показу» (Вікна виводу): another window instead of the open one.
+    const win = await openPresenterWindow(useSettings.getState().outputs.multiple);
     notifications.show(
       win
         ? { message: 'Вікно показу відкрито', color: 'brand', autoClose: 1500 }
@@ -1262,6 +1269,13 @@ export function Control() {
       keywords: 'remote speaker phone pult',
       icon: <IconDeviceMobile size={16} />,
       run: () => setRemoteOpen(true),
+    },
+    {
+      id: 'outputs',
+      label: 'Вікна виводу',
+      keywords: 'windows screens monitors outputs vikna ekrany',
+      icon: <IconAppWindow size={16} />,
+      run: () => setOutputsOpen(true),
     },
     {
       id: 'settings',
@@ -1448,6 +1462,17 @@ export function Control() {
                   hint="Монітор доповідача: зараз, далі, годинник"
                   icon={<IconLayoutDashboard size={18} stroke={1.5} />}
                   onClick={() => void openStage()}
+                />
+                <ToolIcon
+                  label={
+                    outputWindows.length
+                      ? `Вікна виводу: відкрито ${outputWindows.length}`
+                      : 'Вікна виводу'
+                  }
+                  hint="Екрани, відкриті вікна показу й сцени, розкладка"
+                  icon={<IconAppWindow size={18} stroke={1.5} />}
+                  active={outputsOpen}
+                  onClick={() => setOutputsOpen((o) => !o)}
                 />
                 <ToolIcon
                   label={
@@ -1943,6 +1968,17 @@ export function Control() {
         icon={<IconQrcode size={16} />}
       >
         <FollowPanel viewers={viewers} />
+      </FloatingPanel>
+
+      <FloatingPanel
+        opened={outputsOpen}
+        onClose={() => setOutputsOpen(false)}
+        title="Вікна виводу"
+        storageKey="vo:outputsPanelPos"
+        width={380}
+        icon={<IconAppWindow size={16} />}
+      >
+        <OutputsPanel />
       </FloatingPanel>
 
       <FloatingPanel

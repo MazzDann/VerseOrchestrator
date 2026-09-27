@@ -79,6 +79,39 @@ export interface PanelLayout {
   recentHeight: number;
 }
 
+/** One remembered output window: what it shows and on which screen (lib/screens.ts). */
+export interface SavedOutput {
+  kind: 'presenter' | 'stage';
+  screenKey: string;
+  screenLabel: string;
+}
+
+/** Output windows (1.3.2): several presenter windows or one; the remembered layout. */
+export interface OutputSettings {
+  /** «Вікно показу» opens another window each time instead of reusing the open one */
+  multiple: boolean;
+  layout: SavedOutput[];
+}
+
+export const DEFAULT_OUTPUTS: OutputSettings = { multiple: false, layout: [] };
+
+export function sanitizeOutputs(raw: unknown): OutputSettings {
+  const r = (raw ?? {}) as Partial<Record<keyof OutputSettings, unknown>>;
+  const layout = Array.isArray(r.layout)
+    ? r.layout
+        .filter(
+          (o): o is SavedOutput =>
+            !!o &&
+            (o.kind === 'presenter' || o.kind === 'stage') &&
+            typeof o.screenKey === 'string' &&
+            typeof o.screenLabel === 'string',
+        )
+        .slice(0, 8)
+        .map(({ kind, screenKey, screenLabel }) => ({ kind, screenKey, screenLabel }))
+    : [];
+  return { multiple: r.multiple === true, layout };
+}
+
 export const DEFAULT_LAYOUT: PanelLayout = { navWidth: 300, asideWidth: 380, recentHeight: 170 };
 
 /** [min, max] per field — also applied to persisted values. */
@@ -117,6 +150,8 @@ interface SettingsState {
   keymap: Keymap;
   /** Saved appearance presets (look + layout bundles). */
   presets: AppearancePreset[];
+  outputs: OutputSettings;
+  setOutputs: (patch: Partial<OutputSettings>) => void;
   setLiveFollow: (v: boolean) => void;
   setFollowAlong: (v: boolean) => void;
   setSlideTemplate: (t: SlideTemplate | null) => void;
@@ -287,6 +322,9 @@ export const useSettings = create<SettingsState>()(
       recentTexts: [],
       keymap: DEFAULT_KEYMAP,
       presets: [],
+      outputs: DEFAULT_OUTPUTS,
+      setOutputs: (patch) =>
+        set((st) => ({ outputs: sanitizeOutputs({ ...st.outputs, ...patch }) })),
       setLiveFollow: (v) => set({ liveFollow: v }),
       setFollowAlong: (v) => set({ followAlong: v }),
       setSlideTemplate: (t) => set({ slideTemplate: t }),
@@ -415,6 +453,7 @@ export const useSettings = create<SettingsState>()(
           // consumer (.split in useHotkeys / settings UI) always gets a valid chord.
           keymap: sanitizeKeymap(p.keymap),
           layout: clampLayout(p.layout),
+          outputs: sanitizeOutputs(p.outputs),
         };
       },
     },

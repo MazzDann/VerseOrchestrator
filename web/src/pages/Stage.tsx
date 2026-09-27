@@ -8,6 +8,8 @@ import {
   subscribeNext,
 } from '../presenterBus';
 import { SlidePreview } from '../components/SlideCanvas';
+import { IdentifyOverlay } from '../components/IdentifyOverlay';
+import { useAnnounceOutput } from '../lib/outputs';
 
 /** Two-digit clock parts. */
 function useClock(): string {
@@ -29,6 +31,8 @@ export function Stage() {
   const [slide, setSlide] = useState<Slide>(EMPTY_SLIDE);
   const [next, setNext] = useState<Slide | null>(null);
   const clock = useClock();
+  // Tell the control window this output exists (its «Вікна виводу» list).
+  const identify = useAnnounceOutput('stage');
 
   useEffect(() => {
     setSlide(readSlide());
@@ -178,6 +182,7 @@ export function Stage() {
           </div>
         </div>
       </div>
+      <IdentifyOverlay label={identify} />
     </div>
   );
 }
