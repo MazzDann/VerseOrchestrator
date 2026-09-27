@@ -174,12 +174,39 @@ describe('screen relay (control → remotes only)', () => {
     remote.send(JSON.stringify({ type: 'hello', role: 'remote', token: p.token }));
     await new Promise((r) => setTimeout(r, 100));
     expect(cGot.some((f) => f.type === 'welcome')).toBe(true);
-    control.send(JSON.stringify({ type: 'screen', slide: { reference: 'Ів 1:1' } }));
+    control.send(
+      JSON.stringify({
+        type: 'screen',
+        screen: { reference: 'Ів 1:1' },
+        next: { reference: 'Ів 1:2' },
+      }),
+    );
     await new Promise((r) => setTimeout(r, 100));
     expect(rGot.filter((f) => f.type === 'screen').at(-1)).toEqual({
       type: 'screen',
-      slide: { reference: 'Ів 1:1' },
+      screen: { reference: 'Ів 1:1' },
+      next: { reference: 'Ів 1:2' },
     });
     expect(vGot.some((f) => f.type === 'screen')).toBe(false);
+    // The control socket is told how many audience viewers are connected (the viewer
+    // socket here; control/remote sockets don't count).
+    expect(cGot.filter((f) => f.type === 'viewers').at(-1)).toMatchObject({ type: 'viewers' });
+    expect(
+      (cGot.filter((f) => f.type === 'viewers').at(-1) as { count: number }).count,
+    ).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('frame size', () => {
+  it('accepts a large control frame (long passage) without dropping the socket', async () => {
+    const origin = { origin: base.replace('ws:', 'http:') };
+    const control = new WebSocket(base + WS_PATH, { headers: origin });
+    open.push(control);
+    await new Promise((r) => control.once('open', r));
+    control.send(JSON.stringify({ type: 'hello', role: 'control' }));
+    const big = 'слово '.repeat(8000); // ~100 KB in UTF-8
+    control.send(JSON.stringify({ type: 'screen', screen: { text: big }, next: null }));
+    await new Promise((r) => setTimeout(r, 150));
+    expect(control.readyState).toBe(WebSocket.OPEN);
   });
 });

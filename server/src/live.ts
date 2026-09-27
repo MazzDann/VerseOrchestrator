@@ -14,8 +14,9 @@ import { findByToken, getPairing, isRemoteCommand, type RemoteCommand } from './
  *   { type: 'hello', role: 'remote', token }  — a paired speaker remote (remote.ts)
  * A remote may then send { type: 'command', cmd } for the commands its pairing allows;
  * the hub forwards them to the control socket(s) as { type: 'command', cmd, from }.
- * The control socket reports { type: 'screen', slide } whenever the output changes; the
- * hub relays it to remotes only (never to audience viewers).
+ * The control socket reports { type: 'screen', screen, next } (compact summaries) whenever
+ * the output changes; the hub relays it to remotes only (never to audience viewers), and
+ * sends control sockets { type: 'viewers', count } whenever the audience count changes.
  *
  * Server → client frames: slide · welcome · denied · ack · revoked · remotes (control only:
  * "the remote list/online state changed, refetch").
@@ -33,16 +34,20 @@ interface Meta {
 let liveState: unknown = null;
 let liveVersion = 0;
 /**
- * What the output window shows right now, sent by the control socket for REMOTES only.
- * Separate from liveState on purpose: the audience follow-along is opt-in (the operator
- * may keep it off), but a speaker's remote always needs to see what's on screen.
+ * What the output window shows now and what «Далі» would show — compact summaries sent
+ * by the control socket for REMOTES only. Separate from liveState on purpose: the
+ * audience follow-along is opt-in (the operator may keep it off), but a speaker's
+ * remote always needs to see what's on screen.
  */
-let screenState: unknown = null;
+let screenState: { screen: unknown; next: unknown } = { screen: null, next: null };
 let wss: WebSocketServer | null = null;
 const meta = new WeakMap<WebSocket, Meta>();
 
 export const WS_PATH = '/api/ws';
 const MAX_COMMANDS_PER_SEC = 8;
+/** Frames from clients: a whole long passage in several translations can exceed tens of
+ * KB — an oversized frame makes ws close the socket, so leave generous headroom. */
+const MAX_FRAME_BYTES = 256 * 1024;
 
 export function getLive() {
   return { version: liveVersion, slide: liveState };
@@ -67,6 +72,12 @@ export function publishLive(slide: unknown): number {
 /** Audience sockets (not the control window, not remotes). */
 export function viewerCount(): number {
   return sockets('viewer').length;
+}
+
+/** Tell control windows how many audience phones are connected right now. */
+function notifyViewers(): void {
+  const frame = { type: 'viewers', count: viewerCount() };
+  for (const c of sockets('control')) send(c, frame);
 }
 
 export function isRemoteOnline(pairingId: string): boolean {
@@ -109,6 +120,7 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     }
     m.role = 'control';
     send(ws, { type: 'welcome', role: 'control' });
+    notifyViewers(); // this socket stopped counting as a viewer; also primes the new control
     return;
   }
   if (msg.role === 'remote') {
@@ -122,8 +134,9 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     m.pairingId = p.id;
     p.lastSeen = Date.now();
     send(ws, { type: 'welcome', role: 'remote', name: p.name, allowed: p.allowed });
-    send(ws, { type: 'screen', slide: screenState });
+    send(ws, { type: 'screen', ...screenState });
     notifyRemotesChanged();
+    notifyViewers();
   }
 }
 
@@ -151,7 +164,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
 
 /** Attach the WebSocket endpoint to the HTTP server (upgrade on WS_PATH only). */
 export function attachLiveHub(server: Server): void {
-  wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
+  wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES });
 
   server.on('upgrade', (req, socket, head) => {
     const path = (req.url ?? '').split('?')[0];
@@ -176,15 +189,17 @@ export function attachLiveHub(server: Server): void {
       if (msg?.type === 'hello') onHello(ws, m, req, msg);
       else if (msg?.type === 'command') onCommand(ws, m, msg);
       else if (msg?.type === 'screen' && m.role === 'control') {
-        screenState = msg.slide ?? null;
-        for (const c of sockets('remote')) send(c, { type: 'screen', slide: screenState });
+        screenState = { screen: msg.screen ?? null, next: msg.next ?? null };
+        for (const c of sockets('remote')) send(c, { type: 'screen', ...screenState });
       }
     });
     ws.on('close', () => {
       if (m.role === 'remote') notifyRemotesChanged();
+      if (m.role === 'viewer') notifyViewers();
     });
     // Everyone gets the current slide immediately (viewers read it, remotes show it).
     ws.send(slideFrame());
+    notifyViewers();
   });
 
   // Heartbeat: drop sockets that stopped answering (phone slept, Wi-Fi changed) so the
