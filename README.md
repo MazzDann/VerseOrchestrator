@@ -72,17 +72,23 @@ blocking the running app (the server picks up the new data with no restart).
 
 Defaults — rebindable in **Settings → Вигляд → Гарячі клавіші**.
 
-| Key                   | Action                                    |
-| --------------------- | ----------------------------------------- |
-| `→` / `↓`             | next verse                                |
-| `←` / `↑`             | previous verse                            |
-| `PageDown` / `PageUp` | next / previous verse (presenter clicker) |
-| `F5` / `F2`           | push the selection to the screen          |
-| `F3` / `Ctrl+F`       | search current module                     |
-| `F4`                  | search all modules                        |
-| `b`                   | blank the screen (keeps the background)   |
-| `.`                   | black screen (pure black, ignores the bg) |
-| `Esc`                 | clear the screen / close search           |
+| Key                   | Also on macOS | Action                                    |
+| --------------------- | ------------- | ----------------------------------------- |
+| `→` / `↓`             |               | next verse                                |
+| `←` / `↑`             |               | previous verse                            |
+| `PageDown` / `PageUp` |               | next / previous verse (presenter clicker) |
+| `F5` / `F2`           | `⌘↩`          | push the selection to the screen          |
+| `F3` / `Ctrl+F`       | `⌘F`          | search the current module                 |
+| `F4`                  | `⇧⌘F`         | search all modules                        |
+| `Ctrl+K` / `Ctrl+P`   | `⌘K`          | command palette                           |
+| `b`                   |               | blank the screen (keeps the background)   |
+| `.`                   |               | black screen (pure black, ignores the bg) |
+| `Esc`                 |               | clear the screen / close search           |
+
+On a Mac the F-keys need `Fn`, so the `⌘` chords are defaults there too; the F-keys keep
+working. A keymap saved before 1.4.12 gets the `⌘` chords for every action you haven't
+rebound. On a focused verse, `Enter` projects that verse and `Ctrl`/`Shift`+`Enter` adds it
+to the selection (on a Mac, `⌘↩` projects the selection).
 
 ## Scripts
 

@@ -4,7 +4,20 @@
  *
  * Combo strings use the react-hotkeys-hook grammar: `+` joins modifiers
  * (`ctrl+f`), `,` separates alternatives (`right,down,pagedown`).
+ *
+ * macOS (1.4.12, Mac test): F-keys there need Fn, so the defaults add ⌘ chords — ⌘↩ on
+ * screen, ⌘F / ⇧⌘F search, ⌘K palette — next to the F-keys, which stay. Combos are shown
+ * the Mac way there (⇧⌘F).
  */
+
+/** Running on a Mac (or an iPad with a keyboard)? */
+export const IS_MAC =
+  typeof navigator !== 'undefined' &&
+  /mac|iphone|ipad/i.test(
+    (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+      navigator.platform ??
+      '',
+  );
 
 export type HotkeyActionId =
   | 'advanceNext'
@@ -24,6 +37,8 @@ export interface HotkeyActionDef {
   /** Whether the action should still fire while a text field is focused (search). */
   enableOnFormTags?: boolean;
   default: string;
+  /** extra default chords on macOS, next to `default` */
+  mac?: string;
 }
 
 /** The operator actions that can be rebound, in display order. */
@@ -46,6 +61,7 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     hint: 'Показати поточний вибір',
     enableOnFormTags: true,
     default: 'f5,f2',
+    mac: 'meta+enter',
   },
   { id: 'blank', label: 'Затемнити', hint: 'Сховати текст, фон лишається', default: 'b' },
   { id: 'black', label: 'Чорний екран', hint: 'Повністю чорний, ігнорує фон', default: 'period' },
@@ -56,6 +72,7 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     hint: 'Пошук у поточному модулі',
     enableOnFormTags: true,
     default: 'f3,ctrl+f',
+    mac: 'meta+f',
   },
   {
     id: 'searchAll',
@@ -63,6 +80,7 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     hint: 'Пошук в усіх модулях',
     enableOnFormTags: true,
     default: 'f4',
+    mac: 'meta+shift+f',
   },
   {
     id: 'palette',
@@ -70,14 +88,21 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     hint: 'Швидкий пошук дій, книг і пісень',
     enableOnFormTags: true,
     default: 'ctrl+k,ctrl+p',
+    mac: 'meta+k',
   },
 ];
 
 export type Keymap = Record<HotkeyActionId, string>;
 
-export const DEFAULT_KEYMAP: Keymap = Object.fromEntries(
-  HOTKEY_ACTIONS.map((a) => [a.id, a.default]),
-) as Keymap;
+const defaultFor = (a: HotkeyActionDef, mac: boolean) =>
+  mac && a.mac ? `${a.default},${a.mac}` : a.default;
+
+/** The default keymap for a platform (the Mac one adds the ⌘ chords). */
+export function defaultKeymap(mac: boolean = IS_MAC): Keymap {
+  return Object.fromEntries(HOTKEY_ACTIONS.map((a) => [a.id, defaultFor(a, mac)])) as Keymap;
+}
+
+export const DEFAULT_KEYMAP: Keymap = defaultKeymap();
 
 /**
  * Mirror of react-hotkeys-hook's internal `mapKey`: its special-key table plus the
@@ -156,17 +181,40 @@ const DISPLAY: Record<string, string> = {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Pretty single-alternative combo: 'ctrl+f' → 'Ctrl + F'. */
-export function formatChord(chord: string): string {
-  return chord
-    .split('+')
-    .map((p) => DISPLAY[p] ?? (p.length === 1 ? p.toUpperCase() : cap(p)))
-    .join(' + ');
+/** macOS symbols, modifiers in the Mac order ⌃⌥⇧⌘. */
+const MAC_MODS = ['ctrl', 'alt', 'shift', 'meta'];
+const MAC_DISPLAY: Record<string, string> = {
+  ctrl: '⌃',
+  alt: '⌥',
+  shift: '⇧',
+  meta: '⌘',
+  enter: '↩',
+  escape: '⎋',
+};
+
+/** Pretty single-alternative combo: 'ctrl+f' → 'Ctrl + F'; on a Mac 'meta+shift+f' → '⌘⇧F'. */
+export function formatChord(chord: string, mac: boolean = IS_MAC): string {
+  const parts = chord.split('+');
+  const key = (p: string) => DISPLAY[p] ?? (p.length === 1 ? p.toUpperCase() : cap(p));
+  if (!mac) return parts.map(key).join(' + ');
+  const mods = MAC_MODS.filter((m) => parts.includes(m)).map((m) => MAC_DISPLAY[m]);
+  const rest = parts.filter((p) => !MAC_MODS.includes(p)).map((p) => MAC_DISPLAY[p] ?? key(p));
+  return [...mods, ...rest].join('');
 }
 
 /** Pretty full combo (with alternatives): 'right,down' → '→  /  ↓'. */
-export function formatCombo(combo: string): string {
-  return combo.split(',').filter(Boolean).map(formatChord).join('  /  ');
+export function formatCombo(combo: string, mac: boolean = IS_MAC): string {
+  return combo
+    .split(',')
+    .filter(Boolean)
+    .map((c) => formatChord(c, mac))
+    .join('  /  ');
+}
+
+/** Is this keydown one of the combo's chords? */
+export function matchesCombo(e: KeyboardEvent, combo: string): boolean {
+  const chord = comboFromEvent(e);
+  return !!chord && combo.split(',').includes(chord);
 }
 
 /** Action ids whose keymap entry shares an alternative chord with `chord` (excluding `self`). */
@@ -189,13 +237,19 @@ export function conflictsForAction(keymap: Keymap, self: HotkeyActionId): Hotkey
   return [...out];
 }
 
-/** Coerce a persisted/foreign keymap into a valid one: every action gets a string chord or its default. */
-export function sanitizeKeymap(raw: unknown): Keymap {
+/**
+ * Coerce a persisted/foreign keymap into a valid one: every action gets a string chord or
+ * its default. On a Mac an action still on the old platform-neutral default (saved before
+ * 1.4.12) gets the Mac default — its ⌘ chords; anything the user changed stays.
+ */
+export function sanitizeKeymap(raw: unknown, mac: boolean = IS_MAC): Keymap {
   const r = (raw ?? {}) as Record<string, unknown>;
   return Object.fromEntries(
-    HOTKEY_ACTIONS.map((a) => [
-      a.id,
-      typeof r[a.id] === 'string' && r[a.id] ? (r[a.id] as string) : DEFAULT_KEYMAP[a.id],
-    ]),
+    HOTKEY_ACTIONS.map((a) => {
+      const v = r[a.id];
+      if (typeof v !== 'string' || !v || (mac && v === a.default))
+        return [a.id, defaultFor(a, mac)];
+      return [a.id, v];
+    }),
   ) as Keymap;
 }
