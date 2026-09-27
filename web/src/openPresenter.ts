@@ -1,5 +1,7 @@
 import type { OutputKind } from './lib/outputs';
 import { featuresFor, listScreens, type ScreenInfo } from './lib/screens';
+import { delegateFullscreen } from './lib/fullscreen';
+import { useSettings } from './settingsStore';
 
 /**
  * Opening output windows (`/presenter`, `/stage`) and the settings window. With the
@@ -76,20 +78,75 @@ function place(w: Window, s: ScreenInfo): void {
 }
 
 /**
+ * Windows opened with «Відкривати на весь екран», waiting for a click to lend them: the
+ * click that opened a window is used up by `window.open`, so the operator's next click
+ * anywhere in this window (picking a verse, say) sends them fullscreen — one window per
+ * click, since delegating uses the click up. A window stays pending until it is
+ * fullscreen or closed (1 min at most).
+ */
+const pending = new Map<string, number>();
+const PENDING_MS = 60_000;
+let clickHook = false;
+
+function lendNextClick(name: string): void {
+  pending.set(name, Date.now());
+  if (clickHook) return;
+  clickHook = true;
+  window.addEventListener(
+    'click',
+    () => {
+      for (const [n, since] of pending) {
+        const w = windowRef(n);
+        if (!w || isFullscreen(w) || Date.now() - since > PENDING_MS) {
+          pending.delete(n);
+          continue;
+        }
+        // The window may still be loading, or this click is already lent: next click.
+        if (delegateFullscreen(w, true)) break;
+      }
+    },
+    true,
+  );
+}
+
+/** Is `w` fullscreen right now? (same origin — readable; anything else counts as no) */
+function isFullscreen(w: Window): boolean {
+  try {
+    return !!w.document.fullscreenElement;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ask an output window to go fullscreen (or leave it) — from a click handler in this
+ * window, whose gesture is lent to it (lib/fullscreen.ts). False: the browser can't
+ * delegate — the window still takes F / a click on its own.
+ */
+export function fullscreenOutput(name: string, on: boolean): boolean {
+  const w = adoptOutput(name);
+  return !!w && delegateFullscreen(w, on);
+}
+
+/**
  * Open an output window. `screen` — where (default: the first secondary screen, if the
  * browser tells us about screens; asking may show its permission prompt, so call this
  * from a user action). `another` — a new window even if one of this kind is open;
  * otherwise the open one is brought forward (and moved, when a screen is given).
+ * `fullscreen` (default: the «Відкривати на весь екран» setting) — an open window is
+ * asked at once; a new one gets the operator's next click (Chrome/Edge, lib/fullscreen.ts).
  */
 export async function openOutput(
   kind: OutputKind,
-  opts: { screen?: ScreenInfo; another?: boolean } = {},
+  opts: { screen?: ScreenInfo; another?: boolean; fullscreen?: boolean } = {},
 ): Promise<Window | null> {
   const name = opts.another ? `vo-${kind}-${Date.now().toString(36)}` : `vo-${kind}`;
+  const fullscreen = opts.fullscreen ?? useSettings.getState().outputs.fullscreen;
   const open = windowRef(name);
   if (open) {
     if (opts.screen) place(open, opts.screen);
     open.focus();
+    if (fullscreen && !isFullscreen(open)) delegateFullscreen(open, true);
     return open;
   }
   let screen = opts.screen;
@@ -105,6 +162,7 @@ export async function openOutput(
   if (w) {
     refs.set(name, w);
     if (screen) place(w, screen); // some browsers ignore left/top in the features
+    if (fullscreen) lendNextClick(name);
   }
   return w;
 }

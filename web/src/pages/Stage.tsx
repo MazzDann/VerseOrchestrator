@@ -10,6 +10,7 @@ import {
 import { SlidePreview } from '../components/SlideCanvas';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
+import { listenFullscreen } from '../lib/fullscreen';
 
 /** Two-digit clock parts. */
 function useClock(): string {
@@ -21,6 +22,14 @@ function useClock(): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
 }
+
+/** Fullscreen needs a user gesture in this window — or one lent by the control window. */
+const setFullscreen = (on: boolean) => {
+  if (on === !!document.fullscreenElement) return;
+  if (on) void document.documentElement.requestFullscreen?.().catch(() => {});
+  else void document.exitFullscreen?.();
+};
+const toggleFullscreen = () => setFullscreen(!document.fullscreenElement);
 
 /**
  * Stage display — a confidence monitor for the operator/speaker: the slide that
@@ -47,13 +56,7 @@ export function Stage() {
 
   // Like the presenter window (Mac test, 1.4.6): fullscreen needs a user gesture, so
   // «F» or a click anywhere toggles it once the window sits on its screen.
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen?.();
-    } else {
-      void document.documentElement.requestFullscreen?.().catch(() => {});
-    }
-  };
+  useEffect(() => listenFullscreen(setFullscreen), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'f' || e.key === 'F') toggleFullscreen();

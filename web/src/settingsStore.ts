@@ -90,10 +90,12 @@ export interface SavedOutput {
 export interface OutputSettings {
   /** «Вікно показу» opens another window each time instead of reusing the open one */
   multiple: boolean;
+  /** a window goes fullscreen as soon as it opens (Chrome/Edge: gesture delegation, 1.4.7) */
+  fullscreen: boolean;
   layout: SavedOutput[];
 }
 
-export const DEFAULT_OUTPUTS: OutputSettings = { multiple: false, layout: [] };
+export const DEFAULT_OUTPUTS: OutputSettings = { multiple: false, fullscreen: false, layout: [] };
 
 export function sanitizeOutputs(raw: unknown): OutputSettings {
   const r = (raw ?? {}) as Partial<Record<keyof OutputSettings, unknown>>;
@@ -109,7 +111,7 @@ export function sanitizeOutputs(raw: unknown): OutputSettings {
         .slice(0, 8)
         .map(({ kind, screenKey, screenLabel }) => ({ kind, screenKey, screenLabel }))
     : [];
-  return { multiple: r.multiple === true, layout };
+  return { multiple: r.multiple === true, fullscreen: r.fullscreen === true, layout };
 }
 
 export const DEFAULT_LAYOUT: PanelLayout = { navWidth: 300, asideWidth: 380, recentHeight: 170 };

@@ -19,6 +19,8 @@ import {
   IconExternalLink,
   IconFocus2,
   IconLayoutDashboard,
+  IconMaximize,
+  IconMinimize,
   IconScreenShare,
   IconX,
 } from '@tabler/icons-react';
@@ -37,7 +39,14 @@ import {
   type ScreenAccess,
   type ScreenInfo,
 } from '../lib/screens';
-import { adoptOutput, closeOutput, focusOutput, moveOutput, openOutput } from '../openPresenter';
+import {
+  adoptOutput,
+  closeOutput,
+  focusOutput,
+  fullscreenOutput,
+  moveOutput,
+  openOutput,
+} from '../openPresenter';
 
 const KIND_ICON: Record<OutputKind, typeof IconScreenShare> = {
   presenter: IconScreenShare,
@@ -54,6 +63,7 @@ const NOT_OURS = 'Це вікно відкрите не з цього вікна
 export function OutputsPanel() {
   const windows = useOutputWindows();
   const multiple = useSettings((s) => s.outputs.multiple);
+  const fullscreen = useSettings((s) => s.outputs.fullscreen);
   const layout = useSettings((s) => s.outputs.layout);
   const setOutputs = useSettings((s) => s.setOutputs);
   const [screens, setScreens] = useState<ScreenInfo[]>([]);
@@ -81,6 +91,16 @@ export function OutputsPanel() {
       });
     } else {
       notifications.show({ message: what, color: 'brand', autoClose: 1500 });
+    }
+  };
+
+  // Lends this click to the window (Chrome/Edge); elsewhere the window takes F itself.
+  const setFullscreen = (name: string, on: boolean) => {
+    if (!fullscreenOutput(name, on)) {
+      notifications.show({
+        message: 'Цей браузер не передає жест іншому вікну — натисніть F у самому вікні',
+        color: 'orange',
+      });
     }
   };
 
@@ -231,6 +251,25 @@ export function OutputsPanel() {
                       <IconFocus2 size={14} />
                     </ActionIcon>
                   </Tooltip>
+                  <Tooltip
+                    label={
+                      !ours
+                        ? NOT_OURS
+                        : o.fullscreen
+                          ? 'Вийти з повного екрана'
+                          : 'На весь екран (або F у вікні)'
+                    }
+                  >
+                    <ActionIcon
+                      variant="subtle"
+                      size="sm"
+                      aria-label={`${o.fullscreen ? 'Вийти з повного екрана' : 'На весь екран'}: ${label}`}
+                      disabled={!ours}
+                      onClick={() => setFullscreen(o.name, !o.fullscreen)}
+                    >
+                      {o.fullscreen ? <IconMinimize size={14} /> : <IconMaximize size={14} />}
+                    </ActionIcon>
+                  </Tooltip>
                   <Tooltip label={ours ? 'Перейти до вікна' : NOT_OURS}>
                     <ActionIcon
                       variant="subtle"
@@ -303,6 +342,13 @@ export function OutputsPanel() {
           onChange={(e) => setOutputs({ multiple: e.currentTarget.checked })}
           label="Кілька вікон показу"
           description="«Вікно показу» відкриває ще одне, а не повертає вже відкрите"
+        />
+        <Switch
+          size="xs"
+          checked={fullscreen}
+          onChange={(e) => setOutputs({ fullscreen: e.currentTarget.checked })}
+          label="Відкривати на весь екран"
+          description="Нове вікно стає на весь екран з вашим наступним кліком у цьому вікні — по одному вікну на клік (Chrome, Edge); в інших браузерах — F у самому вікні"
         />
         <Group gap="xs" grow>
           <Button
