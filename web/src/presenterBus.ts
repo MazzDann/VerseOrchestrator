@@ -1,10 +1,13 @@
+import { createBus, type BusChannel, type BusStorage, type Wire } from './lib/bus';
+
 /**
- * Transport between the control window and the presenter window.
+ * Slides and the transport between the control window and the output windows.
  *
- * Abstraction boundary: the rest of the app only calls publishSlide / readSlide
- * / subscribeSlide. Today this is backed by BroadcastChannel + localStorage
- * (same-origin, no server). To support a second device or a Tauri/Electron
- * wrapper later, swap the implementation here without touching the UI.
+ * Abstraction boundary: the rest of the app only calls publishSlide / readSlide /
+ * subscribeSlide (+ next, commands). The protocol lives in lib/bus.ts (1.3.1: versioned
+ * messages, backgrounds sent once as assets, hello handshake); here it is bound to
+ * BroadcastChannel + localStorage (same-origin, no server). To support a second device or
+ * a desktop wrapper, give createBus another channel without touching the UI.
  */
 
 export interface TextSpan {
@@ -171,92 +174,50 @@ export const DEFAULT_STYLE: SlideStyle = {
 
 export const EMPTY_SLIDE: Slide = { lines: [], reference: '', blank: false, visible: false };
 
-const CHANNEL_NAME = 'verse-orchestrator';
-const STORAGE_KEY = 'vo:slide';
-
-const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null;
-
-export function publishSlide(slide: Slide): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(slide));
-  } catch {
-    /* ignore quota/availability errors */
-  }
-  channel?.postMessage(slide);
-}
-
-export function readSlide(): Slide {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Slide;
-  } catch {
-    /* ignore parse errors */
-  }
-  return EMPTY_SLIDE;
-}
-
-export function subscribeSlide(cb: (slide: Slide) => void): () => void {
-  if (!channel) return () => {};
-  const handler = (e: MessageEvent) => cb(e.data as Slide);
-  channel.addEventListener('message', handler);
-  return () => channel.removeEventListener('message', handler);
-}
-
 /**
- * Reverse channel: commands sent FROM the presenter window TO the control window.
- * Lets the operator drive the show (advance, blank) with a clicker/keyboard while
- * the presenter window on the second monitor holds keyboard focus — the control
- * window owns the selection, so the keypress must travel back to it.
+ * Commands sent FROM an output window TO the control window: the operator drives the show
+ * (advance, blank) with a clicker/keyboard while the output window on the second monitor
+ * holds keyboard focus — the control window owns the selection, so the keypress must
+ * travel back to it.
  */
 export type PresenterCommand = 'next' | 'prev' | 'blank' | 'black';
 
-const CMD_CHANNEL_NAME = 'verse-orchestrator-cmd';
-const cmdChannel =
-  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CMD_CHANNEL_NAME) : null;
+// The default bus of this window: BroadcastChannel between same-origin windows,
+// localStorage for cold start (protocol: lib/bus.ts).
+const channel: BusChannel | null =
+  typeof BroadcastChannel !== 'undefined'
+    ? (() => {
+        const bc = new BroadcastChannel('verse-orchestrator-v2');
+        return {
+          post: (msg) => bc.postMessage(msg),
+          listen: (cb) => {
+            const h = (e: MessageEvent) => cb(e.data as Wire);
+            bc.addEventListener('message', h);
+            return () => bc.removeEventListener('message', h);
+          },
+        };
+      })()
+    : null;
 
-export function sendCommand(cmd: PresenterCommand): void {
-  cmdChannel?.postMessage(cmd);
-}
+const storage: BusStorage | null =
+  typeof localStorage !== 'undefined'
+    ? {
+        get: (k) => localStorage.getItem(k),
+        set: (k, v) => localStorage.setItem(k, v),
+        remove: (k) => localStorage.removeItem(k),
+      }
+    : null;
 
-export function subscribeCommand(cb: (cmd: PresenterCommand) => void): () => void {
-  if (!cmdChannel) return () => {};
-  const handler = (e: MessageEvent) => cb(e.data as PresenterCommand);
-  cmdChannel.addEventListener('message', handler);
-  return () => cmdChannel.removeEventListener('message', handler);
-}
+const bus = createBus(channel, storage);
 
-/**
- * "Next slide" preview for the stage-display window — what advancing once would
- * project. Separate from the live slide so the stage can show current + next.
- */
-const NEXT_CHANNEL_NAME = 'verse-orchestrator-next';
-const NEXT_STORAGE_KEY = 'vo:slide-next';
-const nextChannel =
-  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(NEXT_CHANNEL_NAME) : null;
-
-export function publishNext(slide: Slide | null): void {
-  try {
-    if (slide) localStorage.setItem(NEXT_STORAGE_KEY, JSON.stringify(slide));
-    else localStorage.removeItem(NEXT_STORAGE_KEY);
-  } catch {
-    /* ignore quota/availability errors */
-  }
-  nextChannel?.postMessage(slide);
-}
-
-export function readNext(): Slide | null {
-  try {
-    const raw = localStorage.getItem(NEXT_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Slide;
-  } catch {
-    /* ignore parse errors */
-  }
-  return null;
-}
-
-export function subscribeNext(cb: (slide: Slide | null) => void): () => void {
-  if (!nextChannel) return () => {};
-  const handler = (e: MessageEvent) => cb(e.data as Slide | null);
-  nextChannel.addEventListener('message', handler);
-  return () => nextChannel.removeEventListener('message', handler);
-}
+/** Project a slide: every output window shows it; the last one survives a reload. */
+export const publishSlide = bus.publishSlide;
+/** The last projected slide (cold start of an output window, or the control window). */
+export const readSlide = bus.readSlide;
+export const subscribeSlide = bus.subscribeSlide;
+/** "Next slide" preview for the stage display — what advancing once would project. */
+export const publishNext = bus.publishNext;
+export const readNext = bus.readNext;
+export const subscribeNext = bus.subscribeNext;
+export const sendCommand = bus.sendCommand;
+export const subscribeCommand = bus.subscribeCommand;

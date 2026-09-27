@@ -92,7 +92,7 @@ import { connectLive, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { useDataSource } from '../dataSourceStore';
-import { summarize } from '../lib/slide';
+import { sameSlide, summarize } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { ResizeHandle } from '../components/ResizeHandle';
@@ -562,7 +562,14 @@ export function Control() {
     if (useServer.getState().available !== true) return; // the relay starts paused anyway
     if (!controlConn.current?.send({ type: 'publish', paused: true })) void api.livePause();
   };
+  // What was pushed last. Live-follow re-sends whenever slideLines gets a new identity —
+  // every render (useQueries) — which re-published the SAME slide 7–10× per step (1.3.1,
+  // measured): each copy re-rendered this window, went to every output window, the
+  // remotes' «screen» frame and the phones. An identical slide is now a no-op.
+  const lastPushed = useRef<Slide | null>(null);
   const pushLive = (slide: Slide) => {
+    if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
+    lastPushed.current = slide;
     publishSlide(slide);
     setLiveSlide(slide);
     if (followAlongRef.current) publishAudience(slide);
