@@ -7,36 +7,146 @@ import {
   ftsFillSql,
   ftsRow,
   ftsSourceSql,
+  loadSegmentPg,
   mergeSql,
   moduleHash,
+  PG_SCHEMA_SQL,
+  pgPlaceholders,
   SCHEMA_SQL,
   SEGMENT_NORM_TABLE_SQL,
   type SqlParam,
   type SyncConn,
 } from '@vo/shared';
-import type {
-  ConvertResult,
-  EngineRequest,
-  EngineResponse,
-  SegmentCounts,
-  SegmentUnit,
+import type { PGlite } from '@electric-sql/pglite';
+import {
+  PG_SNAPSHOT_DB,
+  type ConvertResult,
+  type EngineInfo,
+  type EngineKind,
+  type EngineRequest,
+  type EngineResponse,
+  type SegmentCounts,
+  type SegmentUnit,
 } from './protocol';
 
 /**
  * The browser database engine, off the main thread (a big merge must not freeze the
  * operator's UI — same reason the builder is a separate process). Official SQLite WASM
  * build (FTS5 + fts5vocab — the default sql.js build has no FTS5), one in-memory working
- * DB assembled from library segments:
+ * DB assembled from library segments — or, when `init` picks it, PostgreSQL (PGlite):
  *   add     → inflate gzip (DecompressionStream) → ATTACH ':memory:' + sqlite3_deserialize
- *             the bytes into it → copy tables (mergeSql) → rebuild its FTS rows → DETACH
+ *             the bytes into it → copy tables (mergeSql) → rebuild its FTS rows → DETACH;
+ *             PGlite: the segment is read with SQLite and COPY'd in (loadSegmentPg)
  *   convert → a raw MyBible module (.SQLite3) → a segment, with the builder's rules
  *             (@vo/shared convertMyBible), for the main thread to cache and `add`
  *   query   → rows as plain objects, for the main thread's SqlDriver
  */
 
+let engine: EngineKind = 'sqlite';
 let sqlite3: Sqlite3Static | null = null;
 let db: Database | null = null;
+let pg: PGlite | null = null;
 const loaded = new Map<string, SegmentCounts>();
+
+/**
+ * The PostgreSQL engine (PGlite, loaded only when chosen — ~3 MB of WASM). SQLite stays
+ * in the worker either way: it reads the segments (SQLite files) and converts modules.
+ *
+ * Unlike the SQLite engine (rebuilt from cached segments in about a second), Postgres
+ * loads slowly (COPY + tsvector + GIN: seconds per Bible), so it is SNAPSHOTTED: once
+ * loading goes quiet, its whole data directory is dumped (dumpDataDir) into IndexedDB,
+ * and the next start opens that (loadDataDir) — `vo_segments` inside it records what it
+ * holds, so restore only loads what's missing. The dump runs in the worker's queue, so
+ * no query can change files halfway through it (PGlite's own idb:// storage syncs in the
+ * background while queries run — a snapshot from such a race could miss new files).
+ *
+ * The dump is the data directory, WAL included — and bulk COPYs write a lot of WAL.
+ * Measured for KJV+ & UKRK (99 MB of tables): default settings 274 MB; small WAL limits
+ * + a CHECKPOINT before the dump 178 MB; plus 1 MB WAL segments (initdb) 130 MB.
+ * full_page_writes guards against torn page writes on a disk — this "disk" is memory.
+ */
+const PG_CONF = 'max_wal_size = 16MB\nmin_wal_size = 2MB\nfull_page_writes = off';
+
+async function openPg(): Promise<PGlite> {
+  if (pg) return pg;
+  const { PGlite } = await import('@electric-sql/pglite');
+  let p: PGlite | null = null;
+  const snapshot = await snapshotStore('get').catch(() => null);
+  if (snapshot instanceof Blob) {
+    try {
+      p = await PGlite.create({ loadDataDir: snapshot, postgresqlconf: PG_CONF });
+    } catch {
+      await snapshotStore('delete').catch(() => undefined); // unreadable: start over
+    }
+  }
+  p ??= await PGlite.create({ initDbStartParams: ['--wal-segsize=1'], postgresqlconf: PG_CONF });
+  const fresh = !(
+    await p.query("SELECT 1 FROM information_schema.tables WHERE table_name = 'translations'")
+  ).rows.length;
+  if (fresh) await p.exec(PG_SCHEMA_SQL);
+  await p.exec(
+    'CREATE TABLE IF NOT EXISTS vo_segments (key TEXT PRIMARY KEY, verses INTEGER, items INTEGER, unit TEXT, bytes BIGINT)',
+  );
+  for (const r of (await p.query<SegmentCounts & { key: string }>('SELECT * FROM vo_segments'))
+    .rows) {
+    loaded.set(r.key, { verses: r.verses, items: r.items, unit: r.unit, bytes: Number(r.bytes) });
+  }
+  pg = p;
+  return p;
+}
+
+/** The one-Blob snapshot store: read, write or delete it (IndexedDB works in any context). */
+function snapshotStore(op: 'get' | 'delete'): Promise<unknown>;
+function snapshotStore(op: 'put', blob: Blob): Promise<unknown>;
+function snapshotStore(op: 'get' | 'put' | 'delete', blob?: Blob): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open(PG_SNAPSHOT_DB, 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('snapshot');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const idb = open.result;
+      const tx = idb.transaction('snapshot', op === 'get' ? 'readonly' : 'readwrite');
+      const store = tx.objectStore('snapshot');
+      const req =
+        op === 'get'
+          ? store.get('datadir')
+          : op === 'put'
+            ? store.put(blob, 'datadir')
+            : store.delete('datadir');
+      tx.oncomplete = () => {
+        idb.close();
+        resolve(req.result);
+      };
+      tx.onerror = tx.onabort = () => {
+        idb.close();
+        reject(tx.error);
+      };
+    };
+  });
+}
+
+let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
+/** Snapshot once loading has been quiet for a moment (a restore adds many segments). */
+function snapshotSoon(): void {
+  if (snapshotTimer) clearTimeout(snapshotTimer);
+  snapshotTimer = setTimeout(() => {
+    snapshotTimer = null;
+    enqueue(async () => {
+      if (!pg) return;
+      await pg.exec('CHECKPOINT'); // lets Postgres drop the WAL it no longer needs
+      await snapshotStore('put', await pg.dumpDataDir('none'));
+    });
+  }, 1500);
+}
+
+/** Forget the Postgres database: close it and drop the snapshot (reset / clear). */
+async function deletePg(): Promise<void> {
+  if (snapshotTimer) clearTimeout(snapshotTimer);
+  snapshotTimer = null;
+  await pg?.close();
+  pg = null;
+  await snapshotStore('delete').catch(() => undefined);
+}
 
 async function init(): Promise<Sqlite3Static> {
   sqlite3 ??= await sqlite3InitModule();
@@ -106,9 +216,47 @@ function counts(conn: Database, alias: string, bytes: number): SegmentCounts {
   return { verses, items: 0, unit: 'verses', bytes };
 }
 
+const NOT_SEGMENT = 'Це не сегмент бібліотеки — модулі MyBible спершу перетворюються (convert)';
+
 async function add(key: string, gz: ArrayBuffer): Promise<SegmentCounts> {
-  const conn = await open();
+  if (engine === 'pglite') await openPg(); // brings back what the persisted DB holds
   if (loaded.has(key)) return loaded.get(key)!;
+  const info = engine === 'pglite' ? await addPg(gz) : await addSqlite(gz);
+  if (engine === 'pglite') {
+    // Recorded after the load's own transaction: if the two ever disagree, the segment
+    // is simply loaded again and its duplicates skipped (loadSegmentPg's fallback).
+    await pg!.query(
+      `INSERT INTO vo_segments (key, verses, items, unit, bytes) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (key) DO NOTHING`,
+      [key, info.verses, info.items, info.unit, info.bytes],
+    );
+    snapshotSoon();
+  }
+  loaded.set(key, info);
+  return info;
+}
+
+/** PostgreSQL: open the segment in a throwaway SQLite DB, bulk-load it (COPY) into PGlite. */
+async function addPg(gz: ArrayBuffer): Promise<SegmentCounts> {
+  const p = await openPg();
+  const raw = await inflate(gz);
+  if (!isSqlite(raw)) throw new Error(NOT_SQLITE);
+  const s3 = await init();
+  const seg = new s3.oo1.DB(':memory:');
+  try {
+    deserialize(s3, seg, 'main', raw);
+    if (!seg.selectValue("SELECT 1 FROM sqlite_master WHERE name = 'translations'")) {
+      throw new Error(NOT_SEGMENT);
+    }
+    await loadSegmentPg(syncConn(seg), p);
+    return counts(seg, 'main', raw.byteLength);
+  } finally {
+    seg.close();
+  }
+}
+
+async function addSqlite(gz: ArrayBuffer): Promise<SegmentCounts> {
+  const conn = await open();
   const raw = await inflate(gz);
   if (!isSqlite(raw)) throw new Error(NOT_SQLITE);
   const s3 = sqlite3!;
@@ -116,7 +264,7 @@ async function add(key: string, gz: ArrayBuffer): Promise<SegmentCounts> {
   try {
     deserialize(s3, conn, 'seg', raw);
     if (!conn.selectValue("SELECT 1 FROM seg.sqlite_master WHERE name = 'translations'")) {
-      throw new Error('Це не сегмент бібліотеки — модулі MyBible спершу перетворюються (convert)');
+      throw new Error(NOT_SEGMENT);
     }
     let info!: SegmentCounts;
     conn.transaction(() => {
@@ -151,7 +299,6 @@ async function add(key: string, gz: ArrayBuffer): Promise<SegmentCounts> {
         }
       }
     });
-    loaded.set(key, info);
     return info;
   } finally {
     conn.exec('DETACH seg');
@@ -218,23 +365,46 @@ async function convert(name: string, bytes: ArrayBuffer): Promise<Omit<ConvertRe
   }
 }
 
-function query(kind: 'all' | 'get', sql: string, params: unknown[]) {
-  const rows = db!.exec({
-    sql,
-    bind: params as (string | number | null)[],
-    rowMode: 'object',
-    returnValue: 'resultRows',
-  });
+async function query(kind: 'all' | 'get', sql: string, params: unknown[]) {
+  let rows: unknown[];
+  if (engine === 'pglite') {
+    rows = (await (await openPg()).query(pgPlaceholders(sql), params)).rows;
+  } else {
+    rows = (await open()).exec({
+      sql,
+      bind: params as (string | number | null)[],
+      rowMode: 'object',
+      returnValue: 'resultRows',
+    });
+  }
   return kind === 'all' ? rows : rows[0];
 }
 
-self.onmessage = async (e: MessageEvent<EngineRequest>) => {
-  const req = e.data;
+async function info(): Promise<EngineInfo> {
+  if (engine === 'pglite') {
+    const p = await openPg();
+    const r = await p.query<{ v: string; n: number }>(
+      "SELECT split_part(version(), ' on ', 1) AS v, pg_database_size(current_database()) AS n",
+    );
+    return { engine, version: r.rows[0].v, dbBytes: Number(r.rows[0].n) };
+  }
+  const conn = await open();
+  const pages = Number(conn.selectValue('PRAGMA page_count') ?? 0);
+  const size = Number(conn.selectValue('PRAGMA page_size') ?? 0);
+  return { engine, version: `SQLite ${sqlite3!.version.libVersion}`, dbBytes: pages * size };
+}
+
+async function handle(req: EngineRequest): Promise<void> {
   type Reply = { ok: true; result: unknown } | { ok: false; error: string };
   const reply = (r: Reply, transfer: Transferable[] = []) =>
     (self as unknown as Worker).postMessage({ id: req.id, ...r } as EngineResponse, transfer);
   try {
-    if (req.op === 'add') {
+    if (req.op === 'init') {
+      engine = req.engine;
+      reply({ ok: true, result: null });
+    } else if (req.op === 'info') {
+      reply({ ok: true, result: await info() });
+    } else if (req.op === 'add') {
       const t0 = performance.now();
       const info = await add(req.key, req.bytes);
       reply({ ok: true, result: { ...info, ms: Math.round(performance.now() - t0) } });
@@ -244,9 +414,9 @@ self.onmessage = async (e: MessageEvent<EngineRequest>) => {
       const result: ConvertResult = { ...r, ms: Math.round(performance.now() - t0) };
       reply({ ok: true, result }, [r.bytes]);
     } else if (req.op === 'query') {
-      await open();
-      reply({ ok: true, result: query(req.kind, req.sql, req.params) });
+      reply({ ok: true, result: await query(req.kind, req.sql, req.params) });
     } else if (req.op === 'status') {
+      if (engine === 'pglite') await openPg();
       reply({
         ok: true,
         result: { segments: [...loaded.entries()].map(([key, v]) => ({ key, ...v })) },
@@ -254,10 +424,19 @@ self.onmessage = async (e: MessageEvent<EngineRequest>) => {
     } else if (req.op === 'reset') {
       db?.close();
       db = null;
+      if (engine === 'pglite') await deletePg();
       loaded.clear();
       reply({ ok: true, result: null });
     }
   } catch (err) {
     reply({ ok: false, error: (err as Error).message });
   }
-};
+}
+
+// One message at a time, in order: PGlite is async, so without a queue a query could run
+// in the middle of a segment load (or before `init` has chosen the engine).
+let queue: Promise<void> = Promise.resolve();
+function enqueue(job: () => Promise<void>): void {
+  queue = queue.then(job).catch((err) => console.warn('[engine]', err));
+}
+self.onmessage = (e: MessageEvent<EngineRequest>) => enqueue(() => handle(e.data));

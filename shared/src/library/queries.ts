@@ -2,11 +2,14 @@ import { normalizeForSearch } from '../normalize.js';
 import { parseReference } from '../reference.js';
 import type { Book, SearchResult, StrongDefinition, Translation, Verse } from '../types.js';
 import { LibraryError, type SqlDriver, type SqlParam } from './driver.js';
+import { PG_TS_CONFIG } from './postgres.js';
 
 /**
  * Every read the app makes against a library database, written once against the
- * engine-agnostic SqlDriver (driver.ts). The server serves these over HTTP; a browser
- * engine (sql.js) can run the very same functions locally.
+ * engine-agnostic SqlDriver (driver.ts). The server serves these over HTTP; the browser
+ * engines (SQLite-WASM, PGlite) run the very same functions locally. Postgres differs
+ * only in schema probes and full-text search (`pg` branches); `?` placeholders are
+ * rewritten by its driver (pgPlaceholders).
  */
 
 export interface DictionaryInfo {
@@ -87,20 +90,24 @@ export interface FtsTerm {
   prefix: boolean;
 }
 
+/** One search clause: a prefix word, or the exact words of a quoted phrase. */
+interface SearchClause {
+  words: string[];
+  phrase: boolean;
+}
+
 /**
- * Parse a free-form query into an FTS5 MATCH expression, supporting operators:
+ * Parse a free-form text query, supporting operators:
  *   "exact phrase"   → a phrase match
  *   -word / !word    → exclude (NOT)
  *   word             → prefix term ("любов" matches "любов'ю")
- * Everything is normalized the same way as the indexed column. `terms` lists the
- * positive words (for the planner's frequency estimate). `expr` is null when there is
- * nothing positive to match.
+ * Everything is normalized the same way as the indexed column. Engine-neutral: FTS5
+ * (parseFtsQuery) and Postgres (tsQuery) render the same clauses.
  */
-export function parseFtsQuery(query: string): { expr: string | null; terms: FtsTerm[] } {
+function parseSearchClauses(query: string): { pos: SearchClause[]; neg: SearchClause[] } {
   const parts = query.match(/[-!]?"[^"]+"|\S+/g) ?? [];
-  const pos: string[] = [];
-  const neg: string[] = [];
-  const terms: FtsTerm[] = [];
+  const pos: SearchClause[] = [];
+  const neg: SearchClause[] = [];
   for (const raw of parts) {
     let p = raw;
     let exclude = false;
@@ -109,23 +116,44 @@ export function parseFtsQuery(query: string): { expr: string | null; terms: FtsT
       p = p.slice(1);
     }
     const quoted = p.length >= 2 && p[0] === '"' && p[p.length - 1] === '"';
-    const norm = normalizeForSearch(quoted ? p.slice(1, -1) : p);
-    if (!norm) continue;
-    if (quoted) {
-      (exclude ? neg : pos).push(`"${norm}"`);
-      if (!exclude)
-        for (const w of norm.split(' ').filter(Boolean)) terms.push({ word: w, prefix: false });
-    } else {
-      for (const w of norm.split(' ').filter(Boolean)) {
-        (exclude ? neg : pos).push(`"${w}"*`);
-        if (!exclude) terms.push({ word: w, prefix: true });
-      }
-    }
+    const words = normalizeForSearch(quoted ? p.slice(1, -1) : p)
+      .split(' ')
+      .filter(Boolean);
+    if (words.length === 0) continue;
+    const into = exclude ? neg : pos;
+    if (quoted) into.push({ words, phrase: true });
+    else for (const w of words) into.push({ words: [w], phrase: false });
   }
+  return { pos, neg };
+}
+
+/**
+ * The query as an FTS5 MATCH expression. `terms` lists the positive words (for the
+ * planner's frequency estimate). `expr` is null when there is nothing positive to match.
+ */
+export function parseFtsQuery(query: string): { expr: string | null; terms: FtsTerm[] } {
+  const { pos, neg } = parseSearchClauses(query);
+  const terms = pos.flatMap((c) => c.words.map((word) => ({ word, prefix: !c.phrase })));
+  const fts5 = (c: SearchClause) => (c.phrase ? `"${c.words.join(' ')}"` : `"${c.words[0]}"*`);
   if (pos.length === 0) return { expr: null, terms }; // pure-exclusion has no anchor to match
-  let expr = pos.join(' AND ');
-  if (neg.length) expr += ` NOT (${neg.join(' OR ')})`;
+  let expr = pos.map(fts5).join(' AND ');
+  if (neg.length) expr += ` NOT (${neg.map(fts5).join(' OR ')})`;
   return { expr, terms };
+}
+
+/**
+ * The same query as a Postgres tsquery (to_tsquery syntax): 'word':* for prefixes,
+ * 'a' <-> 'b' for phrases, & / ! / | for AND / NOT / OR. null when nothing positive.
+ */
+export function tsQuery(query: string): string | null {
+  const { pos, neg } = parseSearchClauses(query);
+  if (pos.length === 0) return null;
+  const lexeme = (w: string) => `'${w.replace(/'/g, "''")}'`;
+  const clause = (c: SearchClause) =>
+    c.phrase ? `(${c.words.map(lexeme).join(' <-> ')})` : `${lexeme(c.words[0])}:*`;
+  let q = pos.map(clause).join(' & ');
+  if (neg.length) q += ` & !(${neg.map(clause).join(' | ')})`;
+  return q;
 }
 
 export function buildFtsMatch(query: string): string | null {
@@ -176,13 +204,14 @@ export type Library = ReturnType<typeof createLibrary>;
  * exist) are cached per instance — create a new instance after the file is rebuilt.
  */
 export function createLibrary(db: SqlDriver) {
+  const pg = db.dialect === 'postgres';
   const tables = new Map<string, boolean>();
   const tableExists = async (name: string): Promise<boolean> => {
     if (!tables.has(name)) {
-      tables.set(
-        name,
-        !!(await db.get("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [name])),
-      );
+      const sql = pg
+        ? 'SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?'
+        : "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?";
+      tables.set(name, !!(await db.get(sql, [name])));
     }
     return tables.get(name)!;
   };
@@ -192,7 +221,13 @@ export function createLibrary(db: SqlDriver) {
     if (!columns.has(key)) {
       let ok = false;
       try {
-        ok = (await db.all<AnyRow>(`PRAGMA table_info(${table})`)).some((c) => c.name === column);
+        const cols = pg
+          ? await db.all<AnyRow>(
+              'SELECT column_name AS name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ?',
+              [table],
+            )
+          : await db.all<AnyRow>(`PRAGMA table_info(${table})`);
+        ok = cols.some((c) => c.name === column);
       } catch {
         ok = false;
       }
@@ -655,6 +690,29 @@ export function createLibrary(db: SqlDriver) {
         lang: strongQ[1].toUpperCase() as 'H' | 'G',
       });
       return { kind: 'text', results: refs.results };
+    }
+
+    if (pg) {
+      // Postgres: tsvector + GIN; the translation filter is a plain column predicate.
+      const q = tsQuery(query);
+      if (!q) return { kind: 'empty', results: [] };
+      try {
+        const rows = await db.all<AnyRow>(
+          `SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
+                  b.long_name, b.short_name
+           FROM to_tsquery('${PG_TS_CONFIG}', ?) q
+           JOIN verses_fts f ON f.tsv @@ q
+           JOIN verses v ON v.id = f.id
+           JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
+           WHERE f.translation_id IN (${placeholders(ids.length)})
+           ORDER BY ts_rank(f.tsv, q) DESC, f.id
+           LIMIT 300`,
+          [q, ...ids],
+        );
+        return { kind: 'text', results: rows.map(rowToResult) };
+      } catch {
+        return { kind: 'empty', results: [] };
+      }
     }
 
     const { expr: match, terms } = parseFtsQuery(query);

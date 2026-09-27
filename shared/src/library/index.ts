@@ -4,3 +4,4 @@ export * from './schema.js';
 export * from './segments.js';
 export * from './merge.js';
 export * from './mybible.js';
+export * from './postgres.js';

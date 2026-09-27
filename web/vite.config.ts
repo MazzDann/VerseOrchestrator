@@ -15,9 +15,9 @@ export default defineConfig({
     dedupe: ['react', 'react-dom', '@mantine/core', '@mantine/hooks', '@mantine/store'],
   },
   optimizeDeps: {
-    // The official SQLite WASM build loads its .wasm relative to its own module file —
-    // pre-bundling would move the JS away from it.
-    exclude: ['@sqlite.org/sqlite-wasm'],
+    // The official SQLite WASM build and PGlite load their .wasm (and PGlite its data
+    // bundle) relative to their own module files — pre-bundling would move the JS away.
+    exclude: ['@sqlite.org/sqlite-wasm', '@electric-sql/pglite'],
     include: [
       'react',
       'react-dom',

@@ -1,7 +1,15 @@
 import type { Converted } from '@vo/shared';
 
+/** Which database runs in the worker: SQLite-WASM, or PostgreSQL (PGlite). */
+export type EngineKind = 'sqlite' | 'pglite';
+
+/** IndexedDB database holding the PGlite snapshot (its data directory as one tar Blob). */
+export const PG_SNAPSHOT_DB = 'vo-pglite-snapshot';
+
 /** Messages between the main thread and the browser DB engine worker (worker.ts). */
 export type EngineRequest = { id: number } & (
+  | { op: 'init'; engine: EngineKind }
+  | { op: 'info' }
   | { op: 'add'; key: string; bytes: ArrayBuffer }
   | { op: 'convert'; name: string; bytes: ArrayBuffer }
   | { op: 'query'; kind: 'all' | 'get'; sql: string; params: unknown[] }
@@ -28,6 +36,15 @@ export interface SegmentCounts {
 
 export interface LoadedSegment extends SegmentCounts {
   key: string;
+}
+
+/** `info`: what the engine is and how big its database has grown. */
+export interface EngineInfo {
+  engine: EngineKind;
+  /** e.g. "SQLite 3.53.0" / "PostgreSQL 18.3 (PGlite 0.5.8)" */
+  version: string;
+  /** size of the working database (SQLite pages / pg_database_size) */
+  dbBytes: number;
 }
 
 /** `convert`: a segment ready to merge — the input itself, or a converted MyBible module. */

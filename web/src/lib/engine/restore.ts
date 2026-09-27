@@ -2,7 +2,7 @@ import { api, SegmentManifestSchema, type SegmentInfo } from '../../api';
 import { effectiveSource, useDataSource } from '../../dataSourceStore';
 import type { MyBibleKind } from '@vo/shared';
 import { localEngine } from './index';
-import type { SegmentCounts, SegmentUnit } from './protocol';
+import type { EngineKind, SegmentCounts, SegmentUnit } from './protocol';
 import {
   cacheDropped,
   cachedBytes,
@@ -156,6 +156,32 @@ export async function addDroppedFile(
     ? `${converted.abbr} — ${KIND_LABEL[converted.kind]}, ${what} (перетворено за ${(ms / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} с)`
     : `${file.name} — ${what}`;
   return { key, summary };
+}
+
+/**
+ * Run the browser library on another database engine: a fresh engine of that kind
+ * replaces the current one, and whatever the old one held is loaded into it (from the
+ * cache — no network). Returns how long the reload took.
+ */
+export async function switchEngine(kind: EngineKind, onProgress?: Progress): Promise<number> {
+  const had = (await localEngine.status()).length > 0;
+  useDataSource.getState().setEngine(kind);
+  localEngine.switchTo(kind);
+  if (!had) return 0;
+  const t0 = performance.now();
+  const { segments } = useDataSource.getState();
+  const load = loadSegments(
+    segments.filter((k) => !k.startsWith('file:')),
+    onProgress,
+    { skipGone: true },
+  );
+  localEngine.setReady(load.then(() => undefined));
+  const gone = await load;
+  if (gone.length) {
+    const now = useDataSource.getState();
+    now.setSegments(now.segments.filter((k) => !gone.includes(k)));
+  }
+  return performance.now() - t0;
 }
 
 /** On app start in «у браузері» mode: bring back the remembered segments. */

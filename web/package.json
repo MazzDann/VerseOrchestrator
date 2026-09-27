@@ -1,6 +1,6 @@
 {
   "name": "@vo/web",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "build:static": "npm run build && node scripts/static.mjs"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@mantine/core": "^7.15.3",
     "@mantine/hooks": "^7.15.3",
     "@mantine/notifications": "^7.17.8",
