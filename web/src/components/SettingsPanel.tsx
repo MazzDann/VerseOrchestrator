@@ -36,7 +36,8 @@ import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
-import { useDataSource } from '../dataSourceStore';
+import { useEffectiveSource } from '../dataSourceStore';
+import { useServer, NEEDS_SERVER } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
 
 const SECTIONS_KEY = 'vo:settingsSections';
@@ -47,7 +48,8 @@ export function SettingsPanel() {
   const set = useSettings((s) => s.setAppearance);
   const reset = useSettings((s) => s.resetAppearance);
   const template = useSettings((s) => s.slideTemplate);
-  const dataSource = useDataSource((s) => s.source);
+  const dataSource = useEffectiveSource();
+  const serverAvailable = useServer((s) => s.available);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
   const queryClient = useQueryClient();
@@ -429,6 +431,8 @@ export function SettingsPanel() {
               fullWidth
               leftSection={<IconDatabaseImport size={16} />}
               loading={rebuilding}
+              disabled={serverAvailable === false}
+              title={serverAvailable === false ? NEEDS_SERVER : undefined}
               onClick={rebuildLibrary}
             >
               Пересканувати модулі

@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { type Library } from '@vo/shared';
 import { type Slide } from './presenterBus';
-import { useDataSource } from './dataSourceStore';
+import { effectiveSource } from './dataSourceStore';
+import { useServer, whenBooted } from './serverStore';
 import { localEngine } from './lib/engine';
 
 /** Nullable/optional string from the API, normalized to a plain string. */
@@ -145,7 +146,15 @@ function fromLibrary<S extends z.ZodTypeAny>(
   local: (lib: Library) => Promise<unknown>,
   url: string,
 ): Promise<z.infer<S>> {
-  if (useDataSource.getState().source === 'local') {
+  return whenBooted().then(() => readLibrary(schema, local, url));
+}
+
+function readLibrary<S extends z.ZodTypeAny>(
+  schema: S,
+  local: (lib: Library) => Promise<unknown>,
+  url: string,
+): Promise<z.infer<S>> {
+  if (effectiveSource() === 'local') {
     return localEngine
       .whenReady()
       .then(() => local(localEngine.library()))
@@ -167,6 +176,22 @@ const SegmentInfoSchema = z.object({
   sha256: z.string(),
 });
 export type SegmentInfo = z.infer<typeof SegmentInfoSchema>;
+/** Static segments folder of a server-less deployment (next to index.html). */
+const STATIC_SEGMENTS = `${import.meta.env.BASE_URL}segments/`;
+/** Where segment files are fetched from — follows where the manifest was found. */
+let segmentBase = '/api/segments/';
+
+async function staticManifest() {
+  const res = await fetch(`${STATIC_SEGMENTS}manifest.json`);
+  // a dev server answers unknown paths with index.html — only JSON counts
+  if (!res.ok || !(res.headers.get('content-type') ?? '').includes('json')) {
+    throw new Error('Сегментів немає ні на сервері, ні поруч із застосунком');
+  }
+  const m = SegmentManifestSchema.parse(await res.json());
+  segmentBase = STATIC_SEGMENTS;
+  return m;
+}
+
 export const SegmentManifestSchema = z.object({
   format: z.number(),
   createdAt: z.string(),
@@ -270,9 +295,26 @@ export const api = {
       `/api/songs/${id}`,
     ),
   // --- Library segments for the browser engine (server/src/index.ts) ---
-  segments: () => getJson('/api/segments', SegmentManifestSchema),
+  /**
+   * The segment manifest: from the API, or — on a static deployment with no server — from
+   * the `segments/` folder published next to the app (npm run build:static). Segment files
+   * are then fetched from wherever the manifest came from.
+   */
+  segments: async () => {
+    // Known server-less: go straight to the static folder (no doomed /api request).
+    if (useServer.getState().available === false) return staticManifest();
+    try {
+      const m = await getJson('/api/segments', SegmentManifestSchema);
+      segmentBase = '/api/segments/';
+      return m;
+    } catch (apiErr) {
+      return staticManifest().catch(() => {
+        throw apiErr;
+      });
+    }
+  },
   segmentBytes: async (file: string): Promise<ArrayBuffer> => {
-    const res = await request(`/api/segments/${encodeURIComponent(file)}`);
+    const res = await request(`${segmentBase}${encodeURIComponent(file)}`);
     if (!res.ok) throw await failure(res);
     return res.arrayBuffer();
   },

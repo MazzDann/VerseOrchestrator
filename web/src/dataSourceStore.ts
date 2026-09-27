@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { useServer } from './serverStore';
 
 /**
  * Where library reads go: the server (full library over HTTP) or the browser engine
@@ -40,3 +41,21 @@ export const useDataSource = create<DataSourceState>()(
     },
   ),
 );
+
+/**
+ * Where reads ACTUALLY go: the browser engine when the user chose it, or — without
+ * changing their saved choice — whenever the server isn't reachable (static deployment,
+ * server down). A temporary outage must not silently flip the preference.
+ */
+export function effectiveSource(): DataSource {
+  return useDataSource.getState().source === 'local' || useServer.getState().available === false
+    ? 'local'
+    : 'server';
+}
+
+/** React hook form of effectiveSource(). */
+export function useEffectiveSource(): DataSource {
+  const source = useDataSource((s) => s.source);
+  const available = useServer((s) => s.available);
+  return source === 'local' || available === false ? 'local' : 'server';
+}

@@ -13,7 +13,8 @@ import { IconDatabase, IconDownload, IconTrash } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { type SegmentInfo } from '../api';
-import { useDataSource } from '../dataSourceStore';
+import { useDataSource, useEffectiveSource } from '../dataSourceStore';
+import { useServer } from '../serverStore';
 import { localEngine } from '../lib/engine';
 import type { LoadedSegment } from '../lib/engine/protocol';
 import { addDroppedFile, getManifest, loadSegments, segmentLabel } from '../lib/engine/restore';
@@ -28,7 +29,9 @@ const mb = (b: number) => `${(b / 1048576).toFixed(b < 10 * 1048576 ? 1 : 0)} М
  */
 export function DataSourceSection() {
   const qc = useQueryClient();
-  const source = useDataSource((s) => s.source);
+  // what reads actually use (browser when chosen, or when the server is unreachable)
+  const source = useEffectiveSource();
+  const serverAvailable = useServer((s) => s.available);
   const remembered = useDataSource((s) => s.segments);
   const setSource = useDataSource((s) => s.setSource);
   const setSegments = useDataSource((s) => s.setSegments);
@@ -173,7 +176,7 @@ export function DataSourceSection() {
             switchedData();
           }}
           data={[
-            { label: 'Сервер', value: 'server' },
+            { label: 'Сервер', value: 'server', disabled: serverAvailable === false },
             { label: 'У браузері', value: 'local', disabled: loaded.length === 0 },
           ]}
         />

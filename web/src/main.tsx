@@ -6,6 +6,8 @@ import { Notifications } from '@mantine/notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
+import { probeServer, setBoot } from './serverStore';
+import { localEngine } from './lib/engine';
 import { restoreLocalSegments } from './lib/engine/restore';
 import './styles.css';
 
@@ -31,8 +33,19 @@ window.addEventListener('storage', (e) => {
   else if (e.key === 'vo:playlist') void usePlaylist.persist.rehydrate();
 });
 
-// The control window may read the library from the browser engine: reload its segments.
-if (window.location.pathname === '/') restoreLocalSegments();
+// Control window: is the server there? Without it (static deployment / server stopped)
+// the library runs in the browser — switch to it and restore the remembered segments.
+// Library reads wait for this (whenBooted), so nothing hits a missing API first.
+if (window.location.pathname === '/') {
+  setBoot(
+    probeServer().then(() => {
+      // (no server → reads go to the browser engine via effectiveSource(); the saved
+      // preference is left alone so a temporary outage doesn't flip it)
+      restoreLocalSegments();
+      return localEngine.whenReady();
+    }),
+  );
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
