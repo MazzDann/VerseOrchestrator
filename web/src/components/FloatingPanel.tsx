@@ -8,12 +8,19 @@ interface Pos {
   y: number;
 }
 
+/** Panel size chosen by the operator; `h` null = natural height (capped by the viewport). */
+interface Size {
+  w: number;
+  h: number | null;
+}
+
 interface Props {
   opened: boolean;
   onClose: () => void;
   title: ReactNode;
-  /** Persisted-position key in localStorage; omit for a non-remembered panel. */
+  /** Persisted position + size key in localStorage; omit for a non-remembered panel. */
   storageKey?: string;
+  /** Default width, in px at the browser's default 16 px root font (scales with it). */
   width?: number;
   /** Optional icon shown left of the title. */
   icon?: ReactNode;
@@ -21,6 +28,8 @@ interface Props {
 }
 
 const MARGIN = 8;
+const MIN_W = 260;
+const MIN_H = 160;
 
 /**
  * Open panels in z-order (last = frontmost). Clicking a panel moves it to the end, so
@@ -40,6 +49,17 @@ const Z_MAX = 299;
 
 /** Height assumed for placement before the panel has rendered. */
 const EST_HEIGHT = 440;
+
+/**
+ * Mantine sizes are in rem: with a larger browser font (Chrome «Large», 20 px) every
+ * button and gap grows by a quarter, so a panel fixed at 380 px overflowed (Mac test,
+ * 1.4.8). Default widths scale with the root font; a size the operator dragged is kept
+ * in px as dragged.
+ */
+function rootScale(): number {
+  const px = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  return px > 0 ? px / 16 : 1;
+}
 
 /**
  * Default spot for a newly opened panel. Zones stay free: the right-hand monitor column
@@ -77,23 +97,49 @@ function clampToViewport(p: Pos, w: number, h: number): Pos {
   };
 }
 
-function readStoredPos(key: string | undefined): Pos | null {
-  if (!key) return null;
+/** A size that fits the viewport from position `p` (never smaller than the minimums). */
+function clampSize(s: Size, p: Pos): Size {
+  const maxW = Math.max(MIN_W, window.innerWidth - p.x - MARGIN);
+  const maxH = Math.max(MIN_H, window.innerHeight - p.y - MARGIN);
+  return {
+    w: Math.min(Math.max(MIN_W, s.w), maxW),
+    h: s.h === null ? null : Math.min(Math.max(MIN_H, s.h), maxH),
+  };
+}
+
+function readStored(key: string | undefined): { pos: Pos | null; size: Size | null } {
+  if (!key) return { pos: null, size: null };
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return null;
+    if (!raw) return { pos: null, size: null };
     const p = JSON.parse(raw);
-    if (typeof p?.x === 'number' && typeof p?.y === 'number') return p;
+    const pos = typeof p?.x === 'number' && typeof p?.y === 'number' ? { x: p.x, y: p.y } : null;
+    const size =
+      typeof p?.w === 'number' ? { w: p.w, h: typeof p?.h === 'number' ? p.h : null } : null;
+    return { pos, size };
+  } catch {
+    return { pos: null, size: null };
+  }
+}
+
+function writeStored(key: string | undefined, pos: Pos | null, size: Size | null): void {
+  if (!key || !pos) return;
+  try {
+    localStorage.setItem(
+      key,
+      JSON.stringify(size ? { ...pos, w: size.w, ...(size.h === null ? {} : { h: size.h }) } : pos),
+    );
   } catch {
     /* ignore */
   }
-  return null;
 }
 
 /**
- * A draggable, floating panel rendered in a body portal — NOT a Mantine `Modal`
- * (overlays don't render their content reliably in this setup). Drag by the
- * header; position is clamped to the viewport and optionally persisted.
+ * A draggable, resizable floating panel rendered in a body portal — NOT a Mantine
+ * `Modal` (overlays don't render their content reliably in this setup). Drag by the
+ * header, resize by the bottom-right grip (double-click: default size); position and
+ * size are clamped to the viewport and optionally persisted. Content never scrolls
+ * sideways: it wraps or truncates to the panel's width.
  */
 export function FloatingPanel({
   opened,
@@ -109,9 +155,14 @@ export function FloatingPanel({
   // close over `pos`) — otherwise their identity would churn every pointermove and
   // a deps-tracking cleanup would tear the drag listeners down mid-gesture.
   const posRef = useRef<Pos | null>(null);
+  // null = the default size (width scaled to the root font, natural height)
+  const [size, setSize] = useState<Size | null>(null);
+  const sizeRef = useRef<Size | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   // Active drag: pointer-to-panel-origin offset captured on grab.
   const dragOffset = useRef<Pos | null>(null);
+  // Active resize: pointer start + size at start.
+  const resizeStart = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   // Stable identity for this panel instance in the Escape z-stack.
   const idRef = useRef<symbol>();
   if (!idRef.current) idRef.current = Symbol('floating-panel');
@@ -133,23 +184,36 @@ export function FloatingPanel({
     notifyStack();
   };
 
+  const defaultSize = useCallback(
+    (): Size => ({ w: Math.round(width * rootScale()), h: null }),
+    [width],
+  );
+  const currentW = () => (sizeRef.current ?? defaultSize()).w;
+
   // Set on a default bottom placement; consumed by the layout effect after first paint.
   const snapToBottom = useRef(false);
   const applyPos = useCallback((p: Pos) => {
     posRef.current = p;
     setPos(p);
   }, []);
+  const applySize = useCallback((s: Size | null) => {
+    sizeRef.current = s;
+    setSize(s);
+  }, []);
 
-  // Place the panel on open: its stored position, else the default spot (bottom-right of
-  // the centre column, tiled beside other open panels — see defaultPos).
+  // Place the panel on open: its stored position and size, else the default spot
+  // (bottom-right of the centre column, tiled beside other open panels — see defaultPos).
   useEffect(() => {
     if (!opened) return;
-    const stored = readStoredPos(storageKey);
-    const initial = stored ?? defaultPos(width, openStack.length);
-    applyPos(clampToViewport(initial, width, EST_HEIGHT));
+    const stored = readStored(storageKey);
+    const s = stored.size ?? defaultSize();
+    const initial = stored.pos ?? defaultPos(s.w, openStack.length);
+    const p = clampToViewport(initial, s.w, s.h ?? EST_HEIGHT);
+    applyPos(p);
+    applySize(stored.size ? clampSize(stored.size, p) : null);
     // Default placement guessed the height; snap to the real bottom edge once rendered.
-    snapToBottom.current = !stored && !('top' in initial && initial.top);
-  }, [opened, storageKey, width, applyPos]);
+    snapToBottom.current = !stored.pos && !('top' in initial && initial.top);
+  }, [opened, storageKey, defaultSize, applyPos, applySize]);
 
   useLayoutEffect(() => {
     if (!snapToBottom.current || !ref.current || !posRef.current) return;
@@ -165,11 +229,12 @@ export function FloatingPanel({
     applyPos(
       clampToViewport(
         { x: posRef.current.x, y: Math.max(72, window.innerHeight - h - 16) },
-        width,
+        currentW(),
         h,
       ),
     );
-  }, [pos, width, applyPos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pos, applyPos]);
 
   // Keep it on screen if the window is resized.
   useEffect(() => {
@@ -177,11 +242,14 @@ export function FloatingPanel({
     const onResize = () => {
       if (!posRef.current) return;
       const h = ref.current?.offsetHeight ?? 420;
-      applyPos(clampToViewport(posRef.current, width, h));
+      const p = clampToViewport(posRef.current, currentW(), h);
+      applyPos(p);
+      if (sizeRef.current) applySize(clampSize(sizeRef.current, p));
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [opened, width, applyPos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened, applyPos, applySize]);
 
   // Callers pass inline `onClose` arrows (new identity every render). Keep it in a ref so
   // the stack effect below depends on `opened` only — otherwise every parent re-render
@@ -215,7 +283,7 @@ export function FloatingPanel({
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
       if (!dragOffset.current) return;
-      const w = ref.current?.offsetWidth ?? width;
+      const w = ref.current?.offsetWidth ?? currentW();
       const h = ref.current?.offsetHeight ?? 420;
       applyPos(
         clampToViewport(
@@ -225,20 +293,15 @@ export function FloatingPanel({
         ),
       );
     },
-    [width, applyPos],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [applyPos],
   );
 
   const endDrag = useCallback(() => {
     dragOffset.current = null;
     window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('pointerup', endDrag);
-    if (storageKey && posRef.current) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(posRef.current));
-      } catch {
-        /* ignore */
-      }
-    }
+    writeStored(storageKey, posRef.current, sizeRef.current);
   }, [onPointerMove, storageKey]);
 
   const startDrag = (e: React.PointerEvent) => {
@@ -249,19 +312,83 @@ export function FloatingPanel({
     window.addEventListener('pointerup', endDrag);
   };
 
+  // Resizing writes the DOM directly while the pointer moves (no re-render per move) and
+  // commits the size once on release — the panel's own ResizeHandle convention.
+  const onResizeMove = useCallback((e: PointerEvent) => {
+    const st = resizeStart.current;
+    const el = ref.current;
+    if (!st || !el || !posRef.current) return;
+    const s = clampSize(
+      { w: st.w + (e.clientX - st.x), h: st.h + (e.clientY - st.y) },
+      posRef.current,
+    );
+    el.style.width = `${s.w}px`;
+    el.style.height = `${s.h}px`;
+  }, []);
+
+  const endResize = useCallback(() => {
+    const st = resizeStart.current;
+    resizeStart.current = null;
+    document.body.removeAttribute('data-resizing');
+    window.removeEventListener('pointermove', onResizeMove);
+    window.removeEventListener('pointerup', endResize);
+    const el = ref.current;
+    if (!st || !el || !posRef.current) return;
+    const s = clampSize({ w: el.offsetWidth, h: el.offsetHeight }, posRef.current);
+    applySize(s);
+    writeStored(storageKey, posRef.current, s);
+  }, [onResizeMove, storageKey, applySize]);
+
+  const startResize = (e: React.PointerEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    e.preventDefault();
+    resizeStart.current = { x: e.clientX, y: e.clientY, w: el.offsetWidth, h: el.offsetHeight };
+    document.body.setAttribute('data-resizing', 'xy');
+    window.addEventListener('pointermove', onResizeMove);
+    window.addEventListener('pointerup', endResize);
+  };
+
+  const resetSize = () => {
+    applySize(null);
+    if (ref.current) {
+      // The re-render sets these too; doing it now avoids a flash at the natural width.
+      ref.current.style.width = `${defaultSize().w}px`;
+      ref.current.style.height = '';
+    }
+    writeStored(storageKey, posRef.current, null);
+  };
+
+  /** Arrow keys on the focused grip resize by 16 px. */
+  const onGripKey = (e: React.KeyboardEvent) => {
+    const el = ref.current;
+    if (!el || !posRef.current) return;
+    const dx = e.key === 'ArrowRight' ? 16 : e.key === 'ArrowLeft' ? -16 : 0;
+    const dy = e.key === 'ArrowDown' ? 16 : e.key === 'ArrowUp' ? -16 : 0;
+    if (!dx && !dy) return;
+    e.preventDefault();
+    const s = clampSize({ w: el.offsetWidth + dx, h: el.offsetHeight + dy }, posRef.current);
+    applySize(s);
+    writeStored(storageKey, posRef.current, s);
+  };
+
   // Tidy up if we unmount mid-drag. Handlers are stable, so this runs only on
   // unmount (not on every pointermove).
   useEffect(
     () => () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointermove', onResizeMove);
+      window.removeEventListener('pointerup', endResize);
+      document.body.removeAttribute('data-resizing');
     },
-    [onPointerMove, endDrag],
+    [onPointerMove, endDrag, onResizeMove, endResize],
   );
 
   if (!opened || !pos) return null;
   const depth = openStack.indexOf(idRef.current!);
   const zIndex = Math.min(Z_MAX, Z_BASE + Math.max(0, depth));
+  const w = size?.w ?? defaultSize().w;
 
   return createPortal(
     <Paper
@@ -277,7 +404,8 @@ export function FloatingPanel({
         position: 'fixed',
         left: pos.x,
         top: pos.y,
-        width,
+        width: w,
+        height: size?.h ?? undefined,
         maxHeight: `calc(100vh - ${pos.y + MARGIN}px)`,
         display: 'flex',
         flexDirection: 'column',
@@ -296,12 +424,13 @@ export function FloatingPanel({
           borderBottom: '1px solid var(--mantine-color-default-border)',
           userSelect: 'none',
           touchAction: 'none',
+          flexShrink: 0,
         }}
       >
-        <Group gap={6} wrap="nowrap">
-          <IconGripVertical size={15} opacity={0.5} />
+        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+          <IconGripVertical size={15} opacity={0.5} style={{ flexShrink: 0 }} />
           {icon}
-          <Text fw={600} size="sm">
+          <Text fw={600} size="sm" truncate>
             {title}
           </Text>
         </Group>
@@ -309,9 +438,24 @@ export function FloatingPanel({
           <IconX size={16} />
         </ActionIcon>
       </Group>
-      <ScrollArea.Autosize mah="calc(100vh - 160px)" type="hover">
+      {/* scrollbars="y": content is laid out at the panel's width (never a sideways scroll) */}
+      <ScrollArea.Autosize
+        mah={size?.h ? undefined : 'calc(100vh - 160px)'}
+        type="hover"
+        scrollbars="y"
+        style={{ flex: 1, minHeight: 0 }}
+      >
         {children}
       </ScrollArea.Autosize>
+      <button
+        type="button"
+        className="vo-panel-resize"
+        aria-label="Змінити розмір панелі (стрілки; подвійний клік — типовий розмір)"
+        title="Змінити розмір"
+        onPointerDown={startResize}
+        onDoubleClick={resetSize}
+        onKeyDown={onGripKey}
+      />
     </Paper>,
     document.body,
   );
