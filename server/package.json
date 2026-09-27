@@ -1,10 +1,11 @@
 {
   "name": "@vo/server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "bench": "tsx src/bench.ts",
     "start": "tsx src/index.ts"
   },
   "dependencies": {

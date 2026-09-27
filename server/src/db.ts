@@ -25,7 +25,20 @@ function getDb(): Database.Database {
   }
   db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
   db.pragma('busy_timeout = 3000');
+  tuneReadOnly(db);
   return db;
+}
+
+/**
+ * Read-only tuning for the served library — chosen by measurement (npm run bench:db),
+ * not folklore. On Windows, `mmap_size` made FTS 1.6× and concordance 2.8× SLOWER
+ * (33 → 53 ms, 1.0 → 2.8 ms), so it is deliberately left off. A 64 MiB page cache and
+ * in-memory temp b-trees were neutral (the OS already caches the file) but are cheap
+ * insurance for DISTINCT/ORDER BY on larger libraries.
+ */
+export function tuneReadOnly(conn: Database.Database): void {
+  conn.pragma('cache_size = -65536');
+  conn.pragma('temp_store = MEMORY');
 }
 
 /**

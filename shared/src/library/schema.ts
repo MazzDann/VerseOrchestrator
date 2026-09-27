@@ -116,6 +116,14 @@ CREATE TABLE commentaries (
 );
 CREATE INDEX idx_commentary ON commentaries (book, chapter_from, verse_from);
 
+DROP TABLE IF EXISTS sources;
+
+-- Provenance: which module file (per kind) the library was built from.
+CREATE TABLE sources (
+  kind TEXT NOT NULL, -- bibles | dictionaries | commentaries | crossreferences
+  file TEXT NOT NULL  -- file name in the modules folder
+);
+
 DROP TABLE IF EXISTS song_slides;
 DROP TABLE IF EXISTS songs;
 
