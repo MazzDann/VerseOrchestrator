@@ -6,11 +6,12 @@ import {
   Divider,
   Group,
   Stack,
+  Switch,
   Text,
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { IconDeviceMobilePlus, IconTrash } from '@tabler/icons-react';
+import { IconDeviceMobilePlus, IconRefresh, IconTrash } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type RemoteCommand } from '../api';
@@ -33,8 +34,40 @@ export function RemotePanel() {
   });
   const [name, setName] = useState('');
   const [allowed, setAllowed] = useState<RemoteCommand[]>(['next', 'prev', 'blank']);
-  const [fresh, setFresh] = useState<{ name: string; token: string } | null>(null);
+  const [fresh, setFresh] = useState<{ name: string; token: string; reissued?: boolean } | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
+  /** Row awaiting «Перевипустити?» confirmation — reissuing cuts the current phone off. */
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const serverSettings = useQuery({ queryKey: ['server-settings'], queryFn: api.serverSettings });
+  const persist = serverSettings.data?.remotes.persist ?? true;
+
+  const setPersist = async (on: boolean) => {
+    try {
+      await api.updateServerSettings({ remotes: { persist: on } });
+      void qc.invalidateQueries({ queryKey: ['server-settings'] });
+    } catch (e) {
+      notifications.show({
+        message: `Не вдалося змінити налаштування: ${(e as Error).message}`,
+        color: 'red',
+      });
+    }
+  };
+
+  const reissue = async (id: string) => {
+    setConfirmId(null);
+    try {
+      const r = await api.reissueRemote(id);
+      setFresh({ name: r.name, token: r.token, reissued: true });
+      void qc.invalidateQueries({ queryKey: ['remotes'] });
+    } catch (e) {
+      notifications.show({
+        message: `Не вдалося перевипустити код: ${(e as Error).message}`,
+        color: 'red',
+      });
+    }
+  };
 
   const create = async () => {
     setBusy(true);
@@ -73,11 +106,16 @@ export function RemotePanel() {
       {fresh ? (
         <>
           <Text size="sm" fw={600}>
-            Пульт «{fresh.name}» готовий
+            {fresh.reissued ? `Новий код для «${fresh.name}»` : `Пульт «${fresh.name}» готовий`}
           </Text>
+          {fresh.reissued && (
+            <Text size="xs" c="dimmed">
+              Телефон зі старим кодом уже відключено.
+            </Text>
+          )}
           <PhoneLink
             path={`/remote#${encodeURIComponent(fresh.token)}`}
-            caption="Доповідач сканує цей QR своїм телефоном (та сама мережа Wi-Fi). Код показується лише зараз."
+            caption="Доповідач сканує цей QR своїм телефоном (та сама мережа Wi-Fi). Код показується лише зараз; загубили — перевипустіть."
           />
           <Button variant="default" size="xs" onClick={() => setFresh(null)}>
             Готово
@@ -122,7 +160,7 @@ export function RemotePanel() {
       <Divider label="Пульти" labelPosition="left" />
       {list.length === 0 ? (
         <Text size="xs" c="dimmed">
-          Поки немає. Пульти діють до перезапуску сервера.
+          Поки немає.
         </Text>
       ) : (
         <Stack gap={4}>
@@ -151,21 +189,68 @@ export function RemotePanel() {
                   </Text>
                 </div>
               </Group>
-              <Tooltip label="Відкликати: телефон одразу втратить керування">
-                <ActionIcon
-                  variant="subtle"
-                  color="red"
-                  size="sm"
-                  onClick={() => void revoke(p.id, p.name)}
-                  aria-label={`Відкликати ${p.name}`}
-                >
-                  <IconTrash size={14} />
-                </ActionIcon>
-              </Tooltip>
+              {confirmId === p.id ? (
+                <Group gap={4} wrap="nowrap">
+                  <Button
+                    size="compact-xs"
+                    color="red"
+                    variant="light"
+                    onClick={() => void reissue(p.id)}
+                  >
+                    Перевипустити
+                  </Button>
+                  <Button
+                    size="compact-xs"
+                    variant="subtle"
+                    color="gray"
+                    onClick={() => setConfirmId(null)}
+                  >
+                    Ні
+                  </Button>
+                </Group>
+              ) : (
+                <Group gap={2} wrap="nowrap">
+                  <Tooltip label="Перевипустити код: новий QR, старий телефон втратить керування">
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="sm"
+                      onClick={() => setConfirmId(p.id)}
+                      aria-label={`Перевипустити код ${p.name}`}
+                    >
+                      <IconRefresh size={14} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Відкликати: телефон одразу втратить керування">
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      size="sm"
+                      onClick={() => void revoke(p.id, p.name)}
+                      aria-label={`Відкликати ${p.name}`}
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+              )}
             </Group>
           ))}
         </Stack>
       )}
+      <Switch
+        size="xs"
+        mt="xs"
+        checked={persist}
+        disabled={!serverSettings.data}
+        onChange={(e) => void setPersist(e.currentTarget.checked)}
+        label="Пам’ятати пульти після перезапуску сервера"
+        description={
+          persist
+            ? 'Зберігаються в data/secrets.json (лише хеш коду, не сам код).'
+            : 'Перезапуск сервера відкличе всі пульти.'
+        }
+      />
     </Stack>
   );
 }
