@@ -1,4 +1,7 @@
 import Database from 'better-sqlite3';
+import { commentaryEntry, MYBIBLE_COMMENTARIES_SQL, type CommentaryEntry } from '@vo/shared';
+
+export type { CommentaryEntry };
 
 export interface CrossRef {
   book: number;
@@ -8,16 +11,6 @@ export interface CrossRef {
   chapterTo: number;
   verseToStart: number;
   verseToEnd: number;
-}
-
-export interface CommentaryEntry {
-  book: number;
-  chapterFrom: number;
-  verseFrom: number;
-  chapterTo: number;
-  verseTo: number;
-  marker: string;
-  text: string;
 }
 
 function tableExists(db: Database.Database, name: string): boolean {
@@ -53,24 +46,8 @@ export function readCommentaries(path: string): CommentaryEntry[] {
   const db = new Database(path, { readonly: true, fileMustExist: true });
   try {
     if (!tableExists(db, 'commentaries')) return [];
-    const rows = db
-      .prepare(
-        `SELECT book_number, chapter_number_from, verse_number_from,
-                chapter_number_to, verse_number_to, marker, text
-         FROM commentaries`,
-      )
-      .all() as Record<string, number | string | null>[];
-    return rows
-      .map((r) => ({
-        book: Number(r.book_number),
-        chapterFrom: Number(r.chapter_number_from),
-        verseFrom: Number(r.verse_number_from),
-        chapterTo: Number(r.chapter_number_to ?? r.chapter_number_from),
-        verseTo: Number(r.verse_number_to ?? r.verse_number_from),
-        marker: String(r.marker ?? ''),
-        text: String(r.text ?? ''),
-      }))
-      .filter((c) => c.text.trim());
+    const rows = db.prepare(MYBIBLE_COMMENTARIES_SQL).all() as Record<string, unknown>[];
+    return rows.map(commentaryEntry).filter((c) => c.text.trim());
   } finally {
     db.close();
   }

@@ -1,11 +1,7 @@
 import Database from 'better-sqlite3';
+import { bibleMeta, type BibleMeta } from '@vo/shared';
 
-export interface MyBibleInfo {
-  description: string;
-  language: string;
-  rtl: boolean;
-  hasStrong: boolean;
-}
+export type MyBibleInfo = BibleMeta;
 
 export interface MyBibleBook {
   book_color: string | null;
@@ -64,12 +60,7 @@ export function readModule(path: string): MyBibleModule | null {
     if (books.length === 0 || verses.length === 0) return null;
 
     return {
-      info: {
-        description: info.description ?? '',
-        language: info.language ?? '',
-        rtl: info.right_to_left === 'true',
-        hasStrong: info.strong_numbers === 'true',
-      },
+      info: bibleMeta(info),
       books,
       verses,
     };

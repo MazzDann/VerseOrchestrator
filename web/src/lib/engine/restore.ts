@@ -1,6 +1,8 @@
 import { api, SegmentManifestSchema, type SegmentInfo } from '../../api';
 import { effectiveSource, useDataSource } from '../../dataSourceStore';
+import type { MyBibleKind } from '@vo/shared';
 import { localEngine } from './index';
+import type { SegmentCounts, SegmentUnit } from './protocol';
 import {
   cacheDropped,
   cachedBytes,
@@ -42,49 +44,118 @@ export type Progress = (
   info?: string,
 ) => void;
 
+/** A segment that can't come back: a dropped file no longer cached, or not in the manifest. */
+class SegmentGone extends Error {}
+
 /**
  * Bring the given segments into the browser engine: cached bytes when the hash is in the
  * cache (no network), otherwise download → verify → cache. Dropped files come back from
- * the cache only (they were never on the server).
+ * the cache only (they were never on the server). With `skipGone`, segments that can't
+ * come back are skipped (and returned) instead of stopping the rest.
  */
-export async function loadSegments(keys: string[], onProgress?: Progress): Promise<void> {
+export async function loadSegments(
+  keys: string[],
+  onProgress?: Progress,
+  opts: { skipGone?: boolean } = {},
+): Promise<string[]> {
   const loaded = new Set((await localEngine.status()).map((s) => s.key));
   let manifest: Manifest | null = null;
+  const gone: string[] = [];
   for (const key of keys) {
     if (loaded.has(key)) {
       onProgress?.(key, 'done');
       continue;
     }
-    let bytes: ArrayBuffer;
-    const drop = parseDropKey(key);
-    if (drop) {
-      const cached = await cachedBytes(drop.sha);
-      if (!cached)
-        throw new Error(`Файл «${drop.name}» більше не в кеші браузера — перетягніть його ще раз`);
-      onProgress?.(key, 'cache');
-      bytes = cached;
-    } else {
-      manifest ??= await getManifest();
-      const info = manifest.segments.find((s) => s.file === key);
-      if (!info) throw new Error(`Сегмента ${key} немає в маніфесті (бібліотеку перезібрано?)`);
-      onProgress?.(key, 'download');
-      const r = await segmentBytes(info, () => api.segmentBytes(key));
-      if (r.fromCache) onProgress?.(key, 'cache');
-      bytes = r.bytes;
+    try {
+      let bytes: ArrayBuffer;
+      const drop = parseDropKey(key);
+      if (drop) {
+        const cached = await cachedBytes(drop.sha);
+        if (!cached) {
+          throw new SegmentGone(
+            `Файл «${drop.name}» більше не в кеші браузера — перетягніть його ще раз`,
+          );
+        }
+        onProgress?.(key, 'cache');
+        bytes = cached;
+      } else {
+        manifest ??= await getManifest();
+        const info = manifest.segments.find((s) => s.file === key);
+        if (!info) {
+          throw new SegmentGone(`Сегмента ${key} немає в маніфесті (бібліотеку перезібрано?)`);
+        }
+        onProgress?.(key, 'download');
+        const r = await segmentBytes(info, () => api.segmentBytes(key));
+        if (r.fromCache) onProgress?.(key, 'cache');
+        bytes = r.bytes;
+      }
+      onProgress?.(key, 'merge');
+      const r = await localEngine.add(key, bytes);
+      onProgress?.(key, 'done', `${segmentItems(r)}, ${r.ms} мс`);
+    } catch (err) {
+      if (!(opts.skipGone && err instanceof SegmentGone)) throw err;
+      gone.push(key);
     }
-    onProgress?.(key, 'merge');
-    const r = await localEngine.add(key, bytes);
-    onProgress?.(key, 'done', `${r.verses} віршів, ${r.ms} мс`);
   }
+  return gone;
 }
 
-/** Merge a dropped segment file and cache it so it survives a reload. Returns its key. */
-export async function addDroppedFile(file: File): Promise<string> {
-  const bytes = await file.arrayBuffer();
+const UNIT_FORMS: Record<SegmentUnit, [string, string, string]> = {
+  verses: ['вірш', 'вірші', 'віршів'],
+  entries: ['стаття', 'статті', 'статей'],
+  notes: ['коментар', 'коментарі', 'коментарів'],
+  refs: ['посилання', 'посилання', 'посилань'],
+  songs: ['пісня', 'пісні', 'пісень'],
+};
+
+/** «31 102 вірші», «14 250 статей» — what a segment holds, in words. */
+export function segmentItems(c: Pick<SegmentCounts, 'items' | 'unit'>): string {
+  const n = c.items;
+  const [one, few, many] = UNIT_FORMS[c.unit];
+  const form =
+    n % 10 === 1 && n % 100 !== 11
+      ? one
+      : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)
+        ? few
+        : many;
+  return `${n.toLocaleString('uk-UA')} ${form}`;
+}
+
+const KIND_LABEL: Record<MyBibleKind, string> = {
+  bible: 'Біблія',
+  dictionary: 'словник',
+  commentaries: 'коментарі',
+  crossreferences: 'перехресні посилання',
+};
+
+export interface Dropped {
+  key: string;
+  /** e.g. «UKRK — Біблія, 31 102 вірші (перетворено за 1,2 с)» */
+  summary: string;
+}
+
+/**
+ * Add a dropped file: a raw MyBible module (.SQLite3) is converted into a segment first
+ * (in the worker); a segment (.vodb / .vodb.gz) goes in as is. What's cached is the
+ * SEGMENT — a reload merges it directly, no second conversion. Returns its key.
+ */
+export async function addDroppedFile(
+  file: File,
+  onStage?: (stage: 'convert' | 'merge') => void,
+): Promise<Dropped> {
+  onStage?.('convert');
+  const { bytes, converted, ms } = await localEngine.convert(file.name, await file.arrayBuffer());
   const sha = await cacheDropped(bytes);
-  const key = sha ? dropKey(sha, file.name) : `file:${file.name}`;
-  await localEngine.add(key, bytes);
-  return key;
+  // The same file under another name: its rows are already in (same ids) — reuse the key.
+  const same = sha && (await localEngine.status()).find((s) => parseDropKey(s.key)?.sha === sha);
+  const key = same ? same.key : sha ? dropKey(sha, file.name) : `file:${file.name}`;
+  onStage?.('merge');
+  const r = await localEngine.add(key, bytes);
+  const what = segmentItems(r);
+  const summary = converted
+    ? `${converted.abbr} — ${KIND_LABEL[converted.kind]}, ${what} (перетворено за ${(ms / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} с)`
+    : `${file.name} — ${what}`;
+  return { key, summary };
 }
 
 /** On app start in «у браузері» mode: bring back the remembered segments. */
@@ -92,6 +163,19 @@ export function restoreLocalSegments(): void {
   const { segments } = useDataSource.getState();
   if (effectiveSource() !== 'local' || segments.length === 0) return;
   void requestPersistence();
-  // `file:` keys (dropped without a cache) can't come back — skip them.
-  localEngine.setReady(loadSegments(segments.filter((k) => !k.startsWith('file:'))));
+  // `file:` keys (dropped without a cache) can't come back — skip them. Neither can a
+  // dropped file whose cache was cleared, or a segment a rebuild removed: those are
+  // forgotten, and everything else still loads.
+  localEngine.setReady(
+    loadSegments(
+      segments.filter((k) => !k.startsWith('file:')),
+      undefined,
+      { skipGone: true },
+    ).then((gone) => {
+      if (gone.length === 0) return;
+      console.warn('[library] segments that can no longer be restored:', gone);
+      const now = useDataSource.getState();
+      now.setSegments(now.segments.filter((k) => !gone.includes(k)));
+    }),
+  );
 }

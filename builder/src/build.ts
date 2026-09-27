@@ -8,10 +8,13 @@ import {
   cleanDefinition,
   strongNumbers,
   strongLangFor,
+  cleanAbbr,
+  dictTopicNorm,
+  strongLang,
 } from '@vo/shared';
 import { SCHEMA_SQL } from './schema.js';
 import { readModule } from './mybible.js';
-import { readDictionary, dictTopicNorm, strongLang } from './dictionary.js';
+import { readDictionary } from './dictionary.js';
 import { readCrossrefs, readCommentaries } from './extras.js';
 import { readSong, listPptx } from './songs.js';
 import { selectModules, SelectionError } from './selection.js';
@@ -75,19 +78,6 @@ function listByExt(dir: string, re: RegExp): string[] {
 function fileHash(file: string): string {
   const s = fs.statSync(file);
   return `${s.size}:${Math.round(s.mtimeMs)}`;
-}
-
-/**
- * Some module files on disk have corrupted (mojibake) Cyrillic names — box-drawing
- * characters from a UTF-8/CP866 mix-up at extraction time. When the filename-derived
- * abbreviation is garbage, fall back to a short label taken from the (clean) title.
- */
-function cleanAbbr(rawAbbr: string, title: string): string {
-  if (!/[─-╿�]/.test(rawAbbr)) return rawAbbr;
-  let label = (title || '').split(',')[0].trim();
-  const words = label.split(/\s+/);
-  if (label.length > 14 && words.length > 1) label = words.slice(0, 2).join(' ');
-  return label || rawAbbr;
 }
 
 function buildOnce(): void {

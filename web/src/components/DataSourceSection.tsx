@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Checkbox,
+  FileButton,
   Group,
   Progress,
   ScrollArea,
@@ -17,10 +18,20 @@ import { useDataSource, useEffectiveSource } from '../dataSourceStore';
 import { useServer } from '../serverStore';
 import { localEngine } from '../lib/engine';
 import type { LoadedSegment } from '../lib/engine/protocol';
-import { addDroppedFile, getManifest, loadSegments, segmentLabel } from '../lib/engine/restore';
+import {
+  addDroppedFile,
+  getManifest,
+  loadSegments,
+  segmentItems,
+  segmentLabel,
+  type Dropped,
+} from '../lib/engine/restore';
 import { cacheAvailable, cacheUsage, clearCache, requestPersistence } from '../lib/engine/cache';
 
 const mb = (b: number) => `${(b / 1048576).toFixed(b < 10 * 1048576 ? 1 : 0)} МБ`;
+
+/** MyBible modules (converted in the browser) and ready segments. */
+const DROPPABLE = /\.(sqlite3|vodb|vodb\.gz)$/i;
 
 /**
  * «Джерело даних»: read the library from the server, or from the browser engine
@@ -102,35 +113,45 @@ export function DataSourceSection() {
   };
 
   const addFiles = async (files: FileList | File[]) => {
-    const list = [...files].filter((f) => /\.vodb(\.gz)?$/i.test(f.name));
+    const list = [...files].filter((f) => DROPPABLE.test(f.name));
     if (list.length === 0) {
       notifications.show({
-        message: 'Перетягніть файли сегментів .vodb або .vodb.gz',
+        message: 'Підходять модулі MyBible (.SQLite3) і сегменти (.vodb / .vodb.gz)',
         color: 'red',
       });
       return;
     }
     setProgress({ done: 0, total: list.length, label: '' });
+    const added: Dropped[] = [];
     try {
-      const keys: string[] = [];
       for (const [i, f] of list.entries()) {
-        setProgress({ done: i, total: list.length, label: `Збирання: ${f.name}` });
-        keys.push(await addDroppedFile(f));
+        const r = await addDroppedFile(f, (stage) =>
+          setProgress({
+            done: i,
+            total: list.length,
+            label: `${stage === 'convert' ? 'Перетворення' : 'Збирання'}: ${f.name}`,
+          }),
+        );
+        added.push(r);
       }
-      setSegments([...useDataSource.getState().segments, ...keys]);
-      setSource('local');
-      switchedData();
-      notifications.show({
-        message: `Додано файлів: ${list.length}`,
-        color: 'green',
-        autoClose: 1500,
-      });
     } catch (e) {
       notifications.show({
         message: `Не вдалося додати файл: ${(e as Error).message}`,
         color: 'red',
       });
     } finally {
+      // whatever made it in before a failure stays (and is remembered)
+      if (added.length > 0) {
+        const keys = useDataSource.getState().segments;
+        setSegments([...keys, ...added.map((d) => d.key).filter((k) => !keys.includes(k))]);
+        setSource('local');
+        switchedData();
+        notifications.show({
+          message: added.map((d) => d.summary).join('\n'),
+          color: 'green',
+          autoClose: 4000,
+        });
+      }
       setProgress(null);
       refreshStatus();
     }
@@ -194,7 +215,8 @@ export function DataSourceSection() {
       )}
       {manifest.isError ? (
         <Text size="xs" c="dimmed">
-          Сегменти на сервері не зібрано (npm run build:segments). Можна перетягнути файли сюди.
+          Сегменти на сервері не зібрано (npm run build:segments). Можна додати модулі MyBible чи
+          сегменти файлами — нижче.
         </Text>
       ) : (
         <ScrollArea.Autosize mah={220} type="hover">
@@ -241,7 +263,7 @@ export function DataSourceSection() {
               <Text key={l.key} size="xs">
                 {segmentLabel(l.key)}{' '}
                 <Text span size="xs" c="dimmed">
-                  {l.verses} віршів
+                  {segmentItems(l)}
                 </Text>
               </Text>
             ))}
@@ -323,9 +345,21 @@ export function DataSourceSection() {
         <Group gap={6} justify="center" wrap="nowrap">
           <IconDatabase size={14} />
           <Text size="xs" c="dimmed">
-            Або перетягніть сюди файли .vodb / .vodb.gz
+            Перетягніть сюди модулі MyBible (.SQLite3) — Біблії, словники, коментарі, посилання —
+            або сегменти .vodb
           </Text>
         </Group>
+        <FileButton
+          onChange={(f) => void addFiles(f)}
+          accept=".SQLite3,.sqlite3,.vodb,.gz"
+          multiple
+        >
+          {(props) => (
+            <Button {...props} size="compact-xs" variant="subtle" mt={4} disabled={!!progress}>
+              Вибрати файли…
+            </Button>
+          )}
+        </FileButton>
       </div>
     </Stack>
   );

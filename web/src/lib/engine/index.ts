@@ -1,5 +1,11 @@
 import { createLibrary, type Library, type SqlDriver } from '@vo/shared';
-import type { EngineRequest, EngineResponse, LoadedSegment } from './protocol';
+import type {
+  ConvertResult,
+  EngineRequest,
+  EngineResponse,
+  LoadedSegment,
+  SegmentCounts,
+} from './protocol';
 
 /**
  * Main-thread side of the browser DB engine (worker.ts): a SqlDriver whose queries are
@@ -70,16 +76,18 @@ export const localEngine = {
   library: (): Library => lib,
 
   /** Merge one segment (gzip'd or raw SQLite bytes). The buffer is transferred, not copied. */
-  async add(
-    key: string,
-    bytes: ArrayBuffer,
-  ): Promise<{ verses: number; bytes: number; ms: number }> {
-    const r = await call<{ verses: number; bytes: number; ms: number }>({ op: 'add', key, bytes }, [
-      bytes,
-    ]);
+  async add(key: string, bytes: ArrayBuffer): Promise<SegmentCounts & { ms: number }> {
+    const r = await call<SegmentCounts & { ms: number }>({ op: 'add', key, bytes }, [bytes]);
     lib = createLibrary(driver);
     return r;
   },
+
+  /**
+   * A dropped file → segment bytes: a raw MyBible module is converted (in the worker),
+   * a segment comes back as is. The buffer is transferred there and back.
+   */
+  convert: (name: string, bytes: ArrayBuffer): Promise<ConvertResult> =>
+    call<ConvertResult>({ op: 'convert', name, bytes }, [bytes]),
 
   async status(): Promise<LoadedSegment[]> {
     return (await call<{ segments: LoadedSegment[] }>({ op: 'status' })).segments;
