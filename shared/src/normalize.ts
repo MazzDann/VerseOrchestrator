@@ -175,3 +175,14 @@ export function strongNumbers(raw: string): number[] {
   }
   return out;
 }
+
+/**
+ * Which Strong's lexicon a number in a verse refers to: Greek ('G') in the New Testament
+ * (MyBible book numbers ≥ 470) and in Greek Old Testaments (LXX — module language el/grc),
+ * otherwise Hebrew ('H'). The number alone is ambiguous: H2424 and G2424 are different words.
+ */
+export function strongLangFor(bookNumber: number, moduleLanguage?: string): 'H' | 'G' {
+  if (bookNumber >= 470) return 'G';
+  const l = (moduleLanguage ?? '').toLowerCase();
+  return l.startsWith('el') || l.startsWith('grc') || l === 'gr' ? 'G' : 'H';
+}

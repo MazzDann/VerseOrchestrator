@@ -2,7 +2,13 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
-import { stripTags, normalizeForSearch, cleanDefinition, strongNumbers } from '@vo/shared';
+import {
+  stripTags,
+  normalizeForSearch,
+  cleanDefinition,
+  strongNumbers,
+  strongLangFor,
+} from '@vo/shared';
 import { SCHEMA_SQL } from './schema.js';
 import { readModule } from './mybible.js';
 import { readDictionary, dictTopicNorm, strongLang } from './dictionary.js';
@@ -142,9 +148,11 @@ function buildOnce(): void {
        VALUES (@translationId, @bookNumber, @shortName, @longName, @color)`,
     );
     const insVerse = db.prepare(
-      `INSERT INTO verses (translation_id, book_number, chapter, verse, text, text_norm, text_raw)
-       VALUES (@translationId, @bookNumber, @chapter, @verse, @text, @textNorm, @textRaw)`,
+      `INSERT INTO verses (translation_id, book_number, chapter, verse, text, text_raw)
+       VALUES (@translationId, @bookNumber, @chapter, @verse, @text, @textRaw)`,
     );
+    // Segmented, contentless FTS (see schema): normalized text + the translation token.
+    const insFts = db.prepare('INSERT INTO verses_fts (rowid, text_norm, tr) VALUES (?, ?, ?)');
     // Provenance: every imported module file, so the next build (and a future module
     // manager UI) knows exactly what this library was made of.
     const insSource = db.prepare('INSERT INTO sources (kind, file) VALUES (?, ?)');
@@ -152,7 +160,7 @@ function buildOnce(): void {
       for (const f of list) insSource.run(kind, path.basename(f));
     }
     const insVerseStrong = db.prepare(
-      `INSERT INTO verse_strongs (translation_id, verse_id, strong) VALUES (?, ?, ?)`,
+      `INSERT OR IGNORE INTO verse_strongs (strong, lang, translation_id, verse_id) VALUES (?, ?, ?, ?)`,
     );
     const insName = db.prepare(
       `INSERT INTO book_names (translation_id, book_number, name_norm)
@@ -211,19 +219,22 @@ function buildOnce(): void {
       let strongRows = 0;
       for (const v of mod.verses) {
         const raw = v.text ?? '';
+        const text = stripTags(raw);
         const info = insVerse.run({
           translationId,
           bookNumber: v.book_number,
           chapter: v.chapter,
           verse: v.verse,
-          text: stripTags(raw),
-          textNorm: normalizeForSearch(raw),
-          textRaw: raw,
+          text,
+          // No markup → don't store the same text twice (readers fall back to `text`).
+          textRaw: raw === text ? null : raw,
         });
+        const verseId = Number(info.lastInsertRowid);
+        insFts.run(verseId, normalizeForSearch(raw), `t${translationId}`);
         if (mod.info.hasStrong) {
-          const verseId = Number(info.lastInsertRowid);
+          const lang = strongLangFor(v.book_number, mod.info.language);
           for (const num of strongNumbers(raw)) {
-            insVerseStrong.run(translationId, verseId, num);
+            insVerseStrong.run(num, lang, translationId, verseId);
             strongRows += 1;
           }
         }
@@ -238,7 +249,8 @@ function buildOnce(): void {
       );
     }
 
-    db.exec("INSERT INTO verses_fts(verses_fts) VALUES('rebuild')");
+    // Merge the FTS segments written during the import into one b-tree per term.
+    db.exec("INSERT INTO verses_fts(verses_fts) VALUES('optimize')");
 
     // Import dictionary modules (*.dictionary.SQLite3) — Strong's and explanatory.
     const insDict = db.prepare(

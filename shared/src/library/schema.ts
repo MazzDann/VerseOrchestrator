@@ -5,6 +5,7 @@
  */
 export const SCHEMA_SQL = /* sql */ `
 DROP TABLE IF EXISTS verse_strongs;
+DROP TABLE IF EXISTS verses_fts_vocab;
 DROP TABLE IF EXISTS verses_fts;
 DROP TABLE IF EXISTS verses;
 DROP TABLE IF EXISTS book_names;
@@ -38,20 +39,22 @@ CREATE TABLE verses (
   chapter        INTEGER NOT NULL,
   verse          INTEGER NOT NULL,
   text           TEXT,       -- clean display text (tags + Strong/morphology stripped)
-  text_norm      TEXT,       -- normalized for search
-  text_raw       TEXT        -- original MyBible markup, kept for a future Strong's dictionary
+  text_raw       TEXT        -- original MyBible markup (Strong/red-letter tags); NULL when it
+                             -- equals text (no markup) — readers fall back to text
 );
 CREATE INDEX idx_verses_loc ON verses (translation_id, book_number, chapter, verse);
 
 -- Concordance index: one row per (verse, distinct Strong number) for Strong-tagged
--- modules. translation_id is denormalized so "occurrences of #N in this translation"
--- is served straight from the index. Populated by the builder from verses.text_raw.
+-- modules. lang separates Hebrew (H, OT) from Greek (G, NT and Greek OTs like the LXX)
+-- — the number alone is ambiguous (H2424 ≠ G2424). WITHOUT ROWID: the table IS its
+-- primary-key b-tree, so there is no second copy as a separate index.
 CREATE TABLE verse_strongs (
+  strong         INTEGER NOT NULL,
+  lang           TEXT NOT NULL,     -- 'H' | 'G'
   translation_id INTEGER NOT NULL,
   verse_id       INTEGER NOT NULL,
-  strong         INTEGER NOT NULL
-);
-CREATE INDEX idx_verse_strongs ON verse_strongs (strong, translation_id);
+  PRIMARY KEY (strong, lang, translation_id, verse_id)
+) WITHOUT ROWID;
 
 CREATE TABLE book_names (
   translation_id INTEGER NOT NULL,
@@ -60,12 +63,21 @@ CREATE TABLE book_names (
 );
 CREATE INDEX idx_book_names ON book_names (translation_id, name_norm);
 
+-- Full-text index, SEGMENTED BY TRANSLATION: every row carries a tr token ('t<id>'),
+-- so a search intersects with the selected translations' posting lists inside FTS
+-- instead of ranking matches from the whole library and filtering afterwards — cost
+-- follows what you read, not how big the library is. Contentless (content=''): rowid =
+-- verses.id, the normalized text lives only in the index (no text_norm column needed).
 CREATE VIRTUAL TABLE verses_fts USING fts5 (
   text_norm,
-  content='verses',
-  content_rowid='id',
+  tr,
+  content='',
   tokenize='unicode61 remove_diacritics 2'
 );
+
+-- Read-only view of the index's vocabulary (no storage): per-term document counts let
+-- the search planner tell a rare word from a frequent one before choosing a strategy.
+CREATE VIRTUAL TABLE verses_fts_vocab USING fts5vocab('verses_fts', 'row');
 
 DROP TABLE IF EXISTS dictionary_entries;
 DROP TABLE IF EXISTS dictionaries;
