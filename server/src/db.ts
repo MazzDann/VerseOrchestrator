@@ -83,3 +83,20 @@ export function closeDb(): void {
   // New driver (fresh statement cache) + new library (fresh schema probes).
   current = createLibrary(betterSqliteDriver(getDb));
 }
+
+/** What the server engine is and holds — the engine benchmark's "server" column. */
+export function libraryInfo(): {
+  version: string;
+  dbBytes: number;
+  translations: number;
+  verses: number;
+} {
+  const conn = getDb();
+  const one = (sql: string) => Object.values(conn.prepare(sql).get() as object)[0];
+  return {
+    version: `SQLite ${one('SELECT sqlite_version()')} (better-sqlite3, server)`,
+    dbBytes: fs.statSync(DB_PATH).size,
+    translations: Number(one('SELECT COUNT(*) FROM translations')),
+    verses: Number(one('SELECT COUNT(*) FROM verses')),
+  };
+}

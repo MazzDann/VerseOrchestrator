@@ -25,6 +25,7 @@ import {
   type EngineKind,
   type EngineRequest,
   type EngineResponse,
+  type ReopenResult,
   type SegmentCounts,
   type SegmentUnit,
 } from './protocol';
@@ -43,6 +44,8 @@ import {
  */
 
 let engine: EngineKind = 'sqlite';
+/** false for throwaway engines (the benchmark): never read or write the PGlite snapshot */
+let persist = true;
 let sqlite3: Sqlite3Static | null = null;
 let db: Database | null = null;
 let pg: PGlite | null = null;
@@ -71,7 +74,7 @@ async function openPg(): Promise<PGlite> {
   if (pg) return pg;
   const { PGlite } = await import('@electric-sql/pglite');
   let p: PGlite | null = null;
-  const snapshot = await snapshotStore('get').catch(() => null);
+  const snapshot = persist ? await snapshotStore('get').catch(() => null) : null;
   if (snapshot instanceof Blob) {
     try {
       p = await PGlite.create({ loadDataDir: snapshot, postgresqlconf: PG_CONF });
@@ -128,6 +131,7 @@ function snapshotStore(op: 'get' | 'put' | 'delete', blob?: Blob): Promise<unkno
 let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
 /** Snapshot once loading has been quiet for a moment (a restore adds many segments). */
 function snapshotSoon(): void {
+  if (!persist) return;
   if (snapshotTimer) clearTimeout(snapshotTimer);
   snapshotTimer = setTimeout(() => {
     snapshotTimer = null;
@@ -380,18 +384,78 @@ async function query(kind: 'all' | 'get', sql: string, params: unknown[]) {
   return kind === 'all' ? rows : rows[0];
 }
 
+/** Engine files this worker downloaded (.wasm, PGlite's .data), from Resource Timing. */
+function assets(): EngineInfo['assets'] {
+  return (performance.getEntriesByType('resource') as PerformanceResourceTiming[])
+    .filter((e) => /\.(wasm|data)(\?|$)/.test(e.name))
+    .map((e) => ({
+      name: new URL(e.name).pathname.split('/').pop() ?? e.name,
+      transferBytes: e.transferSize,
+      bodyBytes: e.decodedBodySize,
+    }));
+}
+
 async function info(): Promise<EngineInfo> {
   if (engine === 'pglite') {
     const p = await openPg();
     const r = await p.query<{ v: string; n: number }>(
       "SELECT split_part(version(), ' on ', 1) AS v, pg_database_size(current_database()) AS n",
     );
-    return { engine, version: r.rows[0].v, dbBytes: Number(r.rows[0].n) };
+    // PGlite doesn't expose its WASM memory publicly; its Emscripten module does.
+    const mod = (p as unknown as { mod?: { HEAPU8?: Uint8Array } }).mod;
+    return {
+      engine,
+      version: r.rows[0].v,
+      dbBytes: Number(r.rows[0].n),
+      wasmBytes: mod?.HEAPU8?.byteLength ?? null,
+      assets: assets(),
+    };
   }
   const conn = await open();
   const pages = Number(conn.selectValue('PRAGMA page_count') ?? 0);
   const size = Number(conn.selectValue('PRAGMA page_size') ?? 0);
-  return { engine, version: `SQLite ${sqlite3!.version.libVersion}`, dbBytes: pages * size };
+  return {
+    engine,
+    version: `SQLite ${sqlite3!.version.libVersion}`,
+    dbBytes: pages * size,
+    wasmBytes: sqlite3!.wasm.heap8u().byteLength,
+    assets: assets(),
+  };
+}
+
+/**
+ * Benchmark: what a snapshot-based reload costs — the whole database saved as one image,
+ * then a fresh engine opened from it (and one query run, so it's really usable).
+ */
+async function reopen(): Promise<ReopenResult> {
+  if (engine === 'pglite') {
+    const { PGlite } = await import('@electric-sql/pglite');
+    const p = await openPg();
+    let t0 = performance.now();
+    await p.exec('CHECKPOINT');
+    const image = await p.dumpDataDir('none');
+    const dumpMs = performance.now() - t0;
+    await p.close();
+    pg = null;
+    t0 = performance.now();
+    const fresh = await PGlite.create({ loadDataDir: image, postgresqlconf: PG_CONF });
+    await fresh.query('SELECT count(*) FROM verses');
+    pg = fresh;
+    return { dumpMs, dumpBytes: image.size, reopenMs: performance.now() - t0 };
+  }
+  const s3 = await init();
+  const conn = await open();
+  let t0 = performance.now();
+  const image = s3.capi.sqlite3_js_db_export(conn);
+  const dumpMs = performance.now() - t0;
+  t0 = performance.now();
+  const fresh = new s3.oo1.DB(':memory:');
+  deserialize(s3, fresh, 'main', image);
+  fresh.selectValue('SELECT count(*) FROM verses');
+  const reopenMs = performance.now() - t0;
+  conn.close();
+  db = fresh;
+  return { dumpMs, dumpBytes: image.byteLength, reopenMs };
 }
 
 async function handle(req: EngineRequest): Promise<void> {
@@ -401,9 +465,12 @@ async function handle(req: EngineRequest): Promise<void> {
   try {
     if (req.op === 'init') {
       engine = req.engine;
+      persist = req.persist;
       reply({ ok: true, result: null });
     } else if (req.op === 'info') {
       reply({ ok: true, result: await info() });
+    } else if (req.op === 'reopen') {
+      reply({ ok: true, result: await reopen() });
     } else if (req.op === 'add') {
       const t0 = performance.now();
       const info = await add(req.key, req.bytes);

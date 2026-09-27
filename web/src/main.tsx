@@ -18,6 +18,7 @@ import { Stage } from './pages/Stage';
 import { Follow } from './pages/Follow';
 import { Remote } from './pages/Remote';
 import { Settings } from './pages/Settings';
+import { Bench } from './pages/Bench';
 import { useSettings } from './settingsStore';
 import { usePlaylist } from './playlistStore';
 
@@ -60,6 +61,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/follow" element={<Follow />} />
             <Route path="/remote" element={<Remote />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/bench" element={<Bench />} />
           </Routes>
         </BrowserRouter>
       </QueryClientProvider>

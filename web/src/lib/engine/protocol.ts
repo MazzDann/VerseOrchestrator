@@ -8,8 +8,9 @@ export const PG_SNAPSHOT_DB = 'vo-pglite-snapshot';
 
 /** Messages between the main thread and the browser DB engine worker (worker.ts). */
 export type EngineRequest = { id: number } & (
-  | { op: 'init'; engine: EngineKind }
+  | { op: 'init'; engine: EngineKind; persist: boolean }
   | { op: 'info' }
+  | { op: 'reopen' }
   | { op: 'add'; key: string; bytes: ArrayBuffer }
   | { op: 'convert'; name: string; bytes: ArrayBuffer }
   | { op: 'query'; kind: 'all' | 'get'; sql: string; params: unknown[] }
@@ -45,6 +46,21 @@ export interface EngineInfo {
   version: string;
   /** size of the working database (SQLite pages / pg_database_size) */
   dbBytes: number;
+  /** the engine's WebAssembly linear memory (null if the engine doesn't expose it) */
+  wasmBytes: number | null;
+  /** engine files the worker downloaded (.wasm / .data), from Resource Timing */
+  assets: { name: string; transferBytes: number; bodyBytes: number }[];
+}
+
+/**
+ * `reopen` (benchmark): save the whole database as one image and open a fresh engine
+ * from it — what a snapshot-based reload costs (SQLite: serialize/deserialize; Postgres:
+ * CHECKPOINT + dumpDataDir / loadDataDir).
+ */
+export interface ReopenResult {
+  dumpMs: number;
+  dumpBytes: number;
+  reopenMs: number;
 }
 
 /** `convert`: a segment ready to merge — the input itself, or a converted MyBible module. */
