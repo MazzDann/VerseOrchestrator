@@ -10,6 +10,7 @@ import {
   ScrollArea,
   Stack,
   Table,
+  Tabs,
   Text,
   Title,
   Tooltip,
@@ -30,6 +31,8 @@ import {
   type EngineRun,
 } from '../lib/bench/report';
 import { BENCH_CASES } from '../lib/bench/workload';
+import { SyncBench } from '../components/SyncBench';
+import { download, saveCsv } from '../lib/bench/files';
 
 /** Segments picked by default: two translations (Ukrainian + Strong-tagged English), the
  * Strong's dictionary, cross-references — enough for every query in the workload. */
@@ -52,25 +55,39 @@ const ms = (v: number | null | undefined) =>
 const mb = (v: number | null | undefined) =>
   v == null ? '—' : `${(v / 1048576).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} МБ`;
 
-function download(name: string, text: string, type: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-/** A CSV file: UTF-8 with a BOM, or Excel opens the Cyrillic as mojibake. */
-const saveCsv = (name: string, csv: string) =>
-  download(name, String.fromCharCode(0xfeff) + csv, 'text/csv;charset=utf-8');
-
 /**
- * «Порівняння рушіїв бази» (`/bench`): the hybrid-DB benchmark — server vs SQLite-WASM vs
- * PostgreSQL-WASM on the same segments and workload (lib/bench). Opened from
- * Налаштування → Застосунок; runs in its own window so the app's engine is untouched.
+ * «Вимірювання» (`/bench`): the thesis benchmarks, opened from Налаштування → Застосунок
+ * in their own window —
+ *   «Бази даних»: server vs SQLite-WASM vs PostgreSQL-WASM on the same segments and
+ *     workload (lib/bench/run.ts); the app's own engine is untouched;
+ *   «Синхронізація»: how windows of the app talk (lib/bench/sync.ts).
  */
 export function Bench() {
+  return (
+    <ScrollArea style={{ height: '100vh' }} type="auto">
+      <Box maw={1100} mx="auto" px="md" py="lg">
+        <Group gap={8} mb="sm">
+          <IconChartBar size={22} />
+          <Title order={4}>Вимірювання</Title>
+        </Group>
+        <Tabs defaultValue="db" keepMounted>
+          <Tabs.List mb="md">
+            <Tabs.Tab value="db">Бази даних</Tabs.Tab>
+            <Tabs.Tab value="sync">Синхронізація вікон</Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="db">
+            <DbBench />
+          </Tabs.Panel>
+          <Tabs.Panel value="sync">
+            <SyncBench />
+          </Tabs.Panel>
+        </Tabs>
+      </Box>
+    </ScrollArea>
+  );
+}
+
+function DbBench() {
   const serverAvailable = useServer((s) => s.available);
   const [manifest, setManifest] = useState<SegmentInfo[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
@@ -128,133 +145,127 @@ export function Bench() {
   };
 
   return (
-    <ScrollArea style={{ height: '100vh' }} type="auto">
-      <Box maw={1100} mx="auto" px="md" py="lg">
-        <Group gap={8} mb={4}>
-          <IconChartBar size={22} />
-          <Title order={4}>Порівняння рушіїв бази</Title>
-        </Group>
-        <Text size="sm" c="dimmed" mb="md" maw={760}>
-          Ті самі сегменти й ті самі запити на кожному рушії: сервер (SQLite через HTTP), SQLite у
-          браузері й PostgreSQL у браузері (PGlite). Браузерні рушії запускаються начисто, по черзі,
-          у власних воркерах — бібліотека застосунку не змінюється.
-        </Text>
+    <>
+      <Text size="sm" c="dimmed" mb="md" maw={760}>
+        Ті самі сегменти й ті самі запити на кожному рушії: сервер (SQLite через HTTP), SQLite у
+        браузері й PostgreSQL у браузері (PGlite). Браузерні рушії запускаються начисто, по черзі, у
+        власних воркерах — бібліотека застосунку не змінюється.
+      </Text>
 
-        <Paper withBorder p="md" mb="md">
-          <Group align="flex-start" gap="xl" wrap="wrap">
-            <Stack gap={6} style={{ minWidth: 260 }}>
-              <Text size="sm" fw={500}>
-                Сегменти
-              </Text>
-              <Checkbox.Group value={picked} onChange={setPicked}>
-                <Stack gap={6}>
-                  {(['translation', 'dictionary', 'study', 'songs'] as const).map((k) => {
-                    const items = manifest.filter((s) => s.kind === k);
-                    if (items.length === 0) return null;
-                    return (
-                      <div key={k}>
-                        <Text size="xs" c="dimmed" mb={2}>
-                          {KIND_LABEL[k]}
-                        </Text>
-                        <ScrollArea.Autosize mah={k === 'translation' ? 150 : undefined}>
-                          <Stack gap={2}>
-                            {items.map((s) => (
-                              <Checkbox
-                                key={s.file}
-                                size="xs"
-                                value={s.file}
-                                label={
-                                  <span>
-                                    {s.abbr}{' '}
-                                    <Text span size="xs" c="dimmed">
-                                      {mb(s.rawBytes)}
-                                    </Text>
-                                  </span>
-                                }
-                              />
-                            ))}
-                          </Stack>
-                        </ScrollArea.Autosize>
-                      </div>
-                    );
-                  })}
-                </Stack>
-              </Checkbox.Group>
-            </Stack>
+      <Paper withBorder p="md" mb="md">
+        <Group align="flex-start" gap="xl" wrap="wrap">
+          <Stack gap={6} style={{ minWidth: 260 }}>
+            <Text size="sm" fw={500}>
+              Сегменти
+            </Text>
+            <Checkbox.Group value={picked} onChange={setPicked}>
+              <Stack gap={6}>
+                {(['translation', 'dictionary', 'study', 'songs'] as const).map((k) => {
+                  const items = manifest.filter((s) => s.kind === k);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={k}>
+                      <Text size="xs" c="dimmed" mb={2}>
+                        {KIND_LABEL[k]}
+                      </Text>
+                      <ScrollArea.Autosize mah={k === 'translation' ? 150 : undefined}>
+                        <Stack gap={2}>
+                          {items.map((s) => (
+                            <Checkbox
+                              key={s.file}
+                              size="xs"
+                              value={s.file}
+                              label={
+                                <span>
+                                  {s.abbr}{' '}
+                                  <Text span size="xs" c="dimmed">
+                                    {mb(s.rawBytes)}
+                                  </Text>
+                                </span>
+                              }
+                            />
+                          ))}
+                        </Stack>
+                      </ScrollArea.Autosize>
+                    </div>
+                  );
+                })}
+              </Stack>
+            </Checkbox.Group>
+          </Stack>
 
-            <Stack gap={6}>
-              <Text size="sm" fw={500}>
-                Рушії
-              </Text>
-              <Checkbox.Group value={engines} onChange={(v) => setEngines(v as BenchEngine[])}>
-                <Stack gap={4}>
-                  <Checkbox
-                    size="xs"
-                    value="server"
-                    disabled={serverAvailable === false}
-                    label={
-                      serverAvailable === false
-                        ? `${ENGINE_NAME.server} — сервер не запущено`
-                        : ENGINE_NAME.server
-                    }
-                  />
-                  <Checkbox size="xs" value="sqlite" label={ENGINE_NAME.sqlite} />
-                  <Checkbox size="xs" value="pglite" label={ENGINE_NAME.pglite} />
-                </Stack>
-              </Checkbox.Group>
-              <NumberInput
-                size="xs"
-                label="Повторів кожного запиту"
-                value={iterations}
-                onChange={(v) => setIterations(Math.max(5, Math.min(200, Number(v) || 20)))}
-                min={5}
-                max={200}
-                w={200}
-              />
-            </Stack>
+          <Stack gap={6}>
+            <Text size="sm" fw={500}>
+              Рушії
+            </Text>
+            <Checkbox.Group value={engines} onChange={(v) => setEngines(v as BenchEngine[])}>
+              <Stack gap={4}>
+                <Checkbox
+                  size="xs"
+                  value="server"
+                  disabled={serverAvailable === false}
+                  label={
+                    serverAvailable === false
+                      ? `${ENGINE_NAME.server} — сервер не запущено`
+                      : ENGINE_NAME.server
+                  }
+                />
+                <Checkbox size="xs" value="sqlite" label={ENGINE_NAME.sqlite} />
+                <Checkbox size="xs" value="pglite" label={ENGINE_NAME.pglite} />
+              </Stack>
+            </Checkbox.Group>
+            <NumberInput
+              size="xs"
+              label="Повторів кожного запиту"
+              value={iterations}
+              onChange={(v) => setIterations(Math.max(5, Math.min(200, Number(v) || 20)))}
+              min={5}
+              max={200}
+              w={200}
+            />
+          </Stack>
 
-            <Stack gap={6} style={{ flex: 1, minWidth: 220 }}>
-              <Button
-                leftSection={<IconPlayerPlay size={16} />}
-                disabled={!!progress || chosen.length === 0 || engines.length === 0}
-                onClick={() => void run()}
-              >
-                Запустити
-              </Button>
-              {progress ? (
-                <>
-                  <Progress value={progress.fraction * 100} size="sm" animated />
-                  <Text size="xs" c="dimmed">
-                    {progress.message}
-                  </Text>
-                </>
-              ) : (
+          <Stack gap={6} style={{ flex: 1, minWidth: 220 }}>
+            <Button
+              leftSection={<IconPlayerPlay size={16} />}
+              disabled={!!progress || chosen.length === 0 || engines.length === 0}
+              onClick={() => void run()}
+            >
+              Запустити
+            </Button>
+            {progress ? (
+              <>
+                <Progress value={progress.fraction * 100} size="sm" animated />
                 <Text size="xs" c="dimmed">
-                  Кожен запит: перший (холодний) прохід, розігрів, далі {iterations} замірів —
-                  медіана й p95. PostgreSQL завантажується довше: кілька секунд на переклад.
+                  {progress.message}
                 </Text>
-              )}
-              {error && (
-                <Text size="xs" c="orange">
-                  {error}
-                </Text>
-              )}
-            </Stack>
-          </Group>
-        </Paper>
+              </>
+            ) : (
+              <Text size="xs" c="dimmed">
+                Кожен запит: перший (холодний) прохід, розігрів, далі {iterations} замірів — медіана
+                й p95. PostgreSQL завантажується довше: кілька секунд на переклад.
+              </Text>
+            )}
+            {error && (
+              <Text size="xs" c="orange">
+                {error}
+              </Text>
+            )}
+          </Stack>
+        </Group>
+      </Paper>
 
-        {report && (
-          <ReportView
-            report={report}
-            onCsv={() => void copyCsv()}
-            onSaveCsv={() => saveCsv(`vo-bench-${stamp}.csv`, reportCsv(report))}
-            onSaveJson={() =>
-              download(`vo-bench-${stamp}.json`, reportJson(report), 'application/json')
-            }
-          />
-        )}
-      </Box>
-    </ScrollArea>
+      {report && (
+        <ReportView
+          report={report}
+          onCsv={() => void copyCsv()}
+          onSaveCsv={() => saveCsv(`vo-bench-${stamp}.csv`, reportCsv(report))}
+          onSaveJson={() =>
+            download(`vo-bench-${stamp}.json`, reportJson(report), 'application/json')
+          }
+        />
+      )}
+    </>
   );
 }
 
