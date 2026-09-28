@@ -109,6 +109,12 @@
   background: var(--mantine-color-brand-light);
   box-shadow: inset 2px 0 0 var(--mantine-color-brand-filled);
 }
+/* While a list scrolls (lib/scrolling.ts), rows sliding under a still pointer don't light up
+   one after another — the «мигає» on a long psalm (1.5.5). The selection keeps its colour. */
+html[data-scrolling] .vo-verse-item:hover:not([data-selected='true']),
+html[data-scrolling] .vo-list-item:hover:not([data-selected='true']) {
+  background: transparent;
+}
 .vo-verse-item:focus-visible {
   outline: 2px solid var(--mantine-color-brand-filled);
   outline-offset: -2px;
