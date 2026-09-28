@@ -155,12 +155,23 @@ export function StudyPanels({
         </Menu.Dropdown>
       </Menu>
     ) : null;
+  // put on screen by a speaker's remote (1.5.2): say whose it is
+  const liveBy = liveSlide.source?.by;
+  const liveDetail = liveActive
+    ? `${liveSlide.reference}${liveBy ? ` · пульт «${liveBy}»` : ''}`
+    : liveLabel;
   const previewMonitor = (maxWidth?: number) => (
     <Monitor
       slide={previewSlide}
       state={previewState}
       title={merged ? 'На екрані' : 'Прев’ю'}
-      detail={reference || (previewHas ? undefined : 'оберіть вірші')}
+      // the slide's own reference — a song or a text isn't the verse selection (the
+      // merged monitor said «На екрані Psalms 135:15» over a song stanza, 1.5.11)
+      detail={
+        merged
+          ? liveDetail
+          : previewSlide.reference || reference || (previewHas ? undefined : 'оберіть вірші')
+      }
       actions={
         <Group gap={2} wrap="nowrap">
           {suggestButton}
@@ -170,11 +181,6 @@ export function StudyPanels({
       maxWidth={maxWidth}
     />
   );
-  // put on screen by a speaker's remote (1.5.2): say whose it is
-  const liveBy = liveSlide.source?.by;
-  const liveDetail = liveActive
-    ? `${liveSlide.reference}${liveBy ? ` · пульт «${liveBy}»` : ''}`
-    : liveLabel;
   const programMonitor = !merged && (
     <Box w="62%" mt="sm">
       <Monitor
