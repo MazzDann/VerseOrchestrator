@@ -82,9 +82,12 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
           value={body}
           onChange={(e) => setBody(e.currentTarget.value)}
           onKeyDown={(e) => {
-            // Ctrl/Cmd+Enter projects without reaching for the mouse.
+            // Ctrl/Cmd+Enter projects without reaching for the mouse. It stops here: ⌘↩ is
+            // also «На екран» on a Mac, and that document hotkey would put the verse
+            // selection over this text.
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               e.preventDefault();
+              e.stopPropagation();
               project();
             }
           }}
