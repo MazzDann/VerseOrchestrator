@@ -54,7 +54,11 @@ let livePaused = true;
  * audience follow-along is opt-in (the operator may keep it off), but a speaker's
  * remote always needs to see what's on screen.
  */
-let screenState: { screen: unknown; next: unknown } = { screen: null, next: null };
+let screenState: { screen: unknown; next: unknown; preview: unknown } = {
+  screen: null,
+  next: null,
+  preview: null,
+};
 let wss: WebSocketServer | null = null;
 const meta = new WeakMap<WebSocket, Meta>();
 
@@ -131,6 +135,14 @@ export function dropRemote(pairingId: string, why: 'revoked' | 'reissued' = 'rev
         });
       c.close(why === 'revoked' ? 4001 : 4002, why);
     }
+  }
+  notifyRemotesChanged();
+}
+
+/** A pairing's permissions changed: its open remote pages update their buttons at once. */
+export function notifyAllowed(pairingId: string, allowed: readonly string[]): void {
+  for (const c of sockets('remote')) {
+    if (meta.get(c)?.pairingId === pairingId) send(c, { type: 'allowed', allowed });
   }
   notifyRemotesChanged();
 }
@@ -297,7 +309,12 @@ export function attachLiveHub(server: Server): void {
         // Sync benchmark (/bench): a tiny reply, so a round trip = payload in + ack out.
         send(ws, { type: 'echo', id: msg.id });
       } else if (msg?.type === 'screen' && m.role === 'control') {
-        screenState = { screen: msg.screen ?? null, next: msg.next ?? null };
+        screenState = {
+          screen: msg.screen ?? null,
+          next: msg.next ?? null,
+          // what «На екран» (`show`) would put there — the control window's preview
+          preview: msg.preview ?? null,
+        };
         for (const c of sockets('remote')) send(c, { type: 'screen', ...screenState });
       }
     });

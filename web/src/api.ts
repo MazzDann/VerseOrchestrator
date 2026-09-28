@@ -202,7 +202,7 @@ export const SegmentManifestSchema = z.object({
  * without it (it forces a CORS preflight, so other sites can't forge them). */
 const CONTROL_HEADERS = { 'X-VO-Control': '1' };
 
-const RemoteCommandSchema = z.enum(['next', 'prev', 'blank', 'black']);
+const RemoteCommandSchema = z.enum(['next', 'prev', 'blank', 'black', 'show']);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
 const PairingSchema = z.object({
   id: z.string(),
@@ -377,6 +377,18 @@ export const api = {
         allowed: z.array(RemoteCommandSchema),
         token: z.string(),
       })
+      .parse(await res.json());
+  },
+  /** What an existing remote may do (1.5.0); its open page updates at once. */
+  updateRemote: async (id: string, allowed: RemoteCommand[]) => {
+    const res = await request(`/api/remote/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ allowed }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({ id: z.string(), name: z.string(), allowed: z.array(RemoteCommandSchema) })
       .parse(await res.json());
   },
   /** New code for an existing remote: the phone holding the old one loses control. */

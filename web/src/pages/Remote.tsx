@@ -5,6 +5,9 @@ import { REMOTE_LABEL } from '../lib/remote';
 import { newCommandId } from '../lib/commands';
 import { type ScreenSummary } from '../lib/slide';
 
+const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
+  !!a && !!b && a.reference === b.reference && a.text === b.text;
+
 /**
  * Speaker remote (/remote#<token>): a phone paired by the operator via QR. It can only
  * send the commands its pairing allows (server-enforced) and shows what's on screen now.
@@ -27,6 +30,8 @@ export function Remote() {
   );
   const [screen, setScreen] = useState<ScreenSummary | null>(null);
   const [next, setNext] = useState<ScreenSummary | null>(null);
+  /** The control window's preview — what «На екран» puts on screen (1.5.0). */
+  const [preview, setPreview] = useState<ScreenSummary | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const conn = useRef<LiveConnection | null>(null);
   const noticeTimer = useRef<number | undefined>();
@@ -64,6 +69,11 @@ export function Remote() {
         if (f.type === 'screen') {
           setScreen((f.screen as ScreenSummary | null) ?? null);
           setNext((f.next as ScreenSummary | null) ?? null);
+          setPreview((f.preview as ScreenSummary | null) ?? null);
+        } else if (f.type === 'allowed') {
+          // the operator changed what this remote may do (1.5.0): buttons follow at once
+          const allowed = (f.allowed as RemoteCommand[]) ?? [];
+          setState((s) => (s.kind === 'ready' || s.kind === 'offline' ? { ...s, allowed } : s));
         } else if (f.type === 'welcome') {
           setState({
             kind: 'ready',
@@ -128,6 +138,7 @@ export function Remote() {
     const onKey = (e: KeyboardEvent) => {
       if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) pressRef.current('next');
       else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) pressRef.current('prev');
+      else if (e.key === 'Enter') pressRef.current('show');
       else return;
       e.preventDefault();
     };
@@ -144,6 +155,8 @@ export function Remote() {
         : onScreen
           ? screen!.reference || 'На екрані'
           : 'Порожньо';
+  const previewText = preview?.status === 'live' ? preview : null;
+  const previewOnScreen = onScreen && sameSummary(previewText, screen);
 
   if (state.kind === 'denied') {
     return (
@@ -205,6 +218,34 @@ export function Remote() {
           </p>
         )}
       </section>
+
+      {/* «На екран» (1.5.0): what the operator's preview holds, if it isn't on screen yet. */}
+      {allowed.includes('show') && (
+        <section className="vo-remote-preview" aria-label="Передпоказ">
+          <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
+            <span style={{ fontWeight: 600 }}>Передпоказ</span>
+            <span style={{ opacity: 0.65 }}>
+              {previewOnScreen ? 'уже на екрані' : (previewText?.reference ?? 'порожньо')}
+            </span>
+          </div>
+          {previewText && !previewOnScreen && (
+            <p
+              className="vo-remote-text vo-remote-text-small"
+              style={{ fontFamily: previewText.font ?? '"Lora", Georgia, serif' }}
+            >
+              {previewText.text}
+            </p>
+          )}
+          <button
+            type="button"
+            className="vo-remote-btn vo-remote-btn-live"
+            disabled={!ready || !previewText || previewOnScreen}
+            onClick={() => press('show')}
+          >
+            {REMOTE_LABEL.show}
+          </button>
+        </section>
+      )}
 
       {/* What «Далі» will show — so the speaker knows where the next press goes. */}
       {next && next.text && (

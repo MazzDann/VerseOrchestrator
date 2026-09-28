@@ -11,11 +11,14 @@ import { readJson, writeJson } from './jsonFile.js';
  * `remotes.persist` is on (see serverSettings.ts); otherwise a restart revokes them all.
  */
 
-/** Commands a remote may send. Settings, library rebuild etc. are never remote-able. */
-export const REMOTE_COMMANDS = ['next', 'prev', 'blank', 'black'] as const;
+/**
+ * Commands a remote may send. Settings, library rebuild etc. are never remote-able.
+ * `show` (1.5.0) puts the control window's preview on screen, like the operator's F5.
+ */
+export const REMOTE_COMMANDS = ['next', 'prev', 'blank', 'black', 'show'] as const;
 export type RemoteCommand = (typeof REMOTE_COMMANDS)[number];
 
-/** What a new pairing may do unless the operator widens it. */
+/** What a new pairing may do unless the operator widens it (new abilities stay off). */
 export const DEFAULT_ALLOWED: RemoteCommand[] = ['next', 'prev', 'blank'];
 
 export interface Pairing {
@@ -130,6 +133,19 @@ export function findByToken(token: unknown): Pairing | null {
     if (timingSafeEqual(h, Buffer.from(p.tokenHash, 'hex'))) found = p;
   }
   return found;
+}
+
+/**
+ * Change what a pairing may do (1.5.0 — new abilities are off by default, so the operator
+ * turns them on for a remote that already exists). An empty list is allowed: the phone
+ * stays paired but can only watch.
+ */
+export function setPairingAllowed(id: string, allowed: unknown): Pairing | null {
+  const p = pairings.get(id);
+  if (!p || !Array.isArray(allowed)) return null;
+  p.allowed = sanitizeAllowed(allowed);
+  save();
+  return p;
 }
 
 export function revokePairing(id: string): boolean {

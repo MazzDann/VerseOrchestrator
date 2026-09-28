@@ -6,13 +6,20 @@ import {
   attachLiveHub,
   dropRemote,
   getLive,
+  notifyAllowed,
   pauseLive,
   publishLive,
   setCommandTimeout,
   viewerCount,
   WS_PATH,
 } from './live';
-import { createPairing, DEFAULT_ALLOWED, findByToken, revokePairing } from './remote';
+import {
+  createPairing,
+  DEFAULT_ALLOWED,
+  findByToken,
+  revokePairing,
+  setPairingAllowed,
+} from './remote';
 
 let server: Server;
 let base: string;
@@ -197,6 +204,29 @@ describe('speaker remote over the hub', () => {
     v.ws.close();
   });
 
+  it('«На екран» is off until the operator allows it; the open remote learns at once', async () => {
+    const p = createPairing('Сцена');
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const remote = client({ role: 'remote', token: p.token });
+    expect((await remote.next('welcome')).allowed).not.toContain('show');
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'show', id: 's1' }));
+    expect(await remote.next('ack')).toMatchObject({ cmd: 'show', ok: false });
+
+    const updated = setPairingAllowed(p.id, [...DEFAULT_ALLOWED, 'show', 'bogus']);
+    expect(updated?.allowed).toEqual([...DEFAULT_ALLOWED, 'show']);
+    notifyAllowed(p.id, updated!.allowed);
+    expect(await remote.next('allowed')).toMatchObject({ allowed: [...DEFAULT_ALLOWED, 'show'] });
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'show', id: 's2' }));
+    const cmd = await control.next('command');
+    expect(cmd).toMatchObject({ cmd: 'show', from: 'Сцена' });
+    control.ws.send(JSON.stringify({ type: 'result', id: cmd.id, ok: true }));
+    expect(await remote.next('ack')).toMatchObject({ id: 's2', cmd: 'show', ok: true });
+    expect(setPairingAllowed('nope', ['show'])).toBeNull();
+    control.ws.close();
+    remote.ws.close();
+  });
+
   it('revoking a pairing disconnects its remote', async () => {
     const p = createPairing('Тимчасовий');
     const remote = client({ role: 'remote', token: p.token });
@@ -236,6 +266,7 @@ describe('screen relay (control → remotes only)', () => {
         type: 'screen',
         screen: { reference: 'Ів 1:1' },
         next: { reference: 'Ів 1:2' },
+        preview: { reference: 'Ів 1:5' },
       }),
     );
     await new Promise((r) => setTimeout(r, 100));
@@ -243,6 +274,7 @@ describe('screen relay (control → remotes only)', () => {
       type: 'screen',
       screen: { reference: 'Ів 1:1' },
       next: { reference: 'Ів 1:2' },
+      preview: { reference: 'Ів 1:5' }, // what «На екран» would show (1.5.0)
     });
     expect(vGot.some((f) => f.type === 'screen')).toBe(false);
     // The control socket is told how many audience viewers are connected (the viewer

@@ -13,6 +13,7 @@ import {
   getLive,
   pauseLive,
   isRemoteOnline,
+  notifyAllowed,
   notifyRemotesChanged,
   publishLive,
   viewerCount,
@@ -23,6 +24,7 @@ import {
   listPairings,
   reissuePairing,
   revokePairing,
+  setPairingAllowed,
   setRemotePersistence,
 } from './remote.js';
 import {
@@ -150,6 +152,17 @@ app.get(
   '/api/remote',
   requireLocal,
   wrap((_req, res) => res.json(listPairings(isRemoteOnline))),
+);
+
+app.put(
+  '/api/remote/:id',
+  requireLocalControl,
+  wrap((req, res) => {
+    const p = setPairingAllowed(String(req.params.id), req.body?.allowed);
+    if (!p) throw new ApiError(404, 'Пульт не знайдено');
+    notifyAllowed(p.id, p.allowed);
+    res.json({ id: p.id, name: p.name, allowed: p.allowed });
+  }),
 );
 
 app.post(
