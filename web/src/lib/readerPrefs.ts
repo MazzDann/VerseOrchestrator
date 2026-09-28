@@ -8,8 +8,8 @@ export interface ReaderPrefs {
   size: number;
   bold: boolean;
   /**
-   * «Легше читати»: a plain sans-serif, wider letter / word / line spacing, left-aligned —
-   * the usual dyslexia-friendly advice (no web font: the phone may have no internet).
+   * «Легше читати»: Andika (SIL's literacy font, served with the app — styles.css), wider
+   * letter / word / line spacing, left-aligned — the usual dyslexia-friendly advice.
    */
   easy: boolean;
 }
@@ -55,7 +55,7 @@ export function saveReader(p: ReaderPrefs): void {
 export function readerTextStyle(p: ReaderPrefs, font: string) {
   const k = READER_SIZES[p.size] ?? 1;
   return {
-    fontFamily: p.easy ? 'Verdana, "Segoe UI", Roboto, system-ui, sans-serif' : font,
+    fontFamily: p.easy ? 'Andika, Verdana, "Segoe UI", Roboto, system-ui, sans-serif' : font,
     fontSize: `calc(clamp(20px, 6.2vw, 40px) * ${k})`,
     fontWeight: p.bold ? 700 : undefined,
     lineHeight: p.easy ? 1.8 : 1.45,
