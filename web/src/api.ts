@@ -227,6 +227,15 @@ const PairingSchema = z.object({
 export type Pairing = z.infer<typeof PairingSchema>;
 
 /** The standby waiter (server/src/standby.ts) and its autostart — GET/PUT /api/standby. */
+/** The UI state kept in data/ (1.6.4): each store's persisted JSON with its save time. */
+const UiEntrySchema = z.object({ value: z.string(), at: z.number() });
+const UiStateSchema = z.object({
+  'vo:settings': UiEntrySchema.optional(),
+  'vo:playlist': UiEntrySchema.optional(),
+});
+export type UiState = z.infer<typeof UiStateSchema>;
+export type UiEntry = z.infer<typeof UiEntrySchema>;
+
 const StandbySchema = z.object({
   enabled: z.boolean(),
   supported: z.boolean(),
@@ -416,6 +425,16 @@ export const api = {
   },
   /** Server options (data/settings.json) — not secrets. */
   serverSettings: () => getJson('/api/server-settings', ServerSettingsSchema),
+  uiState: () => getJson('/api/ui-state', UiStateSchema),
+  saveUiState: async (key: keyof UiState, value: string, at: number) => {
+    const res = await request('/api/ui-state', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ key, value, at }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ saved: z.boolean(), entry: UiEntrySchema }).parse(await res.json());
+  },
   standby: () => getJson('/api/standby', StandbySchema),
   updateStandby: async (patch: { enabled?: boolean; port?: number }) => {
     const res = await request('/api/standby', {

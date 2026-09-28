@@ -6,7 +6,7 @@ import { Notifications } from '@mantine/notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
-import { probeServer, setBoot } from './serverStore';
+import { probeServer, setBoot, useServer } from './serverStore';
 import { localEngine } from './lib/engine';
 import { restoreLocalSegments } from './lib/engine/restore';
 import { installScrollingFlag } from './lib/scrolling';
@@ -24,6 +24,7 @@ import { BenchPeer } from './pages/BenchPeer';
 import { useSettings } from './settingsStore';
 import { usePlaylist } from './playlistStore';
 import { listenForForget } from './lib/browserData';
+import { startUiStateSync } from './lib/uiState';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false } },
@@ -45,6 +46,8 @@ listenForForget();
 if (window.location.pathname === '/') {
   setBoot(
     probeServer().then(() => {
+      // settings and the running order kept with the app in data/ (1.6.4)
+      if (useServer.getState().available) void startUiStateSync();
       // (no server → reads go to the browser engine via effectiveSource(); the saved
       // preference is left alone so a temporary outage doesn't flip it)
       restoreLocalSegments();

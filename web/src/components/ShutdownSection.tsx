@@ -106,7 +106,7 @@ export function ShutdownSection() {
               checked={forget}
               onChange={(e) => setForget(e.currentTarget.checked)}
               label={`Також стерти дані браузера для ${location.host}${bytes != null ? ` (${size(bytes)})` : ''}`}
-              description="Налаштування вигляду, послідовність, збережені програми, кеш бібліотеки. Для інших адрес вони лишаться."
+              description="Копії налаштувань і послідовності в цьому браузері та кеш бібліотеки. Самі налаштування лишаються в папці застосунку (data/)."
             />
             <Group gap="xs" justify="flex-end">
               <Button size="xs" variant="default" onClick={() => setConfirming(false)}>

@@ -34,10 +34,13 @@ import {
   validStandbyPort,
 } from './serverSettings.js';
 import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
+import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 
 const app = express();
-app.use(express.json({ limit: '1mb' }));
+const json = express.json({ limit: '1mb' });
+// the UI state (1.6.4) may carry a background image as a data URL: its own, larger limit
+app.use((req, res, next) => (req.path === '/api/ui-state' ? next() : json(req, res, next)));
 
 const PORT = Number(process.env.PORT ?? 8787);
 /**
@@ -53,6 +56,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
  */
 const dataDir = process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data');
 const settings = initServerSettings(path.join(dataDir, 'settings.json'));
+initUiState(path.join(dataDir, 'ui-state.json'));
 initRemoteStore({ file: path.join(dataDir, 'secrets.json'), persist: settings.remotes.persist });
 
 /** A library rebuild (builder process) is in flight — guard against overlapping runs. */
@@ -137,6 +141,21 @@ const requireLocal: express.RequestHandler = (req, res, next) => {
   }
   next();
 };
+
+/** The operator's UI state kept in data/ (uiState.ts, 1.6.4) — this machine only. */
+app.get('/api/ui-state', requireLocal, (_req, res) => res.json(getUiState()));
+
+app.put(
+  '/api/ui-state',
+  requireLocalControl,
+  express.json({ limit: '16mb' }),
+  wrap((req, res) => {
+    const { key, value, at } = (req.body ?? {}) as { key?: unknown; value?: unknown; at?: unknown };
+    if (!isUiKey(key) || typeof value !== 'string' || typeof at !== 'number')
+      throw new ApiError(400, 'Очікую { key, value, at }');
+    res.json(saveUiEntry(key, value, at));
+  }),
+);
 
 app.post(
   '/api/remote',

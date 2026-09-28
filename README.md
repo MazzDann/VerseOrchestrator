@@ -65,6 +65,11 @@ ready, the launcher opens the control window in your browser and prints two addr
 
 To stop the app, close the launcher's window or press Ctrl+C in it.
 
+Your appearance settings, presets, hotkeys, the running order, and saved programs are
+stored with the app in `data/ui-state.json`. They move with the folder, and every address
+of the app (another port, the network address) shows the same ones; the browser only
+keeps a copy.
+
 The launcher runs the same background service as the **Запуск за адресою** switch
 (**Налаштування вигляду** → **Застосунок**), on the port set there. If that service
 already runs, the launcher only opens the browser. Phones reach the app through this
@@ -87,8 +92,8 @@ start it with the computer. To switch everything off, in the control window open
 **Налаштування вигляду** → **Застосунок** and click **Вимкнути повністю…**. This stops the
 app and its background service, removes the autostart entry, and closes the output windows.
 Phones and remotes show that the app is off. To also clear what the browser keeps for this
-address (appearance settings, the running order, the library cache), select **Також стерти
-дані браузера** in the confirmation.
+address (its copies of the settings and the running order, and the library cache), select
+**Також стерти дані браузера** in the confirmation.
 
 If the control window doesn't open, run the launcher with `--off` instead (for example,
 `start.cmd --off`). It does the same, except for the browser data.
