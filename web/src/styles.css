@@ -314,8 +314,9 @@ body[data-resizing='y'] {
 /* Viewer reading preferences on /follow (1.5.17): «Aa» and its sheet. */
 .vo-reader-btn {
   position: fixed;
-  top: max(10px, env(safe-area-inset-top));
-  right: 10px;
+  /* bottom left (1.5.22, the user): out of the reading line, under the thumb */
+  bottom: max(12px, env(safe-area-inset-bottom));
+  left: 12px;
   z-index: 5;
   width: 44px;
   height: 44px;
@@ -328,6 +329,31 @@ body[data-resizing='y'] {
     system-ui,
     sans-serif;
   touch-action: manipulation;
+}
+/* What is being read (1.5.22): a caption beside «Aa», in the UI font, not one more line
+   under the text — a weak eye read the reference as part of the verse. */
+.vo-follow-ref {
+  position: fixed;
+  left: 64px;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 6px);
+  z-index: 5;
+  box-sizing: border-box;
+  max-width: calc(100% - 76px);
+  height: 32px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  background: color-mix(in srgb, var(--vo-follow-bg) 85%, transparent);
+  color: color-mix(in srgb, currentColor 72%, transparent);
+  font:
+    500 14px/30px Inter,
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .vo-reader-sheet {
   position: fixed;
@@ -419,16 +445,17 @@ body[data-resizing='y'] {
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 16px max(14px, env(safe-area-inset-bottom));
+  gap: 4px;
+  padding: 4px 12px max(10px, env(safe-area-inset-bottom));
   border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
   background: var(--vo-follow-bg);
 }
 .vo-remote-pad {
   display: grid;
   grid-template-columns: 1fr 1.6fr; /* «Далі» is the button the speaker hits most */
-  gap: 12px;
-  height: clamp(76px, 15vh, 132px);
+  gap: 10px;
+  /* 1.5.22: «займає багатенько місця» — 64–96 px, still a big thumb target */
+  height: clamp(64px, 10vh, 96px);
 }
 .vo-remote-pad-small {
   height: auto;

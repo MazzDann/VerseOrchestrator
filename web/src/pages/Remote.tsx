@@ -713,9 +713,10 @@ export function Remote() {
         <p
           role="status"
           style={{
-            minHeight: 20,
+            minHeight: 16,
             margin: 0,
-            fontSize: 13,
+            fontSize: 12,
+            lineHeight: '16px',
             textAlign: 'center',
             color: 'var(--vo-follow-alert)',
           }}
