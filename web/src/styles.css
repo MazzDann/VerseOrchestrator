@@ -270,6 +270,79 @@ body[data-resizing='y'] {
   }
 }
 
+/* Viewer reading preferences on /follow (1.5.17): «Aa» and its sheet. */
+.vo-reader-btn {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: 10px;
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: color-mix(in srgb, var(--vo-follow-bg) 85%, transparent);
+  color: inherit;
+  font:
+    600 16px Inter,
+    system-ui,
+    sans-serif;
+  touch-action: manipulation;
+}
+.vo-reader-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+  background: var(--vo-follow-bg);
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
+  font:
+    15px/1.4 Inter,
+    system-ui,
+    sans-serif;
+}
+.vo-reader-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.vo-reader-row .vo-remote-chip {
+  font-size: 16px;
+  min-height: 40px;
+  padding: 6px 16px;
+}
+.vo-reader-row .vo-remote-chip:disabled {
+  opacity: 0.4;
+}
+.vo-reader-label {
+  min-width: 64px;
+  opacity: 0.75;
+}
+.vo-reader-steps {
+  display: inline-flex;
+  gap: 5px;
+}
+.vo-reader-steps > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 25%, transparent);
+}
+.vo-reader-steps > span[data-on] {
+  background: var(--mantine-color-brand-filled);
+}
+.vo-reader-hint {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.65;
+}
+
 /* Speaker remote (/remote on a phone): colours from .vo-follow (phone's own scheme). */
 .vo-remote {
   position: fixed;

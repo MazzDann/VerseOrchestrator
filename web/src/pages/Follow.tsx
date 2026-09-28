@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { type Slide } from '../presenterBus';
 import { connectLive } from '../lib/liveSocket';
+import {
+  DEFAULT_READER,
+  READER_SIZES,
+  loadReader,
+  readerTextStyle,
+  saveReader,
+  type ReaderPrefs,
+} from '../lib/readerPrefs';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -14,6 +22,15 @@ export function Follow() {
   const [paused, setPaused] = useState(false);
   const [connected, setConnected] = useState(true);
   const version = useRef(-1);
+  // how THIS phone likes to read (1.5.17): kept in its own browser, nothing is sent
+  const [reader, setReader] = useState<ReaderPrefs>(loadReader);
+  const [readerOpen, setReaderOpen] = useState(false);
+  const setPrefs = (patch: Partial<ReaderPrefs>) =>
+    setReader((cur) => {
+      const next = { ...cur, ...patch };
+      saveReader(next);
+      return next;
+    });
 
   useEffect(() => {
     let alive = true;
@@ -59,6 +76,7 @@ export function Follow() {
   const showText =
     slide && slide.visible && !slide.blank && !slide.forceBlack && slide.lines.length > 0;
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
+  const text = readerTextStyle(reader, font);
 
   return (
     // Colours come from .vo-follow (styles.css), which follows the PHONE's own light/dark
@@ -82,9 +100,10 @@ export function Follow() {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          alignItems: 'center',
-          textAlign: 'center',
-          padding: '7vw 6vw',
+          alignItems: reader.easy ? 'stretch' : 'center',
+          textAlign: reader.easy ? 'left' : 'center',
+          // the first line starts below the «Aa» button (44 px at the top right)
+          padding: 'max(7vw, 62px) 6vw 7vw',
           gap: '1.2em',
         }}
       >
@@ -108,9 +127,7 @@ export function Follow() {
                       key={i}
                       style={{
                         margin: 0,
-                        fontFamily: font,
-                        fontSize: 'clamp(20px, 6.2vw, 40px)',
-                        lineHeight: 1.45,
+                        ...text,
                         whiteSpace: 'pre-line',
                         opacity,
                         visibility: hidden ? 'hidden' : 'visible',
@@ -127,9 +144,7 @@ export function Follow() {
                     dir={line.rtl ? 'rtl' : 'ltr'}
                     style={{
                       margin: 0,
-                      fontFamily: font,
-                      fontSize: 'clamp(20px, 6.2vw, 40px)',
-                      lineHeight: 1.45,
+                      ...text,
                       whiteSpace: 'pre-line',
                     }}
                   >
@@ -174,6 +189,86 @@ export function Follow() {
           </div>
         )}
       </div>
+      <button
+        type="button"
+        className="vo-reader-btn"
+        aria-label="Налаштування тексту"
+        aria-expanded={readerOpen}
+        onClick={() => setReaderOpen((o) => !o)}
+      >
+        Aa
+      </button>
+      {readerOpen && (
+        <div className="vo-reader-sheet" role="dialog" aria-label="Налаштування тексту">
+          <div className="vo-reader-row">
+            <span className="vo-reader-label">Розмір</span>
+            <button
+              type="button"
+              className="vo-remote-chip"
+              aria-label="Менший текст"
+              disabled={reader.size === 0}
+              onClick={() => setPrefs({ size: reader.size - 1 })}
+            >
+              A−
+            </button>
+            <span className="vo-reader-steps" aria-hidden>
+              {READER_SIZES.map((_, i) => (
+                <span key={i} data-on={i <= reader.size ? 'true' : undefined} />
+              ))}
+            </span>
+            <button
+              type="button"
+              className="vo-remote-chip"
+              aria-label="Більший текст"
+              disabled={reader.size === READER_SIZES.length - 1}
+              onClick={() => setPrefs({ size: reader.size + 1 })}
+            >
+              A+
+            </button>
+          </div>
+          <div className="vo-reader-row">
+            <button
+              type="button"
+              className="vo-remote-chip"
+              aria-pressed={reader.bold}
+              data-selected={reader.bold ? 'true' : undefined}
+              onClick={() => setPrefs({ bold: !reader.bold })}
+            >
+              Жирніше
+            </button>
+            <button
+              type="button"
+              className="vo-remote-chip"
+              aria-pressed={reader.easy}
+              data-selected={reader.easy ? 'true' : undefined}
+              onClick={() => setPrefs({ easy: !reader.easy })}
+            >
+              Легше читати
+            </button>
+          </div>
+          <p className="vo-reader-hint">
+            «Легше читати» — шрифт без зарубок, ширші проміжки, текст ліворуч (зручніше при
+            дислексії). Зберігається лише на цьому телефоні.
+          </p>
+          <div className="vo-reader-row">
+            <button
+              type="button"
+              className="vo-remote-chip"
+              onClick={() => setPrefs(DEFAULT_READER)}
+            >
+              Скинути
+            </button>
+            <button
+              type="button"
+              className="vo-remote-chip"
+              data-selected="true"
+              onClick={() => setReaderOpen(false)}
+            >
+              Готово
+            </button>
+          </div>
+        </div>
+      )}
       {!connected && (
         <div
           style={{
