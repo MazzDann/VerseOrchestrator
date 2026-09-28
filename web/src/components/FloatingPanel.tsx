@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from 'react-dom';
 import { Paper, Group, Text, ActionIcon, ScrollArea } from '@mantine/core';
 import { IconX, IconGripVertical } from '@tabler/icons-react';
+import { notifyStack, openStack, stackListeners } from '../lib/panelStack';
 
 interface Pos {
   x: number;
@@ -30,14 +31,6 @@ interface Props {
 const MARGIN = 8;
 const MIN_W = 260;
 const MIN_H = 160;
-
-/**
- * Open panels in z-order (last = frontmost). Clicking a panel moves it to the end, so
- * Escape dismisses the one the operator is actually working in.
- */
-const openStack: symbol[] = [];
-const stackListeners = new Set<() => void>();
-const notifyStack = () => stackListeners.forEach((l) => l());
 
 /**
  * Floating panels sit ABOVE the AppShell (header/navbar/aside ≈ 100–110) but BELOW

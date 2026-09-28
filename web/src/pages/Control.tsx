@@ -87,6 +87,7 @@ import { ConcordancePanel } from '../components/ConcordancePanel';
 import { SongsPanel } from '../components/SongsPanel';
 import { TextPanel } from '../components/TextPanel';
 import { FloatingPanel } from '../components/FloatingPanel';
+import { floatingPanelOpen } from '../lib/panelStack';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { PlaylistPanel } from '../components/PlaylistPanel';
 import { FollowPanel } from '../components/FollowPanel';
@@ -1098,7 +1099,15 @@ export function Control() {
     slideLines,
     reference,
   ]);
-  useHotkeys(keymap.clear, () => clearScreen(), [keymap.clear]);
+  // Esc with a floating panel open closes the panel (FloatingPanel) — not the screen too.
+  useHotkeys(
+    keymap.clear,
+    (e) => {
+      if (e.key === 'Escape' && floatingPanelOpen()) return;
+      clearScreen();
+    },
+    [keymap.clear],
+  );
   useHotkeys(keymap.searchCurrent, () => openSearch('current'), {
     preventDefault: true,
     enableOnFormTags: true,
