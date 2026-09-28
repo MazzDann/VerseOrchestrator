@@ -286,6 +286,8 @@ export function createStandby(o: StandbyOptions) {
   }
 
   const api = {
+    /** Start the app now instead of on the first visit (the launcher, 1.6.0). */
+    start: () => ensureApp(),
     listen: () =>
       new Promise<number>((resolve, reject) => {
         server.once('error', reject);
@@ -307,15 +309,52 @@ export function createStandby(o: StandbyOptions) {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-function run(cmd: string, args: string[], cwd: string, log: (m: string) => void): Promise<void> {
+/** Run a command (npm …) to the end; `inherit`: its output goes straight to this console. */
+export function run(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  log: (m: string) => void,
+  opts: { inherit?: boolean } = {},
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd, shell: true, windowsHide: true });
+    // one command line: a shell is needed for npm(.cmd) on Windows, and Node deprecates
+    // separate args with a shell (DEP0190) — ours are fixed words, nothing to escape
+    const child = spawn([cmd, ...args].join(' '), {
+      cwd,
+      shell: true,
+      windowsHide: true,
+      stdio: opts.inherit ? 'inherit' : 'pipe',
+    });
     child.stdout?.on('data', (d) => log(String(d).trim()));
     child.stderr?.on('data', (d) => log(String(d).trim()));
     child.on('error', reject);
     child.on('close', (code) =>
       code === 0 ? resolve() : reject(new Error(`${cmd} ${args.join(' ')}: код ${code}`)),
     );
+  });
+}
+
+export type WaiterStatus = { state: string; retiring?: boolean } & Record<string, unknown>;
+
+/** The waiter answering on this port of this machine, if any (its status). */
+export async function waiterAt(port: number): Promise<WaiterStatus | null> {
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/__standby`, {
+      signal: AbortSignal.timeout(800),
+    });
+    return r.ok ? ((await r.json()) as WaiterStatus) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Nothing listens on this port yet (on every interface — where the waiter listens). */
+export function portFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once('error', () => resolve(false));
+    probe.listen(port, '0.0.0.0', () => probe.close(() => resolve(true)));
   });
 }
 
@@ -332,14 +371,23 @@ export function needsBuild(root: string): boolean {
   }
 }
 
+/** Build the UI (web/dist) and stamp it with the code's version (read by needsBuild). */
+export async function buildUi(
+  root: string,
+  log: (m: string) => void,
+  opts: { inherit?: boolean } = {},
+): Promise<void> {
+  await run('npm', ['run', 'build', '--workspace', '@vo/web'], root, log, opts);
+  const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+  fs.writeFileSync(path.join(root, 'web', 'dist', '.vo-version'), version);
+}
+
 /** Start the app of 1.4.0 (tsx-loaded server, any free loopback port) — building the UI first if needed. */
 export function appProcess(root: string, log: (m: string) => void) {
   return async (progress: (m: string) => void): Promise<RunningApp> => {
     if (needsBuild(root)) {
       progress('Перший запуск після оновлення: готую інтерфейс (до хвилини)…');
-      await run('npm', ['run', 'build', '--workspace', '@vo/web'], root, log);
-      const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-      fs.writeFileSync(path.join(root, 'web', 'dist', '.vo-version'), version);
+      await buildUi(root, log);
     }
     progress('Запускаю сервер…');
     // fork() by hand (spawn + an IPC channel) — fork's options don't take windowsHide:

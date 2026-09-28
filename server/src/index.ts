@@ -1,12 +1,11 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
-import net, { type AddressInfo } from 'node:net';
+import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { ApiError, closeDb, library, libraryInfo } from './db.js';
-import { isLocalRequest } from './access.js';
+import { isLocalRequest, lanIps } from './access.js';
 import {
   attachLiveHub,
   dropRemote,
@@ -34,7 +33,7 @@ import {
   validStandbyPort,
 } from './serverSettings.js';
 import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
-import { CONTROL_HEADER } from './standby.js';
+import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -228,19 +227,6 @@ app.put(
 const standbyScript = path.join(repoRoot, 'server', 'src', 'standby.ts');
 const autostart = currentEntry(repoRoot);
 
-type WaiterStatus = { state: string; retiring?: boolean } & Record<string, unknown>;
-
-async function waiterAt(port: number): Promise<WaiterStatus | null> {
-  try {
-    const r = await fetch(`http://127.0.0.1:${port}/__standby`, {
-      signal: AbortSignal.timeout(800),
-    });
-    return r.ok ? ((await r.json()) as WaiterStatus) : null;
-  } catch {
-    return null;
-  }
-}
-
 function tellWaiter(port: number, action: 'retire' | 'resume' | 'relaunch'): Promise<unknown> {
   return fetch(`http://127.0.0.1:${port}/__standby/${action}`, {
     method: 'POST',
@@ -258,20 +244,9 @@ function startWaiter(): void {
   }).unref();
 }
 
-function portFree(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const probe = net.createServer();
-    probe.once('error', () => resolve(false));
-    probe.listen(port, '0.0.0.0', () => probe.close(() => resolve(true)));
-  });
-}
-
 async function standbyState() {
   const { port, idleMinutes } = getServerSettings().standby;
-  const lan = Object.values(os.networkInterfaces())
-    .flat()
-    .filter((a) => a && a.family === 'IPv4' && !a.internal)
-    .map((a) => `http://${a!.address}:${port}`);
+  const lan = lanIps().map((ip) => `http://${ip}:${port}`);
   return {
     enabled: isAutostartOn(autostart),
     supported: !!autostart,
@@ -338,37 +313,10 @@ app.delete(
   }),
 );
 
-/**
- * LAN IPv4 addresses so the control UI can build a phone-scannable follow URL.
- * Ranked so a real Wi-Fi/Ethernet address sorts before virtual adapters
- * (Hyper-V/WSL/VirtualBox/Docker), which are commonly enumerated first on Windows
- * and aren't reachable from phones.
- */
+/** LAN IPv4 addresses so the control UI can build a phone-scannable follow URL (best first). */
 app.get(
   '/api/host',
-  wrap((_req, res) => {
-    const VIRTUAL = /(vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|default switch)/i;
-    // Rank by private-range likelihood: 192.168.x (home Wi-Fi) > 10.x > 172.16–31.x.
-    const rangeRank = (ip: string): number => {
-      if (ip.startsWith('192.168.')) return 0;
-      if (ip.startsWith('10.')) return 1;
-      if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return 2;
-      return 3;
-    };
-    const candidates: { ip: string; rank: number }[] = [];
-    for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
-      for (const a of addrs ?? []) {
-        if (a.family !== 'IPv4' || a.internal) continue;
-        if (a.address.startsWith('169.254.')) continue; // link-local (no DHCP)
-        candidates.push({
-          ip: a.address,
-          rank: rangeRank(a.address) + (VIRTUAL.test(name) ? 10 : 0),
-        });
-      }
-    }
-    candidates.sort((x, y) => x.rank - y.rank);
-    res.json({ ips: candidates.map((c) => c.ip) });
-  }),
+  wrap((_req, res) => res.json({ ips: lanIps() })),
 );
 
 app.get(
