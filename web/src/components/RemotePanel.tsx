@@ -5,20 +5,27 @@ import {
   Checkbox,
   Divider,
   Group,
+  Popover,
   Stack,
   Switch,
   Text,
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { IconDeviceMobilePlus, IconRefresh, IconTrash } from '@tabler/icons-react';
+import {
+  IconAdjustmentsHorizontal,
+  IconDeviceMobilePlus,
+  IconRefresh,
+  IconTrash,
+} from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type RemoteCommand } from '../api';
 import { PhoneLink } from './PhoneLink';
 import { REMOTE_LABEL } from '../lib/remote';
 
-const ALL: RemoteCommand[] = ['next', 'prev', 'blank', 'black'];
+/** In display order. New abilities (`show`, 1.5.0) start unticked — the operator turns them on. */
+const ALL: RemoteCommand[] = ['next', 'prev', 'show', 'blank', 'black'];
 
 /**
  * Speaker-remote pairing (server/src/remote.ts): create a scoped remote, show its QR once
@@ -50,6 +57,19 @@ export function RemotePanel() {
     } catch (e) {
       notifications.show({
         message: `Не вдалося змінити налаштування: ${(e as Error).message}`,
+        color: 'red',
+      });
+    }
+  };
+
+  // What an existing remote may do (1.5.0); its open page updates its buttons at once.
+  const setRemoteAllowed = async (id: string, next: RemoteCommand[]) => {
+    try {
+      await api.updateRemote(id, next);
+      void qc.invalidateQueries({ queryKey: ['remotes'] });
+    } catch (e) {
+      notifications.show({
+        message: `Не вдалося змінити дозволи: ${(e as Error).message}`,
         color: 'red',
       });
     }
@@ -210,6 +230,36 @@ export function RemotePanel() {
                 </Group>
               ) : (
                 <Group gap={2} wrap="nowrap">
+                  <Popover position="bottom-end" withArrow shadow="md" width={220}>
+                    <Popover.Target>
+                      <Tooltip label="Що дозволено цьому пульту">
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="sm"
+                          aria-label={`Дозволи: ${p.name}`}
+                        >
+                          <IconAdjustmentsHorizontal size={14} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Popover.Target>
+                    <Popover.Dropdown>
+                      <Checkbox.Group
+                        label={`Що дозволено «${p.name}»`}
+                        value={p.allowed}
+                        onChange={(v) => void setRemoteAllowed(p.id, v as RemoteCommand[])}
+                      >
+                        <Stack gap={6} mt={6}>
+                          {ALL.map((c) => (
+                            <Checkbox key={c} size="xs" value={c} label={REMOTE_LABEL[c]} />
+                          ))}
+                        </Stack>
+                      </Checkbox.Group>
+                      <Text size="xs" c="dimmed" mt={8}>
+                        Телефон отримає зміни одразу, без нового QR.
+                      </Text>
+                    </Popover.Dropdown>
+                  </Popover>
                   <Tooltip label="Перевипустити код: новий QR, старий телефон втратить керування">
                     <ActionIcon
                       variant="subtle"

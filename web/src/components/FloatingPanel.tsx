@@ -440,6 +440,7 @@ export function FloatingPanel({
       </Group>
       {/* scrollbars="y": content is laid out at the panel's width (never a sideways scroll) */}
       <ScrollArea.Autosize
+        className="vo-panel-body"
         mah={size?.h ? undefined : 'calc(100vh - 160px)'}
         type="hover"
         scrollbars="y"

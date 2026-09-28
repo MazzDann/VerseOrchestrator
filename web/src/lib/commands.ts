@@ -14,7 +14,8 @@ import { useEffect, useRef } from 'react';
  *   - the outcome goes back to the source: moved, or why not («Це останній вірш»).
  */
 
-export type ShowCommand = 'next' | 'prev' | 'blank' | 'black';
+/** `show` (1.5.0, remotes): put the preview on screen — the operator's F5 / «На екран». */
+export type ShowCommand = 'next' | 'prev' | 'blank' | 'black' | 'show';
 
 export interface CommandSource {
   kind: 'output' | 'remote';

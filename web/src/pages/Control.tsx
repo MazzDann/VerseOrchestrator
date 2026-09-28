@@ -100,7 +100,7 @@ import { REMOTE_LABEL } from '../lib/remote';
 import { commands, PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { useDataSource } from '../dataSourceStore';
-import { sameSlide, summarize } from '../lib/slide';
+import { sameContent, sameSlide, summarize } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { ResizeHandle } from '../components/ResizeHandle';
@@ -1186,10 +1186,30 @@ export function Control() {
   useCommandHandler((cmd) => {
     if (cmd === 'next') return advance(1);
     if (cmd === 'prev') return advance(-1);
+    if (cmd === 'show') return showPreview();
     if (cmd === 'blank') blankScreen();
     else blackScreen();
     return { ok: true };
   }, PRIORITY.verses);
+
+  /**
+   * A remote's «На екран» (1.5.0): what the preview shows goes on screen — the operator's
+   * F5. A song stanza / free text / Strong slide in the preview is what's shown then.
+   */
+  function showPreview(): Outcome {
+    if (previewOverride) {
+      pushLive(previewOverride);
+      setLive(true);
+      return { ok: true };
+    }
+    if (slideLines.length === 0) return { ok: false, reason: 'У передпоказі нічого немає' };
+    const onScreen =
+      liveSlide.visible && !liveSlide.blank && !liveSlide.forceBlack && liveSlide.lines.length > 0;
+    if (onScreen && sameContent(liveSlide, versePreview))
+      return { ok: true, reason: 'Уже на екрані' };
+    send();
+    return { ok: true };
+  }
   useEffect(
     () =>
       subscribeCommand((cmd, id) => {
@@ -1206,7 +1226,12 @@ export function Control() {
     type: 'screen',
     screen: summarize(liveSlideRef.current),
     next: nextSlideRef.current ? summarize(nextSlideRef.current) : null,
+    // what the remote's «На екран» would put there (1.5.0)
+    preview: JSON.parse(previewSummary.current) as ReturnType<typeof summarize>,
   });
+  // the preview gets a new identity every render: compare its summary instead
+  const previewSummary = useRef('');
+  previewSummary.current = JSON.stringify(summarize(previewSlide));
   const liveSlideRef = useRef(liveSlide);
   liveSlideRef.current = liveSlide;
   const nextSlideRef = useRef(nextSlide);
@@ -1315,10 +1340,11 @@ export function Control() {
       c.stop();
     };
   }, [queryClient, serverAvailable, isLeader]);
-  // Keep remotes' «На екрані» / «Далі» in step with the output (independent of follow-along).
+  // Keep remotes' «На екрані» / «Передпоказ» / «Далі» in step (independent of follow-along).
+  const previewKey = previewSummary.current;
   useEffect(() => {
     controlConn.current?.send(screenFrame());
-  }, [liveSlide, nextSlide]);
+  }, [liveSlide, nextSlide, previewKey]);
 
   const openPresenter = async () => {
     // «Кілька вікон показу» (Вікна виводу): another window instead of the open one.
