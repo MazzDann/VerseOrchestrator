@@ -94,6 +94,21 @@ export function Follow() {
         WebkitTextSizeAdjust: '100%',
       }}
     >
+      {!connected && (
+        // at the top: the bottom row belongs to «Aa» and the caption
+        <div
+          style={{
+            padding: '8px 0',
+            textAlign: 'center',
+            fontSize: 13,
+            color: 'var(--vo-follow-alert)',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            background: 'var(--vo-follow-alert-bg)',
+          }}
+        >
+          Немає зв’язку з показом. Перепідключаюся…
+        </div>
+      )}
       <div
         style={{
           flex: 1,
@@ -102,8 +117,8 @@ export function Follow() {
           justifyContent: 'center',
           alignItems: reader.easy ? 'stretch' : 'center',
           textAlign: reader.easy ? 'left' : 'center',
-          // the first line starts below the «Aa» button (44 px at the top right)
-          padding: 'max(7vw, 62px) 6vw 7vw',
+          // the last line ends above the «Aa» button (44 px at the bottom left)
+          padding: '7vw 6vw max(7vw, 68px)',
           gap: '1.2em',
         }}
       >
@@ -161,18 +176,6 @@ export function Follow() {
                 {slide!.subline}
               </p>
             )}
-            {slide!.reference && (
-              <p
-                style={{
-                  margin: 0,
-                  opacity: 0.6,
-                  letterSpacing: 1,
-                  fontSize: 'clamp(13px, 3.6vw, 18px)',
-                }}
-              >
-                {slide!.reference}
-              </p>
-            )}
           </>
         ) : paused ? (
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', maxWidth: 420 }}>
@@ -189,6 +192,11 @@ export function Follow() {
           </div>
         )}
       </div>
+      {showText && slide!.reference && (
+        // what is being read sits apart from the text, next to «Aa» (1.5.22): under the
+        // last line a weak eye took it for one more line of the verse or stanza
+        <p className="vo-follow-ref">{slide!.reference}</p>
+      )}
       <button
         type="button"
         className="vo-reader-btn"
@@ -267,20 +275,6 @@ export function Follow() {
               Готово
             </button>
           </div>
-        </div>
-      )}
-      {!connected && (
-        <div
-          style={{
-            padding: '8px 0',
-            textAlign: 'center',
-            fontSize: 13,
-            color: 'var(--vo-follow-alert)',
-            fontFamily: 'Inter, system-ui, sans-serif',
-            background: 'var(--vo-follow-alert-bg)',
-          }}
-        >
-          Немає зв’язку з показом. Перепідключаюся…
         </div>
       )}
     </div>
