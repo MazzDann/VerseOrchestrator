@@ -25,7 +25,6 @@ export default defineConfig({
       '@mantine/hooks',
       '@mantine/store',
       '@mantine/notifications',
-      'framer-motion',
     ],
   },
   server: {
