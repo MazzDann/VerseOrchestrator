@@ -4,7 +4,7 @@ import type { RemoteCommand } from '../api';
 export const REMOTE_LABEL: Record<RemoteCommand, string> = {
   next: 'Далі',
   prev: 'Назад',
-  blank: 'Затемнити',
+  blank: 'Сховати текст',
   black: 'Чорний екран',
   show: 'На екран',
   pick: 'Вибір віршів',

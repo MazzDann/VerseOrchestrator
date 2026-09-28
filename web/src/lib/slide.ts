@@ -49,3 +49,24 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
     source: slide.source,
   };
 }
+
+/**
+ * «Сховати текст» (1.5.18) over what is on screen — the operator: «щоб вертався рівно
+ * той же контент». Hiding keeps the whole slide (lines, style, source) with blank: the
+ * text fades, the background and the corner QR stay; again → the same slide back. From
+ * black it goes to «hidden». Null: nothing on screen to hide.
+ */
+export function toggleHidden(s: Slide): Slide | null {
+  if (s.forceBlack) return { ...s, forceBlack: false, blank: true };
+  if (s.blank) return { ...s, blank: false };
+  if (!s.visible || (s.lines.length === 0 && !s.qr)) return null;
+  return { ...s, blank: true };
+}
+
+/**
+ * «Чорний екран» (1.5.18): an instant cut to black — background and corner QR included —
+ * over whatever is there (kept inside the slide); again → exactly that back.
+ */
+export function toggleBlack(s: Slide): Slide {
+  return s.forceBlack ? { ...s, forceBlack: false } : { ...s, forceBlack: true, visible: true };
+}

@@ -68,7 +68,7 @@ export function Stage() {
   const liveLabel = slide.forceBlack
     ? 'Чорний екран'
     : slide.blank
-      ? 'Затемнено'
+      ? 'Текст сховано'
       : slide.visible && slide.lines.length > 0
         ? slide.reference || 'На екрані'
         : 'Порожньо';

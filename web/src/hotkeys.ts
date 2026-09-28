@@ -63,8 +63,18 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     default: 'f5,f2',
     mac: 'meta+enter',
   },
-  { id: 'blank', label: 'Затемнити', hint: 'Сховати текст, фон лишається', default: 'b' },
-  { id: 'black', label: 'Чорний екран', hint: 'Повністю чорний, ігнорує фон', default: 'period' },
+  {
+    id: 'blank',
+    label: 'Сховати текст',
+    hint: 'Текст згасає, фон лишається; ще раз — той самий слайд назад',
+    default: 'b',
+  },
+  {
+    id: 'black',
+    label: 'Чорний екран',
+    hint: 'Одразу все чорне, навіть фон; ще раз — усе назад',
+    default: 'period',
+  },
   { id: 'clear', label: 'Очистити', hint: 'Прибрати слайд з екрана', default: 'escape' },
   {
     id: 'searchCurrent',

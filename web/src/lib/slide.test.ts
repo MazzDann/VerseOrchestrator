@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sameSlide, summarize } from './slide';
+import { sameSlide, summarize, toggleBlack, toggleHidden } from './slide';
 import type { Slide } from '../presenterBus';
 
 const base: Slide = {
@@ -82,5 +82,43 @@ describe("the viewers' QR slide (1.5.16)", () => {
       text: 'QR для глядачів',
     });
     expect(summarize({ ...qr, blank: true }).status).toBe('blank');
+  });
+});
+
+describe('«Сховати текст» / «Чорний екран» toggles (1.5.18)', () => {
+  const verse = {
+    lines: [{ translationAbbr: 'UKRK', text: 'На початку було Слово', rtl: false }],
+    reference: 'Івана 1:1',
+    blank: false,
+    visible: true,
+  };
+
+  it('hide, then show exactly the same slide', () => {
+    const hidden = toggleHidden(verse)!;
+    expect(hidden.blank).toBe(true);
+    expect(hidden.lines).toEqual(verse.lines);
+    expect(toggleHidden(hidden)).toEqual({ ...verse, blank: false });
+  });
+
+  it('black keeps what was there and gives it back; from black «Сховати» goes to hidden', () => {
+    const black = toggleBlack(verse);
+    expect(black.forceBlack).toBe(true);
+    expect(toggleBlack(black)).toEqual({ ...verse, forceBlack: false });
+    expect(toggleHidden(black)).toMatchObject({
+      forceBlack: false,
+      blank: true,
+      lines: verse.lines,
+    });
+    // black over hidden text → un-black → still hidden
+    expect(toggleBlack(toggleBlack(toggleHidden(verse)!))).toMatchObject({
+      blank: true,
+      forceBlack: false,
+    });
+  });
+
+  it('nothing to hide on an empty screen; black still works there', () => {
+    const empty = { lines: [], reference: '', blank: false, visible: false };
+    expect(toggleHidden(empty)).toBeNull();
+    expect(toggleBlack(empty)).toMatchObject({ forceBlack: true, visible: true });
   });
 });
