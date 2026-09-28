@@ -16,6 +16,9 @@ import {
   IconAdjustments,
   IconPin,
   IconPinnedOff,
+  IconScreenShare,
+  IconArrowBackUp,
+  IconX,
 } from '@tabler/icons-react';
 
 import { type Verse, type Book } from '../api';
@@ -54,6 +57,14 @@ interface Props {
   onTogglePin: () => void;
   /** Bottom-of-centre placement: constrain the preview and hide the pin. */
   compact?: boolean;
+  /** The speaker's own preview (1.5.2, a remote's cursor) and what the operator can do with it. */
+  remote?: {
+    name: string;
+    slide: Slide;
+    onShow: () => void;
+    onAdopt: () => void;
+    onClose: () => void;
+  } | null;
 }
 
 /**
@@ -82,6 +93,7 @@ export function StudyPanels({
   pinned,
   onTogglePin,
   compact = false,
+  remote,
 }: Props) {
   // Program/preview monitors (video-switcher tally): when the prepared slide is already
   // on screen show ONE red "На екрані" monitor; otherwise a large amber preview plus a
@@ -113,13 +125,68 @@ export function StudyPanels({
       maxWidth={maxWidth}
     />
   );
+  // put on screen by a speaker's remote (1.5.2): say whose it is
+  const liveBy = liveSlide.source?.kind === 'verses' ? liveSlide.source.by : undefined;
+  const liveDetail = liveActive
+    ? `${liveSlide.reference}${liveBy ? ` · пульт «${liveBy}»` : ''}`
+    : liveLabel;
   const programMonitor = !merged && (
     <Box w="62%" mt="sm">
       <Monitor
         slide={liveSlide}
         state={liveActive ? 'live' : 'idle'}
         title="На екрані"
-        detail={liveActive ? liveSlide.reference : liveLabel}
+        detail={liveDetail}
+      />
+    </Box>
+  );
+  // The speaker's own preview — only while it differs from the screen (a remote walking
+  // on screen would just repeat the monitor above).
+  const remoteOnScreen = !!remote && liveActive && sameContent(remote.slide, liveSlide);
+  const remoteMonitor = remote && !remoteOnScreen && (
+    <Box w="62%" mt="sm">
+      <Monitor
+        slide={remote.slide}
+        state="cue"
+        title="Пульт"
+        detail={`«${remote.name}» · ${remote.slide.reference}`}
+        actions={
+          <Group gap={2} wrap="nowrap">
+            <Tooltip label="На екран">
+              <ActionIcon
+                size="sm"
+                variant="subtle"
+                color="live"
+                onClick={remote.onShow}
+                aria-label={`На екран: передпоказ пульта «${remote.name}»`}
+              >
+                <IconScreenShare size={14} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Перейти сюди у своєму виборі">
+              <ActionIcon
+                size="sm"
+                variant="subtle"
+                color="gray"
+                onClick={remote.onAdopt}
+                aria-label={`Перейти до передпоказу пульта «${remote.name}»`}
+              >
+                <IconArrowBackUp size={14} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Сховати до наступного вибору на пульті">
+              <ActionIcon
+                size="sm"
+                variant="subtle"
+                color="gray"
+                onClick={remote.onClose}
+                aria-label="Сховати передпоказ пульта"
+              >
+                <IconX size={14} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        }
       />
     </Box>
   );
@@ -161,6 +228,7 @@ export function StudyPanels({
               <Box px="md" pt="sm" pb="xs">
                 {previewMonitor(compact ? 460 : undefined)}
                 {programMonitor}
+                {remoteMonitor}
               </Box>
             )}
             <ScrollArea style={{ flex: 1 }} px="md">
@@ -230,6 +298,7 @@ export function StudyPanels({
           <Box p="xs">
             {previewMonitor()}
             {programMonitor}
+            {remoteMonitor}
           </Box>
         </>
       )}

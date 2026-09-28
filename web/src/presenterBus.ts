@@ -123,6 +123,8 @@ export type SlideSource =
       verses: number[];
       page: number;
       reveal: number;
+      /** put there by a speaker's remote (1.5.2) — its name */
+      by?: string;
     }
   | { kind: 'song'; songId: number; stanza: number };
 
