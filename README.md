@@ -95,6 +95,25 @@ If the control window doesn't open, run the launcher with `--off` instead (for e
 
 After that, nothing of VerseOrchestrator runs or starts again, and you can delete its folder.
 
+### Make a portable copy
+
+A portable copy runs on another computer with the same operating system and processor
+without Node.js and without internet access, for example, from a flash drive. To make
+one, run this command on a computer that has Node.js and internet access:
+
+```bash
+npm run portable
+```
+
+The command creates `portable/VerseOrchestrator-VERSION-SYSTEM-CPU/` with the app, the
+Node.js runtime it runs on (with npm), only the dependencies the app needs at run time,
+and the built interface. To include the library and its segments, add
+`-- --with-library`. The launchers in the copy use its own Node.js. The file
+`ЯК ЗАПУСТИТИ.txt` in the copy tells the operator how to start it.
+
+Make a copy for each system separately: run the command on Windows for Windows, on a Mac
+for macOS, and on Linux for Linux.
+
 ## Development
 
 To work on the code with live reload, install the dependencies, build the library, and
@@ -208,16 +227,17 @@ only a hash of each code is stored, in `data/secrets.json`.
 
 ## Scripts
 
-| Script                        | Purpose                                                             |
-| ----------------------------- | ------------------------------------------------------------------- |
-| `npm start`                   | the launcher, as `start.cmd` / `start.sh` (see Start the app)       |
-| `npm run standby`             | only the background service, as the **Запуск за адресою** switch    |
-| `npm run dev`                 | run server + web together                                           |
-| `npm run build:library`       | (re)build `data/library.db` from `modules/`                         |
-| `npm run build:library:watch` | rebuild on module changes                                           |
-| `npm test`                    | Vitest: normalization (Cyrillic, tag stripping) + reference parsing |
-| `npm run lint`                | ESLint (TypeScript, React hooks, jsx-a11y)                          |
-| `npm run format`              | Prettier                                                            |
+| Script                        | Purpose                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------- |
+| `npm start`                   | the launcher, as `start.cmd` / `start.sh` (see Start the app)           |
+| `npm run portable`            | a copy that runs without Node.js or internet (see Make a portable copy) |
+| `npm run standby`             | only the background service, as the **Запуск за адресою** switch        |
+| `npm run dev`                 | run server + web together                                               |
+| `npm run build:library`       | (re)build `data/library.db` from `modules/`                             |
+| `npm run build:library:watch` | rebuild on module changes                                               |
+| `npm test`                    | Vitest: normalization (Cyrillic, tag stripping) + reference parsing     |
+| `npm run lint`                | ESLint (TypeScript, React hooks, jsx-a11y)                              |
+| `npm run format`              | Prettier                                                                |
 
 ## Architecture
 
