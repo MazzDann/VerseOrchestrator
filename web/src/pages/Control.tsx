@@ -1411,6 +1411,12 @@ export function Control() {
   }, [isLeader]);
   /** Audience phones currently on /follow (pushed by the hub). */
   const [viewers, setViewers] = useState(0);
+  /**
+   * Is this the control window the server listens to (1.5.8)? With control windows in two
+   * browsers, remotes, their «На екрані» and the phones follow one — the first; the other
+   * shows a note and can take over («Слухати тут»).
+   */
+  const [hubActive, setHubActive] = useState(true);
   useEffect(() => {
     // No server (static deployment / stopped): there is no hub to talk to. Standby: the
     // leading window holds the control socket, so remote commands reach one window only.
@@ -1418,12 +1424,16 @@ export function Control() {
     const c = connectLive({
       hello: { role: 'control' },
       onMessage: (f) => {
-        // (Re)connected as control: give remotes the current screen straight away.
-        if (f.type === 'welcome') {
-          c.send(screenFrame());
-          // After a server restart the relay starts paused — restore what phones should see.
-          if (followAlongRef.current)
-            c.send({ type: 'publish', slide: stripBg(liveSlideRef.current) });
+        // In charge of the hub (at connect, after «Слухати тут», or when the other browser's
+        // control window closed): give remotes the current screen straight away and, after a
+        // server restart (the relay starts paused), restore what phones should see.
+        if (f.type === 'hub') {
+          setHubActive(f.active === true);
+          if (f.active === true) {
+            c.send(screenFrame());
+            if (followAlongRef.current)
+              c.send({ type: 'publish', slide: stripBg(liveSlideRef.current) });
+          }
         }
         if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
         // `songs` is a permission, never a command (the server doesn't forward it)
@@ -1469,6 +1479,7 @@ export function Control() {
     controlConn.current = c;
     return () => {
       controlConn.current = null;
+      setHubActive(true);
       c.stop();
     };
   }, [queryClient, serverAvailable, isLeader]);
@@ -2131,6 +2142,31 @@ export function Control() {
                 </Text>
                 <Button size="xs" variant="light" onClick={takeOver}>
                   Взяти керування
+                </Button>
+              </Group>
+            )}
+            {isLeader && !hubActive && (
+              <Group
+                gap="sm"
+                wrap="nowrap"
+                px="md"
+                py={6}
+                role="status"
+                style={{
+                  background: 'var(--mantine-color-default-hover)',
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                }}
+              >
+                <Text size="sm" style={{ flex: 1 }}>
+                  Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси
+                  показ іде лише на вікна виводу цього браузера.
+                </Text>
+                <Button
+                  size="xs"
+                  variant="light"
+                  onClick={() => controlConn.current?.send({ type: 'take-control' })}
+                >
+                  Слухати тут
                 </Button>
               </Group>
             )}

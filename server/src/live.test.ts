@@ -349,6 +349,50 @@ describe('speaker remote over the hub', () => {
     bystander.ws.close();
   });
 
+  it('two control windows (two browsers): one in charge, take-control, failover', async () => {
+    const p = createPairing('Два вікна');
+    const a = client({ role: 'control' }, origin());
+    await a.next('welcome');
+    expect(await a.next('hub')).toMatchObject({ active: true });
+    const b = client({ role: 'control' }, origin());
+    await b.next('welcome');
+    expect(await b.next('hub')).toMatchObject({ active: false });
+    const remote = client({ role: 'remote', token: p.token });
+    await remote.next('welcome');
+
+    // a command goes to the window in charge only
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'next', id: 'w1' }));
+    const toA = await a.next('command');
+    a.ws.send(JSON.stringify({ type: 'result', id: toA.id, ok: true }));
+    expect(await remote.next('ack')).toMatchObject({ id: 'w1', ok: true });
+    // the other one's screen doesn't reach the remote
+    b.ws.send(JSON.stringify({ type: 'screen', screen: { reference: 'від B' } }));
+    a.ws.send(JSON.stringify({ type: 'screen', screen: { reference: 'від A' } }));
+    await new Promise((r) => setTimeout(r, 80));
+    const screens = remote.frames.filter((f) => f.type === 'screen');
+    expect(screens.at(-1)).toMatchObject({ screen: { reference: 'від A' } });
+    expect(screens.some((f) => JSON.stringify(f).includes('від B'))).toBe(false);
+
+    // B takes over
+    b.ws.send(JSON.stringify({ type: 'take-control' }));
+    expect(await a.next('hub')).toMatchObject({ active: false });
+    expect(await b.next('hub')).toMatchObject({ active: true });
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'next', id: 'w2' }));
+    const toB = await b.next('command');
+    b.ws.send(JSON.stringify({ type: 'result', id: toB.id, ok: true }));
+    expect(await remote.next('ack')).toMatchObject({ id: 'w2', ok: true });
+
+    // B closes: A takes charge again by itself
+    b.ws.close();
+    expect(await a.next('hub')).toMatchObject({ active: true });
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'prev', id: 'w3' }));
+    expect(await a.next('command')).toMatchObject({ cmd: 'prev' });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(a.frames.filter((f) => f.type === 'command')).toEqual([]); // nothing went astray
+    a.ws.close();
+    remote.ws.close();
+  });
+
   it('revoking a pairing disconnects its remote', async () => {
     const p = createPairing('Тимчасовий');
     const remote = client({ role: 'remote', token: p.token });
@@ -405,6 +449,10 @@ describe('screen relay (control → remotes only)', () => {
     expect(
       (cGot.filter((f) => f.type === 'viewers').at(-1) as { count: number }).count,
     ).toBeGreaterThanOrEqual(1);
+    // one control window leads the hub (1.5.8): close this one before the next test's
+    await Promise.all(
+      [control, remote, viewer].map((w) => new Promise((r) => (w.once('close', r), w.close()))),
+    );
   });
 });
 
@@ -419,6 +467,7 @@ describe('frame size', () => {
     control.send(JSON.stringify({ type: 'screen', screen: { text: big }, next: null }));
     await new Promise((r) => setTimeout(r, 150));
     expect(control.readyState).toBe(WebSocket.OPEN);
+    await new Promise((r) => (control.once('close', r), control.close()));
   });
 });
 
