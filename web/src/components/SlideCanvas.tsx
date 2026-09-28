@@ -1,50 +1,14 @@
 import { type CSSProperties } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import {
   type Slide,
   type SlideLine,
   type SlideStyle,
   type SlideReveal,
-  type SlideTransition,
   DEFAULT_STYLE,
 } from '../presenterBus';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
-
-/**
- * The slide change (1.5.7, SlideStyle.transition) as motion variants for an AnimatePresence
- * in mode="wait": `smooth` — the old slide fades out, then the new one in (0.35 s each);
- * `fast` — the old one goes at once and the new one fades in over 0.15 s; `none` — an
- * instant swap. The mode reaches the EXITING slide through AnimatePresence's `custom`, so
- * the change right after switching modes already follows the new one (measured: a leftover
- * 0.35 s fade-out otherwise).
- */
-const SLIDE_VARIANTS = {
-  hidden: { opacity: 0 },
-  shown: (t: SlideTransition | undefined) => ({
-    opacity: 1,
-    transition:
-      t === 'none'
-        ? { duration: 0 }
-        : t === 'fast'
-          ? { duration: 0.15, ease: 'easeOut' as const }
-          : { duration: 0.35, ease: 'easeInOut' as const },
-  }),
-  gone: (t: SlideTransition | undefined) => ({
-    opacity: 0,
-    transition: { duration: t === 'fast' || t === 'none' ? 0 : 0.35, ease: 'easeInOut' as const },
-  }),
-};
-
-function slideMotion(t: SlideTransition | undefined) {
-  return {
-    variants: SLIDE_VARIANTS,
-    custom: t,
-    initial: t === 'none' ? (false as const) : 'hidden',
-    animate: 'shown',
-    exit: 'gone',
-  };
-}
+import { SlideFade } from './SlideFade';
 
 const ALIGN_ITEMS = { left: 'flex-start', center: 'center', right: 'flex-end' } as const;
 
@@ -212,91 +176,90 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
     return (
       <div style={rootStyle}>
         {scrim}
-        <AnimatePresence mode="wait" custom={style.transition}>
-          {show && (
-            <motion.div
-              key={slideKey}
-              {...slideMotion(style.transition)}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                textShadow: style.bgImage ? '0 2px 12px rgba(0,0,0,0.6)' : 'none',
-              }}
-            >
-              {template.objects.map((o, i) => {
-                if (!o.visible) return null;
-                if (o.kind === 'subline' && !slide.subline) return null;
-                // Clamp geometry to the slide so a box taller/wider than the screen
-                // (some .pptx text boxes extend past the slide — e.g. h ≈ 119%) can't
-                // push the auto-fit content off the visible area.
-                const cx = Math.max(0, Math.min(100, o.x));
-                const cy = Math.max(0, Math.min(100, o.y));
-                const cw = Math.max(0, Math.min(100 - cx, o.w));
-                const ch = Math.max(0, Math.min(100 - cy, o.h));
-                if (o.kind === 'divider') {
-                  if (o.tiedToSubline && !slide.subline) return null;
-                  return (
-                    <div
-                      key={i}
-                      style={{
-                        position: 'absolute',
-                        left: `${cx}%`,
-                        top: `${cy}%`,
-                        width: `${cw}%`,
-                        height: `${Math.max(ch, 0.2)}%`,
-                        background: o.color ?? 'currentColor',
-                        opacity: 0.4,
-                        borderRadius: 2,
-                      }}
-                    />
-                  );
-                }
-                const box: CSSProperties = {
-                  position: 'absolute',
-                  left: `${cx}%`,
-                  top: `${cy}%`,
-                  width: `${cw}%`,
-                  height: `${ch}%`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: ALIGN_ITEMS[o.align],
-                  textAlign: o.align,
-                  color: o.color,
-                  overflow: 'hidden',
-                  lineHeight: 1.25,
-                };
-                if (o.kind === 'quote') {
-                  // Auto-fit the box, capped at the original font size for faithful
-                  // songs (see `quoteMaxCqh` above) so the look matches the pptx.
-                  return (
-                    <div key={i} ref={containerRef} style={box}>
-                      <div ref={contentRef} style={{ maxWidth: '100%', textAlign: o.align }}>
-                        {slide.reveal ? (
-                          <RevealLines reveal={slide.reveal} style={style} />
-                        ) : (
-                          <QuoteLines lines={slide.lines} style={style} />
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      ...box,
-                      fontSize: `${o.size}cqh`,
-                      opacity: o.kind === 'reference' ? 0.85 : 0.95,
-                      letterSpacing: o.kind === 'reference' ? 1 : undefined,
-                    }}
-                  >
-                    {o.kind === 'reference' ? slide.reference : slide.subline}
+        <SlideFade
+          slideKey={show ? slideKey : null}
+          mode={style.transition}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            // font and colour belong to the slide: a leaving slide keeps its own
+            fontFamily: style.font,
+            color: style.color,
+            textShadow: style.bgImage ? '0 2px 12px rgba(0,0,0,0.6)' : 'none',
+          }}
+        >
+          {template.objects.map((o, i) => {
+            if (!o.visible) return null;
+            if (o.kind === 'subline' && !slide.subline) return null;
+            // Clamp geometry to the slide so a box taller/wider than the screen
+            // (some .pptx text boxes extend past the slide — e.g. h ≈ 119%) can't
+            // push the auto-fit content off the visible area.
+            const cx = Math.max(0, Math.min(100, o.x));
+            const cy = Math.max(0, Math.min(100, o.y));
+            const cw = Math.max(0, Math.min(100 - cx, o.w));
+            const ch = Math.max(0, Math.min(100 - cy, o.h));
+            if (o.kind === 'divider') {
+              if (o.tiedToSubline && !slide.subline) return null;
+              return (
+                <div
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    left: `${cx}%`,
+                    top: `${cy}%`,
+                    width: `${cw}%`,
+                    height: `${Math.max(ch, 0.2)}%`,
+                    background: o.color ?? 'currentColor',
+                    opacity: 0.4,
+                    borderRadius: 2,
+                  }}
+                />
+              );
+            }
+            const box: CSSProperties = {
+              position: 'absolute',
+              left: `${cx}%`,
+              top: `${cy}%`,
+              width: `${cw}%`,
+              height: `${ch}%`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: ALIGN_ITEMS[o.align],
+              textAlign: o.align,
+              color: o.color,
+              overflow: 'hidden',
+              lineHeight: 1.25,
+            };
+            if (o.kind === 'quote') {
+              // Auto-fit the box, capped at the original font size for faithful
+              // songs (see `quoteMaxCqh` above) so the look matches the pptx.
+              return (
+                <div key={i} ref={containerRef} style={box}>
+                  <div ref={contentRef} style={{ maxWidth: '100%', textAlign: o.align }}>
+                    {slide.reveal ? (
+                      <RevealLines reveal={slide.reveal} style={style} />
+                    ) : (
+                      <QuoteLines lines={slide.lines} style={style} />
+                    )}
                   </div>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                </div>
+              );
+            }
+            return (
+              <div
+                key={i}
+                style={{
+                  ...box,
+                  fontSize: `${o.size}cqh`,
+                  opacity: o.kind === 'reference' ? 0.85 : 0.95,
+                  letterSpacing: o.kind === 'reference' ? 1 : undefined,
+                }}
+              >
+                {o.kind === 'reference' ? slide.reference : slide.subline}
+              </div>
+            );
+          })}
+        </SlideFade>
       </div>
     );
   }
@@ -328,57 +291,51 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
           justifyContent: 'center',
         }}
       >
-        <AnimatePresence mode="wait" custom={style.transition}>
-          {show && (
-            <motion.div
-              key={slideKey}
-              ref={contentRef}
-              {...slideMotion(style.transition)}
+        <SlideFade
+          slideKey={show ? slideKey : null}
+          mode={style.transition}
+          layerRef={contentRef}
+          style={{
+            position: 'relative',
+            fontFamily: style.font,
+            color: style.color,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: ALIGN_ITEMS[style.align],
+            justifyContent: 'center',
+            gap: '0.5em',
+            maxWidth: '100%',
+            textAlign: style.align,
+            lineHeight: 1.3,
+            textShadow: style.bgImage ? '0 2px 12px rgba(0,0,0,0.6)' : 'none',
+          }}
+        >
+          {slide.reveal ? (
+            <RevealLines reveal={slide.reveal} style={style} />
+          ) : (
+            <QuoteLines lines={slide.lines} style={style} />
+          )}
+          {slide.subline && (
+            <div
               style={{
-                position: 'relative',
+                marginTop: '0.35em',
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: ALIGN_ITEMS[style.align],
-                justifyContent: 'center',
-                gap: '0.5em',
+                alignItems: 'center',
+                gap: '0.3em',
                 maxWidth: '100%',
-                textAlign: style.align,
-                lineHeight: 1.3,
-                textShadow: style.bgImage ? '0 2px 12px rgba(0,0,0,0.6)' : 'none',
               }}
             >
-              {slide.reveal ? (
-                <RevealLines reveal={slide.reveal} style={style} />
-              ) : (
-                <QuoteLines lines={slide.lines} style={style} />
-              )}
-              {slide.subline && (
-                <div
-                  style={{
-                    marginTop: '0.35em',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '0.3em',
-                    maxWidth: '100%',
-                  }}
-                >
-                  <div
-                    style={{ width: '34%', borderTop: '1px solid currentColor', opacity: 0.3 }}
-                  />
-                  <div style={{ fontSize: '0.55em', opacity: 0.92, textAlign: style.align }}>
-                    {slide.subline}
-                  </div>
-                </div>
-              )}
-              <div
-                style={{ marginTop: '0.3em', fontSize: '0.42em', opacity: 0.75, letterSpacing: 1 }}
-              >
-                {slide.reference}
+              <div style={{ width: '34%', borderTop: '1px solid currentColor', opacity: 0.3 }} />
+              <div style={{ fontSize: '0.55em', opacity: 0.92, textAlign: style.align }}>
+                {slide.subline}
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
+          <div style={{ marginTop: '0.3em', fontSize: '0.42em', opacity: 0.75, letterSpacing: 1 }}>
+            {slide.reference}
+          </div>
+        </SlideFade>
       </div>
     </div>
   );
