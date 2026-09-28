@@ -57,7 +57,7 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
 
   // Fit next frame (refs attached) AND again shortly after, because on initial mount
   // the box can be measured before its final size settles (percentage heights under
-  // `container-type: size`, framer-motion enter) — the first pass would otherwise
+  // `container-type: size`, a `SlideFade` layer just mounted) — the first pass would otherwise
   // lock in a too-large size and never refit.
   const scheduleFit = useCallback(() => {
     cancelAnimationFrame(rafRef.current);

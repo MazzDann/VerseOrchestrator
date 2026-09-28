@@ -1,6 +1,6 @@
 {
   "name": "@vo/web",
-  "version": "0.6.27",
+  "version": "0.6.28",
   "private": true,
   "type": "module",
   "scripts": {
@@ -20,7 +20,6 @@
     "@tanstack/react-query": "^5.64.1",
     "@tanstack/react-virtual": "^3.11.2",
     "@vo/shared": "*",
-    "framer-motion": "^11.18.2",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
