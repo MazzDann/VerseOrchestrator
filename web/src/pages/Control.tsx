@@ -2865,8 +2865,13 @@ function stripBg(slide: Slide): Slide {
 const GAP = '…';
 /** The book list keeps about four rows however short the window (1.5.26). */
 const BOOKS_MIN_HEIGHT = 120;
-/** How long the socket to the hub may be down before the operator is told (1.5.25). */
-const HUB_LOST_MS = 3000;
+/**
+ * How long the socket to the hub may be down before the operator is told (1.5.25), counted
+ * from the drop (1.5.29: a failed retry no longer restarts it — with retries every 2 s it
+ * never ran out). The retries 0.5 / 1.5 / 3.5 s after the drop catch a restart of up to
+ * ~3.5 s before this.
+ */
+const HUB_LOST_MS = 4000;
 
 /** Displayed text for the selected verses (chapter order), with gaps between non-contiguous ones. */
 function joinVerses(verses: Verse[], selected: number[], showNum: boolean): string {

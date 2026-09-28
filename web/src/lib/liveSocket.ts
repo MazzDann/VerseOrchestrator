@@ -21,11 +21,19 @@ export interface LiveConnection {
   stop: () => void;
 }
 
+/**
+ * The longest wait between reconnect attempts (1.5.29). The hub is on this machine or the
+ * local network, where a refused connect costs nothing; with a 10 s cap a remote stayed dead
+ * for up to 10 s after the app came back (a viewer took 9.5 s after a 26 s outage).
+ */
+export const RETRY_CAP_MS = 2000;
+
 export function connectLive(opts: {
   /** Sent on every (re)connect to claim a role: control / remote. Omit for a viewer. */
   hello?: object;
   onFrame?: (f: LiveFrame) => void;
   onMessage?: (f: HubFrame) => void;
+  /** The socket went up or down — once per change, not on every failed retry (1.5.29). */
   onStatus?: (open: boolean) => void;
   /** Stop reconnecting when the server says we're not welcome (bad token, revoked). */
   stopOn?: (f: HubFrame) => boolean;
@@ -33,11 +41,20 @@ export function connectLive(opts: {
   let ws: WebSocket | null = null;
   let closed = false;
   let retry = 0;
+  /** Set while a reconnect attempt waits its turn — not while connecting or connected. */
   let timer: number | undefined;
+  /** What `onStatus` last said (null: nothing yet). */
+  let up: boolean | null = null;
+  const report = (open: boolean) => {
+    if (up === open) return;
+    up = open;
+    opts.onStatus?.(open);
+  };
 
   const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/ws`;
 
   const open = () => {
+    timer = undefined;
     if (closed) return;
     try {
       ws = new WebSocket(url);
@@ -48,7 +65,7 @@ export function connectLive(opts: {
     ws.onopen = () => {
       retry = 0;
       if (opts.hello) ws?.send(JSON.stringify({ type: 'hello', ...opts.hello }));
-      opts.onStatus?.(true);
+      report(true);
     };
     ws.onmessage = (e) => {
       let f: HubFrame;
@@ -64,7 +81,7 @@ export function connectLive(opts: {
       if (opts.stopOn?.(f)) closed = true;
     };
     ws.onclose = () => {
-      opts.onStatus?.(false);
+      report(false);
       schedule();
     };
     ws.onerror = () => ws?.close();
@@ -72,9 +89,21 @@ export function connectLive(opts: {
 
   const schedule = () => {
     if (closed) return;
-    // 0.5 s, 1 s, 2 s … capped at 10 s — quick after a blip, gentle when the server is down.
-    const delay = Math.min(10_000, 500 * 2 ** retry++);
+    // 0.5 s, 1 s, then every 2 s — quick after a blip, and soon after the app is back.
+    const delay = Math.min(RETRY_CAP_MS, 500 * 2 ** retry++);
     timer = window.setTimeout(open, delay);
+  };
+
+  // Back on the network, or back on screen (a phone unlocked, the tab brought forward — a
+  // hidden page's timers run late): try at once instead of waiting for the next attempt.
+  const retryNow = () => {
+    if (closed || timer === undefined) return; // connected, connecting or stopped
+    window.clearTimeout(timer);
+    retry = 0;
+    open();
+  };
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') retryNow();
   };
 
   // Leaving the page (navigating away, closing — or into the back/forward cache): close the
@@ -83,6 +112,7 @@ export function connectLive(opts: {
   // from the cache connects again.
   const onHide = () => {
     window.clearTimeout(timer);
+    timer = undefined;
     const w = ws;
     ws = null;
     if (w) {
@@ -95,6 +125,9 @@ export function connectLive(opts: {
   };
   window.addEventListener('pagehide', onHide);
   window.addEventListener('pageshow', onShow);
+  window.addEventListener('online', retryNow);
+  // fired at the document, bubbles to the window
+  window.addEventListener('visibilitychange', onVisible);
 
   open();
   return {
@@ -108,6 +141,8 @@ export function connectLive(opts: {
       window.clearTimeout(timer);
       window.removeEventListener('pagehide', onHide);
       window.removeEventListener('pageshow', onShow);
+      window.removeEventListener('online', retryNow);
+      window.removeEventListener('visibilitychange', onVisible);
       // A stopped connection says nothing more: its close event arrives after the caller
       // has moved on (an effect re-run) and is not an outage (1.5.25).
       if (ws) ws.onclose = null;
