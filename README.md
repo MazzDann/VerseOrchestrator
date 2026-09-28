@@ -22,6 +22,9 @@ The user documentation is in Ukrainian, like the app:
   order, slide appearance, viewers' phones, the speaker's remote, installation,
   troubleshooting, and a reference of hotkeys, launcher options, and files.
 
+The developer documentation is in English: [docs/dev](docs/dev/README.md) covers the
+architecture and how to contribute.
+
 ## Quick start
 
 You need **Node.js 22.18 or later** (24 LTS recommended) and MyBible modules. A
