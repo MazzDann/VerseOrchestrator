@@ -354,6 +354,124 @@ body[data-resizing='y'] {
 .vo-remote-btn-live:active:not(:disabled) {
   background: var(--mantine-color-live-filled-hover);
 }
+/* The speaker's own preview (1.5.1): cue-coloured like every «next» on this page. */
+.vo-remote-mine {
+  border-color: var(--mantine-color-cue-filled);
+}
+.vo-remote-row {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 10px;
+}
+.vo-remote-chip {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  padding: 4px 12px;
+  min-height: 34px;
+  max-width: 45vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The verse picker (1.5.1): a full-screen sheet over the remote. */
+.vo-remote-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  background: var(--vo-follow-bg);
+  color: var(--vo-follow-fg);
+}
+.vo-remote-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vo-remote-sheet-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+}
+.vo-remote-filter {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px; /* 16px: iOS doesn't zoom into the field */
+  padding: 10px 12px;
+}
+.vo-remote-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* rows keep their text's height (buttons in a scrolling column would shrink and overlap) */
+.vo-remote-sheet-body > * {
+  flex: none;
+}
+.vo-remote-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  min-height: 44px;
+}
+.vo-remote-item[data-selected] {
+  background: var(--mantine-color-brand-light);
+  border-color: var(--mantine-color-brand-filled);
+}
+.vo-remote-check {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+}
+.vo-remote-item:disabled {
+  opacity: 0.4;
+}
+.vo-remote-verse {
+  align-items: flex-start;
+  line-height: 1.45;
+}
+.vo-remote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 6px;
+}
+.vo-remote-grid .vo-remote-item {
+  justify-content: center;
+}
+.vo-remote-sheet-foot {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 10px;
+}
 /* «Далі» preview: the amber cue colour, as on the control window's monitors. */
 .vo-remote-next {
   border-radius: 12px;

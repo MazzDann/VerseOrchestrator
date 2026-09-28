@@ -25,7 +25,7 @@ import { PhoneLink } from './PhoneLink';
 import { REMOTE_LABEL } from '../lib/remote';
 
 /** In display order. New abilities (`show`, 1.5.0) start unticked — the operator turns them on. */
-const ALL: RemoteCommand[] = ['next', 'prev', 'show', 'blank', 'black'];
+const ALL: RemoteCommand[] = ['next', 'prev', 'show', 'pick', 'blank', 'black'];
 
 /**
  * Speaker-remote pairing (server/src/remote.ts): create a scoped remote, show its QR once

@@ -1,4 +1,4 @@
-import { type Slide } from '../presenterBus';
+import { type Slide, type SlideSource } from '../presenterBus';
 
 /** True when two slides show the same content (used to merge preview into the live monitor). */
 export function sameContent(a: Slide, b: Slide): boolean {
@@ -28,6 +28,8 @@ export interface ScreenSummary {
   /** First line's text, capped — enough to recognise the slide on a phone. */
   text: string;
   font?: string;
+  /** where it comes from (1.5.1): a remote knows whether its own cursor is on screen */
+  source?: SlideSource;
 }
 
 export function summarize(slide: Slide | null | undefined): ScreenSummary {
@@ -44,5 +46,6 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
     reference: slide.reference ?? '',
     text: (slide.lines[0]?.text ?? '').slice(0, 400),
     font: slide.style?.font,
+    source: slide.source,
   };
 }

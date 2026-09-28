@@ -14,8 +14,40 @@ import { useEffect, useRef } from 'react';
  *   - the outcome goes back to the source: moved, or why not («Це останній вірш»).
  */
 
-/** `show` (1.5.0, remotes): put the preview on screen — the operator's F5 / «На екран». */
-export type ShowCommand = 'next' | 'prev' | 'blank' | 'black' | 'show';
+/**
+ * `show` (1.5.0, remotes): put the preview on screen — the operator's F5 / «На екран»; with
+ * a passage (1.5.1), put THAT on screen. `pick` (1.5.1): the speaker's own preview — a
+ * passage chosen on the phone (the remote's cursor), not on screen yet.
+ */
+export type ShowCommand = 'next' | 'prev' | 'blank' | 'black' | 'show' | 'pick';
+
+/** A passage chosen on a remote (its cursor): the operator's selection is not touched. */
+export interface RemotePassage {
+  translationIds: number[];
+  bookNumber: number;
+  chapter: number;
+  verses: number[];
+}
+
+export interface CommandArgs {
+  passage?: RemotePassage;
+}
+
+const ints = (a: unknown): a is number[] =>
+  Array.isArray(a) && a.length > 0 && a.every((n) => Number.isInteger(n) && n > 0);
+
+/** A passage as it arrives from the hub (the server already checked it) — or undefined. */
+export function asPassage(raw: unknown): RemotePassage | undefined {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  if (!ints(r.translationIds) || !ints(r.verses)) return undefined;
+  if (!Number.isInteger(r.bookNumber) || !Number.isInteger(r.chapter)) return undefined;
+  return {
+    translationIds: r.translationIds,
+    bookNumber: r.bookNumber as number,
+    chapter: r.chapter as number,
+    verses: r.verses,
+  };
+}
 
 export interface CommandSource {
   kind: 'output' | 'remote';
@@ -29,33 +61,49 @@ export interface Outcome {
   reason?: string;
 }
 
-/** A handler takes the command (returns an outcome) or passes it on (returns null). */
-export type CommandHandler = (cmd: ShowCommand, source: CommandSource) => Outcome | null;
+/**
+ * A handler takes the command (returns an outcome — or a promise of one, when it has to
+ * load something first, like the verses of a remote's passage) or passes it on (null).
+ */
+export type CommandHandler = (
+  cmd: ShowCommand,
+  source: CommandSource,
+  args: CommandArgs,
+) => Outcome | Promise<Outcome> | null;
 
 /** How long an id is remembered for de-duplication (a retry comes within seconds). */
 export const DEDUPE_MS = 30_000;
 
 export function createDispatcher(now: () => number = Date.now) {
   const handlers: { fn: CommandHandler; priority: number }[] = [];
-  const seen = new Map<string, { at: number; outcome: Outcome }>();
+  const seen = new Map<string, { at: number; outcome: Promise<Outcome> }>();
 
-  function dispatch(
+  /** Apply a command once per id; resolves to what happened (a repeat: the first outcome). */
+  async function dispatch(
     id: string,
     cmd: ShowCommand,
     source: CommandSource,
-  ): Outcome & { duplicate?: boolean } {
+    args: CommandArgs = {},
+  ): Promise<Outcome & { duplicate?: boolean }> {
     const t = now();
     for (const [k, v] of seen) if (t - v.at > DEDUPE_MS) seen.delete(k);
     const before = seen.get(id);
-    if (before) return { ...before.outcome, duplicate: true };
-    let outcome: Outcome = { ok: false, reason: 'Вікно керування ще не готове' };
+    if (before) return { ...(await before.outcome), duplicate: true };
+    let outcome: Promise<Outcome> = Promise.resolve({
+      ok: false,
+      reason: 'Вікно керування ще не готове',
+    });
     for (const h of handlers) {
-      const o = h.fn(cmd, source);
+      const o = h.fn(cmd, source, args);
       if (o) {
-        outcome = o;
+        outcome = Promise.resolve(o).catch((e: unknown) => ({
+          ok: false,
+          reason: (e as Error).message || 'Не вдалося',
+        }));
         break;
       }
     }
+    // remembered before it settles: a retry arriving meanwhile waits for the same outcome
     seen.set(id, { at: t, outcome });
     return outcome;
   }
@@ -92,6 +140,6 @@ export function useCommandHandler(fn: CommandHandler, priority: number, enabled 
   ref.current = fn;
   useEffect(() => {
     if (!enabled) return;
-    return commands.handle((cmd, source) => ref.current(cmd, source), priority);
+    return commands.handle((cmd, source, args) => ref.current(cmd, source, args), priority);
   }, [priority, enabled]);
 }
