@@ -69,7 +69,7 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
       <Stack gap="xs">
         <TextInput
           size="sm"
-          placeholder="Заголовок (необов'язково)"
+          placeholder="Заголовок (необов’язково)"
           value={title}
           onChange={(e) => setTitle(e.currentTarget.value)}
         />

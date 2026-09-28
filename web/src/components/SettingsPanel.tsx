@@ -349,7 +349,7 @@ export function SettingsPanel() {
           <div>
             <Switch
               label="Прогресивне розкриття"
-              description="Уривок з'являється по одному вірша на кожен крок клікера (накопичення)"
+              description="Уривок з’являється по одному віршу на кожен крок клікера (накопичення)"
               checked={a.reveal}
               onChange={(e) => set({ reveal: e.currentTarget.checked })}
             />
