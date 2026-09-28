@@ -65,6 +65,11 @@ ready, the launcher opens the control window in your browser and prints two addr
 
 To stop the app, close the launcher's window or press Ctrl+C in it.
 
+To start the app from the desktop, create a shortcut: in the control window open
+**Налаштування вигляду** → **Застосунок** and click **Створити ярлик**, or run the
+launcher with `--shortcut`. The shortcut opens the control window as a window of its own,
+without tabs or an address bar.
+
 Your appearance settings, presets, hotkeys, the running order, and saved programs are
 stored with the app in `data/ui-state.json`. They move with the folder, and every address
 of the app (another port, the network address) shows the same ones; the browser only
@@ -84,6 +89,8 @@ In a terminal, you can pass these options to any launcher (for example,
 | `--port N`     | Uses port `N` for this start instead of the one in the settings (4747 by default).                                                    |
 | `--check`      | Reports the state of Node.js, the dependencies, the library, the interface, and the port, and what a start would do. Changes nothing. |
 | `--off`        | Switches the app off completely (see below).                                                                                          |
+| `--app`        | Opens the control window as a window of its own, without tabs or an address bar (Chrome or Edge; otherwise the default browser).      |
+| `--shortcut`   | Creates a desktop shortcut that starts the app with `--app`, then exits.                                                              |
 
 ### Switch the app off completely
 

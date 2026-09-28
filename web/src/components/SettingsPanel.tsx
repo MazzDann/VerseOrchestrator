@@ -39,6 +39,7 @@ import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
 import { StandbySection } from './StandbySection';
 import { ShutdownSection } from './ShutdownSection';
+import { ShortcutSection } from './ShortcutSection';
 import { useEffectiveSource } from '../dataSourceStore';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
@@ -465,6 +466,7 @@ export function SettingsPanel() {
             </Button>
           </div>
           <StandbySection active={openSections.includes('app')} />
+          <ShortcutSection />
           <ShutdownSection />
         </Section>
       </Accordion>

@@ -8,6 +8,8 @@
  *
  *   start [--no-browser] [--port N] [--check]
  *   start --off [--port N]      switch it all off (1.6.2)
+ *   start --app                 the control window as an app window (1.6.5)
+ *   start --shortcut            a desktop shortcut that starts it that way (1.6.5)
  *
  * Like standby.ts: only node: imports (it runs before `npm ci`) and no TS-only syntax — Node
  * runs it as it is (`node server/src/launcher.ts`, type stripping; the wrappers check that
@@ -20,6 +22,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lanIps } from './access.ts';
 import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
+import { appWindowCommand, createShortcut } from './shortcut.ts';
 import {
   appProcess,
   buildUi,
@@ -45,22 +48,35 @@ export interface LaunchOptions {
   port: number | null;
   check: boolean;
   off: boolean;
+  /** the control window as an app window: Chrome/Edge `--app` (1.6.5) */
+  app: boolean;
+  shortcut: boolean;
 }
 
 /** The command line, or what is wrong with it. */
 export function parseArgs(argv: string[]): LaunchOptions | string {
-  const o: LaunchOptions = { browser: true, port: null, check: false, off: false };
+  const o: LaunchOptions = {
+    browser: true,
+    port: null,
+    check: false,
+    off: false,
+    app: false,
+    shortcut: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--no-browser') o.browser = false;
     else if (a === '--check') o.check = true;
     else if (a === '--off') o.off = true;
+    else if (a === '--app') o.app = true;
+    else if (a === '--shortcut') o.shortcut = true;
     else if (a === '--port') {
       const port = Number(argv[++i]);
       if (!Number.isInteger(port) || port < 1024 || port > 65535)
         return 'Порт — ціле число від 1024 до 65535, наприклад: --port 4748';
       o.port = port;
-    } else return `Невідомий параметр «${a}». Можна: --no-browser, --port N, --check, --off`;
+    } else
+      return `Невідомий параметр «${a}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut`;
   }
   return o;
 }
@@ -260,8 +276,10 @@ function sqliteLoads(): { ok: boolean; error: string } {
   return { ok: r.status === 0, error: error.trim().slice(0, 200) };
 }
 
-function openBrowser(url: string): void {
-  const cmd = browserCommand(process.platform, url);
+function openBrowser(url: string, asApp = false): void {
+  // an app window if asked and Chrome/Edge is there, else the default browser
+  const cmd =
+    (asApp && appWindowCommand(process.platform, url)) || browserCommand(process.platform, url);
   if (!cmd) {
     say(`  Відкрийте в браузері: ${url}`);
     return;
@@ -325,11 +343,26 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
+  // --shortcut: the desktop shortcut, then done (1.6.5)
+  if (opts.shortcut) {
+    try {
+      const files = createShortcut(root);
+      say(`✓ Ярлик на робочому столі: ${files[0]}`);
+      say(
+        '  Він запускає застосунок і відкриває вікно керування окремим вікном (Chrome або Edge).',
+      );
+      return 0;
+    } catch (err) {
+      say(`✗ Ярлик не створено: ${(err as Error).message}`);
+      return 1;
+    }
+  }
+
   // Already running (autostart, a second launch): open it — there is nothing to prepare
   const running = !!(await waiterAt(port));
   if (running && !opts.check) {
     say(`✓ Застосунок уже працює: ${local}`);
-    if (opts.browser) openBrowser(`${local}/`);
+    if (opts.browser) openBrowser(`${local}/`, opts.app);
     return 0;
   }
 
@@ -488,7 +521,7 @@ async function main(argv: string[]): Promise<number> {
     say(`✗ Застосунок не запустився: ${(err as Error).message}`);
     return 1;
   }
-  if (opts.browser) openBrowser(`${local}/`);
+  if (opts.browser) openBrowser(`${local}/`, opts.app);
 
   const stop = () => {
     stopping = true;
