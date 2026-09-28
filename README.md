@@ -25,10 +25,14 @@ licensing). You provide them yourself, in the standard **MyBible** `.SQLite3` fo
 2. Put your MyBible Bible-text modules there, e.g. `modules/KJV+.SQLite3`,
    `modules/UKRK.SQLite3`. Commentaries/dictionaries/cross-references are ignored.
 
-MyBible modules can be obtained via the MyBible app or its community module mirrors
-(the catalog the app uses lives at `https://mybible.zone` and mirror hosts such as
-`myb.1gb.ru`, `mybible.infoo.pro`, `mph4.ru`, served as `http://<host>/m/<file>.zip`;
-the older `mybible.i-t.kz` mirror is dead — expired TLS, dropped from the registry).
+MyBible modules can be obtained through the MyBible app's module catalog.
+
+Many translations — and most song collections — are still under copyright. Use them for
+your own reading and projection, don't redistribute them, and prefer public-domain texts
+(e.g. KJV, Luther 1912, Segond 1910, Kulish 1905, the Vulgate) for demos and screenshots.
+The serverless build (`npm run build:static`) carries the full text of every imported
+module, so don't publish it with copyrighted translations inside. `.gitignore` keeps
+modules, the library, segments, songs and builds out of the repository.
 
 The builder auto-detects the modules folder in this order: `$MODULES_DIR` →
 `modules/` → `data/modules/` → `old/MyBible/`.
@@ -106,14 +110,14 @@ To pair a phone:
 Each remote has its own permissions. To change them later, click the **Дозволи** icon
 on the remote's row; the open phone updates at once, without a new QR code:
 
-| Permission     | On the phone                                                        |
-| -------------- | ------------------------------------------------------------------- |
-| **Далі**, **Назад** | step through the show (also a Bluetooth clicker: arrows, `PageDown`/`PageUp`, `Space`) |
-| **На екран**   | put the control window's preview — or the speaker's own choice — on screen (`Enter` on a clicker) |
-| **Вибір віршів** | choose translations, book, chapter, and verse on the phone         |
-| **Пісні**      | find a song by number or words and choose a stanza                  |
-| **Послідовність** | see your running order (**Послідовність показу**), show its next or any item, and add the speaker's own choice to it (with **Вибір віршів** / **Пісні**) |
-| **Затемнити**, **Чорний екран** | blank the screen                                   |
+| Permission                      | On the phone                                                                                                                                             |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Далі**, **Назад**             | step through the show (also a Bluetooth clicker: arrows, `PageDown`/`PageUp`, `Space`)                                                                   |
+| **На екран**                    | put the control window's preview — or the speaker's own choice — on screen (`Enter` on a clicker)                                                        |
+| **Вибір віршів**                | choose translations, book, chapter, and verse on the phone                                                                                               |
+| **Пісні**                       | find a song by number or words and choose a stanza                                                                                                       |
+| **Послідовність**               | see your running order (**Послідовність показу**), show its next or any item, and add the speaker's own choice to it (with **Вибір віршів** / **Пісні**) |
+| **Затемнити**, **Чорний екран** | blank the screen                                                                                                                                         |
 
 A new remote gets **Далі**, **Назад**, and **Затемнити**; the others start off.
 
