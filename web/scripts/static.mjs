@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url';
 
 const web = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(web, 'dist');
-const src = process.env.SEGMENTS_DIR ?? path.join(web, '..', 'data', 'segments');
+const src =
+  process.env.SEGMENTS_DIR ??
+  path.join(process.env.VO_DATA_DIR ?? path.join(web, '..', 'data'), 'segments');
 const out = path.join(dist, 'segments');
 
 if (!fs.existsSync(path.join(src, 'manifest.json'))) {

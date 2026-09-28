@@ -11,7 +11,10 @@ import { createLibrary, LibraryError, type Library, type SqlDriver } from '@vo/s
  */
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const DB_PATH = process.env.LIBRARY_DB ?? path.join(repoRoot, 'data', 'library.db');
+// in the data folder like the rest of the app's state (VO_DATA_DIR — builder, launcher, index.ts)
+const DB_PATH =
+  process.env.LIBRARY_DB ??
+  path.join(process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data'), 'library.db');
 
 /** Errors carrying an HTTP status (the library's own errors are the same class). */
 export { LibraryError as ApiError };

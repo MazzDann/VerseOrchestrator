@@ -13,7 +13,10 @@ import { betterSqliteDriver, tuneReadOnly } from './db.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const fileArg = process.argv.slice(2).find((a) => !a.startsWith('--'));
-const file = fileArg ?? process.env.LIBRARY_DB ?? path.join(repoRoot, 'data', 'library.db');
+const file =
+  fileArg ??
+  process.env.LIBRARY_DB ??
+  path.join(process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data'), 'library.db');
 const raw = process.argv.includes('--raw'); // skip the read-only tuning, for before/after
 
 const db = new Database(file, { readonly: true, fileMustExist: true });
