@@ -1365,6 +1365,22 @@ export function Control() {
   };
   useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
 
+  // «Далі» after a song's last stanza (1.5.24): an empty slide — the stanza's text goes, its
+  // background stays (the same slide, hidden, as «Сховати текст»); «Назад» or any stanza
+  // brings text back. Only over a song: after a song the screen shows nothing to read.
+  const songEnd = (): Outcome => {
+    if (!leaderRef.current) return { ok: false, reason: 'Показом керує інше вікно керування' };
+    const s = liveSlideRef.current;
+    if (s.source?.kind !== 'song' || !s.visible) {
+      return { ok: false, reason: 'На екрані не пісня — ховати нічого' };
+    }
+    if (s.blank || s.forceBlack) return { ok: true }; // nothing to read already
+    const next: Slide = { ...s, blank: true };
+    pushLive(next);
+    afterToggle(next);
+    return { ok: true };
+  };
+
   // Show commands from outside the operator's keyboard — an output window's keys (a
   // clicker on the 2nd monitor) and speaker remotes — all go through one dispatcher
   // (lib/commands.ts). This is the default handler; an open song registers a
@@ -2504,6 +2520,7 @@ export function Control() {
               onActiveStanzaChange={setSongsPanelStanza}
               onAddToPlaylist={addSongToPlaylist}
               keysPaused={paletteOpen}
+              onSongEnd={songEnd}
             />
             <TextPanel
               open={textOpen}
