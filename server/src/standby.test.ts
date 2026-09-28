@@ -58,7 +58,7 @@ async function waiter(opts: Partial<Parameters<typeof createStandby>[0]> = {}) {
     host: '127.0.0.1',
     idleMs: 60_000,
     startApp: app.start,
-    onRetired: () => events.push('retired'),
+    onRetired: (why) => events.push(why === 'retire' ? 'retired' : `closed:${why}`),
     onRelaunch: () => events.push('relaunched'),
     ...opts,
   });
@@ -153,6 +153,21 @@ describe('standby waiter', () => {
     await sleep(100);
     expect(app.stopped).toBe(1);
     expect(events).toEqual(['relaunched']);
+  });
+
+  it('«Вимкнути повністю»: stops the app and closes at once, even under an open page (1.6.1)', async () => {
+    const { app, port, url, events } = await waiter();
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/api/ws`); // an open control window
+    await new Promise((r) => ws.once('open', r));
+    const r = await fetch(url('/__standby/shutdown'), {
+      method: 'POST',
+      headers: { [CONTROL_HEADER]: '1' },
+    });
+    expect(await r.json()).toEqual({ shuttingDown: true });
+    await sleep(150);
+    expect(app.stopped).toBe(1);
+    expect(events).toEqual(['closed:shutdown']);
+    await expect(fetch(url('/__standby'))).rejects.toThrow(); // the address is free again
   });
 
   it('retire while waiting exits at once; retire while running waits for the app to stop', async () => {

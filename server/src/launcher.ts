@@ -328,9 +328,15 @@ async function main(argv: string[]): Promise<number> {
       idleMs: settings.idleMinutes * 60_000,
       startApp: appProcess(root, log),
       log: echo,
-      // closed: by Ctrl+C / the window (stop below), or «Запуск за адресою» turned off
-      onRetired: () => {
-        if (!stopping) say('«Запуск за адресою» вимкнено в налаштуваннях — застосунок зупинено.');
+      // closed: by Ctrl+C / the window (stop below), «Запуск за адресою» turned off, or
+      // «Вимкнути повністю» (1.6.1)
+      onRetired: (why) => {
+        if (why === 'shutdown')
+          say(
+            'Застосунок вимкнено з налаштувань («Вимкнути повністю»). Щоб запустити знову, запустіть цей файл.',
+          );
+        else if (!stopping)
+          say('«Запуск за адресою» вимкнено в налаштуваннях — застосунок зупинено.');
         process.exit(0);
       },
       // the port changed in Settings → Застосунок: carry on at the new one
@@ -342,6 +348,8 @@ async function main(argv: string[]): Promise<number> {
     });
     current = standby;
     await standby.listen();
+    // the app inherits it: «Вимкнути повністю» then tells this very waiter (1.6.1)
+    process.env.VO_STANDBY_PORT = String(p);
     await standby.start();
     say('');
     say(`✓ Застосунок працює (${secs(started)}). Вікно керування: http://localhost:${p}`);

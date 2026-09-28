@@ -49,6 +49,7 @@ import {
   IconDeviceMobile,
   IconAppWindow,
   IconPlugConnectedX,
+  IconPower,
 } from '@tabler/icons-react';
 
 import { api, type Verse, type SongStyle, type RemoteCommand, type Pairing } from '../api';
@@ -123,7 +124,7 @@ import {
   type SharedPlaylist,
   targetArgs,
 } from '../lib/commands';
-import { useServer, NEEDS_SERVER } from '../serverStore';
+import { useServer, NEEDS_SERVER, START_AGAIN } from '../serverStore';
 import { useDataSource } from '../dataSourceStore';
 import { sameContent, sameSlide, summarize, toggleBlack, toggleHidden } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
@@ -1705,6 +1706,8 @@ export function Control() {
    * the server had stopped — the last word from the hub, never taken back.
    */
   const [hubLost, setHubLost] = useState(false);
+  /** The hub said the app is being switched off on purpose («Вимкнути повністю», 1.6.1). */
+  const [appOff, setAppOff] = useState(false);
   useEffect(() => {
     // No server (static deployment / stopped): there is no hub to talk to. Standby: the
     // leading window holds the control socket, so remote commands reach one window only.
@@ -1715,8 +1718,10 @@ export function Control() {
       // a restart of the server (≈1–2 s) shouldn't flash a warning; a real outage should
       onStatus: (open) => {
         window.clearTimeout(lostTimer);
-        if (open) setHubLost(false);
-        else lostTimer = window.setTimeout(() => setHubLost(true), HUB_LOST_MS);
+        if (open) {
+          setHubLost(false);
+          setAppOff(false); // started again
+        } else lostTimer = window.setTimeout(() => setHubLost(true), HUB_LOST_MS);
       },
       onMessage: (f) => {
         // In charge of the hub (at connect, after «Слухати тут», or when the other browser's
@@ -1732,6 +1737,7 @@ export function Control() {
           }
         }
         if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
+        if (f.type === 'shutdown') setAppOff(true);
         // `songs` is a permission, never a command (the server doesn't forward it)
         if (
           f.type === 'command' &&
@@ -2497,7 +2503,31 @@ export function Control() {
                 </Button>
               </Group>
             )}
-            {isLeader && hubLost && (
+            {isLeader && appOff && (
+              <Group
+                gap="sm"
+                wrap="nowrap"
+                px="md"
+                py={6}
+                role="status"
+                style={{
+                  background: 'var(--mantine-color-default-hover)',
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                }}
+              >
+                <IconPower
+                  size={16}
+                  color="var(--mantine-color-dimmed)"
+                  aria-hidden
+                  style={{ flex: 'none' }}
+                />
+                <Text size="sm" style={{ flex: 1 }}>
+                  Застосунок вимкнено: пульти й телефони глядачів відключено, вікна виводу закрито.{' '}
+                  {START_AGAIN}
+                </Text>
+              </Group>
+            )}
+            {isLeader && hubLost && !appOff && (
               <Group
                 gap="sm"
                 wrap="nowrap"
@@ -2522,7 +2552,7 @@ export function Control() {
                 </Text>
               </Group>
             )}
-            {isLeader && !hubLost && !hubActive && (
+            {isLeader && !hubLost && !appOff && !hubActive && (
               <Group
                 gap="sm"
                 wrap="nowrap"

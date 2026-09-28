@@ -29,9 +29,13 @@ export async function probeServer(): Promise<boolean> {
   return ok;
 }
 
+/** How to start the app again after «Вимкнути повністю» — the launchers of 1.6.0. */
+export const START_AGAIN =
+  'Щоб запустити знову, відкрийте start.cmd (Windows), start.command (macOS) або ./start.sh (Linux) у папці застосунку.';
+
 /** Copy for controls that need the server. */
 export const NEEDS_SERVER =
-  'Потрібен сервер застосунку (npm run dev) — зараз працює лише бібліотека в браузері';
+  'Потрібен сервер застосунку (start.cmd / start.command / ./start.sh) — зараз працює лише бібліотека в браузері';
 
 /**
  * Startup gate for library reads in the control window: resolves once we know whether the

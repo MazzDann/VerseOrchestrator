@@ -21,6 +21,8 @@ export function Follow() {
   /** The operator switched follow-along off (or hasn't started it yet). */
   const [paused, setPaused] = useState(false);
   const [connected, setConnected] = useState(true);
+  /** The operator switched the app off («Вимкнути повністю», 1.6.1) — not a blip. */
+  const [off, setOff] = useState(false);
   const version = useRef(-1);
   // how THIS phone likes to read (1.5.17): kept in its own browser, nothing is sent
   const [reader, setReader] = useState<ReaderPrefs>(loadReader);
@@ -46,7 +48,14 @@ export function Follow() {
       onFrame: (f) => {
         if (!alive) return;
         setConnected(true);
+        setOff(false);
         apply(f.version, f.slide, f.paused);
+      },
+      onMessage: (f) => {
+        if (alive && f.type === 'shutdown') {
+          setOff(true);
+          setConnected(false);
+        }
       },
       onStatus: (open) => {
         socketUp = open;
@@ -59,6 +68,7 @@ export function Follow() {
         const r = await api.live();
         if (!alive) return;
         setConnected(true);
+        setOff(false);
         apply(r.version, r.slide, r.paused);
       } catch {
         if (alive) setConnected(false);
@@ -106,7 +116,9 @@ export function Follow() {
             background: 'var(--vo-follow-alert-bg)',
           }}
         >
-          Немає зв’язку з показом. Перепідключаюся…
+          {off
+            ? 'Показ завершено: застосунок вимкнено.'
+            : 'Немає зв’язку з показом. Перепідключаюся…'}
         </div>
       )}
       <div

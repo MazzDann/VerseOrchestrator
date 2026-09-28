@@ -23,6 +23,7 @@ import { Bench } from './pages/Bench';
 import { BenchPeer } from './pages/BenchPeer';
 import { useSettings } from './settingsStore';
 import { usePlaylist } from './playlistStore';
+import { listenForForget } from './lib/browserData';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false } },
@@ -35,6 +36,8 @@ window.addEventListener('storage', (e) => {
   if (e.key === 'vo:settings') void useSettings.persist.rehydrate();
   else if (e.key === 'vo:playlist') void usePlaylist.persist.rehydrate();
 });
+// «Вимкнути повністю» with «стерти дані браузера» in another window: stop writing here (1.6.1)
+listenForForget();
 
 // Control window: is the server there? Without it (static deployment / server stopped)
 // the library runs in the browser — switch to it and restore the remembered segments.

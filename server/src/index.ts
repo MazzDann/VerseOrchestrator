@@ -7,6 +7,7 @@ import express from 'express';
 import { ApiError, closeDb, library, libraryInfo } from './db.js';
 import { isLocalRequest, lanIps } from './access.js';
 import {
+  announceShutdown,
   attachLiveHub,
   dropRemote,
   getLive,
@@ -227,7 +228,10 @@ app.put(
 const standbyScript = path.join(repoRoot, 'server', 'src', 'standby.ts');
 const autostart = currentEntry(repoRoot);
 
-function tellWaiter(port: number, action: 'retire' | 'resume' | 'relaunch'): Promise<unknown> {
+function tellWaiter(
+  port: number,
+  action: 'retire' | 'resume' | 'relaunch' | 'shutdown',
+): Promise<unknown> {
   return fetch(`http://127.0.0.1:${port}/__standby/${action}`, {
     method: 'POST',
     headers: { [CONTROL_HEADER]: '1' },
@@ -299,6 +303,35 @@ app.put(
     res.json({ ...(await standbyState()), relaunching: relaunch });
     // Relaunch AFTER answering: when this very app runs under the waiter, it is stopped.
     if (relaunch) setTimeout(() => void tellWaiter(before.port, 'relaunch'), 300);
+  }),
+);
+
+/**
+ * «Вимкнути повністю» (1.6.1, Налаштування вигляду → Застосунок): nothing of the app keeps
+ * running or starts again with the computer. The autostart entry goes; every page is told (so
+ * phones and remotes say «вимкнено», not «no connection»); then the waiter that started this
+ * app shuts down — stopping it — or, run directly, this process exits. A waiter of «Запуск за
+ * адресою» on its own port (not this app's parent) is shut down as well.
+ */
+app.post(
+  '/api/shutdown',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    const autostartRemoved = isAutostartOn(autostart);
+    if (autostartRemoved) setAutostart(autostart, false);
+    const ours =
+      process.env.VO_STANDBY === '1' ? Number(process.env.VO_STANDBY_PORT) || null : null;
+    const configured = getServerSettings().standby.port;
+    const other = configured !== ours && (await waiterAt(configured)) ? configured : null;
+    announceShutdown();
+    res.json({ ok: true, autostartRemoved });
+    // after the answer and the frames have left
+    setTimeout(() => {
+      if (other) void tellWaiter(other, 'shutdown');
+      // our waiter stops this process; should it not answer, go anyway
+      if (ours) void tellWaiter(ours, 'shutdown');
+      setTimeout(() => process.exit(0), ours ? 3000 : 300);
+    }, 300);
   }),
 );
 

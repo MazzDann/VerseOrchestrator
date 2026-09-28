@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import {
+  announceShutdown,
   attachLiveHub,
   dropRemote,
   getLive,
@@ -86,6 +87,18 @@ describe('live hub', () => {
       ws.once('error', () => resolve('error'));
     });
     expect(outcome).toBe('error');
+  });
+});
+
+describe('«Вимкнути повністю» (1.6.1)', () => {
+  it('tells every page the app is going, not just gone', async () => {
+    const a = viewer();
+    await a.next(); // the slide it gets on connect
+    const b = viewer();
+    await b.next();
+    const frames = Promise.all([a.next(), b.next()]);
+    announceShutdown();
+    expect((await frames).map((f) => f.type)).toEqual(['shutdown', 'shutdown']);
   });
 });
 
