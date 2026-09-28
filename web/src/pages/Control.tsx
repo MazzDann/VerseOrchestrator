@@ -298,6 +298,15 @@ export function Control() {
   const [previewOverride, setPreviewOverride] = useState<Slide | null>(null);
   // The slide actually published to the output window (for the in-app live monitor).
   const [liveSlide, setLiveSlide] = useState<Slide>(() => readSlide());
+  /**
+   * The speaker's own preview (1.5.2): the passage a remote picked last, as a slide — the
+   * operator sees it next to their own preview; hidden with ✕ until the next pick.
+   */
+  const [remoteView, setRemoteView] = useState<{
+    name: string;
+    passage: RemotePassage;
+    slide: Slide;
+  } | null>(null);
 
   const jumpTo = (r: Jumpable) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
@@ -1194,10 +1203,14 @@ export function Control() {
   useCommandHandler((cmd, _source, args) => {
     if (cmd === 'next') return advance(1);
     if (cmd === 'prev') return advance(-1);
-    if (cmd === 'show') return args.passage ? showRemotePassage(args.passage) : showPreview();
+    const by = _source.name ?? 'Пульт';
+    if (cmd === 'show') return args.passage ? showRemotePassage(args.passage, by) : showPreview();
     if (cmd === 'pick') {
       return args.passage
-        ? remoteSlide(args.passage).then(() => ({ ok: true }))
+        ? remoteSlide(args.passage, by).then((slide) => {
+            setRemoteView({ name: by, passage: args.passage!, slide });
+            return { ok: true };
+          })
         : { ok: false, reason: 'Не вибрано вірш' };
     }
     if (cmd === 'blank') blankScreen();
@@ -1214,7 +1227,7 @@ export function Control() {
    * built here, in the operator's style, from the library; the operator's selection is
    * not touched. Throws «Уривок недоступний» when none of its translations has it.
    */
-  async function remoteSlide(p: RemotePassage): Promise<Slide> {
+  async function remoteSlide(p: RemotePassage, by: string): Promise<Slide> {
     const lines: SlideLine[] = [];
     for (const id of p.translationIds) {
       const verses = await queryClient.fetchQuery({
@@ -1244,7 +1257,7 @@ export function Control() {
       visible: true,
       style: slideStyle,
       template: slideTemplate,
-      source: { kind: 'verses', ...p, page: 0, reveal: 1 },
+      source: { kind: 'verses', ...p, page: 0, reveal: 1, by },
     };
   }
 
@@ -1253,11 +1266,12 @@ export function Control() {
    * selection stops following live (`live` off) — they keep preparing, and their F5 /
    * «На екран» takes the screen back.
    */
-  async function showRemotePassage(p: RemotePassage): Promise<Outcome> {
-    const slide = await remoteSlide(p);
+  async function showRemotePassage(p: RemotePassage, by: string): Promise<Outcome> {
+    const slide = await remoteSlide(p, by);
     if (!leaderRef.current) return { ok: false, reason: 'Показом керує інше вікно керування' };
     pushLive(slide);
     setLive(false);
+    setRemoteView({ name: by, passage: p, slide });
     return { ok: true };
   }
 
@@ -1630,6 +1644,26 @@ export function Control() {
         )
       }
       onPickRef={jumpTo}
+      remote={
+        remoteView && {
+          name: remoteView.name,
+          slide: remoteView.slide,
+          onShow: () => {
+            if (!leaderRef.current) return standbyNotice();
+            pushLive(remoteView.slide);
+            setLive(false);
+          },
+          onAdopt: () => {
+            const p = remoteView.passage;
+            setTranslations(p.translationIds);
+            selectBook(p.bookNumber);
+            selectChapter(p.chapter);
+            setSelectedVerses(p.verses);
+            setScrollTarget(p.verses[0]);
+          },
+          onClose: () => setRemoteView(null),
+        }
+      }
       pinned={pinnedPreview}
       onTogglePin={togglePin}
       compact={compact}
