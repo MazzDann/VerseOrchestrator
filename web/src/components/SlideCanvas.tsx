@@ -140,6 +140,10 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
   // the viewers' QR in a corner (1.5.16) — over any slide but the QR slide itself
   const corner =
     style.qrCorner && !slide.qr ? <QrCard url={style.qrCorner} variant="corner" /> : null;
+  // …and the content keeps out of its band (1.5.19: long text ran under the card). The
+  // card is 17cqh of QR + padding + caption ≈ 22cqh tall, 2.5cqh off the bottom: keep the
+  // lowest 26 % of the slide free; the text auto-fits the rest, centred as before.
+  const qrBand = corner ? 26 : 0;
   // A faithful pptx song's quote carries the original font size (cqh); cap the
   // auto-fit at it so stanzas render "as made" and only shrink when too long.
   const quoteMaxCqh = slide.template?.objects.find((o) => o.kind === 'quote')?.size ?? 0;
@@ -203,7 +207,7 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
             const cx = Math.max(0, Math.min(100, o.x));
             const cy = Math.max(0, Math.min(100, o.y));
             const cw = Math.max(0, Math.min(100 - cx, o.w));
-            const ch = Math.max(0, Math.min(100 - cy, o.h));
+            const ch = Math.max(0, Math.min(100 - qrBand - cy, o.h));
             if (o.kind === 'divider') {
               if (o.tiedToSubline && !slide.subline) return null;
               return (
@@ -277,7 +281,7 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
   const hPad = (n: number | undefined) => (u === '%' ? (n ?? 4) : (n ?? 0) / 19.2);
   const inset = {
     top: vPad(style.padTop),
-    bottom: vPad(style.padBottom),
+    bottom: Math.max(vPad(style.padBottom), qrBand),
     left: hPad(style.padLeft),
     right: hPad(style.padRight),
   };
