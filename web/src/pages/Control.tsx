@@ -315,12 +315,18 @@ export function Control() {
     slide: Slide;
   } | null>(null);
 
-  const jumpTo = (r: Jumpable) => {
+  // `focus`: hand the keyboard to the verse landed on (search, «Перейти»), so ↩ puts it on
+  // screen and the arrows walk on. Mac re-check (1.5.13): after a search pick the panel
+  // closed and left the focus on <body> — ↩ did nothing, only ⌘↩ (a page-wide hotkey)
+  // projected. Other jumps (history, concordance, sequence, remotes) keep the focus.
+  const focusJump = useRef(false);
+  const jumpTo = (r: Jumpable, opts?: { focus?: boolean }) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
     selectBook(r.bookNumber);
     selectChapter(r.chapter);
     setSelectedVerses([r.verse]);
     setScrollTarget(r.verse);
+    focusJump.current = !!opts?.focus;
   };
 
   // Quick jump bar: resolve a reference/text query and jump to the first hit.
@@ -330,7 +336,7 @@ export function Control() {
     try {
       const res = await api.search(query, [primaryId]);
       if (res.results.length > 0) {
-        jumpTo(res.results[0]);
+        jumpTo(res.results[0], { focus: true });
         setGoToValue('');
       } else {
         notifications.show({
@@ -959,9 +965,10 @@ export function Control() {
     const id = window.setTimeout(() => {
       // Instant, not smooth: Mantine/Radix ScrollArea's viewport ignores
       // smooth scrollIntoView (it never scrolls), instant centres reliably.
-      document
-        .querySelector(`.vo-verse-item[data-verse="${verse}"]`)
-        ?.scrollIntoView({ block: 'center' });
+      const row = document.querySelector<HTMLElement>(`.vo-verse-item[data-verse="${verse}"]`);
+      row?.scrollIntoView({ block: 'center' });
+      if (focusJump.current) row?.focus({ preventScroll: true });
+      focusJump.current = false;
       setScrollTarget(null);
     }, 60);
     return () => window.clearTimeout(id);
@@ -2316,7 +2323,7 @@ export function Control() {
               primaryId={primaryId}
               scope={searchScope}
               onScopeChange={setSearchScope}
-              onPick={jumpTo}
+              onPick={(r) => jumpTo(r, { focus: true })}
             />
             <SongsPanel
               open={songsOpen}
