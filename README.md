@@ -10,6 +10,12 @@ to any structured book (reference works, normative documents, manuals). The UI i
 Ukrainian; search is case- and diacritic-insensitive and handles any module language
 (Ukrainian, Russian, English, Greek, Hebrew, Arabic, …).
 
+## Documentation
+
+The user documentation is in Ukrainian, like the app. Start with the
+[quickstart](docs/quickstart.md); the [documentation index](docs/README.md) lists every
+page.
+
 ## Prerequisites
 
 - **Node.js 22.18 or later** (24 LTS recommended), which includes `npm`. The launchers
