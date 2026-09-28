@@ -42,7 +42,7 @@ interface Props {
   /** What the output window actually shows now (published slide). */
   liveSlide: Slide;
   liveActive: boolean;
-  /** Short status of the output: reference, «Затемнено», «Чорний екран», «Порожньо». */
+  /** Short status of the output: reference, «Текст сховано», «Чорний екран», «Порожньо». */
   liveLabel: string;
   isSaved: boolean;
   currentRef: RefItem | null;
@@ -74,7 +74,7 @@ interface Props {
 
 /**
  * Preview / Strong / appearance panels — used in the right aside or docked below the centre.
- * Go-live actions live only in the header toolbar (one place for «На екран»/«Затемнити»).
+ * Go-live actions live only in the header toolbar (one place for «На екран»/«Сховати текст»).
  */
 export function StudyPanels({
   mode,

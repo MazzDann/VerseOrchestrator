@@ -115,7 +115,7 @@ import {
 } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { useDataSource } from '../dataSourceStore';
-import { sameContent, sameSlide, summarize } from '../lib/slide';
+import { sameContent, sameSlide, summarize, toggleBlack, toggleHidden } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { ResizeHandle } from '../components/ResizeHandle';
@@ -1151,12 +1151,7 @@ export function Control() {
     pushLive({ lines: [], reference: '', blank: false, visible: false });
     setLive(false);
   };
-  useHotkeys(keymap.blank, () => (live ? send({ blank: true }) : undefined), [
-    keymap.blank,
-    live,
-    slideLines,
-    reference,
-  ]);
+  useHotkeys(keymap.blank, () => hideToggle(), [keymap.blank, versePreview, live]);
   // Esc with a floating panel open closes the panel (FloatingPanel) — not the screen too.
   useHotkeys(
     keymap.clear,
@@ -1239,36 +1234,47 @@ export function Control() {
     ],
   );
 
-  const blankScreen = () => {
-    if (!leaderRef.current) return standbyNotice();
-    pushLive({
-      lines: slideLines,
-      reference,
-      blank: true,
-      visible: true,
-      style: slideStyle,
-      source: verseSource(),
-    });
-    setLive(false);
-    notifications.show({ message: 'Екран затемнено', color: 'gray', autoClose: 1500 });
+  // «Сховати текст» / «Чорний екран» (1.5.18): switches over what is on screen — the same
+  // slide comes back on the second press (lib/slide.ts). Hiding: the text fades, the
+  // background and the corner QR stay (B). Black: an instant cut, everything (.).
+  const afterToggle = (s: Slide) => {
+    const showing = s.visible && !s.blank && !s.forceBlack && (s.lines.length > 0 || !!s.qr);
+    if (!showing) {
+      setLive(false);
+      return;
+    }
+    // back on screen: follow the selection again only if it is what came back
+    const verses = s.source?.kind === 'verses';
+    setLive(verses && sameContent(s, versePreview));
+    setPreviewOverride(verses ? null : s);
   };
-
-  // Pure-black screen, ignoring the background — distinct from "Затемнити" (blank),
-  // which keeps the background image/colour and only hides the text. Bound to ".".
-  const blackScreen = () => {
+  const hideToggle = () => {
     if (!leaderRef.current) return standbyNotice();
-    pushLive({
-      lines: [],
-      reference: '',
-      blank: false,
-      visible: true,
-      forceBlack: true,
-      style: slideStyle,
-    });
-    setLive(false);
-    notifications.show({ message: 'Чорний екран', color: 'dark', autoClose: 1200 });
+    const next = toggleHidden(liveSlideRef.current);
+    if (!next) {
+      notifications.show({ message: 'На екрані нічого ховати', color: 'gray', autoClose: 1200 });
+      return;
+    }
+    pushLive(next);
+    afterToggle(next);
+    notifications.show(
+      next.blank
+        ? { message: 'Текст сховано — фон лишається', color: 'cue', autoClose: 1500 }
+        : { message: 'Текст знову на екрані', color: 'live', autoClose: 1200 },
+    );
   };
-  useHotkeys(keymap.black, () => blackScreen(), [keymap.black, slideStyle]);
+  const blackToggle = () => {
+    if (!leaderRef.current) return standbyNotice();
+    const next = toggleBlack(liveSlideRef.current);
+    pushLive(next);
+    afterToggle(next);
+    notifications.show(
+      next.forceBlack
+        ? { message: 'Чорний екран', color: 'dark', autoClose: 1200 }
+        : { message: 'Чорний екран знято', color: 'live', autoClose: 1200 },
+    );
+  };
+  useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
 
   // Show commands from outside the operator's keyboard — an output window's keys (a
   // clicker on the 2nd monitor) and speaker remotes — all go through one dispatcher
@@ -1318,8 +1324,8 @@ export function Control() {
           })
         : { ok: false, reason: 'Не вибрано вірш' };
     }
-    if (cmd === 'blank') blankScreen();
-    else blackScreen();
+    if (cmd === 'blank') hideToggle();
+    else blackToggle();
     return { ok: true };
   }, PRIORITY.verses);
 
@@ -1752,6 +1758,8 @@ export function Control() {
   };
 
   // In-app "what's on screen now" monitor — reflects the actually-published slide.
+  const textHidden = liveSlide.blank && !liveSlide.forceBlack;
+  const blackOn = !!liveSlide.forceBlack;
   const liveActive =
     liveSlide.visible &&
     !liveSlide.blank &&
@@ -1760,7 +1768,7 @@ export function Control() {
   const liveLabel = liveSlide.forceBlack
     ? 'Чорний екран'
     : liveSlide.blank
-      ? 'Затемнено'
+      ? 'Текст сховано'
       : liveActive
         ? liveSlide.reference || 'На екрані'
         : 'Порожньо';
@@ -1778,17 +1786,17 @@ export function Control() {
     },
     {
       id: 'blank',
-      label: 'Затемнити екран',
+      label: 'Сховати / показати текст',
       keywords: 'blank zatemnyty',
       icon: <IconSquareOff size={16} />,
-      run: blankScreen,
+      run: hideToggle,
     },
     {
       id: 'black',
       label: 'Чорний екран',
       keywords: 'black chornyi',
       icon: <IconSquareFilled size={16} />,
-      run: blackScreen,
+      run: blackToggle,
     },
     { id: 'clear', label: 'Прибрати з екрана', keywords: 'clear ochystyty', run: clearScreen },
     {
@@ -2148,23 +2156,34 @@ export function Control() {
                   onClick={sendAndNotify}
                 />
                 <ToolButton
-                  label="Затемнити"
-                  hint="Сховати текст, фон лишається"
-                  text="Затемнити"
+                  label={textHidden ? 'Показати текст' : 'Сховати текст'}
+                  hint={
+                    textHidden
+                      ? 'Повернути той самий слайд'
+                      : 'Текст згасає, фон лишається; ще раз — той самий слайд назад'
+                  }
+                  text={textHidden ? 'Показати текст' : 'Сховати текст'}
                   compact={!wideHeader}
+                  variant={textHidden ? 'filled' : 'default'}
+                  color={textHidden ? 'cue' : undefined}
                   combo={keymap.blank}
                   icon={<IconSquareOff size={18} stroke={1.5} />}
                   disabled={!isLeader}
-                  onClick={blankScreen}
+                  onClick={hideToggle}
                 />
                 <ToolIcon
-                  label="Чорний екран"
-                  hint="Повністю чорний, ігнорує фон"
+                  label={blackOn ? 'Зняти чорний екран' : 'Чорний екран'}
+                  hint={
+                    blackOn
+                      ? 'Повернути те, що було'
+                      : 'Одразу все чорне, навіть фон; ще раз — усе назад'
+                  }
                   combo={keymap.black}
                   icon={<IconSquareFilled size={16} />}
                   color="dark"
+                  active={blackOn}
                   disabled={!isLeader}
-                  onClick={blackScreen}
+                  onClick={blackToggle}
                 />
               </ToolZone>
               <ToolZone label="Застосунок">

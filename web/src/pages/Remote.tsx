@@ -358,7 +358,7 @@ export function Remote() {
     screen?.status === 'black'
       ? 'Чорний екран'
       : screen?.status === 'blank'
-        ? 'Затемнено'
+        ? 'Текст сховано'
         : onScreen
           ? screen!.reference || 'На екрані'
           : 'Порожньо';
@@ -693,7 +693,7 @@ export function Remote() {
                 disabled={!ready}
                 onClick={() => press('blank')}
               >
-                {REMOTE_LABEL.blank}
+                {screen?.status === 'blank' ? 'Показати текст' : REMOTE_LABEL.blank}
               </button>
             )}
             {allowed.includes('black') && (
@@ -703,7 +703,7 @@ export function Remote() {
                 disabled={!ready}
                 onClick={() => press('black')}
               >
-                {REMOTE_LABEL.black}
+                {screen?.status === 'black' ? 'Зняти чорне' : REMOTE_LABEL.black}
               </button>
             )}
           </div>
