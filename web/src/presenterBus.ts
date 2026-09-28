@@ -42,7 +42,16 @@ export interface SlideStyle {
   jesusColor: string;
   highlightColor: string; // emphasised (hot) word colour
   bold?: boolean; // bold body text (e.g. faithful pptx song slides)
+  /** how one slide gives way to the next (1.5.7); absent = smooth */
+  transition?: SlideTransition;
 }
+
+/**
+ * Slide change (1.5.7): `smooth` fades the old slide out, then the new one in (0.35 s each
+ * — the new text appears ~0.37 s after the command, measured in 1.5.6); `fast` swaps at
+ * once and fades the new one in over 0.15 s; `none` swaps instantly.
+ */
+export type SlideTransition = 'smooth' | 'fast' | 'none';
 
 export type SlideObjectKind = 'quote' | 'reference' | 'subline' | 'divider';
 

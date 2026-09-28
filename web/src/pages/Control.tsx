@@ -472,6 +472,7 @@ export function Control() {
       redLetter: appearance.redLetter,
       jesusColor: appearance.jesusColor,
       highlightColor: appearance.highlightColor,
+      transition: appearance.transition,
     }),
     [appearance],
   );

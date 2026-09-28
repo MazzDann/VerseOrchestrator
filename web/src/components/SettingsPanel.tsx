@@ -30,6 +30,7 @@ import {
   type PadLink,
   type StrongSubline,
 } from '../settingsStore';
+import type { SlideTransition } from '../presenterBus';
 import { api } from '../api';
 import { fileToDownscaledDataUrl } from '../lib/image';
 import { TemplateEditor } from './TemplateEditor';
@@ -156,7 +157,11 @@ export function SettingsPanel() {
           </Button>
         </Section>
 
-        <Section value="text" title="Текст" summary={`${fontLabel}, ${alignLabel}`}>
+        <Section
+          value="text"
+          title="Текст"
+          summary={`${fontLabel}, ${alignLabel}${a.transition === 'fast' ? ', швидкий перехід' : a.transition === 'none' ? ', без анімації' : ''}`}
+        >
           <Select
             label="Шрифт"
             data={FONT_OPTIONS}
@@ -191,6 +196,25 @@ export function SettingsPanel() {
             checked={a.showVerseNumbers}
             onChange={(e) => set({ showVerseNumbers: e.currentTarget.checked })}
           />
+          <div>
+            <Text size="sm" fw={500} mb={2}>
+              Перехід між слайдами
+            </Text>
+            <Text size="xs" c="dimmed" mb={6}>
+              Плавний: старий слайд згасає, новий проявляється (новий текст — за ~0,4 с). Швидкий:
+              новий одразу, коротке проявлення. Без анімації: миттєва заміна.
+            </Text>
+            <SegmentedControl
+              fullWidth
+              value={a.transition}
+              onChange={(v) => set({ transition: v as SlideTransition })}
+              data={[
+                { label: 'Плавний', value: 'smooth' },
+                { label: 'Швидкий', value: 'fast' },
+                { label: 'Без анімації', value: 'none' },
+              ]}
+            />
+          </div>
         </Section>
 
         <Section value="background" title="Фон" summary={a.bgImage ? 'зображення' : a.bgColor}>
