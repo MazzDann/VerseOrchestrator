@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import type { RemoteTarget } from '../lib/commands';
@@ -134,6 +134,20 @@ export function RemotePicker({
             passage: { translationIds: ids, bookNumber: book, chapter, verses: [verse] },
           }
         : null;
+
+  const chosenText =
+    step === 'verses' && verse != null
+      ? (verses.data?.find((v) => v.verse === verse)?.text ?? null)
+      : null;
+  // opening on a chosen verse (the cursor / the screen): bring its number into view —
+  // once per chapter opened, not on every tap
+  const scrolledTo = useRef<string | null>(null);
+  const scrollChosenIntoView = (el: HTMLButtonElement | null) => {
+    const key = `${step}:${book}:${chapter}`;
+    if (!el || scrolledTo.current === key) return;
+    scrolledTo.current = key;
+    el.scrollIntoView({ block: 'center' });
+  };
 
   const abbrs = ids
     .map((id) => translations.data?.find((t) => t.id === id)?.abbr)
@@ -283,19 +297,25 @@ export function RemotePicker({
           </div>
         )}
 
-        {step === 'verses' &&
-          (verses.data ?? []).map((v) => (
-            <button
-              key={v.verse}
-              type="button"
-              className="vo-remote-item vo-remote-verse"
-              data-selected={v.verse === verse ? 'true' : undefined}
-              onClick={() => setVerse(v.verse)}
-            >
-              <span className="vo-verse-num">{v.verse}</span>
-              <span>{v.text}</span>
-            </button>
-          ))}
+        {step === 'verses' && (
+          // numbers first, like the chapters: a 176-verse psalm was a long scroll of text
+          // (Mac re-check, the user); the chosen verse's text shows below as the check
+          <div className="vo-remote-grid">
+            {(verses.data ?? []).map((v) => (
+              <button
+                key={v.verse}
+                type="button"
+                className="vo-remote-item"
+                data-selected={v.verse === verse ? 'true' : undefined}
+                aria-pressed={v.verse === verse}
+                ref={v.verse === verse ? scrollChosenIntoView : undefined}
+                onClick={() => setVerse(v.verse)}
+              >
+                {v.verse}
+              </button>
+            ))}
+          </div>
+        )}
 
         {step === 'songs' &&
           (songs.data ?? []).map((s) => (
@@ -347,6 +367,14 @@ export function RemotePicker({
         </footer>
       ) : step === 'verses' || step === 'stanzas' ? (
         <>
+          {step === 'verses' && chosenText && (
+            <p className="vo-remote-confirm" aria-live="polite">
+              <strong>
+                {bookName} {chapter}:{verse}
+              </strong>{' '}
+              {chosenText}
+            </p>
+          )}
           {onQueue && (
             <button
               type="button"

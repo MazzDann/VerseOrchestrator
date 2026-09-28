@@ -228,7 +228,8 @@ export function CommandPalette({
           size="md"
           leftSection={<IconSearch size={18} />}
           rightSection={songsQuery.isFetching ? <Loader size="xs" /> : null}
-          styles={{ input: { paddingInline: 14 } }}
+          // only the right side: the left one is Mantine's room for the search icon
+          styles={{ input: { paddingInlineEnd: 14 } }}
         />
         <Box
           ref={listRef}

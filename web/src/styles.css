@@ -277,6 +277,10 @@ body[data-resizing='y'] {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  /* a remote with every permission is taller than a phone (Samsung, 412×783): scroll —
+     the «Назад / Далі» row used to collapse and lie over «Затемнити» (1.5.14) */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   background: var(--vo-follow-bg);
   color: var(--vo-follow-fg);
@@ -288,15 +292,19 @@ body[data-resizing='y'] {
   padding: 14px;
   border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
 }
+.vo-remote > * {
+  flex-shrink: 0;
+}
 .vo-remote-pad {
-  flex: 1;
+  flex: 1 0 auto;
   display: grid;
   grid-template-columns: 1fr 1.6fr; /* «Далі» is the button the speaker hits most */
   gap: 12px;
-  min-height: 0;
+  min-height: 112px; /* grows into free space; never shrinks under a comfortable tap */
 }
 .vo-remote-pad-small {
   flex: none;
+  min-height: 0;
   grid-template-columns: 1fr 1fr;
 }
 .vo-remote-btn {
@@ -487,6 +495,20 @@ body[data-resizing='y'] {
 }
 .vo-remote-grid .vo-remote-item {
   justify-content: center;
+}
+/* the chosen verse's text under the number grid — the check before «На екран» (1.5.14) */
+.vo-remote-confirm {
+  flex: none;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  font-size: 15px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .vo-remote-sheet-foot {
   display: grid;
