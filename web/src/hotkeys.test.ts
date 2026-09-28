@@ -107,6 +107,16 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
     expect(sanitizeKeymap({ project: 'f5,f2' }, false).project).toBe('f5,f2');
   });
 
+  it('a keymap saved on a Mac drops the ⌘ chords elsewhere (a portable copy moved to Windows)', () => {
+    expect(sanitizeKeymap(defaultKeymap(true), false)).toEqual(defaultKeymap(false));
+    // what the user set on the Mac stays theirs
+    const km = sanitizeKeymap({ ...defaultKeymap(true), project: 'meta+enter,f9' }, false);
+    expect(km.project).toBe('meta+enter,f9');
+    expect(km.searchAll).toBe('f4');
+    // and back on the Mac, the chords return
+    expect(sanitizeKeymap(defaultKeymap(false), true)).toEqual(defaultKeymap(true));
+  });
+
   it('shows chords the Mac way, modifiers in ⌃⌥⇧⌘ order', () => {
     expect(formatChord('meta+shift+f', true)).toBe('⇧⌘F'); // Apple's order: ⌃⌥⇧⌘
     expect(formatChord('meta+enter', true)).toBe('⌘↩');
