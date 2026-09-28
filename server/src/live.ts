@@ -284,6 +284,39 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   }
 }
 
+/**
+ * The operator suggests something to a remote (1.5.4): a passage or a song stanza the
+ * speaker may take into their preview or put on screen — or ignore. Nothing changes until
+ * the speaker acts, so there is nothing to resolve between the two. Only to a remote
+ * allowed to choose that kind; the control window hears how many of its pages got it.
+ */
+function onSuggest(ws: WebSocket, msg: Record<string, unknown>) {
+  const to = typeof msg.to === 'string' ? msg.to : '';
+  const p = getPairing(to);
+  const passage = msg.passage === undefined ? null : sanitizePassage(msg.passage);
+  const song = passage || msg.song === undefined ? null : sanitizeSong(msg.song);
+  const answer = (delivered: number, reason?: string) =>
+    send(ws, { type: 'suggested', to, delivered, reason });
+  if (!p) return answer(0, 'Пульт не знайдено');
+  if (!passage && !song) return answer(0, 'Нічого не вибрано');
+  if (passage && !p.allowed.includes('pick')) return answer(0, 'Цьому пульту не дозволено вірші');
+  if (song && !p.allowed.includes('songs')) return answer(0, 'Цьому пульту не дозволено пісні');
+  const frame = {
+    type: 'suggest',
+    ...(passage ? { passage } : { song }),
+    reference: String(msg.reference ?? '').slice(0, 200),
+    text: String(msg.text ?? '').slice(0, 400),
+  };
+  let delivered = 0;
+  for (const c of sockets('remote')) {
+    if (meta.get(c)?.pairingId === p.id) {
+      send(c, frame);
+      delivered++;
+    }
+  }
+  answer(delivered, delivered ? undefined : 'Пульт не на зв’язку');
+}
+
 /** A control window's answer to a forwarded command (the first one wins). */
 function onResult(msg: Record<string, unknown>) {
   const id = typeof msg.id === 'string' ? msg.id : '';
@@ -322,6 +355,7 @@ export function attachLiveHub(server: Server): void {
       if (msg?.type === 'hello') onHello(ws, m, req, msg);
       else if (msg?.type === 'command') onCommand(ws, m, msg);
       else if (msg?.type === 'result' && m.role === 'control') onResult(msg);
+      else if (msg?.type === 'suggest' && m.role === 'control') onSuggest(ws, msg);
       else if (msg?.type === 'publish' && m.role === 'control') {
         // Audience follow-along over the control socket (HTTP POST /api/live is the fallback).
         if (msg.paused === true) pauseLive();

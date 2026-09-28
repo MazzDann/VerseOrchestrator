@@ -116,6 +116,12 @@ export function Remote() {
     remember(CURSOR_KEY, t);
   };
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** What the operator suggested (1.5.4) — the speaker takes it or not. */
+  const [suggestion, setSuggestion] = useState<{
+    target: RemoteTarget;
+    reference: string;
+    text: string;
+  } | null>(null);
   /** Last press → ack round trip, ms — shown next to the name. */
   const [rtt, setRtt] = useState<number | null>(null);
 
@@ -145,6 +151,20 @@ export function Remote() {
           setScreen((f.screen as ScreenSummary | null) ?? null);
           setNext((f.next as ScreenSummary | null) ?? null);
           setPreview((f.preview as ScreenSummary | null) ?? null);
+        } else if (f.type === 'suggest') {
+          const target: RemoteTarget | null = f.passage
+            ? { kind: 'verses', passage: f.passage as RemotePassage }
+            : f.song
+              ? { kind: 'song', song: f.song as { songId: number; stanza: number } }
+              : null;
+          if (target) {
+            navigator.vibrate?.([20, 60, 20]);
+            setSuggestion({
+              target,
+              reference: String(f.reference ?? ''),
+              text: String(f.text ?? ''),
+            });
+          }
         } else if (f.type === 'allowed') {
           // the operator changed what this remote may do (1.5.0): buttons follow at once
           const allowed = (f.allowed as RemoteCommand[]) ?? [];
@@ -391,6 +411,55 @@ export function Remote() {
           }}
           onClose={() => setPickerOpen(false)}
         />
+      )}
+
+      {/* The operator's suggestion (1.5.4): take it into your preview, show it, or not. */}
+      {suggestion && (
+        <section className="vo-remote-preview vo-remote-suggest" aria-label="Пропозиція оператора">
+          <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
+            <span style={{ fontWeight: 600 }}>Оператор пропонує</span>
+            <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>{suggestion.reference}</span>
+            <button
+              type="button"
+              className="vo-remote-chip"
+              onClick={() => setSuggestion(null)}
+              aria-label="Відхилити пропозицію"
+            >
+              ✕
+            </button>
+          </div>
+          {suggestion.text && (
+            <p className="vo-remote-text vo-remote-text-small" style={{ whiteSpace: 'pre-line' }}>
+              {suggestion.text}
+            </p>
+          )}
+          <div className="vo-remote-row">
+            <button
+              type="button"
+              className="vo-remote-btn"
+              disabled={!ready}
+              onClick={() => {
+                press('pick', suggestion.target);
+                setSuggestion(null);
+              }}
+            >
+              У передпоказ
+            </button>
+            {canShow && (
+              <button
+                type="button"
+                className="vo-remote-btn vo-remote-btn-live"
+                disabled={!ready}
+                onClick={() => {
+                  press('show', suggestion.target);
+                  setSuggestion(null);
+                }}
+              >
+                {REMOTE_LABEL.show}
+              </button>
+            )}
+          </div>
+        </section>
       )}
 
       {/* The speaker's own preview (1.5.1): a verse chosen here — «Далі» walks it. */}

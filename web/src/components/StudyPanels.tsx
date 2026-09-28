@@ -9,6 +9,7 @@ import {
   Divider,
   ScrollArea,
   SegmentedControl,
+  Menu,
 } from '@mantine/core';
 import {
   IconBookmark,
@@ -19,6 +20,7 @@ import {
   IconScreenShare,
   IconArrowBackUp,
   IconX,
+  IconSend,
 } from '@tabler/icons-react';
 
 import { type Verse, type Book } from '../api';
@@ -65,6 +67,8 @@ interface Props {
     onAdopt: () => void;
     onClose: () => void;
   } | null;
+  /** Remotes the operator can suggest their preview to (1.5.4) and how. */
+  suggest?: { remotes: { id: string; name: string }[]; onSend: (id: string) => void } | null;
 }
 
 /**
@@ -94,6 +98,7 @@ export function StudyPanels({
   onTogglePin,
   compact = false,
   remote,
+  suggest,
 }: Props) {
   // Program/preview monitors (video-switcher tally): when the prepared slide is already
   // on screen show ONE red "На екрані" monitor; otherwise a large amber preview plus a
@@ -115,13 +120,52 @@ export function StudyPanels({
       </ActionIcon>
     </Tooltip>
   );
+  // Suggest the preview to a speaker's remote (1.5.4): one remote — one click; several — a menu.
+  const suggestTargets = previewHas ? (suggest?.remotes ?? []) : [];
+  const suggestButton =
+    suggestTargets.length === 1 ? (
+      <Tooltip label={`Запропонувати пульту «${suggestTargets[0].name}»`}>
+        <ActionIcon
+          size="sm"
+          variant="subtle"
+          color="gray"
+          onClick={() => suggest!.onSend(suggestTargets[0].id)}
+          aria-label={`Запропонувати пульту «${suggestTargets[0].name}»`}
+        >
+          <IconSend size={14} />
+        </ActionIcon>
+      </Tooltip>
+    ) : suggestTargets.length > 1 ? (
+      <Menu position="bottom-end" withinPortal>
+        <Menu.Target>
+          <Tooltip label="Запропонувати пульту">
+            <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Запропонувати пульту">
+              <IconSend size={14} />
+            </ActionIcon>
+          </Tooltip>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Label>Запропонувати пульту</Menu.Label>
+          {suggestTargets.map((r) => (
+            <Menu.Item key={r.id} onClick={() => suggest!.onSend(r.id)}>
+              {r.name}
+            </Menu.Item>
+          ))}
+        </Menu.Dropdown>
+      </Menu>
+    ) : null;
   const previewMonitor = (maxWidth?: number) => (
     <Monitor
       slide={previewSlide}
       state={previewState}
       title={merged ? 'На екрані' : 'Прев’ю'}
       detail={reference || (previewHas ? undefined : 'оберіть вірші')}
-      actions={bookmarkButton}
+      actions={
+        <Group gap={2} wrap="nowrap">
+          {suggestButton}
+          {bookmarkButton}
+        </Group>
+      }
       maxWidth={maxWidth}
     />
   );
