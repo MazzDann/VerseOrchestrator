@@ -77,6 +77,25 @@ export function connectLive(opts: {
     timer = window.setTimeout(open, delay);
   };
 
+  // Leaving the page (navigating away, closing — or into the back/forward cache): close the
+  // socket at once. A page frozen in that cache kept it open and still answered the
+  // server's pings, so a control window in charge never handed over (1.5.8). Coming back
+  // from the cache connects again.
+  const onHide = () => {
+    window.clearTimeout(timer);
+    const w = ws;
+    ws = null;
+    if (w) {
+      w.onclose = null; // no reconnect while the page is gone
+      w.close();
+    }
+  };
+  const onShow = (e: PageTransitionEvent) => {
+    if (e.persisted && !closed && !ws) open();
+  };
+  window.addEventListener('pagehide', onHide);
+  window.addEventListener('pageshow', onShow);
+
   open();
   return {
     send: (frame) => {
@@ -87,6 +106,8 @@ export function connectLive(opts: {
     stop: () => {
       closed = true;
       window.clearTimeout(timer);
+      window.removeEventListener('pagehide', onHide);
+      window.removeEventListener('pageshow', onShow);
       ws?.close();
     },
   };

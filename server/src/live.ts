@@ -64,6 +64,22 @@ let screenState: { screen: unknown; next: unknown; preview: unknown } = {
 let wss: WebSocketServer | null = null;
 const meta = new WeakMap<WebSocket, Meta>();
 
+/**
+ * ONE control socket in charge (1.5.8). Within a browser, Web Locks already leave a single
+ * control window with a socket (lib/leader.ts) — but control windows in two browsers each
+ * held one, and every remote command went to both (a double «Далі»), both sent the remotes
+ * their screen and both published to the phones. The first control socket leads; the
+ * others are told `{ type: 'hub', active: false }` and can `take-control`; when the
+ * leading one closes, the oldest remaining one takes over.
+ */
+let activeControl: WebSocket | null = null;
+
+function setActiveControl(ws: WebSocket | null): void {
+  activeControl = ws;
+  for (const c of sockets('control')) send(c, { type: 'hub', active: c === ws });
+}
+const isActiveControl = (ws: WebSocket) => ws === activeControl;
+
 export const WS_PATH = '/api/ws';
 const MAX_COMMANDS_PER_SEC = 8;
 /** Frames from clients: a whole long passage in several translations can exceed tens of
@@ -169,6 +185,8 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     }
     m.role = 'control';
     send(ws, { type: 'welcome', role: 'control' });
+    if (!activeControl || activeControl.readyState !== WebSocket.OPEN) setActiveControl(ws);
+    else send(ws, { type: 'hub', active: false });
     notifyViewers(); // this socket stopped counting as a viewer; also primes the new control
     return;
   }
@@ -262,7 +280,8 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   if (m.recent.length >= MAX_COMMANDS_PER_SEC) return reject('Забагато натискань');
   m.recent.push(now);
   touchPairing(p);
-  const controls = sockets('control');
+  // only the control window in charge applies it (1.5.8)
+  const controls = activeControl?.readyState === WebSocket.OPEN ? [activeControl] : [];
   if (controls.length === 0) return reject('Вікно керування не відкрите');
   pending.set(id, {
     remote: ws,
@@ -355,15 +374,18 @@ export function attachLiveHub(server: Server): void {
       if (msg?.type === 'hello') onHello(ws, m, req, msg);
       else if (msg?.type === 'command') onCommand(ws, m, msg);
       else if (msg?.type === 'result' && m.role === 'control') onResult(msg);
-      else if (msg?.type === 'suggest' && m.role === 'control') onSuggest(ws, msg);
-      else if (msg?.type === 'publish' && m.role === 'control') {
+      else if (msg?.type === 'take-control' && m.role === 'control') setActiveControl(ws);
+      // what drives remotes and phones comes from the control window in charge only
+      else if (msg?.type === 'suggest' && m.role === 'control' && isActiveControl(ws)) {
+        onSuggest(ws, msg);
+      } else if (msg?.type === 'publish' && m.role === 'control' && isActiveControl(ws)) {
         // Audience follow-along over the control socket (HTTP POST /api/live is the fallback).
         if (msg.paused === true) pauseLive();
         else publishLive(msg.slide ?? null);
       } else if (msg?.type === 'echo' && m.role === 'control') {
         // Sync benchmark (/bench): a tiny reply, so a round trip = payload in + ack out.
         send(ws, { type: 'echo', id: msg.id });
-      } else if (msg?.type === 'screen' && m.role === 'control') {
+      } else if (msg?.type === 'screen' && m.role === 'control' && isActiveControl(ws)) {
         screenState = {
           screen: msg.screen ?? null,
           next: msg.next ?? null,
@@ -376,6 +398,11 @@ export function attachLiveHub(server: Server): void {
     ws.on('close', () => {
       if (m.role === 'remote') notifyRemotesChanged();
       if (m.role === 'viewer') notifyViewers();
+      if (m.role === 'control' && isActiveControl(ws)) {
+        // failover: the oldest control window still here takes charge
+        const next = sockets('control').find((c) => c !== ws && c.readyState === WebSocket.OPEN);
+        setActiveControl(next ?? null);
+      }
     });
     // Everyone gets the current slide immediately (viewers read it, remotes show it).
     ws.send(slideFrame());
