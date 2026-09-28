@@ -90,6 +90,52 @@ working. A keymap saved before 1.4.12 gets the `⌘` chords for every action you
 rebound. On a focused verse, `Enter` projects that verse and `Ctrl`/`Shift`+`Enter` adds it
 to the selection (on a Mac, `⌘↩` projects the selection).
 
+### Speaker remote (phone)
+
+A speaker can drive the show from their own phone, on the same Wi-Fi network as the
+control window. You decide, per remote, what that phone may do; everything else stays
+in the control window. The phone never sees settings.
+
+To pair a phone:
+
+1. In the header, click **Пульт доповідача**.
+2. Enter a name, tick what the remote may do, and click **Створити пульт**.
+3. Let the speaker scan the QR code with the phone's camera. The code is shown only
+   once; **Перевипустити код** issues a new one and cuts the old phone off.
+
+Each remote has its own permissions. To change them later, click the **Дозволи** icon
+on the remote's row; the open phone updates at once, without a new QR code:
+
+| Permission     | On the phone                                                        |
+| -------------- | ------------------------------------------------------------------- |
+| **Далі**, **Назад** | step through the show (also a Bluetooth clicker: arrows, `PageDown`/`PageUp`, `Space`) |
+| **На екран**   | put the control window's preview — or the speaker's own choice — on screen (`Enter` on a clicker) |
+| **Вибір віршів** | choose translations, book, chapter, and verse on the phone         |
+| **Пісні**      | find a song by number or words and choose a stanza                  |
+| **Затемнити**, **Чорний екран** | blank the screen                                   |
+
+A new remote gets **Далі**, **Назад**, and **Затемнити**; the others start off.
+
+When the speaker chooses a verse or a stanza on the phone, it becomes their own
+preview (**Ваш передпоказ**) and **Далі** walks it; your selection in the control
+window doesn't change. What you see:
+
+- **Пульт** monitor, under **На екрані**: the speaker's preview while it differs from
+  the screen, with buttons to put it on screen, to jump your own selection there, or to
+  hide it.
+- **На екрані … · пульт «NAME»**: the speaker's remote put the current slide there.
+  Your selection stops following the screen until you project it again (**На екран**
+  or `F5`).
+
+To offer the speaker what you have prepared, click the send icon on the **Прев’ю**
+monitor. The phone shows **Оператор пропонує** with **У передпоказ** and **На екран**;
+nothing changes until the speaker taps one. The icon appears for remotes that are
+online and allowed to choose that kind of content.
+
+**Відкликати** on a remote's row disconnects that phone immediately. To keep remotes
+paired across server restarts, turn on **Пам’ятати пульти після перезапуску сервера**;
+only a hash of each code is stored, in `data/secrets.json`.
+
 ## Scripts
 
 | Script                        | Purpose                                                             |
