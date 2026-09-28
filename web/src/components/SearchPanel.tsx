@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Paper,
   TextInput,
@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
+import { isScrolling } from '../lib/scrolling';
 
 export type SearchScope = 'current' | 'all';
 
@@ -101,12 +102,17 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
 
   useEffect(() => setHighlight(0), [debounced, scope]);
 
+  // a stable handler for the memoized rows (the props change every render)
+  const pickRef = useRef<(r: SearchResult) => void>(() => undefined);
+  const onRowPick = useCallback((r: SearchResult) => pickRef.current(r), []);
+
   if (!open) return null;
 
   const pick = (r: SearchResult) => {
     onPick(r);
     onClose();
   };
+  pickRef.current = pick;
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -173,24 +179,15 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
         <ScrollArea.Autosize mah="min(320px, 30vh)" mt="xs">
           <Stack gap={0}>
             {results.map((r, i) => (
-              <Box
+              <ResultRow
                 key={`${r.translationId}-${r.bookNumber}-${r.chapter}-${r.verse}`}
-                onClick={() => pick(r)}
-                onMouseEnter={() => setHighlight(i)}
-                style={{
-                  cursor: 'pointer',
-                  borderRadius: 6,
-                  padding: '6px 8px',
-                  background: i === highlight ? 'var(--mantine-color-brand-light)' : undefined,
-                }}
-              >
-                <Text size="xs" c="dimmed">
-                  {r.longName || r.shortName} {r.chapter}:{r.verse}
-                </Text>
-                <Text size="sm" lineClamp={1}>
-                  {highlightTerms(r.text, terms)}
-                </Text>
-              </Box>
+                r={r}
+                index={i}
+                active={i === highlight}
+                terms={terms}
+                onPick={onRowPick}
+                onPoint={setHighlight}
+              />
             ))}
             {debounced.trim().length >= 2 && results.length === 0 && !isFetching && (
               <Text size="sm" c="dimmed" p="sm">
@@ -203,3 +200,47 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
     </Paper>
   );
 }
+
+/**
+ * One result. Memoized: moving the highlight re-renders the two rows that change, not all
+ * of them (with their term highlighting). The highlight follows the pointer only when it
+ * really MOVES — rows scrolling under a still pointer used to take it one after another
+ * (20 flashes and 44 renders of the list in 20 wheel steps, 1.5.5).
+ */
+const ResultRow = memo(function ResultRow({
+  r,
+  index,
+  active,
+  terms,
+  onPick,
+  onPoint,
+}: {
+  r: SearchResult;
+  index: number;
+  active: boolean;
+  terms: string[];
+  onPick: (r: SearchResult) => void;
+  onPoint: (index: number) => void;
+}) {
+  return (
+    <Box
+      onClick={() => onPick(r)}
+      onMouseMove={() => {
+        if (!active && !isScrolling()) onPoint(index);
+      }}
+      style={{
+        cursor: 'pointer',
+        borderRadius: 6,
+        padding: '6px 8px',
+        background: active ? 'var(--mantine-color-brand-light)' : undefined,
+      }}
+    >
+      <Text size="xs" c="dimmed">
+        {r.longName || r.shortName} {r.chapter}:{r.verse}
+      </Text>
+      <Text size="sm" lineClamp={1}>
+        {highlightTerms(r.text, terms)}
+      </Text>
+    </Box>
+  );
+});

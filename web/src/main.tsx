@@ -9,6 +9,7 @@ import '@mantine/notifications/styles.css';
 import { probeServer, setBoot } from './serverStore';
 import { localEngine } from './lib/engine';
 import { restoreLocalSegments } from './lib/engine/restore';
+import { installScrollingFlag } from './lib/scrolling';
 import './styles.css';
 
 import { theme } from './theme';
@@ -48,6 +49,9 @@ if (window.location.pathname === '/') {
     }),
   );
 }
+
+// no hover flashes on rows passing under a still pointer while a list scrolls (1.5.5)
+installScrollingFlag();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
