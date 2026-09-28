@@ -7,6 +7,7 @@
  * window stops everything.
  *
  *   start [--no-browser] [--port N] [--check]
+ *   start --off [--port N]      switch it all off (1.6.2)
  *
  * Like standby.ts: only node: imports (it runs before `npm ci`) and no TS-only syntax — Node
  * runs it as it is (`node server/src/launcher.ts`, type stripping; the wrappers check that
@@ -17,9 +18,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lanIps } from './access.ts';
+import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
 import {
   appProcess,
   buildUi,
+  CONTROL_HEADER,
   createStandby,
   needsBuild,
   portFree,
@@ -40,21 +43,23 @@ export interface LaunchOptions {
   browser: boolean;
   port: number | null;
   check: boolean;
+  off: boolean;
 }
 
 /** The command line, or what is wrong with it. */
 export function parseArgs(argv: string[]): LaunchOptions | string {
-  const o: LaunchOptions = { browser: true, port: null, check: false };
+  const o: LaunchOptions = { browser: true, port: null, check: false, off: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--no-browser') o.browser = false;
     else if (a === '--check') o.check = true;
+    else if (a === '--off') o.off = true;
     else if (a === '--port') {
       const port = Number(argv[++i]);
       if (!Number.isInteger(port) || port < 1024 || port > 65535)
         return 'Порт — ціле число від 1024 до 65535, наприклад: --port 4748';
       o.port = port;
-    } else return `Невідомий параметр «${a}». Можна: --no-browser, --port N, --check`;
+    } else return `Невідомий параметр «${a}». Можна: --no-browser, --port N, --check, --off`;
   }
   return o;
 }
@@ -144,6 +149,45 @@ export function browserCommand(
 export const phoneUrl = (ips: string[], port: number): string | null =>
   ips[0] ? `http://${ips[0]}:${port}/follow` : null;
 
+/** Something answers at this port of this machine: wait until nothing does (up to `ms`). */
+async function gone(port: number, ms: number): Promise<boolean> {
+  for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 100)))
+    if (!(await waiterAt(port))) return true;
+  return false;
+}
+
+/**
+ * `start --off` (1.6.2): «Вимкнути повністю» from the console — when the control window can't be
+ * reached, or the waiter runs hidden since the computer started. The running app is asked first
+ * (it tells the phones and remotes, removes the autostart entry and stops its waiter); should it
+ * not answer, its waiter is shut down directly; the autostart entry is removed here either way.
+ */
+export async function switchOff(
+  port: number,
+  entry: AutostartEntry | null,
+  waitMs = 5000,
+): Promise<{ wasRunning: boolean; stillRunning: boolean; autostartRemoved: boolean }> {
+  const post = (url: string) =>
+    fetch(url, {
+      method: 'POST',
+      headers: { [CONTROL_HEADER]: '1' },
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => undefined);
+  // before the app is asked: it removes the entry itself
+  const hadAutostart = isAutostartOn(entry);
+  const waiter = await waiterAt(port);
+  let stillRunning = false;
+  if (waiter) {
+    if (waiter.state === 'running') await post(`http://127.0.0.1:${port}/api/shutdown`);
+    if (!(await gone(port, waitMs))) {
+      await post(`http://127.0.0.1:${port}/__standby/shutdown`);
+      stillRunning = !(await gone(port, waitMs));
+    }
+  }
+  if (isAutostartOn(entry)) setAutostart(entry, false);
+  return { wasRunning: !!waiter, stillRunning, autostartRemoved: hadAutostart };
+}
+
 // ---------------------------------------------------------------------------------------
 
 const secs = (from: number) => `${((Date.now() - from) / 1000).toFixed(1)} с`;
@@ -194,12 +238,36 @@ async function main(argv: string[]): Promise<number> {
     log(m);
     say(`  ${new Date().toTimeString().slice(0, 8)} ${m}`);
   };
-  say(`VerseOrchestrator ${version}${opts.check ? ' — перевірка' : ''}`);
-
-  // Already running (autostart, a second launch): open it — there is nothing to prepare
+  say(
+    `VerseOrchestrator ${version}${opts.check ? ' — перевірка' : opts.off ? ' — вимкнення' : ''}`,
+  );
   const settings = readStandbySettings(dataDir);
   const port = opts.port ?? settings.port;
   const local = `http://localhost:${port}`;
+
+  // --off: «Вимкнути повністю» from the console (1.6.2)
+  if (opts.off) {
+    const r = await switchOff(port, currentEntry(root));
+    if (r.stillRunning) {
+      say(`✗ Застосунок на :${port} не зупинився. Закрийте вікно, де його запущено.`);
+      return 1;
+    }
+    say(
+      r.wasRunning
+        ? `✓ Застосунок зупинено (працював на :${port})`
+        : `✓ На :${port} застосунок не працював`,
+    );
+    say(r.autostartRemoved ? '✓ Автозапуск разом з комп’ютером прибрано' : '✓ Автозапуску не було');
+    say('');
+    say(`Поза папкою застосунку лишилися тільки дані браузера для ${local}: налаштування`);
+    say('вигляду, послідовність, кеш бібліотеки. Щоб стерти й їх, запустіть застосунок і в');
+    say('Налаштування вигляду → Застосунок виберіть «Вимкнути повністю» з позначкою «стерти');
+    say('дані браузера» — або видаліть дані цього сайту в налаштуваннях браузера. Після цього');
+    say('папку застосунку можна просто видалити.');
+    return 0;
+  }
+
+  // Already running (autostart, a second launch): open it — there is nothing to prepare
   const running = !!(await waiterAt(port));
   if (running && !opts.check) {
     say(`✓ Застосунок уже працює: ${local}`);
@@ -333,7 +401,7 @@ async function main(argv: string[]): Promise<number> {
       onRetired: (why) => {
         if (why === 'shutdown')
           say(
-            'Застосунок вимкнено з налаштувань («Вимкнути повністю»). Щоб запустити знову, запустіть цей файл.',
+            'Застосунок вимкнено («Вимкнути повністю»). Щоб запустити знову, запустіть цей файл.',
           );
         else if (!stopping)
           say('«Запуск за адресою» вимкнено в налаштуваннях — застосунок зупинено.');

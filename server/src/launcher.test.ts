@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { lanIps } from './access';
+import { createStandby, waiterAt } from './standby';
 import {
   browserCommand,
   depsState,
@@ -10,6 +13,7 @@ import {
   nodeVersionOk,
   parseArgs,
   phoneUrl,
+  switchOff,
 } from './launcher';
 
 const dirs: string[] = [];
@@ -36,12 +40,14 @@ describe('launcher', () => {
   });
 
   it('reads its command line', () => {
-    expect(parseArgs([])).toEqual({ browser: true, port: null, check: false });
+    expect(parseArgs([])).toEqual({ browser: true, port: null, check: false, off: false });
     expect(parseArgs(['--no-browser', '--port', '4798', '--check'])).toEqual({
       browser: false,
       port: 4798,
       check: true,
+      off: false,
     });
+    expect(parseArgs(['--off'])).toMatchObject({ off: true });
     expect(parseArgs(['--port', '80'])).toMatch(/1024/);
     expect(parseArgs(['--fast'])).toMatch(/Невідомий параметр/);
   });
@@ -126,5 +132,40 @@ describe('launcher', () => {
     expect(ips).toEqual(['192.168.0.249', '172.20.160.1']);
     expect(phoneUrl(ips, 4747)).toBe('http://192.168.0.249:4747/follow');
     expect(phoneUrl([], 4747)).toBeNull();
+  });
+
+  it('--off: stops a running waiter (directly, when its app does not answer) and the autostart (1.6.2)', async () => {
+    // an app that ignores /api/shutdown — the waiter is then shut down directly
+    const app = http.createServer((_req, res) => res.end('{}'));
+    await new Promise<void>((r) => app.listen(0, '127.0.0.1', r));
+    const waiter = createStandby({
+      port: 0,
+      host: '127.0.0.1',
+      idleMs: 60_000,
+      startApp: async () => ({
+        port: (app.address() as AddressInfo).port,
+        onExit: () => undefined,
+        stop: () => new Promise<void>((r) => app.close(() => r())),
+      }),
+    });
+    const port = await waiter.listen();
+    await waiter.start();
+    const entry = {
+      file: path.join(project({ 'autostart.vbs': 'x' }), 'autostart.vbs'),
+      content: 'x',
+    };
+    expect(await switchOff(port, entry, 300)).toEqual({
+      wasRunning: true,
+      stillRunning: false,
+      autostartRemoved: true,
+    });
+    expect(await waiterAt(port)).toBeNull();
+    expect(fs.existsSync(entry.file)).toBe(false);
+    // nothing there: says so
+    expect(await switchOff(port, null, 300)).toEqual({
+      wasRunning: false,
+      stillRunning: false,
+      autostartRemoved: false,
+    });
   });
 });
