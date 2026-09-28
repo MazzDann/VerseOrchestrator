@@ -276,12 +276,6 @@ body[data-resizing='y'] {
   inset: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  /* a remote with every permission is taller than a phone (Samsung, 412×783): scroll —
-     the «Назад / Далі» row used to collapse and lie over «Затемнити» (1.5.14) */
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   background: var(--vo-follow-bg);
   color: var(--vo-follow-fg);
   font-family: Inter, system-ui, sans-serif;
@@ -292,19 +286,38 @@ body[data-resizing='y'] {
   padding: 14px;
   border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
 }
-.vo-remote > * {
+/* A remote with every permission is taller than a phone (Samsung, 412×783): the body
+   scrolls (1.5.14), and «Назад / Далі» stay in a footer under the thumb (1.5.15). */
+.vo-remote-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: max(16px, env(safe-area-inset-top)) 16px 14px;
+}
+.vo-remote-body > * {
   flex-shrink: 0;
 }
+.vo-remote-foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 16px max(14px, env(safe-area-inset-bottom));
+  border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  background: var(--vo-follow-bg);
+}
 .vo-remote-pad {
-  flex: 1 0 auto;
   display: grid;
   grid-template-columns: 1fr 1.6fr; /* «Далі» is the button the speaker hits most */
   gap: 12px;
-  min-height: 112px; /* grows into free space; never shrinks under a comfortable tap */
+  height: clamp(76px, 15vh, 132px);
 }
 .vo-remote-pad-small {
-  flex: none;
-  min-height: 0;
+  height: auto;
   grid-template-columns: 1fr 1fr;
 }
 .vo-remote-btn {
