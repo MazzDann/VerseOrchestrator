@@ -5,10 +5,46 @@ import {
   type SlideLine,
   type SlideStyle,
   type SlideReveal,
+  type SlideTransition,
   DEFAULT_STYLE,
 } from '../presenterBus';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
+
+/**
+ * The slide change (1.5.7, SlideStyle.transition) as motion variants for an AnimatePresence
+ * in mode="wait": `smooth` — the old slide fades out, then the new one in (0.35 s each);
+ * `fast` — the old one goes at once and the new one fades in over 0.15 s; `none` — an
+ * instant swap. The mode reaches the EXITING slide through AnimatePresence's `custom`, so
+ * the change right after switching modes already follows the new one (measured: a leftover
+ * 0.35 s fade-out otherwise).
+ */
+const SLIDE_VARIANTS = {
+  hidden: { opacity: 0 },
+  shown: (t: SlideTransition | undefined) => ({
+    opacity: 1,
+    transition:
+      t === 'none'
+        ? { duration: 0 }
+        : t === 'fast'
+          ? { duration: 0.15, ease: 'easeOut' as const }
+          : { duration: 0.35, ease: 'easeInOut' as const },
+  }),
+  gone: (t: SlideTransition | undefined) => ({
+    opacity: 0,
+    transition: { duration: t === 'fast' || t === 'none' ? 0 : 0.35, ease: 'easeInOut' as const },
+  }),
+};
+
+function slideMotion(t: SlideTransition | undefined) {
+  return {
+    variants: SLIDE_VARIANTS,
+    custom: t,
+    initial: t === 'none' ? (false as const) : 'hidden',
+    animate: 'shown',
+    exit: 'gone',
+  };
+}
 
 const ALIGN_ITEMS = { left: 'flex-start', center: 'center', right: 'flex-end' } as const;
 
@@ -176,14 +212,11 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
     return (
       <div style={rootStyle}>
         {scrim}
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" custom={style.transition}>
           {show && (
             <motion.div
               key={slideKey}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.35, ease: 'easeInOut' }}
+              {...slideMotion(style.transition)}
               style={{
                 position: 'absolute',
                 inset: 0,
@@ -295,15 +328,12 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
           justifyContent: 'center',
         }}
       >
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" custom={style.transition}>
           {show && (
             <motion.div
               key={slideKey}
               ref={contentRef}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.35, ease: 'easeInOut' }}
+              {...slideMotion(style.transition)}
               style={{
                 position: 'relative',
                 display: 'flex',

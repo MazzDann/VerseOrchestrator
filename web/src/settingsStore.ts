@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { type SlideTemplate, type SlideObject } from './presenterBus';
+import { type SlideTemplate, type SlideObject, type SlideTransition } from './presenterBus';
 import { DEFAULT_KEYMAP, sanitizeKeymap, type Keymap, type HotkeyActionId } from './hotkeys';
 
 export type TextAlign = 'left' | 'center' | 'right';
@@ -35,6 +35,8 @@ export interface Appearance {
   revealSpotlight: boolean;
   /** Show unrevealed verses faintly (else invisible but space kept). */
   revealPlaceholders: boolean;
+  /** How one slide gives way to the next on the outputs (1.5.7). */
+  transition: SlideTransition;
 }
 
 export interface RefItem {
@@ -218,6 +220,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   reveal: false,
   revealSpotlight: false,
   revealPlaceholders: false,
+  transition: 'smooth',
 };
 
 export const FONT_OPTIONS = [
@@ -232,6 +235,7 @@ export const refKey = (i: RefItem) => `${i.translationId}-${i.bookNumber}-${i.ch
 export const textKey = (t: TextItem) => `${t.title}\n${t.body}`;
 
 const ALIGNS: TextAlign[] = ['left', 'center', 'right'];
+const TRANSITIONS: SlideTransition[] = ['smooth', 'fast', 'none'];
 const PAD_UNITS: PadUnit[] = ['px', '%'];
 const PAD_LINKS: PadLink[] = ['all', 'axis', 'none'];
 const STRONG_SUBLINES: StrongSubline[] = ['lemma', 'full'];
@@ -271,6 +275,7 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     reveal: !!m.reveal,
     revealSpotlight: !!m.revealSpotlight,
     revealPlaceholders: !!m.revealPlaceholders,
+    transition: TRANSITIONS.includes(m.transition) ? m.transition : DEFAULT_APPEARANCE.transition,
   };
 }
 
@@ -413,9 +418,14 @@ export const useSettings = create<SettingsState>()(
         set((s) => {
           const p = s.presets.find((x) => x.name === name);
           if (!p) return s;
-          // Keep the current background image — presets don't manage it.
+          // Keep the current background image and slide transition — presets don't manage them.
           return {
-            appearance: { ...DEFAULT_APPEARANCE, ...p.appearance, bgImage: s.appearance.bgImage },
+            appearance: {
+              ...DEFAULT_APPEARANCE,
+              ...p.appearance,
+              bgImage: s.appearance.bgImage,
+              transition: s.appearance.transition,
+            },
             slideTemplate: p.template ?? null,
           };
         }),
@@ -425,6 +435,8 @@ export const useSettings = create<SettingsState>()(
             ...DEFAULT_APPEARANCE,
             ...preset.appearance,
             bgImage: s.appearance.bgImage,
+            // how slides change is the operator's choice, not part of a look (1.5.7)
+            transition: s.appearance.transition,
           },
           slideTemplate: preset.template ?? null,
         })),
@@ -436,6 +448,8 @@ export const useSettings = create<SettingsState>()(
             ...DEFAULT_APPEARANCE,
             ...preset.appearance,
             bgImage: s.appearance.bgImage,
+            // how slides change is the operator's choice, not part of a look (1.5.7)
+            transition: s.appearance.transition,
           },
           slideTemplate: preset.template ?? null,
         }));
