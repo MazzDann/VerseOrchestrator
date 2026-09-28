@@ -3,6 +3,8 @@ rem VerseOrchestrator - start the app on Windows: double-click this file.
 rem Everything else happens in server\src\launcher.ts (the same on macOS and Linux).
 cd /d "%~dp0"
 chcp 65001 >nul
+rem a portable copy (npm run portable) carries its own Node, npm included
+if exist "%~dp0node\node.exe" set "PATH=%~dp0node;%PATH%"
 where node >nul 2>nul || goto nonode
 call node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>=24||a===23&&b>=6||a===22&&b>=18?0:1)" || goto oldnode
 call node --disable-warning=ExperimentalWarning server\src\launcher.ts %*

@@ -14,6 +14,7 @@ export default tseslint.config(
       '.claude/**',
       'data/**',
       'modules/**',
+      'portable/**',
       '**/*.SQLite3',
     ],
   },

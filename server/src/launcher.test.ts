@@ -10,10 +10,12 @@ import {
   browserCommand,
   depsState,
   libraryState,
+  NPM_CI,
   nodeVersionOk,
   parseArgs,
   phoneUrl,
   switchOff,
+  writeDepsRecord,
 } from './launcher';
 
 const dirs: string[] = [];
@@ -61,28 +63,58 @@ describe('launcher', () => {
       'node_modules/@esbuild/linux-x64': { version: '0.25.0', optional: true },
     };
     const installed = { 'node_modules/express': { version: '4.21.2' } };
+    const ok = { state: 'ok', mode: 'full' };
     // nothing installed yet
-    expect(depsState(project({ 'package-lock.json': lock(packages) }))).toBe('install');
-    // the same packages (the root's version bump and other platforms' optional ones don't count)
+    expect(depsState(project({ 'package-lock.json': lock(packages) }))).toEqual({
+      state: 'install',
+      mode: 'full',
+    });
+    // installed by hand (no record): the same packages — the root's version bump and other
+    // platforms' optional ones don't count
     const same = project({
       'package-lock.json': lock({ ...packages, '': { version: '1.6.1' } }),
       'node_modules/.package-lock.json': lock(installed),
     });
-    expect(depsState(same, 'win32-x64-abi137')).toBe('ok');
-    // a dependency changed
+    expect(depsState(same)).toEqual(ok);
+    // …a dependency changed
     const changed = project({
       'package-lock.json': lock({ ...packages, 'node_modules/express': { version: '5.1.0' } }),
       'node_modules/.package-lock.json': lock(installed),
     });
-    expect(depsState(changed)).toBe('install');
-    // installed by the launcher on another system (a folder copied between machines)
-    const copied = project({
-      'package-lock.json': lock(packages),
-      'node_modules/.package-lock.json': lock(installed),
-      'node_modules/.vo-platform': 'darwin-arm64-abi137',
+    expect(depsState(changed)).toEqual({ state: 'install', mode: 'full' });
+    // recorded on another system (a folder copied between machines)
+    writeDepsRecord(same, 'full', 'darwin-arm64-abi137');
+    expect(depsState(same, 'win32-x64-abi137')).toEqual({ state: 'other-system', mode: 'full' });
+    expect(depsState(same, 'darwin-arm64-abi137')).toEqual(ok);
+  });
+
+  it('a portable copy: only the runtime packages, installed as the record says (1.6.3)', () => {
+    const packages = {
+      'node_modules/express': { version: '4.21.2', integrity: 'sha512-a' },
+      'node_modules/vite': { version: '6.4.3', integrity: 'sha512-b', dev: true },
+    };
+    const copy = project({
+      'package-lock.json': lock({ '': { version: '1.6.3' }, ...packages }),
+      // `npm ci --omit=dev --workspace…`: no vite
+      'node_modules/.package-lock.json': lock({ 'node_modules/express': { version: '4.21.2' } }),
     });
-    expect(depsState(copied, 'win32-x64-abi137')).toBe('other-system');
-    expect(depsState(copied, 'darwin-arm64-abi137')).toBe('ok');
+    expect(depsState(copy, 'win32-x64-abi137').state).toBe('install'); // no record: vite missing
+    writeDepsRecord(copy, 'runtime', 'win32-x64-abi137');
+    expect(depsState(copy, 'win32-x64-abi137')).toEqual({ state: 'ok', mode: 'runtime' });
+    // a release bump keeps it installed; a changed dependency reinstalls — the same way
+    fs.writeFileSync(
+      path.join(copy, 'package-lock.json'),
+      lock({ '': { version: '1.6.4' }, ...packages }),
+    );
+    expect(depsState(copy, 'win32-x64-abi137')).toEqual({ state: 'ok', mode: 'runtime' });
+    fs.writeFileSync(
+      path.join(copy, 'package-lock.json'),
+      lock({ ...packages, 'node_modules/express': { version: '5.1.0', integrity: 'sha512-c' } }),
+    );
+    expect(depsState(copy, 'win32-x64-abi137')).toEqual({ state: 'install', mode: 'runtime' });
+    expect(NPM_CI.runtime).toEqual(
+      expect.arrayContaining(['--omit=dev', '--workspace=@vo/server', '--workspace=@vo/builder']),
+    );
   });
 
   it('finds the texts: the library, modules to build it from, the browser segments, or none', () => {

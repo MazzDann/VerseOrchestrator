@@ -1,6 +1,6 @@
 {
   "name": "@vo/builder",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,11 +11,11 @@
   "dependencies": {
     "@vo/shared": "*",
     "better-sqlite3": "^12.11.1",
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
-    "@types/better-sqlite3": "^7.6.12",
-    "tsx": "^4.19.2"
+    "@types/better-sqlite3": "^7.6.12"
   }
 }

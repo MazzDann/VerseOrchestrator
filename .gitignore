@@ -15,6 +15,9 @@ modules/
 # Old apps and source assets kept locally, not part of the new build
 old/
 
+# Portable copies (npm run portable) — Node, dependencies and maybe the library inside
+portable/
+
 # Third-party texts have their own licences (many translations and song collections are
 # still under copyright) — keep them out of the repository wherever they end up:
 # MyBible modules, downloaded module archives, generated libraries/segments, song decks

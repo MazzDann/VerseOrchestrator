@@ -5,3 +5,4 @@ data
 modules
 package-lock.json
 *.SQLite3
+portable

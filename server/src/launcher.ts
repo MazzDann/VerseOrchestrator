@@ -14,6 +14,7 @@
  * Node is new enough first).
  */
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,35 +68,90 @@ export function parseArgs(argv: string[]): LaunchOptions | string {
 /** What the installed dependencies were made for: a folder copied between systems needs its own. */
 export const platformTag = () =>
   `${process.platform}-${process.arch}-abi${process.versions.modules}`;
-const TAG_FILE = '.vo-platform';
 
 /**
- * Whether `npm ci` is needed: nothing installed yet, installed for another system (see
- * platformTag), or the lockfile asks for packages that aren't there. Compared by content —
- * the version bumps rewrite the lockfile without changing a single dependency.
+ * How the dependencies were installed: everything (a working copy), or only what the app runs
+ * on — the server's and the builder's packages, no bundler or dev tools (a portable copy, 1.6.3).
  */
-export function depsState(dir: string, tag = platformTag()): 'ok' | 'install' | 'other-system' {
+export type DepsMode = 'full' | 'runtime';
+
+const QUIET = ['--no-audit', '--no-fund', '--no-update-notifier', '--loglevel=error'];
+/** `npm ci` for each mode. */
+export const NPM_CI: Record<DepsMode, string[]> = {
+  full: ['ci', ...QUIET],
+  runtime: ['ci', '--omit=dev', '--workspace=@vo/server', '--workspace=@vo/builder', ...QUIET],
+};
+
+/**
+ * The lockfile's packages, as one short hash — without the workspaces' own versions, which every
+ * release bumps without changing a single dependency.
+ */
+export function lockDigest(lockText: string): string {
+  const lock = JSON.parse(lockText) as {
+    packages?: Record<string, { version?: string; link?: boolean; integrity?: string }>;
+  };
+  const entries = Object.entries(lock.packages ?? {})
+    .filter(([key, p]) => key.startsWith('node_modules/') && !p.link)
+    .map(([key, p]) => `${key}@${p.version}#${p.integrity ?? ''}`)
+    .sort();
+  return createHash('sha256').update(entries.join('\n')).digest('hex').slice(0, 16);
+}
+
+/** Left in node_modules after an install: for which system, from which lockfile, which mode. */
+interface DepsRecord {
+  tag: string;
+  digest: string;
+  mode: DepsMode;
+}
+const RECORD = '.vo-deps';
+
+function readRecord(dir: string): DepsRecord | null {
+  try {
+    const r = JSON.parse(fs.readFileSync(path.join(dir, 'node_modules', RECORD), 'utf8'));
+    return r && typeof r.tag === 'string' && typeof r.digest === 'string' ? r : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeDepsRecord(dir: string, mode: DepsMode, tag = platformTag()): void {
+  const digest = lockDigest(fs.readFileSync(path.join(dir, 'package-lock.json'), 'utf8'));
+  const record: DepsRecord = { tag, digest, mode };
+  fs.writeFileSync(path.join(dir, 'node_modules', RECORD), JSON.stringify(record));
+}
+
+/**
+ * Whether `npm ci` is needed, and in which mode: nothing installed yet; installed for another
+ * system (platformTag); the lockfile changed since the recorded install; or — installed by hand,
+ * without a record — the lockfile asks for packages that aren't there (compared by content).
+ */
+export function depsState(
+  dir: string,
+  tag = platformTag(),
+): { state: 'ok' | 'install' | 'other-system'; mode: DepsMode } {
   const modules = path.join(dir, 'node_modules');
   let installed: { packages?: Record<string, { version?: string }> };
   try {
     installed = JSON.parse(fs.readFileSync(path.join(modules, '.package-lock.json'), 'utf8'));
   } catch {
-    return 'install';
+    return { state: 'install', mode: 'full' };
   }
-  try {
-    if (fs.readFileSync(path.join(modules, TAG_FILE), 'utf8').trim() !== tag) return 'other-system';
-  } catch {
-    /* installed by hand: no tag, trust the packages */
+  const lockText = fs.readFileSync(path.join(dir, 'package-lock.json'), 'utf8');
+  const record = readRecord(dir);
+  if (record) {
+    // a portable copy holds only the runtime packages: the record, not the list, says «installed»
+    if (record.tag !== tag) return { state: 'other-system', mode: record.mode };
+    return { state: record.digest === lockDigest(lockText) ? 'ok' : 'install', mode: record.mode };
   }
-  const lock = JSON.parse(fs.readFileSync(path.join(dir, 'package-lock.json'), 'utf8')) as {
+  const lock = JSON.parse(lockText) as {
     packages?: Record<string, { version?: string; link?: boolean; optional?: boolean }>;
   };
   for (const [key, p] of Object.entries(lock.packages ?? {})) {
     // workspace links, and optional packages for other platforms (esbuild's, rollup's …)
     if (!key.startsWith('node_modules/') || p.link || p.optional) continue;
-    if (installed.packages?.[key]?.version !== p.version) return 'install';
+    if (installed.packages?.[key]?.version !== p.version) return { state: 'install', mode: 'full' };
   }
-  return 'ok';
+  return { state: 'ok', mode: 'full' };
 }
 
 export type LibraryState =
@@ -277,26 +333,20 @@ async function main(argv: string[]): Promise<number> {
 
   // 1. Dependencies (npm ci on a fresh copy — needs the internet once)
   const deps = depsState(root);
-  if (deps === 'ok') say('✓ Залежності на місці');
+  if (deps.state === 'ok') say('✓ Залежності на місці');
   else if (opts.check)
     say(
-      `! Залежності: ${deps === 'install' ? 'не встановлено' : 'встановлено для іншої системи'} (npm ci)`,
+      `! Залежності: ${deps.state === 'install' ? 'не встановлено' : 'встановлено для іншої системи'} (npm ci)`,
     );
   else {
     const t = Date.now();
     say(
-      deps === 'install'
+      deps.state === 'install'
         ? '… Встановлюю залежності (npm ci; перший раз — кілька хвилин, потрібен інтернет)'
         : '… Залежності встановлено для іншої системи — перевстановлюю (npm ci)',
     );
     try {
-      await run(
-        'npm',
-        ['ci', '--no-audit', '--no-fund', '--no-update-notifier', '--loglevel=error'],
-        root,
-        log,
-        { inherit: true },
-      );
+      await run('npm', NPM_CI[deps.mode], root, log, { inherit: true });
     } catch {
       say('✗ Не вдалося встановити залежності. Перевірте інтернет і запустіть ще раз.');
       return 1;
@@ -305,7 +355,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // 2. The native SQLite module (a folder moved to another Node version / system)
-  let sqlite = deps === 'ok' || !opts.check ? sqliteLoads() : { ok: false, error: '' };
+  let sqlite = deps.state === 'ok' || !opts.check ? sqliteLoads() : { ok: false, error: '' };
   if (!sqlite.ok && !opts.check) {
     say('… Модуль SQLite зібрано для іншої версії Node — перебудовую');
     try {
@@ -319,11 +369,11 @@ async function main(argv: string[]): Promise<number> {
     say('✓ Модуль SQLite працює');
     if (!opts.check)
       try {
-        fs.writeFileSync(path.join(root, 'node_modules', TAG_FILE), platformTag());
+        writeDepsRecord(root, deps.mode);
       } catch {
         /* read-only copy: checked again next time */
       }
-  } else if (deps === 'ok' || !opts.check) {
+  } else if (deps.state === 'ok' || !opts.check) {
     say(`✗ Модуль SQLite не завантажується: ${sqlite.error || 'невідома помилка'}`);
     say('  Спробуйте: npm ci');
     if (!opts.check) return 1;
