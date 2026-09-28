@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { type SlideTemplate, type SlideObject, type SlideTransition } from './presenterBus';
+import {
+  type SlideTemplate,
+  type SlideObject,
+  type SlideTransition,
+  type QrStyle,
+} from './presenterBus';
 import { DEFAULT_KEYMAP, sanitizeKeymap, type Keymap, type HotkeyActionId } from './hotkeys';
 
 export type TextAlign = 'left' | 'center' | 'right';
@@ -162,6 +167,8 @@ interface SettingsState {
   followAlong: boolean;
   /** The viewers' QR in a corner of the output while follow-along is on (1.5.16). */
   followQrCorner: boolean;
+  /** How the viewers' QR is drawn on the output (1.5.20). */
+  followQrStyle: QrStyle;
   /** Active positioned layout; null → the default centred layout. */
   slideTemplate: SlideTemplate | null;
   history: RefItem[];
@@ -177,6 +184,7 @@ interface SettingsState {
   setLiveFollow: (v: boolean) => void;
   setFollowAlong: (v: boolean) => void;
   setFollowQrCorner: (v: boolean) => void;
+  setFollowQrStyle: (v: QrStyle) => void;
   setSlideTemplate: (t: SlideTemplate | null) => void;
   setPanelPlacement: (p: PanelPlacement) => void;
   setLayout: (patch: Partial<PanelLayout>) => void;
@@ -343,6 +351,7 @@ export const useSettings = create<SettingsState>()(
       liveFollow: true,
       followAlong: false,
       followQrCorner: false,
+      followQrStyle: 'rounded',
       slideTemplate: null,
       history: [],
       bookmarks: [],
@@ -355,6 +364,8 @@ export const useSettings = create<SettingsState>()(
       setLiveFollow: (v) => set({ liveFollow: v }),
       setFollowAlong: (v) => set({ followAlong: v }),
       setFollowQrCorner: (v) => set({ followQrCorner: v }),
+      setFollowQrStyle: (v) =>
+        set({ followQrStyle: v === 'square' || v === 'dots' ? v : 'rounded' }),
       setSlideTemplate: (t) => set({ slideTemplate: t }),
       setPanelPlacement: (p) => set({ panelPlacement: p }),
       setLayout: (patch) => set((s) => ({ layout: clampLayout({ ...s.layout, ...patch }) })),

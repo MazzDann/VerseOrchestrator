@@ -46,7 +46,12 @@ export interface SlideStyle {
   transition?: SlideTransition;
   /** the viewers' QR (their /follow address) in a corner of every slide (1.5.16) */
   qrCorner?: string | null;
+  /** how the viewers' QR is drawn (1.5.20); absent = square modules */
+  qrStyle?: QrStyle;
 }
+
+/** The viewers' QR look (1.5.20): classic squares, rounded modules, or dots. */
+export type QrStyle = 'square' | 'rounded' | 'dots';
 
 /**
  * Slide change (1.5.7): `smooth` fades the old slide out, then the new one in (0.35 s each

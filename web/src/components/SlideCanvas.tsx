@@ -139,7 +139,9 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
       : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
   // the viewers' QR in a corner (1.5.16) — over any slide but the QR slide itself
   const corner =
-    style.qrCorner && !slide.qr ? <QrCard url={style.qrCorner} variant="corner" /> : null;
+    style.qrCorner && !slide.qr ? (
+      <QrCard url={style.qrCorner} variant="corner" look={style.qrStyle} />
+    ) : null;
   // …and the content keeps out of its band (1.5.19: long text ran under the card). The
   // card is 17cqh of QR + padding + caption ≈ 22cqh tall, 2.5cqh off the bottom: keep the
   // lowest 26 % of the slide free; the text auto-fits the rest, centred as before.
@@ -322,7 +324,7 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
           }}
         >
           {slide.qr ? (
-            <QrCard url={slide.qr} variant="full" />
+            <QrCard url={slide.qr} variant="full" look={style.qrStyle} />
           ) : slide.reveal ? (
             <RevealLines reveal={slide.reveal} style={style} />
           ) : (

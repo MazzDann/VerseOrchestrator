@@ -1,6 +1,7 @@
-import { Button, Stack, Switch, Text } from '@mantine/core';
+import { Button, SegmentedControl, Stack, Switch, Text } from '@mantine/core';
 import { IconQrcode, IconQrcodeOff } from '@tabler/icons-react';
 import { useSettings } from '../settingsStore';
+import type { QrStyle } from '../presenterBus';
 import { PhoneLink } from './PhoneLink';
 
 /** Ukrainian plural: 1 телефон, 2–4 телефони, 5+ телефонів (11–14 → телефонів). */
@@ -31,6 +32,8 @@ export function FollowPanel({
   const setFollowAlong = useSettings((s) => s.setFollowAlong);
   const followQrCorner = useSettings((s) => s.followQrCorner);
   const setFollowQrCorner = useSettings((s) => s.setFollowQrCorner);
+  const followQrStyle = useSettings((s) => s.followQrStyle);
+  const setFollowQrStyle = useSettings((s) => s.setFollowQrStyle);
   return (
     <Stack gap="sm" p="md">
       <Switch
@@ -66,6 +69,22 @@ export function FollowPanel({
             label="QR у кутку екрана"
             description="Маленький QR на кожному слайді, щоб підключитися могли й ті, хто прийшов пізніше"
           />
+          <div>
+            <Text size="xs" c="dimmed" mb={4}>
+              Вигляд QR на екрані
+            </Text>
+            <SegmentedControl
+              size="xs"
+              fullWidth
+              value={followQrStyle}
+              onChange={(v) => setFollowQrStyle(v as QrStyle)}
+              data={[
+                { label: 'Класичний', value: 'square' },
+                { label: 'Округлий', value: 'rounded' },
+                { label: 'Крапки', value: 'dots' },
+              ]}
+            />
+          </div>
         </>
       ) : (
         <Text size="xs" c="dimmed">

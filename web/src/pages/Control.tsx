@@ -158,6 +158,7 @@ export function Control() {
   const setLiveFollow = useSettings((s) => s.setLiveFollow);
   const followAlong = useSettings((s) => s.followAlong);
   const followQrCorner = useSettings((s) => s.followQrCorner);
+  const followQrStyle = useSettings((s) => s.followQrStyle);
   // the viewers' address as a phone can reach it (LAN IP when opened on localhost)
   const { url: followUrl } = usePhoneUrl('/follow');
   const slideTemplate = useSettings((s) => s.slideTemplate);
@@ -488,8 +489,9 @@ export function Control() {
       transition: appearance.transition,
       // the viewers' QR in a corner (1.5.16) — only while the relay is on to read from
       qrCorner: followAlong && followQrCorner ? followUrl : null,
+      qrStyle: followQrStyle,
     }),
-    [appearance, followAlong, followQrCorner, followUrl],
+    [appearance, followAlong, followQrCorner, followUrl, followQrStyle],
   );
 
   // --- Progressive reveal --------------------------------------------------------
@@ -1139,13 +1141,28 @@ export function Control() {
     // verses: live-follow picks up again on the next step; a song / text keeps the screen
     setPreviewOverride(restored.source?.kind === 'verses' ? null : restored);
   };
-  // The corner QR switched on/off: show it on what is on screen now, whatever that is.
+  // The corner QR switched on/off or restyled (1.5.20): show it on what is on screen now,
+  // whatever that is (the QR slide itself too).
   useEffect(() => {
     const s = liveSlideRef.current;
-    if (!s.visible || s.forceBlack || (s.style?.qrCorner ?? null) === slideStyle.qrCorner) return;
-    pushLive({ ...s, style: { ...(s.style ?? slideStyle), qrCorner: slideStyle.qrCorner } });
+    if (!s.visible || s.forceBlack) return;
+    const same =
+      (s.style?.qrCorner ?? null) === slideStyle.qrCorner &&
+      (s.style?.qrStyle ?? null) === (slideStyle.qrStyle ?? null);
+    if (same) return;
+    pushLive(
+      {
+        ...s,
+        style: {
+          ...(s.style ?? slideStyle),
+          qrCorner: slideStyle.qrCorner,
+          qrStyle: slideStyle.qrStyle,
+        },
+      },
+      { audience: !s.qr },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideStyle.qrCorner]);
+  }, [slideStyle.qrCorner, slideStyle.qrStyle]);
 
   const clearScreen = () => {
     pushLive({ lines: [], reference: '', blank: false, visible: false });
