@@ -48,6 +48,7 @@ import {
   IconQrcode,
   IconDeviceMobile,
   IconAppWindow,
+  IconPlugConnectedX,
 } from '@tabler/icons-react';
 
 import { api, type Verse, type SongStyle, type RemoteCommand, type Pairing } from '../api';
@@ -1698,12 +1699,25 @@ export function Control() {
    * shows a note and can take over («Слухати тут»).
    */
   const [hubActive, setHubActive] = useState(true);
+  /**
+   * The socket to the hub has been down for more than a blink (1.5.25). Then nobody can say
+   * which window is in charge: the Mac test saw «Слухати тут» stay up (and do nothing) after
+   * the server had stopped — the last word from the hub, never taken back.
+   */
+  const [hubLost, setHubLost] = useState(false);
   useEffect(() => {
     // No server (static deployment / stopped): there is no hub to talk to. Standby: the
     // leading window holds the control socket, so remote commands reach one window only.
     if (serverAvailable !== true || !isLeader) return;
+    let lostTimer: number | undefined;
     const c = connectLive({
       hello: { role: 'control' },
+      // a restart of the server (≈1–2 s) shouldn't flash a warning; a real outage should
+      onStatus: (open) => {
+        window.clearTimeout(lostTimer);
+        if (open) setHubLost(false);
+        else lostTimer = window.setTimeout(() => setHubLost(true), HUB_LOST_MS);
+      },
       onMessage: (f) => {
         // In charge of the hub (at connect, after «Слухати тут», or when the other browser's
         // control window closed): give remotes the current screen straight away and, after a
@@ -1763,7 +1777,9 @@ export function Control() {
     controlConn.current = c;
     return () => {
       controlConn.current = null;
+      window.clearTimeout(lostTimer);
       setHubActive(true);
+      setHubLost(false);
       c.stop();
     };
   }, [queryClient, serverAvailable, isLeader]);
@@ -2477,7 +2493,32 @@ export function Control() {
                 </Button>
               </Group>
             )}
-            {isLeader && !hubActive && (
+            {isLeader && hubLost && (
+              <Group
+                gap="sm"
+                wrap="nowrap"
+                px="md"
+                py={6}
+                role="status"
+                style={{
+                  background: 'var(--mantine-color-default-hover)',
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                }}
+              >
+                <IconPlugConnectedX
+                  size={16}
+                  color="var(--mantine-color-orange-filled)"
+                  aria-hidden
+                  style={{ flex: 'none' }}
+                />
+                <Text size="sm" style={{ flex: 1 }}>
+                  Немає зв’язку із сервером застосунку: пульти й телефони глядачів зараз не чують
+                  цього вікна, вікна виводу працюють далі. Перевірте, чи запущено застосунок, —
+                  зв’язок відновиться сам.
+                </Text>
+              </Group>
+            )}
+            {isLeader && !hubLost && !hubActive && (
               <Group
                 gap="sm"
                 wrap="nowrap"
@@ -2818,6 +2859,8 @@ function stripBg(slide: Slide): Slide {
 
 /** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */
 const GAP = '…';
+/** How long the socket to the hub may be down before the operator is told (1.5.25). */
+const HUB_LOST_MS = 3000;
 
 /** Displayed text for the selected verses (chapter order), with gaps between non-contiguous ones. */
 function joinVerses(verses: Verse[], selected: number[], showNum: boolean): string {

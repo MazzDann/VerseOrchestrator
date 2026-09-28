@@ -108,6 +108,9 @@ export function connectLive(opts: {
       window.clearTimeout(timer);
       window.removeEventListener('pagehide', onHide);
       window.removeEventListener('pageshow', onShow);
+      // A stopped connection says nothing more: its close event arrives after the caller
+      // has moved on (an effect re-run) and is not an outage (1.5.25).
+      if (ws) ws.onclose = null;
       ws?.close();
     },
   };
