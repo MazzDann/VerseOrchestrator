@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack, Text, Image, Code, CopyButton, Button, Group, Loader } from '@mantine/core';
 import { IconCopy, IconCheck } from '@tabler/icons-react';
 import QRCode from 'qrcode';
-import { api } from '../api';
+import { usePhoneUrl } from '../lib/phoneUrl';
 
 /**
  * A phone-reachable link to one of this app's pages, as a QR + copyable URL. When the
@@ -10,23 +10,8 @@ import { api } from '../api';
  * machine's LAN IP instead. Shared by the viewers (/follow) and speaker-remote panels.
  */
 export function PhoneLink({ path, caption }: { path: string; caption: string }) {
-  const [lanIps, setLanIps] = useState<string[] | null>(null);
   const [qr, setQr] = useState('');
-  const onLocalhost = /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(window.location.hostname);
-
-  useEffect(() => {
-    api
-      .host()
-      .then((r) => setLanIps(r.ips))
-      .catch(() => setLanIps([]));
-  }, []);
-
-  const url = useMemo(() => {
-    const { protocol, port, origin } = window.location;
-    if (onLocalhost && lanIps?.[0])
-      return `${protocol}//${lanIps[0]}${port ? `:${port}` : ''}${path}`;
-    return `${origin}${path}`;
-  }, [lanIps, onLocalhost, path]);
+  const { url, lanIps, onLocalhost } = usePhoneUrl(path);
 
   useEffect(() => {
     QRCode.toDataURL(url, { width: 240, margin: 1, color: { dark: '#000000', light: '#ffffff' } })

@@ -160,6 +160,8 @@ interface SettingsState {
   liveFollow: boolean;
   /** When true, mirror the live slide to the server so phones can follow along. */
   followAlong: boolean;
+  /** The viewers' QR in a corner of the output while follow-along is on (1.5.16). */
+  followQrCorner: boolean;
   /** Active positioned layout; null → the default centred layout. */
   slideTemplate: SlideTemplate | null;
   history: RefItem[];
@@ -174,6 +176,7 @@ interface SettingsState {
   setOutputs: (patch: Partial<OutputSettings>) => void;
   setLiveFollow: (v: boolean) => void;
   setFollowAlong: (v: boolean) => void;
+  setFollowQrCorner: (v: boolean) => void;
   setSlideTemplate: (t: SlideTemplate | null) => void;
   setPanelPlacement: (p: PanelPlacement) => void;
   setLayout: (patch: Partial<PanelLayout>) => void;
@@ -339,6 +342,7 @@ export const useSettings = create<SettingsState>()(
       layout: DEFAULT_LAYOUT,
       liveFollow: true,
       followAlong: false,
+      followQrCorner: false,
       slideTemplate: null,
       history: [],
       bookmarks: [],
@@ -350,6 +354,7 @@ export const useSettings = create<SettingsState>()(
         set((st) => ({ outputs: sanitizeOutputs({ ...st.outputs, ...patch }) })),
       setLiveFollow: (v) => set({ liveFollow: v }),
       setFollowAlong: (v) => set({ followAlong: v }),
+      setFollowQrCorner: (v) => set({ followQrCorner: v }),
       setSlideTemplate: (t) => set({ slideTemplate: t }),
       setPanelPlacement: (p) => set({ panelPlacement: p }),
       setLayout: (patch) => set((s) => ({ layout: clampLayout({ ...s.layout, ...patch }) })),

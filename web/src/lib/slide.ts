@@ -38,13 +38,13 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
     ? 'black'
     : slide.blank
       ? 'blank'
-      : slide.visible && slide.lines.length > 0
+      : slide.visible && (slide.lines.length > 0 || !!slide.qr)
         ? 'live'
         : 'empty';
   return {
     status,
     reference: slide.reference ?? '',
-    text: (slide.lines[0]?.text ?? '').slice(0, 400),
+    text: slide.qr ? 'QR для глядачів' : (slide.lines[0]?.text ?? '').slice(0, 400),
     font: slide.style?.font,
     source: slide.source,
   };
