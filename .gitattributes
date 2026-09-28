@@ -1,5 +1,7 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Auto detect text files, LF in the repository AND in every working copy: Prettier checks
+# for LF, and a Windows checkout with core.autocrlf=true used to get CRLF — after main was
+# taken from a bundle, 31 files there failed `prettier --check` with no change of their own.
+* text=auto eol=lf
 
 # The launchers (1.6.0): shell scripts must keep LF even in a Windows checkout — a CRLF
 # start.sh copied to a Mac or Linux (the flash copy) fails with "bad interpreter";
