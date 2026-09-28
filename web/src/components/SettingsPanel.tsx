@@ -451,7 +451,7 @@ export function SettingsPanel() {
               Бібліотека модулів
             </Text>
             <Text size="xs" c="dimmed" mb={8}>
-              Перебудувати з теки modules/ після додавання перекладу чи пісні.
+              Перебудувати з папок modules/ і songs/ після додавання перекладу чи пісні.
             </Text>
             <Button
               variant="light"

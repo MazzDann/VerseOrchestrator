@@ -75,7 +75,7 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
       ) : (
         !xrefQuery.isFetching && (
           <Text size="xs" c="dimmed">
-            Немає перехресних посилань. Додайте модуль <code>*.crossreferences</code> у теку
+            Немає перехресних посилань. Додайте модуль <code>*.crossreferences</code> у папку
             modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).
           </Text>
         )
