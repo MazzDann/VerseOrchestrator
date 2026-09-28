@@ -377,6 +377,14 @@ body[data-resizing='y'] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.vo-remote-chip[data-selected] {
+  background: var(--mantine-color-brand-light);
+  border-color: var(--mantine-color-brand-filled);
+}
+/* «Біблія» / «Пісні» in the picker (1.5.3) — only when the remote may choose both */
+.vo-remote-modes {
+  grid-template-columns: 1fr 1fr;
+}
 /* The verse picker (1.5.1): a full-screen sheet over the remote. */
 .vo-remote-sheet {
   position: fixed;

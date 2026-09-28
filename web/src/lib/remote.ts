@@ -8,4 +8,5 @@ export const REMOTE_LABEL: Record<RemoteCommand, string> = {
   black: 'Чорний екран',
   show: 'На екран',
   pick: 'Вибір віршів',
+  songs: 'Пісні',
 };

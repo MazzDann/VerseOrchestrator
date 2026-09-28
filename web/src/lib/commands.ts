@@ -29,8 +29,31 @@ export interface RemotePassage {
   verses: number[];
 }
 
+/** A song stanza chosen on a remote (1.5.3). */
+export interface RemoteSong {
+  songId: number;
+  stanza: number;
+}
+
+/** What a remote's cursor points at: a passage or a song stanza. */
+export type RemoteTarget =
+  | { kind: 'verses'; passage: RemotePassage }
+  | { kind: 'song'; song: RemoteSong };
+
 export interface CommandArgs {
   passage?: RemotePassage;
+  song?: RemoteSong;
+}
+
+/** The command args for a target (what goes over the hub). */
+export const targetArgs = (t: RemoteTarget | null | undefined): CommandArgs =>
+  !t ? {} : t.kind === 'verses' ? { passage: t.passage } : { song: t.song };
+
+/** A song stanza as it arrives from the hub (the server already checked it) — or undefined. */
+export function asSong(raw: unknown): RemoteSong | undefined {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  if (!Number.isInteger(r.songId) || !Number.isInteger(r.stanza)) return undefined;
+  return { songId: r.songId as number, stanza: r.stanza as number };
 }
 
 const ints = (a: unknown): a is number[] =>

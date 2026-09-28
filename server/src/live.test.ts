@@ -267,6 +267,54 @@ describe('speaker remote over the hub', () => {
     remote.ws.close();
   });
 
+  it('songs are a permission of their own, per remote (sane ids, not a command)', async () => {
+    const p = createPairing('Пісня', [...DEFAULT_ALLOWED, 'show', 'pick']);
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const remote = client({ role: 'remote', token: p.token });
+    await remote.next('welcome');
+    // verses allowed, songs not: a stanza is refused
+    remote.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'pick', id: 'g0', song: { songId: 13, stanza: 1 } }),
+    );
+    expect(await remote.next('ack')).toMatchObject({
+      ok: false,
+      reason: 'Пісні пульту не дозволено',
+    });
+    setPairingAllowed(p.id, [...DEFAULT_ALLOWED, 'show', 'songs']); // songs only now
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'songs', id: 'g00' }));
+    expect(await remote.next('ack')).toMatchObject({
+      ok: false,
+      reason: 'Ця дія пульту не дозволена',
+    });
+    remote.ws.send(
+      JSON.stringify({
+        type: 'command',
+        cmd: 'pick',
+        id: 'g01',
+        passage: { translationIds: [17], bookNumber: 500, chapter: 3, verses: [16] },
+      }),
+    );
+    expect(await remote.next('ack')).toMatchObject({
+      ok: false,
+      reason: 'Вибір віршів пульту не дозволено',
+    });
+    remote.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'pick', id: 'g1', song: { songId: 13, stanza: -1 } }),
+    );
+    expect(await remote.next('ack')).toMatchObject({ ok: false, reason: 'Неправильна строфа' });
+    remote.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'show', id: 'g2', song: { songId: 13, stanza: 2 } }),
+    );
+    const cmd = await control.next('command');
+    expect(cmd).toMatchObject({ cmd: 'show', song: { songId: 13, stanza: 2 } });
+    expect(cmd.passage).toBeUndefined();
+    control.ws.send(JSON.stringify({ type: 'result', id: cmd.id, ok: true }));
+    expect(await remote.next('ack')).toMatchObject({ id: 'g2', ok: true });
+    control.ws.close();
+    remote.ws.close();
+  });
+
   it('revoking a pairing disconnects its remote', async () => {
     const p = createPairing('Тимчасовий');
     const remote = client({ role: 'remote', token: p.token });

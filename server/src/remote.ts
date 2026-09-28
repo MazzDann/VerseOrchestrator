@@ -16,8 +16,10 @@ import { readJson, writeJson } from './jsonFile.js';
  * `show` (1.5.0) puts the control window's preview on screen, like the operator's F5.
  * `pick` (1.5.1) lets the phone choose verses itself — its own cursor, sent as a passage
  * (to preview with `pick`, to put on screen with `show` + passage, which needs both).
+ * `songs` (1.5.3) is a permission, not a command: song stanzas chosen on the phone go
+ * the same way (`pick` / `show` + song) — the operator grants it per remote on its own.
  */
-export const REMOTE_COMMANDS = ['next', 'prev', 'blank', 'black', 'show', 'pick'] as const;
+export const REMOTE_COMMANDS = ['next', 'prev', 'blank', 'black', 'show', 'pick', 'songs'] as const;
 export type RemoteCommand = (typeof REMOTE_COMMANDS)[number];
 
 /** What a new pairing may do unless the operator widens it (new abilities stay off). */
@@ -198,6 +200,22 @@ export function sanitizePassage(raw: unknown): Passage | null {
     chapter: r.chapter,
     verses: [...new Set(verses as number[])].sort((a, b) => a - b),
   };
+}
+
+/** A song stanza chosen on a phone (1.5.3). */
+export interface SongPick {
+  songId: number;
+  stanza: number;
+}
+
+/** A song stanza from a phone, or null when it isn't one. */
+export function sanitizeSong(raw: unknown): SongPick | null {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  if (!posInt(r.songId, 2 ** 31)) return null;
+  if (!Number.isInteger(r.stanza) || (r.stanza as number) < 0 || (r.stanza as number) > 500) {
+    return null;
+  }
+  return { songId: r.songId, stanza: r.stanza as number };
 }
 
 export function isRemoteCommand(c: unknown): c is RemoteCommand {

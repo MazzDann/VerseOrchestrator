@@ -103,8 +103,11 @@ import {
   commands,
   PRIORITY,
   useCommandHandler,
+  asSong,
   type Outcome,
   type RemotePassage,
+  type RemoteSong,
+  type RemoteTarget,
 } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { useDataSource } from '../dataSourceStore';
@@ -304,7 +307,7 @@ export function Control() {
    */
   const [remoteView, setRemoteView] = useState<{
     name: string;
-    passage: RemotePassage;
+    target: RemoteTarget;
     slide: Slide;
   } | null>(null);
 
@@ -1204,11 +1207,16 @@ export function Control() {
     if (cmd === 'next') return advance(1);
     if (cmd === 'prev') return advance(-1);
     const by = _source.name ?? 'Пульт';
-    if (cmd === 'show') return args.passage ? showRemotePassage(args.passage, by) : showPreview();
+    const target: RemoteTarget | null = args.passage
+      ? { kind: 'verses', passage: args.passage }
+      : args.song
+        ? { kind: 'song', song: args.song }
+        : null;
+    if (cmd === 'show') return target ? showRemote(target, by) : showPreview();
     if (cmd === 'pick') {
-      return args.passage
-        ? remoteSlide(args.passage, by).then((slide) => {
-            setRemoteView({ name: by, passage: args.passage!, slide });
+      return target
+        ? buildRemote(target, by).then((slide) => {
+            setRemoteView({ name: by, target, slide });
             return { ok: true };
           })
         : { ok: false, reason: 'Не вибрано вірш' };
@@ -1261,17 +1269,39 @@ export function Control() {
     };
   }
 
+  /** A song stanza chosen on a remote (1.5.3), in the operator's style (not «як у pptx»). */
+  async function remoteSongSlide(p: RemoteSong, by: string): Promise<Slide> {
+    const s = await queryClient.fetchQuery({
+      queryKey: ['song', p.songId],
+      queryFn: () => api.song(p.songId),
+    });
+    const stanza = s.slides[p.stanza];
+    if (!stanza) throw new Error('Такої строфи немає');
+    return {
+      lines: [{ translationAbbr: '', text: stanza.text, rtl: false }],
+      reference: `№${s.number ?? ''} ${s.title}`.trim(),
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+      source: { kind: 'song', songId: p.songId, stanza: p.stanza, by },
+    };
+  }
+
+  const buildRemote = (t: RemoteTarget, by: string) =>
+    t.kind === 'verses' ? remoteSlide(t.passage, by) : remoteSongSlide(t.song, by);
+
   /**
-   * The remote puts its passage on screen. The screen is the speaker's now: the operator's
-   * selection stops following live (`live` off) — they keep preparing, and their F5 /
-   * «На екран» takes the screen back.
+   * The remote puts its passage / stanza on screen. The screen is the speaker's now: the
+   * operator's selection stops following live (`live` off) — they keep preparing, and
+   * their F5 / «На екран» takes the screen back.
    */
-  async function showRemotePassage(p: RemotePassage, by: string): Promise<Outcome> {
-    const slide = await remoteSlide(p, by);
+  async function showRemote(t: RemoteTarget, by: string): Promise<Outcome> {
+    const slide = await buildRemote(t, by);
     if (!leaderRef.current) return { ok: false, reason: 'Показом керує інше вікно керування' };
     pushLive(slide);
     setLive(false);
-    setRemoteView({ name: by, passage: p, slide });
+    setRemoteView({ name: by, target: t, slide });
     return { ok: true };
   }
 
@@ -1394,13 +1424,20 @@ export function Control() {
             c.send({ type: 'publish', slide: stripBg(liveSlideRef.current) });
         }
         if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
-        if (f.type === 'command' && typeof f.cmd === 'string' && f.cmd in REMOTE_LABEL) {
-          const cmd = f.cmd as RemoteCommand;
+        // `songs` is a permission, never a command (the server doesn't forward it)
+        if (
+          f.type === 'command' &&
+          typeof f.cmd === 'string' &&
+          f.cmd in REMOTE_LABEL &&
+          f.cmd !== 'songs'
+        ) {
+          const cmd = f.cmd as Exclude<RemoteCommand, 'songs'>;
           const from = String(f.from ?? '');
           const id = typeof f.id === 'string' ? f.id : `ws-${Date.now()}`;
           const passage = asPassage(f.passage);
+          const song = passage ? undefined : asSong(f.song);
           void commands
-            .dispatch(id, cmd, { kind: 'remote', name: from }, passage ? { passage } : {})
+            .dispatch(id, cmd, { kind: 'remote', name: from }, { passage, song })
             .then((outcome) => {
               // The remote is acked with what really happened (server/src/live.ts onCommand).
               if (typeof f.id === 'string') c.send({ type: 'result', id: f.id, ...outcome });
@@ -1654,7 +1691,16 @@ export function Control() {
             setLive(false);
           },
           onAdopt: () => {
-            const p = remoteView.passage;
+            const t = remoteView.target;
+            if (t.kind === 'song') {
+              // the song panel at that stanza, its slide in the operator's preview
+              openSong(t.song.songId);
+              setSongsPanelStanza(t.song.stanza);
+              setSongsOpen(true);
+              setPreviewOverride(remoteView.slide);
+              return;
+            }
+            const p = t.passage;
             setTranslations(p.translationIds);
             selectBook(p.bookNumber);
             selectChapter(p.chapter);
