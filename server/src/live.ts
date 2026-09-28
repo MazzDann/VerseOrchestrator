@@ -118,6 +118,14 @@ function pushLive(): number {
   return liveVersion;
 }
 
+/**
+ * The app is being switched off on purpose («Вимкнути повністю», 1.6.1): every page — control
+ * windows, remotes, phones — says so, instead of «no connection, reconnecting».
+ */
+export function announceShutdown(): void {
+  for (const c of sockets()) send(c, { type: 'shutdown' });
+}
+
 /** Audience sockets (not the control window, not remotes). */
 export function viewerCount(): number {
   return sockets('viewer').length;

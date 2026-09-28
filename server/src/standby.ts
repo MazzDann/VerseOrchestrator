@@ -18,6 +18,7 @@
  *   GET /__standby            status (state, app port, …)
  *   POST /__standby/retire    exit once the app has stopped;  /resume  cancels that
  *   POST /__standby/relaunch  stop the app, close, start a fresh waiter (new port)
+ *   POST /__standby/shutdown  stop the app and close now («Вимкнути повністю», 1.6.1)
  *
  * Only node: imports, no TS-only syntax — Node runs this file as it is
  * (`node server/src/standby.ts`, type stripping); tsx is loaded only for the app itself.
@@ -37,6 +38,8 @@ export interface RunningApp {
 
 export type StandbyState = 'waiting' | 'starting' | 'running' | 'stopping';
 
+export type ShutdownReason = 'retire' | 'shutdown' | 'close';
+
 export interface StandbyOptions {
   port: number;
   host: string;
@@ -50,8 +53,11 @@ export interface StandbyOptions {
   now?: () => number;
   /** how often idleness is checked */
   checkMs?: number;
-  /** called when a retired waiter has shut down (the CLI exits) */
-  onRetired?: () => void;
+  /**
+   * called when this waiter has shut down for good (the CLI exits): `retire` — switched off,
+   * once the app was idle; `shutdown` — «Вимкнути повністю»; `close` — its owner closed it
+   */
+  onRetired?: (why: ShutdownReason) => void;
   /** called after a relaunch request closed this waiter (the CLI starts a fresh one) */
   onRelaunch?: () => void;
 }
@@ -105,7 +111,7 @@ export function createStandby(o: StandbyOptions) {
           app = null;
           state = 'waiting';
           log('app exited');
-          if (retiring) void shutdown();
+          if (retiring) void shutdown('retire');
         });
         return a;
       } catch (err) {
@@ -213,7 +219,11 @@ export function createStandby(o: StandbyOptions) {
     } else if (action === 'relaunch') {
       reply(200, { relaunching: true });
       relaunching = true;
-      void shutdown();
+      void shutdown('close');
+    } else if (action === 'shutdown') {
+      // «Вимкнути повністю»: now, open pages or not — they have been told (live.ts)
+      reply(200, { shuttingDown: true });
+      void shutdown('shutdown');
     } else reply(404, { error: 'unknown action' });
     return true;
   }
@@ -265,12 +275,12 @@ export function createStandby(o: StandbyOptions) {
     const limit = retiring ? Math.min(o.idleMs, o.retireIdleMs ?? 30_000) : o.idleMs;
     if (now() - lastActivity < limit) return;
     void stopApp('idle').then(() => {
-      if (retiring) void shutdown();
+      if (retiring) void shutdown('retire');
     });
   }, o.checkMs ?? 10_000);
 
   let closed = false;
-  async function shutdown(): Promise<void> {
+  async function shutdown(why: ShutdownReason): Promise<void> {
     if (closed) return;
     closed = true;
     clearInterval(idle);
@@ -280,9 +290,9 @@ export function createStandby(o: StandbyOptions) {
       server.close(() => r());
       server.closeAllConnections?.(); // keep-alive sockets would hold close() open
     });
-    log(relaunching ? 'waiter closed — relaunching' : 'waiter closed');
+    log(relaunching ? 'waiter closed — relaunching' : `waiter closed (${why})`);
     if (relaunching) o.onRelaunch?.();
-    else o.onRetired?.();
+    else o.onRetired?.(why);
   }
 
   const api = {
@@ -297,9 +307,9 @@ export function createStandby(o: StandbyOptions) {
     /** Turned off: exit as soon as the app isn't running (at once if it's waiting). */
     retire(on = true): void {
       retiring = on;
-      if (on && !app && !starting) void shutdown();
+      if (on && !app && !starting) void shutdown('retire');
     },
-    close: shutdown,
+    close: () => shutdown('close'),
   };
   return api;
 }
@@ -498,6 +508,8 @@ async function main(): Promise<void> {
   });
   try {
     const port = await standby.listen();
+    // the app it starts inherits this: «Вимкнути повністю» tells this very waiter (1.6.1)
+    process.env.VO_STANDBY_PORT = String(port);
     log(`waiting on :${port} (stops the app after ${settings.idleMinutes} min idle)`);
   } catch (err) {
     // Already served (another waiter, or the app itself): nothing to do.

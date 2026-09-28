@@ -116,7 +116,7 @@ async function failure(res: Response): Promise<Error> {
   // No JSON error body on a 5xx = the dev proxy couldn't reach the API process.
   return new Error(
     res.status >= 500
-      ? 'сервер недоступний. Перевірте термінал, де запущено npm run dev'
+      ? 'сервер недоступний. Перевірте вікно, де запущено застосунок (start.cmd, start.sh або npm run dev)'
       : `сервер відповів помилкою ${res.status}`,
   );
 }
@@ -126,7 +126,9 @@ async function request(url: string, init?: RequestInit): Promise<Response> {
   try {
     return await fetch(url, init);
   } catch {
-    throw new Error('сервер недоступний. Перевірте, чи запущено npm run dev');
+    throw new Error(
+      'сервер недоступний. Перевірте, чи запущено застосунок (start.cmd / start.command / ./start.sh)',
+    );
   }
 }
 
@@ -423,6 +425,12 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return StandbySchema.parse(await res.json());
+  },
+  /** «Вимкнути повністю» (1.6.1): the server, its waiter and the autostart entry go. */
+  shutdown: async () => {
+    const res = await request('/api/shutdown', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return z.object({ ok: z.boolean(), autostartRemoved: z.boolean() }).parse(await res.json());
   },
   updateServerSettings: async (patch: { remotes?: { persist?: boolean } }) => {
     const res = await request('/api/server-settings', {

@@ -111,7 +111,8 @@ const RESEND_MS = 5000;
 type State =
   | { kind: 'connecting' }
   | { kind: 'ready'; name: string; allowed: RemoteCommand[] }
-  | { kind: 'offline'; name?: string; allowed?: RemoteCommand[] }
+  /** `off`: the operator switched the app off («Вимкнути повністю», 1.6.1) — not a blip */
+  | { kind: 'offline'; name?: string; allowed?: RemoteCommand[]; off?: boolean }
   | { kind: 'denied'; reason: string };
 
 export function Remote() {
@@ -180,7 +181,7 @@ export function Remote() {
       hello: { role: 'remote', token },
       onStatus: (open) =>
         setState((s) =>
-          open || s.kind === 'denied'
+          open || s.kind === 'denied' || s.kind === 'offline'
             ? s
             : {
                 kind: 'offline',
@@ -188,6 +189,20 @@ export function Remote() {
               },
         ),
       onMessage: (f: HubFrame) => {
+        if (f.type === 'shutdown') {
+          setState((s) =>
+            s.kind === 'denied'
+              ? s
+              : {
+                  kind: 'offline',
+                  ...(s.kind === 'ready' || s.kind === 'offline'
+                    ? { name: s.name, allowed: s.allowed }
+                    : {}),
+                  off: true,
+                },
+          );
+          return;
+        }
         // «На екрані» comes from the control window's screen relay (remotes only), not
         // the audience slide — so it works even with follow-along switched off.
         if (f.type === 'screen') {
@@ -491,7 +506,9 @@ export function Remote() {
           <strong>{state.kind === 'connecting' ? 'Підключення…' : (state.name ?? 'Пульт')}</strong>
           <span style={{ opacity: 0.6 }}>
             {state.kind === 'offline'
-              ? '· немає зв’язку, перепідключаюся'
+              ? state.off
+                ? '· застосунок вимкнено'
+                : '· немає зв’язку, перепідключаюся'
               : ready && rtt != null
                 ? `· відповідь ${rtt} мс`
                 : ''}
