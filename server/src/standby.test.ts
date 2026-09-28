@@ -122,6 +122,17 @@ describe('standby waiter', () => {
     expect(app.started).toBe(2);
   });
 
+  it('start(): the launcher starts the app before anyone visits (1.6.0)', async () => {
+    const { s, app, url } = await waiter();
+    const [a, b] = await Promise.all([s.start(), s.start()]); // one app, however often asked
+    expect(a.port).toBe(b.port);
+    expect(app.started).toBe(1);
+    expect(await (await fetch(url('/__standby'))).json()).toMatchObject({ state: 'running' });
+    // the first page load is the app itself, not «Запуск…»
+    const r = await fetch(url('/'), { headers: { accept: 'text/html' } });
+    expect(await r.json()).toMatchObject({ path: '/' });
+  });
+
   it('restarts the app on the next visit after it crashed', async () => {
     const { app, url } = await waiter();
     await fetch(url('/api/a'));

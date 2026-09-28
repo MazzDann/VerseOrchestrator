@@ -12,9 +12,11 @@ Ukrainian; search is case- and diacritic-insensitive and handles any module lang
 
 ## Prerequisites
 
-- **Node.js 18+** (developed on Node 24 LTS). `npm` comes with it.
-- No C/C++ build tools needed — `better-sqlite3` v12 ships prebuilt binaries for
-  current Node versions on Windows/macOS/Linux.
+- **Node.js 22.18 or later** (24 LTS recommended), which includes `npm`. The launchers
+  say so when Node.js is missing or too old.
+- Internet access on the first start, to install the dependencies.
+- No C/C++ build tools: `better-sqlite3` v12 ships prebuilt binaries for Windows, macOS,
+  and Linux.
 
 ## 1. Get Bible modules
 
@@ -37,10 +39,53 @@ modules, the library, segments, songs and builds out of the repository.
 The builder auto-detects the modules folder in this order: `$MODULES_DIR` →
 `modules/` → `data/modules/` → `old/MyBible/`.
 
-## 2. Install, build the library, run
+## 2. Start the app
+
+To start VerseOrchestrator, run the launcher for your system in the repository folder:
+
+| System  | Launcher                                                                                                        |
+| ------- | --------------------------------------------------------------------------------------------------------------- |
+| Windows | Double-click `start.cmd`.                                                                                       |
+| macOS   | Double-click `start.command`. If macOS blocks a file from a downloaded zip, right-click it and select **Open**. |
+| Linux   | Run `./start.sh` in a terminal.                                                                                 |
+
+On the first start, the launcher prepares what a fresh copy lacks:
+
+1. It installs the dependencies (`npm ci`), which takes a few minutes.
+2. If there is no library yet, it builds `data/library.db` from the modules in `modules/`.
+3. It builds the interface (`web/dist`) for this version of the code.
+
+Later starts skip what is already in place and take a few seconds. When the app is
+ready, the launcher opens the control window in your browser and prints two addresses:
+
+- `http://localhost:4747`: the control window, on this computer.
+- `http://LAN_IP:4747/follow`: the page for phones on the same Wi-Fi network, where
+  `LAN_IP` is this computer's address in the network. The control window shows the
+  same address as a QR code.
+
+To stop the app, close the launcher's window or press Ctrl+C in it.
+
+The launcher runs the same background service as the **Запуск за адресою** switch
+(**Налаштування вигляду** → **Застосунок**), on the port set there. If that service
+already runs, the launcher only opens the browser. Phones reach the app through this
+service; the server itself accepts connections from this computer only.
+
+In a terminal, you can pass these options to any launcher (for example,
+`start.cmd --check` or `./start.sh --no-browser`), or to `npm start -- --check`:
+
+| Option         | Effect                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `--no-browser` | Doesn't open the browser: for a computer without a screen, or to open the address yourself.                                           |
+| `--port N`     | Uses port `N` for this start instead of the one in the settings (4747 by default).                                                    |
+| `--check`      | Reports the state of Node.js, the dependencies, the library, the interface, and the port, and what a start would do. Changes nothing. |
+
+## Development
+
+To work on the code with live reload, install the dependencies, build the library, and
+run the development servers:
 
 ```bash
-npm install
+npm ci
 npm run build:library   # MyBible *.SQLite3 -> data/library.db (merged + search index)
 npm run dev             # API server :8787 + web app :5173
 ```
@@ -149,6 +194,8 @@ only a hash of each code is stored, in `data/secrets.json`.
 
 | Script                        | Purpose                                                             |
 | ----------------------------- | ------------------------------------------------------------------- |
+| `npm start`                   | the launcher, as `start.cmd` / `start.sh` (see Start the app)       |
+| `npm run standby`             | only the background service, as the **Запуск за адресою** switch    |
 | `npm run dev`                 | run server + web together                                           |
 | `npm run build:library`       | (re)build `data/library.db` from `modules/`                         |
 | `npm run build:library:watch` | rebuild on module changes                                           |

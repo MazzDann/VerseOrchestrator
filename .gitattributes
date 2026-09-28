@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# The launchers (1.6.0): shell scripts must keep LF even in a Windows checkout — a CRLF
+# start.sh copied to a Mac or Linux (the flash copy) fails with "bad interpreter";
+# cmd.exe wants CRLF for its labels.
+*.sh      text eol=lf
+*.command text eol=lf
+*.cmd     text eol=crlf

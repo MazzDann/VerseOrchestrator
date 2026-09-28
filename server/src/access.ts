@@ -34,3 +34,32 @@ export function clientAddress(req: IncomingMessage): string {
 
 /** True when the request comes from the operator's own machine. */
 export const isLocalRequest = (req: IncomingMessage) => isOwnAddress(clientAddress(req));
+
+/**
+ * This machine's LAN IPv4 addresses, the one a phone can most likely reach first: a real
+ * Wi-Fi/Ethernet address before virtual adapters (Hyper-V/WSL/VirtualBox/Docker), which are
+ * commonly enumerated first on Windows and aren't reachable from phones. Shared by the
+ * phone QR (`/api/host`) and the launcher's printout (1.6.0).
+ */
+export function lanIps(interfaces = os.networkInterfaces()): string[] {
+  const VIRTUAL = /(vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|default switch)/i;
+  // Rank by private-range likelihood: 192.168.x (home Wi-Fi) > 10.x > 172.16–31.x.
+  const rangeRank = (ip: string): number => {
+    if (ip.startsWith('192.168.')) return 0;
+    if (ip.startsWith('10.')) return 1;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return 2;
+    return 3;
+  };
+  const candidates: { ip: string; rank: number }[] = [];
+  for (const [name, addrs] of Object.entries(interfaces)) {
+    for (const a of addrs ?? []) {
+      if (a.family !== 'IPv4' || a.internal) continue;
+      if (a.address.startsWith('169.254.')) continue; // link-local (no DHCP)
+      candidates.push({
+        ip: a.address,
+        rank: rangeRank(a.address) + (VIRTUAL.test(name) ? 10 : 0),
+      });
+    }
+  }
+  return candidates.sort((x, y) => x.rank - y.rank).map((c) => c.ip);
+}
