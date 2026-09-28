@@ -50,7 +50,7 @@ import {
   IconAppWindow,
 } from '@tabler/icons-react';
 
-import { api, type Verse, type SongStyle, type RemoteCommand } from '../api';
+import { api, type Verse, type SongStyle, type RemoteCommand, type Pairing } from '../api';
 import { useStore } from '../store';
 import {
   useSettings,
@@ -108,6 +108,7 @@ import {
   type RemotePassage,
   type RemoteSong,
   type RemoteTarget,
+  targetArgs,
 } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { useDataSource } from '../dataSourceStore';
@@ -1451,6 +1452,16 @@ export function Control() {
             });
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
+        } else if (f.type === 'suggested') {
+          // the hub's answer to «Запропонувати пульту» (1.5.4)
+          const name =
+            queryClient.getQueryData<Pairing[]>(['remotes'])?.find((p) => p.id === f.to)?.name ??
+            'пульт';
+          notifications.show(
+            typeof f.delivered === 'number' && f.delivered > 0
+              ? { message: `Запропоновано: «${name}»`, color: 'green', autoClose: 1500 }
+              : { message: `«${name}»: ${String(f.reason ?? 'не доставлено')}`, color: 'orange' },
+          );
         }
       },
     });
@@ -1460,6 +1471,53 @@ export function Control() {
       c.stop();
     };
   }, [queryClient, serverAvailable, isLeader]);
+  // «Запропонувати пульту» (1.5.4): the operator's preview — a verse page or a song stanza —
+  // to a speaker's remote allowed to choose that kind and online now.
+  const remotesQuery = useQuery({
+    queryKey: ['remotes'],
+    queryFn: api.remotes,
+    enabled: serverAvailable === true && isLeader,
+  });
+  const suggestTarget: RemoteTarget | null = (() => {
+    const src = previewOverride ? previewOverride.source : verseSource(pageVerses);
+    if (src?.kind === 'song')
+      return { kind: 'song', song: { songId: src.songId, stanza: src.stanza } };
+    if (src?.kind === 'verses') {
+      const { translationIds, bookNumber, chapter } = src;
+      return {
+        kind: 'verses',
+        passage: {
+          translationIds,
+          bookNumber,
+          chapter,
+          verses: previewOverride ? src.verses : pageVerses,
+        },
+      };
+    }
+    return null; // free text: nothing a remote could choose
+  })();
+  const suggestRemotes = suggestTarget
+    ? (remotesQuery.data ?? []).filter(
+        (p) => p.online && p.allowed.includes(suggestTarget.kind === 'verses' ? 'pick' : 'songs'),
+      )
+    : [];
+  const suggestion =
+    suggestTarget && suggestRemotes.length > 0
+      ? {
+          remotes: suggestRemotes.map((p) => ({ id: p.id, name: p.name })),
+          onSend: (id: string) => {
+            const sent = controlConn.current?.send({
+              type: 'suggest',
+              to: id,
+              ...targetArgs(suggestTarget),
+              reference: previewSlide.reference,
+              text: previewSlide.lines[0]?.text ?? '',
+            });
+            if (!sent) notifications.show({ message: 'Немає зв’язку з сервером', color: 'red' });
+          },
+        }
+      : null;
+
   // Keep remotes' «На екрані» / «Передпоказ» / «Далі» in step (independent of follow-along).
   const previewKey = previewSummary.current;
   useEffect(() => {
@@ -1681,6 +1739,7 @@ export function Control() {
         )
       }
       onPickRef={jumpTo}
+      suggest={suggestion}
       remote={
         remoteView && {
           name: remoteView.name,

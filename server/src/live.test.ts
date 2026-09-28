@@ -315,6 +315,40 @@ describe('speaker remote over the hub', () => {
     remote.ws.close();
   });
 
+  it('the operator suggests a passage / stanza to one remote — only if it may choose that', async () => {
+    const p = createPairing('Підказка', [...DEFAULT_ALLOWED, 'pick']);
+    const other = createPairing('Інший', [...DEFAULT_ALLOWED, 'pick']);
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const remote = client({ role: 'remote', token: p.token });
+    await remote.next('welcome');
+    const bystander = client({ role: 'remote', token: other.token });
+    await bystander.next('welcome');
+    const passage = { translationIds: [17], bookNumber: 500, chapter: 3, verses: [16] };
+    control.ws.send(
+      JSON.stringify({ type: 'suggest', to: p.id, passage, reference: 'Ів 3:16', text: 'Так бо…' }),
+    );
+    expect(await remote.next('suggest')).toMatchObject({
+      passage,
+      reference: 'Ів 3:16',
+      text: 'Так бо…',
+    });
+    expect(await control.next('suggested')).toMatchObject({ to: p.id, delivered: 1 });
+    // a stanza needs «Пісні», which this remote hasn't got
+    control.ws.send(JSON.stringify({ type: 'suggest', to: p.id, song: { songId: 13, stanza: 0 } }));
+    expect(await control.next('suggested')).toMatchObject({
+      delivered: 0,
+      reason: 'Цьому пульту не дозволено пісні',
+    });
+    // a remote can't suggest
+    remote.ws.send(JSON.stringify({ type: 'suggest', to: other.id, passage }));
+    await new Promise((r) => setTimeout(r, 80));
+    expect(bystander.frames.some((f) => f.type === 'suggest')).toBe(false);
+    control.ws.close();
+    remote.ws.close();
+    bystander.ws.close();
+  });
+
   it('revoking a pairing disconnects its remote', async () => {
     const p = createPairing('Тимчасовий');
     const remote = client({ role: 'remote', token: p.token });

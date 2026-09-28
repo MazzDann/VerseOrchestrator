@@ -354,6 +354,14 @@ body[data-resizing='y'] {
 .vo-remote-btn-live:active:not(:disabled) {
   background: var(--mantine-color-live-filled-hover);
 }
+/* The operator's suggestion (1.5.4): the brand colour — it comes from the operator. */
+.vo-remote-suggest {
+  border-color: var(--mantine-color-brand-filled);
+  background: var(--mantine-color-brand-light);
+}
+.vo-remote-suggest .vo-remote-row {
+  grid-template-columns: 1fr 1fr; /* «У передпоказ» fits on one line */
+}
 /* The speaker's own preview (1.5.1): cue-coloured like every «next» on this page. */
 .vo-remote-mine {
   border-color: var(--mantine-color-cue-filled);
