@@ -98,6 +98,15 @@ import { useOutputWindows } from '../lib/outputs';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
 import { formatReference } from '../lib/reference';
+import {
+  bookEdge,
+  chapterName,
+  edgeNotice,
+  landingVerse,
+  neighbourChapter,
+  pressAtEdge,
+  type CrossArm,
+} from '../lib/chapterCross';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
 import {
@@ -1004,27 +1013,80 @@ export function Control() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference]);
 
-  const stepVerse = (delta: number): Outcome => {
+  const stepVerse = (delta: number): Outcome | Promise<Outcome> => {
     if (primaryVerses.length === 0) return { ok: false, reason: 'Спершу виберіть розділ' };
     const all = primaryVerses.map((v) => v.verse);
     const current = selectedVerses.length ? selectedVerses[selectedVerses.length - 1] : all[0] - 1;
     const idx = all.indexOf(current);
     const next = all[Math.min(all.length - 1, Math.max(0, idx + delta))];
-    if (next == null || next === current) {
-      return {
-        ok: false,
-        reason: delta > 0 ? 'Це останній вірш розділу' : 'Це перший вірш розділу',
-      };
-    }
+    if (next == null || next === current) return crossChapter(delta);
+    crossArm.current = null;
     setSelectedVerses([next]);
     return { ok: true };
+  };
+
+  // At the chapter's edge (1.5.23): the first press says where a second one goes; pressed
+  // again within 5 s it opens the next chapter's first verse (the previous one's last going
+  // back) — on screen too when the screen follows the selection.
+  const crossArm = useRef<CrossArm | null>(null);
+  const crossChapter = (delta: number): Outcome | Promise<Outcome> => {
+    if (primaryId == null || bookNumber == null || chapter == null) {
+      return { ok: false, reason: 'Спершу виберіть розділ' };
+    }
+    const to = neighbourChapter(chapters, chapter, delta);
+    if (to == null) return { ok: false, reason: bookEdge(delta) };
+    const key = `${primaryId}:${bookNumber}:${chapter}:${delta > 0 ? 1 : -1}`;
+    const press = pressAtEdge(crossArm.current, key, Date.now());
+    crossArm.current = press.arm;
+    if (!press.cross) {
+      return { ok: false, reason: edgeNotice(delta, chapterName(currentBook, to)) };
+    }
+    const book = bookNumber;
+    const onScreen = liveFollow && live && !previewOverride;
+    return queryClient
+      .fetchQuery({
+        queryKey: ['verses', primaryId, book, to],
+        queryFn: () => api.verses(primaryId, book, to),
+      })
+      .then(async (verses): Promise<Outcome> => {
+        const v = landingVerse(
+          verses.map((x) => x.verse),
+          delta,
+        );
+        if (v == null) return { ok: false, reason: 'У цьому розділі немає віршів' };
+        const label = formatReference(currentBook, to, [v]);
+        if (onScreen) {
+          await activatePassage({
+            kind: 'passage',
+            id: `cross-${book}-${to}-${v}`,
+            label,
+            translationIds: selectedIds,
+            bookNumber: book,
+            chapter: to,
+            verses: [v],
+          });
+        } else {
+          selectChapter(to);
+          setSelectedVerses([v]);
+          setScrollTarget(v);
+        }
+        return { ok: true, reason: label };
+      });
+  };
+  /** Keys and buttons: say why the show didn't move (at a chapter's edge: what's next). */
+  const advanceAndSay = (delta: number) => {
+    void Promise.resolve(advance(delta)).then((o) => {
+      if (!o.ok && o.reason) {
+        notifications.show({ message: o.reason, color: 'gray', autoClose: 2500 });
+      }
+    });
   };
 
   // "Next/previous": with a long passage split across pages, step pages; otherwise
   // step the single verse. Drives arrows, the PageDown/PageUp clicker keys, and the
   // preview's page arrows — so the same gesture always means "advance the screen".
   /** One step of the show (reveal → page → verse); says whether anything moved. */
-  const advance = (delta: number): Outcome => {
+  const advance = (delta: number): Outcome | Promise<Outcome> => {
     // Progressive reveal first: step through the verses of the current slide before
     // moving on. Only while projecting the verse selection (no song/text override).
     if (appearance.reveal && revealUnits && revealUnits.length > 1 && !previewOverride) {
@@ -1053,7 +1115,7 @@ export function Control() {
       return { ok: true };
     }
     const moved = stepVerse(delta);
-    if (moved.ok) setRevealCount(1); // same batched update as the new verse
+    if (!(moved instanceof Promise) && moved.ok) setRevealCount(1); // same batch as the verse
     return moved;
   };
 
@@ -1080,7 +1142,7 @@ export function Control() {
 
   // Hotkeys are user-rebindable (settingsStore.keymap; defaults in hotkeys.ts).
   // "advanceNext/Prev" default to arrows + PageDown/PageUp (the keys USB clickers emit).
-  useHotkeys(keymap.advanceNext, () => advance(1), [
+  useHotkeys(keymap.advanceNext, () => advanceAndSay(1), [
     keymap.advanceNext,
     pageCount,
     pageIndex,
@@ -1090,8 +1152,13 @@ export function Control() {
     revealUnits,
     appearance.reveal,
     previewOverride,
+    chapters,
+    live,
+    liveFollow,
+    selectedIds,
+    currentBook,
   ]);
-  useHotkeys(keymap.advancePrev, () => advance(-1), [
+  useHotkeys(keymap.advancePrev, () => advanceAndSay(-1), [
     keymap.advancePrev,
     pageCount,
     pageIndex,
@@ -1101,6 +1168,11 @@ export function Control() {
     revealUnits,
     appearance.reveal,
     previewOverride,
+    chapters,
+    live,
+    liveFollow,
+    selectedIds,
+    currentBook,
   ]);
   // Remove the slide from the output. Drops out of live so the live-follow effect
   // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
@@ -1510,7 +1582,14 @@ export function Control() {
   useEffect(
     () =>
       subscribeCommand((cmd, id) => {
-        if (leaderRef.current) void commands.dispatch(id, cmd, { kind: 'output' });
+        if (!leaderRef.current) return;
+        void commands.dispatch(id, cmd, { kind: 'output' }).then((o) => {
+          // a clicker at the output window can't see why nothing moved — the operator can
+          // (at a chapter's edge: where a second press goes, 1.5.23)
+          if (!o.ok && !o.duplicate && o.reason) {
+            notifications.show({ message: o.reason, color: 'gray', autoClose: 2500 });
+          }
+        });
       }),
     [],
   );
