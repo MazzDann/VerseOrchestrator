@@ -24,6 +24,7 @@ import {
   pressAtEdge,
   type CrossArm,
 } from '../lib/chapterCross';
+import { believedHidden, songEndStep, type EndGuard } from '../lib/songEnd';
 import { RemotePicker } from '../components/RemotePicker';
 
 const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
@@ -310,6 +311,8 @@ export function Remote() {
   });
   const queryClient = useQueryClient();
   const crossArm = useRef<CrossArm | null>(null);
+  /** the song's end as this phone last left it (1.5.24) — see walk() */
+  const endGuard = useRef<EndGuard | null>(null);
   const cursorSong = useQuery({
     queryKey: ['song', songPick?.songId],
     queryFn: () => api.song(songPick!.songId),
@@ -334,6 +337,23 @@ export function Remote() {
     let next: RemoteTarget;
     if (songPick) {
       const count = cursorSong.data?.slides.length ?? 0;
+      // its last stanza on screen (1.5.24): «Далі» empties the screen, again → the end,
+      // «Назад» brings exactly that stanza back (lib/songEnd.ts)
+      const key = `${songPick.songId}:${songPick.stanza}`;
+      const now = Date.now();
+      const end = songEndStep({
+        atLast: count > 0 && songPick.stanza === count - 1,
+        onScreen: mineOnScreen && canShow,
+        canHide: allowed.includes('blank'),
+        hidden: believedHidden(endGuard.current, key, now, screen?.status === 'blank'),
+        delta,
+      });
+      if (end === 'end') return flash('Кінець пісні');
+      if (end === 'hide' || end === 'show') {
+        endGuard.current = { key, at: now, hidden: end === 'hide' };
+        if (end === 'show') setNotice(null); // «Кінець пісні» no longer holds
+        return press('blank');
+      }
       const to = songPick.stanza + delta;
       if (to < 0 || to >= count) {
         return flash(delta > 0 ? 'Це остання строфа' : 'Це перша строфа');

@@ -14,6 +14,7 @@ import {
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
 import { IconMusic, IconX, IconChevronLeft, IconPlaylistAdd } from '@tabler/icons-react';
 import { api, type SongStyle } from '../api';
 import type { SlideSource } from '../presenterBus';
@@ -39,6 +40,11 @@ interface Props {
   onAddToPlaylist?: (song: { songId: number; label: string; faithful: boolean }) => void;
   /** Suspend the stanza arrow-key listener (e.g. while the command palette is open). */
   keysPaused?: boolean;
+  /**
+   * «Далі» after the last stanza (1.5.24): the parent empties the screen — the text goes,
+   * the background stays. Without it the last stanza is where the song ends.
+   */
+  onSongEnd?: () => Outcome;
 }
 
 /**
@@ -55,6 +61,7 @@ export function SongsPanel({
   onActiveStanzaChange,
   onAddToPlaylist,
   keysPaused,
+  onSongEnd,
 }: Props) {
   const [query, setQuery] = useState('');
   const [debounced] = useDebouncedValue(query, 200);
@@ -84,8 +91,18 @@ export function SongsPanel({
     (dir: number): Outcome => {
       const s = songQuery.data;
       if (!s || s.slides.length === 0) return { ok: false, reason: 'Пісня ще завантажується' };
+      const count = s.slides.length;
       const cur = activeStanza ?? -1;
-      const idx = Math.max(0, Math.min(s.slides.length - 1, cur + dir));
+      // past the last stanza: an empty slide once, then the song is over (1.5.24);
+      // «Назад» from there projects the last stanza again (the clamp below)
+      if (dir > 0 && activeStanza != null && cur >= count - 1) {
+        if (cur >= count) return { ok: false, reason: 'Кінець пісні' };
+        if (!onSongEnd) return { ok: false, reason: 'Це остання строфа' };
+        const done = onSongEnd();
+        if (done.ok) onActiveStanzaChange(count);
+        return done;
+      }
+      const idx = Math.max(0, Math.min(count - 1, cur + dir));
       if (activeStanza != null && idx === cur) {
         return { ok: false, reason: dir > 0 ? 'Це остання строфа' : 'Це перша строфа' };
       }
@@ -98,7 +115,7 @@ export function SongsPanel({
       );
       return { ok: true };
     },
-    [songQuery.data, activeStanza, faithful, onActiveStanzaChange, onProjectStanza],
+    [songQuery.data, activeStanza, faithful, onActiveStanzaChange, onProjectStanza, onSongEnd],
   );
 
   // While a song is open, arrows / PageUp-PageDown step through its stanzas.
@@ -114,7 +131,11 @@ export function SongsPanel({
       if (!dir || !songQuery.data || songQuery.data.slides.length === 0) return;
       e.preventDefault();
       e.stopPropagation();
-      stepStanza(dir);
+      const o = stepStanza(dir);
+      // the song's own end says so («Кінець пісні») — like the verses' edges (1.5.23)
+      if (!o.ok && o.reason) {
+        notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
+      }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -141,6 +162,15 @@ export function SongsPanel({
       faithful ? slide.style : null,
       { kind: 'song', songId: song?.id ?? songId ?? 0, stanza: idx },
     );
+  };
+  // the «Кінець» row: the empty slide after the last stanza, by click as well (1.5.24)
+  const endSong = () => {
+    if (!song || !onSongEnd) return;
+    const done = onSongEnd();
+    if (done.ok) onActiveStanzaChange(song.slides.length);
+    else if (done.reason) {
+      notifications.show({ message: done.reason, color: 'gray', autoClose: 2000 });
+    }
   };
 
   return (
@@ -218,6 +248,26 @@ export function SongsPanel({
                   </Text>
                 </Box>
               ))}
+              {onSongEnd && (
+                <Box
+                  className="vo-verse-item vo-stanza-row"
+                  role="button"
+                  tabIndex={0}
+                  data-selected={activeStanza === song.slides.length ? 'true' : undefined}
+                  onClick={endSong}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      endSong();
+                    }
+                  }}
+                >
+                  <span className="vo-verse-num">Кінець</span>
+                  <Text size="sm" c="dimmed">
+                    Порожній слайд: текст сховано, фон лишається
+                  </Text>
+                </Box>
+              )}
             </Stack>
           </ScrollArea.Autosize>
         </>
