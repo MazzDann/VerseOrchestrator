@@ -9,6 +9,7 @@ import {
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 import { SlideFade } from './SlideFade';
+import { QrCard } from './QrCard';
 
 const ALIGN_ITEMS = { left: 'flex-start', center: 'center', right: 'flex-end' } as const;
 
@@ -130,10 +131,15 @@ export function SlidePreview({ slide, maxWidth }: { slide: Slide; maxWidth?: num
  */
 export function SlideCanvas({ slide }: { slide: Slide }) {
   const style = slide.style ?? DEFAULT_STYLE;
-  const show = slide.visible && !slide.blank && slide.lines.length > 0;
-  const slideKey = show
-    ? `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`
-    : 'blank';
+  const show = slide.visible && !slide.blank && (slide.lines.length > 0 || !!slide.qr);
+  const slideKey = !show
+    ? 'blank'
+    : slide.qr
+      ? `qr|${slide.qr}`
+      : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
+  // the viewers' QR in a corner (1.5.16) — over any slide but the QR slide itself
+  const corner =
+    style.qrCorner && !slide.qr ? <QrCard url={style.qrCorner} variant="corner" /> : null;
   // A faithful pptx song's quote carries the original font size (cqh); cap the
   // auto-fit at it so stanzas render "as made" and only shrink when too long.
   const quoteMaxCqh = slide.template?.objects.find((o) => o.kind === 'quote')?.size ?? 0;
@@ -171,7 +177,7 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
   ) : null;
 
   // --- Positioned template layout ---------------------------------------------
-  const template = slide.template;
+  const template = slide.qr ? null : slide.template;
   if (template) {
     return (
       <div style={rootStyle}>
@@ -260,6 +266,7 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
             );
           })}
         </SlideFade>
+        {corner}
       </div>
     );
   }
@@ -310,12 +317,14 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
             textShadow: style.bgImage ? '0 2px 12px rgba(0,0,0,0.6)' : 'none',
           }}
         >
-          {slide.reveal ? (
+          {slide.qr ? (
+            <QrCard url={slide.qr} variant="full" />
+          ) : slide.reveal ? (
             <RevealLines reveal={slide.reveal} style={style} />
           ) : (
             <QuoteLines lines={slide.lines} style={style} />
           )}
-          {slide.subline && (
+          {!slide.qr && slide.subline && (
             <div
               style={{
                 marginTop: '0.35em',
@@ -332,11 +341,16 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
               </div>
             </div>
           )}
-          <div style={{ marginTop: '0.3em', fontSize: '0.42em', opacity: 0.75, letterSpacing: 1 }}>
-            {slide.reference}
-          </div>
+          {!slide.qr && (
+            <div
+              style={{ marginTop: '0.3em', fontSize: '0.42em', opacity: 0.75, letterSpacing: 1 }}
+            >
+              {slide.reference}
+            </div>
+          )}
         </SlideFade>
       </div>
+      {corner}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { Stack, Switch, Text } from '@mantine/core';
+import { Button, Stack, Switch, Text } from '@mantine/core';
+import { IconQrcode, IconQrcodeOff } from '@tabler/icons-react';
 import { useSettings } from '../settingsStore';
 import { PhoneLink } from './PhoneLink';
 
@@ -16,9 +17,20 @@ function plural(n: number, [one, few, many]: [string, string, string]): string {
  * server, plus a QR / URL viewers scan to read along on their phones.
  * Rendered inside a `FloatingPanel`.
  */
-export function FollowPanel({ viewers }: { viewers: number }) {
+export function FollowPanel({
+  viewers,
+  qrOnScreen,
+  onToggleQr,
+}: {
+  viewers: number;
+  /** the viewers' QR is the slide on screen now (1.5.16) */
+  qrOnScreen: boolean;
+  onToggleQr: () => void;
+}) {
   const followAlong = useSettings((s) => s.followAlong);
   const setFollowAlong = useSettings((s) => s.setFollowAlong);
+  const followQrCorner = useSettings((s) => s.followQrCorner);
+  const setFollowQrCorner = useSettings((s) => s.setFollowQrCorner);
   return (
     <Stack gap="sm" p="md">
       <Switch
@@ -37,6 +49,22 @@ export function FollowPanel({ viewers }: { viewers: number }) {
           <PhoneLink
             path="/follow"
             caption="Відскануйте або відкрийте на телефоні (та сама мережа Wi-Fi):"
+          />
+          <Button
+            size="xs"
+            variant={qrOnScreen ? 'filled' : 'light'}
+            color={qrOnScreen ? 'live' : 'brand'}
+            leftSection={qrOnScreen ? <IconQrcodeOff size={14} /> : <IconQrcode size={14} />}
+            onClick={onToggleQr}
+          >
+            {qrOnScreen ? 'Прибрати QR з екрана' : 'QR на екран'}
+          </Button>
+          <Switch
+            size="xs"
+            checked={followQrCorner}
+            onChange={(e) => setFollowQrCorner(e.currentTarget.checked)}
+            label="QR у кутку екрана"
+            description="Маленький QR на кожному слайді, щоб підключитися могли й ті, хто прийшов пізніше"
           />
         </>
       ) : (

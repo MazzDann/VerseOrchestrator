@@ -66,3 +66,21 @@ describe('sameSlide', () => {
     ).toBe(false);
   });
 });
+
+describe("the viewers' QR slide (1.5.16)", () => {
+  it('counts as something on screen for the remotes', () => {
+    const qr = {
+      lines: [],
+      reference: 'QR для глядачів',
+      blank: false,
+      visible: true,
+      qr: 'http://192.168.0.2:5173/follow',
+    };
+    expect(summarize(qr)).toMatchObject({
+      status: 'live',
+      reference: 'QR для глядачів',
+      text: 'QR для глядачів',
+    });
+    expect(summarize({ ...qr, blank: true }).status).toBe('blank');
+  });
+});

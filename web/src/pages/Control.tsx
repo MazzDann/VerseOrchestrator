@@ -91,6 +91,7 @@ import { floatingPanelOpen } from '../lib/panelStack';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { PlaylistPanel } from '../components/PlaylistPanel';
 import { FollowPanel } from '../components/FollowPanel';
+import { usePhoneUrl } from '../lib/phoneUrl';
 import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
 import { useOutputWindows } from '../lib/outputs';
@@ -156,6 +157,9 @@ export function Control() {
   const liveFollow = useSettings((s) => s.liveFollow);
   const setLiveFollow = useSettings((s) => s.setLiveFollow);
   const followAlong = useSettings((s) => s.followAlong);
+  const followQrCorner = useSettings((s) => s.followQrCorner);
+  // the viewers' address as a phone can reach it (LAN IP when opened on localhost)
+  const { url: followUrl } = usePhoneUrl('/follow');
   const slideTemplate = useSettings((s) => s.slideTemplate);
   const pushRecentText = useSettings((s) => s.pushRecentText);
   const keymap = useSettings((s) => s.keymap);
@@ -482,8 +486,10 @@ export function Control() {
       jesusColor: appearance.jesusColor,
       highlightColor: appearance.highlightColor,
       transition: appearance.transition,
+      // the viewers' QR in a corner (1.5.16) — only while the relay is on to read from
+      qrCorner: followAlong && followQrCorner ? followUrl : null,
     }),
-    [appearance],
+    [appearance, followAlong, followQrCorner, followUrl],
   );
 
   // --- Progressive reveal --------------------------------------------------------
@@ -643,13 +649,14 @@ export function Control() {
     reveal: number;
     override: Slide | null;
   } | null>(null);
-  const pushLive = (slide: Slide) => {
+  const pushLive = (slide: Slide, opts?: { audience?: boolean }) => {
     if (!leaderRef.current) return; // standby: never overrides the leader's screen
     if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
     lastPushed.current = slide;
     publishSlide(slide);
     setLiveSlide(slide);
-    if (followAlongRef.current) publishAudience(slide);
+    // the QR slide stays off the phones: they are already reading (1.5.16)
+    if (followAlongRef.current && opts?.audience !== false) publishAudience(slide);
   };
 
   // Switching follow-along on pushes the current slide at once (phones already on the
@@ -1096,6 +1103,50 @@ export function Control() {
   // Remove the slide from the output. Drops out of live so the live-follow effect
   // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
   // which would re-run that effect).
+  // «QR на екран» (1.5.16): the viewers' QR as a slide; «Прибрати QR» brings back exactly
+  // the slide it covered (not the selection — the operator may have browsed meanwhile).
+  const qrReturn = useRef<Slide | null>(null);
+  const showQr = () => {
+    qrReturn.current = liveSlide.qr ? qrReturn.current : liveSlide;
+    const slide: Slide = {
+      lines: [],
+      reference: 'QR для глядачів',
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      qr: followUrl,
+    };
+    pushLive(slide, { audience: false });
+    setPreviewOverride(slide);
+    setLive(true);
+  };
+  const hideQr = () => {
+    const back = qrReturn.current;
+    qrReturn.current = null;
+    const showing = back && back.visible && !back.qr && !back.forceBlack;
+    if (!back || !showing) {
+      pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
+      setLive(false);
+      setPreviewOverride(null);
+      return;
+    }
+    const restored: Slide = {
+      ...back,
+      style: { ...(back.style ?? slideStyle), qrCorner: slideStyle.qrCorner },
+    };
+    pushLive(restored);
+    setLive(!restored.blank);
+    // verses: live-follow picks up again on the next step; a song / text keeps the screen
+    setPreviewOverride(restored.source?.kind === 'verses' ? null : restored);
+  };
+  // The corner QR switched on/off: show it on what is on screen now, whatever that is.
+  useEffect(() => {
+    const s = liveSlideRef.current;
+    if (!s.visible || s.forceBlack || (s.style?.qrCorner ?? null) === slideStyle.qrCorner) return;
+    pushLive({ ...s, style: { ...(s.style ?? slideStyle), qrCorner: slideStyle.qrCorner } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slideStyle.qrCorner]);
+
   const clearScreen = () => {
     pushLive({ lines: [], reference: '', blank: false, visible: false });
     setLive(false);
@@ -1702,7 +1753,10 @@ export function Control() {
 
   // In-app "what's on screen now" monitor — reflects the actually-published slide.
   const liveActive =
-    liveSlide.visible && !liveSlide.blank && !liveSlide.forceBlack && liveSlide.lines.length > 0;
+    liveSlide.visible &&
+    !liveSlide.blank &&
+    !liveSlide.forceBlack &&
+    (liveSlide.lines.length > 0 || !!liveSlide.qr);
   const liveLabel = liveSlide.forceBlack
     ? 'Чорний екран'
     : liveSlide.blank
@@ -2579,7 +2633,11 @@ export function Control() {
         width={320}
         icon={<IconQrcode size={16} />}
       >
-        <FollowPanel viewers={viewers} />
+        <FollowPanel
+          viewers={viewers}
+          qrOnScreen={!!liveSlide.qr}
+          onToggleQr={() => (liveSlide.qr ? hideQr() : showQr())}
+        />
       </FloatingPanel>
 
       <FloatingPanel

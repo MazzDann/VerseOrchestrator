@@ -44,6 +44,8 @@ export interface SlideStyle {
   bold?: boolean; // bold body text (e.g. faithful pptx song slides)
   /** how one slide gives way to the next (1.5.7); absent = smooth */
   transition?: SlideTransition;
+  /** the viewers' QR (their /follow address) in a corner of every slide (1.5.16) */
+  qrCorner?: string | null;
 }
 
 /**
@@ -113,6 +115,8 @@ export interface Slide {
   reveal?: SlideReveal | null;
   /** Where the slide comes from — so a control window that takes over stands on it. */
   source?: SlideSource;
+  /** A QR slide («QR на екран», 1.5.16): the viewers' address as a big QR instead of text. */
+  qr?: string;
 }
 
 /**
