@@ -9,4 +9,6 @@ export const REMOTE_LABEL: Record<RemoteCommand, string> = {
   show: 'На екран',
   pick: 'Вибір віршів',
   songs: 'Пісні',
+  playlist: 'Послідовність',
+  queue: 'У послідовність',
 };

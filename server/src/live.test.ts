@@ -393,6 +393,56 @@ describe('speaker remote over the hub', () => {
     remote.ws.close();
   });
 
+  it('the running order goes to remotes allowed «Послідовність»; items and queue need it', async () => {
+    const withList = createPairing('Зі списком', [...DEFAULT_ALLOWED, 'show', 'playlist']);
+    const without = createPairing('Без списку', [...DEFAULT_ALLOWED, 'show', 'pick']);
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const r1 = client({ role: 'remote', token: withList.token });
+    await r1.next('welcome');
+    expect((await r1.next('playlist')).playlist).toBeNull(); // at connect: nothing shared yet
+    const r2 = client({ role: 'remote', token: without.token });
+    await r2.next('welcome');
+    const playlist = { items: [{ id: 'a1', kind: 'text', label: 'Оголошення' }], currentId: null };
+    control.ws.send(JSON.stringify({ type: 'playlist', playlist }));
+    expect((await r1.next('playlist')).playlist).toEqual(playlist);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(r2.frames.some((f) => f.type === 'playlist')).toBe(false);
+
+    // an item: forwarded with its id; the remote without «Послідовність» is refused
+    r1.ws.send(JSON.stringify({ type: 'command', cmd: 'show', id: 'i1', item: 'a1' }));
+    const cmd = await control.next('command');
+    expect(cmd).toMatchObject({ cmd: 'show', item: 'a1' });
+    control.ws.send(JSON.stringify({ type: 'result', id: cmd.id, ok: true }));
+    expect(await r1.next('ack')).toMatchObject({ id: 'i1', ok: true });
+    r2.ws.send(JSON.stringify({ type: 'command', cmd: 'pick', id: 'i2', item: 'a1' }));
+    expect(await r2.next('ack')).toMatchObject({
+      ok: false,
+      reason: 'Послідовність пульту не дозволено',
+    });
+    // queue: «Послідовність» AND the right to choose that kind
+    const passage = { translationIds: [17], bookNumber: 500, chapter: 3, verses: [16] };
+    r1.ws.send(JSON.stringify({ type: 'command', cmd: 'queue', id: 'q1', passage }));
+    expect(await r1.next('ack')).toMatchObject({
+      ok: false,
+      reason: 'Вибір віршів пульту не дозволено',
+    });
+    r2.ws.send(JSON.stringify({ type: 'command', cmd: 'queue', id: 'q2', passage }));
+    expect(await r2.next('ack')).toMatchObject({
+      ok: false,
+      reason: 'Послідовність пульту не дозволено',
+    });
+    // granting it later sends the list at once
+    notifyAllowed(
+      without.id,
+      setPairingAllowed(without.id, [...DEFAULT_ALLOWED, 'pick', 'playlist'])!.allowed,
+    );
+    expect((await r2.next('playlist')).playlist).toEqual(playlist);
+    control.ws.close();
+    r1.ws.close();
+    r2.ws.close();
+  });
+
   it('revoking a pairing disconnects its remote', async () => {
     const p = createPairing('Тимчасовий');
     const remote = client({ role: 'remote', token: p.token });

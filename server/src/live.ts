@@ -4,11 +4,11 @@ import { isLocalRequest } from './access.js';
 import {
   findByToken,
   getPairing,
-  isRemoteCommand,
+  isRemoteAction,
   sanitizePassage,
   sanitizeSong,
   touchPairing,
-  type RemoteCommand,
+  type RemoteAction,
 } from './remote.js';
 
 /**
@@ -160,9 +160,28 @@ export function dropRemote(pairingId: string, why: 'revoked' | 'reissued' = 'rev
 /** A pairing's permissions changed: its open remote pages update their buttons at once. */
 export function notifyAllowed(pairingId: string, allowed: readonly string[]): void {
   for (const c of sockets('remote')) {
-    if (meta.get(c)?.pairingId === pairingId) send(c, { type: 'allowed', allowed });
+    if (meta.get(c)?.pairingId !== pairingId) continue;
+    send(c, { type: 'allowed', allowed });
+    send(c, playlistFrame(allowed.includes('playlist')));
   }
   notifyRemotesChanged();
+}
+
+/**
+ * The shared running order (1.5.9): the control window in charge sends a summary of its
+ * «Послідовність показу» (ids, kinds, labels, what a remote needs to walk an item, the
+ * current one); remotes allowed «Послідовність» get it — others get nothing.
+ */
+let playlistState: unknown = null;
+const playlistFrame = (allowed: boolean) => ({
+  type: 'playlist',
+  playlist: allowed ? playlistState : null,
+});
+function relayPlaylist(): void {
+  for (const c of sockets('remote')) {
+    const p = getPairing(meta.get(c)?.pairingId ?? '');
+    if (p?.allowed.includes('playlist')) send(c, playlistFrame(true));
+  }
 }
 
 /** Origin must match Host: blocks other sites (open in the operator's browser) from
@@ -202,6 +221,7 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     touchPairing(p);
     send(ws, { type: 'welcome', role: 'remote', name: p.name, allowed: p.allowed });
     send(ws, { type: 'screen', ...screenState });
+    if (p.allowed.includes('playlist')) send(ws, playlistFrame(true));
     notifyRemotesChanged();
     notifyViewers();
   }
@@ -216,7 +236,7 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
  */
 interface Pending {
   remote: WebSocket;
-  cmd: RemoteCommand;
+  cmd: RemoteAction;
   timer: ReturnType<typeof setTimeout>;
 }
 const pending = new Map<string, Pending>();
@@ -251,20 +271,28 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   const reject = (reason: string) =>
     send(ws, { type: 'ack', id: clientId, cmd, ok: false, reason });
   if (!p) return reject('Немає доступу');
-  // `pick` is checked by what it carries (verses → «Вибір віршів», a stanza → «Пісні»);
-  // `songs` is a permission only, never a command
-  if (!isRemoteCommand(cmd) || cmd === 'songs' || (cmd !== 'pick' && !p.allowed.includes(cmd)))
+  // Buttons need their own permission; `pick` / `queue` are checked by what they carry
+  // (verses → «Вибір віршів», a stanza → «Пісні», a running-order item → «Послідовність»).
+  // `songs` / `playlist` are permissions only, never commands.
+  if (!isRemoteAction(cmd) || (cmd !== 'pick' && cmd !== 'queue' && !p.allowed.includes(cmd)))
     return reject('Ця дія пульту не дозволена');
-  // A passage (1.5.1) or a song stanza (1.5.3) chosen on the phone: `pick` needs one;
-  // `show` with one also needs the permission to choose.
+  // A passage (1.5.1), a song stanza (1.5.3) or a running-order item (1.5.9) chosen on
+  // the phone — one of them; `pick` and `queue` need one.
   const passage = msg.passage === undefined ? null : sanitizePassage(msg.passage);
   if (msg.passage !== undefined && !passage) return reject('Неправильний уривок');
   const song = msg.song === undefined || passage ? null : sanitizeSong(msg.song);
   if (msg.song !== undefined && !passage && !song) return reject('Неправильна строфа');
-  if (cmd === 'pick' && !passage && !song) return reject('Не вибрано вірш');
-  // each ability on its own, per remote: verses need «Вибір віршів», songs need «Пісні»
+  const rawItem = passage || song ? undefined : msg.item;
+  const item = typeof rawItem === 'string' && /^[\w-]{1,80}$/.test(rawItem) ? rawItem : null;
+  if (rawItem !== undefined && !item) return reject('Неправильний елемент');
+  if (cmd === 'pick' && !passage && !song && !item) return reject('Не вибрано вірш');
+  if (cmd === 'queue' && !passage && !song) return reject('Нічого додати');
+  // each ability on its own, per remote
   if (passage && !p.allowed.includes('pick')) return reject('Вибір віршів пульту не дозволено');
   if (song && !p.allowed.includes('songs')) return reject('Пісні пульту не дозволено');
+  if ((item || cmd === 'queue') && !p.allowed.includes('playlist')) {
+    return reject('Послідовність пульту не дозволено');
+  }
 
   const id = commandId(clientId, p.id);
   const now = Date.now();
@@ -285,7 +313,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   if (controls.length === 0) return reject('Вікно керування не відкрите');
   pending.set(id, {
     remote: ws,
-    cmd: cmd as RemoteCommand,
+    cmd: cmd as RemoteAction,
     timer: setTimeout(
       () => finish(id, { id: clientId, ok: false, reason: 'Вікно керування не відповіло' }),
       resultTimeoutMs,
@@ -294,11 +322,12 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   for (const c of controls) {
     send(c, {
       type: 'command',
-      cmd: cmd as RemoteCommand,
+      cmd: cmd as RemoteAction,
       id,
       from: p.name,
       ...(passage ? { passage } : {}),
       ...(song ? { song } : {}),
+      ...(item ? { item } : {}),
     });
   }
 }
@@ -385,6 +414,9 @@ export function attachLiveHub(server: Server): void {
       } else if (msg?.type === 'echo' && m.role === 'control') {
         // Sync benchmark (/bench): a tiny reply, so a round trip = payload in + ack out.
         send(ws, { type: 'echo', id: msg.id });
+      } else if (msg?.type === 'playlist' && m.role === 'control' && isActiveControl(ws)) {
+        playlistState = msg.playlist ?? null;
+        relayPlaylist();
       } else if (msg?.type === 'screen' && m.role === 'control' && isActiveControl(ws)) {
         screenState = {
           screen: msg.screen ?? null,

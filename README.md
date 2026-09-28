@@ -112,6 +112,7 @@ on the remote's row; the open phone updates at once, without a new QR code:
 | **На екран**   | put the control window's preview — or the speaker's own choice — on screen (`Enter` on a clicker) |
 | **Вибір віршів** | choose translations, book, chapter, and verse on the phone         |
 | **Пісні**      | find a song by number or words and choose a stanza                  |
+| **Послідовність** | see your running order (**Послідовність показу**), show its next or any item, and add the speaker's own choice to it (with **Вибір віршів** / **Пісні**) |
 | **Затемнити**, **Чорний екран** | blank the screen                                   |
 
 A new remote gets **Далі**, **Назад**, and **Затемнити**; the others start off.
@@ -126,6 +127,10 @@ window doesn't change. What you see:
 - **На екрані … · пульт «NAME»**: the speaker's remote put the current slide there.
   Your selection stops following the screen until you project it again (**На екран**
   or `F5`).
+
+With **Послідовність**, the phone shows where the running order is and what comes next,
+with **Наступне на екран**; the current item moves in your control window too. Items the
+speaker adds with **+ У послідовність** appear at the end of your list.
 
 To offer the speaker what you have prepared, click the send icon on the **Прев’ю**
 monitor. The phone shows **Оператор пропонує** with **У передпоказ** and **На екран**;

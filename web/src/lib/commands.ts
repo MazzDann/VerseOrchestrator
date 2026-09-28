@@ -19,7 +19,7 @@ import { useEffect, useRef } from 'react';
  * a passage (1.5.1), put THAT on screen. `pick` (1.5.1): the speaker's own preview — a
  * passage chosen on the phone (the remote's cursor), not on screen yet.
  */
-export type ShowCommand = 'next' | 'prev' | 'blank' | 'black' | 'show' | 'pick';
+export type ShowCommand = 'next' | 'prev' | 'blank' | 'black' | 'show' | 'pick' | 'queue';
 
 /** A passage chosen on a remote (its cursor): the operator's selection is not touched. */
 export interface RemotePassage {
@@ -43,6 +43,22 @@ export type RemoteTarget =
 export interface CommandArgs {
   passage?: RemotePassage;
   song?: RemoteSong;
+  /** an item of the shared running order, by id (1.5.9) */
+  item?: string;
+}
+
+/**
+ * One item of the shared running order as a remote sees it (1.5.9): what to show, and
+ * what the phone needs to walk it with its own cursor (verses / song).
+ */
+export type PlaylistEntry =
+  | ({ id: string; kind: 'passage'; label: string } & RemotePassage)
+  | { id: string; kind: 'song'; label: string; songId: number }
+  | { id: string; kind: 'text'; label: string };
+
+export interface SharedPlaylist {
+  items: PlaylistEntry[];
+  currentId: string | null;
 }
 
 /** The command args for a target (what goes over the hub). */
