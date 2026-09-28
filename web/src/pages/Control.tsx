@@ -50,7 +50,7 @@ import {
   IconAppWindow,
 } from '@tabler/icons-react';
 
-import { api, type Book, type Verse, type SongStyle, type RemoteCommand } from '../api';
+import { api, type Verse, type SongStyle, type RemoteCommand } from '../api';
 import { useStore } from '../store';
 import {
   useSettings,
@@ -95,9 +95,17 @@ import { OutputsPanel } from '../components/OutputsPanel';
 import { useOutputWindows } from '../lib/outputs';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
+import { formatReference } from '../lib/reference';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
-import { commands, PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
+import {
+  asPassage,
+  commands,
+  PRIORITY,
+  useCommandHandler,
+  type Outcome,
+  type RemotePassage,
+} from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { useDataSource } from '../dataSourceStore';
 import { sameContent, sameSlide, summarize } from '../lib/slide';
@@ -1183,10 +1191,15 @@ export function Control() {
   // clicker on the 2nd monitor) and speaker remotes — all go through one dispatcher
   // (lib/commands.ts). This is the default handler; an open song registers a
   // higher-priority one for next/prev (SongsPanel).
-  useCommandHandler((cmd) => {
+  useCommandHandler((cmd, _source, args) => {
     if (cmd === 'next') return advance(1);
     if (cmd === 'prev') return advance(-1);
-    if (cmd === 'show') return showPreview();
+    if (cmd === 'show') return args.passage ? showRemotePassage(args.passage) : showPreview();
+    if (cmd === 'pick') {
+      return args.passage
+        ? remoteSlide(args.passage).then(() => ({ ok: true }))
+        : { ok: false, reason: 'Не вибрано вірш' };
+    }
     if (cmd === 'blank') blankScreen();
     else blackScreen();
     return { ok: true };
@@ -1196,6 +1209,58 @@ export function Control() {
    * A remote's «На екран» (1.5.0): what the preview shows goes on screen — the operator's
    * F5. A song stanza / free text / Strong slide in the preview is what's shown then.
    */
+  /**
+   * A passage chosen on a speaker's phone (1.5.1, the remote's own cursor) as a slide —
+   * built here, in the operator's style, from the library; the operator's selection is
+   * not touched. Throws «Уривок недоступний» when none of its translations has it.
+   */
+  async function remoteSlide(p: RemotePassage): Promise<Slide> {
+    const lines: SlideLine[] = [];
+    for (const id of p.translationIds) {
+      const verses = await queryClient.fetchQuery({
+        queryKey: ['verses', id, p.bookNumber, p.chapter],
+        queryFn: () => api.verses(id, p.bookNumber, p.chapter),
+      });
+      const text = joinVerses(verses, p.verses, appearance.showVerseNumbers);
+      if (!text.trim()) continue;
+      const t = translations.find((x) => x.id === id);
+      const segments = redLetterSegments(verses, p.verses, appearance.showVerseNumbers);
+      lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
+    }
+    if (lines.length === 0) throw new Error('Уривок недоступний');
+    const first = p.translationIds[0];
+    const bookList = await queryClient.fetchQuery({
+      queryKey: ['books', first],
+      queryFn: () => api.books(first),
+    });
+    return {
+      lines,
+      reference: formatReference(
+        bookList.find((b) => b.bookNumber === p.bookNumber) ?? null,
+        p.chapter,
+        p.verses,
+      ),
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+      source: { kind: 'verses', ...p, page: 0, reveal: 1 },
+    };
+  }
+
+  /**
+   * The remote puts its passage on screen. The screen is the speaker's now: the operator's
+   * selection stops following live (`live` off) — they keep preparing, and their F5 /
+   * «На екран» takes the screen back.
+   */
+  async function showRemotePassage(p: RemotePassage): Promise<Outcome> {
+    const slide = await remoteSlide(p);
+    if (!leaderRef.current) return { ok: false, reason: 'Показом керує інше вікно керування' };
+    pushLive(slide);
+    setLive(false);
+    return { ok: true };
+  }
+
   function showPreview(): Outcome {
     if (previewOverride) {
       pushLive(previewOverride);
@@ -1213,7 +1278,7 @@ export function Control() {
   useEffect(
     () =>
       subscribeCommand((cmd, id) => {
-        if (leaderRef.current) commands.dispatch(id, cmd, { kind: 'output' });
+        if (leaderRef.current) void commands.dispatch(id, cmd, { kind: 'output' });
       }),
     [],
   );
@@ -1319,16 +1384,20 @@ export function Control() {
           const cmd = f.cmd as RemoteCommand;
           const from = String(f.from ?? '');
           const id = typeof f.id === 'string' ? f.id : `ws-${Date.now()}`;
-          const outcome = commands.dispatch(id, cmd, { kind: 'remote', name: from });
-          // The remote is acked with what really happened (server/src/live.ts onCommand).
-          if (typeof f.id === 'string') c.send({ type: 'result', id: f.id, ...outcome });
-          if (!outcome.duplicate) {
-            notifications.show({
-              message: `Пульт «${from}»: ${REMOTE_LABEL[cmd]}${outcome.ok ? '' : ` — ${outcome.reason ?? 'не виконано'}`}`,
-              color: outcome.ok ? 'brand' : 'orange',
-              autoClose: 1200,
+          const passage = asPassage(f.passage);
+          void commands
+            .dispatch(id, cmd, { kind: 'remote', name: from }, passage ? { passage } : {})
+            .then((outcome) => {
+              // The remote is acked with what really happened (server/src/live.ts onCommand).
+              if (typeof f.id === 'string') c.send({ type: 'result', id: f.id, ...outcome });
+              // the speaker walking their own preview isn't news for the operator
+              if (outcome.duplicate || (cmd === 'pick' && outcome.ok)) return;
+              notifications.show({
+                message: `Пульт «${from}»: ${REMOTE_LABEL[cmd]}${outcome.ok ? '' : ` — ${outcome.reason ?? 'не виконано'}`}`,
+                color: outcome.ok ? 'brand' : 'orange',
+                autoClose: 1200,
+              });
             });
-          }
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
         }
@@ -2293,35 +2362,4 @@ function strongHighlightSegments(
     prev = v.verse;
   }
   return out;
-}
-
-/** Collapse a verse selection into contiguous runs: [3,9] → "3,9", [3,4,5] → "3-5", [3,4,9] → "3-4,9". */
-function formatVerseList(verses: number[]): string {
-  const sorted = [...new Set(verses)].sort((a, b) => a - b);
-  if (sorted.length === 0) return '';
-  const runs: string[] = [];
-  let start = sorted[0];
-  let prev = sorted[0];
-  for (let i = 1; i <= sorted.length; i++) {
-    const v = sorted[i];
-    if (i < sorted.length && v === prev + 1) {
-      prev = v;
-      continue;
-    }
-    runs.push(start === prev ? `${start}` : `${start}-${prev}`);
-    start = v;
-    prev = v;
-  }
-  return runs.join(',');
-}
-
-function formatReference(
-  book: Book | null,
-  chapter: number | null,
-  verses: number[],
-  short = false,
-): string {
-  if (!book || chapter == null || verses.length === 0) return '';
-  const name = short ? book.shortName || book.longName : book.longName || book.shortName;
-  return `${name} ${chapter}:${formatVerseList(verses)}`;
 }

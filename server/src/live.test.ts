@@ -227,6 +227,46 @@ describe('speaker remote over the hub', () => {
     remote.ws.close();
   });
 
+  it('a phone-chosen passage (pick / show + passage) needs «Вибір віршів» and a sane passage', async () => {
+    const p = createPairing('Курсор', [...DEFAULT_ALLOWED, 'show']);
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const remote = client({ role: 'remote', token: p.token });
+    await remote.next('welcome');
+    const passage = { translationIds: [17], bookNumber: 500, chapter: 3, verses: [16] };
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'pick', id: 'p1', passage }));
+    expect(await remote.next('ack')).toMatchObject({ cmd: 'pick', ok: false });
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'show', id: 'p2', passage }));
+    expect(await remote.next('ack')).toMatchObject({
+      cmd: 'show',
+      ok: false,
+      reason: 'Вибір віршів пульту не дозволено',
+    });
+
+    setPairingAllowed(p.id, [...DEFAULT_ALLOWED, 'show', 'pick']);
+    const bad = { ...passage, verses: [-1] };
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'pick', id: 'p3', passage: bad }));
+    expect(await remote.next('ack')).toMatchObject({ ok: false, reason: 'Неправильний уривок' });
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'pick', id: 'p4' }));
+    expect(await remote.next('ack')).toMatchObject({ ok: false, reason: 'Не вибрано вірш' });
+
+    remote.ws.send(
+      JSON.stringify({
+        type: 'command',
+        cmd: 'show',
+        id: 'p5',
+        passage: { ...passage, verses: [17, 16, 16] },
+      }),
+    );
+    const cmd = await control.next('command');
+    // forwarded with the passage, verses de-duplicated and sorted
+    expect(cmd).toMatchObject({ cmd: 'show', passage: { ...passage, verses: [16, 17] } });
+    control.ws.send(JSON.stringify({ type: 'result', id: cmd.id, ok: true }));
+    expect(await remote.next('ack')).toMatchObject({ id: 'p5', ok: true });
+    control.ws.close();
+    remote.ws.close();
+  });
+
   it('revoking a pairing disconnects its remote', async () => {
     const p = createPairing('Тимчасовий');
     const remote = client({ role: 'remote', token: p.token });

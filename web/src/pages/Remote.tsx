@@ -1,12 +1,47 @@
 import { useEffect, useRef, useState } from 'react';
-import type { RemoteCommand } from '../api';
+import { useQuery } from '@tanstack/react-query';
+import { api, type RemoteCommand } from '../api';
 import { connectLive, type HubFrame, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
-import { newCommandId } from '../lib/commands';
+import { newCommandId, type RemotePassage } from '../lib/commands';
 import { type ScreenSummary } from '../lib/slide';
+import { formatReference } from '../lib/reference';
+import { RemotePicker } from '../components/RemotePicker';
 
 const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
   !!a && !!b && a.reference === b.reference && a.text === b.text;
+
+const sameNums = (a: number[], b: number[]) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
+/** Is this screen summary the speaker's own cursor? */
+const showsPassage = (s: ScreenSummary | null, p: RemotePassage | null) =>
+  !!s &&
+  !!p &&
+  s.source?.kind === 'verses' &&
+  s.source.bookNumber === p.bookNumber &&
+  s.source.chapter === p.chapter &&
+  sameNums(s.source.translationIds, p.translationIds) &&
+  sameNums(s.source.verses, p.verses);
+
+/** Per-phone memory (not shared, not needed to work): the cursor and the chosen translations. */
+const CURSOR_KEY = 'vo:remote-cursor';
+const TRANSLATIONS_KEY = 'vo:remote-translations';
+function remember<T>(key: string, value: T | null): void {
+  try {
+    if (value == null) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private mode: just not remembered */
+  }
+}
+function recall<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Speaker remote (/remote#<token>): a phone paired by the operator via QR. It can only
@@ -40,7 +75,22 @@ export function Remote() {
    * real outcome; a press made while the connection is down is resent on reconnect with
    * the SAME id — applied once even if the first copy did get through.
    */
-  const pending = useRef(new Map<string, { cmd: RemoteCommand; at: number; sent: boolean }>());
+  const pending = useRef(
+    new Map<string, { cmd: RemoteCommand; at: number; sent: boolean; passage?: RemotePassage }>(),
+  );
+  /**
+   * The speaker's own cursor (1.5.1): a verse chosen on this phone. It moves only once the
+   * control window has taken it (ack ok); «Далі/Назад» then walk it instead of the
+   * operator's selection. Null: the remote follows the operator, as before.
+   */
+  const [cursor, setCursorState] = useState<RemotePassage | null>(() =>
+    recall<RemotePassage>(CURSOR_KEY),
+  );
+  const setCursor = (p: RemotePassage | null) => {
+    setCursorState(p);
+    remember(CURSOR_KEY, p);
+  };
+  const [pickerOpen, setPickerOpen] = useState(false);
   /** Last press → ack round trip, ms — shown next to the name. */
   const [rtt, setRtt] = useState<number | null>(null);
 
@@ -86,7 +136,7 @@ export function Remote() {
               pending.current.delete(id);
               continue;
             }
-            p.sent = c.send({ type: 'command', cmd: p.cmd, id });
+            p.sent = c.send({ type: 'command', cmd: p.cmd, id, passage: p.passage });
           }
         } else if (f.type === 'denied') {
           setState({ kind: 'denied', reason: String(f.reason ?? '') });
@@ -97,6 +147,11 @@ export function Remote() {
           if (p) {
             pending.current.delete(f.id as string);
             setRtt(Date.now() - p.at);
+            // the control window has the passage: it's the speaker's cursor now
+            if (f.ok && p.passage) {
+              setCursorState(p.passage);
+              remember(CURSOR_KEY, p.passage);
+            }
           }
           if (!f.ok) flash(String(f.reason ?? 'Команду не виконано'));
         }
@@ -110,12 +165,13 @@ export function Remote() {
   const allowed = state.kind === 'ready' || state.kind === 'offline' ? (state.allowed ?? []) : [];
   const ready = state.kind === 'ready';
 
-  const press = (cmd: RemoteCommand) => {
+  const press = (cmd: RemoteCommand, passage?: RemotePassage) => {
     if (!allowed.includes(cmd) || state.kind === 'connecting') return;
+    if (passage && !allowed.includes('pick')) return;
     navigator.vibrate?.(12);
     const id = newCommandId();
-    const sent = !!conn.current?.send({ type: 'command', cmd, id });
-    pending.current.set(id, { cmd, at: Date.now(), sent });
+    const sent = !!conn.current?.send({ type: 'command', cmd, id, passage });
+    pending.current.set(id, { cmd, at: Date.now(), sent, passage });
     if (!sent) flash('Немає зв’язку — надішлю, щойно підключуся');
     // No answer at all (server gone mid-press): say so instead of leaving it silent.
     window.setTimeout(() => {
@@ -131,14 +187,48 @@ export function Remote() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  // The cursor's chapter (its first translation): its text, and where «Далі» goes.
+  const primary = cursor?.translationIds[0];
+  const cursorVerses = useQuery({
+    queryKey: ['verses', primary, cursor?.bookNumber, cursor?.chapter],
+    queryFn: () => api.verses(primary!, cursor!.bookNumber, cursor!.chapter),
+    enabled: !!cursor,
+  });
+  const cursorBooks = useQuery({
+    queryKey: ['books', primary],
+    queryFn: () => api.books(primary!),
+    enabled: !!cursor,
+  });
+  const mineOnScreen = showsPassage(screen, cursor);
+  const canPick = allowed.includes('pick');
+  const canShow = allowed.includes('show');
+
+  /**
+   * «Далі/Назад» with a cursor: the next / previous verse of its chapter — on screen when
+   * the cursor is on screen (a clicker), else into the speaker's preview.
+   */
+  const walk = (delta: number) => {
+    if (!cursor) return press(delta > 0 ? 'next' : 'prev');
+    const list = (cursorVerses.data ?? []).map((v) => v.verse);
+    const at = list.indexOf(cursor.verses[cursor.verses.length - 1]);
+    const target = at >= 0 ? list[at + delta] : undefined;
+    if (target == null) {
+      return flash(delta > 0 ? 'Це останній вірш розділу' : 'Це перший вірш розділу');
+    }
+    const next = { ...cursor, verses: [target] };
+    press(mineOnScreen && canShow ? 'show' : 'pick', next);
+  };
+  const showNow = () => (cursor ? press('show', cursor) : press('show'));
+
   // A Bluetooth clicker paired to the phone sends arrow / page keys — honour them too.
-  const pressRef = useRef(press);
-  pressRef.current = press;
+  const keysRef = useRef({ walk, showNow, pickerOpen });
+  keysRef.current = { walk, showNow, pickerOpen };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) pressRef.current('next');
-      else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) pressRef.current('prev');
-      else if (e.key === 'Enter') pressRef.current('show');
+      if (keysRef.current.pickerOpen) return; // the picker's own list / filter
+      if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) keysRef.current.walk(1);
+      else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) keysRef.current.walk(-1);
+      else if (e.key === 'Enter') keysRef.current.showNow();
       else return;
       e.preventDefault();
     };
@@ -157,6 +247,17 @@ export function Remote() {
           : 'Порожньо';
   const previewText = preview?.status === 'live' ? preview : null;
   const previewOnScreen = onScreen && sameSummary(previewText, screen);
+  const cursorText = cursor
+    ? (cursorVerses.data?.find((v) => v.verse === cursor.verses[0])?.text ?? '')
+    : '';
+  const cursorRef = cursor
+    ? formatReference(
+        cursorBooks.data?.find((b) => b.bookNumber === cursor.bookNumber) ?? null,
+        cursor.chapter,
+        cursor.verses,
+      )
+    : '';
+  const walks = cursor ? canPick : false;
 
   if (state.kind === 'denied') {
     return (
@@ -219,8 +320,79 @@ export function Remote() {
         )}
       </section>
 
+      {pickerOpen && (
+        <RemotePicker
+          start={cursor ?? (screen?.source?.kind === 'verses' ? screen.source : null)}
+          translationIds={
+            cursor?.translationIds ??
+            recall<number[]>(TRANSLATIONS_KEY) ??
+            (screen?.source?.kind === 'verses' ? screen.source.translationIds : [])
+          }
+          canShow={canShow}
+          onPick={(p, show) => {
+            remember(TRANSLATIONS_KEY, p.translationIds);
+            press(show ? 'show' : 'pick', p);
+            setPickerOpen(false);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {/* The speaker's own preview (1.5.1): a verse chosen here — «Далі» walks it. */}
+      {canPick && cursor && (
+        <section className="vo-remote-preview vo-remote-mine" aria-label="Ваш передпоказ">
+          <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
+            <span style={{ fontWeight: 600 }}>Ваш передпоказ</span>
+            <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>
+              {mineOnScreen ? 'на екрані' : cursorRef}
+            </span>
+            <button
+              type="button"
+              className="vo-remote-chip"
+              onClick={() => setCursor(null)}
+              aria-label="Скинути: гортати разом з оператором"
+            >
+              ✕
+            </button>
+          </div>
+          {!mineOnScreen && cursorText && (
+            <p className="vo-remote-text vo-remote-text-small">{cursorText}</p>
+          )}
+          <div className="vo-remote-row">
+            <button
+              type="button"
+              className="vo-remote-btn"
+              disabled={!ready}
+              onClick={() => setPickerOpen(true)}
+            >
+              Вибрати…
+            </button>
+            {canShow && (
+              <button
+                type="button"
+                className="vo-remote-btn vo-remote-btn-live"
+                disabled={!ready || mineOnScreen}
+                onClick={() => press('show', cursor)}
+              >
+                {REMOTE_LABEL.show}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+      {canPick && !cursor && (
+        <button
+          type="button"
+          className="vo-remote-btn"
+          disabled={!ready}
+          onClick={() => setPickerOpen(true)}
+        >
+          Вибрати вірш…
+        </button>
+      )}
+
       {/* «На екран» (1.5.0): what the operator's preview holds, if it isn't on screen yet. */}
-      {allowed.includes('show') && (
+      {allowed.includes('show') && !cursor && (
         <section className="vo-remote-preview" aria-label="Передпоказ">
           <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
             <span style={{ fontWeight: 600 }}>Передпоказ</span>
@@ -248,7 +420,7 @@ export function Remote() {
       )}
 
       {/* What «Далі» will show — so the speaker knows where the next press goes. */}
-      {next && next.text && (
+      {next && next.text && !cursor && (
         <section className="vo-remote-next" aria-label="Далі">
           <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
             <span style={{ fontWeight: 600 }}>Далі</span>
@@ -264,22 +436,22 @@ export function Remote() {
       )}
 
       <div className="vo-remote-pad">
-        {allowed.includes('prev') && (
+        {(allowed.includes('prev') || walks) && (
           <button
             type="button"
             className="vo-remote-btn"
             disabled={!ready}
-            onClick={() => press('prev')}
+            onClick={() => walk(-1)}
           >
             ← {REMOTE_LABEL.prev}
           </button>
         )}
-        {allowed.includes('next') && (
+        {(allowed.includes('next') || walks) && (
           <button
             type="button"
             className="vo-remote-btn vo-remote-btn-primary"
             disabled={!ready}
-            onClick={() => press('next')}
+            onClick={() => walk(1)}
           >
             {REMOTE_LABEL.next} →
           </button>

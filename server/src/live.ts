@@ -5,6 +5,7 @@ import {
   findByToken,
   getPairing,
   isRemoteCommand,
+  sanitizePassage,
   touchPairing,
   type RemoteCommand,
 } from './remote.js';
@@ -233,6 +234,12 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   if (!p) return reject('Немає доступу');
   if (!isRemoteCommand(cmd) || !p.allowed.includes(cmd))
     return reject('Ця дія пульту не дозволена');
+  // A passage chosen on the phone (1.5.1): `pick` needs one; `show` with one also needs
+  // the permission to choose verses.
+  const passage = msg.passage === undefined ? null : sanitizePassage(msg.passage);
+  if (msg.passage !== undefined && !passage) return reject('Неправильний уривок');
+  if (cmd === 'pick' && !passage) return reject('Не вибрано вірш');
+  if (passage && !p.allowed.includes('pick')) return reject('Вибір віршів пульту не дозволено');
 
   const id = commandId(clientId, p.id);
   const now = Date.now();
@@ -259,7 +266,13 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
     ),
   });
   for (const c of controls) {
-    send(c, { type: 'command', cmd: cmd as RemoteCommand, id, from: p.name });
+    send(c, {
+      type: 'command',
+      cmd: cmd as RemoteCommand,
+      id,
+      from: p.name,
+      ...(passage ? { passage } : {}),
+    });
   }
 }
 

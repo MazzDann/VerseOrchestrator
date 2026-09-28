@@ -14,8 +14,10 @@ import { readJson, writeJson } from './jsonFile.js';
 /**
  * Commands a remote may send. Settings, library rebuild etc. are never remote-able.
  * `show` (1.5.0) puts the control window's preview on screen, like the operator's F5.
+ * `pick` (1.5.1) lets the phone choose verses itself — its own cursor, sent as a passage
+ * (to preview with `pick`, to put on screen with `show` + passage, which needs both).
  */
-export const REMOTE_COMMANDS = ['next', 'prev', 'blank', 'black', 'show'] as const;
+export const REMOTE_COMMANDS = ['next', 'prev', 'blank', 'black', 'show', 'pick'] as const;
 export type RemoteCommand = (typeof REMOTE_COMMANDS)[number];
 
 /** What a new pairing may do unless the operator widens it (new abilities stay off). */
@@ -168,6 +170,34 @@ export function listPairings(online: (id: string) => boolean) {
     lastSeen: p.lastSeen,
     online: online(p.id),
   }));
+}
+
+/** A passage chosen on a phone (1.5.1): translations, book, chapter, verses. */
+export interface Passage {
+  translationIds: number[];
+  bookNumber: number;
+  chapter: number;
+  verses: number[];
+}
+
+const posInt = (n: unknown, max: number): n is number =>
+  Number.isInteger(n) && (n as number) > 0 && (n as number) <= max;
+
+/** A passage from a phone, or null when it isn't one (bounded: at most 5 translations, 200 verses). */
+export function sanitizePassage(raw: unknown): Passage | null {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const ids = r.translationIds;
+  const verses = r.verses;
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 5) return null;
+  if (!Array.isArray(verses) || verses.length === 0 || verses.length > 200) return null;
+  if (!ids.every((i) => posInt(i, 2 ** 31)) || !verses.every((v) => posInt(v, 1000))) return null;
+  if (!posInt(r.bookNumber, 10_000) || !posInt(r.chapter, 1000)) return null;
+  return {
+    translationIds: ids as number[],
+    bookNumber: r.bookNumber,
+    chapter: r.chapter,
+    verses: [...new Set(verses as number[])].sort((a, b) => a - b),
+  };
 }
 
 export function isRemoteCommand(c: unknown): c is RemoteCommand {

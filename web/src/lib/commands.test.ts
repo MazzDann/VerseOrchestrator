@@ -4,7 +4,7 @@ import { createDispatcher, DEDUPE_MS, PRIORITY, type ShowCommand } from './comma
 const remote = { kind: 'remote' as const, name: 'Пульт' };
 
 describe('show command dispatcher', () => {
-  it('asks handlers by priority; an open song takes next/prev before the verses', () => {
+  it('asks handlers by priority; an open song takes next/prev before the verses', async () => {
     const d = createDispatcher();
     const log: string[] = [];
     d.handle((cmd) => {
@@ -17,28 +17,55 @@ describe('show command dispatcher', () => {
       return { ok: false, reason: 'Це остання строфа' };
     }, PRIORITY.song);
 
-    expect(d.dispatch('1', 'next', remote)).toEqual({ ok: false, reason: 'Це остання строфа' });
-    expect(d.dispatch('2', 'blank', remote)).toEqual({ ok: true });
+    expect(await d.dispatch('1', 'next', remote)).toEqual({
+      ok: false,
+      reason: 'Це остання строфа',
+    });
+    expect(await d.dispatch('2', 'blank', remote)).toEqual({ ok: true });
     offSong(); // the song was closed
-    d.dispatch('3', 'next', remote);
+    await d.dispatch('3', 'next', remote);
     expect(log).toEqual(['song:next', 'verses:blank', 'verses:next']);
   });
 
-  it('applies an id once and answers a repeat with the first outcome', () => {
+  it('applies an id once and answers a repeat with the first outcome', async () => {
     let t = 0;
     const d = createDispatcher(() => t);
     let applied = 0;
     d.handle(() => ({ ok: ++applied === 1 }));
-    expect(d.dispatch('a', 'next', remote)).toEqual({ ok: true });
-    expect(d.dispatch('a', 'next', remote)).toEqual({ ok: true, duplicate: true });
+    expect(await d.dispatch('a', 'next', remote)).toEqual({ ok: true });
+    expect(await d.dispatch('a', 'next', remote)).toEqual({ ok: true, duplicate: true });
     expect(applied).toBe(1);
     t += DEDUPE_MS + 1; // long forgotten: a new press may reuse nothing, but ids can expire
-    expect(d.dispatch('a', 'next', remote).duplicate).toBeUndefined();
+    expect((await d.dispatch('a', 'next', remote)).duplicate).toBeUndefined();
     expect(applied).toBe(2);
   });
 
-  it('says so when nothing handles the command yet', () => {
+  it('says so when nothing handles the command yet', async () => {
     const d = createDispatcher();
-    expect(d.dispatch('x', 'next', { kind: 'output' })).toMatchObject({ ok: false });
+    expect(await d.dispatch('x', 'next', { kind: 'output' })).toMatchObject({ ok: false });
+  });
+
+  it('waits for a handler that loads first; a retry meanwhile gets the same outcome', async () => {
+    const d = createDispatcher();
+    let applied = 0;
+    let finish!: (o: { ok: boolean; reason?: string }) => void;
+    d.handle((cmd, _src, args) => {
+      if (cmd !== 'show' || !args.passage) return null;
+      applied++;
+      return new Promise((r) => (finish = r));
+    });
+    const passage = { translationIds: [1], bookNumber: 500, chapter: 3, verses: [16] };
+    const first = d.dispatch('s', 'show', remote, { passage });
+    const retry = d.dispatch('s', 'show', remote, { passage });
+    finish({ ok: false, reason: 'Уривок недоступний' });
+    expect(await first).toEqual({ ok: false, reason: 'Уривок недоступний' });
+    expect(await retry).toEqual({ ok: false, reason: 'Уривок недоступний', duplicate: true });
+    expect(applied).toBe(1);
+  });
+
+  it('a handler that throws answers «не вдалося» instead of never', async () => {
+    const d = createDispatcher();
+    d.handle(() => Promise.reject(new Error('мережа')));
+    expect(await d.dispatch('e', 'pick', remote)).toEqual({ ok: false, reason: 'мережа' });
   });
 });
