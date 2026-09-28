@@ -42,18 +42,21 @@ export function PhoneLink({ path, caption }: { path: string; caption: string }) 
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            minWidth: 0,
           }}
         >
           {url}
         </Code>
         <CopyButton value={url}>
           {({ copied, copy }) => (
+            // the address gives way, not the button: shrunk, it cut its own label («Копіюва»)
             <Button
               size="compact-xs"
               variant="light"
               color={copied ? 'brand' : 'gray'}
               leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
               onClick={copy}
+              style={{ flexShrink: 0 }}
             >
               {copied ? 'Скопійовано' : 'Копіювати'}
             </Button>
