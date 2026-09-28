@@ -3,7 +3,16 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type RemoteCommand } from '../api';
 import { connectLive, type HubFrame, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
-import { newCommandId, targetArgs, type RemotePassage, type RemoteTarget } from '../lib/commands';
+import {
+  newCommandId,
+  targetArgs,
+  type CommandArgs,
+  type PlaylistEntry,
+  type RemotePassage,
+  type RemoteTarget,
+  type SharedPlaylist,
+} from '../lib/commands';
+import { RemotePlaylist } from '../components/RemotePlaylist';
 import { type ScreenSummary } from '../lib/slide';
 import { formatReference } from '../lib/reference';
 import { RemotePicker } from '../components/RemotePicker';
@@ -40,6 +49,16 @@ function screenTarget(s: ScreenSummary | null): RemoteTarget | null {
   if (src?.kind === 'song')
     return { kind: 'song', song: { songId: src.songId, stanza: src.stanza } };
   return null;
+}
+
+/** A running-order item as a target the speaker's cursor can walk (a free text can't). */
+function entryTarget(e: PlaylistEntry): RemoteTarget | undefined {
+  if (e.kind === 'passage') {
+    const { translationIds, bookNumber, chapter, verses } = e;
+    return { kind: 'verses', passage: { translationIds, bookNumber, chapter, verses } };
+  }
+  if (e.kind === 'song') return { kind: 'song', song: { songId: e.songId, stanza: 0 } };
+  return undefined;
 }
 
 /** The remembered cursor — also one saved by 1.5.1, which was a bare passage. */
@@ -103,7 +122,18 @@ export function Remote() {
    * the SAME id — applied once even if the first copy did get through.
    */
   const pending = useRef(
-    new Map<string, { cmd: RemoteCommand; at: number; sent: boolean; target?: RemoteTarget }>(),
+    new Map<
+      string,
+      {
+        cmd: RemoteCommand;
+        at: number;
+        sent: boolean;
+        /** what goes over the hub: a passage, a stanza or a running-order item */
+        args: CommandArgs;
+        /** the speaker's cursor once this is acked */
+        target?: RemoteTarget;
+      }
+    >(),
   );
   /**
    * The speaker's own cursor: a verse (1.5.1) or a song stanza (1.5.3) chosen on this
@@ -116,6 +146,9 @@ export function Remote() {
     remember(CURSOR_KEY, t);
   };
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** The operator's running order (1.5.9) — when this remote may see it. */
+  const [playlist, setPlaylist] = useState<SharedPlaylist | null>(null);
+  const [listOpen, setListOpen] = useState(false);
   /** What the operator suggested (1.5.4) — the speaker takes it or not. */
   const [suggestion, setSuggestion] = useState<{
     target: RemoteTarget;
@@ -151,6 +184,9 @@ export function Remote() {
           setScreen((f.screen as ScreenSummary | null) ?? null);
           setNext((f.next as ScreenSummary | null) ?? null);
           setPreview((f.preview as ScreenSummary | null) ?? null);
+        } else if (f.type === 'playlist') {
+          // the operator's running order, when this remote may see it (1.5.9)
+          setPlaylist((f.playlist as SharedPlaylist | null) ?? null);
         } else if (f.type === 'suggest') {
           const target: RemoteTarget | null = f.passage
             ? { kind: 'verses', passage: f.passage as RemotePassage }
@@ -181,7 +217,7 @@ export function Remote() {
               pending.current.delete(id);
               continue;
             }
-            p.sent = c.send({ type: 'command', cmd: p.cmd, id, ...targetArgs(p.target) });
+            p.sent = c.send({ type: 'command', cmd: p.cmd, id, ...p.args });
           }
         } else if (f.type === 'denied') {
           setState({ kind: 'denied', reason: String(f.reason ?? '') });
@@ -210,16 +246,25 @@ export function Remote() {
   const allowed = state.kind === 'ready' || state.kind === 'offline' ? (state.allowed ?? []) : [];
   const ready = state.kind === 'ready';
 
-  const press = (cmd: RemoteCommand, target?: RemoteTarget) => {
+  const press = (cmd: RemoteCommand, target?: RemoteTarget, entry?: PlaylistEntry) => {
     if (state.kind === 'connecting') return;
-    // `pick` is allowed by what it carries: verses → «Вибір віршів», a stanza → «Пісні»
-    if (cmd !== 'pick' && !allowed.includes(cmd)) return;
+    // `pick` / `queue` are allowed by what they carry: verses → «Вибір віршів», a stanza →
+    // «Пісні», a running-order item or adding to it → «Послідовність»
+    if (cmd !== 'pick' && cmd !== 'queue' && !allowed.includes(cmd)) return;
     if (target?.kind === 'verses' && !allowed.includes('pick')) return;
     if (target?.kind === 'song' && !allowed.includes('songs')) return;
+    if ((entry || cmd === 'queue') && !allowed.includes('playlist')) return;
     navigator.vibrate?.(12);
     const id = newCommandId();
-    const sent = !!conn.current?.send({ type: 'command', cmd, id, ...targetArgs(target) });
-    pending.current.set(id, { cmd, at: Date.now(), sent, target });
+    const args: CommandArgs = entry ? { item: entry.id } : targetArgs(target);
+    // after an item is taken the speaker's cursor walks it — when they may choose that kind
+    const walkable = entry ? entryTarget(entry) : cmd === 'queue' ? undefined : target;
+    const cursorAfter =
+      walkable && allowed.includes(walkable.kind === 'verses' ? 'pick' : 'songs')
+        ? walkable
+        : undefined;
+    const sent = !!conn.current?.send({ type: 'command', cmd, id, ...args });
+    pending.current.set(id, { cmd, at: Date.now(), sent, args, target: cursorAfter });
     if (!sent) flash('Немає зв’язку — надішлю, щойно підключуся');
     // No answer at all (server gone mid-press): say so instead of leaving it silent.
     window.setTimeout(() => {
@@ -258,6 +303,10 @@ export function Remote() {
   const canVerses = allowed.includes('pick');
   const canSongs = allowed.includes('songs');
   const canPick = canVerses || canSongs;
+  const canPlaylist = allowed.includes('playlist');
+  const listAt = playlist ? playlist.items.findIndex((i) => i.id === playlist.currentId) : -1;
+  const listCurrent = listAt >= 0 ? playlist!.items[listAt] : undefined;
+  const listNext = playlist?.items[listAt + 1];
   const canShow = allowed.includes('show');
 
   /**
@@ -409,8 +458,75 @@ export function Remote() {
             press(show ? 'show' : 'pick', t);
             setPickerOpen(false);
           }}
+          onQueue={
+            canPlaylist
+              ? (t) => {
+                  press('queue', t);
+                  setPickerOpen(false);
+                }
+              : undefined
+          }
           onClose={() => setPickerOpen(false)}
         />
+      )}
+
+      {listOpen && playlist && (
+        <RemotePlaylist
+          playlist={playlist}
+          canShow={canShow}
+          onTake={(entry, show) => {
+            press(show ? 'show' : 'pick', undefined, entry);
+            setListOpen(false);
+          }}
+          onClose={() => setListOpen(false)}
+        />
+      )}
+
+      {/* The shared running order (1.5.9): where the show is, and what's next in it. */}
+      {canPlaylist && playlist && playlist.items.length > 0 && (
+        <section className="vo-remote-preview" aria-label="Послідовність">
+          <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
+            <span style={{ fontWeight: 600 }}>Послідовність</span>
+            <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>
+              {listCurrent ? `зараз: ${listCurrent.label}` : `${playlist.items.length} елем.`}
+            </span>
+          </div>
+          {listNext && (
+            <p className="vo-remote-text vo-remote-text-small" style={{ margin: 0 }}>
+              Далі: {listNext.label}
+            </p>
+          )}
+          <div className="vo-remote-row">
+            <button
+              type="button"
+              className="vo-remote-btn"
+              disabled={!ready}
+              onClick={() => setListOpen(true)}
+            >
+              Список…
+            </button>
+            {listNext &&
+              (canShow ? (
+                <button
+                  type="button"
+                  className="vo-remote-btn vo-remote-btn-live"
+                  disabled={!ready}
+                  onClick={() => press('show', undefined, listNext)}
+                >
+                  Наступне на екран
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="vo-remote-btn"
+                  disabled={!ready}
+                  onClick={() => press('pick', undefined, listNext)}
+                >
+                  Наступне в передпоказ
+                </button>
+              ))}
+          </div>
+        </section>
       )}
 
       {/* The operator's suggestion (1.5.4): take it into your preview, show it, or not. */}

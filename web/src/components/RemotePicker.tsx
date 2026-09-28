@@ -22,6 +22,7 @@ export function RemotePicker({
   verses: versesAllowed,
   songs: songsAllowed,
   onPick,
+  onQueue,
   onClose,
 }: {
   /** where to open: the speaker's cursor, else what is on screen, else the book list */
@@ -32,6 +33,8 @@ export function RemotePicker({
   verses: boolean;
   songs: boolean;
   onPick: (t: RemoteTarget, show: boolean) => void;
+  /** «+ У послідовність» (1.5.9): absent when this remote may not add to the running order */
+  onQueue?: (t: RemoteTarget) => void;
   onClose: () => void;
 }) {
   const startPassage = start?.kind === 'verses' ? start.passage : null;
@@ -343,26 +346,38 @@ export function RemotePicker({
           </button>
         </footer>
       ) : step === 'verses' || step === 'stanzas' ? (
-        <footer className="vo-remote-sheet-foot">
-          <button
-            type="button"
-            className="vo-remote-btn"
-            disabled={!chosen}
-            onClick={() => chosen && onPick(chosen, false)}
-          >
-            У передпоказ
-          </button>
-          {canShow && (
+        <>
+          {onQueue && (
             <button
               type="button"
-              className="vo-remote-btn vo-remote-btn-live"
+              className="vo-remote-btn vo-remote-btn-small"
               disabled={!chosen}
-              onClick={() => chosen && onPick(chosen, true)}
+              onClick={() => chosen && onQueue(chosen)}
             >
-              На екран
+              + У послідовність
             </button>
           )}
-        </footer>
+          <footer className="vo-remote-sheet-foot">
+            <button
+              type="button"
+              className="vo-remote-btn"
+              disabled={!chosen}
+              onClick={() => chosen && onPick(chosen, false)}
+            >
+              У передпоказ
+            </button>
+            {canShow && (
+              <button
+                type="button"
+                className="vo-remote-btn vo-remote-btn-live"
+                disabled={!chosen}
+                onClick={() => chosen && onPick(chosen, true)}
+              >
+                На екран
+              </button>
+            )}
+          </footer>
+        </>
       ) : null}
     </div>
   );

@@ -19,8 +19,27 @@ import { readJson, writeJson } from './jsonFile.js';
  * `songs` (1.5.3) is a permission, not a command: song stanzas chosen on the phone go
  * the same way (`pick` / `show` + song) — the operator grants it per remote on its own.
  */
-export const REMOTE_COMMANDS = ['next', 'prev', 'blank', 'black', 'show', 'pick', 'songs'] as const;
+export const REMOTE_COMMANDS = [
+  'next',
+  'prev',
+  'blank',
+  'black',
+  'show',
+  'pick',
+  'songs',
+  'playlist',
+] as const;
 export type RemoteCommand = (typeof REMOTE_COMMANDS)[number];
+
+/**
+ * What a remote can SEND (permissions above are what it may): the buttons, `show` / `pick`
+ * (checked by what they carry) and `queue` (1.5.9: add the speaker's choice to the shared
+ * running order — needs «Послідовність» plus the right to choose that kind).
+ */
+export const REMOTE_ACTIONS = ['next', 'prev', 'blank', 'black', 'show', 'pick', 'queue'] as const;
+export type RemoteAction = (typeof REMOTE_ACTIONS)[number];
+export const isRemoteAction = (c: unknown): c is RemoteAction =>
+  REMOTE_ACTIONS.includes(c as RemoteAction);
 
 /** What a new pairing may do unless the operator widens it (new abilities stay off). */
 export const DEFAULT_ALLOWED: RemoteCommand[] = ['next', 'prev', 'blank'];

@@ -108,6 +108,7 @@ import {
   type RemotePassage,
   type RemoteSong,
   type RemoteTarget,
+  type SharedPlaylist,
   targetArgs,
 } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
@@ -308,7 +309,8 @@ export function Control() {
    */
   const [remoteView, setRemoteView] = useState<{
     name: string;
-    target: RemoteTarget;
+    /** what «Перейти сюди» moves the operator to — none for a free-text item */
+    target: RemoteTarget | null;
     slide: Slide;
   } | null>(null);
 
@@ -1209,6 +1211,32 @@ export function Control() {
     if (cmd === 'next') return advance(1);
     if (cmd === 'prev') return advance(-1);
     const by = _source.name ?? 'Пульт';
+    // an item of the shared running order (1.5.9)
+    if (args.item && (cmd === 'show' || cmd === 'pick')) {
+      const it = playlistItems.find((i) => i.id === args.item);
+      if (!it) return { ok: false, reason: 'Цього елемента вже немає в послідовності' };
+      return playlistItemSlide(it, by).then((slide) => {
+        if (cmd === 'show') {
+          if (!leaderRef.current)
+            return { ok: false, reason: 'Показом керує інше вікно керування' };
+          pushLive(slide);
+          setLive(false);
+          playlistSetCurrent(it.id);
+        }
+        setRemoteView({ name: by, target: itemTarget(it), slide });
+        return { ok: true };
+      });
+    }
+    if (cmd === 'queue') {
+      return args.passage || args.song
+        ? queueFromRemote(
+            args.passage
+              ? { kind: 'verses', passage: args.passage }
+              : { kind: 'song', song: args.song! },
+            by,
+          )
+        : { ok: false, reason: 'Нічого додати' };
+    }
     const target: RemoteTarget | null = args.passage
       ? { kind: 'verses', passage: args.passage }
       : args.song
@@ -1292,6 +1320,74 @@ export function Control() {
 
   const buildRemote = (t: RemoteTarget, by: string) =>
     t.kind === 'verses' ? remoteSlide(t.passage, by) : remoteSongSlide(t.song, by);
+
+  /** A running-order item as a remote target (a free-text item has none). */
+  const itemTarget = (it: SeqItem): RemoteTarget | null =>
+    it.kind === 'passage'
+      ? {
+          kind: 'verses',
+          passage: {
+            translationIds: it.translationIds,
+            bookNumber: it.bookNumber,
+            chapter: it.chapter,
+            verses: it.verses,
+          },
+        }
+      : it.kind === 'song'
+        ? { kind: 'song', song: { songId: it.songId, stanza: 0 } }
+        : null;
+
+  /**
+   * A running-order item shown from a remote (1.5.9) — built like the speaker's own choice
+   * (the operator's style, their selection untouched); a free-text item as the operator
+   * projects it.
+   */
+  function playlistItemSlide(it: SeqItem, by: string): Promise<Slide> {
+    const t = itemTarget(it);
+    if (t) return buildRemote(t, by);
+    const text = it.kind === 'text' ? it : null;
+    return Promise.resolve({
+      lines: [{ translationAbbr: '', text: text?.body ?? '', rtl: false }],
+      reference: text?.title.trim() ?? '',
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+    });
+  }
+
+  /** The speaker adds their choice to the shared running order (1.5.9). */
+  async function queueFromRemote(t: RemoteTarget, by: string): Promise<Outcome> {
+    let label: string;
+    if (t.kind === 'verses') {
+      const p = t.passage;
+      const first = p.translationIds[0];
+      const bookList = await queryClient.fetchQuery({
+        queryKey: ['books', first],
+        queryFn: () => api.books(first),
+      });
+      label =
+        formatReference(
+          bookList.find((b) => b.bookNumber === p.bookNumber) ?? null,
+          p.chapter,
+          p.verses,
+        ) || 'Уривок';
+      playlistAdd({ kind: 'passage', label, ...p });
+    } else {
+      const s = await queryClient.fetchQuery({
+        queryKey: ['song', t.song.songId],
+        queryFn: () => api.song(t.song.songId),
+      });
+      label = `№${s.number ?? ''} ${s.title}`.trim();
+      playlistAdd({ kind: 'song', label, songId: t.song.songId, faithful: false });
+    }
+    notifications.show({
+      message: `Пульт «${by}» додав у показ: ${label}`,
+      color: 'brand',
+      autoClose: 2000,
+    });
+    return { ok: true };
+  }
 
   /**
    * The remote puts its passage / stanza on screen. The screen is the speaker's now: the
@@ -1431,6 +1527,7 @@ export function Control() {
           setHubActive(f.active === true);
           if (f.active === true) {
             c.send(screenFrame());
+            c.send({ type: 'playlist', playlist: sharedPlaylistRef.current });
             if (followAlongRef.current)
               c.send({ type: 'publish', slide: stripBg(liveSlideRef.current) });
           }
@@ -1441,15 +1538,17 @@ export function Control() {
           f.type === 'command' &&
           typeof f.cmd === 'string' &&
           f.cmd in REMOTE_LABEL &&
-          f.cmd !== 'songs'
+          f.cmd !== 'songs' &&
+          f.cmd !== 'playlist'
         ) {
-          const cmd = f.cmd as Exclude<RemoteCommand, 'songs'>;
+          const cmd = f.cmd as Exclude<RemoteCommand, 'songs' | 'playlist'>;
           const from = String(f.from ?? '');
           const id = typeof f.id === 'string' ? f.id : `ws-${Date.now()}`;
           const passage = asPassage(f.passage);
           const song = passage ? undefined : asSong(f.song);
+          const item = typeof f.item === 'string' ? f.item : undefined;
           void commands
-            .dispatch(id, cmd, { kind: 'remote', name: from }, { passage, song })
+            .dispatch(id, cmd, { kind: 'remote', name: from }, { passage, song, item })
             .then((outcome) => {
               // The remote is acked with what really happened (server/src/live.ts onCommand).
               if (typeof f.id === 'string') c.send({ type: 'result', id: f.id, ...outcome });
@@ -1483,6 +1582,36 @@ export function Control() {
       c.stop();
     };
   }, [queryClient, serverAvailable, isLeader]);
+  // The shared running order (1.5.9): a summary of «Послідовність показу» for remotes
+  // allowed «Послідовність» (the hub relays it to them only) — ids, labels, the current
+  // item, and what a phone needs to walk a passage / song with its own cursor.
+  const sharedPlaylist: SharedPlaylist = useMemo(
+    () => ({
+      items: playlistItems.map((it) =>
+        it.kind === 'passage'
+          ? {
+              id: it.id,
+              kind: 'passage',
+              label: it.label,
+              translationIds: it.translationIds,
+              bookNumber: it.bookNumber,
+              chapter: it.chapter,
+              verses: it.verses,
+            }
+          : it.kind === 'song'
+            ? { id: it.id, kind: 'song', label: it.label, songId: it.songId }
+            : { id: it.id, kind: 'text', label: it.label },
+      ),
+      currentId: playlistCurrentId,
+    }),
+    [playlistItems, playlistCurrentId],
+  );
+  const sharedPlaylistRef = useRef(sharedPlaylist);
+  sharedPlaylistRef.current = sharedPlaylist;
+  useEffect(() => {
+    if (hubActive) controlConn.current?.send({ type: 'playlist', playlist: sharedPlaylist });
+  }, [sharedPlaylist, hubActive]);
+
   // «Запропонувати пульту» (1.5.4): the operator's preview — a verse page or a song stanza —
   // to a speaker's remote allowed to choose that kind and online now.
   const remotesQuery = useQuery({
@@ -1761,23 +1890,25 @@ export function Control() {
             pushLive(remoteView.slide);
             setLive(false);
           },
-          onAdopt: () => {
-            const t = remoteView.target;
-            if (t.kind === 'song') {
-              // the song panel at that stanza, its slide in the operator's preview
-              openSong(t.song.songId);
-              setSongsPanelStanza(t.song.stanza);
-              setSongsOpen(true);
-              setPreviewOverride(remoteView.slide);
-              return;
-            }
-            const p = t.passage;
-            setTranslations(p.translationIds);
-            selectBook(p.bookNumber);
-            selectChapter(p.chapter);
-            setSelectedVerses(p.verses);
-            setScrollTarget(p.verses[0]);
-          },
+          onAdopt: remoteView.target
+            ? () => {
+                const t = remoteView.target!;
+                if (t.kind === 'song') {
+                  // the song panel at that stanza, its slide in the operator's preview
+                  openSong(t.song.songId);
+                  setSongsPanelStanza(t.song.stanza);
+                  setSongsOpen(true);
+                  setPreviewOverride(remoteView.slide);
+                  return;
+                }
+                const p = t.passage;
+                setTranslations(p.translationIds);
+                selectBook(p.bookNumber);
+                selectChapter(p.chapter);
+                setSelectedVerses(p.verses);
+                setScrollTarget(p.verses[0]);
+              }
+            : undefined,
           onClose: () => setRemoteView(null),
         }
       }

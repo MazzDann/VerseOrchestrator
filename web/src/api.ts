@@ -202,7 +202,17 @@ export const SegmentManifestSchema = z.object({
  * without it (it forces a CORS preflight, so other sites can't forge them). */
 const CONTROL_HEADERS = { 'X-VO-Control': '1' };
 
-const RemoteCommandSchema = z.enum(['next', 'prev', 'blank', 'black', 'show', 'pick', 'songs']);
+const RemoteCommandSchema = z.enum([
+  'next',
+  'prev',
+  'blank',
+  'black',
+  'show',
+  'pick',
+  'songs',
+  'playlist',
+  'queue',
+]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
 const PairingSchema = z.object({
   id: z.string(),

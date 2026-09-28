@@ -64,7 +64,8 @@ interface Props {
     name: string;
     slide: Slide;
     onShow: () => void;
-    onAdopt: () => void;
+    /** absent: nowhere to jump (a free-text item of the running order) */
+    onAdopt?: () => void;
     onClose: () => void;
   } | null;
   /** Remotes the operator can suggest their preview to (1.5.4) and how. */
@@ -207,17 +208,19 @@ export function StudyPanels({
                 <IconScreenShare size={14} />
               </ActionIcon>
             </Tooltip>
-            <Tooltip label="Перейти сюди у своєму виборі">
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="gray"
-                onClick={remote.onAdopt}
-                aria-label={`Перейти до передпоказу пульта «${remote.name}»`}
-              >
-                <IconArrowBackUp size={14} />
-              </ActionIcon>
-            </Tooltip>
+            {remote.onAdopt && (
+              <Tooltip label="Перейти сюди у своєму виборі">
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  color="gray"
+                  onClick={remote.onAdopt}
+                  aria-label={`Перейти до передпоказу пульта «${remote.name}»`}
+                >
+                  <IconArrowBackUp size={14} />
+                </ActionIcon>
+              </Tooltip>
+            )}
             <Tooltip label="Сховати до наступного вибору на пульті">
               <ActionIcon
                 size="sm"

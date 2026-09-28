@@ -494,6 +494,20 @@ body[data-resizing='y'] {
   grid-auto-columns: 1fr;
   gap: 10px;
 }
+.vo-remote-btn-small {
+  flex: none;
+  min-height: 44px;
+  font-size: 16px;
+}
+/* «зараз» next to the running order's current item (1.5.9) — brand, not the live tally:
+   it's the place in the order, not necessarily what is on screen */
+.vo-remote-now {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--mantine-color-brand-filled);
+  color: #fff;
+}
 /* «Далі» preview: the amber cue colour, as on the control window's monitors. */
 .vo-remote-next {
   border-radius: 12px;
