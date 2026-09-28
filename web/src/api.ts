@@ -445,6 +445,12 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return StandbySchema.parse(await res.json());
   },
+  /** A desktop shortcut that opens the control window as an app window (1.6.5). */
+  createShortcut: async () => {
+    const res = await request('/api/shortcut', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return z.object({ files: z.array(z.string()) }).parse(await res.json());
+  },
   /** «Вимкнути повністю» (1.6.1): the server, its waiter and the autostart entry go. */
   shutdown: async () => {
     const res = await request('/api/shutdown', { method: 'POST', headers: CONTROL_HEADERS });

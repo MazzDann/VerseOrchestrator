@@ -35,6 +35,7 @@ import {
 } from './serverSettings.js';
 import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
+import { createShortcut } from './shortcut.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 
 const app = express();
@@ -141,6 +142,13 @@ const requireLocal: express.RequestHandler = (req, res, next) => {
   }
   next();
 };
+
+/** «Ярлик на робочому столі» (1.6.5, Налаштування вигляду → Застосунок): shortcut.ts. */
+app.post(
+  '/api/shortcut',
+  requireLocalControl,
+  wrap((_req, res) => res.json({ files: createShortcut(repoRoot) })),
+);
 
 /** The operator's UI state kept in data/ (uiState.ts, 1.6.4) — this machine only. */
 app.get('/api/ui-state', requireLocal, (_req, res) => res.json(getUiState()));
