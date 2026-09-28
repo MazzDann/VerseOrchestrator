@@ -217,7 +217,7 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
           {!loading && strongDefs.length === 0 && wordDefs.length === 0 && (
             <Text size="sm" c="dimmed">
               {active.strong
-                ? `Немає статті для ${active.strong}. Додайте словник Стронга в теку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).`
+                ? `Немає статті для ${active.strong}. Додайте словник Стронга в папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).`
                 : 'У словниках нічого не знайдено для цього слова.'}
             </Text>
           )}
