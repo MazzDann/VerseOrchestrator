@@ -249,15 +249,17 @@ export function conflictsForAction(keymap: Keymap, self: HotkeyActionId): Hotkey
 
 /**
  * Coerce a persisted/foreign keymap into a valid one: every action gets a string chord or
- * its default. On a Mac an action still on the old platform-neutral default (saved before
- * 1.4.12) gets the Mac default — its ⌘ chords; anything the user changed stays.
+ * its default. An action still on the other platform's default gets this platform's: on a
+ * Mac the ⌘ chords are added to a keymap saved elsewhere or before 1.4.12, and elsewhere
+ * they are dropped from one saved on a Mac (settings travel with the app folder since
+ * 1.6.4). Anything the user changed stays.
  */
 export function sanitizeKeymap(raw: unknown, mac: boolean = IS_MAC): Keymap {
   const r = (raw ?? {}) as Record<string, unknown>;
   return Object.fromEntries(
     HOTKEY_ACTIONS.map((a) => {
       const v = r[a.id];
-      if (typeof v !== 'string' || !v || (mac && v === a.default))
+      if (typeof v !== 'string' || !v || v === defaultFor(a, !mac))
         return [a.id, defaultFor(a, mac)];
       return [a.id, v];
     }),
