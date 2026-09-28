@@ -230,6 +230,14 @@ async function main(argv: string[]): Promise<number> {
     say('✓ Бібліотеку додано');
   }
 
+  // the operator's settings and running order travel with the copy (1.6.4)
+  const uiState = path.join(process.env.VO_DATA_DIR ?? path.join(root, 'data'), 'ui-state.json');
+  if (fs.existsSync(uiState)) {
+    fs.mkdirSync(path.join(out, 'data'), { recursive: true });
+    fs.copyFileSync(uiState, path.join(out, 'data', 'ui-state.json'));
+    say('✓ Налаштування вигляду й послідовність');
+  }
+
   fs.writeFileSync(
     path.join(out, 'ЯК ЗАПУСТИТИ.txt'),
     howToStart({ version, platform: process.platform, arch: process.arch, withLibrary }),
