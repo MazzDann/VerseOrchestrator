@@ -78,6 +78,22 @@ In a terminal, you can pass these options to any launcher (for example,
 | `--no-browser` | Doesn't open the browser: for a computer without a screen, or to open the address yourself.                                           |
 | `--port N`     | Uses port `N` for this start instead of the one in the settings (4747 by default).                                                    |
 | `--check`      | Reports the state of Node.js, the dependencies, the library, the interface, and the port, and what a start would do. Changes nothing. |
+| `--off`        | Switches the app off completely (see below).                                                                                          |
+
+### Switch the app off completely
+
+When you close the launcher's window, the app stops, but **Запуск за адресою** can still
+start it with the computer. To switch everything off, in the control window open
+**Налаштування вигляду** → **Застосунок** and click **Вимкнути повністю…**. This stops the
+app and its background service, removes the autostart entry, and closes the output windows.
+Phones and remotes show that the app is off. To also clear what the browser keeps for this
+address (appearance settings, the running order, the library cache), select **Також стерти
+дані браузера** in the confirmation.
+
+If the control window doesn't open, run the launcher with `--off` instead (for example,
+`start.cmd --off`). It does the same, except for the browser data.
+
+After that, nothing of VerseOrchestrator runs or starts again, and you can delete its folder.
 
 ## Development
 
