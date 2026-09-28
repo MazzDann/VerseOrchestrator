@@ -6,6 +6,7 @@ import {
   getPairing,
   isRemoteCommand,
   sanitizePassage,
+  sanitizeSong,
   touchPairing,
   type RemoteCommand,
 } from './remote.js';
@@ -232,14 +233,20 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   const reject = (reason: string) =>
     send(ws, { type: 'ack', id: clientId, cmd, ok: false, reason });
   if (!p) return reject('Немає доступу');
-  if (!isRemoteCommand(cmd) || !p.allowed.includes(cmd))
+  // `pick` is checked by what it carries (verses → «Вибір віршів», a stanza → «Пісні»);
+  // `songs` is a permission only, never a command
+  if (!isRemoteCommand(cmd) || cmd === 'songs' || (cmd !== 'pick' && !p.allowed.includes(cmd)))
     return reject('Ця дія пульту не дозволена');
-  // A passage chosen on the phone (1.5.1): `pick` needs one; `show` with one also needs
-  // the permission to choose verses.
+  // A passage (1.5.1) or a song stanza (1.5.3) chosen on the phone: `pick` needs one;
+  // `show` with one also needs the permission to choose.
   const passage = msg.passage === undefined ? null : sanitizePassage(msg.passage);
   if (msg.passage !== undefined && !passage) return reject('Неправильний уривок');
-  if (cmd === 'pick' && !passage) return reject('Не вибрано вірш');
+  const song = msg.song === undefined || passage ? null : sanitizeSong(msg.song);
+  if (msg.song !== undefined && !passage && !song) return reject('Неправильна строфа');
+  if (cmd === 'pick' && !passage && !song) return reject('Не вибрано вірш');
+  // each ability on its own, per remote: verses need «Вибір віршів», songs need «Пісні»
   if (passage && !p.allowed.includes('pick')) return reject('Вибір віршів пульту не дозволено');
+  if (song && !p.allowed.includes('songs')) return reject('Пісні пульту не дозволено');
 
   const id = commandId(clientId, p.id);
   const now = Date.now();
@@ -272,6 +279,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
       id,
       from: p.name,
       ...(passage ? { passage } : {}),
+      ...(song ? { song } : {}),
     });
   }
 }

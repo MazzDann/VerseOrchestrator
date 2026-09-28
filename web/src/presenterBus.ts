@@ -126,7 +126,7 @@ export type SlideSource =
       /** put there by a speaker's remote (1.5.2) — its name */
       by?: string;
     }
-  | { kind: 'song'; songId: number; stanza: number };
+  | { kind: 'song'; songId: number; stanza: number; by?: string };
 
 /** Built-in layout presets. The first (null template) is the default centred look. */
 export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }[] = [

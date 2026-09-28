@@ -126,7 +126,7 @@ export function StudyPanels({
     />
   );
   // put on screen by a speaker's remote (1.5.2): say whose it is
-  const liveBy = liveSlide.source?.kind === 'verses' ? liveSlide.source.by : undefined;
+  const liveBy = liveSlide.source?.by;
   const liveDetail = liveActive
     ? `${liveSlide.reference}${liveBy ? ` · пульт «${liveBy}»` : ''}`
     : liveLabel;

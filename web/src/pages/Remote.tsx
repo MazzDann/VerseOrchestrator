@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type RemoteCommand } from '../api';
 import { connectLive, type HubFrame, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
-import { newCommandId, type RemotePassage } from '../lib/commands';
+import { newCommandId, targetArgs, type RemotePassage, type RemoteTarget } from '../lib/commands';
 import { type ScreenSummary } from '../lib/slide';
 import { formatReference } from '../lib/reference';
 import { RemotePicker } from '../components/RemotePicker';
@@ -13,15 +13,42 @@ const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
 
 const sameNums = (a: number[], b: number[]) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
-/** Is this screen summary the speaker's own cursor? */
-const showsPassage = (s: ScreenSummary | null, p: RemotePassage | null) =>
-  !!s &&
-  !!p &&
-  s.source?.kind === 'verses' &&
-  s.source.bookNumber === p.bookNumber &&
-  s.source.chapter === p.chapter &&
-  sameNums(s.source.translationIds, p.translationIds) &&
-  sameNums(s.source.verses, p.verses);
+/** Is this screen summary the speaker's own cursor (a passage or a song stanza)? */
+function showsTarget(s: ScreenSummary | null, t: RemoteTarget | null): boolean {
+  const src = s?.source;
+  if (!src || !t) return false;
+  if (t.kind === 'song') {
+    return src.kind === 'song' && src.songId === t.song.songId && src.stanza === t.song.stanza;
+  }
+  const p = t.passage;
+  return (
+    src.kind === 'verses' &&
+    src.bookNumber === p.bookNumber &&
+    src.chapter === p.chapter &&
+    sameNums(src.translationIds, p.translationIds) &&
+    sameNums(src.verses, p.verses)
+  );
+}
+
+/** What is on screen, as a target — where the picker opens when the speaker has no cursor. */
+function screenTarget(s: ScreenSummary | null): RemoteTarget | null {
+  const src = s?.source;
+  if (src?.kind === 'verses') {
+    const { translationIds, bookNumber, chapter, verses } = src;
+    return { kind: 'verses', passage: { translationIds, bookNumber, chapter, verses } };
+  }
+  if (src?.kind === 'song')
+    return { kind: 'song', song: { songId: src.songId, stanza: src.stanza } };
+  return null;
+}
+
+/** The remembered cursor — also one saved by 1.5.1, which was a bare passage. */
+function recallCursor(): RemoteTarget | null {
+  const raw = recall<RemoteTarget | RemotePassage>(CURSOR_KEY);
+  if (!raw) return null;
+  if ('kind' in raw) return raw;
+  return 'translationIds' in raw ? { kind: 'verses', passage: raw } : null;
+}
 
 /** Per-phone memory (not shared, not needed to work): the cursor and the chosen translations. */
 const CURSOR_KEY = 'vo:remote-cursor';
@@ -76,19 +103,17 @@ export function Remote() {
    * the SAME id — applied once even if the first copy did get through.
    */
   const pending = useRef(
-    new Map<string, { cmd: RemoteCommand; at: number; sent: boolean; passage?: RemotePassage }>(),
+    new Map<string, { cmd: RemoteCommand; at: number; sent: boolean; target?: RemoteTarget }>(),
   );
   /**
-   * The speaker's own cursor (1.5.1): a verse chosen on this phone. It moves only once the
-   * control window has taken it (ack ok); «Далі/Назад» then walk it instead of the
-   * operator's selection. Null: the remote follows the operator, as before.
+   * The speaker's own cursor: a verse (1.5.1) or a song stanza (1.5.3) chosen on this
+   * phone. It moves only once the control window has taken it (ack ok); «Далі/Назад» then
+   * walk it instead of the operator's selection. Null: the remote follows the operator.
    */
-  const [cursor, setCursorState] = useState<RemotePassage | null>(() =>
-    recall<RemotePassage>(CURSOR_KEY),
-  );
-  const setCursor = (p: RemotePassage | null) => {
-    setCursorState(p);
-    remember(CURSOR_KEY, p);
+  const [cursor, setCursorState] = useState<RemoteTarget | null>(recallCursor);
+  const setCursor = (t: RemoteTarget | null) => {
+    setCursorState(t);
+    remember(CURSOR_KEY, t);
   };
   const [pickerOpen, setPickerOpen] = useState(false);
   /** Last press → ack round trip, ms — shown next to the name. */
@@ -136,7 +161,7 @@ export function Remote() {
               pending.current.delete(id);
               continue;
             }
-            p.sent = c.send({ type: 'command', cmd: p.cmd, id, passage: p.passage });
+            p.sent = c.send({ type: 'command', cmd: p.cmd, id, ...targetArgs(p.target) });
           }
         } else if (f.type === 'denied') {
           setState({ kind: 'denied', reason: String(f.reason ?? '') });
@@ -147,10 +172,10 @@ export function Remote() {
           if (p) {
             pending.current.delete(f.id as string);
             setRtt(Date.now() - p.at);
-            // the control window has the passage: it's the speaker's cursor now
-            if (f.ok && p.passage) {
-              setCursorState(p.passage);
-              remember(CURSOR_KEY, p.passage);
+            // the control window has it: it's the speaker's cursor now
+            if (f.ok && p.target) {
+              setCursorState(p.target);
+              remember(CURSOR_KEY, p.target);
             }
           }
           if (!f.ok) flash(String(f.reason ?? 'Команду не виконано'));
@@ -165,13 +190,16 @@ export function Remote() {
   const allowed = state.kind === 'ready' || state.kind === 'offline' ? (state.allowed ?? []) : [];
   const ready = state.kind === 'ready';
 
-  const press = (cmd: RemoteCommand, passage?: RemotePassage) => {
-    if (!allowed.includes(cmd) || state.kind === 'connecting') return;
-    if (passage && !allowed.includes('pick')) return;
+  const press = (cmd: RemoteCommand, target?: RemoteTarget) => {
+    if (state.kind === 'connecting') return;
+    // `pick` is allowed by what it carries: verses → «Вибір віршів», a stanza → «Пісні»
+    if (cmd !== 'pick' && !allowed.includes(cmd)) return;
+    if (target?.kind === 'verses' && !allowed.includes('pick')) return;
+    if (target?.kind === 'song' && !allowed.includes('songs')) return;
     navigator.vibrate?.(12);
     const id = newCommandId();
-    const sent = !!conn.current?.send({ type: 'command', cmd, id, passage });
-    pending.current.set(id, { cmd, at: Date.now(), sent, passage });
+    const sent = !!conn.current?.send({ type: 'command', cmd, id, ...targetArgs(target) });
+    pending.current.set(id, { cmd, at: Date.now(), sent, target });
     if (!sent) flash('Немає зв’язку — надішлю, щойно підключуся');
     // No answer at all (server gone mid-press): say so instead of leaving it silent.
     window.setTimeout(() => {
@@ -187,20 +215,29 @@ export function Remote() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  // The cursor's chapter (its first translation): its text, and where «Далі» goes.
-  const primary = cursor?.translationIds[0];
+  // The cursor's chapter (its first translation) or song: its text, and where «Далі» goes.
+  const passage = cursor?.kind === 'verses' ? cursor.passage : null;
+  const songPick = cursor?.kind === 'song' ? cursor.song : null;
+  const primary = passage?.translationIds[0];
   const cursorVerses = useQuery({
-    queryKey: ['verses', primary, cursor?.bookNumber, cursor?.chapter],
-    queryFn: () => api.verses(primary!, cursor!.bookNumber, cursor!.chapter),
-    enabled: !!cursor,
+    queryKey: ['verses', primary, passage?.bookNumber, passage?.chapter],
+    queryFn: () => api.verses(primary!, passage!.bookNumber, passage!.chapter),
+    enabled: !!passage,
   });
   const cursorBooks = useQuery({
     queryKey: ['books', primary],
     queryFn: () => api.books(primary!),
-    enabled: !!cursor,
+    enabled: !!passage,
   });
-  const mineOnScreen = showsPassage(screen, cursor);
-  const canPick = allowed.includes('pick');
+  const cursorSong = useQuery({
+    queryKey: ['song', songPick?.songId],
+    queryFn: () => api.song(songPick!.songId),
+    enabled: !!songPick,
+  });
+  const mineOnScreen = showsTarget(screen, cursor);
+  const canVerses = allowed.includes('pick');
+  const canSongs = allowed.includes('songs');
+  const canPick = canVerses || canSongs;
   const canShow = allowed.includes('show');
 
   /**
@@ -209,13 +246,24 @@ export function Remote() {
    */
   const walk = (delta: number) => {
     if (!cursor) return press(delta > 0 ? 'next' : 'prev');
-    const list = (cursorVerses.data ?? []).map((v) => v.verse);
-    const at = list.indexOf(cursor.verses[cursor.verses.length - 1]);
-    const target = at >= 0 ? list[at + delta] : undefined;
-    if (target == null) {
-      return flash(delta > 0 ? 'Це останній вірш розділу' : 'Це перший вірш розділу');
+    let next: RemoteTarget;
+    if (songPick) {
+      const count = cursorSong.data?.slides.length ?? 0;
+      const to = songPick.stanza + delta;
+      if (to < 0 || to >= count) {
+        return flash(delta > 0 ? 'Це остання строфа' : 'Це перша строфа');
+      }
+      next = { kind: 'song', song: { ...songPick, stanza: to } };
+    } else {
+      const p = passage!;
+      const list = (cursorVerses.data ?? []).map((v) => v.verse);
+      const at = list.indexOf(p.verses[p.verses.length - 1]);
+      const to = at >= 0 ? list[at + delta] : undefined;
+      if (to == null) {
+        return flash(delta > 0 ? 'Це останній вірш розділу' : 'Це перший вірш розділу');
+      }
+      next = { kind: 'verses', passage: { ...p, verses: [to] } };
     }
-    const next = { ...cursor, verses: [target] };
     press(mineOnScreen && canShow ? 'show' : 'pick', next);
   };
   const showNow = () => (cursor ? press('show', cursor) : press('show'));
@@ -247,17 +295,22 @@ export function Remote() {
           : 'Порожньо';
   const previewText = preview?.status === 'live' ? preview : null;
   const previewOnScreen = onScreen && sameSummary(previewText, screen);
-  const cursorText = cursor
-    ? (cursorVerses.data?.find((v) => v.verse === cursor.verses[0])?.text ?? '')
-    : '';
-  const cursorRef = cursor
+  const cursorText = passage
+    ? (cursorVerses.data?.find((v) => v.verse === passage.verses[0])?.text ?? '')
+    : songPick
+      ? (cursorSong.data?.slides[songPick.stanza]?.text ?? '')
+      : '';
+  const cursorRef = passage
     ? formatReference(
-        cursorBooks.data?.find((b) => b.bookNumber === cursor.bookNumber) ?? null,
-        cursor.chapter,
-        cursor.verses,
+        cursorBooks.data?.find((b) => b.bookNumber === passage.bookNumber) ?? null,
+        passage.chapter,
+        passage.verses,
       )
-    : '';
-  const walks = cursor ? canPick : false;
+    : songPick && cursorSong.data
+      ? `№${cursorSong.data.number ?? ''} ${cursorSong.data.title} · строфа ${songPick.stanza + 1}/${cursorSong.data.slides.length}`
+      : '';
+  // walking needs the right to choose what the cursor holds
+  const walks = passage ? canVerses : songPick ? canSongs : false;
 
   if (state.kind === 'denied') {
     return (
@@ -322,16 +375,18 @@ export function Remote() {
 
       {pickerOpen && (
         <RemotePicker
-          start={cursor ?? (screen?.source?.kind === 'verses' ? screen.source : null)}
+          start={cursor ?? screenTarget(screen)}
           translationIds={
-            cursor?.translationIds ??
+            passage?.translationIds ??
             recall<number[]>(TRANSLATIONS_KEY) ??
             (screen?.source?.kind === 'verses' ? screen.source.translationIds : [])
           }
           canShow={canShow}
-          onPick={(p, show) => {
-            remember(TRANSLATIONS_KEY, p.translationIds);
-            press(show ? 'show' : 'pick', p);
+          verses={canVerses}
+          songs={canSongs}
+          onPick={(t, show) => {
+            if (t.kind === 'verses') remember(TRANSLATIONS_KEY, t.passage.translationIds);
+            press(show ? 'show' : 'pick', t);
             setPickerOpen(false);
           }}
           onClose={() => setPickerOpen(false)}
@@ -387,7 +442,11 @@ export function Remote() {
           disabled={!ready}
           onClick={() => setPickerOpen(true)}
         >
-          Вибрати вірш…
+          {canVerses && canSongs
+            ? 'Вибрати вірш або пісню…'
+            : canSongs
+              ? 'Вибрати пісню…'
+              : 'Вибрати вірш…'}
         </button>
       )}
 
