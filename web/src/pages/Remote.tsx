@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type RemoteCommand } from '../api';
 import { connectLive, type HubFrame, type LiveConnection } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
@@ -15,6 +15,15 @@ import {
 import { RemotePlaylist } from '../components/RemotePlaylist';
 import { type ScreenSummary } from '../lib/slide';
 import { formatReference } from '../lib/reference';
+import {
+  bookEdge,
+  chapterName,
+  edgeNotice,
+  landingVerse,
+  neighbourChapter,
+  pressAtEdge,
+  type CrossArm,
+} from '../lib/chapterCross';
 import { RemotePicker } from '../components/RemotePicker';
 
 const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
@@ -294,6 +303,13 @@ export function Remote() {
     queryFn: () => api.books(primary!),
     enabled: !!passage,
   });
+  const cursorChapters = useQuery({
+    queryKey: ['chapters', primary, passage?.bookNumber],
+    queryFn: () => api.chapters(primary!, passage!.bookNumber),
+    enabled: !!passage,
+  });
+  const queryClient = useQueryClient();
+  const crossArm = useRef<CrossArm | null>(null);
   const cursorSong = useQuery({
     queryKey: ['song', songPick?.songId],
     queryFn: () => api.song(songPick!.songId),
@@ -329,11 +345,54 @@ export function Remote() {
       const at = list.indexOf(p.verses[p.verses.length - 1]);
       const to = at >= 0 ? list[at + delta] : undefined;
       if (to == null) {
-        return flash(delta > 0 ? 'Це останній вірш розділу' : 'Це перший вірш розділу');
+        if (at < 0) return flash('Розділ ще завантажується');
+        return void crossChapter(p, delta);
       }
+      crossArm.current = null;
       next = { kind: 'verses', passage: { ...p, verses: [to] } };
     }
     press(mineOnScreen && canShow ? 'show' : 'pick', next);
+  };
+  /**
+   * The cursor at its chapter's edge (1.5.23): the first press says where a second one
+   * goes; pressed again within 5 s the cursor opens the next chapter's first verse (the
+   * previous one's last going back) — on screen when the cursor is on screen.
+   */
+  const crossChapter = async (p: RemotePassage, delta: number) => {
+    const to = neighbourChapter(cursorChapters.data ?? [], p.chapter, delta);
+    if (to == null) {
+      return flash(
+        cursorChapters.data
+          ? bookEdge(delta)
+          : delta > 0
+            ? 'Це останній вірш розділу'
+            : 'Це перший вірш розділу',
+      );
+    }
+    const key = `${p.translationIds[0]}:${p.bookNumber}:${p.chapter}:${delta > 0 ? 1 : -1}`;
+    const step = pressAtEdge(crossArm.current, key, Date.now());
+    crossArm.current = step.arm;
+    const book = cursorBooks.data?.find((b) => b.bookNumber === p.bookNumber) ?? null;
+    if (!step.cross) return flash(edgeNotice(delta, chapterName(book, to)));
+    const onScreenNow = mineOnScreen && canShow;
+    try {
+      const verses = await queryClient.fetchQuery({
+        queryKey: ['verses', p.translationIds[0], p.bookNumber, to],
+        queryFn: () => api.verses(p.translationIds[0], p.bookNumber, to),
+      });
+      const v = landingVerse(
+        verses.map((x) => x.verse),
+        delta,
+      );
+      if (v == null) return flash('У цьому розділі немає віршів');
+      setNotice(null); // «натисніть ще раз» is done with
+      press(onScreenNow ? 'show' : 'pick', {
+        kind: 'verses',
+        passage: { ...p, chapter: to, verses: [v] },
+      });
+    } catch {
+      flash('Не вдалося відкрити розділ — перевірте зв’язок');
+    }
   };
   const showNow = () => (cursor ? press('show', cursor) : press('show'));
 
