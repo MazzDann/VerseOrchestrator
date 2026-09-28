@@ -25,7 +25,7 @@ describe('viewer reading preferences (/follow)', () => {
     const s = readerTextStyle({ size: READER_SIZES.length - 1, bold: true, easy: true }, 'Lora');
     expect(s.fontSize).toContain('* 1.75');
     expect(s.fontWeight).toBe(700);
-    expect(s.fontFamily).toMatch(/^Verdana/);
+    expect(s.fontFamily).toMatch(/^Andika, Verdana/);
     expect(s.textAlign).toBe('left');
     expect(s.lineHeight).toBeGreaterThan(1.6);
   });
