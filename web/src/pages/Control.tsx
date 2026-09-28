@@ -2356,7 +2356,11 @@ export function Control() {
               {...panelResize('navbar')}
             />
           </Box>
-          <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          {/* a short window (Safari's 800×600 in the Mac test) squeezed the books to nothing and
+              their hint ran over the history tabs: the books keep a few rows, the rest scrolls */}
+          <Box
+            style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}
+          >
             <TranslationPicker
               translations={translations}
               selectedIds={selectedIds}
@@ -2373,7 +2377,7 @@ export function Control() {
                 leftSection={<IconSearch size={14} />}
               />
             </Box>
-            <Box style={{ flex: 1, minHeight: 0, padding: '0 8px' }}>
+            <Box style={{ flex: 1, minHeight: BOOKS_MIN_HEIGHT, padding: '0 8px' }}>
               <VirtualList
                 items={filteredBooks}
                 getKey={(b) => b.bookNumber}
@@ -2859,6 +2863,8 @@ function stripBg(slide: Slide): Slide {
 
 /** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */
 const GAP = '…';
+/** The book list keeps about four rows however short the window (1.5.26). */
+const BOOKS_MIN_HEIGHT = 120;
 /** How long the socket to the hub may be down before the operator is told (1.5.25). */
 const HUB_LOST_MS = 3000;
 
