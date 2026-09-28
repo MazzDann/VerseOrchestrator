@@ -2,8 +2,9 @@
 
 This page explains how VerseOrchestrator is put together: which package does what, which
 processes run, how the library and the slides travel, and where to start reading for a
-given change. It is a map, not a tour of every file: the hybrid database and window synchronization,
-the two research topics of the project, are only outlined here.
+given change. It is a map, not a tour of every file: the two research topics of the project have
+pages of their own — [Hybrid database](hybrid-db.md) and
+[Window synchronization](window-sync.md).
 
 ## Packages
 
