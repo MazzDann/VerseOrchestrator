@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { openLink, type BenchMsg, type Link } from '../lib/bench/sync';
+import { tr, useLang } from '../i18n';
 
 /**
  * The other end of the sync benchmark (`/bench/peer`, opened by /bench): listens on
  * every in-browser transport and answers each ping with a tiny pong on the same one.
  */
 export function BenchPeer() {
+  useLang();
   const [pings, setPings] = useState(0);
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export function BenchPeer() {
         color: 'var(--mantine-color-dimmed)',
       }}
     >
-      Партнер тесту синхронізації — вікно закриється саме. Відповідей: {pings}
+      {tr('Партнер тесту синхронізації — вікно закриється саме. Відповідей: {n}', { n: pings })}
     </div>
   );
 }

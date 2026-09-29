@@ -1,6 +1,7 @@
 import { ScrollArea, Box, Title, Group } from '@mantine/core';
 import { IconAdjustments } from '@tabler/icons-react';
 import { SettingsPanel } from '../components/SettingsPanel';
+import { tr, useLang } from '../i18n';
 
 /**
  * Standalone settings window (`/settings`) — opened on a second monitor next to the
@@ -8,12 +9,13 @@ import { SettingsPanel } from '../components/SettingsPanel';
  * `storage` listener that rehydrates the persisted settings store (see main.tsx).
  */
 export function Settings() {
+  useLang();
   return (
     <ScrollArea style={{ height: '100vh' }} type="auto">
       <Box maw={560} mx="auto" px="md" py="lg">
         <Group gap={8} mb="md">
           <IconAdjustments size={22} />
-          <Title order={4}>Налаштування вигляду</Title>
+          <Title order={4}>{tr('Налаштування вигляду')}</Title>
         </Group>
         <SettingsPanel />
       </Box>

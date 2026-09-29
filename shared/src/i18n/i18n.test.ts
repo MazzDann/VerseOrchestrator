@@ -9,94 +9,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const SOURCES = ['web/src', 'server/src', 'shared/src', 'builder/src'];
 
 /**
- * Files whose interface text is all translated (0.11.x, one surface per commit): no
- * Cyrillic may stand there outside `tr` / `trn` / `N_` keys and comments — a line that must
- * keep it (a regex, data such as the bundle name «ПС») says `i18n-ignore`.
+ * The interface text of the whole code is translated (0.11.9): no Cyrillic may stand outside
+ * `tr` / `trn` / `trx` / `N_` / `Nn_` keys and comments — a line that must keep it (a regex,
+ * data such as the bundle name «ПС», a measured payload) says `i18n-ignore`.
  */
-const TRANSLATED = [
-  'web/src/i18n.ts',
-  'web/src/components/SettingsPanel.tsx',
-  // 0.11.1 — the settings sections and the browser library
-  'web/src/components/PresetsSection.tsx',
-  'web/src/components/TemplateEditor.tsx',
-  'web/src/components/HotkeysSettings.tsx',
-  'web/src/hotkeys.ts',
-  'web/src/components/DataSourceSection.tsx',
-  'web/src/components/StandbySection.tsx',
-  'web/src/components/ShortcutSection.tsx',
-  'web/src/components/ShutdownSection.tsx',
-  'web/src/serverStore.ts',
-  'web/src/lib/engine/restore.ts',
-  'web/src/lib/engine/cache.ts',
-  'web/src/lib/engine/index.ts',
-  'web/src/lib/engine/worker.ts',
-  // 0.11.2 — the control window
-  'web/src/pages/Control.tsx',
-  'web/src/components/ResizeHandle.tsx',
-  'web/src/components/FloatingPanel.tsx',
-  'web/src/components/RefList.tsx',
-  'web/src/components/TranslationPicker.tsx',
-  'web/src/lib/commands.ts',
-  'web/src/lib/chapterCross.ts',
-  'web/src/lib/slide.ts',
-  'web/src/lib/image.ts',
-  'web/src/lib/remote.ts',
-  'web/src/api.ts',
-  'web/src/settingsStore.ts',
-  // 0.11.3 — the control window's panels
-  'web/src/components/SearchPanel.tsx',
-  'web/src/components/SongsPanel.tsx',
-  'web/src/components/SongImport.tsx',
-  'web/src/components/TextPanel.tsx',
-  'web/src/components/PlaylistPanel.tsx',
-  'web/src/components/StudyPanels.tsx',
-  'web/src/components/StrongView.tsx',
-  'web/src/components/StudyContext.tsx',
-  'web/src/components/ConcordancePanel.tsx',
-  'web/src/components/CommandPalette.tsx',
-  'web/src/components/Monitor.tsx',
-  'web/src/components/VirtualList.tsx',
-  // 0.11.4 — the output windows
-  'web/src/components/OutputsPanel.tsx',
-  'web/src/pages/Presenter.tsx',
-  'web/src/pages/Stage.tsx',
-  'web/src/lib/screens.ts',
-  'web/src/lib/outputs.ts',
-  'web/src/components/IdentifyOverlay.tsx',
-  'web/src/components/SlideCanvas.tsx',
-  'web/src/components/SlideFade.tsx',
-  'web/src/openPresenter.ts',
-  'web/src/presenterBus.ts',
-  // 0.11.5 — phones and remotes
-  'web/src/pages/Follow.tsx',
-  'web/src/pages/Remote.tsx',
-  'web/src/components/RemotePanel.tsx',
-  'web/src/components/RemotePicker.tsx',
-  'web/src/components/RemotePlaylist.tsx',
-  'web/src/components/FollowPanel.tsx',
-  'web/src/components/PhoneLink.tsx',
-  'web/src/components/QrCard.tsx',
-  // 0.11.6 — messages from the server and the shared library
-  'server/src/index.ts',
-  'server/src/songs.ts',
-  'server/src/live.ts',
-  'server/src/autostart.ts',
-  'server/src/remote.ts',
-  'server/src/shortcut.ts',
-  'shared/src/library/driver.ts',
-  'shared/src/library/mybible.ts',
-  'shared/src/library/queries.ts',
-  'shared/src/songs/node.ts',
-  'shared/src/songs/bundle.ts',
-  'shared/src/songs/pptx.ts',
-  'builder/src/segments.ts',
-  'web/src/lib/engine/protocol.ts',
-  // 0.11.7 — the launcher, the waiter, the portable build
-  'server/src/lang.ts',
-  'server/src/launcher.ts',
-  'server/src/standby.ts',
-  'server/src/portable.ts',
-];
 
 const walk = (dir: string): string[] =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -214,6 +130,11 @@ function keysOf(file: string, src: string): Key[] {
 const files = SOURCES.flatMap((d) => walk(path.join(ROOT, d))).filter(
   (f) => !f.endsWith(path.join('i18n', 'en.ts')),
 );
+/** Not interface at all: a developer's command-line benchmark whose Ukrainian is its queries. */
+const NOT_INTERFACE = new Set(['server/src/bench.ts']);
+const TRANSLATED = files
+  .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
+  .filter((rel) => !NOT_INTERFACE.has(rel));
 const sources = new Map(files.map((f) => [f, stripComments(fs.readFileSync(f, 'utf8'))]));
 const keys = [...sources].flatMap(([f, src]) => keysOf(path.relative(ROOT, f), src));
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();

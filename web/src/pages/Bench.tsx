@@ -33,6 +33,7 @@ import {
 import { BENCH_CASES } from '../lib/bench/workload';
 import { SyncBench } from '../components/SyncBench';
 import { download, saveCsv } from '../lib/bench/files';
+import { fmtNumber, N_, tr, useLang } from '../i18n';
 
 /** Segments picked by default: two translations (Ukrainian + Strong-tagged English), the
  * Strong's dictionary, cross-references — enough for every query in the workload. */
@@ -42,18 +43,18 @@ const DEFAULT_PICK = (s: SegmentInfo) =>
   s.kind === 'study';
 
 const KIND_LABEL: Record<SegmentInfo['kind'], string> = {
-  translation: 'Переклади',
-  dictionary: 'Словники',
-  study: 'Посилання й коментарі',
-  songs: 'Пісні',
+  translation: N_('Переклади'),
+  dictionary: N_('Словники'),
+  study: N_('Посилання й коментарі'),
+  songs: N_('Пісні'),
 };
 
 const ms = (v: number | null | undefined) =>
   v == null || Number.isNaN(v)
     ? '—'
-    : `${v.toLocaleString('uk-UA', { maximumFractionDigits: v < 10 ? 1 : 0 })} мс`;
+    : tr('{n} мс', { n: fmtNumber(v, { maximumFractionDigits: v < 10 ? 1 : 0 }) });
 const mb = (v: number | null | undefined) =>
-  v == null ? '—' : `${(v / 1048576).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} МБ`;
+  v == null ? '—' : tr('{n} МБ', { n: fmtNumber(v / 1048576, { maximumFractionDigits: 1 }) });
 
 /**
  * «Вимірювання» (`/bench`): the thesis benchmarks, opened from Налаштування → Застосунок
@@ -63,17 +64,18 @@ const mb = (v: number | null | undefined) =>
  *   «Синхронізація»: how windows of the app talk (lib/bench/sync.ts).
  */
 export function Bench() {
+  useLang();
   return (
     <ScrollArea style={{ height: '100vh' }} type="auto">
       <Box maw={1100} mx="auto" px="md" py="lg">
         <Group gap={8} mb="sm">
           <IconChartBar size={22} />
-          <Title order={4}>Вимірювання</Title>
+          <Title order={4}>{tr('Вимірювання')}</Title>
         </Group>
         <Tabs defaultValue="db" keepMounted>
           <Tabs.List mb="md">
-            <Tabs.Tab value="db">Бази даних</Tabs.Tab>
-            <Tabs.Tab value="sync">Синхронізація вікон</Tabs.Tab>
+            <Tabs.Tab value="db">{tr('Бази даних')}</Tabs.Tab>
+            <Tabs.Tab value="sync">{tr('Синхронізація вікон')}</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="db">
             <DbBench />
@@ -88,6 +90,7 @@ export function Bench() {
 }
 
 function DbBench() {
+  useLang();
   const serverAvailable = useServer((s) => s.available);
   const [manifest, setManifest] = useState<SegmentInfo[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
@@ -106,7 +109,9 @@ function DbBench() {
         setManifest(m.segments);
         setPicked(m.segments.filter(DEFAULT_PICK).map((s) => s.file));
       })
-      .catch((e: Error) => setError(`Список сегментів недоступний: ${e.message}`));
+      .catch((e: Error) =>
+        setError(tr('Список сегментів недоступний: {error}', { error: tr(e.message) })),
+      );
   }, []);
 
   const chosen = manifest.filter((s) => picked.includes(s.file));
@@ -127,7 +132,7 @@ function DbBench() {
         }),
       );
     } catch (e) {
-      setError((e as Error).message);
+      setError(tr((e as Error).message));
     } finally {
       setProgress(null);
     }
@@ -138,7 +143,7 @@ function DbBench() {
     if (!report) return;
     try {
       await navigator.clipboard.writeText(reportCsv(report));
-      notifications.show({ message: 'CSV скопійовано', color: 'green', autoClose: 1500 });
+      notifications.show({ message: tr('CSV скопійовано'), color: 'green', autoClose: 1500 });
     } catch {
       saveCsv(`vo-bench-${stamp}.csv`, reportCsv(report));
     }
@@ -147,16 +152,16 @@ function DbBench() {
   return (
     <>
       <Text size="sm" c="dimmed" mb="md" maw={760}>
-        Ті самі сегменти й ті самі запити на кожному рушії: сервер (SQLite через HTTP), SQLite у
-        браузері й PostgreSQL у браузері (PGlite). Браузерні рушії запускаються начисто, по черзі, у
-        власних воркерах — бібліотека застосунку не змінюється.
+        {tr(
+          'Ті самі сегменти й ті самі запити на кожному рушії: сервер (SQLite через HTTP), SQLite у браузері й PostgreSQL у браузері (PGlite). Браузерні рушії запускаються начисто, по черзі, у власних воркерах — бібліотека застосунку не змінюється.',
+        )}
       </Text>
 
       <Paper withBorder p="md" mb="md">
         <Group align="flex-start" gap="xl" wrap="wrap">
           <Stack gap={6} style={{ minWidth: 260 }}>
             <Text size="sm" fw={500}>
-              Сегменти
+              {tr('Сегменти')}
             </Text>
             <Checkbox.Group value={picked} onChange={setPicked}>
               <Stack gap={6}>
@@ -166,7 +171,7 @@ function DbBench() {
                   return (
                     <div key={k}>
                       <Text size="xs" c="dimmed" mb={2}>
-                        {KIND_LABEL[k]}
+                        {tr(KIND_LABEL[k])}
                       </Text>
                       <ScrollArea.Autosize mah={k === 'translation' ? 150 : undefined}>
                         <Stack gap={2}>
@@ -196,7 +201,7 @@ function DbBench() {
 
           <Stack gap={6}>
             <Text size="sm" fw={500}>
-              Рушії
+              {tr('Рушії')}
             </Text>
             <Checkbox.Group value={engines} onChange={(v) => setEngines(v as BenchEngine[])}>
               <Stack gap={4}>
@@ -206,7 +211,7 @@ function DbBench() {
                   disabled={serverAvailable === false}
                   label={
                     serverAvailable === false
-                      ? `${ENGINE_NAME.server} — сервер не запущено`
+                      ? `${ENGINE_NAME.server} — ${tr('сервер не запущено')}`
                       : ENGINE_NAME.server
                   }
                 />
@@ -216,7 +221,7 @@ function DbBench() {
             </Checkbox.Group>
             <NumberInput
               size="xs"
-              label="Повторів кожного запиту"
+              label={tr('Повторів кожного запиту')}
               value={iterations}
               onChange={(v) => setIterations(Math.max(5, Math.min(200, Number(v) || 20)))}
               min={5}
@@ -231,7 +236,7 @@ function DbBench() {
               disabled={!!progress || chosen.length === 0 || engines.length === 0}
               onClick={() => void run()}
             >
-              Запустити
+              {tr('Запустити')}
             </Button>
             {progress ? (
               <>
@@ -242,8 +247,10 @@ function DbBench() {
               </>
             ) : (
               <Text size="xs" c="dimmed">
-                Кожен запит: перший (холодний) прохід, розігрів, далі {iterations} замірів — медіана
-                й p95. PostgreSQL завантажується довше: кілька секунд на переклад.
+                {tr(
+                  'Кожен запит: перший (холодний) прохід, розігрів, далі {n} замірів — медіана й p95. PostgreSQL завантажується довше: кілька секунд на переклад.',
+                  { n: iterations },
+                )}
               </Text>
             )}
             {error && (
@@ -280,6 +287,7 @@ function ReportView({
   onSaveCsv: () => void;
   onSaveJson: () => void;
 }) {
+  useLang();
   const runs = report.engines;
   // results are compared with SQLite in the browser (same segments), else the first engine
   const base = runs.find((r) => r.engine === 'sqlite') ?? runs[0];
@@ -314,12 +322,16 @@ function ReportView({
     <Paper withBorder p="md">
       <Group justify="space-between" mb="sm" wrap="wrap">
         <Text size="sm" c="dimmed">
-          {report.segments.map((s) => s.abbr).join(', ')} · {report.iterations} повторів ·{' '}
-          {report.cores} ядер · v{report.app}
+          {report.segments.map((s) => s.abbr).join(', ')} ·{' '}
+          {tr('{n} повторів · {cores} ядер · v{app}', {
+            n: report.iterations,
+            cores: report.cores,
+            app: report.app,
+          })}
         </Text>
         <Group gap="xs">
           <Button size="xs" variant="default" leftSection={<IconCopy size={14} />} onClick={onCsv}>
-            Копіювати CSV
+            {tr('Копіювати CSV')}
           </Button>
           <Button
             size="xs"
@@ -351,7 +363,7 @@ function ReportView({
                     {ENGINE_NAME[r.engine]}
                   </Text>
                   <Text size="xs" c="dimmed" fw={400}>
-                    {r.error ? `Помилка: ${r.error}` : r.version}
+                    {r.error ? tr('Помилка: {error}', { error: tr(r.error) }) : r.version}
                     {r.note ? ` · ${r.note}` : ''}
                   </Text>
                 </Table.Th>
@@ -359,10 +371,14 @@ function ReportView({
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {header('Рушій і дані')}
-            {row('Запуск рушія', (r) => ms(r.bootMs), 'воркер, WebAssembly, ініціалізація бази')}
+            {header(tr('Рушій і дані'))}
             {row(
-              'Завантаження сегментів',
+              tr('Запуск рушія'),
+              (r) => ms(r.bootMs),
+              tr('воркер, WebAssembly, ініціалізація бази'),
+            )}
+            {row(
+              tr('Завантаження сегментів'),
               (r) =>
                 r.loadMs == null ? (
                   '—'
@@ -376,50 +392,50 @@ function ReportView({
                     </Text>
                   </>
                 ),
-              'розпаковка, злиття, повнотекстовий індекс',
+              tr('розпаковка, злиття, повнотекстовий індекс'),
             )}
-            {row('Розмір бази', (r) => mb(r.dbBytes), 'сервер — файл усієї бібліотеки')}
-            {row('Пам’ять WebAssembly', (r) => mb(r.wasmBytes))}
+            {row(tr('Розмір бази'), (r) => mb(r.dbBytes), tr('сервер — файл усієї бібліотеки'))}
+            {row(tr('Пам’ять WebAssembly'), (r) => mb(r.wasmBytes))}
             {row(
-              'Файли рушія',
+              tr('Файли рушія'),
               (r) =>
                 r.assets.length === 0
                   ? '—'
                   : r.assets.map((a) => `${a.name} ${mb(a.bodyBytes)}`).join(', '),
-              'завантажені воркером (.wasm, .data)',
+              tr('завантажені воркером (.wasm, .data)'),
             )}
             {row(
-              'Знімок бази: збереження',
+              tr('Знімок бази: збереження'),
               (r) => (r.snapshot ? `${ms(r.snapshot.dumpMs)} · ${mb(r.snapshot.dumpBytes)}` : '—'),
-              'уся база одним образом',
+              tr('уся база одним образом'),
             )}
             {row(
-              'Знімок бази: відкриття',
+              tr('Знімок бази: відкриття'),
               (r) => ms(r.snapshot?.reopenMs),
-              'новий рушій з образу + перший запит',
+              tr('новий рушій з образу + перший запит'),
             )}
 
             {groups.map((g) => (
               <Fragment key={g}>
-                {header(g)}
+                {header(tr(g))}
                 {BENCH_CASES.filter((c) => c.group === g).map((c) => {
                   const max = Math.max(
                     ...runs.map((r) => r.cases[c.id]?.medianMs ?? 0).filter(Number.isFinite),
                   );
                   return (
                     <Fragment key={c.id}>
-                      {row(c.label, (r) => {
+                      {row(tr(c.label), (r) => {
                         const s = r.cases[c.id];
                         if (!s)
                           return (
                             <Text size="xs" c="dimmed">
-                              не застосовно
+                              {tr('не застосовно')}
                             </Text>
                           );
                         if (s.error)
                           return (
                             <Text size="xs" c="orange">
-                              {s.error}
+                              {tr(s.error)}
                             </Text>
                           );
                         // the server has every translation — its list can't match
@@ -456,8 +472,11 @@ function ReportView({
                               }}
                             />
                             <Text size="xs" c="dimmed">
-                              p95 {ms(s.p95Ms)} · 1-й {ms(s.firstMs)} · {s.count}
-                              {s.capped ? '+' : ''} рез.
+                              {tr('p95 {p95} · 1-й {first} · {count} рез.', {
+                                p95: ms(s.p95Ms),
+                                first: ms(s.firstMs),
+                                count: `${s.count}${s.capped ? '+' : ''}`,
+                              })}
                             </Text>
                           </>
                         );
@@ -471,9 +490,9 @@ function ReportView({
         </Table>
       </Table.ScrollContainer>
       <Text size="xs" c="dimmed" mt="sm">
-        = ті самі результати, що в SQLite у браузері · ≈ обидва дійшли до межі 300 і по-різному
-        впорядкували (bm25 / ts_rank) · сервер відповідає через HTTP (JSON включно) і тримає всю
-        бібліотеку.
+        {tr(
+          '= ті самі результати, що в SQLite у браузері · ≈ обидва дійшли до межі 300 і по-різному впорядкували (bm25 / ts_rank) · сервер відповідає через HTTP (JSON включно) і тримає всю бібліотеку.',
+        )}
       </Text>
     </Paper>
   );
