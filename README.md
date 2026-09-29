@@ -8,9 +8,9 @@ their own phone.
 
 The primary content is the **Bible** (MyBible modules), but the model — _containers →
 sections → numbered units_ (books → chapters → verses) with full-text search — applies
-to any structured book (reference works, normative documents, manuals). The UI is
-Ukrainian; search is case- and diacritic-insensitive and handles any module language
-(Ukrainian, English, Greek, Hebrew, Arabic, and others).
+to any structured book (reference works, normative documents, manuals). The interface
+is Ukrainian and English; search is case- and diacritic-insensitive and handles any module
+language (Ukrainian, English, Greek, Hebrew, Arabic, and others).
 
 ## Documentation
 

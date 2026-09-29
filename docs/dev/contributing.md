@@ -58,10 +58,11 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
 
 ## UI conventions
 
-- **Copy.** The UI is Ukrainian: sentence case, polite imperative («Додайте…»,
+- **Copy.** The UI is written in Ukrainian: sentence case, polite imperative («Додайте…»,
   «Перевірте…»). An empty state or an error says what to do next and names the exact
   button. The same action has the same name in the toolbar, the command palette, and
-  notifications.
+  notifications. Every string also needs its English version — see
+  [Interface text and languages](#interface-text-and-languages).
 - **Tokens.** Operator UI uses Mantine theme tokens and CSS variables, never raw hex
   colors, and must work in both the dark and the light scheme. Red (`live`) and amber
   (`cue`) mean on-screen and preview state only.
@@ -77,6 +78,42 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
   template, never from the Mantine theme. A new visual option is a new `Appearance`
   field with a default, a clamp in `sanitizeAppearance`, and a control in the matching
   section of `SettingsPanel`.
+
+## Interface text and languages
+
+The interface is Ukrainian and English. The Ukrainian stays in the code, and it is also the
+key of the English version in one dictionary, `shared/src/i18n/en.ts`. The operator picks
+the language in **Налаштування вигляду** → **Застосунок**; a phone or a browser that has
+saved nothing takes its own language.
+
+To add or change interface text:
+
+1. Write the Ukrainian through one of these functions from `web/src/i18n.ts`:
+   - `tr('Текст')`, or `tr('На екрані: {ref}', { ref })` with values in `{name}` places.
+     Don't build the text from template literals: the whole sentence is the key.
+   - `trn(n, '{n} пісню|{n} пісні|{n} пісень')` for a number: the three Ukrainian forms;
+     the English entry has two, `'{n} song|{n} songs'`.
+   - `trx('Додайте модуль {module} у папку…', { module: <code>…</code> })` when an element
+     sits inside the sentence.
+   - `N_('…')` or `Nn_('…|…|…')` to mark a string in a table that is built when the module
+     loads; translate it where it is shown, `tr(TABLE[key])`.
+2. In a component that shows translated text, call `useLang()`: a language switch then
+   renders it again.
+3. Add the English to `shared/src/i18n/en.ts`, under the comment of its area.
+4. Run `npx vitest run shared/src/i18n`.
+
+The test in `shared/src/i18n/i18n.test.ts` scans every source file. It fails when a key has
+no English entry, when the placeholders or plural forms differ, when an entry is no longer
+used, or when Cyrillic stands outside a key or a comment. A line that keeps Ukrainian on
+purpose — a regex, a stored name, a search query in a benchmark — ends with a comment
+that says `i18n-ignore` and why.
+
+Server messages are keys too. Mark them with `N_`, and pass values apart:
+`new ApiError(409, N_('Порт {port} зайнятий…'), { port })` answers
+`{ error, key, vars }`, which the page shows in its own language. The launcher, the waiter,
+and the portable build run under plain Node and can't import `@vo/shared`
+(`server/src/plainNode.test.ts` checks): they use `server/src/lang.ts`, which reads the
+same dictionary.
 
 ## Docs
 
