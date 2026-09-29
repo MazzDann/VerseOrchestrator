@@ -6,11 +6,10 @@ import { IconChevronLeft, IconFileImport, IconFiles, IconFolder, IconX } from '@
 import { isSongFile, parsePptx, sameBundleName, type BundleSong } from '@vo/shared';
 import { api } from '../api';
 import { useEffectiveSource } from '../dataSourceStore';
-import { plural } from '../lib/plural';
+import { tr, trn, useLang } from '../i18n';
 
 /** The Select value for «a new bundle». */
 const NEW = '__new__';
-const SONGS: [string, string, string] = ['пісню', 'пісні', 'пісень'];
 
 interface Found {
   songs: BundleSong[];
@@ -59,6 +58,7 @@ export function SongImport({
   onBack: () => void;
   onClose: () => void;
 }) {
+  useLang();
   const [reading, setReading] = useState<{ done: number; total: number } | null>(null);
   const [found, setFound] = useState<Found | null>(null);
   /** a bundle id, NEW, null = not chosen yet; undefined until the bundles are known */
@@ -87,7 +87,7 @@ export function SongImport({
     const files = [...(list ?? [])].filter((f) => isSongFile(f.webkitRelativePath || f.name));
     if (files.length === 0) {
       notifications.show({
-        message: 'Файлів .pptx тут немає — виберіть інші файли або папку',
+        message: tr('Файлів .pptx тут немає — виберіть інші файли або папку'),
         color: 'orange',
         autoClose: 4000,
       });
@@ -119,7 +119,11 @@ export function SongImport({
         found.songs,
       );
       notifications.show({
-        message: `Імпортовано в «${r.bundle.name}»: нових ${r.added}, оновлено ${r.updated}`,
+        message: tr('Імпортовано в «{bundle}»: нових {added}, оновлено {updated}', {
+          bundle: r.bundle.name,
+          added: r.added,
+          updated: r.updated,
+        }),
         color: 'green',
         autoClose: 3000,
       });
@@ -129,7 +133,7 @@ export function SongImport({
       onDone(r.bundle.name);
     } catch (e) {
       notifications.show({
-        message: `Не вдалося імпортувати: ${(e as Error).message}`,
+        message: tr('Не вдалося імпортувати: {error}', { error: tr((e as Error).message) }),
         color: 'red',
       });
     } finally {
@@ -146,21 +150,21 @@ export function SongImport({
     <Stack gap="sm">
       <Group justify="space-between" wrap="nowrap">
         <Group gap={6} wrap="nowrap">
-          <ActionIcon variant="subtle" onClick={onBack} aria-label="Назад до пошуку">
+          <ActionIcon variant="subtle" onClick={onBack} aria-label={tr('Назад до пошуку')}>
             <IconChevronLeft size={18} />
           </ActionIcon>
           <Text fw={600} size="sm">
-            Імпорт пісень
+            {tr('Імпорт пісень')}
           </Text>
         </Group>
-        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
+        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
           <IconX size={18} />
         </ActionIcon>
       </Group>
 
       <div>
         <Text size="sm" fw={500} mb={4}>
-          Звідки
+          {tr('Звідки')}
         </Text>
         <Group gap="xs">
           <Button
@@ -170,7 +174,7 @@ export function SongImport({
             disabled={!!reading || busy}
             onClick={() => filesRef.current?.click()}
           >
-            Файли .pptx…
+            {tr('Файли .pptx…')}
           </Button>
           <Button
             size="xs"
@@ -179,7 +183,7 @@ export function SongImport({
             disabled={!!reading || busy}
             onClick={() => folderRef.current?.click()}
           >
-            Папка…
+            {tr('Папка…')}
           </Button>
         </Group>
         <input ref={filesRef} type="file" accept=".pptx" multiple hidden onChange={onFiles} />
@@ -188,7 +192,7 @@ export function SongImport({
           <Stack gap={4} mt="xs">
             <Progress value={(reading.done / reading.total) * 100} size="sm" />
             <Text size="xs" c="dimmed">
-              Читаю файли: {reading.done} з {reading.total}
+              {tr('Читаю файли: {done} з {total}', { done: reading.done, total: reading.total })}
             </Text>
           </Stack>
         )}
@@ -196,13 +200,15 @@ export function SongImport({
           <Stack gap={2} mt="xs">
             <Text size="sm">
               {count > 0
-                ? `Знайдено ${count} ${plural(count, SONGS)}.`
-                : 'Пісень у цих файлах немає.'}
+                ? trn(count, 'Знайдено {n} пісню.|Знайдено {n} пісні.|Знайдено {n} пісень.')
+                : tr('Пісень у цих файлах немає.')}
             </Text>
             {found.failed.length > 0 && (
               <Text size="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
-                Пропущено (не прочиталися або без тексту): {found.failed.slice(0, 5).join(', ')}
-                {found.failed.length > 5 && ` і ще ${found.failed.length - 5}`}
+                {tr('Пропущено (не прочиталися або без тексту): {files}', {
+                  files: found.failed.slice(0, 5).join(', '),
+                })}
+                {found.failed.length > 5 && ` ${tr('і ще {n}', { n: found.failed.length - 5 })}`}
               </Text>
             )}
           </Stack>
@@ -212,14 +218,14 @@ export function SongImport({
       <div>
         <Select
           size="sm"
-          label="Куди"
+          label={tr('Куди')}
           data={[
             ...(bundles.data ?? []).map((b) => ({ value: b.id, label: `${b.name} (${b.count})` })),
-            { value: NEW, label: 'Новий бандл…' },
+            { value: NEW, label: tr('Новий бандл…') },
           ]}
           value={target ?? null}
           onChange={(v) => setTarget(v)}
-          placeholder="Виберіть бандл"
+          placeholder={tr('Виберіть бандл')}
           allowDeselect={false}
           disabled={busy}
           comboboxProps={{ withinPortal: true }}
@@ -228,18 +234,24 @@ export function SongImport({
           <TextInput
             mt="xs"
             size="sm"
-            label="Назва нового бандла"
-            placeholder="Наприклад, Молодіжні"
+            label={tr('Назва нового бандла')}
+            placeholder={tr('Наприклад, Молодіжні')}
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
             maxLength={100}
             disabled={busy}
-            error={taken ? `Бандл «${taken.name}» уже є — виберіть його в списку «Куди»` : null}
+            error={
+              taken
+                ? tr('Бандл «{bundle}» уже є — виберіть його в списку «Куди»', {
+                    bundle: taken.name,
+                  })
+                : null
+            }
           />
         ) : (
           target && (
             <Text size="xs" c="dimmed" mt={4}>
-              Пісня з такою самою назвою файлу, що вже є в бандлі, замінюється новою.
+              {tr('Пісня з такою самою назвою файлу, що вже є в бандлі, замінюється новою.')}
             </Text>
           )
         )}
@@ -247,8 +259,9 @@ export function SongImport({
 
       {local && (
         <Text size="xs" c="dimmed">
-          Джерело даних — «у браузері»: пісні з’являться тут після перезбирання сегментів (npm run
-          build:segments). З джерелом «Сервер» вони видні одразу.
+          {tr(
+            'Джерело даних — «у браузері»: пісні з’являться тут після перезбирання сегментів (npm run build:segments). З джерелом «Сервер» вони видні одразу.',
+          )}
         </Text>
       )}
 
@@ -260,7 +273,9 @@ export function SongImport({
           loading={busy}
           onClick={() => void run()}
         >
-          {count > 0 ? `Імпортувати ${count} ${plural(count, SONGS)}` : 'Імпортувати'}
+          {count > 0
+            ? trn(count, 'Імпортувати {n} пісню|Імпортувати {n} пісні|Імпортувати {n} пісень')
+            : tr('Імпортувати')}
         </Button>
       </Group>
     </Stack>

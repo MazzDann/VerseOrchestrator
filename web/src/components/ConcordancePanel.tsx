@@ -15,6 +15,7 @@ import { IconX } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import { type StrongPickRef } from './StrongView';
+import { tr, useLang } from '../i18n';
 
 interface Props {
   strong: string;
@@ -29,6 +30,7 @@ interface Props {
  * translation or all Strong translations; clicking a row jumps to that verse.
  */
 export function ConcordancePanel({ strong, primaryId, onPick, onClose }: Props) {
+  useLang();
   const [scope, setScope] = useState<'current' | 'all'>('current');
   const translationId = scope === 'current' && primaryId != null ? primaryId : undefined;
 
@@ -52,7 +54,7 @@ export function ConcordancePanel({ strong, primaryId, onPick, onClose }: Props) 
       <Group justify="space-between" px="sm" py="xs" wrap="nowrap">
         <Group gap={6} wrap="nowrap">
           <Text size="sm" fw={600}>
-            Стронг {strong}
+            {tr('Стронг {n}', { n: strong })}
           </Text>
           {data && (
             <Badge size="sm" variant="light">
@@ -61,7 +63,7 @@ export function ConcordancePanel({ strong, primaryId, onPick, onClose }: Props) 
           )}
           {isFetching && <Loader size="xs" />}
         </Group>
-        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
+        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
           <IconX size={16} />
         </ActionIcon>
       </Group>
@@ -72,14 +74,14 @@ export function ConcordancePanel({ strong, primaryId, onPick, onClose }: Props) 
           value={scope}
           onChange={(v) => setScope(v as 'current' | 'all')}
           data={[
-            { label: 'Цей переклад', value: 'current' },
-            { label: 'Усі', value: 'all' },
+            { label: tr('Цей переклад'), value: 'current' },
+            { label: tr('Усі'), value: 'all' },
           ]}
         />
       </Box>
       {data?.truncated && (
         <Text size="xs" c="dimmed" px="sm" pb={4}>
-          Показано перші {results.length} із {data.total}.
+          {tr('Показано перші {shown} із {total}.', { shown: results.length, total: data.total })}
         </Text>
       )}
       <ScrollArea style={{ flex: 1 }}>
@@ -107,7 +109,7 @@ export function ConcordancePanel({ strong, primaryId, onPick, onClose }: Props) 
           ))}
           {!isFetching && results.length === 0 && (
             <Text size="xs" c="dimmed" p="sm">
-              Немає входжень.
+              {tr('Немає входжень.')}
             </Text>
           )}
         </Stack>

@@ -31,7 +31,7 @@ import {
   IconArrowBackUp,
 } from '@tabler/icons-react';
 import { type SeqItem, type SavedProgram } from '../playlistStore';
-import { plural } from '../lib/plural';
+import { tr, trn, useLang } from '../i18n';
 
 interface Props {
   items: SeqItem[];
@@ -93,6 +93,7 @@ export function PlaylistPanel({
   replacedBy,
   onUndoLoad,
 }: Props) {
+  useLang();
   const [programsOpen, setProgramsOpen] = useState(false);
   const [name, setName] = useState('');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -134,7 +135,7 @@ export function PlaylistPanel({
         color="red"
         size="sm"
         onClick={() => remove(p.name)}
-        aria-label={`Видалити програму ${p.name}`}
+        aria-label={tr('Видалити програму {name}', { name: p.name })}
       >
         <IconTrash size={14} />
       </ActionIcon>
@@ -153,7 +154,7 @@ export function PlaylistPanel({
           title={deletedProgram.name}
           style={{ flex: 1, minWidth: 0 }}
         >
-          Видалено: {deletedProgram.name}
+          {tr('Видалено: {name}', { name: deletedProgram.name })}
         </Text>
         <Button
           ref={undoDeleteRef}
@@ -163,7 +164,7 @@ export function PlaylistPanel({
           onClick={onUndoDelete}
           style={{ flexShrink: 0 }}
         >
-          Скасувати
+          {tr('Скасувати')}
         </Button>
       </Group>,
     );
@@ -184,17 +185,17 @@ export function PlaylistPanel({
     <Stack gap="xs" p="sm">
       <Group justify="space-between" wrap="nowrap">
         <Group gap={4} wrap="nowrap">
-          <Tooltip label="Попередній елемент">
+          <Tooltip label={tr('Попередній елемент')}>
             <ActionIcon
               variant="default"
               onClick={onPrev}
               disabled={items.length === 0}
-              aria-label="Попередній елемент показу"
+              aria-label={tr('Попередній елемент показу')}
             >
               <IconPlayerTrackPrev size={16} />
             </ActionIcon>
           </Tooltip>
-          <Tooltip label="Наступний елемент">
+          <Tooltip label={tr('Наступний елемент')}>
             <Button
               variant="light"
               color="cue"
@@ -203,7 +204,7 @@ export function PlaylistPanel({
               onClick={onNext}
               disabled={items.length === 0}
             >
-              Далі
+              {tr('Далі')}
             </Button>
           </Tooltip>
         </Group>
@@ -211,23 +212,23 @@ export function PlaylistPanel({
           <Badge variant="light" color="gray">
             {items.length}
           </Badge>
-          <Tooltip label="Програми (зберегти / відкрити)">
+          <Tooltip label={tr('Програми (зберегти / відкрити)')}>
             <ActionIcon
               variant={programsOpen ? 'filled' : 'subtle'}
               color="brand"
               onClick={() => setProgramsOpen((o) => !o)}
-              aria-label="Програми"
+              aria-label={tr('Програми')}
             >
               {programsOpen ? <IconFolderOpen size={16} /> : <IconFolder size={16} />}
             </ActionIcon>
           </Tooltip>
-          <Tooltip label="Очистити показ">
+          <Tooltip label={tr('Очистити показ')}>
             <ActionIcon
               variant="subtle"
               color="red"
               onClick={clear}
               disabled={items.length === 0}
-              aria-label="Очистити показ"
+              aria-label={tr('Очистити показ')}
             >
               <IconClearAll size={16} />
             </ActionIcon>
@@ -247,7 +248,7 @@ export function PlaylistPanel({
             <TextInput
               size="xs"
               flex={1}
-              placeholder="Назва програми"
+              placeholder={tr('Назва програми')}
               value={name}
               onChange={(e) => setName(e.currentTarget.value)}
               onKeyDown={(e) => {
@@ -261,7 +262,7 @@ export function PlaylistPanel({
               disabled={!name.trim() || items.length === 0}
               onClick={save}
             >
-              Зберегти
+              {tr('Зберегти')}
             </Button>
           </Group>
           {programRows.length > 0 && (
@@ -278,9 +279,9 @@ export function PlaylistPanel({
         // the list above is the program just opened; the one it replaced can come back (0.9.3)
         <Group gap={4} wrap="nowrap" pl={8}>
           <Text size="sm" c="dimmed" truncate title={replacedBy} style={{ flex: 1, minWidth: 0 }}>
-            Відкрито: {replacedBy}
+            {tr('Відкрито: {name}', { name: replacedBy })}
           </Text>
-          <Tooltip label="Повернути список, який був до цієї програми">
+          <Tooltip label={tr('Повернути список, який був до цієї програми')}>
             <Button
               size="compact-xs"
               variant="light"
@@ -288,7 +289,7 @@ export function PlaylistPanel({
               onClick={onUndoLoad}
               style={{ flexShrink: 0 }}
             >
-              Скасувати
+              {tr('Скасувати')}
             </Button>
           </Tooltip>
         </Group>
@@ -297,7 +298,10 @@ export function PlaylistPanel({
       {items.length === 0 && cleared > 0 ? (
         <Stack gap="xs" align="center" py="md">
           <Text size="sm" c="dimmed" ta="center">
-            Показ очищено: {cleared} {plural(cleared, ['елемент', 'елементи', 'елементів'])}.
+            {trn(
+              cleared,
+              'Показ очищено: {n} елемент.|Показ очищено: {n} елементи.|Показ очищено: {n} елементів.',
+            )}
           </Text>
           <Button
             ref={undoRef}
@@ -306,12 +310,12 @@ export function PlaylistPanel({
             leftSection={<IconArrowBackUp size={14} />}
             onClick={onUndoClear}
           >
-            Скасувати
+            {tr('Скасувати')}
           </Button>
         </Stack>
       ) : items.length === 0 ? (
         <Text size="sm" c="dimmed" ta="center" py="lg">
-          Порожньо. Додавайте уривки, пісні й текст кнопкою «+ у показ».
+          {tr('Порожньо. Додавайте уривки, пісні й текст кнопкою «+ у показ».')}
         </Text>
       ) : (
         <Stack gap={4}>
@@ -372,7 +376,7 @@ export function PlaylistPanel({
                   }}
                   onDragEnd={endDrag}
                   onClick={(e) => e.stopPropagation()}
-                  title="Перетягнути"
+                  title={tr('Перетягнути')}
                   style={{ display: 'flex', cursor: 'grab', color: 'var(--mantine-color-dimmed)' }}
                   aria-hidden
                 >
@@ -394,7 +398,7 @@ export function PlaylistPanel({
                       e.stopPropagation();
                       onMove(it.id, -1);
                     }}
-                    aria-label="Вгору"
+                    aria-label={tr('Вгору')}
                   >
                     <IconChevronUp size={14} />
                   </ActionIcon>
@@ -407,7 +411,7 @@ export function PlaylistPanel({
                       e.stopPropagation();
                       onMove(it.id, 1);
                     }}
-                    aria-label="Вниз"
+                    aria-label={tr('Вниз')}
                   >
                     <IconChevronDown size={14} />
                   </ActionIcon>
@@ -419,7 +423,7 @@ export function PlaylistPanel({
                       e.stopPropagation();
                       onRemove(it.id);
                     }}
-                    aria-label="Прибрати"
+                    aria-label={tr('Прибрати')}
                   >
                     <IconTrash size={14} />
                   </ActionIcon>

@@ -5,6 +5,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { IconSearch, IconBook, IconMusic, IconArrowRight, IconBolt } from '@tabler/icons-react';
 import { api, type Book } from '../api';
+import { tr, trn, useLang } from '../i18n';
 
 /** A static operator action exposed in the palette. */
 export interface CommandItem {
@@ -52,6 +53,7 @@ export function CommandPalette({
   onOpenSong,
   onGoReference,
 }: Props) {
+  useLang();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const [debounced] = useDebouncedValue(query, 180);
@@ -86,8 +88,8 @@ export function CommandPalette({
     if (q && /\d/.test(q)) {
       out.push({
         key: 'ref',
-        section: 'Перейти',
-        label: `Перейти: ${query.trim()}`,
+        section: tr('Перейти'),
+        label: tr('Перейти: {query}', { query: query.trim() }),
         icon: <IconArrowRight size={16} />,
         run: () => onGoReference(query.trim()),
       });
@@ -98,7 +100,7 @@ export function CommandPalette({
     for (const c of acts) {
       out.push({
         key: `act:${c.id}`,
-        section: 'Дії',
+        section: tr('Дії'),
         label: c.label,
         hint: c.hint,
         icon: c.icon ?? <IconBolt size={16} />,
@@ -114,7 +116,7 @@ export function CommandPalette({
       for (const b of matched) {
         out.push({
           key: `book:${b.bookNumber}`,
-          section: 'Книги',
+          section: tr('Книги'),
           label: b.longName || b.shortName,
           icon: <IconBook size={16} />,
           run: () => onJumpBook(b.bookNumber),
@@ -131,7 +133,7 @@ export function CommandPalette({
       for (const s of found) {
         out.push({
           key: `song:${s.id}`,
-          section: 'Пісні',
+          section: tr('Пісні'),
           label: `${s.number != null ? `№${s.number} ` : ''}${s.title}${several && s.bundle ? ` · ${s.bundle}` : ''}`,
           icon: <IconMusic size={16} />,
           run: () => onOpenSong(s.id),
@@ -209,7 +211,7 @@ export function CommandPalette({
         radius="md"
         role="dialog"
         aria-modal
-        aria-label="Палітра команд"
+        aria-label={tr('Палітра команд')}
         onClick={(e) => e.stopPropagation()}
         style={{
           width: 'min(620px, 92vw)',
@@ -226,7 +228,7 @@ export function CommandPalette({
             setIndex(0);
           }}
           onKeyDown={onKeyDown}
-          placeholder="Команда, книга, пісня або посилання…"
+          placeholder={tr('Команда, книга, пісня або посилання…')}
           variant="unstyled"
           size="md"
           leftSection={<IconSearch size={18} />}
@@ -244,7 +246,7 @@ export function CommandPalette({
         >
           {rows.length === 0 ? (
             <Text c="dimmed" size="sm" p="md" ta="center">
-              Нічого не знайдено
+              {tr('Нічого не знайдено')}
             </Text>
           ) : (
             rows.map((row, i) => {
@@ -305,10 +307,10 @@ export function CommandPalette({
           style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}
         >
           <Text size="10px" c="dimmed">
-            ↑↓ — вибір · Enter — виконати · Esc — закрити
+            {tr('↑↓ — вибір · Enter — виконати · Esc — закрити')}
           </Text>
           <Text size="10px" c="dimmed">
-            {rows.length} результат(ів)
+            {trn(rows.length, '{n} результат|{n} результати|{n} результатів')}
           </Text>
         </Group>
       </Paper>

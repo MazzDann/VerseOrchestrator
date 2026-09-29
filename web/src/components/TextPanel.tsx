@@ -13,6 +13,7 @@ import {
 } from '@mantine/core';
 import { IconLetterT, IconX, IconDeviceTv, IconTrash, IconPlaylistAdd } from '@tabler/icons-react';
 import { useSettings, type TextItem } from '../settingsStore';
+import { tr, useLang } from '../i18n';
 
 interface Props {
   open: boolean;
@@ -28,6 +29,7 @@ interface Props {
  * active slide style/template; keeps a recents list so repeat texts are one click.
  */
 export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) {
+  useLang();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const recentTexts = useSettings((s) => s.recentTexts);
@@ -59,17 +61,17 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
         <Group gap={6} wrap="nowrap">
           <IconLetterT size={18} />
           <Text fw={600} size="sm">
-            Текст на екран
+            {tr('Текст на екран')}
           </Text>
         </Group>
-        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
+        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
           <IconX size={18} />
         </ActionIcon>
       </Group>
       <Stack gap="xs">
         <TextInput
           size="sm"
-          placeholder="Заголовок (необов’язково)"
+          placeholder={tr('Заголовок (необов’язково)')}
           value={title}
           onChange={(e) => setTitle(e.currentTarget.value)}
         />
@@ -78,7 +80,7 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
           autosize
           minRows={3}
           maxRows={8}
-          placeholder="Текст слайда — оголошення, примітка, довільний текст…"
+          placeholder={tr('Текст слайда — оголошення, примітка, довільний текст…')}
           value={body}
           onChange={(e) => setBody(e.currentTarget.value)}
           onKeyDown={(e) => {
@@ -101,7 +103,7 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
               disabled={!body.trim()}
               onClick={() => onAddToPlaylist({ title, body })}
             >
-              У показ
+              {tr('У показ')}
             </Button>
           )}
           <Button
@@ -111,14 +113,14 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
             disabled={!body.trim()}
             onClick={project}
           >
-            На екран
+            {tr('На екран')}
           </Button>
         </Group>
       </Stack>
       {recentTexts.length > 0 && (
         <>
           <Text size="10px" c="dimmed" fw={600} tt="uppercase" mt="sm" mb={4}>
-            Нещодавні
+            {tr('Нещодавні')}
           </Text>
           <ScrollArea.Autosize mah="min(200px, 20vh)">
             <Stack gap={4}>
@@ -154,7 +156,7 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
                       e.stopPropagation();
                       removeRecentText(t);
                     }}
-                    aria-label="Прибрати зі списку"
+                    aria-label={tr('Прибрати зі списку')}
                   >
                     <IconTrash size={14} />
                   </ActionIcon>

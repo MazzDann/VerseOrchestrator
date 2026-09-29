@@ -29,6 +29,7 @@ import type { SlideSource } from '../presenterBus';
 import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { SongImport } from './SongImport';
+import { tr, useLang } from '../i18n';
 
 interface Props {
   open: boolean;
@@ -78,6 +79,7 @@ export function SongsPanel({
   keysPaused,
   onSongEnd,
 }: Props) {
+  useLang();
   const [query, setQuery] = useState('');
   const [debounced] = useDebouncedValue(query, 200);
   const [faithful, setFaithful] = useState(true);
@@ -123,21 +125,21 @@ export function SongsPanel({
   const stepStanza = useCallback(
     (dir: number): Outcome => {
       const s = songQuery.data;
-      if (!s || s.slides.length === 0) return { ok: false, reason: 'Пісня ще завантажується' };
+      if (!s || s.slides.length === 0) return { ok: false, reason: tr('Пісня ще завантажується') };
       const count = s.slides.length;
       const cur = activeStanza ?? -1;
       // past the last stanza: an empty slide once, then the song is over (0.6.24);
       // «Назад» from there projects the last stanza again (the clamp below)
       if (dir > 0 && activeStanza != null && cur >= count - 1) {
-        if (cur >= count) return { ok: false, reason: 'Кінець пісні' };
-        if (!onSongEnd) return { ok: false, reason: 'Це остання строфа' };
+        if (cur >= count) return { ok: false, reason: tr('Кінець пісні') };
+        if (!onSongEnd) return { ok: false, reason: tr('Це остання строфа') };
         const done = onSongEnd();
         if (done.ok) onActiveStanzaChange(count);
         return done;
       }
       const idx = Math.max(0, Math.min(count - 1, cur + dir));
       if (activeStanza != null && idx === cur) {
-        return { ok: false, reason: dir > 0 ? 'Це остання строфа' : 'Це перша строфа' };
+        return { ok: false, reason: dir > 0 ? tr('Це остання строфа') : tr('Це перша строфа') };
       }
       onActiveStanzaChange(idx);
       onProjectStanza(
@@ -226,7 +228,7 @@ export function SongsPanel({
               <ActionIcon
                 variant="subtle"
                 onClick={() => onSongIdChange(null)}
-                aria-label="Назад до пошуку"
+                aria-label={tr('Назад до пошуку')}
               >
                 <IconChevronLeft size={18} />
               </ActionIcon>
@@ -248,13 +250,18 @@ export function SongsPanel({
                       faithful,
                     })
                   }
-                  aria-label="Додати у показ"
-                  title="Додати у показ"
+                  aria-label={tr('Додати у показ')}
+                  title={tr('Додати у показ')}
                 >
                   <IconPlaylistAdd size={18} />
                 </ActionIcon>
               )}
-              <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                onClick={onClose}
+                aria-label={tr('Закрити')}
+              >
                 <IconX size={18} />
               </ActionIcon>
             </Group>
@@ -266,8 +273,8 @@ export function SongsPanel({
             value={faithful ? 'faithful' : 'text'}
             onChange={(v) => setFaithful(v === 'faithful')}
             data={[
-              { label: 'Точний показ', value: 'faithful' },
-              { label: 'Простий текст', value: 'text' },
+              { label: tr('Точний показ'), value: 'faithful' },
+              { label: tr('Простий текст'), value: 'text' },
             ]}
           />
           <ScrollArea.Autosize mah="min(340px, 30vh)">
@@ -287,7 +294,9 @@ export function SongsPanel({
                     }
                   }}
                 >
-                  <span className="vo-verse-num">{i === 0 ? 'Заголовок' : `Куплет ${i}`}</span>
+                  <span className="vo-verse-num">
+                    {i === 0 ? tr('Заголовок') : tr('Куплет {n}', { n: i })}
+                  </span>
                   <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={5}>
                     {s.text}
                   </Text>
@@ -307,9 +316,9 @@ export function SongsPanel({
                     }
                   }}
                 >
-                  <span className="vo-verse-num">Кінець</span>
+                  <span className="vo-verse-num">{tr('Кінець')}</span>
                   <Text size="sm" c="dimmed">
-                    Порожній слайд: текст сховано, фон лишається
+                    {tr('Порожній слайд: текст сховано, фон лишається')}
                   </Text>
                 </Box>
               )}
@@ -324,16 +333,16 @@ export function SongsPanel({
               flex={1}
               value={query}
               onChange={(e) => setQuery(e.currentTarget.value)}
-              placeholder="Пісня: номер або назва"
+              placeholder={tr('Пісня: номер або назва')}
               leftSection={<IconMusic size={18} />}
               rightSection={listQuery.isFetching ? <Loader size="xs" /> : null}
             />
             {several && (
               <Select
                 w={140}
-                aria-label="Бандл пісень"
+                aria-label={tr('Бандл пісень')}
                 data={[
-                  { value: '', label: 'Усі бандли' },
+                  { value: '', label: tr('Усі бандли') },
                   ...bundles.map((b) => ({ value: b.name, label: `${b.name} (${b.count})` })),
                 ]}
                 value={inBundle}
@@ -343,7 +352,9 @@ export function SongsPanel({
               />
             )}
             <Tooltip
-              label={serverAvailable === false ? NEEDS_SERVER : 'Імпорт пісень з файлів .pptx'}
+              label={
+                serverAvailable === false ? tr(NEEDS_SERVER) : tr('Імпорт пісень з файлів .pptx')
+              }
               multiline={serverAvailable === false}
               w={serverAvailable === false ? 280 : undefined}
             >
@@ -354,12 +365,12 @@ export function SongsPanel({
                 data-disabled={serverAvailable === false || undefined}
                 aria-disabled={serverAvailable === false || undefined}
                 onClick={() => serverAvailable !== false && setImporting(true)}
-                aria-label="Імпорт пісень"
+                aria-label={tr('Імпорт пісень')}
               >
                 <IconFileImport size={18} />
               </ActionIcon>
             </Tooltip>
-            <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
+            <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
               <IconX size={18} />
             </ActionIcon>
           </Group>
@@ -394,13 +405,14 @@ export function SongsPanel({
               ))}
               {debounced && songs.length === 0 && !listQuery.isFetching && (
                 <Text size="sm" c="dimmed" p="sm">
-                  Нічого не знайдено
+                  {tr('Нічого не знайдено')}
                 </Text>
               )}
               {!debounced && songs.length === 0 && listQuery.isSuccess && !inBundle && (
                 <Text size="sm" c="dimmed" p="sm">
-                  Пісень ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт пісень» праворуч
-                  від пошуку.
+                  {tr(
+                    'Пісень ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт пісень» праворуч від пошуку.',
+                  )}
                 </Text>
               )}
             </Stack>

@@ -17,6 +17,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
 import { isScrolling } from '../lib/scrolling';
+import { tr, useLang } from '../i18n';
 
 export type SearchScope = 'current' | 'all';
 
@@ -24,7 +25,7 @@ const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Search folds accents (й→и, ї→і, ё→е), so a bare-letter query can match an accented
 // verse word. Mirror that when highlighting: a base letter also matches its variant.
-const FOLD_VARIANTS: Record<string, string> = { и: 'й', і: 'ї', е: 'ё' };
+const FOLD_VARIANTS: Record<string, string> = { и: 'й', і: 'ї', е: 'ё' }; // i18n-ignore: letters
 /** Build a regex source for a term where foldable base letters also match their variant. */
 function termPattern(term: string): string {
   return [...term]
@@ -66,6 +67,7 @@ interface Props {
  * decides which. Rendered inline (no Modal/portal) for reliability.
  */
 export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, onPick }: Props) {
+  useLang();
   const [query, setQuery] = useState('');
   const [debounced] = useDebouncedValue(query, 200);
   const [highlight, setHighlight] = useState(0);
@@ -140,7 +142,7 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
           onKeyDown={onKeyDown}
-          placeholder='Пошук: «любов», «Ів 3:16», «"світло життя"», «-темрява», «G2424»'
+          placeholder={tr('Пошук: «любов», «Ів 3:16», «"світло життя"», «-темрява», «G2424»')}
           leftSection={<IconSearch size={18} />}
           rightSection={isFetching ? <Loader size="xs" /> : null}
         />
@@ -149,18 +151,23 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
           value={scope}
           onChange={(v) => onScopeChange(v as SearchScope)}
           data={[
-            { label: 'Поточний (F3)', value: 'current' },
-            { label: 'Усі (F4)', value: 'all' },
+            { label: tr('Поточний (F3)'), value: 'current' },
+            { label: tr('Усі (F4)'), value: 'all' },
           ]}
         />
-        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити пошук">
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          onClick={onClose}
+          aria-label={tr('Закрити пошук')}
+        >
           <IconX size={18} />
         </ActionIcon>
       </Group>
       {suggestions.length > 0 && (
         <Group gap={6} mt="xs" wrap="wrap">
           <Text size="xs" c="dimmed">
-            Можливо:
+            {tr('Можливо:')}
           </Text>
           {suggestions.map((s) => (
             <Button
@@ -191,7 +198,7 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
             ))}
             {debounced.trim().length >= 2 && results.length === 0 && !isFetching && (
               <Text size="sm" c="dimmed" p="sm">
-                Нічого не знайдено
+                {tr('Нічого не знайдено')}
               </Text>
             )}
           </Stack>

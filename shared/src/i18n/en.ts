@@ -470,4 +470,137 @@ export const EN: Record<string, string> = {
   Послідовність: 'Running order',
   'У послідовність': 'To the running order',
   Імпортований: 'Imported',
+  // search (web/src/components/SearchPanel.tsx)
+  'Пошук: «любов», «Ів 3:16», «"світло життя"», «-темрява», «G2424»':
+    'Search: love, John 3:16, "light of life", -darkness, G2424',
+  'Поточний (F3)': 'Current (F3)',
+  'Усі (F4)': 'All (F4)',
+  'Закрити пошук': 'Close search',
+  'Можливо:': 'Did you mean:',
+  // songs (web/src/components/SongsPanel.tsx)
+  'Пісня ще завантажується': 'The song is still loading',
+  'Кінець пісні': 'End of the song',
+  'Це остання строфа': 'This is the last stanza',
+  'Це перша строфа': 'This is the first stanza',
+  'Назад до пошуку': 'Back to search',
+  'Додати у показ': 'Add to the running order',
+  'Точний показ': 'As in the file',
+  'Простий текст': 'Plain text',
+  Заголовок: 'Title',
+  'Куплет {n}': 'Stanza {n}',
+  Кінець: 'End',
+  'Порожній слайд: текст сховано, фон лишається':
+    'An empty slide: the text hidden, the background stays',
+  'Пісня: номер або назва': 'Song: number or title',
+  'Бандл пісень': 'Song bundle',
+  'Усі бандли': 'All bundles',
+  'Імпорт пісень з файлів .pptx': 'Import songs from .pptx files',
+  'Імпорт пісень': 'Import songs',
+  'Пісень ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт пісень» праворуч від пошуку.':
+    'No songs yet. To add them from .pptx files, click “Import songs” to the right of the search.',
+  // song import (web/src/components/SongImport.tsx)
+  'Файлів .pptx тут немає — виберіть інші файли або папку':
+    'No .pptx files here — choose other files or another folder',
+  'Імпортовано в «{bundle}»: нових {added}, оновлено {updated}':
+    'Imported into “{bundle}”: {added} new, {updated} updated',
+  'Не вдалося імпортувати: {error}': "Couldn't import: {error}",
+  Звідки: 'From',
+  'Файли .pptx…': '.pptx files…',
+  'Папка…': 'Folder…',
+  'Читаю файли: {done} з {total}': 'Reading files: {done} of {total}',
+  'Знайдено {n} пісню.|Знайдено {n} пісні.|Знайдено {n} пісень.':
+    'Found {n} song.|Found {n} songs.',
+  'Пісень у цих файлах немає.': 'No songs in these files.',
+  'Пропущено (не прочиталися або без тексту): {files}':
+    'Skipped (unreadable or without text): {files}',
+  'і ще {n}': 'and {n} more',
+  Куди: 'To',
+  'Новий бандл…': 'New bundle…',
+  'Виберіть бандл': 'Choose a bundle',
+  'Назва нового бандла': 'New bundle name',
+  'Наприклад, Молодіжні': 'For example, Youth',
+  'Бандл «{bundle}» уже є — виберіть його в списку «Куди»':
+    'The bundle “{bundle}” already exists — choose it in the “To” list',
+  'Пісня з такою самою назвою файлу, що вже є в бандлі, замінюється новою.':
+    'A song whose file name is already in the bundle is replaced by the new one.',
+  'Джерело даних — «у браузері»: пісні з’являться тут після перезбирання сегментів (npm run build:segments). З джерелом «Сервер» вони видні одразу.':
+    'The data source is “In the browser”: the songs appear here after the segments are rebuilt (npm run build:segments). With the “Server” source they show at once.',
+  'Імпортувати {n} пісню|Імпортувати {n} пісні|Імпортувати {n} пісень':
+    'Import {n} song|Import {n} songs',
+  Імпортувати: 'Import',
+  // custom text (web/src/components/TextPanel.tsx)
+  'Текст на екран': 'Text to screen',
+  'Заголовок (необов’язково)': 'Title (optional)',
+  'Текст слайда — оголошення, примітка, довільний текст…':
+    'Slide text — an announcement, a note, any text…',
+  'У показ': 'To the running order',
+  Нещодавні: 'Recent',
+  'Прибрати зі списку': 'Remove from the list',
+  // running order (web/src/components/PlaylistPanel.tsx)
+  'Видалити програму {name}': 'Delete the program {name}',
+  'Видалено: {name}': 'Deleted: {name}',
+  'Попередній елемент': 'Previous item',
+  'Попередній елемент показу': 'Previous running order item',
+  'Наступний елемент': 'Next item',
+  'Програми (зберегти / відкрити)': 'Programs (save / open)',
+  Програми: 'Programs',
+  'Очистити показ': 'Clear the running order',
+  'Назва програми': 'Program name',
+  'Відкрито: {name}': 'Opened: {name}',
+  'Повернути список, який був до цієї програми': 'Bring back the list from before this program',
+  'Показ очищено: {n} елемент.|Показ очищено: {n} елементи.|Показ очищено: {n} елементів.':
+    'Running order cleared: {n} item.|Running order cleared: {n} items.',
+  'Порожньо. Додавайте уривки, пісні й текст кнопкою «+ у показ».':
+    'Empty. Add passages, songs, and text with the “+ to the running order” button.',
+  Перетягнути: 'Drag',
+  Вгору: 'Up',
+  Вниз: 'Down',
+  // the aside: preview, Strong, context (StudyPanels, StrongView, StudyContext, ConcordancePanel)
+  'Прибрати зі збереженого': 'Remove from saved',
+  'Запропонувати пульту «{remote}»': 'Suggest to the remote “{remote}”',
+  'Запропонувати пульту': 'Suggest to a remote',
+  'пульт «{remote}»': 'remote “{remote}”',
+  'Прев’ю': 'Preview',
+  'оберіть вірші': 'choose verses',
+  'На екран: передпоказ пульта «{remote}»': 'To screen: the preview of the remote “{remote}”',
+  'Перейти сюди у своєму виборі': 'Go there in your own selection',
+  'Перейти до передпоказу пульта «{remote}»': 'Go to the preview of the remote “{remote}”',
+  'Сховати до наступного вибору на пульті': 'Hide until the next choice on the remote',
+  'Сховати передпоказ пульта': "Hide the remote's preview",
+  Стронг: "Strong's",
+  Контекст: 'Context',
+  Вигляд: 'Appearance',
+  'Відкріпити прев’ю': 'Unpin the preview',
+  'Закріпити прев’ю знизу': 'Pin the preview at the bottom',
+  'Закріпити прев’ю': 'Pin the preview',
+  'Оберіть вірші у списку.': 'Choose verses in the list.',
+  'Номери Стронга': "Strong's numbers",
+  'Контекст вірша': 'Verse context',
+  'Оберіть вірш у списку.': 'Choose a verse in the list.',
+  'Стронг {n}': "Strong's {n}",
+  'Без номерів Стронга — доступний лише словник по слову.':
+    "No Strong's numbers — only the dictionary by word is available.",
+  'На екран зі Стронгом': "To screen with Strong's",
+  'Немає статті для {n}. Додайте словник Стронга в папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).':
+    "No entry for {n}. Add a Strong's dictionary to the modules/ folder and click “Rescan modules” (Settings → App).",
+  'У словниках нічого не знайдено для цього слова.':
+    'Nothing found in the dictionaries for this word.',
+  'Де ще вживається · Стронг {n}': "Where else it is used · Strong's {n}",
+  'Перехресні посилання': 'Cross-references',
+  'Немає перехресних посилань. Додайте модуль {module} у папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).':
+    'No cross-references. Add a {module} module to the modules/ folder and click “Rescan modules” (Settings → App).',
+  Коментарі: 'Commentaries',
+  'Немає коментарів для цього вірша.': 'No commentaries for this verse.',
+  'Цей переклад': 'This translation',
+  Усі: 'All',
+  'Показано перші {shown} із {total}.': 'Showing the first {shown} of {total}.',
+  'Немає входжень.': 'No occurrences.',
+  // command palette (web/src/components/CommandPalette.tsx)
+  Перейти: 'Go to',
+  'Перейти: {query}': 'Go to: {query}',
+  Дії: 'Actions',
+  Книги: 'Books',
+  'Команда, книга, пісня або посилання…': 'A command, a book, a song, or a reference…',
+  '↑↓ — вибір · Enter — виконати · Esc — закрити': '↑↓ — choose · Enter — run · Esc — close',
+  '{n} результат|{n} результати|{n} результатів': '{n} result|{n} results',
 };
