@@ -10,6 +10,7 @@ import {
   type EngineRun,
 } from './report';
 import { BENCH_CASES, summarize, type BenchContext, type BenchLibrary } from './workload';
+import { tr, trn } from '../../i18n';
 
 /**
  * The engine benchmark (thesis evidence for the hybrid DB): the same segments and the
@@ -117,7 +118,7 @@ export async function runBench(opts: {
   const tick = (message: string) => onProgress(message, Math.min(1, ++step / steps));
 
   // Segment bytes first (from the cache when possible) — the network isn't what's measured.
-  onProgress('Сегменти…', 0);
+  onProgress(tr('Сегменти…'), 0);
   const bytes: ArrayBuffer[] = [];
   for (const s of segments) {
     bytes.push((await segmentBytes(s, () => api.segmentBytes(s.file))).bytes);
@@ -141,7 +142,7 @@ export async function runBench(opts: {
     runs.push(run);
     try {
       if (engine === 'server') {
-        tick(`${name}: бібліотека`);
+        tick(tr('{engine}: бібліотека', { engine: name }));
         const info = await getJson<{
           version: string;
           dbBytes: number;
@@ -149,13 +150,18 @@ export async function runBench(opts: {
         }>('/api/library/info');
         run.version = info.version;
         run.dbBytes = info.dbBytes;
-        run.note = `уся бібліотека: ${info.translations} перекладів`;
-        run.cases = await runCases(serverLibrary(), ctx, iterations, (l) => tick(`${name}: ${l}`));
+        run.note = trn(
+          info.translations,
+          'уся бібліотека: {n} переклад|уся бібліотека: {n} переклади|уся бібліотека: {n} перекладів',
+        );
+        run.cases = await runCases(serverLibrary(), ctx, iterations, (l) =>
+          tick(`${name}: ${tr(l)}`),
+        );
         continue;
       }
       const e = createEngine(engine, { persist: false });
       try {
-        tick(`${name}: запуск`);
+        tick(tr('{engine}: запуск', { engine: name }));
         let t = performance.now();
         await e.info();
         run.bootMs = performance.now() - t;
@@ -176,8 +182,8 @@ export async function runBench(opts: {
           wasmBytes: info.wasmBytes,
           assets: info.assets,
         });
-        run.cases = await runCases(e.library(), ctx, iterations, (l) => tick(`${name}: ${l}`));
-        tick(`${name}: знімок`);
+        run.cases = await runCases(e.library(), ctx, iterations, (l) => tick(`${name}: ${tr(l)}`));
+        tick(tr('{engine}: знімок', { engine: name }));
         run.snapshot = await e.reopen();
       } finally {
         e.terminate();

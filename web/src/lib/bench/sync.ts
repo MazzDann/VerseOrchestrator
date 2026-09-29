@@ -1,5 +1,6 @@
 import { DEFAULT_STYLE, TEMPLATE_PRESETS, type Slide } from '../../presenterBus';
 import { timingStats } from './report';
+import { tr } from '../../i18n';
 
 /**
  * Sync benchmark (thesis: "BroadcastChannel, evaluated against storage events, postMessage
@@ -12,12 +13,19 @@ import { timingStats } from './report';
 
 export type TransportId = 'broadcast' | 'storage' | 'postmessage' | 'sharedworker' | 'websocket';
 
+/** Getters for the names with words: each read is in the interface language of the moment. */
 export const TRANSPORT_NAME: Record<TransportId, string> = {
   broadcast: 'BroadcastChannel',
-  storage: 'localStorage + подія storage',
+  get storage() {
+    return tr('localStorage + подія storage');
+  },
   postmessage: 'window.postMessage',
-  sharedworker: 'SharedWorker (ретранслятор)',
-  websocket: 'WebSocket через сервер',
+  get sharedworker() {
+    return tr('SharedWorker (ретранслятор)');
+  },
+  get websocket() {
+    return tr('WebSocket через сервер');
+  },
 };
 
 export const TRANSPORTS: TransportId[] = [
@@ -127,9 +135,9 @@ export function openSocket(): Promise<Link> {
       `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/ws`,
     );
     const listeners = new Set<(m: BenchMsg) => void>();
-    const timer = setTimeout(() => reject(new Error('Сервер не відповів')), 4000);
+    const timer = setTimeout(() => reject(new Error(tr('Сервер не відповів'))), 4000);
     ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', role: 'control' }));
-    ws.onerror = () => reject(new Error('WebSocket не з’єднався'));
+    ws.onerror = () => reject(new Error(tr('WebSocket не з’єднався')));
     ws.onmessage = (e) => {
       const f = JSON.parse(String(e.data)) as { type: string; id?: number; reason?: string };
       if (f.type === 'welcome') {
@@ -144,7 +152,7 @@ export function openSocket(): Promise<Link> {
         });
       } else if (f.type === 'denied') {
         clearTimeout(timer);
-        reject(new Error(f.reason ?? 'Сервер відмовив'));
+        reject(new Error(f.reason ?? tr('Сервер відмовив')));
       } else if (f.type === 'echo' && typeof f.id === 'number') {
         for (const l of listeners) l({ k: 'pong', id: f.id });
       }
@@ -156,14 +164,15 @@ export function openSocket(): Promise<Link> {
 // Payloads: what actually crosses between the app's windows.
 
 function sampleSlide(withBackground: boolean): Slide {
+  // the measured payload: the same bytes in every interface language
   const verse =
-    'Бо так полюбив Бог світ, що дав Сина Свого Однородженого, щоб кожен, хто вірує в Нього, не згинув, але мав життя вічне. ';
+    'Бо так полюбив Бог світ, що дав Сина Свого Однородженого, щоб кожен, хто вірує в Нього, не згинув, але мав життя вічне. '; // i18n-ignore: payload
   return {
     lines: [
       { translationAbbr: 'UKRK', text: verse.repeat(2), rtl: false },
       { translationAbbr: 'KJV+', text: verse.repeat(2), rtl: false },
     ],
-    reference: 'Від Івана 3:16–17',
+    reference: 'Від Івана 3:16–17', // i18n-ignore: payload
     blank: false,
     visible: true,
     style: {
@@ -183,9 +192,9 @@ export interface PayloadKind {
 
 export function payloads(): PayloadKind[] {
   return [
-    { id: 'command', label: 'Команда «далі»', payload: JSON.stringify({ cmd: 'next' }) },
-    { id: 'slide', label: 'Слайд', payload: JSON.stringify(sampleSlide(false)) },
-    { id: 'slide-bg', label: 'Слайд з фоном', payload: JSON.stringify(sampleSlide(true)) },
+    { id: 'command', label: tr('Команда «далі»'), payload: JSON.stringify({ cmd: 'next' }) },
+    { id: 'slide', label: tr('Слайд'), payload: JSON.stringify(sampleSlide(false)) },
+    { id: 'slide-bg', label: tr('Слайд з фоном'), payload: JSON.stringify(sampleSlide(true)) },
   ];
 }
 
@@ -304,7 +313,7 @@ export async function openPeer(prefer: 'window' | 'iframe'): Promise<{
     const ch = new BroadcastChannel(BC_NAME);
     const t = setTimeout(() => {
       ch.close();
-      reject(new Error('Сторінка-партнер не відповіла'));
+      reject(new Error(tr('Сторінка-партнер не відповіла')));
     }, 15000);
     ch.onmessage = (e) => {
       if ((e.data as BenchMsg)?.k === 'ready') {
@@ -365,7 +374,7 @@ export async function runSyncBench(opts: {
           opts.onProgress(`${TRANSPORT_NAME[t]}: ${k.label}`, ++step / steps);
           if (t === 'websocket' && k.id === 'slide-bg') {
             // the hub caps frames at 256 KB; phones get slides without the background
-            row.cells[k.id] = { ...emptyCell(), error: 'понад ліміт кадру (256 КБ)' };
+            row.cells[k.id] = { ...emptyCell(), error: tr('понад ліміт кадру (256 КБ)') };
             continue;
           }
           try {
@@ -374,7 +383,7 @@ export async function runSyncBench(opts: {
             row.cells[k.id] = { ...emptyCell(), error: shortError(err) };
           }
         }
-        opts.onProgress(`${TRANSPORT_NAME[t]}: серія`, ++step / steps);
+        opts.onProgress(tr('{transport}: серія', { transport: TRANSPORT_NAME[t] }), ++step / steps);
         row.burst = await burst(link, 200).catch(() => null);
       } finally {
         link.close();
@@ -401,14 +410,16 @@ function emptyCell(): SyncCell {
 function shortError(err: unknown): string {
   const e = err as Error;
   return e?.name === 'QuotaExceededError'
-    ? 'не вміщається в localStorage'
-    : e?.message || 'помилка';
+    ? tr('не вміщається в localStorage')
+    : e?.message || tr('помилка');
 }
 
 /** The report as CSV — one row per transport × payload. */
 export function syncCsv(r: SyncReport): string {
   const rows = [
-    'транспорт,дані,байт,RTT медіана (мс),RTT p95 (мс),блокування відправника медіана (мс),блокування max (мс),втрачено,помилка',
+    tr(
+      'транспорт,дані,байт,RTT медіана (мс),RTT p95 (мс),блокування відправника медіана (мс),блокування max (мс),втрачено,помилка',
+    ),
   ];
   const kinds = payloads();
   const n = (v: number) => (Number.isFinite(v) ? String(Number(v.toFixed(2))) : '');
@@ -436,7 +447,12 @@ export function syncCsv(r: SyncReport): string {
     }
     if (row.burst) {
       rows.push(
-        `${TRANSPORT_NAME[row.transport]},серія ${row.burst.sent} команд,,,,,,${row.burst.lost},${row.burst.perSec} за секунду`,
+        tr('{transport},серія {sent} команд,,,,,,{lost},{perSec} за секунду', {
+          transport: TRANSPORT_NAME[row.transport],
+          sent: row.burst.sent,
+          lost: row.burst.lost,
+          perSec: row.burst.perSec,
+        }),
       );
     }
   }

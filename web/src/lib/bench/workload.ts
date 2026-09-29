@@ -1,4 +1,4 @@
-import type { Library } from '@vo/shared';
+import { N_, type Library } from '@vo/shared';
 
 /**
  * The engine benchmark's workload: the same reads the app makes, run against every engine
@@ -31,10 +31,12 @@ export interface BenchCase {
   make(lib: BenchLibrary, ctx: BenchContext): (() => Promise<unknown>) | null;
 }
 
-const READ = 'Читання';
-const REF = 'Посилання';
-const FTS = 'Повнотекстовий пошук';
-const STRONG = 'Стронг і довідка';
+// groups and labels are dictionary keys (shown through tr); the queries themselves are data —
+// the same in every interface language, or the numbers wouldn't compare
+const READ = N_('Читання');
+const REF = N_('Посилання');
+const FTS = N_('Повнотекстовий пошук');
+const STRONG = N_('Стронг і довідка');
 
 const search = (q: string, pick: (c: BenchContext) => number[] | undefined) => {
   return (lib: BenchLibrary, ctx: BenchContext) => {
@@ -49,65 +51,75 @@ export const BENCH_CASES: BenchCase[] = [
   {
     id: 'translations',
     group: READ,
-    label: 'Список перекладів',
+    label: N_('Список перекладів'),
     make: (lib) => () => lib.getTranslations(),
   },
   {
     id: 'chapter',
     group: READ,
-    label: 'Розділ: Від Івана 3',
+    label: N_('Розділ: Від Івана 3'),
     make: (lib, c) => {
       const t = c.uk ?? c.translations[0];
       return t != null ? () => lib.getVerses(t, 500, 3) : null;
     },
   },
-  { id: 'ref', group: REF, label: '«Ів 3:16»', make: search('Ів 3:16', uk) },
-  { id: 'range', group: REF, label: '«1 кор 13:4-7»', make: search('1 кор 13:4-7', uk) },
-  { id: 'rare', group: FTS, label: 'Рідкісне слово «никодим»', make: search('никодим', uk) },
-  { id: 'word', group: FTS, label: 'Слово «любов»', make: search('любов', uk) },
-  { id: 'frequent', group: FTS, label: 'Часте слово «бог»', make: search('бог', uk) },
+  { id: 'ref', group: REF, label: '«Ів 3:16»', make: search('Ів 3:16', uk) }, // i18n-ignore: a query
+  { id: 'range', group: REF, label: '«1 кор 13:4-7»', make: search('1 кор 13:4-7', uk) }, // i18n-ignore: a query
+  {
+    id: 'rare',
+    group: FTS,
+    label: N_('Рідкісне слово «никодим»'),
+    make: search('никодим', uk), // i18n-ignore: a query
+  },
+  { id: 'word', group: FTS, label: N_('Слово «любов»'), make: search('любов', uk) }, // i18n-ignore: a query
+  {
+    id: 'frequent',
+    group: FTS,
+    label: N_('Часте слово «бог»'),
+    make: search('бог', uk), // i18n-ignore: a query
+  },
   {
     id: 'frequent-all',
     group: FTS,
-    label: '«бог» у всіх вибраних перекладах',
-    make: search('бог', (c) => (c.translations.length > 1 ? c.translations : undefined)),
+    label: N_('«бог» у всіх вибраних перекладах'),
+    make: search('бог', (c) => (c.translations.length > 1 ? c.translations : undefined)), // i18n-ignore: a query
   },
   {
     id: 'phrase',
     group: FTS,
-    label: 'Фраза «"син чоловічий"»',
-    make: search('"син чоловічий"', uk),
+    label: N_('Фраза «"син чоловічий"»'),
+    make: search('"син чоловічий"', uk), // i18n-ignore: a query
   },
   {
     id: 'exclude',
     group: FTS,
-    label: 'З виключенням «любов -бог»',
-    make: search('любов -бог', uk),
+    label: N_('З виключенням «любов -бог»'),
+    make: search('любов -бог', uk), // i18n-ignore: a query
   },
-  { id: 'en-words', group: FTS, label: '«god loved» (англ.)', make: search('god loved', en) },
+  { id: 'en-words', group: FTS, label: N_('«god loved» (англ.)'), make: search('god loved', en) },
   {
     id: 'en-phrase',
     group: FTS,
-    label: '«"son of man"» (англ.)',
+    label: N_('«"son of man"» (англ.)'),
     make: search('"son of man"', en),
   },
   {
     id: 'concordance',
     group: STRONG,
-    label: 'Конкорданс G26',
+    label: N_('Конкорданс G26'),
     make: (lib, c) => (c.en != null ? () => lib.strongRefs('G26', { translationId: c.en }) : null),
   },
-  { id: 'strong-search', group: STRONG, label: 'Пошук «H430»', make: search('H430', en) },
+  { id: 'strong-search', group: STRONG, label: N_('Пошук «H430»'), make: search('H430', en) },
   {
     id: 'lexicon',
     group: STRONG,
-    label: 'Словник Стронга: 26',
+    label: N_('Словник Стронга: 26'),
     make: (lib, c) => (c.hasDictionary ? () => lib.lookupStrong('26', 500) : null),
   },
   {
     id: 'crossrefs',
     group: STRONG,
-    label: 'Перехресні посилання Ів 3:16',
+    label: N_('Перехресні посилання Ів 3:16'),
     make: (lib, c) => (c.hasStudy ? () => lib.getCrossrefs(500, 3, 16) : null),
   },
 ];

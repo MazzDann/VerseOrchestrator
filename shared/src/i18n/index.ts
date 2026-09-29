@@ -14,7 +14,7 @@ export type Vars = Record<string, string | number>;
 
 export const LANGS: readonly Lang[] = ['uk', 'en'];
 /** Each language named in itself — the switch reads the same in either. */
-export const LANG_NAMES: Record<Lang, string> = { uk: 'Українська', en: 'English' };
+export const LANG_NAMES: Record<Lang, string> = { uk: 'Українська', en: 'English' }; // i18n-ignore: names in themselves
 /** For numbers and dates. */
 export const LOCALES: Record<Lang, string> = { uk: 'uk-UA', en: 'en-US' };
 

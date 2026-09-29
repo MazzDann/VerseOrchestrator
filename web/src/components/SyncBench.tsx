@@ -25,23 +25,25 @@ import {
   type SyncReport,
   type TransportId,
 } from '../lib/bench/sync';
+import { fmtNumber, tr, useLang } from '../i18n';
 
 const ms = (v: number) =>
   Number.isFinite(v)
-    ? `${v.toLocaleString('uk-UA', { maximumFractionDigits: v < 10 ? 2 : 0 })} мс`
+    ? tr('{n} мс', { n: fmtNumber(v, { maximumFractionDigits: v < 10 ? 2 : 0 }) })
     : '—';
 const size = (bytes: number) =>
   bytes >= 1048576
-    ? `${(bytes / 1048576).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} МБ`
+    ? tr('{n} МБ', { n: fmtNumber(bytes / 1048576, { maximumFractionDigits: 1 }) })
     : bytes >= 1024
-      ? `${Math.round(bytes / 1024)} КБ`
-      : `${bytes} Б`;
+      ? tr('{n} КБ', { n: Math.round(bytes / 1024) })
+      : tr('{n} Б', { n: bytes });
 
 /**
  * «Синхронізація вікон» tab of /bench: the transports a window bus could use, measured
  * with the payloads the app really sends (lib/bench/sync.ts).
  */
 export function SyncBench() {
+  useLang();
   const serverAvailable = useServer((s) => s.available);
   const [transports, setTransports] = useState<TransportId[]>(
     TRANSPORTS.filter((t) => t !== 'websocket'),
@@ -61,7 +63,7 @@ export function SyncBench() {
   const run = async () => {
     setReport(null);
     setError(null);
-    setProgress({ message: 'Відкриваю вікно-партнера…', fraction: 0 });
+    setProgress({ message: tr('Відкриваю вікно-партнера…'), fraction: 0 });
     try {
       setReport(
         await runSyncBench({
@@ -72,7 +74,7 @@ export function SyncBench() {
         }),
       );
     } catch (e) {
-      setError((e as Error).message);
+      setError(tr((e as Error).message));
     } finally {
       setProgress(null);
     }
@@ -84,17 +86,16 @@ export function SyncBench() {
   return (
     <>
       <Text size="sm" c="dimmed" mb="md" maw={760}>
-        Як швидко повідомлення доходить з вікна керування до іншого вікна застосунку (вікна показу,
-        сцени) і назад — та скільки воно при цьому блокує саме вікно керування. Для сервера — шлях
-        телефонів і пульта. Партнер — маленьке окреме вікно, як справжнє вікно показу (якщо спливні
-        вікна заблоковані — прихований фрейм), або одразу фрейм у цій сторінці.
+        {tr(
+          'Як швидко повідомлення доходить з вікна керування до іншого вікна застосунку (вікна показу, сцени) і назад — та скільки воно при цьому блокує саме вікно керування. Для сервера — шлях телефонів і пульта. Партнер — маленьке окреме вікно, як справжнє вікно показу (якщо спливні вікна заблоковані — прихований фрейм), або одразу фрейм у цій сторінці.',
+        )}
       </Text>
 
       <Paper withBorder p="md" mb="md">
         <Group align="flex-start" gap="xl" wrap="wrap">
           <Stack gap={6}>
             <Text size="sm" fw={500}>
-              Способи передачі
+              {tr('Способи передачі')}
             </Text>
             <Checkbox.Group value={transports} onChange={(v) => setTransports(v as TransportId[])}>
               <Stack gap={4}>
@@ -106,7 +107,7 @@ export function SyncBench() {
                     disabled={t === 'websocket' && serverAvailable === false}
                     label={
                       t === 'websocket' && serverAvailable === false
-                        ? `${TRANSPORT_NAME[t]} — сервер не запущено`
+                        ? `${TRANSPORT_NAME[t]} — ${tr('сервер не запущено')}`
                         : TRANSPORT_NAME[t]
                     }
                   />
@@ -116,7 +117,7 @@ export function SyncBench() {
           </Stack>
           <Stack gap={6}>
             <Text size="sm" fw={500}>
-              Дані
+              {tr('Дані')}
             </Text>
             {kinds.map((k) => (
               <Text key={k.id} size="xs">
@@ -127,20 +128,20 @@ export function SyncBench() {
               </Text>
             ))}
             <Text size="sm" fw={500} mt={4}>
-              Партнер
+              {tr('Партнер')}
             </Text>
             <SegmentedControl
               size="xs"
               value={peer}
               onChange={(v) => setPeer(v as 'window' | 'iframe')}
               data={[
-                { label: 'Окреме вікно', value: 'window' },
-                { label: 'Фрейм', value: 'iframe' },
+                { label: tr('Окреме вікно'), value: 'window' },
+                { label: tr('Фрейм'), value: 'iframe' },
               ]}
             />
             <NumberInput
               size="xs"
-              label="Обмінів на кожен вимір"
+              label={tr('Обмінів на кожен вимір')}
               value={rounds}
               onChange={(v) => setRounds(Math.max(5, Math.min(500, Number(v) || 30)))}
               min={5}
@@ -154,7 +155,7 @@ export function SyncBench() {
               disabled={!!progress || transports.length === 0}
               onClick={() => void run()}
             >
-              Запустити
+              {tr('Запустити')}
             </Button>
             {progress ? (
               <>
@@ -165,8 +166,9 @@ export function SyncBench() {
               </>
             ) : (
               <Text size="xs" c="dimmed">
-                Кожен обмін: дані туди, коротке підтвердження назад; час — на годиннику вікна
-                керування. Далі серія зі 200 команд без очікування.
+                {tr(
+                  'Кожен обмін: дані туди, коротке підтвердження назад; час — на годиннику вікна керування. Далі серія зі 200 команд без очікування.',
+                )}
               </Text>
             )}
             {error && (
@@ -182,8 +184,8 @@ export function SyncBench() {
         <Paper withBorder p="md">
           <Group justify="space-between" mb="sm" wrap="wrap">
             <Text size="sm" c="dimmed">
-              {report.peer === 'window' ? 'окреме вікно' : 'прихований фрейм'} · {report.rounds}{' '}
-              обмінів · v{report.app}
+              {report.peer === 'window' ? tr('окреме вікно') : tr('прихований фрейм')} ·{' '}
+              {tr('{n} обмінів · v{app}', { n: report.rounds, app: report.app })}
             </Text>
             <Group gap="xs">
               <Button
@@ -194,7 +196,7 @@ export function SyncBench() {
                   void navigator.clipboard.writeText(syncCsv(report)).then(
                     () =>
                       notifications.show({
-                        message: 'CSV скопійовано',
+                        message: tr('CSV скопійовано'),
                         color: 'green',
                         autoClose: 1500,
                       }),
@@ -202,7 +204,7 @@ export function SyncBench() {
                   );
                 }}
               >
-                Копіювати CSV
+                {tr('Копіювати CSV')}
               </Button>
               <Button
                 size="xs"
@@ -245,10 +247,10 @@ export function SyncBench() {
                   ))}
                   <Table.Th>
                     <Text size="sm" fw={600}>
-                      Серія команд
+                      {tr('Серія команд')}
                     </Text>
                     <Text size="xs" c="dimmed" fw={400}>
-                      200 без очікування
+                      {tr('200 без очікування')}
                     </Text>
                   </Table.Th>
                 </Table.Tr>
@@ -275,10 +277,13 @@ export function SyncBench() {
                       {row.burst ? (
                         <>
                           <Text size="sm" fw={500}>
-                            {row.burst.perSec.toLocaleString('uk-UA')} / с
+                            {tr('{n} / с', { n: fmtNumber(row.burst.perSec) })}
                           </Text>
                           <Text size="xs" c={row.burst.lost ? 'orange' : 'dimmed'}>
-                            втрачено {row.burst.lost} з {row.burst.sent}
+                            {tr('втрачено {lost} з {sent}', {
+                              lost: row.burst.lost,
+                              sent: row.burst.sent,
+                            })}
                           </Text>
                         </>
                       ) : (
@@ -291,9 +296,9 @@ export function SyncBench() {
             </Table>
           </Table.ScrollContainer>
           <Text size="xs" c="dimmed" mt="sm">
-            Час — повний обмін (дані туди + підтвердження назад), медіана; під ним p95 і «блокує» —
-            скільки вікно керування стоїть усередині відправлення (серіалізація, запис у
-            localStorage): стільки інтерфейс не реагує на кожен показ.
+            {tr(
+              'Час — повний обмін (дані туди + підтвердження назад), медіана; під ним p95 і «блокує» — скільки вікно керування стоїть усередині відправлення (серіалізація, запис у localStorage): стільки інтерфейс не реагує на кожен показ.',
+            )}
           </Text>
         </Paper>
       )}
@@ -306,7 +311,7 @@ function Cell({ cell, max }: { cell: SyncCell | null; max: number }) {
   if (cell.error)
     return (
       <Text size="xs" c="orange">
-        {cell.error}
+        {tr(cell.error)}
       </Text>
     );
   return (
@@ -325,8 +330,12 @@ function Cell({ cell, max }: { cell: SyncCell | null; max: number }) {
         }}
       />
       <Text size="xs" c="dimmed">
-        p95 {ms(cell.p95Ms)} · блокує {ms(cell.sendMedianMs)} (max {ms(cell.sendMaxMs)})
-        {cell.lost ? ` · втрачено ${cell.lost}` : ''}
+        {tr('p95 {p95} · блокує {median} (max {max})', {
+          p95: ms(cell.p95Ms),
+          median: ms(cell.sendMedianMs),
+          max: ms(cell.sendMaxMs),
+        })}
+        {cell.lost ? ` · ${tr('втрачено {n}', { n: cell.lost })}` : ''}
       </Text>
     </>
   );

@@ -1,15 +1,23 @@
 import type { SegmentInfo } from '../../api';
 import type { EngineInfo, EngineKind, ReopenResult } from '../engine/protocol';
 import { BENCH_CASES } from './workload';
+import { tr } from '../../i18n';
 
 /** The engine benchmark's report: what run.ts measures, and its CSV / JSON exports. */
 
 export type BenchEngine = 'server' | EngineKind;
 
+/** Getters: each read is in the interface language of the moment (0.11.9). */
 export const ENGINE_NAME: Record<BenchEngine, string> = {
-  server: 'Сервер (SQLite)',
-  sqlite: 'SQLite у браузері',
-  pglite: 'PostgreSQL у браузері',
+  get server() {
+    return tr('Сервер (SQLite)');
+  },
+  get sqlite() {
+    return tr('SQLite у браузері');
+  },
+  get pglite() {
+    return tr('PostgreSQL у браузері');
+  },
 };
 
 export interface CaseStats {
@@ -64,32 +72,39 @@ export function timingStats(times: number[]): { medianMs: number; p95Ms: number;
  */
 export function parity(a: CaseStats | null | undefined, base: CaseStats | null | undefined) {
   if (!a || !base || a.error || base.error) return null;
-  if (a.keys === base.keys) return { mark: '=', hint: 'ті самі результати' };
+  if (a.keys === base.keys) return { mark: '=', hint: tr('ті самі результати') };
   if (a.capped && base.capped)
-    return { mark: '≈', hint: 'обидва ≥ 300 результатів: інше ранжування, інші перші 300' };
-  return { mark: '≠', hint: 'інші результати' };
+    return { mark: '≈', hint: tr('обидва ≥ 300 результатів: інше ранжування, інші перші 300') };
+  return { mark: '≠', hint: tr('інші результати') };
 }
 
 /** The report as CSV (one row per metric, one column per engine) — for a thesis table. */
 export function reportCsv(r: BenchReport): string {
   const cols = r.engines.map((e) => ENGINE_NAME[e.engine]);
-  const rows: (string | number)[][] = [['метрика', ...cols]];
+  const rows: (string | number)[][] = [[tr('метрика'), ...cols]];
   const num = (v: number | null | undefined, digits = 1) =>
     v == null || Number.isNaN(v) ? '' : Number(v.toFixed(digits));
   const mb = (v: number | null | undefined) => (v == null ? '' : Number((v / 1048576).toFixed(1)));
   const each = (f: (e: EngineRun) => string | number) => r.engines.map(f);
-  rows.push(['версія', ...each((e) => e.version)]);
-  rows.push(['запуск (мс)', ...each((e) => num(e.bootMs, 0))]);
-  rows.push(['завантаження сегментів (мс)', ...each((e) => num(e.loadMs, 0))]);
-  rows.push(['розмір бази (МБ)', ...each((e) => mb(e.dbBytes))]);
-  rows.push(['WASM-пам’ять (МБ)', ...each((e) => mb(e.wasmBytes))]);
-  rows.push(['знімок: збереження (мс)', ...each((e) => num(e.snapshot?.dumpMs, 0))]);
-  rows.push(['знімок: розмір (МБ)', ...each((e) => mb(e.snapshot?.dumpBytes))]);
-  rows.push(['знімок: відкриття (мс)', ...each((e) => num(e.snapshot?.reopenMs, 0))]);
+  rows.push([tr('версія'), ...each((e) => e.version)]);
+  rows.push([tr('запуск (мс)'), ...each((e) => num(e.bootMs, 0))]);
+  rows.push([tr('завантаження сегментів (мс)'), ...each((e) => num(e.loadMs, 0))]);
+  rows.push([tr('розмір бази (МБ)'), ...each((e) => mb(e.dbBytes))]);
+  rows.push([tr('WASM-пам’ять (МБ)'), ...each((e) => mb(e.wasmBytes))]);
+  rows.push([tr('знімок: збереження (мс)'), ...each((e) => num(e.snapshot?.dumpMs, 0))]);
+  rows.push([tr('знімок: розмір (МБ)'), ...each((e) => mb(e.snapshot?.dumpBytes))]);
+  rows.push([tr('знімок: відкриття (мс)'), ...each((e) => num(e.snapshot?.reopenMs, 0))]);
   for (const c of BENCH_CASES) {
-    rows.push([`${c.label}: медіана (мс)`, ...each((e) => num(e.cases[c.id]?.medianMs))]);
-    rows.push([`${c.label}: p95 (мс)`, ...each((e) => num(e.cases[c.id]?.p95Ms))]);
-    rows.push([`${c.label}: результатів`, ...each((e) => e.cases[c.id]?.count ?? '')]);
+    const label = tr(c.label);
+    rows.push([
+      tr('{case}: медіана (мс)', { case: label }),
+      ...each((e) => num(e.cases[c.id]?.medianMs)),
+    ]);
+    rows.push([tr('{case}: p95 (мс)', { case: label }), ...each((e) => num(e.cases[c.id]?.p95Ms))]);
+    rows.push([
+      tr('{case}: результатів', { case: label }),
+      ...each((e) => e.cases[c.id]?.count ?? ''),
+    ]);
   }
   const cell = (v: string | number) =>
     typeof v === 'number' ? String(v) : /[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
