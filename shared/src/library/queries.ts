@@ -158,10 +158,6 @@ export function tsQuery(query: string): string | null {
   return q;
 }
 
-export function buildFtsMatch(query: string): string | null {
-  return parseFtsQuery(query).expr;
-}
-
 /** Smallest string greater than every string starting with `s` (prefix range end). */
 function prefixEnd(s: string): string {
   const last = s.codePointAt(s.length - 1)!;

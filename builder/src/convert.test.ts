@@ -9,7 +9,6 @@ import {
   DROPPED_ID_BASE,
   DROPPED_VERSE_STRIDE,
   droppedId,
-  fnv1a,
   moduleHash,
   ftsFillSql,
   mergeSql,
@@ -249,6 +248,7 @@ describe('MyBible → segment conversion', () => {
     changed[65536 + 61 * 100] = 1;
     expect(moduleHash(changed)).not.toBe(moduleHash(big));
     expect(moduleHash(big.subarray(0, 199_999))).not.toBe(moduleHash(big)); // length counts
-    expect(fnv1a(new TextEncoder().encode('a'))).toBe(0xe40c292c); // FNV-1a reference value
+    // the FNV-1a constants: one byte hashes as FNV-1a of its length, then the byte («1a»)
+    expect(moduleHash(new TextEncoder().encode('a'))).toBe(0x6ceba9c7);
   });
 });

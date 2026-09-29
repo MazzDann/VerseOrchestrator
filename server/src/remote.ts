@@ -237,7 +237,3 @@ export function sanitizeSong(raw: unknown): SongPick | null {
   }
   return { songId: r.songId, stanza: r.stanza as number };
 }
-
-export function isRemoteCommand(c: unknown): c is RemoteCommand {
-  return REMOTE_COMMANDS.includes(c as RemoteCommand);
-}

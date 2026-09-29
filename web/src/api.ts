@@ -50,7 +50,6 @@ const StrongDefSchema = z.object({
   topic: str(),
   definition: str(),
 });
-export type StrongDef = z.infer<typeof StrongDefSchema>;
 
 const SearchResultSchema = VerseSchema.extend({
   longName: str(),
@@ -63,7 +62,6 @@ const SearchResponseSchema = z.object({
   results: z.array(SearchResultSchema),
   suggestions: z.array(SearchResultSchema).optional(),
 });
-export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 
 const StrongRefsSchema = z.object({
   strong: z.number(),
@@ -71,7 +69,6 @@ const StrongRefsSchema = z.object({
   truncated: z.boolean(),
   results: z.array(SearchResultSchema),
 });
-export type StrongRefs = z.infer<typeof StrongRefsSchema>;
 
 const CrossRefSchema = z.object({
   bookNumber: z.number(),
@@ -79,10 +76,8 @@ const CrossRefSchema = z.object({
   verseStart: z.number(),
   verseEnd: z.number(),
 });
-export type CrossRef = z.infer<typeof CrossRefSchema>;
 
 const CommentarySchema = z.object({ source: str(), marker: str(), text: str() });
-export type CommentaryNote = z.infer<typeof CommentarySchema>;
 
 const SongInfoSchema = z.object({
   id: z.number(),
@@ -96,7 +91,6 @@ const SongInfoSchema = z.object({
 });
 export type SongInfo = z.infer<typeof SongInfoSchema>;
 const SongBundleSchema = z.object({ name: z.string(), count: z.number() });
-export type SongBundleInfo = z.infer<typeof SongBundleSchema>;
 const SongStyleSchema = z
   .object({
     bg: str(),

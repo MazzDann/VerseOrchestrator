@@ -184,13 +184,6 @@ export function droppedId(hash32: number): number {
 const FNV_OFFSET = 0x811c9dc5;
 const fnvStep = (h: number, byte: number) => Math.imul(h ^ byte, 0x01000193);
 
-/** FNV-1a (32-bit) over the bytes. */
-export function fnv1a(bytes: Uint8Array): number {
-  let h = FNV_OFFSET;
-  for (let i = 0; i < bytes.length; i++) h = fnvStep(h, bytes[i]);
-  return h >>> 0;
-}
-
 /**
  * A module file's identity for droppedId(): FNV-1a over its length, the first 64 KB
  * (SQLite header with its change counter, schema, info table) and every 61st byte after.
