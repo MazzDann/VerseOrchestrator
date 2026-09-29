@@ -98,6 +98,7 @@ import { usePhoneUrl } from '../lib/phoneUrl';
 import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
 import { useOutputWindows } from '../lib/outputs';
+import { useSlideErrorNotices } from '../lib/slideErrorNotices';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
 import { formatReference } from '../lib/reference';
@@ -297,6 +298,8 @@ export function Control() {
   const [outputsOpen, setOutputsOpen] = useState(false);
   /** Output windows open right now (they announce themselves — lib/outputs.ts). */
   const outputWindows = useOutputWindows();
+  // a slide that failed to draw here or in an output window → a red notice (0.13.0)
+  useSlideErrorNotices();
   /**
    * One control window in charge (0.4.4, lib/leader.ts): only the leader publishes to the
    * outputs, takes commands and holds the server's control socket; a second control window

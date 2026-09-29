@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Slide } from '../presenterBus';
-import { assetId, createBus, KEY_ASSET, KEY_LIVE, type BusStorage, type Wire } from './bus';
+import {
+  assetId,
+  createBus,
+  isSlide,
+  KEY_ASSET,
+  KEY_LIVE,
+  type BusStorage,
+  type Wire,
+} from './bus';
 
 /** An in-memory BroadcastChannel: a post reaches every OTHER endpoint, asynchronously. */
 function hub(drop?: (m: Wire) => boolean) {
@@ -202,6 +210,42 @@ describe('window bus v2', () => {
     await flush();
     expect(h.log.filter((m) => m.t === 'live')).toHaveLength(1); // only 'A', before standby
     expect(got).toEqual([]); // no stale 'A' in reply to the hello
+  });
+
+  it('a message that is not a slide is dropped and reported; the window keeps its slide (0.13.0)', async () => {
+    const h = hub();
+    let invalid = 0;
+    const control = createBus(h.endpoint(), null);
+    const output = createBus(h.endpoint(), null, () => invalid++);
+    const got: string[] = [];
+    output.subscribeSlide((s) => got.push(s.reference));
+    control.publishSlide(slide('Ів 3:16'));
+    await flush();
+    // another window (another version, a bug) sends something the pages can't read
+    const broken = { reference: 'broken', visible: true, blank: false, lines: null };
+    h.endpoint().post({ t: 'live', epoch: 'other', seq: 1, slide: broken as unknown as Slide });
+    await flush();
+    expect(got).toEqual(['Ів 3:16']);
+    expect(invalid).toBe(1);
+    control.publishSlide(slide('Ів 3:17'));
+    await flush();
+    expect(got).toEqual(['Ів 3:16', 'Ів 3:17']);
+  });
+
+  it('a stored slide it cannot read starts the window empty, not broken', () => {
+    const storage = memory();
+    storage.set(KEY_LIVE, JSON.stringify({ reference: 'old', lines: 'text', visible: true }));
+    expect(createBus(null, storage).readSlide()).toMatchObject({ visible: false, lines: [] });
+  });
+
+  it('tells a slide from other things', () => {
+    expect(isSlide(slide('Ів 3:16'))).toBe(true);
+    expect(isSlide({ ...slide('x'), template: null, reveal: null })).toBe(true);
+    expect(isSlide(null)).toBe(false);
+    expect(isSlide({ ...slide('x'), lines: [null] })).toBe(false);
+    expect(isSlide({ ...slide('x'), reference: 3 })).toBe(false);
+    expect(isSlide({ ...slide('x'), template: { objects: 'quote' } })).toBe(false);
+    expect(isSlide({ ...slide('x'), reveal: { count: 1 } })).toBe(false);
   });
 
   it('content ids differ with content, not with the string instance', () => {

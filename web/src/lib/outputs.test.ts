@@ -192,6 +192,25 @@ describe('output windows registry', () => {
     b.stop();
   });
 
+  it('a slide that failed to draw in a window reaches the control windows (0.13.0)', async () => {
+    const h = hub();
+    const control = createOutputs(h.endpoint());
+    const errors: string[] = [];
+    const off = control.track(
+      () => undefined,
+      (id, message) => errors.push(`${id}: ${message}`),
+    );
+    const w = createOutputs(h.endpoint()).announce(
+      () => info('w1'),
+      () => undefined,
+    );
+    w.failed("Cannot read properties of null (reading 'length')");
+    await flush();
+    expect(errors).toEqual(["w1: Cannot read properties of null (reading 'length')"]);
+    w.stop();
+    off();
+  });
+
   it('the tracked list keeps who opened each window', async () => {
     const h = hub();
     const control = createOutputs(h.endpoint());

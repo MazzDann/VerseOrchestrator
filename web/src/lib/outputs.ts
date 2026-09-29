@@ -1,5 +1,6 @@
 import { N_, tr } from '../i18n';
 import { useEffect, useState } from 'react';
+import { onSlideError } from './slideErrors';
 
 /**
  * Output windows registry (0.4.2): every output window (presenter, stage) announces itself
@@ -14,6 +15,9 @@ import { useEffect, useState } from 'react';
  * within one group of windows that opened each other (Windows two-monitor test). An
  * output window can move, resize and close itself, so over this channel every control
  * window manages every output window. Only going fullscreen needs the opener's click.
+ *
+ * Since 0.13.0 a window also says when a slide failed to draw there (`error`): it keeps the
+ * last slide that did, and the control window tells the operator.
  */
 
 export type OutputKind = 'presenter' | 'stage';
@@ -45,7 +49,8 @@ export type OutputWire =
   | { t: 'bye'; id: string }
   | { t: 'who' }
   | { t: 'identify'; id: string; label: string }
-  | { t: 'do'; id: string; cmd: OutputCommand };
+  | { t: 'do'; id: string; cmd: OutputCommand }
+  | { t: 'error'; id: string; message: string };
 
 export interface OutputChannel {
   post(msg: OutputWire): void;
@@ -95,6 +100,8 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
     const beat = setInterval(send, HEARTBEAT_MS);
     return {
       changed: send,
+      /** a slide failed to draw here (0.13.0) */
+      failed: (message: string) => channel.post({ t: 'error', id: info().id, message }),
       stop() {
         clearInterval(beat);
         off();
@@ -103,8 +110,11 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
     };
   }
 
-  /** Control side: the live list of output windows, oldest first. */
-  function track(cb: (list: TrackedOutput[]) => void) {
+  /** Control side: the live list of output windows, oldest first — and their failures. */
+  function track(
+    cb: (list: TrackedOutput[]) => void,
+    onError: (id: string, message: string) => void = () => undefined,
+  ) {
     const map = new Map<string, TrackedOutput>();
     const emit = () => cb([...map.values()].sort((a, b) => a.openedAt - b.openedAt));
     const off = channel.listen((m) => {
@@ -118,6 +128,7 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
         )
           emit();
       } else if (m.t === 'bye' && map.delete(m.id)) emit();
+      else if (m.t === 'error') onError(m.id, m.message);
     });
     const prune = setInterval(() => {
       let gone = false;
@@ -220,51 +231,55 @@ function windowId(): string {
 }
 
 /**
- * For an output page: announce this window while it's mounted. Returns the label to show
- * while the control window asks it to identify itself (null otherwise).
+ * Announce this window as an output of `kind` until `stop()`: heartbeats, moves, fullscreen
+ * and visibility changes, commands from the control windows. `failed` tells them a slide
+ * didn't draw here (0.13.0).
  */
-export function useAnnounceOutput(kind: OutputKind): string | null {
-  const [identify, setIdentify] = useState<string | null>(null);
-  useEffect(() => {
-    if (!outputs) return;
-    const openedAt = Date.now();
-    const id = windowId();
-    const info = (): OutputInfo => ({
-      id,
-      name: window.name,
-      kind,
-      bounds: { x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight },
-      fullscreen: !!document.fullscreenElement,
-      visible: document.visibilityState === 'visible',
-      openedAt,
-      opener: openerControlPage(),
-    });
-    let timer: number | undefined;
-    const a = outputs.announce(
-      info,
-      (label) => {
-        setIdentify(label);
-        window.clearTimeout(timer);
-        timer = window.setTimeout(() => setIdentify(null), 3000);
-      },
-      (cmd) => void runCommand(cmd),
-    );
-    // Moving a window fires no event: compare the position once a second.
-    let last = JSON.stringify(info().bounds);
-    const poll = window.setInterval(() => {
-      const now = JSON.stringify(info().bounds);
-      if (now !== last) {
-        last = now;
-        a.changed();
-      }
-    }, 1000);
-    const changed = () => a.changed();
-    window.addEventListener('resize', changed);
-    document.addEventListener('fullscreenchange', changed);
-    document.addEventListener('visibilitychange', changed);
-    const bye = () => a.stop();
-    window.addEventListener('pagehide', bye);
-    return () => {
+function announceWindow(
+  kind: OutputKind,
+  onIdentify: (label: string | null) => void,
+): { failed: (message: string) => void; stop: () => void } {
+  if (!outputs) return { failed: () => undefined, stop: () => undefined };
+  const openedAt = Date.now();
+  const id = windowId();
+  const info = (): OutputInfo => ({
+    id,
+    name: window.name,
+    kind,
+    bounds: { x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight },
+    fullscreen: !!document.fullscreenElement,
+    visible: document.visibilityState === 'visible',
+    openedAt,
+    opener: openerControlPage(),
+  });
+  let timer: number | undefined;
+  const a = outputs.announce(
+    info,
+    (label) => {
+      onIdentify(label);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => onIdentify(null), 3000);
+    },
+    (cmd) => void runCommand(cmd),
+  );
+  // Moving a window fires no event: compare the position once a second.
+  let last = JSON.stringify(info().bounds);
+  const poll = window.setInterval(() => {
+    const now = JSON.stringify(info().bounds);
+    if (now !== last) {
+      last = now;
+      a.changed();
+    }
+  }, 1000);
+  const changed = () => a.changed();
+  window.addEventListener('resize', changed);
+  document.addEventListener('fullscreenchange', changed);
+  document.addEventListener('visibilitychange', changed);
+  const bye = () => a.stop();
+  window.addEventListener('pagehide', bye);
+  return {
+    failed: a.failed,
+    stop() {
       window.clearInterval(poll);
       window.clearTimeout(timer);
       window.removeEventListener('resize', changed);
@@ -272,25 +287,67 @@ export function useAnnounceOutput(kind: OutputKind): string | null {
       document.removeEventListener('visibilitychange', changed);
       window.removeEventListener('pagehide', bye);
       a.stop();
+    },
+  };
+}
+
+/**
+ * For an output page: announce this window while it's mounted. Returns the label to show
+ * while the control window asks it to identify itself (null otherwise).
+ */
+export function useAnnounceOutput(kind: OutputKind): string | null {
+  const [identify, setIdentify] = useState<string | null>(null);
+  useEffect(() => {
+    const w = announceWindow(kind, setIdentify);
+    // a slide that failed to draw here: the control window tells the operator (0.13.0)
+    const offError = onSlideError(w.failed);
+    return () => {
+      offError();
+      w.stop();
     };
   }, [kind]);
   return identify;
+}
+
+/**
+ * For an output page that broke outside a slide (components/PageGuard.tsx): stay in the
+ * control window's list — so it can be closed or moved from there — and say why.
+ */
+export function announceBrokenOutput(kind: OutputKind, message: string): () => void {
+  const w = announceWindow(kind, () => undefined);
+  w.failed(message);
+  return w.stop;
 }
 
 // One tracker per control page, shared by the hooks and openOutput (which needs to know
 // what is open: with `noopener` it gets no window reference back — 0.5.13).
 let known: TrackedOutput[] = [];
 const knownSubs = new Set<(list: TrackedOutput[]) => void>();
+const errorSubs = new Set<(id: string, message: string) => void>();
 let tracking = false;
 
 function startTracking(): void {
   if (tracking || !outputs) return;
   tracking = true;
   window.__voControlPage = CONTROL_PAGE_ID; // windows opened from here report it
-  outputs.track((list) => {
-    known = list;
-    for (const cb of knownSubs) cb(list);
-  });
+  outputs.track(
+    (list) => {
+      known = list;
+      for (const cb of knownSubs) cb(list);
+    },
+    (id, message) => {
+      for (const cb of errorSubs) cb(id, message);
+    },
+  );
+}
+
+/** For the control window: an output window couldn't draw a slide (0.13.0). */
+export function onOutputError(cb: (id: string, message: string) => void): () => void {
+  startTracking();
+  errorSubs.add(cb);
+  return () => {
+    errorSubs.delete(cb);
+  };
 }
 
 /** The output windows open right now (starts listening on first use). */

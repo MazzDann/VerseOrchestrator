@@ -1116,4 +1116,17 @@ export const EN: Record<string, string> = {
     'the whole library: {n} translation|the whole library: {n} translations',
   '{engine}: запуск': '{engine}: start',
   '{engine}: знімок': '{engine}: snapshot',
+  // 0.13.0 a slide or a page that fails to draw
+  'Не вдалося показати сторінку': "Couldn't show this page",
+  'Перезавантажте її. Причина: {error}': 'Reload it. Reason: {error}',
+  Перезавантажити: 'Reload',
+  '{window}: слайд не вдалося намалювати': "{window}: couldn't draw the slide",
+  'Слайд не вдалося намалювати': "Couldn't draw the slide",
+  'Там лишився попередній слайд або чорний екран. Причина: {error}':
+    'It kept the previous slide, or went black. Reason: {error}',
+  'У моніторах лишився попередній слайд. Причина: {error}':
+    'The monitors kept the previous slide. Reason: {error}',
+  // 0.13.0 a slide of unknown shape from another window
+  'слайд із невідомою будовою — можливо, від вікна іншої версії застосунку':
+    'a slide of unknown shape — maybe from a window of another app version',
 };

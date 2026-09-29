@@ -14,6 +14,7 @@ import { theme } from './theme';
 import { useSettings } from './settingsStore';
 import { usePlaylist } from './playlistStore';
 import { listenForForget } from './lib/browserData';
+import { PageGuard } from './components/PageGuard';
 
 // Each page is its own chunk (0.12.1): a phone on /follow loads the reader, not the control
 // window with its panels, the database engine and the benchmarks.
@@ -64,19 +65,22 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <Notifications position="bottom-left" />
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          {/* nothing while a page's chunk arrives — a fraction of a second, once per window */}
-          <Suspense fallback={null}>
-            <Routes>
-              <Route path="/" element={<Control />} />
-              <Route path="/presenter" element={<Presenter />} />
-              <Route path="/stage" element={<Stage />} />
-              <Route path="/follow" element={<Follow />} />
-              <Route path="/remote" element={<Remote />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/bench" element={<Bench />} />
-              <Route path="/bench/peer" element={<BenchPeer />} />
-            </Routes>
-          </Suspense>
+          {/* a page that breaks never leaves a white window (0.13.0) */}
+          <PageGuard>
+            {/* nothing while a page's chunk arrives — a fraction of a second, once per window */}
+            <Suspense fallback={null}>
+              <Routes>
+                <Route path="/" element={<Control />} />
+                <Route path="/presenter" element={<Presenter />} />
+                <Route path="/stage" element={<Stage />} />
+                <Route path="/follow" element={<Follow />} />
+                <Route path="/remote" element={<Remote />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/bench" element={<Bench />} />
+                <Route path="/bench/peer" element={<BenchPeer />} />
+              </Routes>
+            </Suspense>
+          </PageGuard>
         </BrowserRouter>
       </QueryClientProvider>
     </MantineProvider>
