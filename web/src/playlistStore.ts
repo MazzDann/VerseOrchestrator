@@ -73,6 +73,13 @@ interface PlaylistState {
   /** Replace the current items with a saved program's (fresh ids; currentId reset). */
   loadProgram: (name: string) => void;
   deleteProgram: (name: string) => void;
+  /**
+   * The program «Видалити програму» took away last and where it stood (1.8.1), so
+   * «Скасувати» can put it back. Saving a program forgets it; not saved.
+   */
+  deleted: { program: SavedProgram; index: number } | null;
+  /** Put the last deleted program back in its place. */
+  undoDelete: () => void;
 }
 
 export interface SavedProgram {
@@ -87,6 +94,7 @@ export const usePlaylist = create<PlaylistState>()(
       currentId: null,
       saved: [],
       cleared: null,
+      deleted: null,
       add: (item) =>
         set((s) => ({ items: [...s.items, { ...item, id: newId() } as SeqItem], cleared: null })),
       removeItem: (id) =>
@@ -130,7 +138,10 @@ export const usePlaylist = create<PlaylistState>()(
           const n = name.trim();
           if (!n || s.items.length === 0) return s;
           const snapshot: SavedProgram = { name: n, items: JSON.parse(JSON.stringify(s.items)) };
-          return { saved: [snapshot, ...s.saved.filter((p) => p.name !== n)].slice(0, 50) };
+          return {
+            saved: [snapshot, ...s.saved.filter((p) => p.name !== n)].slice(0, 50),
+            deleted: null,
+          };
         }),
       loadProgram: (name) =>
         set((s) => {
@@ -142,7 +153,25 @@ export const usePlaylist = create<PlaylistState>()(
           }));
           return { items, currentId: null, cleared: null };
         }),
-      deleteProgram: (name) => set((s) => ({ saved: s.saved.filter((p) => p.name !== name) })),
+      deleteProgram: (name) =>
+        set((s) => {
+          const index = s.saved.findIndex((p) => p.name === name);
+          if (index < 0) return s;
+          return {
+            saved: s.saved.filter((_, i) => i !== index),
+            deleted: { program: s.saved[index], index },
+          };
+        }),
+      undoDelete: () =>
+        set((s) => {
+          if (!s.deleted) return s;
+          const { program, index } = s.deleted;
+          // a program of that name saved since would clash: it stays, the old one doesn't
+          if (s.saved.some((p) => p.name === program.name)) return { deleted: null };
+          const saved = [...s.saved];
+          saved.splice(Math.min(index, saved.length), 0, program);
+          return { saved, deleted: null };
+        }),
     }),
     {
       name: 'vo:playlist',

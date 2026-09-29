@@ -183,8 +183,11 @@ html[data-scrolling] .vo-list-item:hover:not([data-selected='true']) {
 }
 /* Floating panel body: ScrollArea.Autosize nests the viewport in a row flexbox whose child
    keeps min-width:auto, so one long unbreakable line (a truncated row) widened the body past
-   the panel and its overflow:auto box scrolled sideways (1.5.0, «Пульт доповідача»). */
-.vo-panel-body > div {
+   the panel and its overflow:auto box scrolled sideways (1.5.0, «Пульт доповідача»).
+   .vo-scroll-fit: the same for a ScrollArea.Autosize list inside a panel (the programs in
+   «Послідовність показу», 1.8.1: a long name, or «Видалено: …», scrolled sideways). */
+.vo-panel-body > div,
+.vo-scroll-fit > div {
   min-width: 0;
 }
 /* Floating panel corner grip (1.4.8): two short diagonal strokes, brand-coloured on hover. */
