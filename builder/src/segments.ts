@@ -197,9 +197,9 @@ export function buildSegments(libraryPath: string, outDir: string): SegmentManif
     'study',
     'study',
     ['cross_references', 'commentaries'],
-    'Перехресні посилання й коментарі',
+    'Перехресні посилання й коментарі', // i18n-ignore: the manifest's title (data)
   );
-  bundle('songs', 'songs', ['songs', 'song_slides'], 'Пісні');
+  bundle('songs', 'songs', ['songs', 'song_slides'], 'Пісні'); // i18n-ignore: the manifest's title
 
   lib.close();
   const manifest: SegmentManifest = {

@@ -1,3 +1,5 @@
+import { fill, type Vars } from '../i18n/index.js';
+
 /**
  * The seam between the library's queries and a concrete database engine — the "hybrid
  * DB" of the thesis. One schema (schema.ts), one set of queries (queries.ts), several
@@ -22,12 +24,19 @@ export interface SqlDriver {
   readonly dialect: 'sqlite' | 'postgres';
 }
 
-/** An error a transport can map to a status (the server turns `status` into HTTP). */
+/**
+ * An error a transport can map to a status (the server turns `status` into HTTP). Its message
+ * is a dictionary key (0.11.6): with `vars` the key and the values travel apart, so the page
+ * shows it in its own language.
+ */
 export class LibraryError extends Error {
+  readonly key: string;
   constructor(
     public status: number,
     message: string,
+    public vars?: Vars,
   ) {
-    super(message);
+    super(fill(message, vars));
+    this.key = message;
   }
 }

@@ -71,5 +71,13 @@ export function pickLang(preferred: readonly string[]): Lang {
  */
 export const N_ = (uk: string): string => uk;
 
+/**
+ * The body of an error answer whose message is a dictionary key with values (0.11.6): the page
+ * shows `key` with `vars` in its own language; `error` is the Ukrainian, filled in.
+ */
+export function keyedError(key: string, vars?: Vars): { error: string; key: string; vars?: Vars } {
+  return { error: fill(key, vars), key, ...(vars ? { vars } : {}) };
+}
+
 /** The same for plural forms («{n} пісня|{n} пісні|{n} пісень»), shown through `trn`. */
 export const Nn_ = (forms: string): string => forms;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { type BundleSong, type Library } from '@vo/shared';
+import { type BundleSong, type Library, type Vars } from '@vo/shared';
 import { type Slide } from './presenterBus';
 import { effectiveSource } from './dataSourceStore';
 import { useServer, whenBooted } from './serverStore';
@@ -122,10 +122,14 @@ export type SongDetail = z.infer<typeof SongDetailSchema>;
 
 /** Human-readable failure: the server's own message, else what went wrong in plain words. */
 async function failure(res: Response): Promise<Error> {
-  const body = await res.json().catch(() => ({}));
-  const msg = (body as { error?: string }).error;
-  // the server's messages are keys of the dictionary too
-  if (msg) return new Error(tr(msg));
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    key?: string;
+    vars?: Vars;
+  };
+  // the server's messages are keys of the dictionary; one with values sends them apart (0.11.6)
+  if (body.key) return new Error(tr(body.key, body.vars));
+  if (body.error) return new Error(tr(body.error));
   // No JSON error body on a 5xx = the dev proxy couldn't reach the API process.
   return new Error(
     res.status >= 500

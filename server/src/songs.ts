@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { type BundleSong, type SlideStyleSpec } from '@vo/shared';
+import { N_, type BundleSong, type SlideStyleSpec, type Vars } from '@vo/shared';
 import { ApiError } from './db.js';
 import {
   bundlesDir,
@@ -75,7 +75,8 @@ export function syncSongsAtStart(opts: {
   log(`songs: ${n} from the bundles into the library (${Date.now() - started} ms)`);
 }
 
-const bad = (why: string) => new ApiError(400, `Імпорт пісень: ${why}`);
+/** A refused import: the whole message is a dictionary key (0.11.6). */
+const bad = (key: string, vars?: Vars) => new ApiError(400, key, vars);
 const isText = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const ALIGNS = new Set(['left', 'center', 'right']);
@@ -91,7 +92,7 @@ function parseStyle(v: unknown): SlideStyleSpec | null {
     typeof s.bold === 'boolean' &&
     ALIGNS.has(s.align as string) &&
     ['x', 'y', 'w', 'h', 'size'].every((k) => isNum(s[k]));
-  if (!ok) throw bad('незрозумілий вигляд слайда');
+  if (!ok) throw bad(N_('Імпорт пісень: незрозумілий вигляд слайда'));
   return {
     bg: s.bg as string,
     color: s.color as string,
@@ -119,24 +120,27 @@ export function parseSongImport(body: unknown): {
   let target: { id: string } | { name: string };
   if (isText(t.id, 100) && t.id) target = { id: t.id };
   else if (isText(t.name, 100) && t.name.trim()) target = { name: t.name.trim() };
-  else throw bad('вкажіть бандл або назву нового');
-  if (!Array.isArray(b.songs) || b.songs.length === 0) throw bad('немає пісень');
-  if (b.songs.length > 5000) throw bad('забагато пісень за раз (до 5000)');
+  else throw bad(N_('Імпорт пісень: вкажіть бандл або назву нового'));
+  if (!Array.isArray(b.songs) || b.songs.length === 0) throw bad(N_('Імпорт пісень: немає пісень'));
+  if (b.songs.length > 5000) throw bad(N_('Імпорт пісень: забагато пісень за раз (до 5000)'));
   const songs = b.songs.map((raw) => {
     const s = (raw ?? {}) as Record<string, unknown>;
-    if (!isText(s.key, 300) || !s.key.trim()) throw bad('пісня без назви файлу');
-    if (!isText(s.title, 300)) throw bad(`«${s.key}»: назва`);
+    if (!isText(s.key, 300) || !s.key.trim()) throw bad(N_('Імпорт пісень: пісня без назви файлу'));
+    const song = { song: s.key };
+    if (!isText(s.title, 300)) throw bad(N_('Імпорт пісень: у «{song}» незрозуміла назва'), song);
     if (s.number !== null && !(Number.isInteger(s.number) && (s.number as number) >= 0))
-      throw bad(`«${s.key}»: номер`);
+      throw bad(N_('Імпорт пісень: у «{song}» незрозумілий номер'), song);
     if (!Array.isArray(s.slides) || s.slides.length === 0 || s.slides.length > 500)
-      throw bad(`«${s.key}»: слайди`);
+      throw bad(N_('Імпорт пісень: у «{song}» незрозумілі слайди'), song);
     return {
       key: s.key.trim(),
       number: s.number as number | null,
       title: s.title,
       slides: s.slides.map((sl) => {
         const x = (sl ?? {}) as { text?: unknown; style?: unknown };
-        if (!isText(x.text, 20000)) throw bad(`«${s.key}»: текст слайда`);
+        if (!isText(x.text, 20000)) {
+          throw bad(N_('Імпорт пісень: у «{song}» незрозумілий текст слайда'), song);
+        }
         return { text: x.text, style: parseStyle(x.style) };
       }),
     };

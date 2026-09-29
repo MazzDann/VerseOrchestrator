@@ -1,6 +1,7 @@
 import type { IncomingMessage, Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { isLocalRequest } from './access.js';
+import { N_ } from '@vo/shared';
 import {
   findByToken,
   getPairing,
@@ -157,7 +158,7 @@ export function dropRemote(pairingId: string, why: 'revoked' | 'reissued' = 'rev
       else
         send(c, {
           type: 'denied',
-          reason: 'Код цього пульта перевипущено. Відскануйте новий QR у вікні керування.',
+          reason: N_('Код цього пульта перевипущено. Відскануйте новий QR у вікні керування.'),
         });
       c.close(why === 'revoked' ? 4001 : 4002, why);
     }
@@ -207,7 +208,7 @@ function sameOrigin(req: IncomingMessage): boolean {
 function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<string, unknown>) {
   if (msg.role === 'control') {
     if (!isLocalRequest(req) || !sameOrigin(req)) {
-      send(ws, { type: 'denied', reason: 'Керування доступне лише з цього комп’ютера' });
+      send(ws, { type: 'denied', reason: N_('Керування доступне лише з цього комп’ютера') });
       return;
     }
     m.role = 'control';
@@ -220,7 +221,7 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
   if (msg.role === 'remote') {
     const p = findByToken(msg.token);
     if (!p) {
-      send(ws, { type: 'denied', reason: 'Пульт не знайдено або його відкликано' });
+      send(ws, { type: 'denied', reason: N_('Пульт не знайдено або його відкликано') });
       ws.close(4003, 'bad token');
       return;
     }
@@ -278,28 +279,28 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   const p = m.role === 'remote' && m.pairingId ? getPairing(m.pairingId) : undefined;
   const reject = (reason: string) =>
     send(ws, { type: 'ack', id: clientId, cmd, ok: false, reason });
-  if (!p) return reject('Немає доступу');
+  if (!p) return reject(N_('Немає доступу'));
   // Buttons need their own permission; `pick` / `queue` are checked by what they carry
   // (verses → «Вибір віршів», a stanza → «Пісні», a running-order item → «Послідовність»).
   // `songs` / `playlist` are permissions only, never commands.
   if (!isRemoteAction(cmd) || (cmd !== 'pick' && cmd !== 'queue' && !p.allowed.includes(cmd)))
-    return reject('Ця дія пульту не дозволена');
+    return reject(N_('Ця дія пульту не дозволена'));
   // A passage (0.6.1), a song stanza (0.6.3) or a running-order item (0.6.9) chosen on
   // the phone — one of them; `pick` and `queue` need one.
   const passage = msg.passage === undefined ? null : sanitizePassage(msg.passage);
-  if (msg.passage !== undefined && !passage) return reject('Неправильний уривок');
+  if (msg.passage !== undefined && !passage) return reject(N_('Неправильний уривок'));
   const song = msg.song === undefined || passage ? null : sanitizeSong(msg.song);
-  if (msg.song !== undefined && !passage && !song) return reject('Неправильна строфа');
+  if (msg.song !== undefined && !passage && !song) return reject(N_('Неправильна строфа'));
   const rawItem = passage || song ? undefined : msg.item;
   const item = typeof rawItem === 'string' && /^[\w-]{1,80}$/.test(rawItem) ? rawItem : null;
-  if (rawItem !== undefined && !item) return reject('Неправильний елемент');
-  if (cmd === 'pick' && !passage && !song && !item) return reject('Не вибрано вірш');
-  if (cmd === 'queue' && !passage && !song) return reject('Нічого додати');
+  if (rawItem !== undefined && !item) return reject(N_('Неправильний елемент'));
+  if (cmd === 'pick' && !passage && !song && !item) return reject(N_('Не вибрано вірш'));
+  if (cmd === 'queue' && !passage && !song) return reject(N_('Нічого додати'));
   // each ability on its own, per remote
-  if (passage && !p.allowed.includes('pick')) return reject('Вибір віршів пульту не дозволено');
-  if (song && !p.allowed.includes('songs')) return reject('Пісні пульту не дозволено');
+  if (passage && !p.allowed.includes('pick')) return reject(N_('Вибір віршів пульту не дозволено'));
+  if (song && !p.allowed.includes('songs')) return reject(N_('Пісні пульту не дозволено'));
   if ((item || cmd === 'queue') && !p.allowed.includes('playlist')) {
-    return reject('Послідовність пульту не дозволено');
+    return reject(N_('Послідовність пульту не дозволено'));
   }
 
   const id = commandId(clientId, p.id);
@@ -313,17 +314,17 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   }
 
   m.recent = m.recent.filter((t) => now - t < 1000);
-  if (m.recent.length >= MAX_COMMANDS_PER_SEC) return reject('Забагато натискань');
+  if (m.recent.length >= MAX_COMMANDS_PER_SEC) return reject(N_('Забагато натискань'));
   m.recent.push(now);
   touchPairing(p);
   // only the control window in charge applies it (0.6.8)
   const controls = activeControl?.readyState === WebSocket.OPEN ? [activeControl] : [];
-  if (controls.length === 0) return reject('Вікно керування не відкрите');
+  if (controls.length === 0) return reject(N_('Вікно керування не відкрите'));
   pending.set(id, {
     remote: ws,
     cmd: cmd as RemoteAction,
     timer: setTimeout(
-      () => finish(id, { id: clientId, ok: false, reason: 'Вікно керування не відповіло' }),
+      () => finish(id, { id: clientId, ok: false, reason: N_('Вікно керування не відповіло') }),
       resultTimeoutMs,
     ),
   });
@@ -353,10 +354,11 @@ function onSuggest(ws: WebSocket, msg: Record<string, unknown>) {
   const song = passage || msg.song === undefined ? null : sanitizeSong(msg.song);
   const answer = (delivered: number, reason?: string) =>
     send(ws, { type: 'suggested', to, delivered, reason });
-  if (!p) return answer(0, 'Пульт не знайдено');
-  if (!passage && !song) return answer(0, 'Нічого не вибрано');
-  if (passage && !p.allowed.includes('pick')) return answer(0, 'Цьому пульту не дозволено вірші');
-  if (song && !p.allowed.includes('songs')) return answer(0, 'Цьому пульту не дозволено пісні');
+  if (!p) return answer(0, N_('Пульт не знайдено'));
+  if (!passage && !song) return answer(0, N_('Нічого не вибрано'));
+  if (passage && !p.allowed.includes('pick'))
+    return answer(0, N_('Цьому пульту не дозволено вірші'));
+  if (song && !p.allowed.includes('songs')) return answer(0, N_('Цьому пульту не дозволено пісні'));
   const frame = {
     type: 'suggest',
     ...(passage ? { passage } : { song }),
@@ -370,7 +372,7 @@ function onSuggest(ws: WebSocket, msg: Record<string, unknown>) {
       delivered++;
     }
   }
-  answer(delivered, delivered ? undefined : 'Пульт не на зв’язку');
+  answer(delivered, delivered ? undefined : N_('Пульт не на зв’язку'));
 }
 
 /** A control window's answer to a forwarded command (the first one wins). */

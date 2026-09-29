@@ -1,4 +1,4 @@
-import type { Converted } from '@vo/shared';
+import type { Converted, Vars } from '@vo/shared';
 
 /** Which database runs in the worker: SQLite-WASM, or PostgreSQL (PGlite). */
 export type EngineKind = 'sqlite' | 'pglite';
@@ -20,7 +20,8 @@ export type EngineRequest = { id: number } & (
 
 export type EngineResponse = { id: number } & (
   | { ok: true; result: unknown }
-  | { ok: false; error: string }
+  // a message that is a dictionary key with values carries them apart (0.11.6)
+  | { ok: false; error: string; key?: string; vars?: Vars }
 );
 
 /** What a segment holds, by its main content. */

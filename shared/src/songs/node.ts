@@ -18,6 +18,7 @@ import {
   type BundleSong,
 } from './bundle.js';
 import { isSongFile, parsePptx } from './pptx.js';
+import { N_ } from '../i18n/index.js';
 
 /**
  * Song bundles on disk (0.10.0) — for the builder and the server, never the browser
@@ -106,7 +107,7 @@ export function importSongs(
     'id' in target
       ? listBundles(dir).find((b) => b.meta.id === target.id)
       : createBundle(dir, target.name, target.source);
-  if (!bundle) throw new Error('Бандл не знайдено');
+  if (!bundle) throw new Error(N_('Бандл не знайдено'));
   const result = withBundle(path.join(dir, bundle.file), false, (db) => {
     prepareBundle(db);
     return upsertBundleSongs(db, songs);
@@ -151,7 +152,7 @@ export function legacySongsDir(repoRoot: string): string | null {
   const candidates = [
     process.env.SONGS_DIR ? path.resolve(process.env.SONGS_DIR) : null,
     path.join(repoRoot, 'songs'),
-    path.join(repoRoot, 'old', 'ПС укр 1-477'),
+    path.join(repoRoot, 'old', 'ПС укр 1-477'), // i18n-ignore: a folder
   ];
   return candidates.find((d) => d && fs.existsSync(d) && listPptx(d).length > 0) ?? null;
 }
@@ -159,9 +160,10 @@ export function legacySongsDir(repoRoot: string): string | null {
 /** «ПС укр 1-477» → «ПС» (the user's name for it); `songs` → «Пісні»; else the folder's name. */
 export function legacyBundleName(dir: string): string {
   const base = path.basename(dir).trim();
-  if (/^ПС(\s|$)/.test(base)) return 'ПС';
-  if (base.toLowerCase() === 'songs') return 'Пісні';
-  return base || 'Пісні';
+  // bundle names are data: the same in every interface language
+  if (/^ПС(\s|$)/.test(base)) return 'ПС'; // i18n-ignore
+  if (base.toLowerCase() === 'songs') return 'Пісні'; // i18n-ignore
+  return base || 'Пісні'; // i18n-ignore
 }
 
 const mtime = (file: string): number => {
