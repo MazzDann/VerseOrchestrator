@@ -91,6 +91,11 @@ const TRANSLATED = [
   'shared/src/songs/pptx.ts',
   'builder/src/segments.ts',
   'web/src/lib/engine/protocol.ts',
+  // 0.11.7 — the launcher, the waiter, the portable build
+  'server/src/lang.ts',
+  'server/src/launcher.ts',
+  'server/src/standby.ts',
+  'server/src/portable.ts',
 ];
 
 const walk = (dir: string): string[] =>

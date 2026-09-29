@@ -83,6 +83,22 @@ describe('standby waiter', () => {
     expect(app.started).toBe(1);
   });
 
+  it('says «Запуск…» in the language the browser asks for (0.11.7)', async () => {
+    const { url } = await waiter();
+    const en = await fetch(url('/'), {
+      headers: { accept: 'text/html', 'accept-language': 'en-US,en;q=0.9,uk;q=0.8' },
+    });
+    const page = await en.text();
+    expect(page).toContain('<html lang="en">');
+    expect(page).toContain('VerseOrchestrator is starting…');
+    // the first page load started the app: a fresh waiter for the second one
+    const second = await waiter();
+    const uk = await fetch(second.url('/'), {
+      headers: { accept: 'text/html', 'accept-language': 'de-DE,uk;q=0.5' },
+    });
+    expect(await uk.text()).toContain('VerseOrchestrator запускається…');
+  });
+
   it('an API call waits for the start instead of failing', async () => {
     const { app, url } = await waiter();
     const r = await fetch(url('/api/health'));
