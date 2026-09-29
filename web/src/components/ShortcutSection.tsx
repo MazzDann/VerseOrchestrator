@@ -4,6 +4,7 @@ import { IconDeviceDesktop } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api } from '../api';
 import { useServer, NEEDS_SERVER } from '../serverStore';
+import { tr, useLang } from '../i18n';
 
 /**
  * «Ярлик на робочому столі» (0.7.5): starts the app and opens the control window as an app
@@ -13,18 +14,22 @@ import { useServer, NEEDS_SERVER } from '../serverStore';
 export function ShortcutSection() {
   const serverAvailable = useServer((s) => s.available);
   const [busy, setBusy] = useState(false);
+  useLang();
 
   const make = async () => {
     setBusy(true);
     try {
       const r = await api.createShortcut();
       notifications.show({
-        message: `Ярлик створено: ${r.files[0]}`,
+        message: tr('Ярлик створено: {file}', { file: r.files[0] }),
         color: 'green',
         autoClose: 3000,
       });
     } catch (e) {
-      notifications.show({ message: `Ярлик не створено: ${(e as Error).message}`, color: 'red' });
+      notifications.show({
+        message: tr('Ярлик не створено: {error}', { error: tr((e as Error).message) }),
+        color: 'red',
+      });
     } finally {
       setBusy(false);
     }
@@ -33,11 +38,12 @@ export function ShortcutSection() {
   return (
     <div>
       <Text size="sm" fw={500} mb={2}>
-        Ярлик на робочому столі
+        {tr('Ярлик на робочому столі')}
       </Text>
       <Text size="xs" c="dimmed" mb={8}>
-        Запускає застосунок і відкриває вікно керування окремим вікном — без вкладок і адресного
-        рядка (Chrome або Edge).
+        {tr(
+          'Запускає застосунок і відкриває вікно керування окремим вікном — без вкладок і адресного рядка (Chrome або Edge).',
+        )}
       </Text>
       <Button
         size="xs"
@@ -46,10 +52,10 @@ export function ShortcutSection() {
         leftSection={<IconDeviceDesktop size={14} />}
         loading={busy}
         disabled={serverAvailable === false}
-        title={serverAvailable === false ? NEEDS_SERVER : undefined}
+        title={serverAvailable === false ? tr(NEEDS_SERVER) : undefined}
         onClick={() => void make()}
       >
-        Створити ярлик
+        {tr('Створити ярлик')}
       </Button>
     </div>
   );

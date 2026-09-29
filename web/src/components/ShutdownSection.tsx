@@ -8,8 +8,10 @@ import { useServer, NEEDS_SERVER, START_AGAIN } from '../serverStore';
 import { browserDataBytes, clearBrowserData } from '../lib/browserData';
 import { currentOutputs } from '../lib/outputs';
 import { closeOutput } from '../openPresenter';
+import { tr, useLang } from '../i18n';
 
-const size = (b: number) => (b < 1048576 ? 'менше 1 МБ' : `≈ ${Math.round(b / 1048576)} МБ`);
+const size = (b: number) =>
+  b < 1048576 ? tr('менше 1 МБ') : tr('≈ {mb} МБ', { mb: Math.round(b / 1048576) });
 
 /**
  * «Вимкнути повністю» (0.7.1): the app, its standby waiter and the «Запуск за адресою»
@@ -25,6 +27,7 @@ export function ShutdownSection() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const qc = useQueryClient();
+  useLang();
 
   const openConfirm = () => {
     setForget(false);
@@ -43,7 +46,10 @@ export function ShutdownSection() {
       setConfirming(false);
       setDone(true);
     } catch (e) {
-      notifications.show({ message: `Не вдалося вимкнути: ${(e as Error).message}`, color: 'red' });
+      notifications.show({
+        message: tr('Не вдалося вимкнути: {error}', { error: tr((e as Error).message) }),
+        color: 'red',
+      });
     } finally {
       setBusy(false);
     }
@@ -53,10 +59,10 @@ export function ShutdownSection() {
     return (
       <div role="status">
         <Text size="sm" fw={500} mb={2}>
-          Застосунок вимкнено
+          {tr('Застосунок вимкнено')}
         </Text>
         <Text size="xs" c="dimmed">
-          {START_AGAIN} Цю вкладку можна закрити.
+          {tr(START_AGAIN)} {tr('Цю вкладку можна закрити.')}
         </Text>
       </div>
     );
@@ -64,11 +70,12 @@ export function ShutdownSection() {
   return (
     <div>
       <Text size="sm" fw={500} mb={2}>
-        Вимкнути повністю
+        {tr('Вимкнути повністю')}
       </Text>
       <Text size="xs" c="dimmed" mb={8}>
-        Зупиняє застосунок і очікувача, вимикає «Запуск за адресою» разом з комп’ютером, закриває
-        вікна виводу. Після цього нічого не працює у фоні.
+        {tr(
+          'Зупиняє застосунок і очікувача, вимикає «Запуск за адресою» разом з комп’ютером, закриває вікна виводу. Після цього нічого не працює у фоні.',
+        )}
       </Text>
       <Popover
         opened={confirming}
@@ -86,34 +93,41 @@ export function ShutdownSection() {
             fullWidth
             leftSection={<IconPower size={14} />}
             disabled={serverAvailable === false || busy}
-            title={serverAvailable === false ? NEEDS_SERVER : undefined}
+            title={serverAvailable === false ? tr(NEEDS_SERVER) : undefined}
             onClick={() => (confirming ? setConfirming(false) : openConfirm())}
           >
-            Вимкнути повністю…
+            {tr('Вимкнути повністю…')}
           </Button>
         </Popover.Target>
         <Popover.Dropdown>
           <Stack gap="xs">
             <Text size="sm" fw={500}>
-              Вимкнути застосунок?
+              {tr('Вимкнути застосунок?')}
             </Text>
             <Text size="xs">
-              Показ зупиниться: пульти й телефони глядачів відключаться, вікна виводу закриються.{' '}
-              {START_AGAIN}
+              {tr(
+                'Показ зупиниться: пульти й телефони глядачів відключаться, вікна виводу закриються.',
+              )}{' '}
+              {tr(START_AGAIN)}
             </Text>
             <Checkbox
               size="xs"
               checked={forget}
               onChange={(e) => setForget(e.currentTarget.checked)}
-              label={`Також стерти дані браузера для ${location.host}${bytes != null ? ` (${size(bytes)})` : ''}`}
-              description="Копії налаштувань і послідовності в цьому браузері та кеш бібліотеки. Самі налаштування лишаються в папці застосунку (data/)."
+              label={
+                tr('Також стерти дані браузера для {host}', { host: location.host }) +
+                (bytes != null ? ` (${size(bytes)})` : '')
+              }
+              description={tr(
+                'Копії налаштувань і послідовності в цьому браузері та кеш бібліотеки. Самі налаштування лишаються в папці застосунку (data/).',
+              )}
             />
             <Group gap="xs" justify="flex-end">
               <Button size="xs" variant="default" onClick={() => setConfirming(false)}>
-                Скасувати
+                {tr('Скасувати')}
               </Button>
               <Button size="xs" loading={busy} onClick={() => void shutDown()}>
-                Вимкнути
+                {tr('Вимкнути')}
               </Button>
             </Group>
           </Stack>

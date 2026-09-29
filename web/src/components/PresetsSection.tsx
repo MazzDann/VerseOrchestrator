@@ -20,10 +20,13 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useSettings, coercePreset, presetToFile, type AppearancePreset } from '../settingsStore';
+import { tr, useLang } from '../i18n';
 
 interface BuiltIn {
   file: string;
   name: string;
+  /** the name in other interface languages (0.11.1), e.g. `{ "en": "Classic (serif)" }` */
+  names?: Record<string, string>;
 }
 
 const safeFileName = (name: string) =>
@@ -48,6 +51,8 @@ export function PresetsSection() {
 
   const [name, setName] = useState('');
   const [builtIns, setBuiltIns] = useState<BuiltIn[]>([]);
+  const lang = useLang();
+  const builtInName = (b: BuiltIn) => b.names?.[lang] ?? b.name;
 
   useEffect(() => {
     fetch('/presets/index.json')
@@ -66,7 +71,7 @@ export function PresetsSection() {
     if (!name.trim()) return;
     savePreset(name);
     notifications.show({
-      message: `Пресет збережено: ${name.trim()}`,
+      message: tr('Пресет збережено: {name}', { name: name.trim() }),
       color: 'green',
       autoClose: 1500,
     });
@@ -89,9 +94,13 @@ export function PresetsSection() {
       const preset = coercePreset(JSON.parse(await file.text()), file.name.replace(/\.[^.]+$/, ''));
       if (!preset) throw new Error('bad');
       const n = importPreset(preset);
-      notifications.show({ message: `Пресет застосовано: ${n}`, color: 'green', autoClose: 1500 });
+      notifications.show({
+        message: tr('Пресет застосовано: {name}', { name: n }),
+        color: 'green',
+        autoClose: 1500,
+      });
     } catch {
-      notifications.show({ message: 'Не вдалося прочитати файл пресету', color: 'red' });
+      notifications.show({ message: tr('Не вдалося прочитати файл пресету'), color: 'red' });
     }
   };
 
@@ -103,12 +112,12 @@ export function PresetsSection() {
       if (!preset) throw new Error('bad');
       applyPresetData(preset); // apply only — built-ins aren't copied into the library
       notifications.show({
-        message: `Пресет застосовано: ${preset.name}`,
+        message: tr('Пресет застосовано: {name}', { name: builtInName(b) }),
         color: 'green',
         autoClose: 1500,
       });
     } catch {
-      notifications.show({ message: 'Не вдалося завантажити пресет', color: 'red' });
+      notifications.show({ message: tr('Не вдалося завантажити пресет'), color: 'red' });
     }
   };
 
@@ -119,7 +128,7 @@ export function PresetsSection() {
         <TextInput
           size="xs"
           flex={1}
-          placeholder="Назва пресету"
+          placeholder={tr('Назва пресету')}
           value={name}
           onChange={(e) => setName(e.currentTarget.value)}
           onKeyDown={(e) => {
@@ -133,12 +142,12 @@ export function PresetsSection() {
           disabled={!name.trim()}
           onClick={save}
         >
-          Зберегти
+          {tr('Зберегти')}
         </Button>
         <FileButton accept="application/json,.json" onChange={importFromFile}>
           {(props) => (
-            <Tooltip label="Імпортувати пресет із файлу">
-              <ActionIcon {...props} variant="default" size="lg" aria-label="Імпорт пресету">
+            <Tooltip label={tr('Імпортувати пресет із файлу')}>
+              <ActionIcon {...props} variant="default" size="lg" aria-label={tr('Імпорт пресету')}>
                 <IconUpload size={16} />
               </ActionIcon>
             </Tooltip>
@@ -162,13 +171,13 @@ export function PresetsSection() {
                 >
                   {p.name}
                 </Button>
-                <Tooltip label="Експортувати у файл">
+                <Tooltip label={tr('Експортувати у файл')}>
                   <ActionIcon
                     variant="subtle"
                     color="gray"
                     size="sm"
                     onClick={() => exportPreset(p)}
-                    aria-label={`Експорт ${p.name}`}
+                    aria-label={tr('Експорт {name}', { name: p.name })}
                   >
                     <IconDownload size={14} />
                   </ActionIcon>
@@ -178,7 +187,7 @@ export function PresetsSection() {
                   color="red"
                   size="sm"
                   onClick={() => deletePreset(p.name)}
-                  aria-label={`Видалити ${p.name}`}
+                  aria-label={tr('Видалити {name}', { name: p.name })}
                 >
                   <IconTrash size={14} />
                 </ActionIcon>
@@ -195,7 +204,7 @@ export function PresetsSection() {
             label={
               <Group gap={4}>
                 <IconBuildingStore size={12} />
-                <span>Вбудовані</span>
+                <span>{tr('Вбудовані')}</span>
               </Group>
             }
           />
@@ -208,7 +217,7 @@ export function PresetsSection() {
                   variant="default"
                   onClick={() => applyBuiltIn(b)}
                 >
-                  {b.name}
+                  {builtInName(b)}
                 </Button>
               ))}
             </Group>

@@ -1,5 +1,5 @@
 [
-  { "file": "classic.json", "name": "Класичний (сериф)" },
-  { "file": "lower-third.json", "name": "Нижня третина" },
-  { "file": "big-yellow.json", "name": "Велике жовте на чорному" }
+  { "file": "classic.json", "name": "Класичний (сериф)", "names": { "en": "Classic (serif)" } },
+  { "file": "lower-third.json", "name": "Нижня третина", "names": { "en": "Lower third" } },
+  { "file": "big-yellow.json", "name": "Велике жовте на чорному", "names": { "en": "Large yellow on black" } }
 ]

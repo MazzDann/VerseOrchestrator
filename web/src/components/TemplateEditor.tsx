@@ -10,14 +10,16 @@ import {
   Badge,
 } from '@mantine/core';
 import { IconAlignLeft, IconAlignCenter, IconAlignRight } from '@tabler/icons-react';
+import { N_ } from '@vo/shared';
 import { useSettings } from '../settingsStore';
 import { TEMPLATE_PRESETS, type SlideObject, type SlideObjectKind } from '../presenterBus';
+import { tr, useLang } from '../i18n';
 
 const KIND_LABEL: Record<SlideObjectKind, string> = {
-  quote: 'Цитата',
-  reference: 'Посилання',
-  subline: 'Підпис',
-  divider: 'Риска',
+  quote: N_('Цитата'),
+  reference: N_('Посилання'),
+  subline: N_('Підпис'),
+  divider: N_('Риска'),
 };
 
 function NumField({
@@ -102,7 +104,7 @@ function LayoutMap({ objects, active }: { objects: SlideObject[]; active: number
               whiteSpace: 'nowrap',
             }}
           >
-            {o.kind !== 'divider' && KIND_LABEL[o.kind]}
+            {o.kind !== 'divider' && tr(KIND_LABEL[o.kind])}
           </div>
         ) : null,
       )}
@@ -119,6 +121,7 @@ export function TemplateEditor() {
   const template = useSettings((s) => s.slideTemplate);
   const setTemplate = useSettings((s) => s.setSlideTemplate);
   const [active, setActive] = useState<number | null>(null);
+  useLang();
 
   const activeIdx = Math.max(
     0,
@@ -141,8 +144,8 @@ export function TemplateEditor() {
   return (
     <Stack gap="sm">
       <Select
-        label="Шаблон"
-        data={TEMPLATE_PRESETS.map((p, i) => ({ value: String(i), label: p.label }))}
+        label={tr('Шаблон')}
+        data={TEMPLATE_PRESETS.map((p, i) => ({ value: String(i), label: tr(p.label) }))}
         value={String(activeIdx)}
         onChange={(v) => v != null && pick(Number(v))}
         allowDeselect={false}
@@ -152,7 +155,7 @@ export function TemplateEditor() {
         <Stack gap="xs">
           <LayoutMap objects={template.objects} active={active} />
           <Text size="xs" c="dimmed">
-            Положення й розміри у % від слайда. Зміни зберігаються одразу.
+            {tr('Положення й розміри у % від слайда. Зміни зберігаються одразу.')}
           </Text>
           {template.objects.map((o, i) => (
             <div
@@ -168,11 +171,11 @@ export function TemplateEditor() {
             >
               <Group justify="space-between" mb={4} wrap="nowrap">
                 <Badge size="sm" variant="light">
-                  {KIND_LABEL[o.kind]}
+                  {tr(KIND_LABEL[o.kind])}
                 </Badge>
                 <Switch
                   size="xs"
-                  label="Показувати"
+                  label={tr('Показувати')}
                   checked={o.visible}
                   onChange={(e) => updateObj(i, { visible: e.currentTarget.checked })}
                 />
@@ -182,9 +185,13 @@ export function TemplateEditor() {
                   <Group gap={6} grow>
                     <NumField label="X" value={o.x} onChange={(v) => updateObj(i, { x: v })} />
                     <NumField label="Y" value={o.y} onChange={(v) => updateObj(i, { y: v })} />
-                    <NumField label="Ширина" value={o.w} onChange={(v) => updateObj(i, { w: v })} />
                     <NumField
-                      label={o.kind === 'divider' ? 'Товщина' : 'Висота'}
+                      label={tr('Ширина')}
+                      value={o.w}
+                      onChange={(v) => updateObj(i, { w: v })}
+                    />
+                    <NumField
+                      label={o.kind === 'divider' ? tr('Товщина') : tr('Висота')}
                       value={o.h}
                       max={o.kind === 'divider' ? 5 : 100}
                       step={o.kind === 'divider' ? 0.1 : 1}
@@ -195,7 +202,7 @@ export function TemplateEditor() {
                     <Group gap={6} mt={6} wrap="nowrap" align="flex-end">
                       {o.kind !== 'quote' && (
                         <NumField
-                          label="Шрифт"
+                          label={tr('Шрифт')}
                           value={o.size}
                           max={20}
                           step={0.2}
@@ -204,20 +211,22 @@ export function TemplateEditor() {
                       )}
                       <SegmentedControl
                         size="xs"
-                        aria-label={`Вирівнювання: ${KIND_LABEL[o.kind]}`}
+                        aria-label={tr('Вирівнювання: {object}', {
+                          object: tr(KIND_LABEL[o.kind]),
+                        })}
                         value={o.align}
                         onChange={(v) => updateObj(i, { align: v as 'left' | 'center' | 'right' })}
                         data={[
                           {
-                            label: <IconAlignLeft size={14} aria-label="Ліворуч" />,
+                            label: <IconAlignLeft size={14} aria-label={tr('Ліворуч')} />,
                             value: 'left',
                           },
                           {
-                            label: <IconAlignCenter size={14} aria-label="По центру" />,
+                            label: <IconAlignCenter size={14} aria-label={tr('По центру')} />,
                             value: 'center',
                           },
                           {
-                            label: <IconAlignRight size={14} aria-label="Праворуч" />,
+                            label: <IconAlignRight size={14} aria-label={tr('Праворуч')} />,
                             value: 'right',
                           },
                         ]}
@@ -231,8 +240,9 @@ export function TemplateEditor() {
         </Stack>
       ) : (
         <Text size="xs" c="dimmed">
-          Класичний показ: текст по центру. Оберіть інший шаблон, щоб самостійно розставити цитату,
-          риску, підпис і посилання.
+          {tr(
+            'Класичний показ: текст по центру. Оберіть інший шаблон, щоб самостійно розставити цитату, риску, підпис і посилання.',
+          )}
         </Text>
       )}
     </Stack>

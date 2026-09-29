@@ -1,4 +1,5 @@
 import type { SegmentInfo } from '../../api';
+import { tr } from '../../i18n';
 
 /**
  * Browser-side cache of library segments, CONTENT-ADDRESSED by SHA-256 (the manifest's
@@ -60,7 +61,9 @@ export async function segmentBytes(
     const actual = await sha256Hex(bytes);
     if (actual !== info.sha256) {
       throw new Error(
-        `Сегмент ${info.file} пошкоджено при завантаженні (контрольна сума не збігається)`,
+        tr('Сегмент {file} пошкоджено при завантаженні (контрольна сума не збігається)', {
+          file: info.file,
+        }),
       );
     }
   }

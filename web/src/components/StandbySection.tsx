@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { Button, Group, NumberInput, Popover, Stack, Switch, Text } from '@mantine/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
+import { N_ } from '@vo/shared';
 import { api, type StandbyStatus } from '../api';
 import { useServer, NEEDS_SERVER } from '../serverStore';
+import { tr, useLang } from '../i18n';
 
 const STATE_LABEL: Record<string, string> = {
-  waiting: 'Адреса чекає, застосунок зупинено',
-  starting: 'Застосунок запускається…',
-  running: 'Застосунок працює',
-  stopping: 'Застосунок зупиняється…',
+  waiting: N_('Адреса чекає, застосунок зупинено'),
+  starting: N_('Застосунок запускається…'),
+  running: N_('Застосунок працює'),
+  stopping: N_('Застосунок зупиняється…'),
 };
 
 /** Mirrors validStandbyPort on the server: unprivileged, not the app's own 5173/8787. */
@@ -59,6 +61,7 @@ export function StandbySection({ active }: { active: boolean }) {
   const [plan, setPlan] = useState({ port: 0, relaunch: false, moves: false });
   const [busy, setBusy] = useState(false);
   const [moving, setMoving] = useState<number | null>(null);
+  useLang();
 
   const apply = async (patch: { enabled?: boolean; port?: number }) => {
     setBusy(true);
@@ -71,7 +74,7 @@ export function StandbySection({ active }: { active: boolean }) {
       }
       return r;
     } catch (e) {
-      notifications.show({ message: (e as Error).message, color: 'red' });
+      notifications.show({ message: tr((e as Error).message), color: 'red' });
       return null;
     } finally {
       setBusy(false);
@@ -80,7 +83,7 @@ export function StandbySection({ active }: { active: boolean }) {
 
   const title = (
     <Text size="sm" fw={500} mb={2}>
-      Запуск за адресою
+      {tr('Запуск за адресою')}
     </Text>
   );
   if (serverAvailable === false) {
@@ -88,7 +91,7 @@ export function StandbySection({ active }: { active: boolean }) {
       <div>
         {title}
         <Text size="xs" c="dimmed">
-          {NEEDS_SERVER}
+          {tr(NEEDS_SERVER)}
         </Text>
       </div>
     );
@@ -99,7 +102,9 @@ export function StandbySection({ active }: { active: boolean }) {
       <div>
         {title}
         <Text size="xs" c="dimmed">
-          {q.isError ? `Стан недоступний: ${q.error.message}` : 'Завантаження…'}
+          {q.isError
+            ? tr('Стан недоступний: {error}', { error: tr(q.error.message) })
+            : tr('Завантаження…')}
         </Text>
       </div>
     );
@@ -133,28 +138,32 @@ export function StandbySection({ active }: { active: boolean }) {
         return;
       }
       setMoving(null);
-      notifications.show({ message: `Нова адреса не відповідає: ${r.urls.local}`, color: 'red' });
+      notifications.show({
+        message: tr('Нова адреса не відповідає: {url}', { url: r.urls.local }),
+        color: 'red',
+      });
       return;
     }
     notifications.show({
       message: r.relaunching
-        ? `Перезапуск на новій адресі ${r.urls.local}`
-        : `Нова адреса: ${r.urls.local}`,
+        ? tr('Перезапуск на новій адресі {url}', { url: r.urls.local })
+        : tr('Нова адреса: {url}', { url: r.urls.local }),
       color: 'green',
       autoClose: 2500,
     });
   };
 
   let status: string;
-  if (moving) status = `Перезапуск на порту ${moving}… сторінка перейде туди сама`;
+  if (moving)
+    status = tr('Перезапуск на порту {port}… сторінка перейде туди сама', { port: moving });
   else if (s.waiter?.retiring)
-    status = 'Вимикається — щойно застосунок перестануть використовувати';
+    status = tr('Вимикається — щойно застосунок перестануть використовувати');
   else if (s.waiter) {
     const rss = s.waiter.rssBytes
-      ? ` · очікувач ${Math.round(s.waiter.rssBytes / 1048576)} МБ`
+      ? ` · ${tr('очікувач {mb} МБ', { mb: Math.round(s.waiter.rssBytes / 1048576) })}`
       : '';
-    status = `${STATE_LABEL[s.waiter.state] ?? s.waiter.state}${rss}`;
-  } else if (s.enabled) status = 'Очікувач не працює — запуститься разом з комп’ютером';
+    status = `${STATE_LABEL[s.waiter.state] ? tr(STATE_LABEL[s.waiter.state]) : s.waiter.state}${rss}`;
+  } else if (s.enabled) status = tr('Очікувач не працює — запуститься разом з комп’ютером');
   else status = '';
 
   return (
@@ -164,11 +173,14 @@ export function StandbySection({ active }: { active: boolean }) {
         checked={s.enabled}
         disabled={!s.supported || busy || !!moving}
         onChange={(e) => void apply({ enabled: e.currentTarget.checked })}
-        label="Запуск за адресою"
+        label={tr('Запуск за адресою')}
         description={
           s.supported
-            ? `Невеликий процес тримає адресу й запускає застосунок, щойно її відкрити (і з телефона теж). Без роботи ${s.idleMinutes} хв застосунок зупиняється, а адреса чекає далі. Стартує разом з комп’ютером.`
-            : 'Автозапуск не підтримується на цій системі.'
+            ? tr(
+                'Невеликий процес тримає адресу й запускає застосунок, щойно її відкрити (і з телефона теж). Без роботи {minutes} хв застосунок зупиняється, а адреса чекає далі. Стартує разом з комп’ютером.',
+                { minutes: s.idleMinutes },
+              )
+            : tr('Автозапуск не підтримується на цій системі.')
         }
       />
       {status && (
@@ -183,7 +195,7 @@ export function StandbySection({ active }: { active: boolean }) {
               loading={busy}
               onClick={() => void apply({ enabled: true })}
             >
-              Запустити зараз
+              {tr('Запустити зараз')}
             </Button>
           )}
         </Group>
@@ -191,7 +203,7 @@ export function StandbySection({ active }: { active: boolean }) {
       <Group gap="xs" align="flex-end" wrap="nowrap">
         <NumberInput
           size="xs"
-          label="Порт"
+          label={tr('Порт')}
           w={96}
           min={1024}
           max={65535}
@@ -221,32 +233,34 @@ export function StandbySection({ active }: { active: boolean }) {
               disabled={!portChanged || busy || !!moving}
               onClick={() => (confirming ? setConfirming(false) : openConfirm())}
             >
-              Змінити
+              {tr('Змінити')}
             </Button>
           </Popover.Target>
           <Popover.Dropdown>
             <Stack gap="xs">
               <Text size="sm" fw={500}>
-                Змінити порт на {plan.port}?
+                {tr('Змінити порт на {port}?', { port: plan.port })}
               </Text>
               <Text size="xs">
                 {plan.relaunch
                   ? plan.moves
-                    ? 'Потрібен перезапуск: очікувач і застосунок перезапустяться на новій адресі, а ця сторінка перейде туди сама.'
-                    : 'Потрібен перезапуск: очікувач перезапуститься на новій адресі.'
-                  : 'Застосунок відкриватиметься за новою адресою; перезапуск не потрібен.'}
+                    ? tr(
+                        'Потрібен перезапуск: очікувач і застосунок перезапустяться на новій адресі, а ця сторінка перейде туди сама.',
+                      )
+                    : tr('Потрібен перезапуск: очікувач перезапуститься на новій адресі.')
+                  : tr('Застосунок відкриватиметься за новою адресою; перезапуск не потрібен.')}
               </Text>
               <Text size="xs" c="orange">
-                Закладки й історію браузер зберігає окремо для кожної адреси — за новою вони
-                почнуться з нуля. Налаштування вигляду й послідовність перейдуть самі (вони в папці
-                data/).
+                {tr(
+                  'Закладки й історію браузер зберігає окремо для кожної адреси — за новою вони почнуться з нуля. Налаштування вигляду й послідовність перейдуть самі (вони в папці data/).',
+                )}
               </Text>
               <Group gap="xs" justify="flex-end">
                 <Button size="xs" variant="default" onClick={() => setConfirming(false)}>
-                  Скасувати
+                  {tr('Скасувати')}
                 </Button>
                 <Button size="xs" onClick={() => void changePort()}>
-                  {plan.relaunch ? 'Так, перезапустити' : 'Змінити'}
+                  {plan.relaunch ? tr('Так, перезапустити') : tr('Змінити')}
                 </Button>
               </Group>
             </Stack>

@@ -1,5 +1,6 @@
 import { createLibrary, type Library, type SqlDriver } from '@vo/shared';
 import { useDataSource } from '../../dataSourceStore';
+import { tr } from '../../i18n';
 import {
   PG_SNAPSHOT_DB,
   type ConvertResult,
@@ -68,9 +69,10 @@ export function createEngine(kind: EngineKind, opts: { persist?: boolean } = {})
       if (!p) return;
       pending.delete(e.data.id);
       if (e.data.ok) p.resolve(e.data.result);
-      else p.reject(new Error(e.data.error));
+      // the worker's own messages are keys of the dictionary (N_ there)
+      else p.reject(new Error(tr(e.data.error)));
     };
-    w.onerror = (e) => failAll(e.message || 'Помилка рушія бази');
+    w.onerror = (e) => failAll(e.message || tr('Помилка рушія бази'));
     // The worker handles messages in order, so this runs before anything else.
     w.postMessage({
       id: 0,
@@ -119,7 +121,7 @@ export function createEngine(kind: EngineKind, opts: { persist?: boolean } = {})
     terminate() {
       worker?.terminate();
       worker = null;
-      failAll('Рушій бази зупинено');
+      failAll(tr('Рушій бази зупинено'));
     },
   };
 }

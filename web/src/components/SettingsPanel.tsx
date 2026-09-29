@@ -44,7 +44,7 @@ import { ShortcutSection } from './ShortcutSection';
 import { useEffectiveSource } from '../dataSourceStore';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
-import { useTr } from '../i18n';
+import { tr, useLang } from '../i18n';
 
 const SECTIONS_KEY = 'vo:settingsSections';
 
@@ -58,9 +58,8 @@ export function SettingsPanel() {
   const serverAvailable = useServer((s) => s.available);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
-  const language = useSettings((s) => s.language);
+  const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
-  const { tr } = useTr();
   const queryClient = useQueryClient();
   const [rebuilding, setRebuilding] = useState(false);
   // Which groups are expanded — a per-viewer convenience, remembered locally.
@@ -131,7 +130,7 @@ export function SettingsPanel() {
 
   const fonts = FONT_OPTIONS.map((f) => ({ ...f, label: tr(f.label) }));
   const fontLabel = fonts.find((f) => f.value === a.scriptureFont)?.label ?? tr('власний');
-  const templateLabel = template?.name ?? tr('класичний');
+  const templateLabel = template ? tr(template.name) : tr('класичний');
   const alignLabel = {
     left: tr('ліворуч'),
     center: tr('по центру'),

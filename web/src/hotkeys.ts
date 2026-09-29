@@ -1,3 +1,5 @@
+import { N_ } from '@vo/shared';
+
 /**
  * User-rebindable keyboard shortcuts: the action registry, default keymap, and
  * helpers to capture a combo from a KeyboardEvent and format one for display.
@@ -45,57 +47,62 @@ export interface HotkeyActionDef {
 export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
   {
     id: 'advanceNext',
-    label: 'Далі',
-    hint: 'Наступний вірш або сторінка',
+    label: N_('Далі'),
+    hint: N_('Наступний вірш або сторінка'),
     default: 'right,down,pagedown',
   },
   {
     id: 'advancePrev',
-    label: 'Назад',
-    hint: 'Попередній вірш або сторінка',
+    label: N_('Назад'),
+    hint: N_('Попередній вірш або сторінка'),
     default: 'left,up,pageup',
   },
   {
     id: 'project',
-    label: 'На екран',
-    hint: 'Показати поточний вибір',
+    label: N_('На екран'),
+    hint: N_('Показати поточний вибір'),
     enableOnFormTags: true,
     default: 'f5,f2',
     mac: 'meta+enter',
   },
   {
     id: 'blank',
-    label: 'Сховати текст',
-    hint: 'Текст згасає, фон лишається; ще раз — той самий слайд назад',
+    label: N_('Сховати текст'),
+    hint: N_('Текст згасає, фон лишається; ще раз — той самий слайд назад'),
     default: 'b',
   },
   {
     id: 'black',
-    label: 'Чорний екран',
-    hint: 'Одразу все чорне, навіть фон; ще раз — усе назад',
+    label: N_('Чорний екран'),
+    hint: N_('Одразу все чорне, навіть фон; ще раз — усе назад'),
     default: 'period',
   },
-  { id: 'clear', label: 'Очистити', hint: 'Прибрати слайд з екрана', default: 'escape' },
+  {
+    id: 'clear',
+    label: N_('Очистити'),
+    hint: N_('Прибрати слайд з екрана'),
+    default: 'escape',
+  },
   {
     id: 'searchCurrent',
-    label: 'Пошук (поточний)',
-    hint: 'Пошук у поточному модулі',
+    label: N_('Пошук (поточний)'),
+    hint: N_('Пошук у поточному модулі'),
     enableOnFormTags: true,
     default: 'f3,ctrl+f',
     mac: 'meta+f',
   },
   {
     id: 'searchAll',
-    label: 'Пошук (усі)',
-    hint: 'Пошук в усіх модулях',
+    label: N_('Пошук (усі)'),
+    hint: N_('Пошук в усіх модулях'),
     enableOnFormTags: true,
     default: 'f4',
     mac: 'meta+shift+f',
   },
   {
     id: 'palette',
-    label: 'Палітра команд',
-    hint: 'Швидкий пошук дій, книг і пісень',
+    label: N_('Палітра команд'),
+    hint: N_('Швидкий пошук дій, книг і пісень'),
     enableOnFormTags: true,
     default: 'ctrl+k,ctrl+p',
     mac: 'meta+k',
