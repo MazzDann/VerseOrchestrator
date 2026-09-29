@@ -48,14 +48,16 @@ import {
   openOutput,
   outputRef,
 } from '../openPresenter';
+import { N_, tr, trn, useLang } from '../i18n';
 
 const KIND_ICON: Record<OutputKind, typeof IconScreenShare> = {
   presenter: IconScreenShare,
   stage: IconLayoutDashboard,
 };
 
-const NOT_OURS_FULLSCREEN =
-  'Відкрите з іншого вікна керування: на весь екран його переведе F або клік у самому вікні';
+const NOT_OURS_FULLSCREEN = N_(
+  'Відкрите з іншого вікна керування: на весь екран його переведе F або клік у самому вікні',
+);
 
 /**
  * «Вікна виводу» (0.4.2): the screens of this computer with «open here» buttons, the
@@ -63,6 +65,7 @@ const NOT_OURS_FULLSCREEN =
  * and the remembered layout. Rendered inside a FloatingPanel.
  */
 export function OutputsPanel() {
+  useLang();
   const windows = useOutputWindows();
   const windowsRef = useRef(windows);
   windowsRef.current = windows;
@@ -92,8 +95,10 @@ export function OutputsPanel() {
     if (!ok) {
       notifications.show({
         message: separate
-          ? 'Вікно не озвалося — можливо, браузер його заблокував: дозвольте спливні вікна для цього сайту'
-          : 'Браузер заблокував вікно — дозвольте спливні вікна для цього сайту',
+          ? tr(
+              'Вікно не озвалося — можливо, браузер його заблокував: дозвольте спливні вікна для цього сайту',
+            )
+          : tr('Браузер заблокував вікно — дозвольте спливні вікна для цього сайту'),
         color: 'red',
       });
     } else {
@@ -105,7 +110,7 @@ export function OutputsPanel() {
   const setFullscreen = (o: TrackedOutput, on: boolean) => {
     if (!fullscreenOutput(o, on)) {
       notifications.show({
-        message: 'Цей браузер не передає жест іншому вікну — натисніть F у самому вікні',
+        message: tr('Цей браузер не передає жест іншому вікну — натисніть F у самому вікні'),
         color: 'orange',
       });
     }
@@ -123,7 +128,10 @@ export function OutputsPanel() {
     window.setTimeout(() => {
       if (windowsRef.current.some((w) => w.id === o.id)) {
         notifications.show({
-          message: `${label} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну`,
+          message: tr(
+            '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну',
+            { window: label },
+          ),
           color: 'orange',
         });
       }
@@ -132,7 +140,7 @@ export function OutputsPanel() {
 
   const openOn = async (kind: OutputKind, screen: ScreenInfo) => {
     const another = kind === 'presenter' && multiple && windows.some((o) => o.kind === kind);
-    opened(await openOutput(kind, { screen, another }), `${KIND_LABEL[kind]}: ${screen.label}`);
+    opened(await openOutput(kind, { screen, another }), `${tr(KIND_LABEL[kind])}: ${screen.label}`);
   };
 
   const saveLayout = () => {
@@ -142,7 +150,10 @@ export function OutputsPanel() {
     });
     setOutputs({ layout: saved });
     notifications.show({
-      message: `Розкладку збережено: ${saved.length} вікн.`,
+      message: trn(
+        saved.length,
+        'Розкладку збережено: {n} вікно|Розкладку збережено: {n} вікна|Розкладку збережено: {n} вікон',
+      ),
       color: 'green',
       autoClose: 1500,
     });
@@ -160,9 +171,12 @@ export function OutputsPanel() {
     }
     notifications.show(
       ok === layout.length
-        ? { message: `Відкрито вікон: ${ok}`, color: 'green', autoClose: 1500 }
+        ? { message: tr('Відкрито вікон: {n}', { n: ok }), color: 'green', autoClose: 1500 }
         : {
-            message: `Відкрито ${ok} з ${layout.length}: частину заблокував браузер або екрана немає — дозвольте спливні вікна й повторіть`,
+            message: tr(
+              'Відкрито {ok} з {total}: частину заблокував браузер або екрана немає — дозвольте спливні вікна й повторіть',
+              { ok, total: layout.length },
+            ),
             color: 'orange',
           },
     );
@@ -172,28 +186,30 @@ export function OutputsPanel() {
     <Stack gap="sm" p="sm">
       <div>
         <Text size="xs" c="dimmed" mb={4}>
-          Екрани
+          {tr('Екрани')}
         </Text>
         {access === 'prompt' && (
           <Group gap="xs" wrap="nowrap" mb={6} align="flex-start">
             <Text size="xs" c="dimmed" style={{ flex: 1 }}>
-              Браузер покаже всі екрани й відкриватиме вікна на потрібному, якщо дозволите.
+              {tr('Браузер покаже всі екрани й відкриватиме вікна на потрібному, якщо дозволите.')}
             </Text>
             <Button size="compact-xs" variant="light" onClick={() => void refresh(true)}>
-              Показати екрани
+              {tr('Показати екрани')}
             </Button>
           </Group>
         )}
         {access === 'denied' && (
           <Text size="xs" c="orange" mb={6}>
-            Доступ до екранів заборонено — дозвольте «Керування вікнами» в налаштуваннях сайту
-            (значок ліворуч від адреси).
+            {tr(
+              'Доступ до екранів заборонено — дозвольте «Керування вікнами» в налаштуваннях сайту (значок ліворуч від адреси).',
+            )}
           </Text>
         )}
         {access === 'unsupported' && (
           <Text size="xs" c="dimmed" mb={6}>
-            Цей браузер не повідомляє про екрани: вікна відкриваються там, де їх поставить браузер.
-            Chrome і Edge уміють відкривати на вибраному екрані.
+            {tr(
+              'Цей браузер не повідомляє про екрани: вікна відкриваються там, де їх поставить браузер. Chrome і Edge уміють відкривати на вибраному екрані.',
+            )}
           </Text>
         )}
         <Stack gap={4}>
@@ -207,12 +223,15 @@ export function OutputsPanel() {
                     {s.label}{' '}
                     {s.primary && screens.length > 1 && (
                       <Badge size="xs" variant="light" color="gray">
-                        основний
+                        {tr('основний')}
                       </Badge>
                     )}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {[s.w && s.h ? `${s.w}×${s.h}` : null, here ? `вікон: ${here}` : null]
+                    {[
+                      s.w && s.h ? `${s.w}×${s.h}` : null,
+                      here ? tr('вікон: {n}', { n: here }) : null,
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </Text>
@@ -222,10 +241,10 @@ export function OutputsPanel() {
                   variant="light"
                   onClick={() => void openOn('presenter', s)}
                 >
-                  Показ
+                  {tr('Показ')}
                 </Button>
                 <Button size="compact-xs" variant="default" onClick={() => void openOn('stage', s)}>
-                  Сцена
+                  {tr('Сцена')}
                 </Button>
               </Group>
             );
@@ -237,11 +256,11 @@ export function OutputsPanel() {
 
       <div>
         <Text size="xs" c="dimmed" mb={4}>
-          Відкриті вікна
+          {tr('Відкриті вікна')}
         </Text>
         {windows.length === 0 ? (
           <Text size="xs" c="dimmed">
-            Вікон виводу не відкрито — відкрийте показ на потрібному екрані вище.
+            {tr('Вікон виводу не відкрито — відкрийте показ на потрібному екрані вище.')}
           </Text>
         ) : (
           <Stack gap={4}>
@@ -254,9 +273,9 @@ export function OutputsPanel() {
               const canFullscreen = o.fullscreen || !!outputRef(o);
               const on = screenOf(o.bounds, screens);
               const state = [
-                on?.label ?? 'екран невідомий',
-                o.fullscreen ? 'на весь екран' : `${o.bounds.w}×${o.bounds.h}`,
-                o.visible ? null : 'приховане',
+                on?.label ?? tr('екран невідомий'),
+                o.fullscreen ? tr('на весь екран') : `${o.bounds.w}×${o.bounds.h}`,
+                o.visible ? null : tr('приховане'),
               ].filter(Boolean);
               return (
                 <Group key={o.id} gap={6} wrap="nowrap">
@@ -267,11 +286,11 @@ export function OutputsPanel() {
                       {state.join(' · ')}
                     </Text>
                   </div>
-                  <Tooltip label="Показати номер на цьому вікні">
+                  <Tooltip label={tr('Показати номер на цьому вікні')}>
                     <ActionIcon
                       variant="subtle"
                       size="sm"
-                      aria-label={`Показати номер: ${label}`}
+                      aria-label={tr('Показати номер: {window}', { window: label })}
                       onClick={() => outputs?.identify(o.id, label)}
                     >
                       <IconFocus2 size={14} />
@@ -280,27 +299,27 @@ export function OutputsPanel() {
                   <Tooltip
                     label={
                       !canFullscreen
-                        ? NOT_OURS_FULLSCREEN
+                        ? tr(NOT_OURS_FULLSCREEN)
                         : o.fullscreen
-                          ? 'Вийти з повного екрана'
-                          : 'На весь екран (або F у вікні)'
+                          ? tr('Вийти з повного екрана')
+                          : tr('На весь екран (або F у вікні)')
                     }
                   >
                     <ActionIcon
                       variant="subtle"
                       size="sm"
-                      aria-label={`${o.fullscreen ? 'Вийти з повного екрана' : 'На весь екран'}: ${label}`}
+                      aria-label={`${o.fullscreen ? tr('Вийти з повного екрана') : tr('На весь екран')}: ${label}`}
                       disabled={!canFullscreen}
                       onClick={() => setFullscreen(o, !o.fullscreen)}
                     >
                       {o.fullscreen ? <IconMinimize size={14} /> : <IconMaximize size={14} />}
                     </ActionIcon>
                   </Tooltip>
-                  <Tooltip label="Перейти до вікна">
+                  <Tooltip label={tr('Перейти до вікна')}>
                     <ActionIcon
                       variant="subtle"
                       size="sm"
-                      aria-label={`Перейти до вікна: ${label}`}
+                      aria-label={tr('Перейти до вікна: {window}', { window: label })}
                       onClick={() => focus(o, label)}
                     >
                       <IconExternalLink size={14} />
@@ -311,14 +330,14 @@ export function OutputsPanel() {
                       <Tooltip
                         label={
                           screens.length < 2
-                            ? 'Інший екран не видно — дозвольте доступ до екранів'
-                            : 'Перенести на інший екран'
+                            ? tr('Інший екран не видно — дозвольте доступ до екранів')
+                            : tr('Перенести на інший екран')
                         }
                       >
                         <ActionIcon
                           variant="subtle"
                           size="sm"
-                          aria-label={`Перенести: ${label}`}
+                          aria-label={tr('Перенести: {window}', { window: label })}
                           disabled={screens.length < 2}
                         >
                           <IconArrowsMove size={14} />
@@ -337,12 +356,12 @@ export function OutputsPanel() {
                       ))}
                     </Menu.Dropdown>
                   </Menu>
-                  <Tooltip label="Закрити вікно">
+                  <Tooltip label={tr('Закрити вікно')}>
                     <ActionIcon
                       variant="subtle"
                       color="red"
                       size="sm"
-                      aria-label={`Закрити: ${label}`}
+                      aria-label={tr('Закрити: {window}', { window: label })}
                       onClick={() => close(o, label)}
                     >
                       <IconX size={14} />
@@ -362,27 +381,33 @@ export function OutputsPanel() {
           size="xs"
           checked={multiple}
           onChange={(e) => setOutputs({ multiple: e.currentTarget.checked })}
-          label="Кілька вікон показу"
-          description="«Вікно показу» відкриває ще одне, а не повертає вже відкрите"
+          label={tr('Кілька вікон показу')}
+          description={tr('«Вікно показу» відкриває ще одне, а не повертає вже відкрите')}
         />
         <Switch
           size="xs"
           checked={fullscreen && !separate}
           disabled={separate}
           onChange={(e) => setOutputs({ fullscreen: e.currentTarget.checked })}
-          label="Відкривати на весь екран"
+          label={tr('Відкривати на весь екран')}
           description={
             separate
-              ? 'З окремими процесами вікно стає на весь екран клавішею F або кліком у ньому самому'
-              : 'Нове вікно стає на весь екран з вашим наступним кліком у цьому вікні — по одному вікну на клік (Chrome, Edge); в інших браузерах — F у самому вікні'
+              ? tr(
+                  'З окремими процесами вікно стає на весь екран клавішею F або кліком у ньому самому',
+                )
+              : tr(
+                  'Нове вікно стає на весь екран з вашим наступним кліком у цьому вікні — по одному вікну на клік (Chrome, Edge); в інших браузерах — F у самому вікні',
+                )
           }
         />
         <Switch
           size="xs"
           checked={separate}
           onChange={(e) => setOutputs({ separate: e.currentTarget.checked })}
-          label="Окремий процес для кожного вікна"
-          description="Збій одного вікна виводу не зачепить вікно керування й інші вікна (Chrome, Edge). Діє для нових вікон; на весь екран — F або клік у самому вікні"
+          label={tr('Окремий процес для кожного вікна')}
+          description={tr(
+            'Збій одного вікна виводу не зачепить вікно керування й інші вікна (Chrome, Edge). Діє для нових вікон; на весь екран — F або клік у самому вікні',
+          )}
         />
         {/* natural widths: a narrow panel wraps them to two rows instead of cutting labels */}
         <Group gap="xs">
@@ -393,7 +418,7 @@ export function OutputsPanel() {
             disabled={windows.length === 0}
             onClick={saveLayout}
           >
-            Зберегти розкладку
+            {tr('Зберегти розкладку')}
           </Button>
           <Button
             size="xs"
@@ -401,12 +426,13 @@ export function OutputsPanel() {
             disabled={layout.length === 0}
             onClick={() => void openLayout()}
           >
-            Відкрити розкладку{layout.length ? ` (${layout.length})` : ''}
+            {tr('Відкрити розкладку')}
+            {layout.length ? ` (${layout.length})` : ''}
           </Button>
         </Group>
         {layout.length > 0 && (
           <Text size="xs" c="dimmed">
-            {layout.map((l) => `${KIND_LABEL[l.kind]} — ${l.screenLabel}`).join(' · ')}
+            {layout.map((l) => `${tr(KIND_LABEL[l.kind])} — ${l.screenLabel}`).join(' · ')}
           </Text>
         )}
       </Stack>

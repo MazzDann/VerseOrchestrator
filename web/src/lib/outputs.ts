@@ -1,3 +1,4 @@
+import { N_, tr } from '../i18n';
 import { useEffect, useState } from 'react';
 
 /**
@@ -55,12 +56,15 @@ export interface TrackedOutput extends OutputInfo {
   lastSeen: number;
 }
 
-export const OUTPUT_KIND_LABEL: Record<OutputKind, string> = { presenter: 'Показ', stage: 'Сцена' };
+export const OUTPUT_KIND_LABEL: Record<OutputKind, string> = {
+  presenter: N_('Показ'),
+  stage: N_('Сцена'),
+};
 
 /** «Показ 1», «Показ 2», «Сцена 1» — numbered per kind in the order they opened. */
 export function outputLabels(list: OutputInfo[]): Map<string, string> {
   const n: Record<OutputKind, number> = { presenter: 0, stage: 0 };
-  return new Map(list.map((o) => [o.id, `${OUTPUT_KIND_LABEL[o.kind]} ${++n[o.kind]}`]));
+  return new Map(list.map((o) => [o.id, `${tr(OUTPUT_KIND_LABEL[o.kind])} ${++n[o.kind]}`]));
 }
 
 export const HEARTBEAT_MS = 5000;

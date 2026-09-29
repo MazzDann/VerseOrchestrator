@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 /**
  * The screens attached to this computer (0.4.2), via the Window Management API
  * (`getScreenDetails`, Chrome/Edge — a one-time permission). Without it (another browser,
@@ -57,9 +58,11 @@ export async function screenAccess(): Promise<ScreenAccess> {
 }
 
 function toInfo(s: ScreenDetailed, i: number): ScreenInfo {
-  const label = s.label || (s.isPrimary ? 'Основний екран' : `Екран ${i + 1}`);
+  // the key finds a saved layout's screen again: the same in every interface language
+  const id = s.label || (s.isPrimary ? 'Основний екран' : `Екран ${i + 1}`); // i18n-ignore: a stable id
+  const label = s.label || (s.isPrimary ? tr('Основний екран') : tr('Екран {n}', { n: i + 1 }));
   return {
-    key: `${label}|${s.left},${s.top}|${s.width}x${s.height}`,
+    key: `${id}|${s.left},${s.top}|${s.width}x${s.height}`,
     label,
     x: s.availLeft,
     y: s.availTop,
@@ -75,7 +78,7 @@ function currentScreen(): ScreenInfo {
   const s = window.screen as Screen & { availLeft?: number; availTop?: number };
   return {
     key: 'current',
-    label: 'Цей екран',
+    label: tr('Цей екран'),
     x: s.availLeft ?? 0,
     y: s.availTop ?? 0,
     // a hidden or embedded page may report 0 — fall back to what else is known

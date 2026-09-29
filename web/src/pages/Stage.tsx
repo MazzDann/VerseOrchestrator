@@ -11,6 +11,7 @@ import { SlidePreview } from '../components/SlideCanvas';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen } from '../lib/fullscreen';
+import { tr, useLang } from '../i18n';
 
 /** Two-digit clock parts. */
 function useClock(): string {
@@ -37,6 +38,7 @@ const toggleFullscreen = () => setFullscreen(!document.fullscreenElement);
  * Read-only mirror of the live/next channels; never publishes.
  */
 export function Stage() {
+  useLang();
   const [slide, setSlide] = useState<Slide>(EMPTY_SLIDE);
   const [next, setNext] = useState<Slide | null>(null);
   const clock = useClock();
@@ -66,18 +68,18 @@ export function Stage() {
   }, []);
 
   const liveLabel = slide.forceBlack
-    ? 'Чорний екран'
+    ? tr('Чорний екран')
     : slide.blank
-      ? 'Текст сховано'
+      ? tr('Текст сховано')
       : slide.visible && slide.lines.length > 0
-        ? slide.reference || 'На екрані'
-        : 'Порожньо';
+        ? slide.reference || tr('На екрані')
+        : tr('Порожньо');
 
   return (
     <div
       role="button"
       tabIndex={0}
-      aria-label="Перемкнути повний екран"
+      aria-label={tr('Перемкнути повний екран')}
       onClick={toggleFullscreen}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -116,7 +118,9 @@ export function Stage() {
                   : 'none',
             }}
           />
-          <span style={{ fontSize: '2.6vmin', fontWeight: 700, letterSpacing: 1 }}>НА ЕКРАНІ</span>
+          <span style={{ fontSize: '2.6vmin', fontWeight: 700, letterSpacing: 1 }}>
+            {tr('НА ЕКРАНІ')}
+          </span>
           <span
             style={{
               fontSize: '2.6vmin',
@@ -152,7 +156,7 @@ export function Stage() {
           }}
         >
           <div style={{ fontSize: '2vmin', fontWeight: 600, opacity: 0.55, letterSpacing: 2 }}>
-            ЗАРАЗ
+            {tr('ЗАРАЗ')}
           </div>
           <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center' }}>
             {/* Tally ring: red = what the audience sees now. */}
@@ -177,7 +181,8 @@ export function Stage() {
           }}
         >
           <div style={{ fontSize: '2vmin', fontWeight: 600, opacity: 0.55, letterSpacing: 2 }}>
-            ДАЛІ{next?.reference ? ` · ${next.reference}` : ''}
+            {tr('ДАЛІ')}
+            {next?.reference ? ` · ${next.reference}` : ''}
           </div>
           <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'flex-start' }}>
             {next ? (
@@ -206,7 +211,7 @@ export function Stage() {
                   fontSize: '2vmin',
                 }}
               >
-                — кінець / немає наступного —
+                {tr('— кінець / немає наступного —')}
               </div>
             )}
           </div>

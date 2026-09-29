@@ -56,6 +56,17 @@ const TRANSLATED = [
   'web/src/components/CommandPalette.tsx',
   'web/src/components/Monitor.tsx',
   'web/src/components/VirtualList.tsx',
+  // 0.11.4 — the output windows
+  'web/src/components/OutputsPanel.tsx',
+  'web/src/pages/Presenter.tsx',
+  'web/src/pages/Stage.tsx',
+  'web/src/lib/screens.ts',
+  'web/src/lib/outputs.ts',
+  'web/src/components/IdentifyOverlay.tsx',
+  'web/src/components/SlideCanvas.tsx',
+  'web/src/components/SlideFade.tsx',
+  'web/src/openPresenter.ts',
+  'web/src/presenterBus.ts',
 ];
 
 const walk = (dir: string): string[] =>

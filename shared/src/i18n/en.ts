@@ -603,4 +603,73 @@ export const EN: Record<string, string> = {
   'Команда, книга, пісня або посилання…': 'A command, a book, a song, or a reference…',
   '↑↓ — вибір · Enter — виконати · Esc — закрити': '↑↓ — choose · Enter — run · Esc — close',
   '{n} результат|{n} результати|{n} результатів': '{n} result|{n} results',
+  // output windows (OutputsPanel, Presenter, Stage, lib/screens, lib/outputs)
+  'Відкрите з іншого вікна керування: на весь екран його переведе F або клік у самому вікні':
+    'Opened from another control window: F or a click in the window itself makes it full screen',
+  'Вікно не озвалося — можливо, браузер його заблокував: дозвольте спливні вікна для цього сайту':
+    "The window didn't answer — the browser may have blocked it: allow pop-ups for this site",
+  'Браузер заблокував вікно — дозвольте спливні вікна для цього сайту':
+    'The browser blocked the window — allow pop-ups for this site',
+  'Цей браузер не передає жест іншому вікну — натисніть F у самому вікні':
+    "This browser doesn't pass the gesture to another window — press F in the window itself",
+  '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну':
+    "{window} didn't close — the browser won't let it be closed from here. Close it by hand",
+  'Розкладку збережено: {n} вікно|Розкладку збережено: {n} вікна|Розкладку збережено: {n} вікон':
+    'Layout saved: {n} window|Layout saved: {n} windows',
+  'Відкрито вікон: {n}': 'Windows opened: {n}',
+  'Відкрито {ok} з {total}: частину заблокував браузер або екрана немає — дозвольте спливні вікна й повторіть':
+    'Opened {ok} of {total}: the browser blocked some, or a screen is missing — allow pop-ups and try again',
+  Екрани: 'Screens',
+  'Браузер покаже всі екрани й відкриватиме вікна на потрібному, якщо дозволите.':
+    'If you allow it, the browser shows all the screens and opens windows on the one you choose.',
+  'Показати екрани': 'Show screens',
+  'Доступ до екранів заборонено — дозвольте «Керування вікнами» в налаштуваннях сайту (значок ліворуч від адреси).':
+    'Access to the screens is denied — allow “Window management” in the site settings (the icon left of the address).',
+  'Цей браузер не повідомляє про екрани: вікна відкриваються там, де їх поставить браузер. Chrome і Edge уміють відкривати на вибраному екрані.':
+    "This browser doesn't tell about screens: windows open wherever the browser puts them. Chrome and Edge can open them on a chosen screen.",
+  основний: 'primary',
+  'вікон: {n}': 'windows: {n}',
+  Показ: 'Presentation',
+  'Відкриті вікна': 'Open windows',
+  'Вікон виводу не відкрито — відкрийте показ на потрібному екрані вище.':
+    'No output windows open — open a presentation on the screen you need above.',
+  'екран невідомий': 'screen unknown',
+  'на весь екран': 'full screen',
+  приховане: 'hidden',
+  'Показати номер на цьому вікні': 'Show the number on this window',
+  'Показати номер: {window}': 'Show the number: {window}',
+  'Вийти з повного екрана': 'Exit full screen',
+  'На весь екран (або F у вікні)': 'Full screen (or F in the window)',
+  'На весь екран': 'Full screen',
+  'Перейти до вікна': 'Go to the window',
+  'Перейти до вікна: {window}': 'Go to the window: {window}',
+  'Інший екран не видно — дозвольте доступ до екранів':
+    "The other screen isn't visible — allow access to the screens",
+  'Перенести на інший екран': 'Move to another screen',
+  'Перенести: {window}': 'Move: {window}',
+  'Закрити вікно': 'Close the window',
+  'Закрити: {window}': 'Close: {window}',
+  'Кілька вікон показу': 'Several presentation windows',
+  '«Вікно показу» відкриває ще одне, а не повертає вже відкрите':
+    '“Presentation window” opens another one instead of bringing back the open one',
+  'Відкривати на весь екран': 'Open in full screen',
+  'З окремими процесами вікно стає на весь екран клавішею F або кліком у ньому самому':
+    'With separate processes, a window goes full screen with the F key or a click in the window itself',
+  'Нове вікно стає на весь екран з вашим наступним кліком у цьому вікні — по одному вікну на клік (Chrome, Edge); в інших браузерах — F у самому вікні':
+    'A new window goes full screen with your next click in this window — one window per click (Chrome, Edge); in other browsers, F in the window itself',
+  'Окремий процес для кожного вікна': 'A separate process for each window',
+  'Збій одного вікна виводу не зачепить вікно керування й інші вікна (Chrome, Edge). Діє для нових вікон; на весь екран — F або клік у самому вікні':
+    "A crash in one output window won't touch the control window or the other windows (Chrome, Edge). Applies to new windows; full screen — F or a click in the window itself",
+  'Зберегти розкладку': 'Save the layout',
+  'Відкрити розкладку': 'Open the layout',
+  'Перемкнути повний екран': 'Toggle full screen',
+  'Клік або «F» — на весь екран · ← → гортають слайди':
+    'Click or “F” — full screen · ← → step through slides',
+  'НА ЕКРАНІ': 'ON SCREEN',
+  ЗАРАЗ: 'NOW',
+  ДАЛІ: 'NEXT',
+  '— кінець / немає наступного —': '— end / nothing next —',
+  'Основний екран': 'Primary screen',
+  'Екран {n}': 'Screen {n}',
+  'Цей екран': 'This screen',
 };
