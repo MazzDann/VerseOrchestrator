@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { howToStart, nodeCopy, npmShim, projectFiles } from './portable';
+import { howToStart, nodeCopy, npmShim, OS_NAME, projectFiles, START_FILE } from './portable';
 
 describe('portable copy (0.7.3)', () => {
   it('copies node.exe with the npm beside it on Windows', () => {
@@ -52,7 +52,20 @@ describe('portable copy (0.7.3)', () => {
       withLibrary: false,
     });
     expect(mac).toContain('start.command');
+    expect(mac).toContain('./start.command --off'); // the only start file at a Mac release's top
     expect(mac).toContain('modules/');
+    // the app is in app/, the user's things next to it (0.14.0)
+    expect(win).toContain('app/');
+    expect(win).toContain('data/');
+  });
+
+  it('names the folder and the start file the way people know their system (0.14.0)', () => {
+    expect([OS_NAME.win32, OS_NAME.darwin, OS_NAME.linux]).toEqual(['windows', 'macos', 'linux']);
+    expect([START_FILE.win32, START_FILE.darwin, START_FILE.linux]).toEqual([
+      'start.cmd',
+      'start.command',
+      'start.sh',
+    ]);
   });
 
   it('without git: the project files by name, as .gitignore keeps things out', () => {

@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lanIps } from './access.ts';
+import { applyLayout } from './layout.ts';
 import { consoleLang, setLang, tr, trError } from './lang.ts';
 import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
 import { appWindowCommand, createShortcut } from './shortcut.ts';
@@ -567,6 +568,8 @@ if (invokedDirectly) {
   process.stdout.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EPIPE') process.exit(0);
   });
+  // a release folder (0.14.0): data and modules sit next to app/ — first, before anything reads them
+  applyLayout(root);
   setLang(consoleLang(process.env.VO_DATA_DIR ?? path.join(root, 'data')));
   if (!nodeVersionOk(process.versions.node)) {
     say(

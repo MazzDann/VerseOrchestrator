@@ -2,6 +2,8 @@
 # VerseOrchestrator — start the app on Linux: ./start.sh (macOS: double-click start.command).
 # Everything else happens in server/src/launcher.ts (the same on every system).
 cd "$(dirname "$0")" || exit 1
+# a release folder (npm run portable, 0.14.0) keeps the app in app/ next to this file
+if [ -f app/start.sh ]; then exec sh app/start.sh "$@"; fi
 # a portable copy (npm run portable) carries its own Node, npm included
 if [ -x ./node/bin/node ]; then PATH="$PWD/node/bin:$PATH"; export PATH; fi
 if ! command -v node >/dev/null 2>&1; then

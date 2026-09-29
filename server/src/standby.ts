@@ -30,6 +30,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KeyedError, N_, requestLang, tr, trError, type Lang } from './lang.ts';
+import { applyLayout } from './layout.ts';
 
 export interface RunningApp {
   port: number;
@@ -549,4 +550,8 @@ async function main(): Promise<void> {
 
 const invokedDirectly =
   !!process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (invokedDirectly) void main();
+if (invokedDirectly) {
+  // autostart runs the waiter itself: a release folder's data and modules (0.14.0)
+  applyLayout(repoRoot);
+  void main();
+}
