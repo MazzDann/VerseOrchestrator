@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Stack,
   Group,
@@ -28,8 +28,10 @@ import {
   IconDeviceFloppy,
   IconFolder,
   IconFolderOpen,
+  IconArrowBackUp,
 } from '@tabler/icons-react';
 import { type SeqItem, type SavedProgram } from '../playlistStore';
+import { plural } from '../lib/plural';
 
 interface Props {
   items: SeqItem[];
@@ -40,6 +42,9 @@ interface Props {
   onMove: (id: string, dir: -1 | 1) => void;
   onReorder: (from: number, to: number) => void;
   onClear: () => void;
+  /** How many items «Скасувати» would bring back after «Очистити показ» (0 = nothing). */
+  cleared: number;
+  onUndoClear: () => void;
   onNext: () => void;
   onPrev: () => void;
   onSave: (name: string) => void;
@@ -70,6 +75,8 @@ export function PlaylistPanel({
   onMove,
   onReorder,
   onClear,
+  cleared,
+  onUndoClear,
   onNext,
   onPrev,
   onSave,
@@ -80,6 +87,14 @@ export function PlaylistPanel({
   const [name, setName] = useState('');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  const undoRef = useRef<HTMLButtonElement>(null);
+
+  // «Очистити показ» goes disabled under the pointer and takes the focus with it: hand the
+  // focus to «Скасувати», so Enter or Space right away brings the list back.
+  const clear = () => {
+    onClear();
+    requestAnimationFrame(() => undoRef.current?.focus());
+  };
 
   const save = () => {
     if (!name.trim() || items.length === 0) return;
@@ -137,7 +152,7 @@ export function PlaylistPanel({
             <ActionIcon
               variant="subtle"
               color="red"
-              onClick={onClear}
+              onClick={clear}
               disabled={items.length === 0}
               aria-label="Очистити показ"
             >
@@ -215,7 +230,22 @@ export function PlaylistPanel({
 
       <Divider my={2} />
 
-      {items.length === 0 ? (
+      {items.length === 0 && cleared > 0 ? (
+        <Stack gap="xs" align="center" py="md">
+          <Text size="sm" c="dimmed" ta="center">
+            Показ очищено: {cleared} {plural(cleared, ['елемент', 'елементи', 'елементів'])}.
+          </Text>
+          <Button
+            ref={undoRef}
+            size="xs"
+            variant="light"
+            leftSection={<IconArrowBackUp size={14} />}
+            onClick={onUndoClear}
+          >
+            Скасувати
+          </Button>
+        </Stack>
+      ) : items.length === 0 ? (
         <Text size="sm" c="dimmed" ta="center" py="lg">
           Порожньо. Додавайте уривки, пісні й текст кнопкою «+ у показ».
         </Text>

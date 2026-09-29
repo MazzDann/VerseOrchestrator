@@ -60,6 +60,13 @@ interface PlaylistState {
   /** Move the item at `from` to position `to` (drag-and-drop reorder). */
   reorder: (from: number, to: number) => void;
   clear: () => void;
+  /**
+   * What «Очистити показ» took away (1.8.0), so «Скасувати» can bring it back. Offered while
+   * the list stays empty: adding an item or opening a program forgets it. Not saved.
+   */
+  cleared: { items: SeqItem[]; currentId: string | null } | null;
+  /** Bring back the list the last «Очистити показ» emptied. */
+  undoClear: () => void;
   setCurrent: (id: string | null) => void;
   /** Snapshot the current items under `name` (overwrites an existing program). */
   saveProgram: (name: string) => void;
@@ -79,7 +86,9 @@ export const usePlaylist = create<PlaylistState>()(
       items: [],
       currentId: null,
       saved: [],
-      add: (item) => set((s) => ({ items: [...s.items, { ...item, id: newId() } as SeqItem] })),
+      cleared: null,
+      add: (item) =>
+        set((s) => ({ items: [...s.items, { ...item, id: newId() } as SeqItem], cleared: null })),
       removeItem: (id) =>
         set((s) => ({
           items: s.items.filter((i) => i.id !== id),
@@ -103,7 +112,18 @@ export const usePlaylist = create<PlaylistState>()(
           items.splice(to, 0, moved);
           return { items };
         }),
-      clear: () => set({ items: [], currentId: null }),
+      clear: () =>
+        set((s) =>
+          s.items.length === 0
+            ? s
+            : { items: [], currentId: null, cleared: { items: s.items, currentId: s.currentId } },
+        ),
+      undoClear: () =>
+        set((s) =>
+          s.cleared && s.items.length === 0
+            ? { items: s.cleared.items, currentId: s.cleared.currentId, cleared: null }
+            : { cleared: null },
+        ),
       setCurrent: (id) => set({ currentId: id }),
       saveProgram: (name) =>
         set((s) => {
@@ -120,7 +140,7 @@ export const usePlaylist = create<PlaylistState>()(
             ...it,
             id: newId(),
           }));
-          return { items, currentId: null };
+          return { items, currentId: null, cleared: null };
         }),
       deleteProgram: (name) => set((s) => ({ saved: s.saved.filter((p) => p.name !== name) })),
     }),

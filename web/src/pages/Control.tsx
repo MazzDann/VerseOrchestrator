@@ -218,6 +218,8 @@ export function Control() {
   const playlistMove = usePlaylist((s) => s.move);
   const playlistReorder = usePlaylist((s) => s.reorder);
   const playlistClear = usePlaylist((s) => s.clear);
+  const playlistCleared = usePlaylist((s) => s.cleared?.items.length ?? 0);
+  const playlistUndoClear = usePlaylist((s) => s.undoClear);
   const playlistSetCurrent = usePlaylist((s) => s.setCurrent);
   const playlistSaveProgram = usePlaylist((s) => s.saveProgram);
   const playlistLoadProgram = usePlaylist((s) => s.loadProgram);
@@ -2809,6 +2811,8 @@ export function Control() {
           onMove={playlistMove}
           onReorder={playlistReorder}
           onClear={playlistClear}
+          cleared={playlistCleared}
+          onUndoClear={playlistUndoClear}
           onNext={() => stepPlaylist(1)}
           onPrev={() => stepPlaylist(-1)}
           onSave={(n) => {
