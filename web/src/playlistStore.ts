@@ -61,7 +61,7 @@ interface PlaylistState {
   reorder: (from: number, to: number) => void;
   clear: () => void;
   /**
-   * What «Очистити показ» took away (1.8.0), so «Скасувати» can bring it back. Offered while
+   * What «Очистити показ» took away (0.9.0), so «Скасувати» can bring it back. Offered while
    * the list stays empty: adding an item or opening a program forgets it. Not saved.
    */
   cleared: { items: SeqItem[]; currentId: string | null } | null;
@@ -74,7 +74,7 @@ interface PlaylistState {
   loadProgram: (name: string) => void;
   deleteProgram: (name: string) => void;
   /**
-   * The program «Видалити програму» took away last and where it stood (1.8.1), so
+   * The program «Видалити програму» took away last and where it stood (0.9.1), so
    * «Скасувати» can put it back. Saving a program forgets it; not saved.
    */
   deleted: { program: SavedProgram; index: number } | null;

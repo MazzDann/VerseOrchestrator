@@ -70,7 +70,7 @@ describe('connectLive', () => {
     expect(FakeSocket.all).toHaveLength(2);
   });
 
-  it('a stopped connection says nothing more (1.5.25)', async () => {
+  it('a stopped connection says nothing more (0.6.25)', async () => {
     const status: boolean[] = [];
     const c = connectLive({ hello: { role: 'control' }, onStatus: (open) => status.push(open) });
     FakeSocket.all[0].accept();
@@ -81,7 +81,7 @@ describe('connectLive', () => {
     expect(FakeSocket.all).toHaveLength(1); // and no reconnect
   });
 
-  it('retries at most every 2 s and reports the loss once (1.5.29)', async () => {
+  it('retries at most every 2 s and reports the loss once (0.6.29)', async () => {
     const status: boolean[] = [];
     connectLive({ onStatus: (open) => status.push(open) });
     FakeSocket.all[0].accept();
@@ -95,7 +95,7 @@ describe('connectLive', () => {
       expect(FakeSocket.all).toHaveLength(n + 1);
       await refuse();
     }
-    // four refused retries, one «down»: the control window's 1.5.25 warning timer isn't
+    // four refused retries, one «down»: the control window's 0.6.25 warning timer isn't
     // restarted by each of them (with 2 s retries it would never run out)
     expect(status).toEqual([true, false]);
     vi.advanceTimersByTime(2000);
@@ -103,7 +103,7 @@ describe('connectLive', () => {
     expect(status).toEqual([true, false, true]);
   });
 
-  it('back on screen or online: tries at once, but never beside a live connect (1.5.29)', async () => {
+  it('back on screen or online: tries at once, but never beside a live connect (0.6.29)', async () => {
     connectLive({});
     FakeSocket.all[0].accept();
     listeners.get('visibilitychange')!(); // connected: nothing to do

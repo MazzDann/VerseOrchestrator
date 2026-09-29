@@ -6,7 +6,7 @@ import { api } from '../api';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 
 /**
- * «Ярлик на робочому столі» (1.6.5): starts the app and opens the control window as an app
+ * «Ярлик на робочому столі» (0.7.5): starts the app and opens the control window as an app
  * window — no tabs, no address bar (Chrome or Edge; the default browser otherwise). The same as
  * `start --shortcut` (server/src/shortcut.ts).
  */

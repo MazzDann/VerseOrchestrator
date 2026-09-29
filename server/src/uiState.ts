@@ -1,7 +1,7 @@
 import { readJson, writeJson } from './jsonFile.js';
 
 /**
- * The operator's UI state kept with the app in data/ui-state.json (1.6.4): appearance, presets
+ * The operator's UI state kept with the app in data/ui-state.json (0.7.4): appearance, presets
  * and hotkeys (`vo:settings`), the running order and saved programmes (`vo:playlist`). It moves
  * with the folder (a portable copy), and every address of the app (another port, the LAN
  * address) sees the same — the browser only keeps a copy per address. Each entry is the store's

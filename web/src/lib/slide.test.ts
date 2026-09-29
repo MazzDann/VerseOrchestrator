@@ -67,7 +67,7 @@ describe('sameSlide', () => {
   });
 });
 
-describe("the viewers' QR slide (1.5.16)", () => {
+describe("the viewers' QR slide (0.6.16)", () => {
   it('counts as something on screen for the remotes', () => {
     const qr = {
       lines: [],
@@ -85,7 +85,7 @@ describe("the viewers' QR slide (1.5.16)", () => {
   });
 });
 
-describe('«Сховати текст» / «Чорний екран» toggles (1.5.18)', () => {
+describe('«Сховати текст» / «Чорний екран» toggles (0.6.18)', () => {
   const verse = {
     lines: [{ translationAbbr: 'UKRK', text: 'На початку було Слово', rtl: false }],
     reference: 'Івана 1:1',

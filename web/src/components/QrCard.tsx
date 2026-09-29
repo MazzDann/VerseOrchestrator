@@ -17,7 +17,7 @@ const inEye = (n: number, x: number, y: number) =>
 
 /**
  * A QR as SVG, crisp at any size. `square`: every dark module a unit square (one path).
- * `rounded` / `dots` (1.5.20, the operator asked for some styling): data modules as
+ * `rounded` / `dots` (0.6.20, the operator asked for some styling): data modules as
  * rounded squares or dots and the three eyes as a rounded ring + a rounded centre — at
  * error-correction Q, so the softer shapes still scan.
  */
@@ -84,7 +84,7 @@ function QrSvg({ text, size, look }: { text: string; size: string; look: QrStyle
 }
 
 /**
- * The viewers' QR on an output (1.5.16): a white card — the QR's quiet zone — so it scans
+ * The viewers' QR on an output (0.6.16): a white card — the QR's quiet zone — so it scans
  * over a photo, a colour or black alike. Sized in cqh (the slide root is a size container),
  * so it scales with the output window. `full` is the slide «QR на екран» puts up; `corner`
  * the small card on every slide while «QR у кутку екрана» is on.

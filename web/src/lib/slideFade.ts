@@ -1,7 +1,7 @@
 import type { SlideTransition } from '../presenterBus';
 
 /**
- * How a slide change plays out (1.5.10) — the decisions of components/SlideFade.tsx, kept
+ * How a slide change plays out (0.6.10) — the decisions of components/SlideFade.tsx, kept
  * pure for the tests. `shown` is the slide on screen (its key), `fadingOut` whether it is
  * leaving right now, `next` the slide asked for (null = nothing: blank / cleared).
  */
@@ -30,7 +30,7 @@ export function planSlideChange(
 }
 
 /**
- * Timing per mode (the 1.5.7 values): `smooth` — out, then in, 0.35 s each, ease-in-out;
+ * Timing per mode (the 0.6.7 values): `smooth` — out, then in, 0.35 s each, ease-in-out;
  * `fast` — out at once, in over 0.15 s, ease-out; `none` — no animation at all.
  */
 export function fadeTiming(

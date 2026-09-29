@@ -21,10 +21,10 @@ export function Follow() {
   /** The operator switched follow-along off (or hasn't started it yet). */
   const [paused, setPaused] = useState(false);
   const [connected, setConnected] = useState(true);
-  /** The operator switched the app off («Вимкнути повністю», 1.6.1) — not a blip. */
+  /** The operator switched the app off («Вимкнути повністю», 0.7.1) — not a blip. */
   const [off, setOff] = useState(false);
   const version = useRef(-1);
-  // how THIS phone likes to read (1.5.17): kept in its own browser, nothing is sent
+  // how THIS phone likes to read (0.6.17): kept in its own browser, nothing is sent
   const [reader, setReader] = useState<ReaderPrefs>(loadReader);
   const [readerOpen, setReaderOpen] = useState(false);
   const setPrefs = (patch: Partial<ReaderPrefs>) =>
@@ -205,7 +205,7 @@ export function Follow() {
         )}
       </div>
       {showText && slide!.reference && (
-        // what is being read sits apart from the text, next to «Aa» (1.5.22): under the
+        // what is being read sits apart from the text, next to «Aa» (0.6.22): under the
         // last line a weak eye took it for one more line of the verse or stanza
         <p className="vo-follow-ref">{slide!.reference}</p>
       )}

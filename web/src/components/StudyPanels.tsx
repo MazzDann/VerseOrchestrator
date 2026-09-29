@@ -59,7 +59,7 @@ interface Props {
   onTogglePin: () => void;
   /** Bottom-of-centre placement: constrain the preview and hide the pin. */
   compact?: boolean;
-  /** The speaker's own preview (1.5.2, a remote's cursor) and what the operator can do with it. */
+  /** The speaker's own preview (0.6.2, a remote's cursor) and what the operator can do with it. */
   remote?: {
     name: string;
     slide: Slide;
@@ -68,7 +68,7 @@ interface Props {
     onAdopt?: () => void;
     onClose: () => void;
   } | null;
-  /** Remotes the operator can suggest their preview to (1.5.4) and how. */
+  /** Remotes the operator can suggest their preview to (0.6.4) and how. */
   suggest?: { remotes: { id: string; name: string }[]; onSend: (id: string) => void } | null;
 }
 
@@ -121,7 +121,7 @@ export function StudyPanels({
       </ActionIcon>
     </Tooltip>
   );
-  // Suggest the preview to a speaker's remote (1.5.4): one remote — one click; several — a menu.
+  // Suggest the preview to a speaker's remote (0.6.4): one remote — one click; several — a menu.
   const suggestTargets = previewHas ? (suggest?.remotes ?? []) : [];
   const suggestButton =
     suggestTargets.length === 1 ? (
@@ -155,7 +155,7 @@ export function StudyPanels({
         </Menu.Dropdown>
       </Menu>
     ) : null;
-  // put on screen by a speaker's remote (1.5.2): say whose it is
+  // put on screen by a speaker's remote (0.6.2): say whose it is
   const liveBy = liveSlide.source?.by;
   const liveDetail = liveActive
     ? `${liveSlide.reference}${liveBy ? ` · пульт «${liveBy}»` : ''}`
@@ -166,7 +166,7 @@ export function StudyPanels({
       state={previewState}
       title={merged ? 'На екрані' : 'Прев’ю'}
       // the slide's own reference — a song or a text isn't the verse selection (the
-      // merged monitor said «На екрані Psalms 135:15» over a song stanza, 1.5.11)
+      // merged monitor said «На екрані Psalms 135:15» over a song stanza, 0.6.11)
       detail={
         merged
           ? liveDetail

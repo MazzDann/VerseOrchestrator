@@ -13,10 +13,10 @@ import { readJson, writeJson } from './jsonFile.js';
 
 /**
  * Commands a remote may send. Settings, library rebuild etc. are never remote-able.
- * `show` (1.5.0) puts the control window's preview on screen, like the operator's F5.
- * `pick` (1.5.1) lets the phone choose verses itself — its own cursor, sent as a passage
+ * `show` (0.6.0) puts the control window's preview on screen, like the operator's F5.
+ * `pick` (0.6.1) lets the phone choose verses itself — its own cursor, sent as a passage
  * (to preview with `pick`, to put on screen with `show` + passage, which needs both).
- * `songs` (1.5.3) is a permission, not a command: song stanzas chosen on the phone go
+ * `songs` (0.6.3) is a permission, not a command: song stanzas chosen on the phone go
  * the same way (`pick` / `show` + song) — the operator grants it per remote on its own.
  */
 export const REMOTE_COMMANDS = [
@@ -33,7 +33,7 @@ export type RemoteCommand = (typeof REMOTE_COMMANDS)[number];
 
 /**
  * What a remote can SEND (permissions above are what it may): the buttons, `show` / `pick`
- * (checked by what they carry) and `queue` (1.5.9: add the speaker's choice to the shared
+ * (checked by what they carry) and `queue` (0.6.9: add the speaker's choice to the shared
  * running order — needs «Послідовність» plus the right to choose that kind).
  */
 export const REMOTE_ACTIONS = ['next', 'prev', 'blank', 'black', 'show', 'pick', 'queue'] as const;
@@ -159,7 +159,7 @@ export function findByToken(token: unknown): Pairing | null {
 }
 
 /**
- * Change what a pairing may do (1.5.0 — new abilities are off by default, so the operator
+ * Change what a pairing may do (0.6.0 — new abilities are off by default, so the operator
  * turns them on for a remote that already exists). An empty list is allowed: the phone
  * stays paired but can only watch.
  */
@@ -193,7 +193,7 @@ export function listPairings(online: (id: string) => boolean) {
   }));
 }
 
-/** A passage chosen on a phone (1.5.1): translations, book, chapter, verses. */
+/** A passage chosen on a phone (0.6.1): translations, book, chapter, verses. */
 export interface Passage {
   translationIds: number[];
   bookNumber: number;
@@ -221,7 +221,7 @@ export function sanitizePassage(raw: unknown): Passage | null {
   };
 }
 
-/** A song stanza chosen on a phone (1.5.3). */
+/** A song stanza chosen on a phone (0.6.3). */
 export interface SongPick {
   songId: number;
   stanza: number;

@@ -195,7 +195,7 @@ describe('library queries (shared, engine-agnostic)', () => {
   });
 });
 
-describe('older libraries (pre-1.2.2 schema) keep working', () => {
+describe('older libraries (pre-0.3.2 schema) keep working', () => {
   it('shared FTS without the translation token, verse_strongs without lang', async () => {
     const db = new Database(':memory:');
     db.exec(`

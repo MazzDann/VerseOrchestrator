@@ -25,7 +25,7 @@ beforeEach(() => {
   state().setCurrent(state().items[1].id);
 });
 
-describe('«Очистити показ» → «Скасувати» (1.8.0)', () => {
+describe('«Очистити показ» → «Скасувати» (0.9.0)', () => {
   it('brings back the same items, in order, with the one on screen', () => {
     const before = state().items;
     state().clear();
@@ -67,7 +67,7 @@ describe('«Очистити показ» → «Скасувати» (1.8.0)', (
   });
 });
 
-describe('«Видалити програму» → «Скасувати» (1.8.1)', () => {
+describe('«Видалити програму» → «Скасувати» (0.9.1)', () => {
   const names = () => state().saved.map((p) => p.name);
 
   beforeEach(() => {

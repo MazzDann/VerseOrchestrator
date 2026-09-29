@@ -1,8 +1,8 @@
 import type { PresenterCommand, Slide } from '../presenterBus';
 
 /**
- * The window bus, protocol v2 (1.3.1) — control window ⇄ output windows (presenter,
- * stage). Measured in /bench (1.3.0): text slides cost nothing on any transport; the
+ * The window bus, protocol v2 (0.4.1) — control window ⇄ output windows (presenter,
+ * stage). Measured in /bench (0.4.0): text slides cost nothing on any transport; the
  * background photo (a ≤1.5 MB data URL inside every slide's style) was the whole cost —
  * each slide change wrote it to localStorage (sync, ~16 ms frozen control window, plus a
  * 1.4 MB `storage` event in EVERY app window) and cloned it over BroadcastChannel; the
@@ -99,7 +99,7 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
   /** The last wire JSON per stream: an identical publish is dropped (no message, no write). */
   const lastJson = { live: '', next: '' };
   /**
-   * Is this window allowed to publish (1.3.4)? A standby control window (another one
+   * Is this window allowed to publish (0.4.4)? A standby control window (another one
    * leads — lib/leader.ts) neither publishes nor answers handshakes with stale state.
    */
   let publishing = true;
@@ -240,7 +240,7 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
 
   return {
     publishSlide: (slide: Slide) => publish('live', slide),
-    /** Leader or standby (1.3.4); stopping also forgets what this window last sent. */
+    /** Leader or standby (0.4.4); stopping also forgets what this window last sent. */
     setPublishing(on: boolean): void {
       publishing = on;
       if (!on) {

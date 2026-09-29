@@ -1,5 +1,5 @@
 /**
- * «Далі» past a chapter's last verse, «Назад» before its first (1.5.23): the first press
+ * «Далі» past a chapter's last verse, «Назад» before its first (0.6.23): the first press
  * only says where a second one goes; pressed again within CROSS_MS it turns the chapter.
  * A clicker never leaves the chapter by accident, and a reading can still run on.
  */

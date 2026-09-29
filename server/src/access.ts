@@ -39,7 +39,7 @@ export const isLocalRequest = (req: IncomingMessage) => isOwnAddress(clientAddre
  * This machine's LAN IPv4 addresses, the one a phone can most likely reach first: a real
  * Wi-Fi/Ethernet address before virtual adapters (Hyper-V/WSL/VirtualBox/Docker), which are
  * commonly enumerated first on Windows and aren't reachable from phones. Shared by the
- * phone QR (`/api/host`) and the launcher's printout (1.6.0).
+ * phone QR (`/api/host`) and the launcher's printout (0.7.0).
  */
 export function lanIps(interfaces = os.networkInterfaces()): string[] {
   const VIRTUAL = /(vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|default switch)/i;

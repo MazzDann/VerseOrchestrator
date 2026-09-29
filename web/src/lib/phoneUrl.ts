@@ -4,7 +4,7 @@ import { api } from '../api';
 /**
  * The address a phone can open for one of this app's pages. When the operator opened
  * the app on localhost (a phone can't reach that), this machine's LAN IP instead. Shared
- * by the QR panels (PhoneLink) and the viewers' QR on the output (1.5.16).
+ * by the QR panels (PhoneLink) and the viewers' QR on the output (0.6.16).
  */
 export function usePhoneUrl(path: string): {
   url: string;

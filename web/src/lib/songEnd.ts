@@ -1,5 +1,5 @@
 /**
- * A speaker's remote walking a song (1.5.24): at its last stanza, while that stanza is on
+ * A speaker's remote walking a song (0.6.24): at its last stanza, while that stanza is on
  * screen, «Далі» empties the screen (the text goes, the background stays — «Сховати
  * текст»), «Далі» again is the end, and «Назад» brings exactly that stanza back.
  */

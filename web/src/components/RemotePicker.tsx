@@ -9,8 +9,8 @@ type Step = 'translations' | 'books' | 'chapters' | 'verses' | 'songs' | 'stanza
 const MAX_TRANSLATIONS = 5;
 
 /**
- * The speaker's picker on the phone: Bible verses (1.5.1: translations → book → chapter →
- * verse) or song stanzas (1.5.3: search → song → stanza), read straight from the library
+ * The speaker's picker on the phone: Bible verses (0.6.1: translations → book → chapter →
+ * verse) or song stanzas (0.6.3: search → song → stanza), read straight from the library
  * API (read-only, open to the LAN). The choice goes to the speaker's own preview
  * («У передпоказ») or straight on screen («На екран»); the operator's selection is never
  * touched. Plain elements with vo-remote-* classes, like the rest of the phone pages.
@@ -29,11 +29,11 @@ export function RemotePicker({
   start: RemoteTarget | null;
   translationIds: number[];
   canShow: boolean;
-  /** what this remote may choose — each granted by the operator on its own (1.5.3) */
+  /** what this remote may choose — each granted by the operator on its own (0.6.3) */
   verses: boolean;
   songs: boolean;
   onPick: (t: RemoteTarget, show: boolean) => void;
-  /** «+ У послідовність» (1.5.9): absent when this remote may not add to the running order */
+  /** «+ У послідовність» (0.6.9): absent when this remote may not add to the running order */
   onQueue?: (t: RemoteTarget) => void;
   onClose: () => void;
 }) {

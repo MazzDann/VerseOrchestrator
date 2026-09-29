@@ -9,7 +9,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
 
-describe('UI state in data/ (1.6.4)', () => {
+describe('UI state in data/ (0.7.4)', () => {
   it('keeps the latest save of each key, in one file', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-ui-'));
     dirs.push(dir);

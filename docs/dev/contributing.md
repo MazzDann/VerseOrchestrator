@@ -46,13 +46,14 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
 
 ## Versions and commits
 
-- **Versions.** `MAJOR.MINOR` is one themed milestone; `PATCH` goes up with every commit
-  in it. Bump `"version"` in all five `package.json` files (the root, `shared`,
+- **Versions.** Until the first release, the version is `0.MINOR.PATCH`: `MINOR` is one
+  themed milestone, and `PATCH` goes up with every commit in it. The first release is
+  `1.0.0`. Bump `"version"` in all five `package.json` files (the root, `shared`,
   `builder`, `server`, and `web`) and run `npm install --package-lock-only` in the same
   commit. Check `git log` first: another branch may have taken the next number.
 - **Tags.** Tag every commit with an annotated tag: `git tag -a vX.Y.Z -m "…"`.
 - **Commit messages.** The subject is `X.Y.Z — Theme: summary`, for example
-  `1.5.29 — Hub: back within 2 s after an outage`. The body explains why, and gives the
+  `0.6.29 — Hub: back within 2 s after an outage`. The body explains why, and gives the
   measurements.
 
 ## UI conventions

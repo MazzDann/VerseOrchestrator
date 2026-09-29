@@ -29,7 +29,7 @@ export async function probeServer(): Promise<boolean> {
   return ok;
 }
 
-/** How to start the app again after «Вимкнути повністю» — the launchers of 1.6.0. */
+/** How to start the app again after «Вимкнути повністю» — the launchers of 0.7.0. */
 export const START_AGAIN =
   'Щоб запустити знову, відкрийте start.cmd (Windows), start.command (macOS) або ./start.sh (Linux) у папці застосунку.';
 

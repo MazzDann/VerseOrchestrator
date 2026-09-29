@@ -40,7 +40,7 @@ import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 
 const app = express();
 const json = express.json({ limit: '1mb' });
-// the UI state (1.6.4) may carry a background image as a data URL: its own, larger limit
+// the UI state (0.7.4) may carry a background image as a data URL: its own, larger limit
 app.use((req, res, next) => (req.path === '/api/ui-state' ? next() : json(req, res, next)));
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -143,14 +143,14 @@ const requireLocal: express.RequestHandler = (req, res, next) => {
   next();
 };
 
-/** «Ярлик на робочому столі» (1.6.5, Налаштування вигляду → Застосунок): shortcut.ts. */
+/** «Ярлик на робочому столі» (0.7.5, Налаштування вигляду → Застосунок): shortcut.ts. */
 app.post(
   '/api/shortcut',
   requireLocalControl,
   wrap((_req, res) => res.json({ files: createShortcut(repoRoot) })),
 );
 
-/** The operator's UI state kept in data/ (uiState.ts, 1.6.4) — this machine only. */
+/** The operator's UI state kept in data/ (uiState.ts, 0.7.4) — this machine only. */
 app.get('/api/ui-state', requireLocal, (_req, res) => res.json(getUiState()));
 
 app.put(
@@ -250,7 +250,7 @@ app.put(
   }),
 );
 
-// --- Standby waiter (1.4.2): «Запускати застосунок за адресою» in the control window.
+// --- Standby waiter (0.5.2): «Запускати застосунок за адресою» in the control window.
 
 const standbyScript = path.join(repoRoot, 'server', 'src', 'standby.ts');
 const autostart = currentEntry(repoRoot);
@@ -334,7 +334,7 @@ app.put(
 );
 
 /**
- * «Вимкнути повністю» (1.6.1, Налаштування вигляду → Застосунок): nothing of the app keeps
+ * «Вимкнути повністю» (0.7.1, Налаштування вигляду → Застосунок): nothing of the app keeps
  * running or starts again with the computer. The autostart entry goes; every page is told (so
  * phones and remotes say «вимкнено», not «no connection»); then the waiter that started this
  * app shuts down — stopping it — or, run directly, this process exits. A waiter of «Запуск за
@@ -567,7 +567,7 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
 
 /**
  * The built UI (web/dist — `npm run build --workspace @vo/web`), served next to the API so
- * the whole app is ONE process (1.4.0): what the standby waiter starts (standby.ts). In
+ * the whole app is ONE process (0.5.0): what the standby waiter starts (standby.ts). In
  * development Vite serves the UI on :5173 instead; without a build this is skipped.
  * Registered after the API, so an unknown /api path still gets a JSON-less 404.
  */

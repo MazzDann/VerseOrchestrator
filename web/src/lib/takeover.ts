@@ -1,7 +1,7 @@
 import type { Slide } from '../presenterBus';
 
 /**
- * What a control window does with the screen it takes over (1.4.10). Before, the new
+ * What a control window does with the screen it takes over (0.5.10). Before, the new
  * leader kept its own old selection: the screen showed Ів 23:3 (led by the other window),
  * «Далі» + «На екран» here gave 23:6 — this window's stale selection plus one. Now it
  * stands on what is on screen, so the show continues from there.

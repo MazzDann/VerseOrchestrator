@@ -1,5 +1,5 @@
 /**
- * The launcher (1.6.0): `start.cmd` (Windows), `start.command` (macOS), `./start.sh` (Linux) or
+ * The launcher (0.7.0): `start.cmd` (Windows), `start.command` (macOS), `./start.sh` (Linux) or
  * `npm start` — one way to start the app on any machine. It prepares what a fresh copy lacks
  * (dependencies, the native SQLite module, the library, the UI build), then runs the standby
  * waiter in this console: phones reach the app only through it (the server itself listens on
@@ -7,9 +7,9 @@
  * window stops everything.
  *
  *   start [--no-browser] [--port N] [--check]
- *   start --off [--port N]      switch it all off (1.6.2)
- *   start --app                 the control window as an app window (1.6.5)
- *   start --shortcut            a desktop shortcut that starts it that way (1.6.5)
+ *   start --off [--port N]      switch it all off (0.7.2)
+ *   start --app                 the control window as an app window (0.7.5)
+ *   start --shortcut            a desktop shortcut that starts it that way (0.7.5)
  *
  * Like standby.ts: only node: imports (it runs before `npm ci`) and no TS-only syntax — Node
  * runs it as it is (`node server/src/launcher.ts`, type stripping; the wrappers check that
@@ -48,7 +48,7 @@ export interface LaunchOptions {
   port: number | null;
   check: boolean;
   off: boolean;
-  /** the control window as an app window: Chrome/Edge `--app` (1.6.5) */
+  /** the control window as an app window: Chrome/Edge `--app` (0.7.5) */
   app: boolean;
   shortcut: boolean;
 }
@@ -87,7 +87,7 @@ export const platformTag = () =>
 
 /**
  * How the dependencies were installed: everything (a working copy), or only what the app runs
- * on — the server's and the builder's packages, no bundler or dev tools (a portable copy, 1.6.3).
+ * on — the server's and the builder's packages, no bundler or dev tools (a portable copy, 0.7.3).
  */
 export type DepsMode = 'full' | 'runtime';
 
@@ -229,7 +229,7 @@ async function gone(port: number, ms: number): Promise<boolean> {
 }
 
 /**
- * `start --off` (1.6.2): «Вимкнути повністю» from the console — when the control window can't be
+ * `start --off` (0.7.2): «Вимкнути повністю» from the console — when the control window can't be
  * reached, or the waiter runs hidden since the computer started. The running app is asked first
  * (it tells the phones and remotes, removes the autostart entry and stops its waiter); should it
  * not answer, its waiter is shut down directly; the autostart entry is removed here either way.
@@ -319,7 +319,7 @@ async function main(argv: string[]): Promise<number> {
   const port = opts.port ?? settings.port;
   const local = `http://localhost:${port}`;
 
-  // --off: «Вимкнути повністю» from the console (1.6.2)
+  // --off: «Вимкнути повністю» from the console (0.7.2)
   if (opts.off) {
     const r = await switchOff(port, currentEntry(root));
     if (r.stillRunning) {
@@ -343,7 +343,7 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  // --shortcut: the desktop shortcut, then done (1.6.5)
+  // --shortcut: the desktop shortcut, then done (0.7.5)
   if (opts.shortcut) {
     try {
       const files = createShortcut(root);
@@ -482,7 +482,7 @@ async function main(argv: string[]): Promise<number> {
       startApp: appProcess(root, log),
       log: echo,
       // closed: by Ctrl+C / the window (stop below), «Запуск за адресою» turned off, or
-      // «Вимкнути повністю» (1.6.1)
+      // «Вимкнути повністю» (0.7.1)
       onRetired: (why) => {
         if (why === 'shutdown')
           say(
@@ -501,7 +501,7 @@ async function main(argv: string[]): Promise<number> {
     });
     current = standby;
     await standby.listen();
-    // the app inherits it: «Вимкнути повністю» then tells this very waiter (1.6.1)
+    // the app inherits it: «Вимкнути повністю» then tells this very waiter (0.7.1)
     process.env.VO_STANDBY_PORT = String(p);
     await standby.start();
     say('');

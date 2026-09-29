@@ -15,7 +15,7 @@ import { useSettings } from './settingsStore';
  * Window Management API (Chrome/Edge, one-time permission) a window goes to a chosen
  * screen — by default the first secondary one; otherwise a plain pop-up the user drags
  * over. The «Вікна виводу» panel moves and closes output windows by COMMANDS they carry
- * out on themselves (1.4.11, lib/outputs.ts) — any control window, whichever opened them;
+ * out on themselves (0.5.11, lib/outputs.ts) — any control window, whichever opened them;
  * the references of windows opened here serve focusing and going fullscreen.
  */
 
@@ -39,7 +39,7 @@ const RETRY_MS = 10_000;
 
 /**
  * The window of this name even if this page didn't open it — after a reload of the
- * control window, or when another control window took over (Mac test, 1.4.5): the
+ * control window, or when another control window took over (Mac test, 0.5.5): the
  * references were in the old page. `window.open('', name)` hands back an existing
  * same-origin window of that name without navigating it. Call it only for a window
  * that is known to be open (it announces itself — lib/outputs.ts): for a name nobody
@@ -163,7 +163,7 @@ const ANNOUNCE_MS = 10_000;
  * brought forward (and moved, when a screen is given). `fullscreen` (default: the
  * «Відкривати на весь екран» setting) — an open window is asked at once; a new one gets
  * the operator's next click (Chrome/Edge, lib/fullscreen.ts). With «Окремий процес»
- * (1.4.13) the window opens with `noopener` — see openSeparate.
+ * (0.5.13) the window opens with `noopener` — see openSeparate.
  */
 export async function openOutput(
   kind: OutputKind,
@@ -200,7 +200,7 @@ async function defaultScreen(): Promise<ScreenInfo | undefined> {
 }
 
 /**
- * «Окремий процес для кожного вікна» (1.4.13): `noopener` puts the window in a browsing
+ * «Окремий процес для кожного вікна» (0.5.13): `noopener` puts the window in a browsing
  * context group of its own — its own renderer in Chrome/Edge, so a crash there leaves the
  * control window and the other outputs running (Windows test). The price: no reference
  * back (window.open returns null), so it counts as opened once it announces itself, it

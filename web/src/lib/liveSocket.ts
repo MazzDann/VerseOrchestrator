@@ -22,7 +22,7 @@ export interface LiveConnection {
 }
 
 /**
- * The longest wait between reconnect attempts (1.5.29). The hub is on this machine or the
+ * The longest wait between reconnect attempts (0.6.29). The hub is on this machine or the
  * local network, where a refused connect costs nothing; with a 10 s cap a remote stayed dead
  * for up to 10 s after the app came back (a viewer took 9.5 s after a 26 s outage).
  */
@@ -33,7 +33,7 @@ export function connectLive(opts: {
   hello?: object;
   onFrame?: (f: LiveFrame) => void;
   onMessage?: (f: HubFrame) => void;
-  /** The socket went up or down — once per change, not on every failed retry (1.5.29). */
+  /** The socket went up or down — once per change, not on every failed retry (0.6.29). */
   onStatus?: (open: boolean) => void;
   /** Stop reconnecting when the server says we're not welcome (bad token, revoked). */
   stopOn?: (f: HubFrame) => boolean;
@@ -108,7 +108,7 @@ export function connectLive(opts: {
 
   // Leaving the page (navigating away, closing — or into the back/forward cache): close the
   // socket at once. A page frozen in that cache kept it open and still answered the
-  // server's pings, so a control window in charge never handed over (1.5.8). Coming back
+  // server's pings, so a control window in charge never handed over (0.6.8). Coming back
   // from the cache connects again.
   const onHide = () => {
     window.clearTimeout(timer);
@@ -144,7 +144,7 @@ export function connectLive(opts: {
       window.removeEventListener('online', retryNow);
       window.removeEventListener('visibilitychange', onVisible);
       // A stopped connection says nothing more: its close event arrives after the caller
-      // has moved on (an effect re-run) and is not an outage (1.5.25).
+      // has moved on (an effect re-run) and is not an outage (0.6.25).
       if (ws) ws.onclose = null;
       ws?.close();
     },

@@ -90,7 +90,7 @@ describe('live hub', () => {
   });
 });
 
-describe('«Вимкнути повністю» (1.6.1)', () => {
+describe('«Вимкнути повністю» (0.7.1)', () => {
   it('tells every page the app is going, not just gone', async () => {
     const a = viewer();
     await a.next(); // the slide it gets on connect
@@ -503,7 +503,7 @@ describe('screen relay (control → remotes only)', () => {
       type: 'screen',
       screen: { reference: 'Ів 1:1' },
       next: { reference: 'Ів 1:2' },
-      preview: { reference: 'Ів 1:5' }, // what «На екран» would show (1.5.0)
+      preview: { reference: 'Ів 1:5' }, // what «На екран» would show (0.6.0)
     });
     expect(vGot.some((f) => f.type === 'screen')).toBe(false);
     // The control socket is told how many audience viewers are connected (the viewer
@@ -512,7 +512,7 @@ describe('screen relay (control → remotes only)', () => {
     expect(
       (cGot.filter((f) => f.type === 'viewers').at(-1) as { count: number }).count,
     ).toBeGreaterThanOrEqual(1);
-    // one control window leads the hub (1.5.8): close this one before the next test's
+    // one control window leads the hub (0.6.8): close this one before the next test's
     await Promise.all(
       [control, remote, viewer].map((w) => new Promise((r) => (w.once('close', r), w.close()))),
     );

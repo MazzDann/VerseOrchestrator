@@ -1,6 +1,6 @@
 /**
  * What this app keeps in the browser for its address, and forgetting it («Вимкнути повністю»
- * with «стерти дані браузера», 1.6.1): localStorage (settings, running order, selection, panel
+ * with «стерти дані браузера», 0.7.1): localStorage (settings, running order, selection, panel
  * places …), Cache Storage (library segments) and IndexedDB (the PGlite snapshot). It lives in
  * the browser profile, per address (http://localhost:4747 and http://localhost:5173 are two),
  * and stays after the app's folder is deleted.

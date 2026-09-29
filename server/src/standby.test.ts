@@ -122,7 +122,7 @@ describe('standby waiter', () => {
     expect(app.started).toBe(2);
   });
 
-  it('start(): the launcher starts the app before anyone visits (1.6.0)', async () => {
+  it('start(): the launcher starts the app before anyone visits (0.7.0)', async () => {
     const { s, app, url } = await waiter();
     const [a, b] = await Promise.all([s.start(), s.start()]); // one app, however often asked
     expect(a.port).toBe(b.port);
@@ -155,7 +155,7 @@ describe('standby waiter', () => {
     expect(events).toEqual(['relaunched']);
   });
 
-  it('«Вимкнути повністю»: stops the app and closes at once, even under an open page (1.6.1)', async () => {
+  it('«Вимкнути повністю»: stops the app and closes at once, even under an open page (0.7.1)', async () => {
     const { app, port, url, events } = await waiter();
     const ws = new WebSocket(`ws://127.0.0.1:${port}/api/ws`); // an open control window
     await new Promise((r) => ws.once('open', r));

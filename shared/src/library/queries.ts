@@ -168,7 +168,7 @@ function prefixEnd(s: string): string {
 
 /**
  * Full-text planner thresholds, calibrated on the 20-translation / 537k-verse library
- * (npm run bench:db, 1.2.2). Filtering by translation INSIDE the MATCH (the segmented
+ * (npm run bench:db, 0.3.2). Filtering by translation INSIDE the MATCH (the segmented
  * `tr` token) costs ~1 ms per selected translation's posting list; filtering AFTER the
  * MATCH costs ~2 µs per matching verse in the whole library. So:
  *   rare word (few matches)          → post-filter  («никодим» 0.1 ms vs 1–20 ms)
@@ -722,7 +722,7 @@ export function createLibrary(db: SqlDriver) {
     try {
       const segmented = await columnExists('verses_fts', 'tr');
       if (segmented && (await ftsStrategy(terms, ids.length)) === 'in-match') {
-        // Segmented index (1.2.2+): restrict to the selected translations INSIDE the
+        // Segmented index (0.3.2+): restrict to the selected translations INSIDE the
         // MATCH, so FTS intersects posting lists instead of ranking the whole library.
         // bm25 weight 0 for the `tr` column: it's a filter, not relevance.
         const tr = ids.map((id) => `t${id}`).join(' OR ');

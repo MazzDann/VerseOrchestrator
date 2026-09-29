@@ -227,7 +227,7 @@ const PairingSchema = z.object({
 export type Pairing = z.infer<typeof PairingSchema>;
 
 /** The standby waiter (server/src/standby.ts) and its autostart — GET/PUT /api/standby. */
-/** The UI state kept in data/ (1.6.4): each store's persisted JSON with its save time. */
+/** The UI state kept in data/ (0.7.4): each store's persisted JSON with its save time. */
 const UiEntrySchema = z.object({ value: z.string(), at: z.number() });
 const UiStateSchema = z.object({
   'vo:settings': UiEntrySchema.optional(),
@@ -400,7 +400,7 @@ export const api = {
       })
       .parse(await res.json());
   },
-  /** What an existing remote may do (1.5.0); its open page updates at once. */
+  /** What an existing remote may do (0.6.0); its open page updates at once. */
   updateRemote: async (id: string, allowed: RemoteCommand[]) => {
     const res = await request(`/api/remote/${encodeURIComponent(id)}`, {
       method: 'PUT',
@@ -445,13 +445,13 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return StandbySchema.parse(await res.json());
   },
-  /** A desktop shortcut that opens the control window as an app window (1.6.5). */
+  /** A desktop shortcut that opens the control window as an app window (0.7.5). */
   createShortcut: async () => {
     const res = await request('/api/shortcut', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);
     return z.object({ files: z.array(z.string()) }).parse(await res.json());
   },
-  /** «Вимкнути повністю» (1.6.1): the server, its waiter and the autostart entry go. */
+  /** «Вимкнути повністю» (0.7.1): the server, its waiter and the autostart entry go. */
   shutdown: async () => {
     const res = await request('/api/shutdown', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);

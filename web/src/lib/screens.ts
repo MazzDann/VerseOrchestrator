@@ -1,5 +1,5 @@
 /**
- * The screens attached to this computer (1.3.2), via the Window Management API
+ * The screens attached to this computer (0.4.2), via the Window Management API
  * (`getScreenDetails`, Chrome/Edge — a one-time permission). Without it (another browser,
  * permission denied) only the current screen is known and windows open where the
  * browser puts them.

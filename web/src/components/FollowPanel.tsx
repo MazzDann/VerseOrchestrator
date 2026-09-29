@@ -16,7 +16,7 @@ export function FollowPanel({
   onToggleQr,
 }: {
   viewers: number;
-  /** the viewers' QR is the slide on screen now (1.5.16) */
+  /** the viewers' QR is the slide on screen now (0.6.16) */
   qrOnScreen: boolean;
   onToggleQr: () => void;
 }) {

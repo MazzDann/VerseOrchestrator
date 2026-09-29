@@ -37,7 +37,7 @@ window.addEventListener('storage', (e) => {
   if (e.key === 'vo:settings') void useSettings.persist.rehydrate();
   else if (e.key === 'vo:playlist') void usePlaylist.persist.rehydrate();
 });
-// «Вимкнути повністю» with «стерти дані браузера» in another window: stop writing here (1.6.1)
+// «Вимкнути повністю» with «стерти дані браузера» in another window: stop writing here (0.7.1)
 listenForForget();
 
 // Control window: is the server there? Without it (static deployment / server stopped)
@@ -46,7 +46,7 @@ listenForForget();
 if (window.location.pathname === '/') {
   setBoot(
     probeServer().then(() => {
-      // settings and the running order kept with the app in data/ (1.6.4)
+      // settings and the running order kept with the app in data/ (0.7.4)
       if (useServer.getState().available) void startUiStateSync();
       // (no server → reads go to the browser engine via effectiveSource(); the saved
       // preference is left alone so a temporary outage doesn't flip it)
@@ -56,7 +56,7 @@ if (window.location.pathname === '/') {
   );
 }
 
-// no hover flashes on rows passing under a still pointer while a list scrolls (1.5.5)
+// no hover flashes on rows passing under a still pointer while a list scrolls (0.6.5)
 installScrollingFlag();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

@@ -36,7 +36,7 @@ async function waitForPort(port: number, timeoutMs = 20_000): Promise<boolean> {
 }
 
 /**
- * «Запуск за адресою» (1.4.2): the standby waiter (server/src/standby.ts) keeps a port
+ * «Запуск за адресою» (0.5.2): the standby waiter (server/src/standby.ts) keeps a port
  * and starts the app when someone opens it; it starts with the computer. Switching off
  * removes the autostart entry and retires the waiter. Changing the port relaunches a
  * running waiter on the new one — confirmed first, since everything the browser keeps

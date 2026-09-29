@@ -1,5 +1,5 @@
 /**
- * How a viewer likes to read on their own phone (/follow, 1.5.17) — kept in that phone's
+ * How a viewer likes to read on their own phone (/follow, 0.6.17) — kept in that phone's
  * browser only (localStorage), never sent anywhere. The user's examples: an older reader
  * who needs the text bigger and bolder; a reader with dyslexia.
  */

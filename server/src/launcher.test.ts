@@ -59,8 +59,8 @@ describe('launcher', () => {
 
   it('installs dependencies when missing, changed, or made for another system', () => {
     const packages = {
-      '': { version: '1.6.0' },
-      web: { version: '1.6.0' },
+      '': { version: '0.7.0' },
+      web: { version: '0.7.0' },
       'node_modules/@vo/web': { link: true },
       'node_modules/express': { version: '4.21.2' },
       'node_modules/@esbuild/linux-x64': { version: '0.25.0', optional: true },
@@ -75,7 +75,7 @@ describe('launcher', () => {
     // installed by hand (no record): the same packages — the root's version bump and other
     // platforms' optional ones don't count
     const same = project({
-      'package-lock.json': lock({ ...packages, '': { version: '1.6.1' } }),
+      'package-lock.json': lock({ ...packages, '': { version: '0.7.1' } }),
       'node_modules/.package-lock.json': lock(installed),
     });
     expect(depsState(same)).toEqual(ok);
@@ -91,13 +91,13 @@ describe('launcher', () => {
     expect(depsState(same, 'darwin-arm64-abi137')).toEqual(ok);
   });
 
-  it('a portable copy: only the runtime packages, installed as the record says (1.6.3)', () => {
+  it('a portable copy: only the runtime packages, installed as the record says (0.7.3)', () => {
     const packages = {
       'node_modules/express': { version: '4.21.2', integrity: 'sha512-a' },
       'node_modules/vite': { version: '6.4.3', integrity: 'sha512-b', dev: true },
     };
     const copy = project({
-      'package-lock.json': lock({ '': { version: '1.6.3' }, ...packages }),
+      'package-lock.json': lock({ '': { version: '0.7.3' }, ...packages }),
       // `npm ci --omit=dev --workspace…`: no vite
       'node_modules/.package-lock.json': lock({ 'node_modules/express': { version: '4.21.2' } }),
     });
@@ -107,7 +107,7 @@ describe('launcher', () => {
     // a release bump keeps it installed; a changed dependency reinstalls — the same way
     fs.writeFileSync(
       path.join(copy, 'package-lock.json'),
-      lock({ '': { version: '1.6.4' }, ...packages }),
+      lock({ '': { version: '0.7.4' }, ...packages }),
     );
     expect(depsState(copy, 'win32-x64-abi137')).toEqual({ state: 'ok', mode: 'runtime' });
     fs.writeFileSync(
@@ -169,7 +169,7 @@ describe('launcher', () => {
     expect(phoneUrl([], 4747)).toBeNull();
   });
 
-  it('--off: stops a running waiter (directly, when its app does not answer) and the autostart (1.6.2)', async () => {
+  it('--off: stops a running waiter (directly, when its app does not answer) and the autostart (0.7.2)', async () => {
     // an app that ignores /api/shutdown — the waiter is then shut down directly
     const app = http.createServer((_req, res) => res.end('{}'));
     await new Promise<void>((r) => app.listen(0, '127.0.0.1', r));
