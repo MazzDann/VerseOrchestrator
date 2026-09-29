@@ -20,7 +20,14 @@ const text = (title: string): NewSeqItem => ({ kind: 'text', label: title, title
 const state = () => usePlaylist.getState();
 
 beforeEach(() => {
-  usePlaylist.setState({ items: [], currentId: null, saved: [], cleared: null, deleted: null });
+  usePlaylist.setState({
+    items: [],
+    currentId: null,
+    saved: [],
+    cleared: null,
+    deleted: null,
+    replaced: null,
+  });
   for (const t of ['Ів 3:16', 'Рим 12:1-2', 'Оголошення']) state().add(text(t));
   state().setCurrent(state().items[1].id);
 });
@@ -104,5 +111,56 @@ describe('«Видалити програму» → «Скасувати» (0.9.
     const saved = JSON.parse(local.get('vo:playlist') ?? '{}');
     expect(saved.state).not.toHaveProperty('deleted');
     expect(saved.state.saved.map((p: { name: string }) => p.name)).toEqual(['Вечір', 'Лекція']);
+  });
+});
+
+describe('opening a program → «Скасувати» (0.9.3)', () => {
+  const labels = () => state().items.map((i) => i.label);
+
+  beforeEach(() => {
+    state().saveProgram('Зустріч'); // the three items of the outer beforeEach
+    state().clear();
+    state().add(text('Пс 23'));
+    state().add(text('Мт 5:1-12'));
+    state().setCurrent(state().items[0].id);
+  });
+
+  it('brings back the list the program replaced, with the one on screen', () => {
+    const before = state().items;
+    state().loadProgram('Зустріч');
+    expect(labels()).toEqual(['Ів 3:16', 'Рим 12:1-2', 'Оголошення']);
+    expect(state().replaced?.program).toBe('Зустріч');
+    state().undoLoad();
+    expect(state().items).toEqual(before);
+    expect(state().currentId).toBe(before[0].id);
+    expect(state().replaced).toBeNull();
+  });
+
+  it('an empty list loses nothing: no undo', () => {
+    state().clear();
+    state().loadProgram('Зустріч');
+    expect(state().replaced).toBeNull();
+  });
+
+  it('is forgotten once the new list changes', () => {
+    for (const change of [
+      () => state().add(text('Ів 1:1')),
+      () => state().removeItem(state().items[0].id),
+      () => state().move(state().items[0].id, 1),
+      () => state().reorder(0, 2),
+      () => state().clear(),
+    ]) {
+      state().loadProgram('Зустріч');
+      change();
+      expect(state().replaced).toBeNull();
+    }
+  });
+
+  it('stays while items are shown from it, and is not saved', () => {
+    state().loadProgram('Зустріч');
+    state().setCurrent(state().items[1].id);
+    expect(state().replaced?.items).toHaveLength(2);
+    const saved = JSON.parse(local.get('vo:playlist') ?? '{}');
+    expect(saved.state).not.toHaveProperty('replaced');
   });
 });
