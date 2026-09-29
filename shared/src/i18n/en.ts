@@ -1129,4 +1129,16 @@ export const EN: Record<string, string> = {
   // 0.13.0 a slide of unknown shape from another window
   'слайд із невідомою будовою — можливо, від вікна іншої версії застосунку':
     'a slide of unknown shape — maybe from a window of another app version',
+  // 0.13.1 no library yet
+  'Бібліотеки ще немає': 'No library yet',
+  'У бібліотеці немає перекладів': 'The library has no translations',
+  'У браузері ще немає перекладів': 'No translations in the browser yet',
+  'Покладіть модулі MyBible (*.SQLite3) у папку modules/ поруч із застосунком і натисніть «Пересканувати модулі».':
+    'Put MyBible modules (*.SQLite3) in the modules/ folder next to the app and click “Rescan modules”.',
+  'Або відкрийте модуль прямо в браузері: додайте файл у «Джерело даних» (Налаштування вигляду → Застосунок) і виберіть «У браузері».':
+    'Or open a module right in the browser: add the file under “Data source” (Settings → App) and choose “In the browser”.',
+  'Додайте модуль MyBible чи сегмент у «Джерело даних» (Налаштування вигляду → Застосунок).':
+    'Add a MyBible module or a segment under “Data source” (Settings → App).',
+  'Джерело даних…': 'Data source…',
+  'Перекладів ще немає': 'No translations yet',
 };

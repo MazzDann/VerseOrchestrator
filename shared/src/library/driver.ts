@@ -1,4 +1,4 @@
-import { fill, type Vars } from '../i18n/index.js';
+import { fill, N_, type Vars } from '../i18n/index.js';
 
 /**
  * The seam between the library's queries and a concrete database engine — the "hybrid
@@ -23,6 +23,12 @@ export interface SqlDriver {
   /** Which SQL dialect the engine speaks (queries branch on it where they must). */
   readonly dialect: 'sqlite' | 'postgres';
 }
+
+/**
+ * The server has no library yet (0.13.1): its answer to every library read. The control window
+ * recognises the key and shows how to add modules instead of an empty list.
+ */
+export const NO_LIBRARY = N_('Бібліотеки ще немає');
 
 /**
  * An error a transport can map to a status (the server turns `status` into HTTP). Its message
