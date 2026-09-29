@@ -224,6 +224,8 @@ export function Control() {
   const playlistSaveProgram = usePlaylist((s) => s.saveProgram);
   const playlistLoadProgram = usePlaylist((s) => s.loadProgram);
   const playlistDeleteProgram = usePlaylist((s) => s.deleteProgram);
+  const playlistDeleted = usePlaylist((s) => s.deleted);
+  const playlistUndoDelete = usePlaylist((s) => s.undoDelete);
 
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
@@ -2833,6 +2835,12 @@ export function Control() {
             });
           }}
           onDelete={playlistDeleteProgram}
+          deletedProgram={
+            playlistDeleted
+              ? { name: playlistDeleted.program.name, index: playlistDeleted.index }
+              : null
+          }
+          onUndoDelete={playlistUndoDelete}
         />
       </FloatingPanel>
 

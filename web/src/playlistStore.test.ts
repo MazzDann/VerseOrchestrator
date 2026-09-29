@@ -20,7 +20,7 @@ const text = (title: string): NewSeqItem => ({ kind: 'text', label: title, title
 const state = () => usePlaylist.getState();
 
 beforeEach(() => {
-  usePlaylist.setState({ items: [], currentId: null, saved: [], cleared: null });
+  usePlaylist.setState({ items: [], currentId: null, saved: [], cleared: null, deleted: null });
   for (const t of ['Ів 3:16', 'Рим 12:1-2', 'Оголошення']) state().add(text(t));
   state().setCurrent(state().items[1].id);
 });
@@ -64,5 +64,45 @@ describe('«Очистити показ» → «Скасувати» (1.8.0)', (
     const saved = JSON.parse(local.get('vo:playlist') ?? '{}');
     expect(saved.state).not.toHaveProperty('cleared');
     expect(saved.state.items).toEqual([]);
+  });
+});
+
+describe('«Видалити програму» → «Скасувати» (1.8.1)', () => {
+  const names = () => state().saved.map((p) => p.name);
+
+  beforeEach(() => {
+    for (const n of ['Лекція', 'Зустріч', 'Вечір']) state().saveProgram(n); // newest first
+  });
+
+  it('puts the program back where it stood, with its items', () => {
+    const before = state().saved;
+    state().deleteProgram('Зустріч');
+    expect(names()).toEqual(['Вечір', 'Лекція']);
+    expect(state().deleted?.index).toBe(1);
+    state().undoDelete();
+    expect(state().saved).toEqual(before);
+    expect(state().deleted).toBeNull();
+  });
+
+  it('only the last deletion can be undone', () => {
+    state().deleteProgram('Зустріч');
+    state().deleteProgram('Лекція');
+    state().undoDelete();
+    expect(names()).toEqual(['Вечір', 'Лекція']);
+  });
+
+  it('is forgotten once a program is saved', () => {
+    state().deleteProgram('Зустріч');
+    state().saveProgram('Нова');
+    expect(state().deleted).toBeNull();
+    state().undoDelete();
+    expect(names()).toEqual(['Нова', 'Вечір', 'Лекція']);
+  });
+
+  it('is not saved: a reload offers no undo', () => {
+    state().deleteProgram('Зустріч');
+    const saved = JSON.parse(local.get('vo:playlist') ?? '{}');
+    expect(saved.state).not.toHaveProperty('deleted');
+    expect(saved.state.saved.map((p: { name: string }) => p.name)).toEqual(['Вечір', 'Лекція']);
   });
 });

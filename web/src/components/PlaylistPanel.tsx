@@ -50,6 +50,9 @@ interface Props {
   onSave: (name: string) => void;
   onLoad: (name: string) => void;
   onDelete: (name: string) => void;
+  /** The program «Скасувати» would put back, and its place in the list (null = nothing). */
+  deletedProgram: { name: string; index: number } | null;
+  onUndoDelete: () => void;
 }
 
 const KIND_ICON = {
@@ -82,12 +85,15 @@ export function PlaylistPanel({
   onSave,
   onLoad,
   onDelete,
+  deletedProgram,
+  onUndoDelete,
 }: Props) {
   const [programsOpen, setProgramsOpen] = useState(false);
   const [name, setName] = useState('');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const undoRef = useRef<HTMLButtonElement>(null);
+  const undoDeleteRef = useRef<HTMLButtonElement>(null);
 
   // «Очистити показ» goes disabled under the pointer and takes the focus with it: hand the
   // focus to «Скасувати», so Enter or Space right away brings the list back.
@@ -95,6 +101,68 @@ export function PlaylistPanel({
     onClear();
     requestAnimationFrame(() => undoRef.current?.focus());
   };
+  // the same for a program: its row, trash icon and all, is gone (1.8.1)
+  const remove = (program: string) => {
+    onDelete(program);
+    requestAnimationFrame(() => undoDeleteRef.current?.focus());
+  };
+
+  const programRows = saved.map((p) => (
+    <Group key={p.name} gap={4} wrap="nowrap" justify="space-between">
+      <Button
+        variant="subtle"
+        color="gray"
+        size="compact-sm"
+        justify="flex-start"
+        leftSection={<IconFolderOpen size={14} />}
+        style={{ flex: 1, minWidth: 0 }}
+        styles={{ label: { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+        onClick={() => onLoad(p.name)}
+      >
+        {p.name}
+      </Button>
+      <Badge size="xs" variant="light" color="gray">
+        {p.items.length}
+      </Badge>
+      <ActionIcon
+        variant="subtle"
+        color="red"
+        size="sm"
+        onClick={() => remove(p.name)}
+        aria-label={`Видалити програму ${p.name}`}
+      >
+        <IconTrash size={14} />
+      </ActionIcon>
+    </Group>
+  ));
+  // the deleted program's place holds «Скасувати» until the list changes again
+  if (deletedProgram) {
+    programRows.splice(
+      Math.min(deletedProgram.index, programRows.length),
+      0,
+      <Group key={`deleted:${deletedProgram.name}`} gap={4} wrap="nowrap" pl={8}>
+        <Text
+          size="sm"
+          c="dimmed"
+          truncate
+          title={deletedProgram.name}
+          style={{ flex: 1, minWidth: 0 }}
+        >
+          Видалено: {deletedProgram.name}
+        </Text>
+        <Button
+          ref={undoDeleteRef}
+          size="compact-xs"
+          variant="light"
+          leftSection={<IconArrowBackUp size={14} />}
+          onClick={onUndoDelete}
+          style={{ flexShrink: 0 }}
+        >
+          Скасувати
+        </Button>
+      </Group>,
+    );
+  }
 
   const save = () => {
     if (!name.trim() || items.length === 0) return;
@@ -170,7 +238,7 @@ export function PlaylistPanel({
             borderRadius: 8,
           }}
         >
-          <Group gap="xs" wrap="nowrap" mb={saved.length ? 'xs' : 0}>
+          <Group gap="xs" wrap="nowrap" mb={programRows.length ? 'xs' : 0}>
             <TextInput
               size="xs"
               flex={1}
@@ -191,38 +259,9 @@ export function PlaylistPanel({
               Зберегти
             </Button>
           </Group>
-          {saved.length > 0 && (
-            <ScrollArea.Autosize mah={160}>
-              <Stack gap={2}>
-                {saved.map((p) => (
-                  <Group key={p.name} gap={4} wrap="nowrap" justify="space-between">
-                    <Button
-                      variant="subtle"
-                      color="gray"
-                      size="compact-sm"
-                      justify="flex-start"
-                      leftSection={<IconFolderOpen size={14} />}
-                      style={{ flex: 1, minWidth: 0 }}
-                      styles={{ label: { overflow: 'hidden', textOverflow: 'ellipsis' } }}
-                      onClick={() => onLoad(p.name)}
-                    >
-                      {p.name}
-                    </Button>
-                    <Badge size="xs" variant="light" color="gray">
-                      {p.items.length}
-                    </Badge>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      size="sm"
-                      onClick={() => onDelete(p.name)}
-                      aria-label={`Видалити програму ${p.name}`}
-                    >
-                      <IconTrash size={14} />
-                    </ActionIcon>
-                  </Group>
-                ))}
-              </Stack>
+          {programRows.length > 0 && (
+            <ScrollArea.Autosize mah={160} scrollbars="y" className="vo-scroll-fit">
+              <Stack gap={2}>{programRows}</Stack>
             </ScrollArea.Autosize>
           )}
         </Box>
