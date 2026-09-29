@@ -67,6 +67,15 @@ const TRANSLATED = [
   'web/src/components/SlideFade.tsx',
   'web/src/openPresenter.ts',
   'web/src/presenterBus.ts',
+  // 0.11.5 — phones and remotes
+  'web/src/pages/Follow.tsx',
+  'web/src/pages/Remote.tsx',
+  'web/src/components/RemotePanel.tsx',
+  'web/src/components/RemotePicker.tsx',
+  'web/src/components/RemotePlaylist.tsx',
+  'web/src/components/FollowPanel.tsx',
+  'web/src/components/PhoneLink.tsx',
+  'web/src/components/QrCard.tsx',
 ];
 
 const walk = (dir: string): string[] =>

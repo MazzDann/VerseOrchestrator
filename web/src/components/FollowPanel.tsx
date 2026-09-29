@@ -2,8 +2,8 @@ import { Button, SegmentedControl, Stack, Switch, Text } from '@mantine/core';
 import { IconQrcode, IconQrcodeOff } from '@tabler/icons-react';
 import { useSettings } from '../settingsStore';
 import type { QrStyle } from '../presenterBus';
-import { plural } from '../lib/plural';
 import { PhoneLink } from './PhoneLink';
+import { tr, trn, useLang } from '../i18n';
 
 /**
  * Audience follow-along controls: a toggle that mirrors the live slide to the
@@ -20,6 +20,7 @@ export function FollowPanel({
   qrOnScreen: boolean;
   onToggleQr: () => void;
 }) {
+  useLang();
   const followAlong = useSettings((s) => s.followAlong);
   const setFollowAlong = useSettings((s) => s.setFollowAlong);
   const followQrCorner = useSettings((s) => s.followQrCorner);
@@ -31,19 +32,22 @@ export function FollowPanel({
       <Switch
         checked={followAlong}
         onChange={(e) => setFollowAlong(e.currentTarget.checked)}
-        label="Трансляція на телефони глядачів"
-        description="Поточний слайд дзеркалиться на сервер; глядачі читають за QR нижче."
+        label={tr('Трансляція на телефони глядачів')}
+        description={tr('Поточний слайд дзеркалиться на сервер; глядачі читають за QR нижче.')}
       />
       {followAlong ? (
         <>
           <Text size="sm" fw={500}>
             {viewers === 0
-              ? 'Поки ніхто не підключився'
-              : `На зв’язку: ${viewers} ${plural(viewers, ['телефон', 'телефони', 'телефонів'])}`}
+              ? tr('Поки ніхто не підключився')
+              : trn(
+                  viewers,
+                  'На зв’язку: {n} телефон|На зв’язку: {n} телефони|На зв’язку: {n} телефонів',
+                )}
           </Text>
           <PhoneLink
             path="/follow"
-            caption="Відскануйте або відкрийте на телефоні (та сама мережа Wi-Fi):"
+            caption={tr('Відскануйте або відкрийте на телефоні (та сама мережа Wi-Fi):')}
           />
           <Button
             size="xs"
@@ -52,18 +56,20 @@ export function FollowPanel({
             leftSection={qrOnScreen ? <IconQrcodeOff size={14} /> : <IconQrcode size={14} />}
             onClick={onToggleQr}
           >
-            {qrOnScreen ? 'Прибрати QR з екрана' : 'QR на екран'}
+            {qrOnScreen ? tr('Прибрати QR з екрана') : tr('QR на екран')}
           </Button>
           <Switch
             size="xs"
             checked={followQrCorner}
             onChange={(e) => setFollowQrCorner(e.currentTarget.checked)}
-            label="QR у кутку екрана"
-            description="Маленький QR на кожному слайді, щоб підключитися могли й ті, хто прийшов пізніше"
+            label={tr('QR у кутку екрана')}
+            description={tr(
+              'Маленький QR на кожному слайді, щоб підключитися могли й ті, хто прийшов пізніше',
+            )}
           />
           <div>
             <Text size="xs" c="dimmed" mb={4}>
-              Вигляд QR на екрані
+              {tr('Вигляд QR на екрані')}
             </Text>
             <SegmentedControl
               size="xs"
@@ -71,16 +77,16 @@ export function FollowPanel({
               value={followQrStyle}
               onChange={(v) => setFollowQrStyle(v as QrStyle)}
               data={[
-                { label: 'Класичний', value: 'square' },
-                { label: 'Округлий', value: 'rounded' },
-                { label: 'Крапки', value: 'dots' },
+                { label: tr('Класичний'), value: 'square' },
+                { label: tr('Округлий'), value: 'rounded' },
+                { label: tr('Крапки'), value: 'dots' },
               ]}
             />
           </div>
         </>
       ) : (
         <Text size="xs" c="dimmed">
-          Увімкніть, щоб показати QR-код. Працює в межах локальної мережі.
+          {tr('Увімкніть, щоб показати QR-код. Працює в межах локальної мережі.')}
         </Text>
       )}
     </Stack>

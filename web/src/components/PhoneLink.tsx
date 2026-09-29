@@ -3,6 +3,7 @@ import { Stack, Text, Image, Code, CopyButton, Button, Group, Loader } from '@ma
 import { IconCopy, IconCheck } from '@tabler/icons-react';
 import QRCode from 'qrcode';
 import { usePhoneUrl } from '../lib/phoneUrl';
+import { tr, useLang } from '../i18n';
 
 /**
  * A phone-reachable link to one of this app's pages, as a QR + copyable URL. When the
@@ -10,6 +11,7 @@ import { usePhoneUrl } from '../lib/phoneUrl';
  * machine's LAN IP instead. Shared by the viewers (/follow) and speaker-remote panels.
  */
 export function PhoneLink({ path, caption }: { path: string; caption: string }) {
+  useLang();
   const [qr, setQr] = useState('');
   const { url, lanIps, onLocalhost } = usePhoneUrl(path);
 
@@ -58,7 +60,7 @@ export function PhoneLink({ path, caption }: { path: string; caption: string }) 
               onClick={copy}
               style={{ flexShrink: 0 }}
             >
-              {copied ? 'Скопійовано' : 'Копіювати'}
+              {copied ? tr('Скопійовано') : tr('Копіювати')}
             </Button>
           )}
         </CopyButton>
@@ -67,13 +69,16 @@ export function PhoneLink({ path, caption }: { path: string; caption: string }) 
         lanIps &&
         (lanIps.length > 0 ? (
           <Text size="xs" c="dimmed" ta="center">
-            Телефон має бути в тій самій мережі Wi-Fi. Якщо не відкривається, відкрийте керування за
-            IP-адресою комп’ютера ({lanIps[0]}).
+            {tr(
+              'Телефон має бути в тій самій мережі Wi-Fi. Якщо не відкривається, відкрийте керування за IP-адресою комп’ютера ({ip}).',
+              { ip: lanIps[0] },
+            )}
           </Text>
         ) : (
           <Text size="xs" c="orange" ta="center">
-            Не знайдено мережевої адреси. Підключіть комп’ютер до Wi-Fi чи LAN, щоб телефон міг
-            приєднатися.
+            {tr(
+              'Не знайдено мережевої адреси. Підключіть комп’ютер до Wi-Fi чи LAN, щоб телефон міг приєднатися.',
+            )}
           </Text>
         ))}
     </Stack>

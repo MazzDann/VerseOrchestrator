@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import type { RemoteTarget } from '../lib/commands';
+import { tr, useLang } from '../i18n';
 
 type Step = 'translations' | 'books' | 'chapters' | 'verses' | 'songs' | 'stanzas';
 
@@ -37,6 +38,7 @@ export function RemotePicker({
   onQueue?: (t: RemoteTarget) => void;
   onClose: () => void;
 }) {
+  useLang();
   const startPassage = start?.kind === 'verses' ? start.passage : null;
   const startSong = start?.kind === 'song' ? start.song : null;
   const [ids, setIds] = useState<number[]>(initialIds);
@@ -157,38 +159,43 @@ export function RemotePicker({
     .join(', ');
   const title =
     step === 'translations'
-      ? 'Переклади'
+      ? tr('Переклади')
       : step === 'books'
-        ? 'Книга'
+        ? tr('Книга')
         : step === 'chapters'
           ? bookName
           : step === 'verses'
             ? `${bookName} ${chapter ?? ''}`
             : step === 'songs'
-              ? 'Пісні'
+              ? tr('Пісні')
               : song.data
                 ? `№${song.data.number ?? ''} ${song.data.title}`
-                : 'Пісня';
+                : tr('Пісня');
 
   return (
-    <div className="vo-remote-sheet" role="dialog" aria-label="Вибір вірша або пісні">
+    <div className="vo-remote-sheet" role="dialog" aria-label={tr('Вибір вірша або пісні')}>
       <header className="vo-remote-sheet-head">
-        <button type="button" className="vo-remote-chip" onClick={back} aria-label="Назад">
+        <button type="button" className="vo-remote-chip" onClick={back} aria-label={tr('Назад')}>
           ←
         </button>
         <strong className="vo-remote-sheet-title">{title}</strong>
         {!songsMode && step !== 'translations' && (
           <button type="button" className="vo-remote-chip" onClick={() => go('translations')}>
-            {abbrs || 'Переклади'}
+            {abbrs || tr('Переклади')}
           </button>
         )}
-        <button type="button" className="vo-remote-chip" onClick={onClose} aria-label="Закрити">
+        <button
+          type="button"
+          className="vo-remote-chip"
+          onClick={onClose}
+          aria-label={tr('Закрити')}
+        >
           ✕
         </button>
       </header>
 
       {versesAllowed && songsAllowed && (
-        <div className="vo-remote-row vo-remote-modes" role="group" aria-label="Що вибрати">
+        <div className="vo-remote-row vo-remote-modes" role="group" aria-label={tr('Що вибрати')}>
           <button
             type="button"
             className="vo-remote-chip"
@@ -206,7 +213,7 @@ export function RemotePicker({
               )
             }
           >
-            Біблія
+            {tr('Біблія')}
           </button>
           <button
             type="button"
@@ -215,7 +222,7 @@ export function RemotePicker({
             data-selected={songsMode ? 'true' : undefined}
             onClick={() => go(songId == null ? 'songs' : 'stanzas')}
           >
-            Пісні
+            {tr('Пісні')}
           </button>
         </div>
       )}
@@ -225,10 +232,10 @@ export function RemotePicker({
           className="vo-remote-filter"
           placeholder={
             step === 'books'
-              ? 'Фільтр книг…'
+              ? tr('Фільтр книг…')
               : step === 'songs'
-                ? 'Номер або слова пісні…'
-                : 'Фільтр перекладів…'
+                ? tr('Номер або слова пісні…')
+                : tr('Фільтр перекладів…')
           }
           value={filter}
           onChange={(e) => setFilter(e.currentTarget.value)}
@@ -355,7 +362,7 @@ export function RemotePicker({
           ))}
 
         {(translations.isError || books.isError || verses.isError || songs.isError) && (
-          <p style={{ opacity: 0.7 }}>Бібліотека недоступна з цього телефона.</p>
+          <p style={{ opacity: 0.7 }}>{tr('Бібліотека недоступна з цього телефона.')}</p>
         )}
       </div>
 
@@ -367,7 +374,8 @@ export function RemotePicker({
             disabled={ids.length === 0}
             onClick={() => go(book == null ? 'books' : chapter == null ? 'chapters' : 'verses')}
           >
-            Готово{ids.length ? ` (${ids.length})` : ''}
+            {tr('Готово')}
+            {ids.length ? ` (${ids.length})` : ''}
           </button>
         </footer>
       ) : step === 'verses' || step === 'stanzas' ? (
@@ -387,7 +395,7 @@ export function RemotePicker({
               disabled={!chosen}
               onClick={() => chosen && onQueue(chosen)}
             >
-              + У послідовність
+              {tr('+ У послідовність')}
             </button>
           )}
           <footer className="vo-remote-sheet-foot">
@@ -397,7 +405,7 @@ export function RemotePicker({
               disabled={!chosen}
               onClick={() => chosen && onPick(chosen, false)}
             >
-              У передпоказ
+              {tr('У передпоказ')}
             </button>
             {canShow && (
               <button
@@ -406,7 +414,7 @@ export function RemotePicker({
                 disabled={!chosen}
                 onClick={() => chosen && onPick(chosen, true)}
               >
-                На екран
+                {tr('На екран')}
               </button>
             )}
           </footer>

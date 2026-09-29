@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import QRCode from 'qrcode';
 import type { QrStyle } from '../presenterBus';
+import { tr, useLang } from '../i18n';
 
 /** Modules of quiet zone drawn inside the SVG; the card's white padding adds the rest. */
 const MARGIN = 2;
@@ -98,6 +99,7 @@ export function QrCard({
   variant: 'full' | 'corner';
   look?: QrStyle;
 }) {
+  useLang();
   const full = variant === 'full';
   return (
     <div
@@ -120,10 +122,12 @@ export function QrCard({
         ...(full ? {} : { position: 'absolute', right: '2.5cqh', bottom: '2.5cqh', zIndex: 2 }),
       }}
     >
-      {full && <div style={{ fontSize: '4.6cqh', fontWeight: 700 }}>Читайте з телефона</div>}
+      {full && (
+        <div style={{ fontSize: '4.6cqh', fontWeight: 700 }}>{tr('Читайте з телефона')}</div>
+      )}
       <QrSvg text={url} size={full ? '52cqh' : '17cqh'} look={look} />
       <div style={{ fontSize: full ? '2.8cqh' : '1.7cqh', fontWeight: 600, opacity: 0.85 }}>
-        {full ? 'Відскануйте камерою телефона — та сама мережа Wi-Fi' : 'Текст на телефоні'}
+        {full ? tr('Відскануйте камерою телефона — та сама мережа Wi-Fi') : tr('Текст на телефоні')}
       </div>
       {full && (
         <div style={{ fontSize: '2.3cqh', opacity: 0.6 }}>{url.replace(/^https?:\/\//, '')}</div>
