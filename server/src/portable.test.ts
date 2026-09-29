@@ -12,6 +12,8 @@ describe('portable copy (0.7.3)', () => {
       { from: 'C:\\Program Files\\nodejs\\npm.cmd', to: 'npm.cmd' },
       { from: 'C:\\Program Files\\nodejs\\npx.cmd', to: 'npx.cmd' },
       { from: 'C:\\Program Files\\nodejs\\node_modules\\npm', to: 'node_modules\\npm' },
+      // Node's licence goes with its binary (0.14.1)
+      { from: 'C:\\Program Files\\nodejs\\LICENSE', to: 'LICENSE' },
     ]);
     expect(nodeCopy('win32', 'C:\\node\\node.exe', '', (p) => !p.endsWith('npm.cmd'))).toMatch(
       /npm\.cmd/,
@@ -32,6 +34,16 @@ describe('portable copy (0.7.3)', () => {
       { from: '/opt/homebrew/lib/node_modules/npm', to: 'lib/node_modules/npm' },
     ]);
     expect(nodeCopy('linux', '/usr/bin/node', '/usr/bin/node', () => false)).toMatch(/npm/);
+    // an official tarball keeps LICENSE next to bin/: it travels too
+    have.add('/opt/homebrew/Cellar/node/24.9.0/LICENSE');
+    expect(
+      nodeCopy(
+        'darwin',
+        '/opt/homebrew/bin/node',
+        '/opt/homebrew/Cellar/node/24.9.0/bin/node',
+        (p) => have.has(p),
+      ),
+    ).toContainEqual({ from: '/opt/homebrew/Cellar/node/24.9.0/LICENSE', to: 'LICENSE' });
   });
 
   it('runs npm with the node beside it (no symlink — a flash drive would lose it)', () => {
@@ -57,6 +69,13 @@ describe('portable copy (0.7.3)', () => {
     // the app is in app/, the user's things next to it (0.14.0)
     expect(win).toContain('app/');
     expect(win).toContain('data/');
+    // a release carries the note in English too, whatever the console speaks (0.14.1)
+    const en = howToStart(
+      { version: '0.14.1', platform: 'linux', arch: 'x64', withLibrary: false },
+      'en',
+    );
+    expect(en).toContain('./start.sh');
+    expect(en).not.toMatch(/[Ѐ-ӿ]/);
   });
 
   it('names the folder and the start file the way people know their system (0.14.0)', () => {

@@ -1,0 +1,141 @@
+# Checks on every push and pull request; on a push to main whose commit carries its version's
+# tag (every PATCH is tagged — docs/dev/contributing.md), the release packages
+# for Windows, macOS and Linux and a GitHub release with them (0.14.1). Versions 0.x come out as
+# pre-releases; the first regular release is 1.0.0.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # a newer push to a pull request replaces the check; on main every run finishes (a release)
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --check builder/src shared/src web/src server/src
+      - run: npx eslint .
+      - run: npx vitest run
+      - run: npx tsc -b
+        working-directory: web
+      - run: npx tsc -b
+        working-directory: server
+      - run: npx tsc -b
+        working-directory: builder
+      - run: npm run build --workspace @vo/web
+
+  version:
+    name: Release or not
+    needs: checks
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the tags
+      - id: tag
+        name: Is this commit tagged with its version?
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if [ "$(git rev-parse -q --verify "refs/tags/$tag^{commit}")" = "$(git rev-parse HEAD)" ]; then
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+            echo "Release $tag"
+          else
+            echo "No release: HEAD doesn't carry $tag"
+          fi
+
+  package:
+    name: Package ${{ matrix.os }}
+    needs: version
+    # a tagged commit, or by hand (Actions → CI → Run workflow) to try the packages out
+    if: needs.version.outputs.tag != '' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # a copy for everyone: no settings of this machine, no library (docs/install.md)
+      - run: npm run portable -- --release
+      - name: Archive
+        shell: bash
+        run: |
+          dir=$(ls -d portable/VerseOrchestrator-*)
+          name=$(basename "$dir")
+          version=$(node -p "require('./package.json').version")
+          # the asset keeps no version: …/releases/latest/download/<asset> stays the same link
+          asset="${name/-$version/}"
+          mkdir -p out
+          case "$RUNNER_OS" in
+            Windows) (cd portable && 7z a -tzip "../out/$asset.zip" "$name" > /dev/null) ;;
+            macOS) ditto -c -k --keepParent "$dir" "out/$asset.zip" ;;
+            *) tar -czf "out/$asset.tar.gz" -C portable "$name" ;;
+          esac
+          ls -la out
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ matrix.os }}
+          path: out/*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Release
+    needs: [version, package]
+    if: needs.version.outputs.tag != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the tag's message goes into the notes
+      - uses: actions/download-artifact@v8
+        with:
+          path: out
+          pattern: package-*
+          merge-multiple: true
+      - name: Checksums
+        working-directory: out
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          node .github/scripts/release-notes.mjs "$TAG" > notes.md
+          pre=""
+          case "$TAG" in v0.*) pre="--prerelease" ;; esac
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" out/* --clobber
+          else
+            gh release create "$TAG" out/* --verify-tag $pre \
+              --title "VerseOrchestrator ${TAG#v}" --notes-file notes.md
+          fi
