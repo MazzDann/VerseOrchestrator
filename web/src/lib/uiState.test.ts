@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planSync } from './uiState';
+import { parseAt, planSync } from './uiState';
 
 describe('UI state sync (0.7.4)', () => {
   const remote = (value: string, at: number) => ({ value, at });
@@ -20,5 +20,14 @@ describe('UI state sync (0.7.4)', () => {
     expect(planSync('{"a":1}', 1000, remote('{"a":1}', 1000))).toBe('none');
     expect(planSync('{"a":1}', 500, remote('{"a":1}', 1000))).toBe('none'); // same text
     expect(planSync(null, 0, undefined)).toBe('none');
+  });
+
+  it('a damaged record of sync times counts as never synced (0.11.8)', () => {
+    // a bare number there once threw on every start: nothing reached data/ any more
+    expect(parseAt('1790661016913')).toEqual({});
+    expect(parseAt('[1]')).toEqual({});
+    expect(parseAt('not json')).toEqual({});
+    expect(parseAt(null)).toEqual({});
+    expect(parseAt('{"vo:settings":5,"vo:playlist":"x","other":1}')).toEqual({ 'vo:settings': 5 });
   });
 });
