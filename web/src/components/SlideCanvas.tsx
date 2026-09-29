@@ -1,4 +1,4 @@
-import { type CSSProperties } from 'react';
+import { Component, type CSSProperties, type ReactNode } from 'react';
 import {
   type Slide,
   type SlideLine,
@@ -10,6 +10,7 @@ import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 import { SlideFade } from './SlideFade';
 import { QrCard } from './QrCard';
+import { reportSlideError } from '../lib/slideErrors';
 
 const ALIGN_ITEMS = { left: 'flex-start', center: 'center', right: 'flex-end' } as const;
 
@@ -121,15 +122,88 @@ export function SlidePreview({ slide, maxWidth }: { slide: Slide; maxWidth?: num
   );
 }
 
+const BLACK = <div style={{ position: 'absolute', inset: 0, background: '#000' }} />;
+
+interface GuardProps {
+  slide: Slide;
+  /** what to show while `slide` can't be drawn — given the last slide that could */
+  fallback: (lastGood: Slide | null) => ReactNode;
+  children: ReactNode;
+}
+
+interface GuardState {
+  slide: Slide;
+  failed: boolean;
+}
+
+/**
+ * A slide that fails to draw — a malformed slide from another window, an old stored copy
+ * after an update — must not take its window with it: React unmounts the whole page on an
+ * uncaught render error, and the projector shows a white window. The guard shows
+ * `fallback` instead, reports the error (lib/slideErrors.ts) and tries again with the next
+ * slide (0.13.0).
+ */
+class SlideGuard extends Component<GuardProps, GuardState> {
+  state: GuardState = { slide: this.props.slide, failed: false };
+  private lastGood: Slide | null = null;
+
+  static getDerivedStateFromProps(
+    props: GuardProps,
+    state: GuardState,
+  ): Partial<GuardState> | null {
+    return props.slide !== state.slide ? { slide: props.slide, failed: false } : null;
+  }
+
+  static getDerivedStateFromError(): Partial<GuardState> {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error): void {
+    reportSlideError(error);
+  }
+
+  componentDidMount(): void {
+    this.remember();
+  }
+
+  componentDidUpdate(): void {
+    this.remember();
+  }
+
+  private remember(): void {
+    if (!this.state.failed) this.lastGood = this.props.slide;
+  }
+
+  render(): ReactNode {
+    return this.state.failed ? this.props.fallback(this.lastGood) : this.props.children;
+  }
+}
+
 /**
  * Renders a slide exactly like the presenter screen — same background, font,
  * colour, alignment and auto-fit. Fills its (positioned) parent, so it works
  * full-screen in the presenter window and as a scaled WYSIWYG preview.
  *
- * Two layouts: the default centred stack, and (when `slide.template` is set) a
- * positioned template — each object placed in % of the slide so preview ≡ presenter.
+ * A slide that can't be drawn leaves the last one that could on screen, and if even that
+ * fails, black — never an empty white window (0.13.0). The inner guard shows the last good
+ * slide; an error while drawing it again goes up to the outer guard.
  */
 export function SlideCanvas({ slide }: { slide: Slide }) {
+  return (
+    <SlideGuard slide={slide} fallback={() => BLACK}>
+      <SlideGuard slide={slide} fallback={(last) => (last ? <DrawnSlide slide={last} /> : BLACK)}>
+        <DrawnSlide slide={slide} />
+      </SlideGuard>
+    </SlideGuard>
+  );
+}
+
+/**
+ * The drawing itself. Two layouts: the default centred stack, and (when `slide.template`
+ * is set) a positioned template — each object placed in % of the slide so preview ≡
+ * presenter.
+ */
+function DrawnSlide({ slide }: { slide: Slide }) {
   const style = slide.style ?? DEFAULT_STYLE;
   const show = slide.visible && !slide.blank && (slide.lines.length > 0 || !!slide.qr);
   const slideKey = !show
@@ -158,9 +232,7 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
 
   // Pure-black override: paint solid black over everything, ignoring the
   // background image/colour (the operator's "force black" key/button).
-  if (slide.forceBlack) {
-    return <div style={{ position: 'absolute', inset: 0, background: '#000' }} />;
-  }
+  if (slide.forceBlack) return BLACK;
 
   const background = style.bgImage
     ? `center / cover no-repeat url(${JSON.stringify(style.bgImage)})`

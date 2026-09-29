@@ -1,5 +1,7 @@
 import { N_ } from '@vo/shared';
 import { createBus, type BusChannel, type BusStorage, type Wire } from './lib/bus';
+import { reportSlideError } from './lib/slideErrors';
+import { tr } from './i18n';
 
 /**
  * Slides and the transport between the control window and the output windows.
@@ -252,7 +254,11 @@ const storage: BusStorage | null =
       }
     : null;
 
-const bus = createBus(channel, storage);
+// a slide from another window that this one can't read (0.13.0): kept off the screen, and
+// the control window hears about it like about a slide that failed to draw
+const bus = createBus(channel, storage, () =>
+  reportSlideError(tr('слайд із невідомою будовою — можливо, від вікна іншої версії застосунку')),
+);
 
 /** Project a slide: every output window shows it; the last one survives a reload. */
 export const publishSlide = bus.publishSlide;

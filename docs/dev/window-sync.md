@@ -63,6 +63,9 @@ localStorage copy, behind the `presenterBus.ts` API:
   still shows the last slide.
 - **No duplicates.** An identical publish is dropped, both in the bus and in the control
   window.
+- **Only slides.** A received slide must pass `isSlide` — `lines`, `reference`,
+  `visible`, and the rest in the shape the pages read — or the bus drops it, and a window
+  that listens reports it. A window of another version can't break the pages that way.
 
 What bus v2 changed (0.4.1, measured in the control window):
 
@@ -95,6 +98,14 @@ each) — the message arrives / the new text is in the page / the text is fully 
 
 Sharing the control window's renderer costs about 20 ms on Windows and 29 ms on a Mac.
 Across 42 slide changes, sampled on every frame, not one frame flashed.
+
+A slide that fails to draw doesn't take its window with it. `SlideCanvas` renders through
+two error boundaries: the inner one shows the last slide that did draw, and if drawing that
+fails too, the outer one shows black. The next slide gets a fresh try. The window reports
+the failure on the registry channel (`{ t: 'error' }`), and the control window shows one
+red notice with the reason. Around every page, `web/src/components/PageGuard.tsx` catches
+what's left — for example, a page's chunk that failed to load: an output window turns black
+and stays in **Вікна виводу**; any other page offers **Перезавантажити**.
 
 ## One control window in charge
 

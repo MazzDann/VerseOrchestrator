@@ -1,4 +1,4 @@
-import type { PresenterCommand, Slide } from '../presenterBus';
+import type { PresenterCommand, Slide, SlideLine } from '../presenterBus';
 
 /**
  * The window bus, protocol v2 (0.4.1) — control window ⇄ output windows (presenter,
@@ -53,10 +53,40 @@ export function assetId(data: string): string {
   return `${data.length.toString(36)}-${(h >>> 0).toString(36)}`;
 }
 
+/**
+ * Can the pages read this as a slide (0.13.0)? They use `lines`, `reference`, `visible`…
+ * directly — a stage page that met `lines: null` broke as a whole. A message from a window
+ * of another version (or a bug) that fails this is dropped: the window keeps what it shows.
+ * What a valid slide still can't draw, `SlideCanvas` catches.
+ */
+export function isSlide(x: unknown): x is Slide {
+  if (!x || typeof x !== 'object') return false;
+  const s = x as Record<string, unknown>;
+  const obj = (v: unknown) => v === undefined || v === null || typeof v === 'object';
+  return (
+    Array.isArray(s.lines) &&
+    s.lines.every((l) => !!l && typeof (l as SlideLine).text === 'string') &&
+    typeof s.reference === 'string' &&
+    typeof s.visible === 'boolean' &&
+    typeof s.blank === 'boolean' &&
+    obj(s.style) &&
+    obj(s.source) &&
+    obj(s.template) &&
+    (!s.template || Array.isArray((s.template as { objects: unknown }).objects)) &&
+    obj(s.reveal) &&
+    (!s.reveal || Array.isArray((s.reveal as { units: unknown }).units))
+  );
+}
+
 const isInline = (bg: string | null | undefined): bg is string =>
   !!bg && !bg.startsWith(ASSET_PREFIX) && bg.length > 256; // data URLs; short URLs stay inline
 
-export function createBus(channel: BusChannel | null, storage: BusStorage | null) {
+export function createBus(
+  channel: BusChannel | null,
+  storage: BusStorage | null,
+  /** a window sent something that isn't a slide (see `isSlide`), and this one listens */
+  onInvalid: () => void = () => undefined,
+) {
   const epoch = Math.random().toString(36).slice(2, 10);
   let seq = 0;
   let cmdSeq = 0;
@@ -190,11 +220,19 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
   channel?.listen((msg) => {
     switch (msg.t) {
       case 'live':
+        if (msg.slide !== null && !isSlide(msg.slide)) {
+          if (liveSubs.size > 0) onInvalid(); // a leading control window doesn't listen
+          return;
+        }
         if (!fresh('live', msg.epoch, msg.seq)) return;
         curLive = msg.slide;
         for (const cb of liveSubs) cb(resolve(curLive) ?? EMPTY);
         return;
       case 'next':
+        if (msg.slide !== null && !isSlide(msg.slide)) {
+          if (nextSubs.size > 0) onInvalid();
+          return;
+        }
         if (!fresh('next', msg.epoch, msg.seq)) return;
         curNext = msg.slide;
         for (const cb of nextSubs) cb(resolve(curNext));
@@ -225,7 +263,9 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
   function read(key: string): Slide | null {
     try {
       const raw = storage?.get(key);
-      return raw ? resolve(JSON.parse(raw) as Slide) : null;
+      const slide: unknown = raw ? JSON.parse(raw) : null;
+      // an older version's copy it can't read: start empty rather than broken
+      return isSlide(slide) ? resolve(slide) : null;
     } catch {
       return null;
     }
