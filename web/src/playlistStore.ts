@@ -23,6 +23,8 @@ export interface SeqSong {
   id: string;
   label: string; // "№12 Назва"
   songId: number;
+  /** the song's bundle (0.10.0): tells apart songs with the same label in two bundles */
+  bundle?: string;
   faithful: boolean; // project faithfully (pptx look) or as plain text
 }
 
@@ -81,6 +83,11 @@ interface PlaylistState {
   /** Bring back the list the last opened program replaced. */
   undoLoad: () => void;
   deleteProgram: (name: string) => void;
+  /**
+   * A song's id changed (0.10.0: bundles give stable ids): the running order's and the
+   * saved programs' items for that song — same old id, same label — take the new one.
+   */
+  relinkSong: (oldId: number, label: string, newId: number, bundle?: string) => void;
   /**
    * The program «Видалити програму» took away last and where it stood (0.9.1), so
    * «Скасувати» can put it back. Saving a program forgets it; not saved.
@@ -189,6 +196,19 @@ export const usePlaylist = create<PlaylistState>()(
           return {
             saved: s.saved.filter((_, i) => i !== index),
             deleted: { program: s.saved[index], index },
+          };
+        }),
+      relinkSong: (oldId, label, newId, bundle) =>
+        set((s) => {
+          const fix = (list: SeqItem[]) =>
+            list.map((it) =>
+              it.kind === 'song' && it.songId === oldId && it.label === label
+                ? { ...it, songId: newId, ...(bundle ? { bundle } : {}) }
+                : it,
+            );
+          return {
+            items: fix(s.items),
+            saved: s.saved.map((p) => ({ ...p, items: fix(p.items) })),
           };
         }),
       undoDelete: () =>

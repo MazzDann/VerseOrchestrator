@@ -15,6 +15,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 const DB_PATH =
   process.env.LIBRARY_DB ??
   path.join(process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data'), 'library.db');
+export const libraryPath = DB_PATH;
 
 /** Errors carrying an HTTP status (the library's own errors are the same class). */
 export { LibraryError as ApiError };

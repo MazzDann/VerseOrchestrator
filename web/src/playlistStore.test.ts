@@ -164,3 +164,16 @@ describe('opening a program → «Скасувати» (0.9.3)', () => {
     expect(saved.state).not.toHaveProperty('replaced');
   });
 });
+
+describe('a song whose id changed (0.10.0)', () => {
+  it('the running order and the saved programs take the new id', () => {
+    state().add({ kind: 'song', label: '№12 Слава', songId: 3, faithful: true });
+    state().add({ kind: 'song', label: '№13 Інша', songId: 3, faithful: true });
+    state().saveProgram('Зустріч');
+    state().relinkSong(3, '№12 Слава', 9001);
+    const ids = (list: { kind: string; songId?: number; label: string }[]) =>
+      list.filter((i) => i.kind === 'song').map((i) => `${i.label}:${i.songId}`);
+    expect(ids(state().items)).toEqual(['№12 Слава:9001', '№13 Інша:3']);
+    expect(ids(state().saved[0].items)).toEqual(['№12 Слава:9001', '№13 Інша:3']);
+  });
+});

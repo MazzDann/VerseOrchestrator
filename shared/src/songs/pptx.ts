@@ -1,6 +1,11 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { unzipSync, strFromU8 } from 'fflate';
+
+/**
+ * A song from a PowerPoint file (.pptx): each slide with text is one slide of the song,
+ * with the look it had in the file. Pure — bytes in, song out — so the builder (a folder
+ * on disk) and the browser (files the operator picks for an import, 0.10.1) read songs
+ * the same way.
+ */
 
 /** Faithful render style of one slide (a positioned text box on a background). */
 export interface SlideStyleSpec {
@@ -22,7 +27,9 @@ export interface SongSlide {
   style: SlideStyleSpec | null;
 }
 
-export interface Song {
+export interface ParsedSong {
+  /** The file's name without its folder and .pptx — the song's key in its bundle. */
+  key: string;
   number: number | null;
   title: string;
   slides: SongSlide[];
@@ -164,12 +171,34 @@ function slideStyle(
   return { bg, color, font, bold, align, x, y, w, h, size };
 }
 
-/** Read a .pptx hymn — number+title from the filename, plus each slide's text and faithful style. */
-export function readSong(file: string): Song | null {
+/** A song's key from its file name: no folders, no `.pptx`. */
+export function songKey(fileName: string): string {
+  return fileName
+    .replace(/^.*[\\/]/, '')
+    .replace(/\.pptx$/i, '')
+    .trim();
+}
+
+/** «123. Назва» (a dot, dash or bracket after the number) → number + title; else the whole name. */
+export function songNumberTitle(key: string): { number: number | null; title: string } {
+  const m = key.match(/^\s*(\d+)\s*[.\-)]\s*(.*)$/);
+  return { number: m ? Number.parseInt(m[1], 10) : null, title: (m ? m[2] : key).trim() };
+}
+
+/** Is this a song file an import should read (not a folder, not an Office lock file `~$…`)? */
+export function isSongFile(fileName: string): boolean {
+  const base = fileName.replace(/^.*[\\/]/, '');
+  return /\.pptx$/i.test(base) && !base.startsWith('~$');
+}
+
+/**
+ * Read a .pptx song: number and title from the file name, each slide's text and faithful
+ * style. Null when the file isn't a readable presentation or has no slide with text.
+ */
+export function parsePptx(bytes: Uint8Array, fileName: string): ParsedSong | null {
   let zip: Record<string, Uint8Array>;
   try {
-    const data = new Uint8Array(fs.readFileSync(file));
-    zip = unzipSync(data, {
+    zip = unzipSync(bytes, {
       filter: (f) =>
         /^ppt\/slides\/slide\d+\.xml$/.test(f.name) ||
         f.name === 'ppt/slideMasters/slideMaster1.xml' ||
@@ -199,23 +228,6 @@ export function readSong(file: string): Song | null {
     .filter((s) => s.text.trim());
   if (slides.length === 0) return null;
 
-  const base = path.basename(file).replace(/\.pptx$/i, '');
-  const m = base.match(/^\s*(\d+)\s*[.\-)]\s*(.*)$/);
-  return {
-    number: m ? Number.parseInt(m[1], 10) : null,
-    title: (m ? m[2] : base).trim(),
-    slides,
-  };
-}
-
-/** Recursively find .pptx files under a directory (skipping temp `~$` files). */
-export function listPptx(dir: string): string[] {
-  if (!fs.existsSync(dir)) return [];
-  const out: string[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...listPptx(full));
-    else if (/\.pptx$/i.test(entry.name) && !entry.name.startsWith('~$')) out.push(full);
-  }
-  return out;
+  const key = songKey(fileName);
+  return { key, ...songNumberTitle(key), slides };
 }

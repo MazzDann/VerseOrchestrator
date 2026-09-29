@@ -23,9 +23,17 @@ export const SEGMENT_TABLES = [
   'song_slides',
 ] as const;
 
-/** Copy every segment table into main (same schema → same column order). */
+/**
+ * Copy every segment table into main (same schema → same column order). A songs segment
+ * built before 0.10.0 has no `bundle` column: the second songs statement copies it without
+ * one (for a newer segment it finds every id already there and adds nothing).
+ */
 export function mergeSql(alias: string): string[] {
-  return SEGMENT_TABLES.map((t) => `INSERT OR IGNORE INTO main.${t} SELECT * FROM ${alias}.${t}`);
+  return [
+    ...SEGMENT_TABLES.map((t) => `INSERT OR IGNORE INTO main.${t} SELECT * FROM ${alias}.${t}`),
+    `INSERT OR IGNORE INTO main.songs (id, number, title, title_norm)
+     SELECT id, number, title, title_norm FROM ${alias}.songs`,
+  ];
 }
 
 /** Verses of the attached segment, to (re)build their FTS rows. */

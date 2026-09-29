@@ -113,7 +113,8 @@ CREATE TABLE songs (
   id         INTEGER PRIMARY KEY,
   number     INTEGER,
   title      TEXT,
-  title_norm TEXT
+  title_norm TEXT,
+  bundle     TEXT
 );
 CREATE INDEX idx_songs_num ON songs (number);
 CREATE INDEX idx_songs_norm ON songs (title_norm);

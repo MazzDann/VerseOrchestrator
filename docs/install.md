@@ -38,8 +38,8 @@
 файли у `data/settings.json` → `library` (списки `bibles`, `dictionaries`,
 `commentaries`, `crossreferences`).
 
-Пісні застосунок бере з файлів `.pptx` у папці `songs/` — див.
-[Пісні та власний текст](songs-and-text.md#додайте-пісні).
+Пісні зберігаються в бандлах у папці `data/songs/`, а додати їх можна з файлів `.pptx` у
+папці `songs/` — див. [Пісні та власний текст](songs-and-text.md#додайте-пісні-з-папки).
 
 ## Запустіть застосунок
 

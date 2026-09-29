@@ -116,7 +116,7 @@ function fixtureLibrary(file: string): void {
     INSERT INTO dictionary_entries VALUES (1, 'G2316', '2316', 'G', 'θεός'), (2, 'H2316', '2316', 'H', 'אֱלֹהִים'), (3, 'Любов', 'любов', '', 'Основа всього');
     INSERT INTO cross_references VALUES (500, 3, 16, 450, 5, 8, 8), (500, 3, 16, 690, 4, 9, 10);
     INSERT INTO commentaries VALUES ('MH', 500, 3, 14, 3, 18, '1', 'Про любов Божу'), ('MH', 500, 4, 1, 4, 1, '', 'Інше');
-    INSERT INTO songs VALUES (1, 12, 'Боже Вічний', 'боже вічний'), (2, 120, 'Слава', 'слава');
+    INSERT INTO songs VALUES (1, 12, 'Боже Вічний', 'боже вічний', 'ПС'), (2, 120, 'Слава', 'слава', 'ПС');
     INSERT INTO song_slides VALUES (1, 0, 'Боже Вічний, Боже сили', '{"bg":"#000"}'), (1, 1, 'Другий куплет', NULL);`);
   db.close();
 }
