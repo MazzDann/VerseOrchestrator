@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { tr } from '../i18n';
 
 /**
  * Show commands in the control window (0.4.3): one pipeline for everything that drives
@@ -130,14 +131,14 @@ export function createDispatcher(now: () => number = Date.now) {
     if (before) return { ...(await before.outcome), duplicate: true };
     let outcome: Promise<Outcome> = Promise.resolve({
       ok: false,
-      reason: 'Вікно керування ще не готове',
+      reason: tr('Вікно керування ще не готове'),
     });
     for (const h of handlers) {
       const o = h.fn(cmd, source, args);
       if (o) {
         outcome = Promise.resolve(o).catch((e: unknown) => ({
           ok: false,
-          reason: (e as Error).message || 'Не вдалося',
+          reason: (e as Error).message || tr('Не вдалося'),
         }));
         break;
       }

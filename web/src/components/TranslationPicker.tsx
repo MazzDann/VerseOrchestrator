@@ -21,6 +21,7 @@ import {
   IconStarFilled,
 } from '@tabler/icons-react';
 import { type Translation } from '../api';
+import { tr, useLang } from '../i18n';
 
 interface Props {
   translations: Translation[];
@@ -43,6 +44,7 @@ export function TranslationPicker({
   onMakePrimary,
   max = 5,
 }: Props) {
+  useLang();
   const [open, setOpen] = useState(true);
   const [filter, setFilter] = useState('');
 
@@ -69,7 +71,7 @@ export function TranslationPicker({
     <Box>
       <UnstyledButton
         onClick={() => setOpen((o) => !o)}
-        aria-label="Переклади"
+        aria-label={tr('Переклади')}
         style={{
           width: '100%',
           display: 'flex',
@@ -81,7 +83,7 @@ export function TranslationPicker({
         <Group gap={6} wrap="nowrap">
           {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
           <Text size="sm" fw={600}>
-            Переклади
+            {tr('Переклади')}
           </Text>
         </Group>
         <Badge size="sm" variant={selectedIds.length ? 'filled' : 'light'} color="brand">
@@ -94,7 +96,7 @@ export function TranslationPicker({
           <TextInput
             size="xs"
             mb={6}
-            placeholder="Фільтр перекладів…"
+            placeholder={tr('Фільтр перекладів…')}
             value={filter}
             onChange={(e) => setFilter(e.currentTarget.value)}
             leftSection={<IconSearch size={13} />}
@@ -129,7 +131,7 @@ export function TranslationPicker({
                         />
                         {checked && onMakePrimary && (
                           <Tooltip
-                            label={isPrimary ? 'Головний переклад' : 'Зробити головним'}
+                            label={isPrimary ? tr('Головний переклад') : tr('Зробити головним')}
                             withArrow
                           >
                             <ActionIcon
@@ -137,7 +139,7 @@ export function TranslationPicker({
                               variant="subtle"
                               color={isPrimary ? 'brand' : 'gray'}
                               onClick={() => onMakePrimary(t.id)}
-                              aria-label="Зробити головним"
+                              aria-label={tr('Зробити головним')}
                             >
                               {isPrimary ? <IconStarFilled size={13} /> : <IconStar size={13} />}
                             </ActionIcon>
@@ -150,7 +152,7 @@ export function TranslationPicker({
               ))}
               {groups.length === 0 && (
                 <Text size="xs" c="dimmed" py="xs">
-                  Нічого не знайдено
+                  {tr('Нічого не знайдено')}
                 </Text>
               )}
             </Stack>
