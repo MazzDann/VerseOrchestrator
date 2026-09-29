@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { LANG_NAMES, LANGS, type Lang } from '@vo/shared';
 import {
   Stack,
   Select,
@@ -43,6 +44,7 @@ import { ShortcutSection } from './ShortcutSection';
 import { useEffectiveSource } from '../dataSourceStore';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
+import { useTr } from '../i18n';
 
 const SECTIONS_KEY = 'vo:settingsSections';
 
@@ -56,6 +58,9 @@ export function SettingsPanel() {
   const serverAvailable = useServer((s) => s.available);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
+  const language = useSettings((s) => s.language);
+  const setLanguage = useSettings((s) => s.setLanguage);
+  const { tr } = useTr();
   const queryClient = useQueryClient();
   const [rebuilding, setRebuilding] = useState(false);
   // Which groups are expanded — a per-viewer convenience, remembered locally.
@@ -82,10 +87,12 @@ export function SettingsPanel() {
     try {
       await api.rebuild();
       await queryClient.invalidateQueries();
-      notifications.show({ message: 'Бібліотеку оновлено', color: 'green' });
+      notifications.show({ message: tr('Бібліотеку оновлено'), color: 'green' });
     } catch (e) {
       notifications.show({
-        message: `Не вдалося перебудувати бібліотеку: ${(e as Error).message}`,
+        message: tr('Не вдалося перебудувати бібліотеку: {error}', {
+          error: (e as Error).message,
+        }),
         color: 'red',
       });
     } finally {
@@ -122,9 +129,16 @@ export function SettingsPanel() {
   const inSettingsWindow =
     typeof window !== 'undefined' && window.location.pathname === '/settings';
 
-  const fontLabel = FONT_OPTIONS.find((f) => f.value === a.scriptureFont)?.label ?? 'власний';
-  const templateLabel = template?.name ?? 'класичний';
-  const alignLabel = { left: 'ліворуч', center: 'по центру', right: 'праворуч' }[a.textAlign];
+  const fonts = FONT_OPTIONS.map((f) => ({ ...f, label: tr(f.label) }));
+  const fontLabel = fonts.find((f) => f.value === a.scriptureFont)?.label ?? tr('власний');
+  const templateLabel = template?.name ?? tr('класичний');
+  const alignLabel = {
+    left: tr('ліворуч'),
+    center: tr('по центру'),
+    right: tr('праворуч'),
+  }[a.textAlign];
+  /** a section's one-line summary: its parts, the empty ones left out */
+  const summary = (...parts: (string | false)[]) => parts.filter(Boolean).join(', ');
 
   return (
     <Stack gap="sm" p="md">
@@ -135,7 +149,7 @@ export function SettingsPanel() {
           leftSection={<IconExternalLink size={14} />}
           onClick={() => void openSettingsWindow()}
         >
-          Відкрити окремим вікном
+          {tr('Відкрити окремим вікном')}
         </Button>
       )}
       <Accordion
@@ -146,7 +160,7 @@ export function SettingsPanel() {
         chevronPosition="right"
         styles={{ content: { paddingInline: 0 }, control: { paddingInline: 0 } }}
       >
-        <Section value="presets" title="Пресети" summary="готові набори вигляду">
+        <Section value="presets" title={tr('Пресети')} summary={tr('готові набори вигляду')}>
           <PresetsSection />
           <Button
             variant="subtle"
@@ -155,24 +169,29 @@ export function SettingsPanel() {
             leftSection={<IconRefresh size={14} />}
             onClick={reset}
           >
-            Скинути вигляд до типового
+            {tr('Скинути вигляд до типового')}
           </Button>
         </Section>
 
         <Section
           value="text"
-          title="Текст"
-          summary={`${fontLabel}, ${alignLabel}${a.transition === 'fast' ? ', швидкий перехід' : a.transition === 'none' ? ', без анімації' : ''}`}
+          title={tr('Текст')}
+          summary={summary(
+            fontLabel,
+            alignLabel,
+            a.transition === 'fast' && tr('швидкий перехід'),
+            a.transition === 'none' && tr('без анімації'),
+          )}
         >
           <Select
-            label="Шрифт"
-            data={FONT_OPTIONS}
+            label={tr('Шрифт')}
+            data={fonts}
             value={a.scriptureFont}
             onChange={(v) => v && set({ scriptureFont: v })}
             allowDeselect={false}
           />
           <ColorInput
-            label="Колір"
+            label={tr('Колір')}
             value={a.textColor}
             onChange={(v) => set({ textColor: v })}
             format="hex"
@@ -180,48 +199,53 @@ export function SettingsPanel() {
           />
           <div>
             <Text size="sm" fw={500} mb={4}>
-              Вирівнювання
+              {tr('Вирівнювання')}
             </Text>
             <SegmentedControl
               fullWidth
               value={a.textAlign}
               onChange={(v) => set({ textAlign: v as TextAlign })}
               data={[
-                { label: 'Ліворуч', value: 'left' },
-                { label: 'Центр', value: 'center' },
-                { label: 'Праворуч', value: 'right' },
+                { label: tr('Ліворуч'), value: 'left' },
+                { label: tr('Центр'), value: 'center' },
+                { label: tr('Праворуч'), value: 'right' },
               ]}
             />
           </div>
           <Switch
-            label="Показувати номери віршів"
+            label={tr('Показувати номери віршів')}
             checked={a.showVerseNumbers}
             onChange={(e) => set({ showVerseNumbers: e.currentTarget.checked })}
           />
           <div>
             <Text size="sm" fw={500} mb={2}>
-              Перехід між слайдами
+              {tr('Перехід між слайдами')}
             </Text>
             <Text size="xs" c="dimmed" mb={6}>
-              Плавний: старий слайд згасає, новий проявляється (новий текст — за ~0,4 с). Швидкий:
-              новий одразу, коротке проявлення. Без анімації: миттєва заміна.
+              {tr(
+                'Плавний: старий слайд згасає, новий проявляється (новий текст — за ~0,4 с). Швидкий: новий одразу, коротке проявлення. Без анімації: миттєва заміна.',
+              )}
             </Text>
             <SegmentedControl
               fullWidth
               value={a.transition}
               onChange={(v) => set({ transition: v as SlideTransition })}
               data={[
-                { label: 'Плавний', value: 'smooth' },
-                { label: 'Швидкий', value: 'fast' },
-                { label: 'Без анімації', value: 'none' },
+                { label: tr('Плавний'), value: 'smooth' },
+                { label: tr('Швидкий'), value: 'fast' },
+                { label: tr('Без анімації'), value: 'none' },
               ]}
             />
           </div>
         </Section>
 
-        <Section value="background" title="Фон" summary={a.bgImage ? 'зображення' : a.bgColor}>
+        <Section
+          value="background"
+          title={tr('Фон')}
+          summary={a.bgImage ? tr('зображення') : a.bgColor}
+        >
           <ColorInput
-            label="Колір фону"
+            label={tr('Колір фону')}
             value={a.bgColor}
             onChange={(v) => set({ bgColor: v })}
             format="hex"
@@ -229,7 +253,7 @@ export function SettingsPanel() {
           />
           <div>
             <Text size="sm" fw={500} mb={4}>
-              Фонове зображення
+              {tr('Фонове зображення')}
             </Text>
             <Group gap="xs">
               <FileButton
@@ -250,7 +274,7 @@ export function SettingsPanel() {
                     size="xs"
                     leftSection={<IconUpload size={16} />}
                   >
-                    {a.bgImage ? 'Замінити' : 'Завантажити'}
+                    {a.bgImage ? tr('Замінити') : tr('Завантажити')}
                   </Button>
                 )}
               </FileButton>
@@ -259,7 +283,7 @@ export function SettingsPanel() {
                   variant="subtle"
                   color="red"
                   onClick={() => set({ bgImage: null })}
-                  aria-label="Прибрати фон"
+                  aria-label={tr('Прибрати фон')}
                 >
                   <IconTrash size={16} />
                 </ActionIcon>
@@ -270,14 +294,23 @@ export function SettingsPanel() {
 
         <Section
           value="layout"
-          title="Розкладка слайда"
-          summary={`${templateLabel}, відступи ${a.padTop}/${a.padRight}/${a.padBottom}/${a.padLeft} ${a.padUnit}`}
+          title={tr('Розкладка слайда')}
+          summary={summary(
+            templateLabel,
+            tr('відступи {top}/{right}/{bottom}/{left} {unit}', {
+              top: a.padTop,
+              right: a.padRight,
+              bottom: a.padBottom,
+              left: a.padLeft,
+              unit: a.padUnit,
+            }),
+          )}
         >
           <TemplateEditor />
           <div>
             <Group justify="space-between" mb={6} wrap="nowrap">
               <Text size="sm" fw={500}>
-                Відступи від країв
+                {tr('Відступи від країв')}
               </Text>
               <SegmentedControl
                 size="xs"
@@ -296,9 +329,9 @@ export function SettingsPanel() {
               value={a.padLink}
               onChange={(v) => set({ padLink: v as PadLink })}
               data={[
-                { label: 'Усі разом', value: 'all' },
-                { label: 'Верт./Гориз.', value: 'axis' },
-                { label: 'Окремо', value: 'none' },
+                { label: tr('Усі разом'), value: 'all' },
+                { label: tr('Верт./Гориз.'), value: 'axis' },
+                { label: tr('Окремо'), value: 'none' },
               ]}
             />
             <div
@@ -311,9 +344,9 @@ export function SettingsPanel() {
               }}
             >
               <span />
-              {padInput('padTop', 'Відступ зверху')}
+              {padInput('padTop', tr('Відступ зверху'))}
               <span />
-              {padInput('padLeft', 'Відступ зліва')}
+              {padInput('padLeft', tr('Відступ зліва'))}
               <div
                 style={{
                   width: 38,
@@ -322,9 +355,9 @@ export function SettingsPanel() {
                   borderRadius: 4,
                 }}
               />
-              {padInput('padRight', 'Відступ справа')}
+              {padInput('padRight', tr('Відступ справа'))}
               <span />
-              {padInput('padBottom', 'Відступ знизу')}
+              {padInput('padBottom', tr('Відступ знизу'))}
               <span />
             </div>
           </div>
@@ -332,15 +365,17 @@ export function SettingsPanel() {
 
         <Section
           value="passages"
-          title="Довгі уривки"
-          summary={
-            (a.versesPerSlide ? `по ${a.versesPerSlide} на слайд` : 'усе на одному слайді') +
-            (a.reveal ? ', поступово' : '')
-          }
+          title={tr('Довгі уривки')}
+          summary={summary(
+            a.versesPerSlide
+              ? tr('по {n} на слайд', { n: a.versesPerSlide })
+              : tr('усе на одному слайді'),
+            a.reveal && tr('поступово'),
+          )}
         >
           <NumberInput
-            label="Віршів на слайд"
-            description="0 = увесь уривок на одному слайді; більше — розбивка на сторінки"
+            label={tr('Віршів на слайд')}
+            description={tr('0 = увесь уривок на одному слайді; більше — розбивка на сторінки')}
             min={0}
             max={20}
             value={a.versesPerSlide}
@@ -348,8 +383,10 @@ export function SettingsPanel() {
           />
           <div>
             <Switch
-              label="Прогресивне розкриття"
-              description="Уривок з’являється по одному віршу на кожен крок клікера (накопичення)"
+              label={tr('Прогресивне розкриття')}
+              description={tr(
+                'Уривок з’являється по одному віршу на кожен крок клікера (накопичення)',
+              )}
               checked={a.reveal}
               onChange={(e) => set({ reveal: e.currentTarget.checked })}
             />
@@ -357,15 +394,17 @@ export function SettingsPanel() {
               <Stack gap={6} mt={8} pl="md">
                 <Switch
                   size="sm"
-                  label="Прожектор"
-                  description="Приглушувати показані вірші, яскравий лише поточний"
+                  label={tr('Прожектор')}
+                  description={tr('Приглушувати показані вірші, яскравий лише поточний')}
                   checked={a.revealSpotlight}
                   onChange={(e) => set({ revealSpotlight: e.currentTarget.checked })}
                 />
                 <Switch
                   size="sm"
-                  label="Плейсхолдери"
-                  description="Нерозкриті вірші видно ледь помітно (інакше — невидимі, місце збережено)"
+                  label={tr('Плейсхолдери')}
+                  description={tr(
+                    'Нерозкриті вірші видно ледь помітно (інакше — невидимі, місце збережено)',
+                  )}
                   checked={a.revealPlaceholders}
                   onChange={(e) => set({ revealPlaceholders: e.currentTarget.checked })}
                 />
@@ -376,17 +415,17 @@ export function SettingsPanel() {
 
         <Section
           value="highlight"
-          title="Виділення"
-          summary={a.redLetter ? 'слова Ісуса кольором' : 'без виділення слів Ісуса'}
+          title={tr('Виділення')}
+          summary={a.redLetter ? tr('слова Ісуса кольором') : tr('без виділення слів Ісуса')}
         >
           <Switch
-            label="Слова Ісуса кольором"
+            label={tr('Слова Ісуса кольором')}
             checked={a.redLetter}
             onChange={(e) => set({ redLetter: e.currentTarget.checked })}
           />
           {a.redLetter && (
             <ColorInput
-              label="Колір слів Ісуса"
+              label={tr('Колір слів Ісуса')}
               value={a.jesusColor}
               onChange={(v) => set({ jesusColor: v })}
               format="hex"
@@ -394,7 +433,7 @@ export function SettingsPanel() {
             />
           )}
           <ColorInput
-            label="Колір виділеного слова (Стронг)"
+            label={tr('Колір виділеного слова (Стронг)')}
             value={a.highlightColor}
             onChange={(v) => set({ highlightColor: v })}
             format="hex"
@@ -402,56 +441,73 @@ export function SettingsPanel() {
           />
           <div>
             <Text size="sm" fw={500} mb={4}>
-              Текст Стронга на показі
+              {tr('Текст Стронга на показі')}
             </Text>
             <SegmentedControl
               fullWidth
               value={a.strongSubline}
               onChange={(v) => set({ strongSubline: v as StrongSubline })}
               data={[
-                { label: 'Лема', value: 'lemma' },
-                { label: 'Повністю', value: 'full' },
+                { label: tr('Лема'), value: 'lemma' },
+                { label: tr('Повністю'), value: 'full' },
               ]}
             />
           </div>
         </Section>
 
-        <Section value="hotkeys" title="Гарячі клавіші" summary="клавіші дій оператора">
+        <Section value="hotkeys" title={tr('Гарячі клавіші')} summary={tr('клавіші дій оператора')}>
           <HotkeysSettings />
         </Section>
 
         <Section
           value="app"
-          title="Застосунок"
-          summary={`${dataSource === 'local' ? 'дані в браузері' : 'дані з сервера'}, ${placement === 'aside' ? 'прев’ю праворуч' : 'прев’ю внизу'}`}
+          title={tr('Застосунок')}
+          summary={summary(
+            LANG_NAMES[language],
+            dataSource === 'local' ? tr('дані в браузері') : tr('дані з сервера'),
+            placement === 'aside' ? tr('прев’ю праворуч') : tr('прев’ю внизу'),
+          )}
         >
+          <div>
+            {/* named in both languages while it's Ukrainian: whoever reads only English finds it */}
+            <Text size="sm" fw={500} mb={4}>
+              {tr('Мова інтерфейсу')}
+              {language === 'uk' ? ' · Interface language' : ''}
+            </Text>
+            <SegmentedControl
+              fullWidth
+              value={language}
+              onChange={(v) => setLanguage(v as Lang)}
+              data={LANGS.map((l) => ({ value: l, label: LANG_NAMES[l] }))}
+            />
+          </div>
           {inSettingsWindow ? (
             <Text size="xs" c="dimmed">
-              Джерело даних налаштовується в головному вікні керування.
+              {tr('Джерело даних налаштовується в головному вікні керування.')}
             </Text>
           ) : (
             <DataSourceSection />
           )}
           <div>
             <Text size="sm" fw={500} mb={4}>
-              Розташування панелі прев’ю
+              {tr('Розташування панелі прев’ю')}
             </Text>
             <SegmentedControl
               fullWidth
               value={placement}
               onChange={(v) => setPlacement(v as 'aside' | 'bottom')}
               data={[
-                { label: 'Праворуч', value: 'aside' },
-                { label: 'Унизу центру', value: 'bottom' },
+                { label: tr('Праворуч'), value: 'aside' },
+                { label: tr('Унизу центру'), value: 'bottom' },
               ]}
             />
           </div>
           <div>
             <Text size="sm" fw={500} mb={2}>
-              Бібліотека модулів
+              {tr('Бібліотека модулів')}
             </Text>
             <Text size="xs" c="dimmed" mb={8}>
-              Перебудувати з папок modules/ і songs/ після додавання перекладу чи пісні.
+              {tr('Перебудувати з папок modules/ і songs/ після додавання перекладу чи пісні.')}
             </Text>
             <Button
               variant="light"
@@ -459,10 +515,10 @@ export function SettingsPanel() {
               leftSection={<IconDatabaseImport size={16} />}
               loading={rebuilding}
               disabled={serverAvailable === false}
-              title={serverAvailable === false ? NEEDS_SERVER : undefined}
+              title={serverAvailable === false ? tr(NEEDS_SERVER) : undefined}
               onClick={rebuildLibrary}
             >
-              Пересканувати модулі
+              {tr('Пересканувати модулі')}
             </Button>
           </div>
           <StandbySection active={openSections.includes('app')} />

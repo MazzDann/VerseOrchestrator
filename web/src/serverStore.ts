@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { N_ } from '@vo/shared';
 
 /**
  * Is the Node API reachable? `null` until the first probe. A static deployment (no
@@ -30,12 +31,14 @@ export async function probeServer(): Promise<boolean> {
 }
 
 /** How to start the app again after «Вимкнути повністю» — the launchers of 0.7.0. */
-export const START_AGAIN =
-  'Щоб запустити знову, відкрийте start.cmd (Windows), start.command (macOS) або ./start.sh (Linux) у папці застосунку.';
+export const START_AGAIN = N_(
+  'Щоб запустити знову, відкрийте start.cmd (Windows), start.command (macOS) або ./start.sh (Linux) у папці застосунку.',
+);
 
 /** Copy for controls that need the server. */
-export const NEEDS_SERVER =
-  'Потрібен сервер застосунку (start.cmd / start.command / ./start.sh) — зараз працює лише бібліотека в браузері';
+export const NEEDS_SERVER = N_(
+  'Потрібен сервер застосунку (start.cmd / start.command / ./start.sh) — зараз працює лише бібліотека в браузері',
+);
 
 /**
  * Startup gate for library reads in the control window: resolves once we know whether the
