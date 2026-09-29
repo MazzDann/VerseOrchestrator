@@ -35,14 +35,17 @@ import {
 } from './serverSettings.js';
 import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
-import { syncSongsAtStart } from './songs.js';
+import { parseSongImport, syncSongsAtStart } from './songs.js';
+import { bundlesDir, importSongs, listBundles, refreshLibrarySongs } from '@vo/shared/songs-node';
+import { sameBundleName } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 
 const app = express();
 const json = express.json({ limit: '1mb' });
-// the UI state (0.7.4) may carry a background image as a data URL: its own, larger limit
-app.use((req, res, next) => (req.path === '/api/ui-state' ? next() : json(req, res, next)));
+// the UI state (0.7.4) and a song import (0.10.1) are big: their own, larger limits
+const ownParser = new Set(['/api/ui-state', '/api/song-bundles/import']);
+app.use((req, res, next) => (ownParser.has(req.path) ? next() : json(req, res, next)));
 
 const PORT = Number(process.env.PORT ?? 8787);
 /**
@@ -444,6 +447,63 @@ app.get(
 app.get(
   '/api/song-bundles',
   wrap(async (_req, res) => res.json(await library().listSongBundles())),
+);
+
+/** The bundle files themselves, with the ids an import names its target by (0.10.1). */
+app.get(
+  '/api/song-bundles/files',
+  requireLocal,
+  wrap(async (_req, res) =>
+    res.json(
+      listBundles(bundlesDir(dataDir)).map((b) => ({
+        id: b.meta.id,
+        name: b.meta.name,
+        count: b.count,
+      })),
+    ),
+  ),
+);
+
+/**
+ * Import songs the browser read from .pptx files (0.10.1) into a bundle — an existing one
+ * (`target.id`) or a new one (`target.name`) — then bring the library's songs up to date.
+ */
+app.post(
+  '/api/song-bundles/import',
+  requireLocalControl,
+  express.json({ limit: '64mb' }),
+  wrap(async (req, res) => {
+    if (rebuilding)
+      throw new ApiError(409, 'Бібліотека саме перебудовується — спробуйте за хвилину');
+    const { target, songs } = parseSongImport(req.body);
+    const dir = bundlesDir(dataDir);
+    const existing = listBundles(dir);
+    if ('id' in target && !existing.some((b) => b.meta.id === target.id)) {
+      throw new ApiError(404, 'Бандл не знайдено — відкрийте імпорт ще раз');
+    }
+    // the library tells bundles apart by name: a second «ПС» would merge into the first
+    if ('name' in target && existing.some((b) => sameBundleName(b.meta.name, target.name))) {
+      throw new ApiError(409, `Бандл «${target.name}» уже є — виберіть його в списку`);
+    }
+    const started = Date.now();
+    const done = importSongs(dir, target, songs);
+    const written = Date.now();
+    let library: number | null = null;
+    if (fs.existsSync(libraryPath)) {
+      library = refreshLibrarySongs(libraryPath, dir);
+      closeDb(); // the next read sees the new songs
+    }
+    console.log(
+      `[server] songs: import → «${done.bundle.meta.name}»: ${done.added} new, ${done.updated} updated` +
+        ` (bundle ${written - started} ms, library ${Date.now() - written} ms)`,
+    );
+    res.json({
+      bundle: { id: done.bundle.meta.id, name: done.bundle.meta.name, count: done.bundle.count },
+      added: done.added,
+      updated: done.updated,
+      library,
+    });
+  }),
 );
 
 app.get(

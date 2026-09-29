@@ -12,14 +12,23 @@ import {
   Badge,
   SegmentedControl,
   Select,
+  Tooltip,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconMusic, IconX, IconChevronLeft, IconPlaylistAdd } from '@tabler/icons-react';
+import {
+  IconMusic,
+  IconX,
+  IconChevronLeft,
+  IconPlaylistAdd,
+  IconFileImport,
+} from '@tabler/icons-react';
 import { api, type SongStyle } from '../api';
 import type { SlideSource } from '../presenterBus';
 import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
+import { useServer, NEEDS_SERVER } from '../serverStore';
+import { SongImport } from './SongImport';
 
 interface Props {
   open: boolean;
@@ -74,6 +83,9 @@ export function SongsPanel({
   const [faithful, setFaithful] = useState(true);
   /** '' = every bundle (0.10.0) */
   const [bundle, setBundle] = useState('');
+  /** the import view (0.10.1) instead of the search */
+  const [importing, setImporting] = useState(false);
+  const serverAvailable = useServer((s) => s.available);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const bundlesQuery = useQuery({
@@ -97,11 +109,15 @@ export function SongsPanel({
   });
 
   useEffect(() => {
-    if (open && songId == null) {
+    if (open && songId == null && !importing) {
       const t = setTimeout(() => inputRef.current?.focus(), 30);
       return () => clearTimeout(t);
     }
-  }, [open, songId]);
+  }, [open, songId, importing]);
+  // a closed panel opens on the search again
+  useEffect(() => {
+    if (!open) setImporting(false);
+  }, [open]);
 
   // Step to the next/previous stanza and project it.
   const stepStanza = useCallback(
@@ -192,7 +208,18 @@ export function SongsPanel({
 
   return (
     <Paper withBorder shadow="sm" p="sm" m="sm">
-      {song ? (
+      {importing && !song ? (
+        <SongImport
+          preferred={inBundle}
+          onBack={() => setImporting(false)}
+          onClose={onClose}
+          onDone={(name) => {
+            setImporting(false);
+            setQuery('');
+            setBundle(name);
+          }}
+        />
+      ) : song ? (
         <>
           <Group justify="space-between" wrap="nowrap" mb="xs">
             <Group gap={6} wrap="nowrap">
@@ -315,6 +342,23 @@ export function SongsPanel({
                 comboboxProps={{ withinPortal: true }}
               />
             )}
+            <Tooltip
+              label={serverAvailable === false ? NEEDS_SERVER : 'Імпорт пісень з файлів .pptx'}
+              multiline={serverAvailable === false}
+              w={serverAvailable === false ? 280 : undefined}
+            >
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                // data-disabled, not disabled: a disabled button shows no tooltip saying why
+                data-disabled={serverAvailable === false || undefined}
+                aria-disabled={serverAvailable === false || undefined}
+                onClick={() => serverAvailable !== false && setImporting(true)}
+                aria-label="Імпорт пісень"
+              >
+                <IconFileImport size={18} />
+              </ActionIcon>
+            </Tooltip>
             <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
               <IconX size={18} />
             </ActionIcon>
@@ -351,6 +395,12 @@ export function SongsPanel({
               {debounced && songs.length === 0 && !listQuery.isFetching && (
                 <Text size="sm" c="dimmed" p="sm">
                   Нічого не знайдено
+                </Text>
+              )}
+              {!debounced && songs.length === 0 && listQuery.isSuccess && !inBundle && (
+                <Text size="sm" c="dimmed" p="sm">
+                  Пісень ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт пісень» праворуч
+                  від пошуку.
                 </Text>
               )}
             </Stack>

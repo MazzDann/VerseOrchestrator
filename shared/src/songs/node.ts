@@ -9,6 +9,7 @@ import {
   prepareBundle,
   readBundleMeta,
   readBundleSongs,
+  sameBundleName,
   upsertBundleSongs,
   writeBundleMeta,
   writeLibrarySongs,
@@ -189,7 +190,9 @@ export function syncFolderBundle(
   const source = path.basename(folder);
   const bundles = listBundles(dir);
   let bundle = bundles.find((b) => b.meta.source === source);
-  const adopt = bundles.find((b) => !b.meta.source && b.meta.name === legacyBundleName(folder));
+  const adopt = bundles.find(
+    (b) => !b.meta.source && sameBundleName(b.meta.name, legacyBundleName(folder)),
+  );
   if (!bundle && adopt) {
     // a bundle of that name that doesn't remember a folder yet: this folder's
     bundle = { ...adopt, meta: { ...adopt.meta, source } };

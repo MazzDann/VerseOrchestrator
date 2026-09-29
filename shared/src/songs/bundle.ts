@@ -78,6 +78,14 @@ export function stableSongId(bundleId: string, key: string): number {
   return fnv1a(`${bundleId}\n${key}`) & 0x7fffffff || 1;
 }
 
+/**
+ * Do two bundle names name the same bundle? The library tells bundles apart by name, so
+ * «ПС» and « пс» must not become two (case and outer spaces don't count).
+ */
+export function sameBundleName(a: string, b: string): boolean {
+  return a.trim().toLocaleLowerCase('uk') === b.trim().toLocaleLowerCase('uk');
+}
+
 /** A file name for a bundle called `name`, not one of `taken` (lower-cased names). */
 export function bundleFileName(name: string, taken: Iterable<string> = []): string {
   const used = new Set([...taken].map((t) => t.toLowerCase()));
