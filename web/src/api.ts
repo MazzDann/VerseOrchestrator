@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { type Library } from '@vo/shared';
+import { type BundleSong, type Library } from '@vo/shared';
 import { type Slide } from './presenterBus';
 import { effectiveSource } from './dataSourceStore';
 import { useServer, whenBooted } from './serverStore';
@@ -458,6 +458,32 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return StandbySchema.parse(await res.json());
+  },
+  /** The song bundle files, with the ids an import names its target by (0.10.1). */
+  songBundleFiles: () =>
+    getJson(
+      '/api/song-bundles/files',
+      z.array(z.object({ id: z.string(), name: z.string(), count: z.number() })),
+    ),
+  /**
+   * Import songs read from .pptx files in the browser into a bundle — an existing one (`id`)
+   * or a new one (`name`) — and bring the library's songs up to date (0.10.1).
+   */
+  importSongs: async (target: { id: string } | { name: string }, songs: BundleSong[]) => {
+    const res = await request('/api/song-bundles/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ target, songs }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({
+        bundle: z.object({ id: z.string(), name: z.string(), count: z.number() }),
+        added: z.number(),
+        updated: z.number(),
+        library: z.number().nullable(),
+      })
+      .parse(await res.json());
   },
   /** A desktop shortcut that opens the control window as an app window (0.7.5). */
   createShortcut: async () => {

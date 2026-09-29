@@ -73,7 +73,7 @@ module catalog offers. Next to Bible translations, the library also imports Stro
 dictionaries (`*.dictionary.SQLite3`), cross-references (`*.crossreferences.SQLite3`),
 and commentaries (`*.commentaries.SQLite3`) for the «Стронг» and «Контекст» tabs, and
 songs from song bundles (`data/songs/*.vosongs`, one file per songbook), which the app
-makes from `.pptx` files in `songs/`.
+makes from `.pptx` files: imported in the control window or put in `songs/`.
 
 Many translations — and most song collections — are still under copyright. Use them for
 your own reading and projection, don't redistribute them, and prefer public-domain texts

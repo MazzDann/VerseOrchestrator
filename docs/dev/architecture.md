@@ -71,7 +71,11 @@ Both paths run the same queries from `shared/src/library/queries.ts` against a s
 local engine through the same response schemas. The data source is a setting
 (**Джерело даних**), and the app falls back to the browser engine when there is no
 server. The library API is read-only; `POST /api/rebuild` runs the builder as a separate
-process, and the server picks up the new file without a restart.
+process, and the server picks up the new file without a restart. A song import is the
+one write outside the builder: the browser reads the `.pptx` files, and
+`POST /api/song-bundles/import` writes them into a bundle file and replaces the songs in
+`data/library.db` (about 0.2 s for 479 songs). Segments are rebuilt only by
+`npm run build:segments`.
 
 ## How a slide travels
 

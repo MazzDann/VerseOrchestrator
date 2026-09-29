@@ -10,6 +10,7 @@ import {
   prepareBundle,
   readBundleMeta,
   readBundleSongs,
+  sameBundleName,
   stableSongId,
   upsertBundleSongs,
   writeBundleMeta,
@@ -105,6 +106,12 @@ describe('song bundles', () => {
     expect(bundleFileName('ПС укр')).toBe('ПС-укр.vosongs');
     expect(bundleFileName('ПС укр', ['пс-укр.vosongs'])).toBe('ПС-укр-2.vosongs');
     expect(bundleFileName('***')).toBe('songs.vosongs');
+  });
+
+  it('names: case and outer spaces make no second bundle', () => {
+    expect(sameBundleName('ПС', ' пс ')).toBe(true);
+    expect(sameBundleName('Молодіжні', 'МОЛОДІЖНІ')).toBe(true);
+    expect(sameBundleName('ПС', 'ПС укр')).toBe(false);
   });
 
   it('a bundle file: meta, songs replaced by key', () => {
