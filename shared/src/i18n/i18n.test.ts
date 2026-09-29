@@ -43,6 +43,19 @@ const TRANSLATED = [
   'web/src/lib/remote.ts',
   'web/src/api.ts',
   'web/src/settingsStore.ts',
+  // 0.11.3 — the control window's panels
+  'web/src/components/SearchPanel.tsx',
+  'web/src/components/SongsPanel.tsx',
+  'web/src/components/SongImport.tsx',
+  'web/src/components/TextPanel.tsx',
+  'web/src/components/PlaylistPanel.tsx',
+  'web/src/components/StudyPanels.tsx',
+  'web/src/components/StrongView.tsx',
+  'web/src/components/StudyContext.tsx',
+  'web/src/components/ConcordancePanel.tsx',
+  'web/src/components/CommandPalette.tsx',
+  'web/src/components/Monitor.tsx',
+  'web/src/components/VirtualList.tsx',
 ];
 
 const walk = (dir: string): string[] =>
@@ -128,7 +141,7 @@ const skipSpace = (src: string, i: number) => {
 
 function keysOf(file: string, src: string): Key[] {
   const keys: Key[] = [];
-  for (const m of src.matchAll(/\b(tr|trn|N_|Nn_)\(/g)) {
+  for (const m of src.matchAll(/\b(tr|trn|trx|N_|Nn_)\(/g)) {
     let i = m.index + m[0].length;
     if (m[1] === 'trn') {
       i = afterTopComma(src, i);
@@ -202,7 +215,7 @@ describe('the English interface (0.11.x)', () => {
     // a .tsx file that translates in render must subscribe to the language
     const unsubscribed = TRANSLATED.filter((rel) => rel.endsWith('.tsx')).filter((rel) => {
       const src = stripComments(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
-      return /\btrn?\(/.test(src) && !/\buseLang\(/.test(src);
+      return /\btr[nx]?\(/.test(src) && !/\buseLang\(/.test(src);
     });
     expect(unsubscribed).toEqual([]);
   });

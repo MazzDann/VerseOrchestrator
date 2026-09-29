@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type Verse } from '../api';
 import { useSettings } from '../settingsStore';
 import { parseStrongTokens } from '../lib/strong';
+import { tr, useLang } from '../i18n';
 
 export interface StrongPickRef {
   translationId: number;
@@ -84,6 +85,7 @@ function DefinitionText({
  * list, and G####/H#### cross-references in definitions are clickable.
  */
 export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordance }: Props) {
+  useLang();
   const [active, setActive] = useState<ActiveWord | null>(null);
   const book = verses[0]?.bookNumber;
   const strongSubline = useSettings((s) => s.appearance.strongSubline);
@@ -109,7 +111,7 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
   if (verses.length === 0) {
     return (
       <Text size="sm" c="dimmed" p="md">
-        Оберіть вірш у списку.
+        {tr('Оберіть вірш у списку.')}
       </Text>
     );
   }
@@ -127,14 +129,14 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
   const gloss = strongSubline === 'full' ? glossLines.join(' — ') : (glossLines[0] ?? '');
   const projectSubline =
     active?.strong != null
-      ? `${active.text} · Стронг ${active.strong}${gloss ? ` — ${gloss}` : ''}`
+      ? `${active.text} · ${tr('Стронг {n}', { n: active.strong })}${gloss ? ` — ${gloss}` : ''}`
       : null;
 
   return (
     <Stack p="md" gap="sm">
       {!hasStrong && (
         <Text size="xs" c="dimmed">
-          Без номерів Стронга — доступний лише словник по слову.
+          {tr('Без номерів Стронга — доступний лише словник по слову.')}
         </Text>
       )}
       {verses.map((v) => {
@@ -178,7 +180,7 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
           <Group justify="space-between" mb={4}>
             <Text fw={600} size="sm">
               {active.text}
-              {active.strong ? ` · Стронг ${active.strong}` : ''}
+              {active.strong ? ` · ${tr('Стронг {n}', { n: active.strong })}` : ''}
             </Text>
             {loading && <Loader size="xs" />}
           </Group>
@@ -193,7 +195,7 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
               leftSection={<IconDeviceTv size={14} />}
               onClick={() => onProjectStrong(projectSubline, active.strong!)}
             >
-              На екран зі Стронгом
+              {tr('На екран зі Стронгом')}
             </Button>
           )}
 
@@ -217,8 +219,11 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
           {!loading && strongDefs.length === 0 && wordDefs.length === 0 && (
             <Text size="sm" c="dimmed">
               {active.strong
-                ? `Немає статті для ${active.strong}. Додайте словник Стронга в папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).`
-                : 'У словниках нічого не знайдено для цього слова.'}
+                ? tr(
+                    'Немає статті для {n}. Додайте словник Стронга в папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).',
+                    { n: active.strong },
+                  )
+                : tr('У словниках нічого не знайдено для цього слова.')}
             </Text>
           )}
 
@@ -232,7 +237,7 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
               leftSection={<IconListSearch size={14} />}
               onClick={() => onShowConcordance(active.strong!)}
             >
-              Де ще вживається · Стронг {active.strong}
+              {tr('Де ще вживається · Стронг {n}', { n: active.strong })}
             </Button>
           )}
         </Paper>

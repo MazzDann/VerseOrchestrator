@@ -31,6 +31,7 @@ import { sameContent } from '../lib/slide';
 import { SettingsPanel } from './SettingsPanel';
 import { StrongView, type StrongPickRef } from './StrongView';
 import { StudyContext } from './StudyContext';
+import { tr, useLang } from '../i18n';
 
 export type AsideMode = 'preview' | 'settings' | 'strong' | 'study';
 
@@ -101,6 +102,7 @@ export function StudyPanels({
   remote,
   suggest,
 }: Props) {
+  useLang();
   // Program/preview monitors (video-switcher tally): when the prepared slide is already
   // on screen show ONE red "На екрані" monitor; otherwise a large amber preview plus a
   // smaller red/grey "На екрані" monitor, so the operator always sees both states.
@@ -108,14 +110,14 @@ export function StudyPanels({
   const merged = liveActive && previewHas && sameContent(previewSlide, liveSlide);
   const previewState: TallyState = merged ? 'live' : previewHas ? 'cue' : 'idle';
   const bookmarkButton = (
-    <Tooltip label={isSaved ? 'Прибрати зі збереженого' : 'Зберегти'}>
+    <Tooltip label={isSaved ? tr('Прибрати зі збереженого') : tr('Зберегти')}>
       <ActionIcon
         size="sm"
         variant={isSaved ? 'filled' : 'subtle'}
         color="brand"
         disabled={!currentRef}
         onClick={() => currentRef && onToggleBookmark(currentRef)}
-        aria-label={isSaved ? 'Прибрати зі збереженого' : 'Зберегти'}
+        aria-label={isSaved ? tr('Прибрати зі збереженого') : tr('Зберегти')}
       >
         <IconBookmark size={14} />
       </ActionIcon>
@@ -125,13 +127,13 @@ export function StudyPanels({
   const suggestTargets = previewHas ? (suggest?.remotes ?? []) : [];
   const suggestButton =
     suggestTargets.length === 1 ? (
-      <Tooltip label={`Запропонувати пульту «${suggestTargets[0].name}»`}>
+      <Tooltip label={tr('Запропонувати пульту «{remote}»', { remote: suggestTargets[0].name })}>
         <ActionIcon
           size="sm"
           variant="subtle"
           color="gray"
           onClick={() => suggest!.onSend(suggestTargets[0].id)}
-          aria-label={`Запропонувати пульту «${suggestTargets[0].name}»`}
+          aria-label={tr('Запропонувати пульту «{remote}»', { remote: suggestTargets[0].name })}
         >
           <IconSend size={14} />
         </ActionIcon>
@@ -139,14 +141,19 @@ export function StudyPanels({
     ) : suggestTargets.length > 1 ? (
       <Menu position="bottom-end" withinPortal>
         <Menu.Target>
-          <Tooltip label="Запропонувати пульту">
-            <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Запропонувати пульту">
+          <Tooltip label={tr('Запропонувати пульту')}>
+            <ActionIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              aria-label={tr('Запропонувати пульту')}
+            >
               <IconSend size={14} />
             </ActionIcon>
           </Tooltip>
         </Menu.Target>
         <Menu.Dropdown>
-          <Menu.Label>Запропонувати пульту</Menu.Label>
+          <Menu.Label>{tr('Запропонувати пульту')}</Menu.Label>
           {suggestTargets.map((r) => (
             <Menu.Item key={r.id} onClick={() => suggest!.onSend(r.id)}>
               {r.name}
@@ -158,19 +165,19 @@ export function StudyPanels({
   // put on screen by a speaker's remote (0.6.2): say whose it is
   const liveBy = liveSlide.source?.by;
   const liveDetail = liveActive
-    ? `${liveSlide.reference}${liveBy ? ` · пульт «${liveBy}»` : ''}`
+    ? `${liveSlide.reference}${liveBy ? ` · ${tr('пульт «{remote}»', { remote: liveBy })}` : ''}`
     : liveLabel;
   const previewMonitor = (maxWidth?: number) => (
     <Monitor
       slide={previewSlide}
       state={previewState}
-      title={merged ? 'На екрані' : 'Прев’ю'}
+      title={merged ? tr('На екрані') : tr('Прев’ю')}
       // the slide's own reference — a song or a text isn't the verse selection (the
       // merged monitor said «На екрані Psalms 135:15» over a song stanza, 0.6.11)
       detail={
         merged
           ? liveDetail
-          : previewSlide.reference || reference || (previewHas ? undefined : 'оберіть вірші')
+          : previewSlide.reference || reference || (previewHas ? undefined : tr('оберіть вірші'))
       }
       actions={
         <Group gap={2} wrap="nowrap">
@@ -186,7 +193,7 @@ export function StudyPanels({
       <Monitor
         slide={liveSlide}
         state={liveActive ? 'live' : 'idle'}
-        title="На екрані"
+        title={tr('На екрані')}
         detail={liveDetail}
       />
     </Box>
@@ -199,41 +206,43 @@ export function StudyPanels({
       <Monitor
         slide={remote.slide}
         state="cue"
-        title="Пульт"
+        title={tr('Пульт')}
         detail={`«${remote.name}» · ${remote.slide.reference}`}
         actions={
           <Group gap={2} wrap="nowrap">
-            <Tooltip label="На екран">
+            <Tooltip label={tr('На екран')}>
               <ActionIcon
                 size="sm"
                 variant="subtle"
                 color="live"
                 onClick={remote.onShow}
-                aria-label={`На екран: передпоказ пульта «${remote.name}»`}
+                aria-label={tr('На екран: передпоказ пульта «{remote}»', { remote: remote.name })}
               >
                 <IconScreenShare size={14} />
               </ActionIcon>
             </Tooltip>
             {remote.onAdopt && (
-              <Tooltip label="Перейти сюди у своєму виборі">
+              <Tooltip label={tr('Перейти сюди у своєму виборі')}>
                 <ActionIcon
                   size="sm"
                   variant="subtle"
                   color="gray"
                   onClick={remote.onAdopt}
-                  aria-label={`Перейти до передпоказу пульта «${remote.name}»`}
+                  aria-label={tr('Перейти до передпоказу пульта «{remote}»', {
+                    remote: remote.name,
+                  })}
                 >
                   <IconArrowBackUp size={14} />
                 </ActionIcon>
               </Tooltip>
             )}
-            <Tooltip label="Сховати до наступного вибору на пульті">
+            <Tooltip label={tr('Сховати до наступного вибору на пульті')}>
               <ActionIcon
                 size="sm"
                 variant="subtle"
                 color="gray"
                 onClick={remote.onClose}
-                aria-label="Сховати передпоказ пульта"
+                aria-label={tr('Сховати передпоказ пульта')}
               >
                 <IconX size={14} />
               </ActionIcon>
@@ -253,19 +262,19 @@ export function StudyPanels({
           value={mode}
           onChange={(v) => setMode(v as AsideMode)}
           data={[
-            { value: 'preview', label: 'Прев’ю' },
-            ...(primaryHasStrong ? [{ value: 'strong', label: 'Стронг' }] : []),
-            { value: 'study', label: 'Контекст' },
-            { value: 'settings', label: 'Вигляд' },
+            { value: 'preview', label: tr('Прев’ю') },
+            ...(primaryHasStrong ? [{ value: 'strong', label: tr('Стронг') }] : []),
+            { value: 'study', label: tr('Контекст') },
+            { value: 'settings', label: tr('Вигляд') },
           ]}
         />
         {!compact && (
-          <Tooltip label={pinned ? 'Відкріпити прев’ю' : 'Закріпити прев’ю знизу'}>
+          <Tooltip label={pinned ? tr('Відкріпити прев’ю') : tr('Закріпити прев’ю знизу')}>
             <ActionIcon
               variant={pinned ? 'filled' : 'default'}
               color="brand"
               onClick={onTogglePin}
-              aria-label="Закріпити прев’ю"
+              aria-label={tr('Закріпити прев’ю')}
             >
               {pinned ? <IconPinnedOff size={16} /> : <IconPin size={16} />}
             </ActionIcon>
@@ -298,7 +307,7 @@ export function StudyPanels({
                 ))}
                 {slideLines.length === 0 && (
                   <Text size="sm" c="dimmed">
-                    Оберіть вірші у списку.
+                    {tr('Оберіть вірші у списку.')}
                   </Text>
                 )}
               </Stack>
@@ -310,7 +319,7 @@ export function StudyPanels({
             <Group gap={6} px="md" pt="sm">
               <IconBook size={16} />
               <Text fw={600} size="sm">
-                Номери Стронга
+                {tr('Номери Стронга')}
               </Text>
             </Group>
             <StrongView
@@ -326,7 +335,7 @@ export function StudyPanels({
             <Group gap={6} px="md" pt="sm">
               <IconBook size={16} />
               <Text fw={600} size="sm">
-                Контекст вірша
+                {tr('Контекст вірша')}
               </Text>
             </Group>
             <StudyContext verses={selectedPrimaryVerses} books={books} onPickRef={onPickRef} />
@@ -337,7 +346,7 @@ export function StudyPanels({
             <Group gap={6} px="md" pt="sm">
               <IconAdjustments size={16} />
               <Text fw={600} size="sm">
-                Налаштування вигляду
+                {tr('Налаштування вигляду')}
               </Text>
             </Group>
             <SettingsPanel />

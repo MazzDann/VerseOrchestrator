@@ -2,6 +2,7 @@ import { Stack, Text, Group, Badge, Loader, Box } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Verse, type Book } from '../api';
 import { type StrongPickRef } from './StrongView';
+import { tr, trx, useLang } from '../i18n';
 
 interface Props {
   /** The selected verse(s) of the primary translation; [0] is the focus. */
@@ -13,6 +14,7 @@ interface Props {
 
 /** Verse context: cross-references (clickable → jump) and commentary notes. */
 export function StudyContext({ verses, books, onPickRef }: Props) {
+  useLang();
   const v = verses[0];
 
   const xrefQuery = useQuery({
@@ -29,7 +31,7 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
   if (!v) {
     return (
       <Text size="sm" c="dimmed" p="md">
-        Оберіть вірш у списку.
+        {tr('Оберіть вірш у списку.')}
       </Text>
     );
   }
@@ -46,7 +48,7 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
     <Stack p="md" gap="sm">
       <Group gap={6} wrap="nowrap">
         <Text fw={600} size="sm">
-          Перехресні посилання
+          {tr('Перехресні посилання')}
         </Text>
         {loading && <Loader size="xs" />}
       </Group>
@@ -75,14 +77,16 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
       ) : (
         !xrefQuery.isFetching && (
           <Text size="xs" c="dimmed">
-            Немає перехресних посилань. Додайте модуль <code>*.crossreferences</code> у папку
-            modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).
+            {trx(
+              'Немає перехресних посилань. Додайте модуль {module} у папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).',
+              { module: <code>*.crossreferences</code> },
+            )}
           </Text>
         )
       )}
 
       <Text fw={600} size="sm" mt="xs">
-        Коментарі
+        {tr('Коментарі')}
       </Text>
       {notes.length > 0
         ? notes.map((n, i) => (
@@ -98,7 +102,7 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
           ))
         : !comQuery.isFetching && (
             <Text size="xs" c="dimmed">
-              Немає коментарів для цього вірша.
+              {tr('Немає коментарів для цього вірша.')}
             </Text>
           )}
     </Stack>
