@@ -1,4 +1,5 @@
 import { useRef, type CSSProperties } from 'react';
+import { tr, useLang } from '../i18n';
 
 interface Props {
   /** 'x' = drag horizontally (panel width), 'y' = vertically (section height). */
@@ -23,6 +24,7 @@ interface Props {
  * resize by 16px for keyboard users.
  */
 export function ResizeHandle({ axis, edge, onDrag, onCommit, onReset, label }: Props) {
+  useLang();
   const start = useRef<number | null>(null);
   const last = useRef(0);
 
@@ -44,7 +46,7 @@ export function ResizeHandle({ axis, edge, onDrag, onCommit, onReset, label }: P
       className="vo-resize-handle"
       data-axis={axis}
       aria-label={label}
-      title={`${label}: тягніть; подвійний клік скидає`}
+      title={tr('{handle}: тягніть; подвійний клік скидає', { handle: label })}
       style={style}
       onPointerDown={(e) => {
         if (e.button !== 0) return;

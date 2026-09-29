@@ -1,6 +1,7 @@
 import { Stack, Text, Group, ActionIcon } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
 import { type RefItem } from '../settingsStore';
+import { tr, useLang } from '../i18n';
 
 interface Props {
   items: RefItem[];
@@ -11,6 +12,7 @@ interface Props {
 
 /** Compact clickable list of references — used for history and bookmarks. */
 export function RefList({ items, onPick, onRemove, empty }: Props) {
+  useLang();
   if (items.length === 0) {
     return (
       <Text size="sm" c="dimmed" p="sm">
@@ -45,7 +47,7 @@ export function RefList({ items, onPick, onRemove, empty }: Props) {
               variant="subtle"
               color="gray"
               onClick={() => onRemove(item)}
-              aria-label="Прибрати"
+              aria-label={tr('Прибрати')}
             >
               <IconX size={14} />
             </ActionIcon>

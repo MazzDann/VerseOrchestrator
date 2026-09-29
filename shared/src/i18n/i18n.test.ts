@@ -30,6 +30,19 @@ const TRANSLATED = [
   'web/src/lib/engine/cache.ts',
   'web/src/lib/engine/index.ts',
   'web/src/lib/engine/worker.ts',
+  // 0.11.2 — the control window
+  'web/src/pages/Control.tsx',
+  'web/src/components/ResizeHandle.tsx',
+  'web/src/components/FloatingPanel.tsx',
+  'web/src/components/RefList.tsx',
+  'web/src/components/TranslationPicker.tsx',
+  'web/src/lib/commands.ts',
+  'web/src/lib/chapterCross.ts',
+  'web/src/lib/slide.ts',
+  'web/src/lib/image.ts',
+  'web/src/lib/remote.ts',
+  'web/src/api.ts',
+  'web/src/settingsStore.ts',
 ];
 
 const walk = (dir: string): string[] =>

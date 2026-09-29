@@ -4,6 +4,7 @@ import { type Slide } from './presenterBus';
 import { effectiveSource } from './dataSourceStore';
 import { useServer, whenBooted } from './serverStore';
 import { localEngine } from './lib/engine';
+import { tr } from './i18n';
 
 /** Nullable/optional string from the API, normalized to a plain string. */
 const str = () =>
@@ -123,12 +124,15 @@ export type SongDetail = z.infer<typeof SongDetailSchema>;
 async function failure(res: Response): Promise<Error> {
   const body = await res.json().catch(() => ({}));
   const msg = (body as { error?: string }).error;
-  if (msg) return new Error(msg);
+  // the server's messages are keys of the dictionary too
+  if (msg) return new Error(tr(msg));
   // No JSON error body on a 5xx = the dev proxy couldn't reach the API process.
   return new Error(
     res.status >= 500
-      ? 'сервер недоступний. Перевірте вікно, де запущено застосунок (start.cmd, start.sh або npm run dev)'
-      : `сервер відповів помилкою ${res.status}`,
+      ? tr(
+          'сервер недоступний. Перевірте вікно, де запущено застосунок (start.cmd, start.sh або npm run dev)',
+        )
+      : tr('сервер відповів помилкою {status}', { status: res.status }),
   );
 }
 
@@ -138,7 +142,9 @@ async function request(url: string, init?: RequestInit): Promise<Response> {
     return await fetch(url, init);
   } catch {
     throw new Error(
-      'сервер недоступний. Перевірте, чи запущено застосунок (start.cmd / start.command / ./start.sh)',
+      tr(
+        'сервер недоступний. Перевірте, чи запущено застосунок (start.cmd / start.command / ./start.sh)',
+      ),
     );
   }
 }
@@ -198,7 +204,7 @@ async function staticManifest() {
   const res = await fetch(`${STATIC_SEGMENTS}manifest.json`);
   // a dev server answers unknown paths with index.html — only JSON counts
   if (!res.ok || !(res.headers.get('content-type') ?? '').includes('json')) {
-    throw new Error('Сегментів немає ні на сервері, ні поруч із застосунком');
+    throw new Error(tr('Сегментів немає ні на сервері, ні поруч із застосунком'));
   }
   const m = SegmentManifestSchema.parse(await res.json());
   segmentBase = STATIC_SEGMENTS;
@@ -345,7 +351,7 @@ export const api = {
       SongDetailSchema,
       async (l) => {
         const song = await l.getSong(id);
-        if (!song) throw new Error('Пісню не знайдено');
+        if (!song) throw new Error(tr('Пісню не знайдено'));
         return song;
       },
       `/api/songs/${id}`,

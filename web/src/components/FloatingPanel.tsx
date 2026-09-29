@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Paper, Group, Text, ActionIcon, ScrollArea } from '@mantine/core';
 import { IconX, IconGripVertical } from '@tabler/icons-react';
 import { notifyStack, openStack, stackListeners } from '../lib/panelStack';
+import { tr, useLang } from '../i18n';
 
 interface Pos {
   x: number;
@@ -143,6 +144,7 @@ export function FloatingPanel({
   icon,
   children,
 }: Props) {
+  useLang();
   const [pos, setPos] = useState<Pos | null>(null);
   // Mirror of `pos` for event handlers, so they stay referentially stable (don't
   // close over `pos`) — otherwise their identity would churn every pointermove and
@@ -427,7 +429,13 @@ export function FloatingPanel({
             {title}
           </Text>
         </Group>
-        <ActionIcon variant="subtle" color="gray" size="sm" onClick={onClose} aria-label="Закрити">
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          size="sm"
+          onClick={onClose}
+          aria-label={tr('Закрити')}
+        >
           <IconX size={16} />
         </ActionIcon>
       </Group>
@@ -444,8 +452,8 @@ export function FloatingPanel({
       <button
         type="button"
         className="vo-panel-resize"
-        aria-label="Змінити розмір панелі (стрілки; подвійний клік — типовий розмір)"
-        title="Змінити розмір"
+        aria-label={tr('Змінити розмір панелі (стрілки; подвійний клік — типовий розмір)')}
+        title={tr('Змінити розмір')}
         onPointerDown={startResize}
         onDoubleClick={resetSize}
         onKeyDown={onGripKey}

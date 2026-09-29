@@ -1,3 +1,5 @@
+import { tr } from '../i18n';
+
 /**
  * Read an image File and return a downscaled JPEG data URL. Keeps localStorage
  * (where appearance is persisted) from blowing past its ~5MB quota.
@@ -13,7 +15,7 @@ export async function fileToDownscaledDataUrl(file: File, maxDim = 1920): Promis
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error('Не вдалося прочитати зображення'));
+    el.onerror = () => reject(new Error(tr('Не вдалося прочитати зображення')));
     el.src = dataUrl;
   });
 

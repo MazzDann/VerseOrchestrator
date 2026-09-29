@@ -1,3 +1,5 @@
+import { tr } from '../i18n';
+
 /**
  * «Далі» past a chapter's last verse, «Назад» before its first (0.6.23): the first press
  * only says where a second one goes; pressed again within CROSS_MS it turns the chapter.
@@ -45,17 +47,17 @@ export function chapterName(
   chapter: number,
 ): string {
   const name = book ? book.longName || book.shortName : '';
-  return name ? `${name} ${chapter}` : `розділ ${chapter}`;
+  return name ? `${name} ${chapter}` : tr('розділ {n}', { n: chapter });
 }
 
 /** What the first press at the edge says. */
 export function edgeNotice(delta: number, place: string): string {
   return delta > 0
-    ? `Кінець розділу. Натисніть «Далі» ще раз — ${place}`
-    : `Початок розділу. Натисніть «Назад» ще раз — ${place}`;
+    ? tr('Кінець розділу. Натисніть «Далі» ще раз — {place}', { place })
+    : tr('Початок розділу. Натисніть «Назад» ще раз — {place}', { place });
 }
 
 /** At the book's own edge there is nowhere to cross to. */
 export function bookEdge(delta: number): string {
-  return delta > 0 ? 'Це останній вірш книги' : 'Це перший вірш книги';
+  return delta > 0 ? tr('Це останній вірш книги') : tr('Це перший вірш книги');
 }

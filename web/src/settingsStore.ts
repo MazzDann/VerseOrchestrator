@@ -8,6 +8,7 @@ import {
 } from './presenterBus';
 import { DEFAULT_KEYMAP, sanitizeKeymap, type Keymap, type HotkeyActionId } from './hotkeys';
 import { isLang, N_, pickLang, type Lang } from '@vo/shared';
+import { tr } from './i18n';
 
 export type TextAlign = 'left' | 'center' | 'right';
 export type PadUnit = 'px' | '%';
@@ -318,11 +319,14 @@ function coerceTemplate(raw: unknown): SlideTemplate | null {
       }),
     );
   if (objects.length === 0) return null;
-  return { name: strOr(r.name, 'Шаблон'), objects };
+  return { name: strOr(r.name, tr('Шаблон')), objects };
 }
 
 /** Coerce arbitrary parsed JSON into a safe preset, or null if it isn't a preset file. */
-export function coercePreset(raw: unknown, fallbackName = 'Імпортований'): AppearancePreset | null {
+export function coercePreset(
+  raw: unknown,
+  fallbackName = tr('Імпортований'),
+): AppearancePreset | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
   // Reject unrelated JSON (a wrong file picked by mistake) rather than silently
@@ -348,7 +352,10 @@ export function presetToFile(p: AppearancePreset): PresetFile {
 
 /** The interface language a browser prefers of ours (Ukrainian when it prefers neither). */
 function browserLang(): Lang {
-  if (typeof navigator === 'undefined') return 'uk';
+  // a real page only: Node has a `navigator` too (with the system's language), and the tests
+  // must not depend on the machine they run on
+  if (typeof window === 'undefined' || typeof window.document?.createElement !== 'function')
+    return 'uk';
   return pickLang(navigator.languages?.length ? navigator.languages : [navigator.language ?? '']);
 }
 

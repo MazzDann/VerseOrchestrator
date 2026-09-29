@@ -1,4 +1,5 @@
 import { type Slide, type SlideSource } from '../presenterBus';
+import { tr } from '../i18n';
 
 /** True when two slides show the same content (used to merge preview into the live monitor). */
 export function sameContent(a: Slide, b: Slide): boolean {
@@ -44,7 +45,7 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
   return {
     status,
     reference: slide.reference ?? '',
-    text: slide.qr ? 'QR для глядачів' : (slide.lines[0]?.text ?? '').slice(0, 400),
+    text: slide.qr ? tr('QR для глядачів') : (slide.lines[0]?.text ?? '').slice(0, 400),
     font: slide.style?.font,
     source: slide.source,
   };

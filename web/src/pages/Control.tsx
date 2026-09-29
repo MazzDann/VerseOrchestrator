@@ -126,6 +126,7 @@ import {
   targetArgs,
 } from '../lib/commands';
 import { useServer, NEEDS_SERVER, START_AGAIN } from '../serverStore';
+import { tr, useLang } from '../i18n';
 import { useDataSource } from '../dataSourceStore';
 import { sameContent, sameSlide, summarize, toggleBlack, toggleHidden } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
@@ -141,6 +142,7 @@ type Jumpable = { translationId: number; bookNumber: number; chapter: number; ve
 type InlinePanel = 'search' | 'songs' | 'text';
 
 export function Control() {
+  useLang();
   const { toggleColorScheme } = useMantineColorScheme();
   const colorScheme = useComputedColorScheme('dark');
 
@@ -281,8 +283,9 @@ export function Control() {
     // next tick: on first paint the notifications host may not be mounted yet
     window.setTimeout(() =>
       notifications.show({
-        message:
+        message: tr(
           'Сервера немає — бібліотека працюватиме в браузері. Виберіть переклади в «Джерело даних».',
+        ),
         color: 'brand',
         autoClose: 8000,
       }),
@@ -305,7 +308,9 @@ export function Control() {
   leaderRef.current = isLeader;
   const standbyNotice = () =>
     notifications.show({
-      message: 'Показом керує інше вікно керування — натисніть «Взяти керування», щоб вести звідси',
+      message: tr(
+        'Показом керує інше вікно керування — натисніть «Взяти керування», щоб вести звідси',
+      ),
       color: 'orange',
       autoClose: 2500,
     });
@@ -364,13 +369,21 @@ export function Control() {
         setGoToValue('');
       } else {
         notifications.show({
-          message: `«${query}» не знайдено. Спробуйте посилання, як-от «Ів 3:16», або слово з тексту`,
+          message: tr(
+            '«{query}» не знайдено. Спробуйте посилання, як-от «Ів 3:16», або слово з тексту',
+            {
+              query,
+            },
+          ),
           color: 'gray',
           autoClose: 2500,
         });
       }
     } catch (e) {
-      notifications.show({ message: `Не вдалося перейти: ${(e as Error).message}`, color: 'red' });
+      notifications.show({
+        message: tr('Не вдалося перейти: {error}', { error: tr((e as Error).message) }),
+        color: 'red',
+      });
     }
   };
 
@@ -737,7 +750,7 @@ export function Control() {
     setPreviewOverride(slide);
     setLive(true);
     notifications.show({
-      message: `На екрані зі Стронгом: ${pageReference}`,
+      message: tr('На екрані зі Стронгом: {ref}', { ref: pageReference }),
       color: 'live',
       autoClose: 1500,
     });
@@ -795,7 +808,11 @@ export function Control() {
     setPreviewOverride(slide);
     setLive(true);
     if (reference) {
-      notifications.show({ message: `На екрані: ${reference}`, color: 'live', autoClose: 1500 });
+      notifications.show({
+        message: tr('На екрані: {ref}', { ref: reference }),
+        color: 'live',
+        autoClose: 1500,
+      });
     }
   };
 
@@ -805,7 +822,7 @@ export function Control() {
     projectText(body, title.trim());
     pushRecentText({ title, body });
     if (!title.trim()) {
-      notifications.show({ message: 'Текст на екрані', color: 'live', autoClose: 1500 });
+      notifications.show({ message: tr('Текст на екрані'), color: 'live', autoClose: 1500 });
     }
   };
 
@@ -838,7 +855,7 @@ export function Control() {
     if (lines.length === 0) {
       // Every translation failed to load (e.g. ids changed after a library rebuild).
       notifications.show({
-        message: 'Уривок недоступний — переклад змінився. Оновіть елемент показу.',
+        message: tr('Уривок недоступний — переклад змінився. Оновіть елемент показу.'),
         color: 'red',
         autoClose: 2500,
       });
@@ -927,14 +944,14 @@ export function Control() {
       return;
     playlistAdd({
       kind: 'passage',
-      label: reference || referenceShort || 'Уривок',
+      label: reference || referenceShort || tr('Уривок'),
       translationIds: selectedIds,
       bookNumber,
       chapter,
       verses: selectedVerses,
     });
     notifications.show({
-      message: `Додано у показ: ${referenceShort || reference}`,
+      message: tr('Додано у показ: {item}', { item: referenceShort || reference }),
       color: 'green',
       autoClose: 1200,
     });
@@ -948,13 +965,13 @@ export function Control() {
   }) => {
     playlistAdd({
       kind: 'song',
-      label: song.label || 'Пісня',
+      label: song.label || tr('Пісня'),
       songId: song.songId,
       ...(song.bundle ? { bundle: song.bundle } : {}),
       faithful: song.faithful,
     });
     notifications.show({
-      message: `Додано у показ: ${song.label}`,
+      message: tr('Додано у показ: {item}', { item: song.label }),
       color: 'green',
       autoClose: 1200,
     });
@@ -964,7 +981,7 @@ export function Control() {
     if (!item.body.trim()) return;
     const label = item.title.trim() || item.body.trim().split('\n')[0].slice(0, 40);
     playlistAdd({ kind: 'text', label, title: item.title, body: item.body });
-    notifications.show({ message: 'Текст додано у показ', color: 'green', autoClose: 1200 });
+    notifications.show({ message: tr('Текст додано у показ'), color: 'green', autoClose: 1200 });
   };
 
   // While following live, republish when the selection, reference, or appearance
@@ -1037,7 +1054,7 @@ export function Control() {
   }, [reference]);
 
   const stepVerse = (delta: number): Outcome | Promise<Outcome> => {
-    if (primaryVerses.length === 0) return { ok: false, reason: 'Спершу виберіть розділ' };
+    if (primaryVerses.length === 0) return { ok: false, reason: tr('Спершу виберіть розділ') };
     const all = primaryVerses.map((v) => v.verse);
     const current = selectedVerses.length ? selectedVerses[selectedVerses.length - 1] : all[0] - 1;
     const idx = all.indexOf(current);
@@ -1054,7 +1071,7 @@ export function Control() {
   const crossArm = useRef<CrossArm | null>(null);
   const crossChapter = (delta: number): Outcome | Promise<Outcome> => {
     if (primaryId == null || bookNumber == null || chapter == null) {
-      return { ok: false, reason: 'Спершу виберіть розділ' };
+      return { ok: false, reason: tr('Спершу виберіть розділ') };
     }
     const to = neighbourChapter(chapters, chapter, delta);
     if (to == null) return { ok: false, reason: bookEdge(delta) };
@@ -1076,7 +1093,7 @@ export function Control() {
           verses.map((x) => x.verse),
           delta,
         );
-        if (v == null) return { ok: false, reason: 'У цьому розділі немає віршів' };
+        if (v == null) return { ok: false, reason: tr('У цьому розділі немає віршів') };
         const label = formatReference(currentBook, to, [v]);
         if (onScreen) {
           await activatePassage({
@@ -1126,7 +1143,10 @@ export function Control() {
     if (pageCount > 1) {
       const target = Math.min(pageCount - 1, Math.max(0, safePageIndex + delta));
       if (target === safePageIndex) {
-        return { ok: false, reason: delta > 0 ? 'Це остання сторінка' : 'Це перша сторінка' };
+        return {
+          ok: false,
+          reason: delta > 0 ? tr('Це остання сторінка') : tr('Це перша сторінка'),
+        };
       }
       // Moving to a new page: start its reveal fresh in THIS batched update (not via the
       // post-commit reset effect) so live-follow doesn't push the new content at the old
@@ -1207,7 +1227,7 @@ export function Control() {
     qrReturn.current = liveSlide.qr ? qrReturn.current : liveSlide;
     const slide: Slide = {
       lines: [],
-      reference: 'QR для глядачів',
+      reference: tr('QR для глядачів'),
       blank: false,
       visible: true,
       style: slideStyle,
@@ -1291,7 +1311,7 @@ export function Control() {
     send();
     if (slideLines.length > 0) {
       notifications.show({
-        message: `На екрані: ${pageReference}`,
+        message: tr('На екрані: {ref}', { ref: pageReference }),
         color: 'live',
         autoClose: 1500,
       });
@@ -1322,7 +1342,9 @@ export function Control() {
     setLive(true);
     setPreviewOverride(null);
     notifications.show({
-      message: `На екрані: ${formatReference(currentBook, chapter, [verseNum], true)}`,
+      message: tr('На екрані: {ref}', {
+        ref: formatReference(currentBook, chapter, [verseNum], true),
+      }),
       color: 'live',
       autoClose: 1500,
     });
@@ -1364,15 +1386,19 @@ export function Control() {
     if (!leaderRef.current) return standbyNotice();
     const next = toggleHidden(liveSlideRef.current);
     if (!next) {
-      notifications.show({ message: 'На екрані нічого ховати', color: 'gray', autoClose: 1200 });
+      notifications.show({
+        message: tr('На екрані нічого ховати'),
+        color: 'gray',
+        autoClose: 1200,
+      });
       return;
     }
     pushLive(next);
     afterToggle(next);
     notifications.show(
       next.blank
-        ? { message: 'Текст сховано — фон лишається', color: 'cue', autoClose: 1500 }
-        : { message: 'Текст знову на екрані', color: 'live', autoClose: 1200 },
+        ? { message: tr('Текст сховано — фон лишається'), color: 'cue', autoClose: 1500 }
+        : { message: tr('Текст знову на екрані'), color: 'live', autoClose: 1200 },
     );
   };
   const blackToggle = () => {
@@ -1382,8 +1408,8 @@ export function Control() {
     afterToggle(next);
     notifications.show(
       next.forceBlack
-        ? { message: 'Чорний екран', color: 'dark', autoClose: 1200 }
-        : { message: 'Чорний екран знято', color: 'live', autoClose: 1200 },
+        ? { message: tr('Чорний екран'), color: 'dark', autoClose: 1200 }
+        : { message: tr('Чорний екран знято'), color: 'live', autoClose: 1200 },
     );
   };
   useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
@@ -1392,10 +1418,10 @@ export function Control() {
   // background stays (the same slide, hidden, as «Сховати текст»); «Назад» or any stanza
   // brings text back. Only over a song: after a song the screen shows nothing to read.
   const songEnd = (): Outcome => {
-    if (!leaderRef.current) return { ok: false, reason: 'Показом керує інше вікно керування' };
+    if (!leaderRef.current) return { ok: false, reason: tr('Показом керує інше вікно керування') };
     const s = liveSlideRef.current;
     if (s.source?.kind !== 'song' || !s.visible) {
-      return { ok: false, reason: 'На екрані не пісня — ховати нічого' };
+      return { ok: false, reason: tr('На екрані не пісня — ховати нічого') };
     }
     if (s.blank || s.forceBlack) return { ok: true }; // nothing to read already
     const next: Slide = { ...s, blank: true };
@@ -1411,15 +1437,15 @@ export function Control() {
   useCommandHandler((cmd, _source, args) => {
     if (cmd === 'next') return advance(1);
     if (cmd === 'prev') return advance(-1);
-    const by = _source.name ?? 'Пульт';
+    const by = _source.name ?? tr('Пульт');
     // an item of the shared running order (0.6.9)
     if (args.item && (cmd === 'show' || cmd === 'pick')) {
       const it = playlistItems.find((i) => i.id === args.item);
-      if (!it) return { ok: false, reason: 'Цього елемента вже немає в послідовності' };
+      if (!it) return { ok: false, reason: tr('Цього елемента вже немає в послідовності') };
       return playlistItemSlide(it, by).then((slide) => {
         if (cmd === 'show') {
           if (!leaderRef.current)
-            return { ok: false, reason: 'Показом керує інше вікно керування' };
+            return { ok: false, reason: tr('Показом керує інше вікно керування') };
           pushLive(slide);
           setLive(false);
           playlistSetCurrent(it.id);
@@ -1436,7 +1462,7 @@ export function Control() {
               : { kind: 'song', song: args.song! },
             by,
           )
-        : { ok: false, reason: 'Нічого додати' };
+        : { ok: false, reason: tr('Нічого додати') };
     }
     const target: RemoteTarget | null = args.passage
       ? { kind: 'verses', passage: args.passage }
@@ -1450,7 +1476,7 @@ export function Control() {
             setRemoteView({ name: by, target, slide });
             return { ok: true };
           })
-        : { ok: false, reason: 'Не вибрано вірш' };
+        : { ok: false, reason: tr('Не вибрано вірш') };
     }
     if (cmd === 'blank') hideToggle();
     else blackToggle();
@@ -1479,7 +1505,7 @@ export function Control() {
       const segments = redLetterSegments(verses, p.verses, appearance.showVerseNumbers);
       lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
     }
-    if (lines.length === 0) throw new Error('Уривок недоступний');
+    if (lines.length === 0) throw new Error(tr('Уривок недоступний'));
     const first = p.translationIds[0];
     const bookList = await queryClient.fetchQuery({
       queryKey: ['books', first],
@@ -1507,7 +1533,7 @@ export function Control() {
       queryFn: () => api.song(p.songId),
     });
     const stanza = s.slides[p.stanza];
-    if (!stanza) throw new Error('Такої строфи немає');
+    if (!stanza) throw new Error(tr('Такої строфи немає'));
     return {
       lines: [{ translationAbbr: '', text: stanza.text, rtl: false }],
       reference: `№${s.number ?? ''} ${s.title}`.trim(),
@@ -1572,7 +1598,7 @@ export function Control() {
           bookList.find((b) => b.bookNumber === p.bookNumber) ?? null,
           p.chapter,
           p.verses,
-        ) || 'Уривок';
+        ) || tr('Уривок');
       playlistAdd({ kind: 'passage', label, ...p });
     } else {
       const s = await queryClient.fetchQuery({
@@ -1583,7 +1609,7 @@ export function Control() {
       playlistAdd({ kind: 'song', label, songId: t.song.songId, faithful: false });
     }
     notifications.show({
-      message: `Пульт «${by}» додав у показ: ${label}`,
+      message: tr('Пульт «{remote}» додав у показ: {item}', { remote: by, item: label }),
       color: 'brand',
       autoClose: 2000,
     });
@@ -1597,7 +1623,7 @@ export function Control() {
    */
   async function showRemote(t: RemoteTarget, by: string): Promise<Outcome> {
     const slide = await buildRemote(t, by);
-    if (!leaderRef.current) return { ok: false, reason: 'Показом керує інше вікно керування' };
+    if (!leaderRef.current) return { ok: false, reason: tr('Показом керує інше вікно керування') };
     pushLive(slide);
     setLive(false);
     setRemoteView({ name: by, target: t, slide });
@@ -1610,11 +1636,11 @@ export function Control() {
       setLive(true);
       return { ok: true };
     }
-    if (slideLines.length === 0) return { ok: false, reason: 'У передпоказі нічого немає' };
+    if (slideLines.length === 0) return { ok: false, reason: tr('У передпоказі нічого немає') };
     const onScreen =
       liveSlide.visible && !liveSlide.blank && !liveSlide.forceBlack && liveSlide.lines.length > 0;
     if (onScreen && sameContent(liveSlide, versePreview))
-      return { ok: true, reason: 'Уже на екрані' };
+      return { ok: true, reason: tr('Уже на екрані') };
     send();
     return { ok: true };
   }
@@ -1781,7 +1807,11 @@ export function Control() {
               // the speaker walking their own preview isn't news for the operator
               if (outcome.duplicate || (cmd === 'pick' && outcome.ok)) return;
               notifications.show({
-                message: `Пульт «${from}»: ${REMOTE_LABEL[cmd]}${outcome.ok ? '' : ` — ${outcome.reason ?? 'не виконано'}`}`,
+                message:
+                  tr('Пульт «{remote}»: {command}', {
+                    remote: from,
+                    command: tr(REMOTE_LABEL[cmd]),
+                  }) + (outcome.ok ? '' : ` — ${outcome.reason ?? tr('не виконано')}`),
                 color: outcome.ok ? 'brand' : 'orange',
                 autoClose: 1200,
               });
@@ -1792,11 +1822,18 @@ export function Control() {
           // the hub's answer to «Запропонувати пульту» (0.6.4)
           const name =
             queryClient.getQueryData<Pairing[]>(['remotes'])?.find((p) => p.id === f.to)?.name ??
-            'пульт';
+            tr('пульт');
           notifications.show(
             typeof f.delivered === 'number' && f.delivered > 0
-              ? { message: `Запропоновано: «${name}»`, color: 'green', autoClose: 1500 }
-              : { message: `«${name}»: ${String(f.reason ?? 'не доставлено')}`, color: 'orange' },
+              ? {
+                  message: tr('Запропоновано: «{remote}»', { remote: name }),
+                  color: 'green',
+                  autoClose: 1500,
+                }
+              : {
+                  message: `«${name}»: ${f.reason ? tr(String(f.reason)) : tr('не доставлено')}`,
+                  color: 'orange',
+                },
           );
         }
       },
@@ -1882,7 +1919,8 @@ export function Control() {
               reference: previewSlide.reference,
               text: previewSlide.lines[0]?.text ?? '',
             });
-            if (!sent) notifications.show({ message: 'Немає зв’язку з сервером', color: 'red' });
+            if (!sent)
+              notifications.show({ message: tr('Немає зв’язку з сервером'), color: 'red' });
           },
         }
       : null;
@@ -1898,8 +1936,8 @@ export function Control() {
     const win = await openPresenterWindow(useSettings.getState().outputs.multiple);
     notifications.show(
       win
-        ? { message: 'Вікно показу відкрито', color: 'brand', autoClose: 1500 }
-        : { message: 'Не вдалося відкрити вікно (перевірте блокувальник)', color: 'red' },
+        ? { message: tr('Вікно показу відкрито'), color: 'brand', autoClose: 1500 }
+        : { message: tr('Не вдалося відкрити вікно (перевірте блокувальник)'), color: 'red' },
     );
   };
 
@@ -1907,8 +1945,8 @@ export function Control() {
     const win = await openStageWindow();
     notifications.show(
       win
-        ? { message: 'Вікно сцени відкрито', color: 'brand', autoClose: 1500 }
-        : { message: 'Не вдалося відкрити вікно (перевірте блокувальник)', color: 'red' },
+        ? { message: tr('Вікно сцени відкрито'), color: 'brand', autoClose: 1500 }
+        : { message: tr('Не вдалося відкрити вікно (перевірте блокувальник)'), color: 'red' },
     );
   };
 
@@ -1921,125 +1959,125 @@ export function Control() {
     !liveSlide.forceBlack &&
     (liveSlide.lines.length > 0 || !!liveSlide.qr);
   const liveLabel = liveSlide.forceBlack
-    ? 'Чорний екран'
+    ? tr('Чорний екран')
     : liveSlide.blank
-      ? 'Текст сховано'
+      ? tr('Текст сховано')
       : liveActive
-        ? liveSlide.reference || 'На екрані'
-        : 'Порожньо';
+        ? liveSlide.reference || tr('На екрані')
+        : tr('Порожньо');
 
   // Operator actions exposed in the command palette (Ctrl+K). Fresh closures each
   // render so they never go stale; the palette only reads this while open.
   const paletteCommands: CommandItem[] = [
     {
       id: 'project',
-      label: 'На екран',
-      hint: 'Показати вибір',
+      label: tr('На екран'),
+      hint: tr('Показати вибір'),
       keywords: 'project show project',
       icon: <IconDeviceTv size={16} />,
       run: sendAndNotify,
     },
     {
       id: 'blank',
-      label: 'Сховати / показати текст',
+      label: tr('Сховати / показати текст'),
       keywords: 'blank zatemnyty',
       icon: <IconSquareOff size={16} />,
       run: hideToggle,
     },
     {
       id: 'black',
-      label: 'Чорний екран',
+      label: tr('Чорний екран'),
       keywords: 'black chornyi',
       icon: <IconSquareFilled size={16} />,
       run: blackToggle,
     },
-    { id: 'clear', label: 'Прибрати з екрана', keywords: 'clear ochystyty', run: clearScreen },
+    { id: 'clear', label: tr('Прибрати з екрана'), keywords: 'clear ochystyty', run: clearScreen },
     {
       id: 'addPassage',
-      label: 'Додати уривок у показ',
+      label: tr('Додати уривок у показ'),
       keywords: 'playlist add',
       icon: <IconPlaylistAdd size={16} />,
       run: addCurrentPassage,
     },
     {
       id: 'playlist',
-      label: 'Послідовність показу',
+      label: tr('Послідовність показу'),
       keywords: 'playlist sequence',
       icon: <IconList size={16} />,
       run: () => setPlaylistOpen(true),
     },
     {
       id: 'songs',
-      label: 'Пісні',
+      label: tr('Пісні'),
       keywords: 'songs pisni',
       icon: <IconMusic size={16} />,
       run: () => setSongsOpen(true),
     },
     {
       id: 'text',
-      label: 'Власний текст',
+      label: tr('Власний текст'),
       keywords: 'text tekst',
       icon: <IconLetterT size={16} />,
       run: () => setTextOpen(true),
     },
     {
       id: 'search',
-      label: 'Пошук в усіх модулях',
+      label: tr('Пошук в усіх модулях'),
       keywords: 'search poshuk',
       icon: <IconSearch size={16} />,
       run: () => openSearch('all'),
     },
     {
       id: 'presenter',
-      label: 'Відкрити вікно показу',
+      label: tr('Відкрити вікно показу'),
       keywords: 'presenter output',
       icon: <IconScreenShare size={16} />,
       run: () => void openPresenter(),
     },
     {
       id: 'stage',
-      label: 'Сцена',
+      label: tr('Сцена'),
       keywords: 'stage monitor',
       icon: <IconLayoutDashboard size={16} />,
       run: () => void openStage(),
     },
     {
       id: 'follow',
-      label: 'Глядачі (QR)',
+      label: tr('Глядачі (QR)'),
       keywords: 'follow qr phones',
       icon: <IconQrcode size={16} />,
       run: () => setFollowOpen(true),
     },
     {
       id: 'remote',
-      label: 'Пульт доповідача',
+      label: tr('Пульт доповідача'),
       keywords: 'remote speaker phone pult',
       icon: <IconDeviceMobile size={16} />,
       run: () => setRemoteOpen(true),
     },
     {
       id: 'outputs',
-      label: 'Вікна виводу',
+      label: tr('Вікна виводу'),
       keywords: 'windows screens monitors outputs vikna ekrany',
       icon: <IconAppWindow size={16} />,
       run: () => setOutputsOpen(true),
     },
     {
       id: 'settings',
-      label: 'Налаштування вигляду',
+      label: tr('Налаштування вигляду'),
       keywords: 'settings nalashtuvannia',
       icon: <IconAdjustments size={16} />,
       run: () => setSettingsOpen(true),
     },
     {
       id: 'liveFollow',
-      label: `Наживо: ${liveFollow ? 'вимкнути' : 'увімкнути'}`,
+      label: liveFollow ? tr('Наживо: вимкнути') : tr('Наживо: увімкнути'),
       keywords: 'live follow',
       run: () => setLiveFollow(!liveFollow),
     },
     {
       id: 'theme',
-      label: colorScheme === 'dark' ? 'Світла тема' : 'Темна тема',
+      label: colorScheme === 'dark' ? tr('Світла тема') : tr('Темна тема'),
       keywords: 'theme tema dark light',
       icon: <IconSun size={16} />,
       run: () => toggleColorScheme(),
@@ -2062,11 +2100,16 @@ export function Control() {
       const items = JSON.parse(await file.text());
       if (Array.isArray(items)) {
         importBookmarks(items);
-        notifications.show({ message: `Імпортовано записів: ${items.length}`, color: 'green' });
+        notifications.show({
+          message: tr('Імпортовано записів: {n}', { n: items.length }),
+          color: 'green',
+        });
       }
     } catch {
       notifications.show({
-        message: 'Не вдалося прочитати файл закладок. Потрібен .json, збережений кнопкою «Експорт»',
+        message: tr(
+          'Не вдалося прочитати файл закладок. Потрібен .json, збережений кнопкою «Експорт»',
+        ),
         color: 'red',
       });
     }
@@ -2172,17 +2215,19 @@ export function Control() {
                 onClick={toggleNav}
                 hiddenFrom="sm"
                 size="sm"
-                aria-label="Навігація"
+                aria-label={tr('Навігація')}
               />
               {midHeader && (
                 <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
                   VerseOrchestrator
                 </Text>
               )}
-              <ToolZone label="Навігація">
+              <ToolZone label={tr('Навігація')}>
                 <ToolIcon
-                  label="Пошук"
-                  hint={`У поточному перекладі; ${formatCombo(keymap.searchAll)} — в усіх`}
+                  label={tr('Пошук')}
+                  hint={tr('У поточному перекладі; {combo} — в усіх', {
+                    combo: formatCombo(keymap.searchAll),
+                  })}
                   combo={keymap.searchCurrent}
                   icon={<IconSearch size={18} stroke={1.5} />}
                   onClick={() => openSearch('current')}
@@ -2191,34 +2236,34 @@ export function Control() {
                   size="sm"
                   w={170}
                   display={midHeader ? undefined : 'none'}
-                  placeholder="Перейти: Ів 3:16"
+                  placeholder={tr('Перейти: Ів 3:16')}
                   value={goToValue}
                   onChange={(e) => setGoToValue(e.currentTarget.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void goTo(goToValue);
                   }}
                   leftSection={<IconArrowRight size={14} />}
-                  aria-label="Перейти до посилання"
+                  aria-label={tr('Перейти до посилання')}
                 />
               </ToolZone>
-              <ToolZone label="Джерела">
+              <ToolZone label={tr('Джерела')}>
                 <ToolIcon
-                  label="Пісні"
-                  hint="Пошук пісень з .pptx і показ куплетів"
+                  label={tr('Пісні')}
+                  hint={tr('Пошук пісень з .pptx і показ куплетів')}
                   icon={<IconMusic size={18} stroke={1.5} />}
                   active={songsOpen}
                   onClick={() => setSongsOpen((o) => !o)}
                 />
                 <ToolIcon
-                  label="Власний текст"
-                  hint="Скласти й показати довільний текст"
+                  label={tr('Власний текст')}
+                  hint={tr('Скласти й показати довільний текст')}
                   icon={<IconLetterT size={18} stroke={1.5} />}
                   active={textOpen}
                   onClick={() => setTextOpen((o) => !o)}
                 />
                 <ToolIcon
-                  label="Послідовність показу"
-                  hint="Черга уривків, пісень і текстів; збережені програми"
+                  label={tr('Послідовність показу')}
+                  hint={tr('Черга уривків, пісень і текстів; збережені програми')}
                   icon={<IconList size={18} stroke={1.5} />}
                   active={playlistOpen}
                   onClick={() => setPlaylistOpen((o) => !o)}
@@ -2227,40 +2272,42 @@ export function Control() {
             </Group>
 
             <Group gap="sm" wrap="nowrap">
-              <ToolZone label="Вікна" divider={false}>
+              <ToolZone label={tr('Вікна')} divider={false}>
                 <ToolButton
-                  label="Відкрити вікно показу"
-                  hint="Вихідне вікно для другого монітора чи проєктора"
-                  text="Вікно показу"
+                  label={tr('Відкрити вікно показу')}
+                  hint={tr('Вихідне вікно для другого монітора чи проєктора')}
+                  text={tr('Вікно показу')}
                   compact={!wideHeader}
                   icon={<IconScreenShare size={18} stroke={1.5} />}
                   onClick={() => void openPresenter()}
                 />
                 <ToolIcon
-                  label="Сцена"
-                  hint="Монітор доповідача: зараз, далі, годинник"
+                  label={tr('Сцена')}
+                  hint={tr('Монітор доповідача: зараз, далі, годинник')}
                   icon={<IconLayoutDashboard size={18} stroke={1.5} />}
                   onClick={() => void openStage()}
                 />
                 <ToolIcon
                   label={
                     outputWindows.length
-                      ? `Вікна виводу: відкрито ${outputWindows.length}`
-                      : 'Вікна виводу'
+                      ? tr('Вікна виводу: відкрито {n}', { n: outputWindows.length })
+                      : tr('Вікна виводу')
                   }
-                  hint="Екрани, відкриті вікна показу й сцени, розкладка"
+                  hint={tr('Екрани, відкриті вікна показу й сцени, розкладка')}
                   icon={<IconAppWindow size={18} stroke={1.5} />}
                   active={outputsOpen}
                   onClick={() => setOutputsOpen((o) => !o)}
                 />
                 <ToolIcon
                   label={
-                    followAlong ? `Глядачі: трансляція увімкнена, на зв’язку ${viewers}` : 'Глядачі'
+                    followAlong
+                      ? tr('Глядачі: трансляція увімкнена, на зв’язку {n}', { n: viewers })
+                      : tr('Глядачі')
                   }
                   hint={
                     serverAvailable === false
-                      ? NEEDS_SERVER
-                      : 'QR, щоб глядачі стежили за текстом з телефона'
+                      ? tr(NEEDS_SERVER)
+                      : tr('QR, щоб глядачі стежили за текстом з телефона')
                   }
                   icon={<IconQrcode size={18} stroke={1.5} />}
                   disabled={serverAvailable === false}
@@ -2269,11 +2316,11 @@ export function Control() {
                   onClick={() => setFollowOpen((o) => !o)}
                 />
                 <ToolIcon
-                  label="Пульт доповідача"
+                  label={tr('Пульт доповідача')}
                   hint={
                     serverAvailable === false
-                      ? NEEDS_SERVER
-                      : 'Телефон-пульт за QR: гортати показ без доступу до налаштувань'
+                      ? tr(NEEDS_SERVER)
+                      : tr('Телефон-пульт за QR: гортати показ без доступу до налаштувань')
                   }
                   icon={<IconDeviceMobile size={18} stroke={1.5} />}
                   disabled={serverAvailable === false}
@@ -2281,9 +2328,11 @@ export function Control() {
                   onClick={() => setRemoteOpen((o) => !o)}
                 />
               </ToolZone>
-              <ToolZone label="Вихід на екран">
+              <ToolZone label={tr('Вихід на екран')}>
                 <Tooltip
-                  label="Увімкнено: екран одразу повторює вибір. Вимкнено: лише прев’ю, показ кнопкою «На екран»"
+                  label={tr(
+                    'Увімкнено: екран одразу повторює вибір. Вимкнено: лише прев’ю, показ кнопкою «На екран»',
+                  )}
                   multiline
                   w={240}
                   withArrow
@@ -2294,15 +2343,15 @@ export function Control() {
                     color="live"
                     checked={liveFollow}
                     onChange={(e) => setLiveFollow(e.currentTarget.checked)}
-                    label={midHeader ? 'Наживо' : undefined}
-                    aria-label="Наживо"
+                    label={midHeader ? tr('Наживо') : undefined}
+                    aria-label={tr('Наживо')}
                     styles={{ label: { paddingInlineStart: 6, whiteSpace: 'nowrap' } }}
                   />
                 </Tooltip>
                 <ToolButton
-                  label="На екран"
-                  hint="Показати поточний вибір"
-                  text="На екран"
+                  label={tr('На екран')}
+                  hint={tr('Показати поточний вибір')}
+                  text={tr('На екран')}
                   variant="filled"
                   color="live"
                   combo={keymap.project}
@@ -2311,13 +2360,13 @@ export function Control() {
                   onClick={sendAndNotify}
                 />
                 <ToolButton
-                  label={textHidden ? 'Показати текст' : 'Сховати текст'}
+                  label={textHidden ? tr('Показати текст') : tr('Сховати текст')}
                   hint={
                     textHidden
-                      ? 'Повернути той самий слайд'
-                      : 'Текст згасає, фон лишається; ще раз — той самий слайд назад'
+                      ? tr('Повернути той самий слайд')
+                      : tr('Текст згасає, фон лишається; ще раз — той самий слайд назад')
                   }
-                  text={textHidden ? 'Показати текст' : 'Сховати текст'}
+                  text={textHidden ? tr('Показати текст') : tr('Сховати текст')}
                   compact={!wideHeader}
                   variant={textHidden ? 'filled' : 'default'}
                   color={textHidden ? 'cue' : undefined}
@@ -2327,11 +2376,11 @@ export function Control() {
                   onClick={hideToggle}
                 />
                 <ToolIcon
-                  label={blackOn ? 'Зняти чорний екран' : 'Чорний екран'}
+                  label={blackOn ? tr('Зняти чорний екран') : tr('Чорний екран')}
                   hint={
                     blackOn
-                      ? 'Повернути те, що було'
-                      : 'Одразу все чорне, навіть фон; ще раз — усе назад'
+                      ? tr('Повернути те, що було')
+                      : tr('Одразу все чорне, навіть фон; ще раз — усе назад')
                   }
                   combo={keymap.black}
                   icon={<IconSquareFilled size={16} />}
@@ -2341,16 +2390,16 @@ export function Control() {
                   onClick={blackToggle}
                 />
               </ToolZone>
-              <ToolZone label="Застосунок">
+              <ToolZone label={tr('Застосунок')}>
                 <ToolIcon
-                  label="Налаштування вигляду"
-                  hint="Шрифт, кольори, шаблон слайда, пресети, клавіші"
+                  label={tr('Налаштування вигляду')}
+                  hint={tr('Шрифт, кольори, шаблон слайда, пресети, клавіші')}
                   icon={<IconAdjustments size={18} stroke={1.5} />}
                   active={settingsOpen}
                   onClick={() => setSettingsOpen((o) => !o)}
                 />
                 <ToolIcon
-                  label={colorScheme === 'dark' ? 'Світла тема' : 'Темна тема'}
+                  label={colorScheme === 'dark' ? tr('Світла тема') : tr('Темна тема')}
                   icon={
                     colorScheme === 'dark' ? (
                       <IconSun size={18} stroke={1.5} />
@@ -2367,7 +2416,7 @@ export function Control() {
                   onClick={toggleAside}
                   hiddenFrom="md"
                   size="sm"
-                  aria-label="Панель показу"
+                  aria-label={tr('Панель показу')}
                 />
               )}
             </Group>
@@ -2379,7 +2428,7 @@ export function Control() {
             <ResizeHandle
               axis="x"
               edge="right"
-              label="Ширина бічної панелі"
+              label={tr('Ширина бічної панелі')}
               {...panelResize('navbar')}
             />
           </Box>
@@ -2398,7 +2447,7 @@ export function Control() {
             <Box p="xs" pb={4}>
               <TextInput
                 size="xs"
-                placeholder="Фільтр книг…"
+                placeholder={tr('Фільтр книг…')}
                 value={bookFilter}
                 onChange={(e) => setBookFilter(e.currentTarget.value)}
                 leftSection={<IconSearch size={14} />}
@@ -2414,10 +2463,10 @@ export function Control() {
                 estimateSize={30}
                 empty={
                   primaryId == null
-                    ? 'Позначте переклад угорі, щоб побачити його книги'
+                    ? tr('Позначте переклад угорі, щоб побачити його книги')
                     : bookFilter.trim()
-                      ? `Немає книг, що збігаються з «${bookFilter.trim()}»`
-                      : 'У цьому перекладі немає книг'
+                      ? tr('Немає книг, що збігаються з «{filter}»', { filter: bookFilter.trim() })
+                      : tr('У цьому перекладі немає книг')
                 }
               />
             </Box>
@@ -2428,13 +2477,13 @@ export function Control() {
               variant="default"
               style={{ position: 'relative' }}
             >
-              <ResizeHandle axis="y" edge="top" label="Висота історії" {...recentResize} />
+              <ResizeHandle axis="y" edge="top" label={tr('Висота історії')} {...recentResize} />
               <Tabs.List grow>
                 <Tabs.Tab value="history" leftSection={<IconHistory size={14} />}>
-                  Історія
+                  {tr('Історія')}
                 </Tabs.Tab>
                 <Tabs.Tab value="saved" leftSection={<IconBookmark size={14} />}>
-                  Збережене
+                  {tr('Збережене')}
                 </Tabs.Tab>
               </Tabs.List>
               <Group justify="flex-end" gap={4} px="xs" py={4} h={30} wrap="nowrap">
@@ -2446,7 +2495,7 @@ export function Control() {
                     leftSection={<IconTrash size={12} />}
                     onClick={clearHistory}
                   >
-                    Очистити
+                    {tr('Очистити')}
                   </Button>
                 )}
                 {sidebarTab === 'saved' && (
@@ -2459,7 +2508,7 @@ export function Control() {
                       disabled={bookmarks.length === 0}
                       onClick={exportBookmarks}
                     >
-                      Експорт
+                      {tr('Експорт')}
                     </Button>
                     <FileButton accept="application/json" onChange={importBookmarksFile}>
                       {(props) => (
@@ -2470,7 +2519,7 @@ export function Control() {
                           color="gray"
                           leftSection={<IconUpload size={12} />}
                         >
-                          Імпорт
+                          {tr('Імпорт')}
                         </Button>
                       )}
                     </FileButton>
@@ -2484,7 +2533,7 @@ export function Control() {
                       items={history}
                       onPick={jumpTo}
                       onRemove={removeHistory}
-                      empty="Тут з’являтимуться місця, які ви відкривали"
+                      empty={tr('Тут з’являтимуться місця, які ви відкривали')}
                     />
                   </Tabs.Panel>
                   <Tabs.Panel value="saved">
@@ -2492,7 +2541,7 @@ export function Control() {
                       items={bookmarks}
                       onPick={jumpTo}
                       onRemove={(it) => toggleBookmark(it)}
-                      empty="Збережіть вірш кнопкою-закладкою над прев’ю"
+                      empty={tr('Збережіть вірш кнопкою-закладкою над прев’ю')}
                     />
                   </Tabs.Panel>
                 </ScrollArea>
@@ -2516,11 +2565,12 @@ export function Control() {
                 }}
               >
                 <Text size="sm" style={{ flex: 1 }}>
-                  Показом керує інше вікно керування. Тут можна готувати наступне — на екран іде
-                  лише звідти.
+                  {tr(
+                    'Показом керує інше вікно керування. Тут можна готувати наступне — на екран іде лише звідти.',
+                  )}
                 </Text>
                 <Button size="xs" variant="light" onClick={takeOver}>
-                  Взяти керування
+                  {tr('Взяти керування')}
                 </Button>
               </Group>
             )}
@@ -2543,8 +2593,10 @@ export function Control() {
                   style={{ flex: 'none' }}
                 />
                 <Text size="sm" style={{ flex: 1 }}>
-                  Застосунок вимкнено: пульти й телефони глядачів відключено, вікна виводу закрито.{' '}
-                  {START_AGAIN}
+                  {tr(
+                    'Застосунок вимкнено: пульти й телефони глядачів відключено, вікна виводу закрито.',
+                  )}{' '}
+                  {tr(START_AGAIN)}
                 </Text>
               </Group>
             )}
@@ -2567,9 +2619,9 @@ export function Control() {
                   style={{ flex: 'none' }}
                 />
                 <Text size="sm" style={{ flex: 1 }}>
-                  Немає зв’язку із сервером застосунку: пульти й телефони глядачів зараз не чують
-                  цього вікна, вікна виводу працюють далі. Перевірте, чи запущено застосунок, —
-                  зв’язок відновиться сам.
+                  {tr(
+                    'Немає зв’язку із сервером застосунку: пульти й телефони глядачів зараз не чують цього вікна, вікна виводу працюють далі. Перевірте, чи запущено застосунок, — зв’язок відновиться сам.',
+                  )}
                 </Text>
               </Group>
             )}
@@ -2586,15 +2638,16 @@ export function Control() {
                 }}
               >
                 <Text size="sm" style={{ flex: 1 }}>
-                  Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси
-                  показ іде лише на вікна виводу цього браузера.
+                  {tr(
+                    'Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси показ іде лише на вікна виводу цього браузера.',
+                  )}
                 </Text>
                 <Button
                   size="xs"
                   variant="light"
                   onClick={() => controlConn.current?.send({ type: 'take-control' })}
                 >
-                  Слухати тут
+                  {tr('Слухати тут')}
                 </Button>
               </Group>
             )}
@@ -2628,10 +2681,10 @@ export function Control() {
               <Text fw={600} size="md" truncate>
                 {currentBook
                   ? `${currentBook.longName} ${chapter ?? ''}`
-                  : 'Оберіть книгу та розділ'}
+                  : tr('Оберіть книгу та розділ')}
               </Text>
               <Group gap={6} wrap="nowrap">
-                <Tooltip label="Що зараз на екрані показу">
+                <Tooltip label={tr('Що зараз на екрані показу')}>
                   <Badge
                     variant={liveActive ? 'filled' : 'light'}
                     color={liveSlide.forceBlack ? 'dark' : liveActive ? 'live' : 'gray'}
@@ -2648,11 +2701,11 @@ export function Control() {
                       size="sm"
                       disabled={safePageIndex === 0}
                       onClick={() => advance(-1)}
-                      aria-label="Попередня сторінка"
+                      aria-label={tr('Попередня сторінка')}
                     >
                       <IconChevronLeft size={14} />
                     </ActionIcon>
-                    <Tooltip label="Сторінка довгого уривка (← → або PageUp/PageDown)">
+                    <Tooltip label={tr('Сторінка довгого уривка (← → або PageUp/PageDown)')}>
                       <Badge variant="filled" color="brand">
                         {safePageIndex + 1}/{pageCount}
                       </Badge>
@@ -2662,20 +2715,20 @@ export function Control() {
                       size="sm"
                       disabled={safePageIndex === pageCount - 1}
                       onClick={() => advance(1)}
-                      aria-label="Наступна сторінка"
+                      aria-label={tr('Наступна сторінка')}
                     >
                       <IconChevronRight size={14} />
                     </ActionIcon>
                   </Group>
                 )}
                 {selectedVerses.length > 0 && (
-                  <Tooltip label="Додати уривок у показ">
+                  <Tooltip label={tr('Додати уривок у показ')}>
                     <ActionIcon
                       variant="subtle"
                       color="brand"
                       size="sm"
                       onClick={addCurrentPassage}
-                      aria-label="Додати уривок у показ"
+                      aria-label={tr('Додати уривок у показ')}
                     >
                       <IconPlaylistAdd size={16} />
                     </ActionIcon>
@@ -2686,7 +2739,7 @@ export function Control() {
             </Group>
             {chapters.length > 0 && (
               <ScrollArea.Autosize mah={64} px="md" pb="xs">
-                <div className="vo-chapter-grid" role="group" aria-label="Розділи">
+                <div className="vo-chapter-grid" role="group" aria-label={tr('Розділи')}>
                   {chapters.map((c) => (
                     <button
                       key={c}
@@ -2761,10 +2814,10 @@ export function Control() {
                   {primaryVerses.length === 0 && (
                     <Text c="dimmed" size="sm" p="sm">
                       {currentBook == null
-                        ? 'Оберіть книгу ліворуч, потім розділ угорі.'
+                        ? tr('Оберіть книгу ліворуч, потім розділ угорі.')
                         : chapter == null
-                          ? 'Оберіть розділ угорі.'
-                          : 'У цьому розділі немає віршів у головному перекладі.'}
+                          ? tr('Оберіть розділ угорі.')
+                          : tr('У цьому розділі немає віршів у головному перекладі.')}
                     </Text>
                   )}
                 </Stack>
@@ -2793,7 +2846,7 @@ export function Control() {
               <ResizeHandle
                 axis="x"
                 edge="left"
-                label="Ширина правої панелі"
+                label={tr('Ширина правої панелі')}
                 {...panelResize('aside')}
               />
             </Box>
@@ -2805,7 +2858,7 @@ export function Control() {
       <FloatingPanel
         opened={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        title="Налаштування вигляду"
+        title={tr('Налаштування вигляду')}
         storageKey="vo:settingsPanelPos"
         width={400}
         icon={<IconAdjustments size={16} />}
@@ -2816,7 +2869,7 @@ export function Control() {
       <FloatingPanel
         opened={playlistOpen}
         onClose={() => setPlaylistOpen(false)}
-        title="Послідовність показу"
+        title={tr('Послідовність показу')}
         storageKey="vo:playlistPanelPos"
         width={340}
         icon={<IconList size={16} />}
@@ -2838,7 +2891,9 @@ export function Control() {
             const exists = playlistSaved.some((p) => p.name === n.trim());
             playlistSaveProgram(n);
             notifications.show({
-              message: exists ? `Програму оновлено: ${n}` : `Програму збережено: ${n}`,
+              message: exists
+                ? tr('Програму оновлено: {name}', { name: n })
+                : tr('Програму збережено: {name}', { name: n }),
               color: 'green',
               autoClose: 1500,
             });
@@ -2846,7 +2901,7 @@ export function Control() {
           onLoad={(n) => {
             playlistLoadProgram(n);
             notifications.show({
-              message: `Відкрито програму: ${n}`,
+              message: tr('Відкрито програму: {name}', { name: n }),
               color: 'brand',
               autoClose: 1500,
             });
@@ -2866,7 +2921,7 @@ export function Control() {
       <FloatingPanel
         opened={followOpen}
         onClose={() => setFollowOpen(false)}
-        title="Глядачі"
+        title={tr('Глядачі')}
         storageKey="vo:followPanelPos"
         width={320}
         icon={<IconQrcode size={16} />}
@@ -2881,7 +2936,7 @@ export function Control() {
       <FloatingPanel
         opened={outputsOpen}
         onClose={() => setOutputsOpen(false)}
-        title="Вікна виводу"
+        title={tr('Вікна виводу')}
         storageKey="vo:outputsPanelPos"
         width={380}
         icon={<IconAppWindow size={16} />}
@@ -2892,7 +2947,7 @@ export function Control() {
       <FloatingPanel
         opened={remoteOpen}
         onClose={() => setRemoteOpen(false)}
-        title="Пульт доповідача"
+        title={tr('Пульт доповідача')}
         storageKey="vo:remotePanelPos"
         width={340}
         icon={<IconDeviceMobile size={16} />}
