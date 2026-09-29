@@ -4,6 +4,7 @@ import { SlideCanvas } from '../components/SlideCanvas';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen } from '../lib/fullscreen';
+import { tr, useLang } from '../i18n';
 
 /** Fullscreen needs a user gesture in this window — or one lent by the control window. */
 const setFullscreen = (on: boolean) => {
@@ -14,6 +15,7 @@ const setFullscreen = (on: boolean) => {
 const toggleFullscreen = () => setFullscreen(!document.fullscreenElement);
 
 export function Presenter() {
+  useLang();
   const [slide, setSlide] = useState<Slide>(EMPTY_SLIDE);
   const [hint, setHint] = useState(true);
   // Hide the cursor over the projected image when the mouse sits idle.
@@ -80,7 +82,7 @@ export function Presenter() {
     <div
       role="button"
       tabIndex={0}
-      aria-label="Перемкнути повний екран"
+      aria-label={tr('Перемкнути повний екран')}
       onClick={toggleFullscreen}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -114,7 +116,7 @@ export function Presenter() {
             zIndex: 10,
           }}
         >
-          Клік або «F» — на весь екран · ← → гортають слайди
+          {tr('Клік або «F» — на весь екран · ← → гортають слайди')}
         </div>
       )}
     </div>
