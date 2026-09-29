@@ -29,6 +29,7 @@ import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { KeyedError, N_, requestLang, tr, trError, type Lang } from './lang.ts';
 
 export interface RunningApp {
   port: number;
@@ -69,9 +70,12 @@ const ownAddress = (addr: string | undefined) => {
   return ip === '::1' || ip.startsWith('127.');
 };
 
-function startingPage(message: string): string {
+/** The page shown while the app starts — in the language the browser asks for (0.11.7). */
+function startingPage(message: string, lang: Lang): string {
   const safe = message.replace(/[<>&]/g, '');
-  return `<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta http-equiv="refresh" content="1"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Запуск…</title></head><body style="margin:0;height:100vh;display:grid;place-items:center;background:#1e2025;color:#e4e2dd;font:16px Inter,system-ui,sans-serif"><div style="text-align:center"><div style="font-weight:600">VerseOrchestrator запускається…</div><div style="opacity:.6;margin-top:6px">${safe}</div></div></body></html>`;
+  const title = tr('Запуск…', undefined, lang);
+  const starting = tr('VerseOrchestrator запускається…', undefined, lang);
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta http-equiv="refresh" content="1"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body style="margin:0;height:100vh;display:grid;place-items:center;background:#1e2025;color:#e4e2dd;font:16px Inter,system-ui,sans-serif"><div style="text-align:center"><div style="font-weight:600">${starting}</div><div style="opacity:.6;margin-top:6px">${safe}</div></div></body></html>`;
 }
 
 export function createStandby(o: StandbyOptions) {
@@ -81,7 +85,7 @@ export function createStandby(o: StandbyOptions) {
   let app: RunningApp | null = null;
   let starting: Promise<RunningApp> | null = null;
   let progress = '';
-  let lastError = '';
+  let lastError: unknown = null;
   let lastActivity = now();
   let inflight = 0;
   let retiring = false;
@@ -96,7 +100,7 @@ export function createStandby(o: StandbyOptions) {
     if (app) return Promise.resolve(app);
     starting ??= (async () => {
       state = 'starting';
-      lastError = '';
+      lastError = null;
       log('starting the app');
       try {
         const a = await o.startApp((m) => {
@@ -116,8 +120,8 @@ export function createStandby(o: StandbyOptions) {
         return a;
       } catch (err) {
         state = 'waiting';
-        lastError = (err as Error).message;
-        log(`start failed: ${lastError}`);
+        lastError = err;
+        log(`start failed: ${(err as Error).message}`);
         throw err;
       } finally {
         starting = null;
@@ -154,7 +158,9 @@ export function createStandby(o: StandbyOptions) {
     );
     up.on('error', () => {
       if (!res.headersSent) res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
-      res.end('Застосунок не відповідає');
+      res.end(
+        tr('Застосунок не відповідає', undefined, requestLang(req.headers['accept-language'])),
+      );
     });
     req.pipe(up);
   }
@@ -190,7 +196,7 @@ export function createStandby(o: StandbyOptions) {
     state,
     appPort: app?.port ?? null,
     progress,
-    lastError,
+    lastError: lastError ? (lastError as Error).message : '',
     openSockets: tunnels.size,
     idleForMs: now() - lastActivity,
     retiring,
@@ -240,14 +246,23 @@ export function createStandby(o: StandbyOptions) {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': 'no-store',
       });
-      res.end(startingPage(lastError ? `Не вдалося: ${lastError}` : progress || 'Хвилинку'));
+      const lang = requestLang(req.headers['accept-language']);
+      res.end(
+        startingPage(
+          lastError
+            ? tr('Не вдалося: {error}', { error: trError(lastError, lang) }, lang)
+            : tr(progress || N_('Хвилинку'), undefined, lang),
+          lang,
+        ),
+      );
       return;
     }
     starting.then(
       (a) => proxy(req, res, a),
       (err: Error) => {
         res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8', 'retry-after': '5' });
-        res.end(`Застосунок не запустився: ${err.message}`);
+        const lang = requestLang(req.headers['accept-language']);
+        res.end(tr('Застосунок не запустився: {error}', { error: trError(err, lang) }, lang));
       },
     );
   });
@@ -340,7 +355,14 @@ export function run(
     child.stderr?.on('data', (d) => log(String(d).trim()));
     child.on('error', reject);
     child.on('close', (code) =>
-      code === 0 ? resolve() : reject(new Error(`${cmd} ${args.join(' ')}: код ${code}`)),
+      code === 0
+        ? resolve()
+        : reject(
+            new KeyedError(N_('{command}: код {code}'), {
+              command: `${cmd} ${args.join(' ')}`,
+              code: String(code),
+            }),
+          ),
     );
   });
 }
@@ -396,10 +418,11 @@ export async function buildUi(
 export function appProcess(root: string, log: (m: string) => void) {
   return async (progress: (m: string) => void): Promise<RunningApp> => {
     if (needsBuild(root)) {
-      progress('Перший запуск після оновлення: готую інтерфейс (до хвилини)…');
+      // progress lines are keys: the page shows them in its reader's language
+      progress(N_('Перший запуск після оновлення: готую інтерфейс (до хвилини)…'));
       await buildUi(root, log);
     }
-    progress('Запускаю сервер…');
+    progress(N_('Запускаю сервер…'));
     // fork() by hand (spawn + an IPC channel) — fork's options don't take windowsHide:
     // a detached waiter has no console, so Windows would give the app a new, VISIBLE one,
     // and closing that window kills the app (exit 0xC000013A).
@@ -419,7 +442,10 @@ export function appProcess(root: string, log: (m: string) => void) {
       log(`[app] exit code ${code}${signal ? ` (${signal})` : ''}`),
     );
     const port = await new Promise<number>((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('сервер не запустився за 60 с')), 60_000);
+      const t = setTimeout(
+        () => reject(new KeyedError(N_('сервер не запустився за 60 с'))),
+        60_000,
+      );
       child.on('message', (m: { type?: string; port?: number }) => {
         if (m?.type === 'ready' && typeof m.port === 'number') {
           clearTimeout(t);
@@ -428,7 +454,7 @@ export function appProcess(root: string, log: (m: string) => void) {
       });
       child.once('exit', (code) => {
         clearTimeout(t);
-        reject(new Error(`сервер завершився з кодом ${code}`));
+        reject(new KeyedError(N_('сервер завершився з кодом {code}'), { code: String(code) }));
       });
     });
     return {

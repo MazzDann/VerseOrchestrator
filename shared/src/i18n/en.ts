@@ -869,4 +869,128 @@ export const EN: Record<string, string> = {
   'Словник порожній': 'The dictionary is empty',
   // a remote without a name (web/src/components/RemotePanel.tsx)
   'Пульт {n}': 'Remote {n}',
+  // the launcher console (server/src/launcher.ts)
+  'Порт — ціле число від 1024 до 65535, наприклад: --port 4748':
+    'The port is a whole number from 1024 to 65535, for example: --port 4748',
+  'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut':
+    'Unknown option “{arg}”. Options: --no-browser, --port N, --check, --off, --app, --shortcut',
+  '{s} с': '{s} s',
+  'Відкрийте в браузері: {url}': 'Open in a browser: {url}',
+  перевірка: 'check',
+  вимкнення: 'switching off',
+  'Застосунок на :{port} не зупинився. Закрийте вікно, де його запущено.':
+    "The app on :{port} didn't stop. Close the window it runs in.",
+  'Застосунок зупинено (працював на :{port})': 'The app stopped (it ran on :{port})',
+  'На :{port} застосунок не працював': 'The app was not running on :{port}',
+  'Автозапуск разом з комп’ютером прибрано': 'Starting with the computer removed',
+  'Автозапуску не було': 'Starting with the computer was not set up',
+  'Поза папкою застосунку лишилися тільки дані браузера для {url}: копії\nналаштувань і кеш бібліотеки (самі налаштування — у data/). Щоб стерти й їх, запустіть застосунок і в\nНалаштування вигляду → Застосунок виберіть «Вимкнути повністю» з позначкою «стерти\nдані браузера» — або видаліть дані цього сайту в налаштуваннях браузера. Після цього\nпапку застосунку можна просто видалити.':
+    "Outside the app folder only the browser's data for {url} is left: copies of the\nsettings and the library cache (the settings themselves are in data/). To erase them too, start the app and\nin Settings → App choose “Switch off completely” with “Also erase the browser's\ndata” checked — or delete this site's data in the browser settings. After that\nyou can simply delete the app folder.",
+  'Ярлик на робочому столі: {file}': 'Desktop shortcut: {file}',
+  'Він запускає застосунок і відкриває вікно керування окремим вікном (Chrome або Edge).':
+    'It starts the app and opens the control window as its own window (Chrome or Edge).',
+  'Застосунок уже працює: {url}': 'The app is already running: {url}',
+  'Залежності на місці': 'Dependencies in place',
+  'Залежності: не встановлено (npm ci)': 'Dependencies: not installed (npm ci)',
+  'Залежності: встановлено для іншої системи (npm ci)':
+    'Dependencies: installed for another system (npm ci)',
+  'Встановлюю залежності (npm ci; перший раз — кілька хвилин, потрібен інтернет)':
+    'Installing dependencies (npm ci; the first time takes a few minutes and needs the internet)',
+  'Залежності встановлено для іншої системи — перевстановлюю (npm ci)':
+    'Dependencies were installed for another system — reinstalling (npm ci)',
+  'Не вдалося встановити залежності. Перевірте інтернет і запустіть ще раз.':
+    "Couldn't install the dependencies. Check the internet and start again.",
+  'Залежності встановлено за {time}': 'Dependencies installed in {time}',
+  'Модуль SQLite зібрано для іншої версії Node — перебудовую':
+    'The SQLite module was built for another Node version — rebuilding',
+  'Модуль SQLite працює': 'The SQLite module works',
+  'Модуль SQLite не завантажується: {error}': "The SQLite module doesn't load: {error}",
+  'невідома помилка': 'unknown error',
+  'Спробуйте: npm ci': 'Try: npm ci',
+  'Бібліотека на місці': 'Library in place',
+  'Бібліотеку буде зібрано з {modules}': 'The library will be built from {modules}',
+  'Збираю бібліотеку з модулів MyBible ({modules}; кілька хвилин)':
+    'Building the library from MyBible modules ({modules}; a few minutes)',
+  'Бібліотеку зібрано за {time}': 'Library built in {time}',
+  'Бібліотеку не вдалося зібрати — застосунок запуститься без неї (див. вище).':
+    "Couldn't build the library — the app starts without it (see above).",
+  'Бібліотеки сервера немає: тексти читатиме браузер (Налаштування вигляду →\n  Застосунок → Джерело даних → «у браузері»); телефони й пульт їх не побачать.':
+    "No server library: the browser will read the texts (Settings →\n  App → Data source → “In the browser”); phones and remotes won't see them.",
+  'Бібліотеки немає: покладіть модулі MyBible (*.SQLite3) у папку modules/ і\n  запустіть ще раз. Застосунок запуститься, але без текстів.':
+    'No library: put MyBible modules (*.SQLite3) into the modules/ folder and\n  start again. The app starts, but without texts.',
+  'Інтерфейс зібрано': 'Interface built',
+  'Інтерфейс буде зібрано (npm run build --workspace @vo/web)':
+    'The interface will be built (npm run build --workspace @vo/web)',
+  'Збираю інтерфейс (до хвилини)': 'Building the interface (up to a minute)',
+  'Інтерфейс не зібрано (див. вище). Спробуйте: npm ci, тоді запустіть ще раз.':
+    'The interface was not built (see above). Try: npm ci, then start again.',
+  'Інтерфейс зібрано за {time}': 'Interface built in {time}',
+  'Порт {port} зайнятий іншою програмою. Запустіть з іншим: --port 4748':
+    'Port {port} is taken by another program. Start with another one: --port 4748',
+  '(або змініть його в data/settings.json → standby → port).':
+    '(or change it in data/settings.json → standby → port).',
+  'Порт {port} вільний. Перевірку завершено за {time}.':
+    'Port {port} is free. Check finished in {time}.',
+  'Застосунок вимкнено («Вимкнути повністю»). Щоб запустити знову, запустіть цей файл.':
+    'The app is switched off (“Switch off completely”). To start it again, run this file.',
+  '«Запуск за адресою» вимкнено в налаштуваннях — застосунок зупинено.':
+    '“Start on open” was turned off in the settings — the app stopped.',
+  'Не вдалося перейти на новий порт: {error}': "Couldn't move to the new port: {error}",
+  'Застосунок працює ({time}). Вікно керування: {url}':
+    'The app is running ({time}). Control window: {url}',
+  'Телефони в тій самій мережі Wi-Fi: {url}': 'Phones on the same Wi-Fi network: {url}',
+  'Мережі не видно: телефони під’єднаються, коли комп’ютер буде в мережі.':
+    'No network in sight: phones can connect once the computer is on a network.',
+  'Зупинити: Ctrl+C або закрийте це вікно.': 'To stop: Ctrl+C or close this window.',
+  'Застосунок не запустився: {error}': "The app didn't start: {error}",
+  'Зупиняю…': 'Stopping…',
+  'Потрібен Node.js 22.18 або новіший (зараз {version}): https://nodejs.org':
+    'Node.js 22.18 or newer is needed (this is {version}): https://nodejs.org',
+  // the waiter (server/src/standby.ts)
+  'Запуск…': 'Starting…',
+  'VerseOrchestrator запускається…': 'VerseOrchestrator is starting…',
+  'Застосунок не відповідає': "The app doesn't answer",
+  Хвилинку: 'Just a moment',
+  '{command}: код {code}': '{command}: code {code}',
+  'Перший запуск після оновлення: готую інтерфейс (до хвилини)…':
+    'The first start after an update: preparing the interface (up to a minute)…',
+  'Запускаю сервер…': 'Starting the server…',
+  'сервер не запустився за 60 с': "the server didn't start within 60 s",
+  'сервер завершився з кодом {code}': 'the server ended with code {code}',
+  // the portable build (server/src/portable.ts)
+  'немає {file} — потрібен Node.js з npm': 'no {file} — Node.js with npm is needed',
+  'немає npm поруч із {node} — потрібен Node.js з npm':
+    'no npm next to {node} — Node.js with npm is needed',
+  'двічі клацніть start.cmd': 'double-click start.cmd',
+  'двічі клацніть start.command': 'double-click start.command',
+  'виконайте ./start.sh у терміналі': 'run ./start.sh in a terminal',
+  'VerseOrchestrator {version} — портативна копія для {system} ({arch})':
+    'VerseOrchestrator {version} — a portable copy for {system} ({arch})',
+  'Node.js та інтернет не потрібні: усе потрібне — у цій папці.':
+    'No Node.js or internet needed: everything is in this folder.',
+  'Запуск: {launcher}. Вікно керування відкриється в браузері, адресу для\nтелефонів видно у вікні запуску.':
+    'To start: {launcher}. The control window opens in a browser; the address for\nphones shows in the start window.',
+  'Зупинити: закрийте вікно запуску. Вимкнути все й прибрати автозапуск: {off}.':
+    'To stop: close the start window. To switch everything off and remove the autostart: {off}.',
+  'Тексти: бібліотеку вже додано.': 'Texts: the library is already included.',
+  'Тексти: покладіть модулі MyBible (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).':
+    'Texts: put MyBible modules (*.SQLite3) into the modules/ folder — the app builds\nthe library itself (a few minutes).',
+  'Невідомий параметр «{arg}». Можна: --with-library':
+    'Unknown option “{arg}”. Options: --with-library',
+  'Портативна копія {name}': 'Portable copy {name}',
+  'Файли проєкту: {n}': 'Project files: {n}',
+  'Збираю інтерфейс': 'Building the interface',
+  'Встановлюю залежності для роботи (без засобів розробки)':
+    'Installing the runtime dependencies (no development tools)',
+  'Не вдалося встановити залежності (потрібен інтернет або кеш npm).':
+    "Couldn't install the dependencies (the internet or the npm cache is needed).",
+  'Модуль SQLite не завантажується в копії.': "The SQLite module doesn't load in the copy.",
+  'Бібліотеки немає ({file}). Зберіть її: npm run build:library':
+    'No library ({file}). Build it: npm run build:library',
+  'Бібліотеку додано': 'Library added',
+  'Налаштування вигляду й послідовність': 'Appearance settings and the running order',
+  'ЯК ЗАПУСТИТИ.txt': 'HOW TO START.txt',
+  'Готово за {time}: {folder} ({mb} МБ)': 'Done in {time}: {folder} ({mb} MB)',
+  'Скопіюйте цю папку на інший комп’ютер з такою самою системою — і запускайте.':
+    'Copy this folder to another computer with the same system — and start it there.',
 };

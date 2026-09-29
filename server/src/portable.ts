@@ -17,6 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NPM_CI, writeDepsRecord } from './launcher.ts';
 import { buildUi, run } from './standby.ts';
+import { consoleLang, setLang, tr } from './lang.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -39,13 +40,15 @@ export function nodeCopy(
     const dir = path.win32.dirname(execPath);
     const files = ['node.exe', 'npm.cmd', 'npx.cmd', path.win32.join('node_modules', 'npm')];
     const missing = files.find((f) => !exists(path.win32.join(dir, f)));
-    if (missing) return `немає ${path.win32.join(dir, missing)} — потрібен Node.js з npm`;
+    if (missing) {
+      return tr('немає {file} — потрібен Node.js з npm', { file: path.win32.join(dir, missing) });
+    }
     return files.map((f) => ({ from: path.win32.join(dir, f), to: f }));
   }
   const npm = [execPath, realExecPath]
     .map((p) => path.posix.join(path.posix.dirname(p), '..', 'lib', 'node_modules', 'npm'))
     .find((p) => exists(p));
-  if (!npm) return `немає npm поруч із ${realExecPath} — потрібен Node.js з npm`;
+  if (!npm) return tr('немає npm поруч із {node} — потрібен Node.js з npm', { node: realExecPath });
   return [
     { from: realExecPath, to: 'bin/node' },
     { from: npm, to: 'lib/node_modules/npm' },
@@ -61,7 +64,7 @@ exec "$here/node" "$here/../lib/node_modules/npm/bin/${cli}.js" "$@"
 
 const SYSTEM: Record<string, string> = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
 
-/** The note next to the launchers — in Ukrainian, for whoever opens the folder. */
+/** The note next to the launchers, for whoever opens the folder — in the console's language. */
 export function howToStart(o: {
   version: string;
   platform: NodeJS.Platform;
@@ -70,23 +73,31 @@ export function howToStart(o: {
 }): string {
   const launcher =
     o.platform === 'win32'
-      ? 'двічі клацніть start.cmd'
+      ? tr('двічі клацніть start.cmd')
       : o.platform === 'darwin'
-        ? 'двічі клацніть start.command'
-        : 'виконайте ./start.sh у терміналі';
+        ? tr('двічі клацніть start.command')
+        : tr('виконайте ./start.sh у терміналі');
   const off = o.platform === 'win32' ? 'start.cmd --off' : './start.sh --off';
   return [
-    `VerseOrchestrator ${o.version} — портативна копія для ${SYSTEM[o.platform] ?? o.platform} (${o.arch})`,
+    tr('VerseOrchestrator {version} — портативна копія для {system} ({arch})', {
+      version: o.version,
+      system: SYSTEM[o.platform] ?? o.platform,
+      arch: o.arch,
+    }),
     '',
-    'Node.js та інтернет не потрібні: усе потрібне — у цій папці.',
+    tr('Node.js та інтернет не потрібні: усе потрібне — у цій папці.'),
     '',
-    `Запуск: ${launcher}. Вікно керування відкриється в браузері, адресу для`,
-    'телефонів видно у вікні запуску.',
-    `Зупинити: закрийте вікно запуску. Вимкнути все й прибрати автозапуск: ${off}.`,
+    tr(
+      'Запуск: {launcher}. Вікно керування відкриється в браузері, адресу для\nтелефонів видно у вікні запуску.',
+      { launcher },
+    ),
+    tr('Зупинити: закрийте вікно запуску. Вимкнути все й прибрати автозапуск: {off}.', { off }),
     '',
     o.withLibrary
-      ? 'Тексти: бібліотеку вже додано.'
-      : 'Тексти: покладіть модулі MyBible (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).',
+      ? tr('Тексти: бібліотеку вже додано.')
+      : tr(
+          'Тексти: покладіть модулі MyBible (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).',
+        ),
     '',
   ].join('\n');
 }
@@ -118,7 +129,7 @@ export function projectFiles(dir: string, rel = ''): string[] {
 }
 
 const say = (m: string) => process.stdout.write(`${m}\n`);
-const secs = (from: number) => `${((Date.now() - from) / 1000).toFixed(1)} с`;
+const secs = (from: number) => tr('{s} с', { s: ((Date.now() - from) / 1000).toFixed(1) });
 
 function folderBytes(dir: string): number {
   let total = 0;
@@ -131,17 +142,18 @@ function folderBytes(dir: string): number {
 }
 
 async function main(argv: string[]): Promise<number> {
+  setLang(consoleLang(process.env.VO_DATA_DIR ?? path.join(root, 'data')));
   const withLibrary = argv.includes('--with-library');
   const unknown = argv.find((a) => a !== '--with-library');
   if (unknown) {
-    say(`Невідомий параметр «${unknown}». Можна: --with-library`);
+    say(tr('Невідомий параметр «{arg}». Можна: --with-library', { arg: unknown }));
     return 2;
   }
   const started = Date.now();
   const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
   const name = `VerseOrchestrator-${version}-${process.platform}-${process.arch}`;
   const out = path.join(root, 'portable', name);
-  say(`Портативна копія ${name}`);
+  say(tr('Портативна копія {name}', { name }));
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
 
@@ -165,16 +177,16 @@ async function main(argv: string[]): Promise<number> {
   }
   if (process.platform !== 'win32')
     for (const f of ['start.sh', 'start.command']) fs.chmodSync(path.join(out, f), 0o755);
-  say(`✓ Файли проєкту: ${files.length}`);
+  say(`✓ ${tr('Файли проєкту: {n}', { n: files.length })}`);
 
   // 2. The interface, built for this version (the copy has no bundler)
   const stamp = path.join(root, 'web', 'dist', '.vo-version');
   const built = fs.existsSync(stamp) && fs.readFileSync(stamp, 'utf8').trim() === version;
   if (!built) {
     const t = Date.now();
-    say('… Збираю інтерфейс');
+    say(`… ${tr('Збираю інтерфейс')}`);
     await buildUi(root, () => undefined);
-    say(`✓ Інтерфейс зібрано за ${secs(t)}`);
+    say(`✓ ${tr('Інтерфейс зібрано за {time}', { time: secs(t) })}`);
   }
   fs.cpSync(path.join(root, 'web', 'dist'), path.join(out, 'web', 'dist'), { recursive: true });
 
@@ -194,11 +206,11 @@ async function main(argv: string[]): Promise<number> {
 
   // 4. Only what the app runs on: the server's and the builder's dependencies
   const t = Date.now();
-  say('… Встановлюю залежності для роботи (без засобів розробки)');
+  say(`… ${tr('Встановлюю залежності для роботи (без засобів розробки)')}`);
   try {
     await run('npm', NPM_CI.runtime, out, () => undefined, { inherit: true });
   } catch {
-    say('✗ Не вдалося встановити залежності (потрібен інтернет або кеш npm).');
+    say(`✗ ${tr('Не вдалося встановити залежності (потрібен інтернет або кеш npm).')}`);
     return 1;
   }
   const sqlite = spawnSync(
@@ -207,19 +219,19 @@ async function main(argv: string[]): Promise<number> {
     { cwd: path.join(out, 'server'), windowsHide: true },
   );
   if (sqlite.status !== 0) {
-    say('✗ Модуль SQLite не завантажується в копії.');
+    say(`✗ ${tr('Модуль SQLite не завантажується в копії.')}`);
     return 1;
   }
   // the launcher there counts these as installed, and reinstalls the same way if ever needed
   writeDepsRecord(out, 'runtime');
-  say(`✓ Залежності встановлено за ${secs(t)}`);
+  say(`✓ ${tr('Залежності встановлено за {time}', { time: secs(t) })}`);
 
   // 5. The texts, if asked (the library is large; modules can be added to the copy later)
   if (withLibrary) {
     const dataDir = process.env.VO_DATA_DIR ?? path.join(root, 'data');
     const db = process.env.LIBRARY_DB ?? path.join(dataDir, 'library.db');
     if (!fs.existsSync(db)) {
-      say(`✗ Бібліотеки немає (${db}). Зберіть її: npm run build:library`);
+      say(`✗ ${tr('Бібліотеки немає ({file}). Зберіть її: npm run build:library', { file: db })}`);
       return 1;
     }
     fs.mkdirSync(path.join(out, 'data'), { recursive: true });
@@ -227,7 +239,7 @@ async function main(argv: string[]): Promise<number> {
     const segments = path.join(dataDir, 'segments');
     if (fs.existsSync(segments))
       fs.cpSync(segments, path.join(out, 'data', 'segments'), { recursive: true });
-    say('✓ Бібліотеку додано');
+    say(`✓ ${tr('Бібліотеку додано')}`);
   }
 
   // the operator's settings and running order travel with the copy (0.7.4)
@@ -235,17 +247,17 @@ async function main(argv: string[]): Promise<number> {
   if (fs.existsSync(uiState)) {
     fs.mkdirSync(path.join(out, 'data'), { recursive: true });
     fs.copyFileSync(uiState, path.join(out, 'data', 'ui-state.json'));
-    say('✓ Налаштування вигляду й послідовність');
+    say(`✓ ${tr('Налаштування вигляду й послідовність')}`);
   }
 
   fs.writeFileSync(
-    path.join(out, 'ЯК ЗАПУСТИТИ.txt'),
+    path.join(out, tr('ЯК ЗАПУСТИТИ.txt')),
     howToStart({ version, platform: process.platform, arch: process.arch, withLibrary }),
   );
   const mb = Math.round(folderBytes(out) / 1048576);
   say('');
-  say(`✓ Готово за ${secs(started)}: ${out} (${mb} МБ)`);
-  say('  Скопіюйте цю папку на інший комп’ютер з такою самою системою — і запускайте.');
+  say(`✓ ${tr('Готово за {time}: {folder} ({mb} МБ)', { time: secs(started), folder: out, mb })}`);
+  say(`  ${tr('Скопіюйте цю папку на інший комп’ютер з такою самою системою — і запускайте.')}`);
   return 0;
 }
 

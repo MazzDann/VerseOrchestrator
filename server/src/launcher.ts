@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lanIps } from './access.ts';
+import { consoleLang, setLang, tr, trError } from './lang.ts';
 import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
 import { appWindowCommand, createShortcut } from './shortcut.ts';
 import {
@@ -73,10 +74,13 @@ export function parseArgs(argv: string[]): LaunchOptions | string {
     else if (a === '--port') {
       const port = Number(argv[++i]);
       if (!Number.isInteger(port) || port < 1024 || port > 65535)
-        return 'Порт — ціле число від 1024 до 65535, наприклад: --port 4748';
+        return tr('Порт — ціле число від 1024 до 65535, наприклад: --port 4748');
       o.port = port;
     } else
-      return `Невідомий параметр «${a}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut`;
+      return tr(
+        'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut',
+        { arg: a },
+      );
   }
   return o;
 }
@@ -262,7 +266,7 @@ export async function switchOff(
 
 // ---------------------------------------------------------------------------------------
 
-const secs = (from: number) => `${((Date.now() - from) / 1000).toFixed(1)} с`;
+const secs = (from: number) => tr('{s} с', { s: ((Date.now() - from) / 1000).toFixed(1) });
 const say = (m: string) => process.stdout.write(`${m}\n`);
 
 /** The native SQLite module loads here (another Node version or system leaves a stale one). */
@@ -281,15 +285,18 @@ function openBrowser(url: string, asApp = false): void {
   const cmd =
     (asApp && appWindowCommand(process.platform, url)) || browserCommand(process.platform, url);
   if (!cmd) {
-    say(`  Відкрийте в браузері: ${url}`);
+    say(`  ${tr('Відкрийте в браузері: {url}', { url })}`);
     return;
   }
   const child = spawn(cmd[0], cmd[1], { stdio: 'ignore', detached: true, windowsHide: true });
-  child.on('error', () => say(`  Відкрийте в браузері: ${url}`));
+  child.on('error', () => say(`  ${tr('Відкрийте в браузері: {url}', { url })}`));
   child.unref();
 }
 
 async function main(argv: string[]): Promise<number> {
+  const dataDir = process.env.VO_DATA_DIR ?? path.join(root, 'data');
+  // the console speaks the interface language chosen in the control window (0.11.7)
+  setLang(consoleLang(dataDir));
   const opts = parseArgs(argv);
   if (typeof opts === 'string') {
     say(opts);
@@ -297,7 +304,6 @@ async function main(argv: string[]): Promise<number> {
   }
   const started = Date.now();
   const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-  const dataDir = process.env.VO_DATA_DIR ?? path.join(root, 'data');
   fs.mkdirSync(dataDir, { recursive: true });
   const logFile = path.join(dataDir, 'standby.log');
   const log = (m: string) => {
@@ -313,7 +319,7 @@ async function main(argv: string[]): Promise<number> {
     say(`  ${new Date().toTimeString().slice(0, 8)} ${m}`);
   };
   say(
-    `VerseOrchestrator ${version}${opts.check ? ' — перевірка' : opts.off ? ' — вимкнення' : ''}`,
+    `VerseOrchestrator ${version}${opts.check ? ` — ${tr('перевірка')}` : opts.off ? ` — ${tr('вимкнення')}` : ''}`,
   );
   const settings = readStandbySettings(dataDir);
   const port = opts.port ?? settings.port;
@@ -323,23 +329,26 @@ async function main(argv: string[]): Promise<number> {
   if (opts.off) {
     const r = await switchOff(port, currentEntry(root));
     if (r.stillRunning) {
-      say(`✗ Застосунок на :${port} не зупинився. Закрийте вікно, де його запущено.`);
+      say(
+        `✗ ${tr('Застосунок на :{port} не зупинився. Закрийте вікно, де його запущено.', { port })}`,
+      );
       return 1;
     }
     say(
       r.wasRunning
-        ? `✓ Застосунок зупинено (працював на :${port})`
-        : `✓ На :${port} застосунок не працював`,
+        ? `✓ ${tr('Застосунок зупинено (працював на :{port})', { port })}`
+        : `✓ ${tr('На :{port} застосунок не працював', { port })}`,
     );
-    say(r.autostartRemoved ? '✓ Автозапуск разом з комп’ютером прибрано' : '✓ Автозапуску не було');
-    say('');
-    say(`Поза папкою застосунку лишилися тільки дані браузера для ${local}: копії`);
     say(
-      'налаштувань і кеш бібліотеки (самі налаштування — у data/). Щоб стерти й їх, запустіть застосунок і в',
+      `✓ ${r.autostartRemoved ? tr('Автозапуск разом з комп’ютером прибрано') : tr('Автозапуску не було')}`,
     );
-    say('Налаштування вигляду → Застосунок виберіть «Вимкнути повністю» з позначкою «стерти');
-    say('дані браузера» — або видаліть дані цього сайту в налаштуваннях браузера. Після цього');
-    say('папку застосунку можна просто видалити.');
+    say('');
+    say(
+      tr(
+        'Поза папкою застосунку лишилися тільки дані браузера для {url}: копії\nналаштувань і кеш бібліотеки (самі налаштування — у data/). Щоб стерти й їх, запустіть застосунок і в\nНалаштування вигляду → Застосунок виберіть «Вимкнути повністю» з позначкою «стерти\nдані браузера» — або видаліть дані цього сайту в налаштуваннях браузера. Після цього\nпапку застосунку можна просто видалити.',
+        { url: local },
+      ),
+    );
     return 0;
   }
 
@@ -347,13 +356,13 @@ async function main(argv: string[]): Promise<number> {
   if (opts.shortcut) {
     try {
       const files = createShortcut(root);
-      say(`✓ Ярлик на робочому столі: ${files[0]}`);
+      say(`✓ ${tr('Ярлик на робочому столі: {file}', { file: files[0] })}`);
       say(
-        '  Він запускає застосунок і відкриває вікно керування окремим вікном (Chrome або Edge).',
+        `  ${tr('Він запускає застосунок і відкриває вікно керування окремим вікном (Chrome або Edge).')}`,
       );
       return 0;
     } catch (err) {
-      say(`✗ Ярлик не створено: ${(err as Error).message}`);
+      say(`✗ ${tr('Ярлик не створено: {error}', { error: trError(err) })}`);
       return 1;
     }
   }
@@ -361,38 +370,38 @@ async function main(argv: string[]): Promise<number> {
   // Already running (autostart, a second launch): open it — there is nothing to prepare
   const running = !!(await waiterAt(port));
   if (running && !opts.check) {
-    say(`✓ Застосунок уже працює: ${local}`);
+    say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
     if (opts.browser) openBrowser(`${local}/`, opts.app);
     return 0;
   }
 
   // 1. Dependencies (npm ci on a fresh copy — needs the internet once)
   const deps = depsState(root);
-  if (deps.state === 'ok') say('✓ Залежності на місці');
+  if (deps.state === 'ok') say(`✓ ${tr('Залежності на місці')}`);
   else if (opts.check)
     say(
-      `! Залежності: ${deps.state === 'install' ? 'не встановлено' : 'встановлено для іншої системи'} (npm ci)`,
+      `! ${deps.state === 'install' ? tr('Залежності: не встановлено (npm ci)') : tr('Залежності: встановлено для іншої системи (npm ci)')}`,
     );
   else {
     const t = Date.now();
     say(
       deps.state === 'install'
-        ? '… Встановлюю залежності (npm ci; перший раз — кілька хвилин, потрібен інтернет)'
-        : '… Залежності встановлено для іншої системи — перевстановлюю (npm ci)',
+        ? `… ${tr('Встановлюю залежності (npm ci; перший раз — кілька хвилин, потрібен інтернет)')}`
+        : `… ${tr('Залежності встановлено для іншої системи — перевстановлюю (npm ci)')}`,
     );
     try {
       await run('npm', NPM_CI[deps.mode], root, log, { inherit: true });
     } catch {
-      say('✗ Не вдалося встановити залежності. Перевірте інтернет і запустіть ще раз.');
+      say(`✗ ${tr('Не вдалося встановити залежності. Перевірте інтернет і запустіть ще раз.')}`);
       return 1;
     }
-    say(`✓ Залежності встановлено за ${secs(t)}`);
+    say(`✓ ${tr('Залежності встановлено за {time}', { time: secs(t) })}`);
   }
 
   // 2. The native SQLite module (a folder moved to another Node version / system)
   let sqlite = deps.state === 'ok' || !opts.check ? sqliteLoads() : { ok: false, error: '' };
   if (!sqlite.ok && !opts.check) {
-    say('… Модуль SQLite зібрано для іншої версії Node — перебудовую');
+    say(`… ${tr('Модуль SQLite зібрано для іншої версії Node — перебудовую')}`);
     try {
       await run('npm', ['rebuild', 'better-sqlite3'], root, log, { inherit: true });
     } catch {
@@ -401,7 +410,7 @@ async function main(argv: string[]): Promise<number> {
     sqlite = sqliteLoads();
   }
   if (sqlite.ok) {
-    say('✓ Модуль SQLite працює');
+    say(`✓ ${tr('Модуль SQLite працює')}`);
     if (!opts.check)
       try {
         writeDepsRecord(root, deps.mode);
@@ -409,38 +418,45 @@ async function main(argv: string[]): Promise<number> {
         /* read-only copy: checked again next time */
       }
   } else if (deps.state === 'ok' || !opts.check) {
-    say(`✗ Модуль SQLite не завантажується: ${sqlite.error || 'невідома помилка'}`);
-    say('  Спробуйте: npm ci');
+    say(
+      `✗ ${tr('Модуль SQLite не завантажується: {error}', { error: sqlite.error || tr('невідома помилка') })}`,
+    );
+    say(`  ${tr('Спробуйте: npm ci')}`);
     if (!opts.check) return 1;
   }
 
   // 3. The library: the server's, or built from MyBible modules, or the browser's segments
   const lib = libraryState(root);
-  if (lib.kind === 'ready') say('✓ Бібліотека на місці');
-  else if (lib.kind === 'build' && opts.check) say(`! Бібліотеку буде зібрано з ${lib.modules}`);
+  if (lib.kind === 'ready') say(`✓ ${tr('Бібліотека на місці')}`);
+  else if (lib.kind === 'build' && opts.check)
+    say(`! ${tr('Бібліотеку буде зібрано з {modules}', { modules: lib.modules })}`);
   else if (lib.kind === 'build') {
     const t = Date.now();
-    say(`… Збираю бібліотеку з модулів MyBible (${lib.modules}; кілька хвилин)`);
+    say(
+      `… ${tr('Збираю бібліотеку з модулів MyBible ({modules}; кілька хвилин)', { modules: lib.modules })}`,
+    );
     try {
       await run('npm', ['run', 'build:library'], root, log, { inherit: true });
-      say(`✓ Бібліотеку зібрано за ${secs(t)}`);
+      say(`✓ ${tr('Бібліотеку зібрано за {time}', { time: secs(t) })}`);
     } catch {
-      say('✗ Бібліотеку не вдалося зібрати — застосунок запуститься без неї (див. вище).');
+      say(`✗ ${tr('Бібліотеку не вдалося зібрати — застосунок запуститься без неї (див. вище).')}`);
     }
   } else if (lib.kind === 'browser') {
-    say('! Бібліотеки сервера немає: тексти читатиме браузер (Налаштування вигляду →');
-    say('  Застосунок → Джерело даних → «у браузері»); телефони й пульт їх не побачать.');
+    say(
+      `! ${tr('Бібліотеки сервера немає: тексти читатиме браузер (Налаштування вигляду →\n  Застосунок → Джерело даних → «у браузері»); телефони й пульт їх не побачать.')}`,
+    );
   } else {
-    say('! Бібліотеки немає: покладіть модулі MyBible (*.SQLite3) у папку modules/ і');
-    say('  запустіть ще раз. Застосунок запуститься, але без текстів.');
+    say(
+      `! ${tr('Бібліотеки немає: покладіть модулі MyBible (*.SQLite3) у папку modules/ і\n  запустіть ще раз. Застосунок запуститься, але без текстів.')}`,
+    );
   }
 
   // 4. The UI (web/dist), built for this version of the code
-  if (!needsBuild(root)) say('✓ Інтерфейс зібрано');
-  else if (opts.check) say('! Інтерфейс буде зібрано (npm run build --workspace @vo/web)');
+  if (!needsBuild(root)) say(`✓ ${tr('Інтерфейс зібрано')}`);
+  else if (opts.check) say(`! ${tr('Інтерфейс буде зібрано (npm run build --workspace @vo/web)')}`);
   else {
     const t = Date.now();
-    say('… Збираю інтерфейс (до хвилини)');
+    say(`… ${tr('Збираю інтерфейс (до хвилини)')}`);
     // the bundler's own report (chunk sizes …) is for developers: shown only if it fails
     const output: string[] = [];
     try {
@@ -450,24 +466,28 @@ async function main(argv: string[]): Promise<number> {
       });
     } catch {
       say(output.join('\n').split('\n').slice(-15).join('\n'));
-      say('✗ Інтерфейс не зібрано (див. вище). Спробуйте: npm ci, тоді запустіть ще раз.');
+      say(`✗ ${tr('Інтерфейс не зібрано (див. вище). Спробуйте: npm ci, тоді запустіть ще раз.')}`);
       return 1;
     }
-    say(`✓ Інтерфейс зібрано за ${secs(t)}`);
+    say(`✓ ${tr('Інтерфейс зібрано за {time}', { time: secs(t) })}`);
   }
 
   // 5. The address
   if (running) {
-    say(`✓ Застосунок уже працює: ${local}`);
+    say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
     return 0;
   }
   if (!(await portFree(port))) {
-    say(`✗ Порт ${port} зайнятий іншою програмою. Запустіть з іншим: --port 4748`);
-    say('  (або змініть його в data/settings.json → standby → port).');
+    say(
+      `✗ ${tr('Порт {port} зайнятий іншою програмою. Запустіть з іншим: --port 4748', { port })}`,
+    );
+    say(`  ${tr('(або змініть його в data/settings.json → standby → port).')}`);
     return 1;
   }
   if (opts.check) {
-    say(`✓ Порт ${port} вільний. Перевірку завершено за ${secs(started)}.`);
+    say(
+      `✓ ${tr('Порт {port} вільний. Перевірку завершено за {time}.', { port, time: secs(started) })}`,
+    );
     return 0;
   }
 
@@ -486,16 +506,18 @@ async function main(argv: string[]): Promise<number> {
       onRetired: (why) => {
         if (why === 'shutdown')
           say(
-            'Застосунок вимкнено («Вимкнути повністю»). Щоб запустити знову, запустіть цей файл.',
+            tr(
+              'Застосунок вимкнено («Вимкнути повністю»). Щоб запустити знову, запустіть цей файл.',
+            ),
           );
         else if (!stopping)
-          say('«Запуск за адресою» вимкнено в налаштуваннях — застосунок зупинено.');
+          say(tr('«Запуск за адресою» вимкнено в налаштуваннях — застосунок зупинено.'));
         process.exit(0);
       },
       // the port changed in Settings → Застосунок: carry on at the new one
       onRelaunch: () =>
         void serve(readStandbySettings(dataDir).port).catch((err: Error) => {
-          say(`✗ Не вдалося перейти на новий порт: ${err.message}`);
+          say(`✗ ${tr('Не вдалося перейти на новий порт: {error}', { error: trError(err) })}`);
           process.exit(1);
         }),
     });
@@ -505,27 +527,31 @@ async function main(argv: string[]): Promise<number> {
     process.env.VO_STANDBY_PORT = String(p);
     await standby.start();
     say('');
-    say(`✓ Застосунок працює (${secs(started)}). Вікно керування: http://localhost:${p}`);
+    say(
+      `✓ ${tr('Застосунок працює ({time}). Вікно керування: {url}', { time: secs(started), url: `http://localhost:${p}` })}`,
+    );
     const phone = phoneUrl(lanIps(), p);
     say(
-      phone
-        ? `  Телефони в тій самій мережі Wi-Fi: ${phone}`
-        : '  Мережі не видно: телефони під’єднаються, коли комп’ютер буде в мережі.',
+      `  ${
+        phone
+          ? tr('Телефони в тій самій мережі Wi-Fi: {url}', { url: phone })
+          : tr('Мережі не видно: телефони під’єднаються, коли комп’ютер буде в мережі.')
+      }`,
     );
-    say('  Зупинити: Ctrl+C або закрийте це вікно.');
+    say(`  ${tr('Зупинити: Ctrl+C або закрийте це вікно.')}`);
     say('');
   };
   try {
     await serve(port);
   } catch (err) {
-    say(`✗ Застосунок не запустився: ${(err as Error).message}`);
+    say(`✗ ${tr('Застосунок не запустився: {error}', { error: trError(err) })}`);
     return 1;
   }
   if (opts.browser) openBrowser(`${local}/`, opts.app);
 
   const stop = () => {
     stopping = true;
-    say('Зупиняю…');
+    say(tr('Зупиняю…'));
     setTimeout(() => process.exit(0), 5000).unref();
     void (current?.close() ?? Promise.resolve()).then(() => process.exit(0));
   };
@@ -541,8 +567,13 @@ if (invokedDirectly) {
   process.stdout.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EPIPE') process.exit(0);
   });
+  setLang(consoleLang(process.env.VO_DATA_DIR ?? path.join(root, 'data')));
   if (!nodeVersionOk(process.versions.node)) {
-    say(`Потрібен Node.js 22.18 або новіший (зараз ${process.versions.node}): https://nodejs.org`);
+    say(
+      tr('Потрібен Node.js 22.18 або новіший (зараз {version}): https://nodejs.org', {
+        version: process.versions.node,
+      }),
+    );
     process.exit(1);
   }
   void main(process.argv.slice(2)).then((code) => {
