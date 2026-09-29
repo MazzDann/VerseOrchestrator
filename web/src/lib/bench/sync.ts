@@ -164,9 +164,10 @@ export function openSocket(): Promise<Link> {
 // Payloads: what actually crosses between the app's windows.
 
 function sampleSlide(withBackground: boolean): Slide {
-  // the measured payload: the same bytes in every interface language
+  // the measured payload: the same bytes in every interface language. Kulish's translation
+  // (1905, public domain), like the UKRK label says — nothing under copyright in the repo
   const verse =
-    'Бо так полюбив Бог світ, що дав Сина Свого Однородженого, щоб кожен, хто вірує в Нього, не згинув, але мав життя вічне. '; // i18n-ignore: payload
+    'Так бо полюбив Бог сьвіт, що Сина свого єдинородного дав, щоб кожен, віруючий в Него, не погиб, а мав життє вічнє. '; // i18n-ignore: payload
   return {
     lines: [
       { translationAbbr: 'UKRK', text: verse.repeat(2), rtl: false },

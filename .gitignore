@@ -21,6 +21,7 @@ portable/
 # Third-party texts have their own licences (many translations and song collections are
 # still under copyright) — keep them out of the repository wherever they end up:
 # MyBible modules, downloaded module archives, generated libraries/segments, song decks
+# and song bundles
 *.SQLite3
 *.sqlite3
 *.SQLite3-shm
@@ -34,6 +35,7 @@ portable/
 *.zip
 *.ppt
 *.pptx
+*.vosongs
 web/public/segments/
 
 # Secrets and certificates (e.g. a future HTTPS setup for phones on the LAN)
