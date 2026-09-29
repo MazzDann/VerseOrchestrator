@@ -37,13 +37,27 @@ const get = (k: string): string | null => {
     return null;
   }
 };
-const readAt = (): Partial<Record<Key, number>> => {
+/**
+ * When this browser was last in step with data/, per key. Anything but an object of numbers —
+ * a value damaged or edited by hand — counts as never synced: the sync must not die on it
+ * (0.11.8: a bare number there threw on every start, and nothing reached data/ again).
+ */
+export function parseAt(raw: string | null): Partial<Record<Key, number>> {
+  let v: unknown;
   try {
-    return JSON.parse(get(AT_KEY) ?? '{}');
+    v = JSON.parse(raw ?? '{}');
   } catch {
     return {};
   }
-};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const at: Partial<Record<Key, number>> = {};
+  for (const key of KEYS) {
+    const t = (v as Record<string, unknown>)[key];
+    if (typeof t === 'number' && Number.isFinite(t)) at[key] = t;
+  }
+  return at;
+}
+const readAt = () => parseAt(get(AT_KEY));
 const writeAt = (at: Partial<Record<Key, number>>) => {
   try {
     localStorage.setItem(AT_KEY, JSON.stringify(at));
