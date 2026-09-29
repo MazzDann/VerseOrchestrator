@@ -272,5 +272,3 @@ export function createBus(channel: BusChannel | null, storage: BusStorage | null
 }
 
 const EMPTY: Slide = { lines: [], reference: '', blank: false, visible: false };
-
-export type Bus = ReturnType<typeof createBus>;

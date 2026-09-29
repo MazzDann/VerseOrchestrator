@@ -124,13 +124,6 @@ export function cleanDefinition(html: string): string {
     .trim();
 }
 
-/** Split a normalized string into search tokens. */
-export function searchTokens(query: string): string[] {
-  const normalized = normalizeForSearch(query);
-  if (!normalized) return [];
-  return normalized.split(' ').filter(Boolean);
-}
-
 export interface TextSegment {
   text: string;
   /** Inside `<J>…</J>` — the words of Jesus (red-letter). */

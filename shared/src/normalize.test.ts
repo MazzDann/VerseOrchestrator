@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  stripTags,
-  normalizeForSearch,
-  searchTokens,
-  strongNumbers,
-  parseRedLetter,
-} from './normalize.js';
+import { stripTags, normalizeForSearch, strongNumbers, parseRedLetter } from './normalize.js';
 import { parseReference } from './reference.js';
 
 describe('stripTags', () => {
@@ -42,10 +36,6 @@ describe('normalizeForSearch', () => {
 
   it('strips markup before normalizing', () => {
     expect(normalizeForSearch('Бог<S>430</S> любить')).toBe('бог любить');
-  });
-
-  it('tokenizes a query', () => {
-    expect(searchTokens('Бог  любить!')).toEqual(['бог', 'любить']);
   });
 });
 

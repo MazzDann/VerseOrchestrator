@@ -82,6 +82,3 @@ export const theme = createTheme({
     }),
   },
 });
-
-/** Serif stack for projected scripture text. */
-export const SCRIPTURE_FONT = '"Lora", Georgia, "Times New Roman", serif';
