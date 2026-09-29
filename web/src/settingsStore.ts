@@ -7,6 +7,7 @@ import {
   type QrStyle,
 } from './presenterBus';
 import { DEFAULT_KEYMAP, sanitizeKeymap, type Keymap, type HotkeyActionId } from './hotkeys';
+import { isLang, N_, pickLang, type Lang } from '@vo/shared';
 
 export type TextAlign = 'left' | 'center' | 'right';
 export type PadUnit = 'px' | '%';
@@ -180,6 +181,9 @@ interface SettingsState {
   /** Saved appearance presets (look + layout bundles). */
   presets: AppearancePreset[];
   outputs: OutputSettings;
+  /** Interface language (0.11.0). */
+  language: Lang;
+  setLanguage: (lang: Lang) => void;
   setOutputs: (patch: Partial<OutputSettings>) => void;
   setLiveFollow: (v: boolean) => void;
   setFollowAlong: (v: boolean) => void;
@@ -235,11 +239,11 @@ export const DEFAULT_APPEARANCE: Appearance = {
 };
 
 export const FONT_OPTIONS = [
-  { value: '"Lora", Georgia, "Times New Roman", serif', label: 'Lora (сериф)' },
-  { value: 'Inter, system-ui, sans-serif', label: 'Inter (без зарубок)' },
+  { value: '"Lora", Georgia, "Times New Roman", serif', label: N_('Lora (сериф)') },
+  { value: 'Inter, system-ui, sans-serif', label: N_('Inter (без зарубок)') },
   { value: 'Georgia, "Times New Roman", serif', label: 'Georgia' },
   { value: '"Times New Roman", serif', label: 'Times New Roman' },
-  { value: 'system-ui, -apple-system, sans-serif', label: 'Системний' },
+  { value: 'system-ui, -apple-system, sans-serif', label: N_('Системний') },
 ];
 
 export const refKey = (i: RefItem) => `${i.translationId}-${i.bookNumber}-${i.chapter}-${i.verse}`;
@@ -342,6 +346,12 @@ export function presetToFile(p: AppearancePreset): PresetFile {
   };
 }
 
+/** The interface language a browser prefers of ours (Ukrainian when it prefers neither). */
+function browserLang(): Lang {
+  if (typeof navigator === 'undefined') return 'uk';
+  return pickLang(navigator.languages?.length ? navigator.languages : [navigator.language ?? '']);
+}
+
 export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
@@ -359,6 +369,8 @@ export const useSettings = create<SettingsState>()(
       keymap: DEFAULT_KEYMAP,
       presets: [],
       outputs: DEFAULT_OUTPUTS,
+      language: browserLang(),
+      setLanguage: (lang) => set({ language: isLang(lang) ? lang : 'uk' }),
       setOutputs: (patch) =>
         set((st) => ({ outputs: sanitizeOutputs({ ...st.outputs, ...patch }) })),
       setLiveFollow: (v) => set({ liveFollow: v }),
@@ -502,6 +514,8 @@ export const useSettings = create<SettingsState>()(
           keymap: sanitizeKeymap(p.keymap),
           layout: clampLayout(p.layout),
           outputs: sanitizeOutputs(p.outputs),
+          // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language
+          language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
         };
       },
     },

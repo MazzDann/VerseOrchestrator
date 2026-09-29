@@ -59,6 +59,12 @@ if (window.location.pathname === '/') {
 // no hover flashes on rows passing under a still pointer while a list scrolls (0.6.5)
 installScrollingFlag();
 
+// the page's language follows the interface language (0.11.0): screen readers, hyphenation
+document.documentElement.lang = useSettings.getState().language;
+useSettings.subscribe((s) => {
+  document.documentElement.lang = s.language;
+});
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <MantineProvider theme={theme} defaultColorScheme="dark">
