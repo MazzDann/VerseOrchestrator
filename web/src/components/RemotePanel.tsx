@@ -23,6 +23,7 @@ import { notifications } from '@mantine/notifications';
 import { api, type RemoteCommand } from '../api';
 import { PhoneLink } from './PhoneLink';
 import { REMOTE_LABEL } from '../lib/remote';
+import { tr, useLang } from '../i18n';
 
 /** In display order. New abilities (`show`, 0.6.0) start unticked — the operator turns them on. */
 const ALL: RemoteCommand[] = [
@@ -42,6 +43,7 @@ const ALL: RemoteCommand[] = [
  * FloatingPanel. The list refreshes when the control socket reports a change.
  */
 export function RemotePanel() {
+  useLang();
   const qc = useQueryClient();
   const remotes = useQuery({
     queryKey: ['remotes'],
@@ -65,7 +67,9 @@ export function RemotePanel() {
       void qc.invalidateQueries({ queryKey: ['server-settings'] });
     } catch (e) {
       notifications.show({
-        message: `Не вдалося змінити налаштування: ${(e as Error).message}`,
+        message: tr('Не вдалося змінити налаштування: {error}', {
+          error: tr((e as Error).message),
+        }),
         color: 'red',
       });
     }
@@ -78,7 +82,7 @@ export function RemotePanel() {
       void qc.invalidateQueries({ queryKey: ['remotes'] });
     } catch (e) {
       notifications.show({
-        message: `Не вдалося змінити дозволи: ${(e as Error).message}`,
+        message: tr('Не вдалося змінити дозволи: {error}', { error: tr((e as Error).message) }),
         color: 'red',
       });
     }
@@ -92,7 +96,7 @@ export function RemotePanel() {
       void qc.invalidateQueries({ queryKey: ['remotes'] });
     } catch (e) {
       notifications.show({
-        message: `Не вдалося перевипустити код: ${(e as Error).message}`,
+        message: tr('Не вдалося перевипустити код: {error}', { error: tr((e as Error).message) }),
         color: 'red',
       });
     }
@@ -107,7 +111,7 @@ export function RemotePanel() {
       void qc.invalidateQueries({ queryKey: ['remotes'] });
     } catch (e) {
       notifications.show({
-        message: `Не вдалося створити пульт: ${(e as Error).message}`,
+        message: tr('Не вдалося створити пульт: {error}', { error: tr((e as Error).message) }),
         color: 'red',
       });
     } finally {
@@ -118,11 +122,15 @@ export function RemotePanel() {
   const revoke = async (id: string, n: string) => {
     try {
       await api.revokeRemote(id);
-      notifications.show({ message: `Пульт «${n}» відкликано`, color: 'green', autoClose: 1500 });
+      notifications.show({
+        message: tr('Пульт «{remote}» відкликано', { remote: n }),
+        color: 'green',
+        autoClose: 1500,
+      });
       void qc.invalidateQueries({ queryKey: ['remotes'] });
     } catch (e) {
       notifications.show({
-        message: `Не вдалося відкликати: ${(e as Error).message}`,
+        message: tr('Не вдалося відкликати: {error}', { error: tr((e as Error).message) }),
         color: 'red',
       });
     }
@@ -135,42 +143,48 @@ export function RemotePanel() {
       {fresh ? (
         <>
           <Text size="sm" fw={600}>
-            {fresh.reissued ? `Новий код для «${fresh.name}»` : `Пульт «${fresh.name}» готовий`}
+            {fresh.reissued
+              ? tr('Новий код для «{remote}»', { remote: fresh.name })
+              : tr('Пульт «{remote}» готовий', { remote: fresh.name })}
           </Text>
           {fresh.reissued && (
             <Text size="xs" c="dimmed">
-              Телефон зі старим кодом уже відключено.
+              {tr('Телефон зі старим кодом уже відключено.')}
             </Text>
           )}
           <PhoneLink
             path={`/remote#${encodeURIComponent(fresh.token)}`}
-            caption="Доповідач сканує цей QR своїм телефоном (та сама мережа Wi-Fi). Код показується лише зараз; загубили — перевипустіть."
+            caption={tr(
+              'Доповідач сканує цей QR своїм телефоном (та сама мережа Wi-Fi). Код показується лише зараз; загубили — перевипустіть.',
+            )}
           />
           <Button variant="default" size="xs" onClick={() => setFresh(null)}>
-            Готово
+            {tr('Готово')}
           </Button>
         </>
       ) : (
         <>
           <Text size="xs" c="dimmed">
-            Дайте доповідачу телефон-пульт: він зможе гортати показ, але не бачитиме налаштувань.
+            {tr(
+              'Дайте доповідачу телефон-пульт: він зможе гортати показ, але не бачитиме налаштувань.',
+            )}
           </Text>
           <TextInput
             size="xs"
-            label="Назва"
-            placeholder="Наприклад, «Доповідач»"
+            label={tr('Назва')}
+            placeholder={tr('Наприклад, «Доповідач»')}
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
             maxLength={40}
           />
           <Checkbox.Group
-            label="Що дозволено"
+            label={tr('Що дозволено')}
             value={allowed}
             onChange={(v) => setAllowed(v as RemoteCommand[])}
           >
             <Group gap="sm" mt={4}>
               {ALL.map((c) => (
-                <Checkbox key={c} size="xs" value={c} label={REMOTE_LABEL[c]} />
+                <Checkbox key={c} size="xs" value={c} label={tr(REMOTE_LABEL[c])} />
               ))}
             </Group>
           </Checkbox.Group>
@@ -181,15 +195,15 @@ export function RemotePanel() {
             loading={busy}
             onClick={create}
           >
-            Створити пульт
+            {tr('Створити пульт')}
           </Button>
         </>
       )}
 
-      <Divider label="Пульти" labelPosition="left" />
+      <Divider label={tr('Пульти')} labelPosition="left" />
       {list.length === 0 ? (
         <Text size="xs" c="dimmed">
-          Поки немає.
+          {tr('Поки немає.')}
         </Text>
       ) : (
         <Stack gap={4}>
@@ -213,8 +227,12 @@ export function RemotePanel() {
                     {p.name}
                   </Text>
                   <Text size="xs" c="dimmed" truncate>
-                    {p.online ? 'на зв’язку' : p.lastSeen ? 'не на зв’язку' : 'ще не підключався'} ·{' '}
-                    {p.allowed.map((c) => REMOTE_LABEL[c]).join(', ')}
+                    {p.online
+                      ? tr('на зв’язку')
+                      : p.lastSeen
+                        ? tr('не на зв’язку')
+                        : tr('ще не підключався')}{' '}
+                    · {p.allowed.map((c) => tr(REMOTE_LABEL[c])).join(', ')}
                   </Text>
                 </div>
               </Group>
@@ -226,7 +244,7 @@ export function RemotePanel() {
                     variant="light"
                     onClick={() => void reissue(p.id)}
                   >
-                    Перевипустити
+                    {tr('Перевипустити')}
                   </Button>
                   <Button
                     size="compact-xs"
@@ -234,19 +252,19 @@ export function RemotePanel() {
                     color="gray"
                     onClick={() => setConfirmId(null)}
                   >
-                    Ні
+                    {tr('Ні')}
                   </Button>
                 </Group>
               ) : (
                 <Group gap={2} wrap="nowrap">
                   <Popover position="bottom-end" withArrow shadow="md" width={220}>
                     <Popover.Target>
-                      <Tooltip label="Що дозволено цьому пульту">
+                      <Tooltip label={tr('Що дозволено цьому пульту')}>
                         <ActionIcon
                           variant="subtle"
                           color="gray"
                           size="sm"
-                          aria-label={`Дозволи: ${p.name}`}
+                          aria-label={tr('Дозволи: {remote}', { remote: p.name })}
                         >
                           <IconAdjustmentsHorizontal size={14} />
                         </ActionIcon>
@@ -254,39 +272,41 @@ export function RemotePanel() {
                     </Popover.Target>
                     <Popover.Dropdown>
                       <Checkbox.Group
-                        label={`Що дозволено «${p.name}»`}
+                        label={tr('Що дозволено «{remote}»', { remote: p.name })}
                         value={p.allowed}
                         onChange={(v) => void setRemoteAllowed(p.id, v as RemoteCommand[])}
                       >
                         <Stack gap={6} mt={6}>
                           {ALL.map((c) => (
-                            <Checkbox key={c} size="xs" value={c} label={REMOTE_LABEL[c]} />
+                            <Checkbox key={c} size="xs" value={c} label={tr(REMOTE_LABEL[c])} />
                           ))}
                         </Stack>
                       </Checkbox.Group>
                       <Text size="xs" c="dimmed" mt={8}>
-                        Телефон отримає зміни одразу, без нового QR.
+                        {tr('Телефон отримає зміни одразу, без нового QR.')}
                       </Text>
                     </Popover.Dropdown>
                   </Popover>
-                  <Tooltip label="Перевипустити код: новий QR, старий телефон втратить керування">
+                  <Tooltip
+                    label={tr('Перевипустити код: новий QR, старий телефон втратить керування')}
+                  >
                     <ActionIcon
                       variant="subtle"
                       color="gray"
                       size="sm"
                       onClick={() => setConfirmId(p.id)}
-                      aria-label={`Перевипустити код ${p.name}`}
+                      aria-label={tr('Перевипустити код {remote}', { remote: p.name })}
                     >
                       <IconRefresh size={14} />
                     </ActionIcon>
                   </Tooltip>
-                  <Tooltip label="Відкликати: телефон одразу втратить керування">
+                  <Tooltip label={tr('Відкликати: телефон одразу втратить керування')}>
                     <ActionIcon
                       variant="subtle"
                       color="red"
                       size="sm"
                       onClick={() => void revoke(p.id, p.name)}
-                      aria-label={`Відкликати ${p.name}`}
+                      aria-label={tr('Відкликати {remote}', { remote: p.name })}
                     >
                       <IconTrash size={14} />
                     </ActionIcon>
@@ -303,11 +323,11 @@ export function RemotePanel() {
         checked={persist}
         disabled={!serverSettings.data}
         onChange={(e) => void setPersist(e.currentTarget.checked)}
-        label="Пам’ятати пульти після перезапуску сервера"
+        label={tr('Пам’ятати пульти після перезапуску сервера')}
         description={
           persist
-            ? 'Зберігаються в data/secrets.json (лише хеш коду, не сам код).'
-            : 'Перезапуск сервера відкличе всі пульти.'
+            ? tr('Зберігаються в data/secrets.json (лише хеш коду, не сам код).')
+            : tr('Перезапуск сервера відкличе всі пульти.')
         }
       />
     </Stack>

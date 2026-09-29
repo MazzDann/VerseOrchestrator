@@ -26,6 +26,7 @@ import {
 } from '../lib/chapterCross';
 import { believedHidden, songEndStep, type EndGuard } from '../lib/songEnd';
 import { RemotePicker } from '../components/RemotePicker';
+import { tr, trn, useLang } from '../i18n';
 
 const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
   !!a && !!b && a.reference === b.reference && a.text === b.text;
@@ -116,6 +117,7 @@ type State =
   | { kind: 'denied'; reason: string };
 
 export function Remote() {
+  useLang();
   const token = decodeURIComponent(window.location.hash.slice(1));
   const [state, setState] = useState<State>(
     token ? { kind: 'connecting' } : { kind: 'denied', reason: '' },
@@ -233,7 +235,7 @@ export function Remote() {
         } else if (f.type === 'welcome') {
           setState({
             kind: 'ready',
-            name: String(f.name ?? 'Пульт'),
+            name: String(f.name ?? tr('Пульт')),
             allowed: (f.allowed as RemoteCommand[]) ?? [],
           });
           // Back online: resend what was pressed in the last few seconds (same ids).
@@ -247,7 +249,7 @@ export function Remote() {
         } else if (f.type === 'denied') {
           setState({ kind: 'denied', reason: String(f.reason ?? '') });
         } else if (f.type === 'revoked') {
-          setState({ kind: 'denied', reason: 'Оператор відкликав цей пульт.' });
+          setState({ kind: 'denied', reason: tr('Оператор відкликав цей пульт.') });
         } else if (f.type === 'ack') {
           const p = typeof f.id === 'string' ? pending.current.get(f.id) : undefined;
           if (p) {
@@ -259,7 +261,8 @@ export function Remote() {
               remember(CURSOR_KEY, p.target);
             }
           }
-          if (!f.ok) flash(String(f.reason ?? 'Команду не виконано'));
+          // the reason comes in the operator's language, or from the server: a key either way
+          if (!f.ok) flash(f.reason ? tr(String(f.reason)) : tr('Команду не виконано'));
         }
       },
       stopOn: (f) => f.type === 'denied' || f.type === 'revoked',
@@ -290,10 +293,10 @@ export function Remote() {
         : undefined;
     const sent = !!conn.current?.send({ type: 'command', cmd, id, ...args });
     pending.current.set(id, { cmd, at: Date.now(), sent, args, target: cursorAfter });
-    if (!sent) flash('Немає зв’язку — надішлю, щойно підключуся');
+    if (!sent) flash(tr('Немає зв’язку — надішлю, щойно підключуся'));
     // No answer at all (server gone mid-press): say so instead of leaving it silent.
     window.setTimeout(() => {
-      if (pending.current.delete(id)) flash('Немає відповіді. Команду, можливо, не виконано.');
+      if (pending.current.delete(id)) flash(tr('Немає відповіді. Команду, можливо, не виконано.'));
     }, RESEND_MS);
   };
 
@@ -363,7 +366,7 @@ export function Remote() {
         hidden: believedHidden(endGuard.current, key, now, screen?.status === 'blank'),
         delta,
       });
-      if (end === 'end') return flash('Кінець пісні');
+      if (end === 'end') return flash(tr('Кінець пісні'));
       if (end === 'hide' || end === 'show') {
         endGuard.current = { key, at: now, hidden: end === 'hide' };
         if (end === 'show') setNotice(null); // «Кінець пісні» no longer holds
@@ -371,7 +374,7 @@ export function Remote() {
       }
       const to = songPick.stanza + delta;
       if (to < 0 || to >= count) {
-        return flash(delta > 0 ? 'Це остання строфа' : 'Це перша строфа');
+        return flash(delta > 0 ? tr('Це остання строфа') : tr('Це перша строфа'));
       }
       next = { kind: 'song', song: { ...songPick, stanza: to } };
     } else {
@@ -380,7 +383,7 @@ export function Remote() {
       const at = list.indexOf(p.verses[p.verses.length - 1]);
       const to = at >= 0 ? list[at + delta] : undefined;
       if (to == null) {
-        if (at < 0) return flash('Розділ ще завантажується');
+        if (at < 0) return flash(tr('Розділ ще завантажується'));
         return void crossChapter(p, delta);
       }
       crossArm.current = null;
@@ -400,8 +403,8 @@ export function Remote() {
         cursorChapters.data
           ? bookEdge(delta)
           : delta > 0
-            ? 'Це останній вірш розділу'
-            : 'Це перший вірш розділу',
+            ? tr('Це останній вірш розділу')
+            : tr('Це перший вірш розділу'),
       );
     }
     const key = `${p.translationIds[0]}:${p.bookNumber}:${p.chapter}:${delta > 0 ? 1 : -1}`;
@@ -419,14 +422,14 @@ export function Remote() {
         verses.map((x) => x.verse),
         delta,
       );
-      if (v == null) return flash('У цьому розділі немає віршів');
+      if (v == null) return flash(tr('У цьому розділі немає віршів'));
       setNotice(null); // «натисніть ще раз» is done with
       press(onScreenNow ? 'show' : 'pick', {
         kind: 'verses',
         passage: { ...p, chapter: to, verses: [v] },
       });
     } catch {
-      flash('Не вдалося відкрити розділ — перевірте зв’язок');
+      flash(tr('Не вдалося відкрити розділ — перевірте зв’язок'));
     }
   };
   const showNow = () => (cursor ? press('show', cursor) : press('show'));
@@ -450,12 +453,12 @@ export function Remote() {
   const onScreen = screen?.status === 'live';
   const screenLabel =
     screen?.status === 'black'
-      ? 'Чорний екран'
+      ? tr('Чорний екран')
       : screen?.status === 'blank'
-        ? 'Текст сховано'
+        ? tr('Текст сховано')
         : onScreen
-          ? screen!.reference || 'На екрані'
-          : 'Порожньо';
+          ? screen!.reference || tr('На екрані')
+          : tr('Порожньо');
   const previewText = preview?.status === 'live' ? preview : null;
   const previewOnScreen = onScreen && sameSummary(previewText, screen);
   const cursorText = passage
@@ -470,7 +473,10 @@ export function Remote() {
         passage.verses,
       )
     : songPick && cursorSong.data
-      ? `№${cursorSong.data.number ?? ''} ${cursorSong.data.title} · строфа ${songPick.stanza + 1}/${cursorSong.data.slides.length}`
+      ? `№${cursorSong.data.number ?? ''} ${cursorSong.data.title} · ${tr('строфа {n}/{total}', {
+          n: songPick.stanza + 1,
+          total: cursorSong.data.slides.length,
+        })}`
       : '';
   // walking needs the right to choose what the cursor holds
   const walks = passage ? canVerses : songPick ? canSongs : false;
@@ -481,9 +487,11 @@ export function Remote() {
         className="vo-follow vo-remote"
         style={{ justifyContent: 'center', textAlign: 'center' }}
       >
-        <p style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>Пульт недоступний</p>
+        <p style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>{tr('Пульт недоступний')}</p>
         <p style={{ opacity: 0.7, margin: '8px 0 0' }}>
-          {state.reason || 'Відскануйте QR у вікні керування: Пульт доповідача → Створити пульт.'}
+          {state.reason
+            ? tr(state.reason)
+            : tr('Відскануйте QR у вікні керування: Пульт доповідача → Створити пульт.')}
         </p>
       </div>
     );
@@ -503,14 +511,16 @@ export function Remote() {
               background: ready ? '#2f9e44' : '#e8590c',
             }}
           />
-          <strong>{state.kind === 'connecting' ? 'Підключення…' : (state.name ?? 'Пульт')}</strong>
+          <strong>
+            {state.kind === 'connecting' ? tr('Підключення…') : (state.name ?? tr('Пульт'))}
+          </strong>
           <span style={{ opacity: 0.6 }}>
             {state.kind === 'offline'
               ? state.off
-                ? '· застосунок вимкнено'
-                : '· немає зв’язку, перепідключаюся'
+                ? tr('· застосунок вимкнено')
+                : tr('· немає зв’язку, перепідключаюся')
               : ready && rtt != null
-                ? `· відповідь ${rtt} мс`
+                ? `· ${tr('відповідь {ms} мс', { ms: rtt })}`
                 : ''}
           </span>
         </header>
@@ -527,7 +537,7 @@ export function Remote() {
                 opacity: onScreen ? 1 : 0.35,
               }}
             />
-            <span style={{ fontWeight: 600 }}>На екрані</span>
+            <span style={{ fontWeight: 600 }}>{tr('На екрані')}</span>
             <span style={{ opacity: 0.65 }}>{screenLabel}</span>
           </div>
           {onScreen && (
@@ -582,16 +592,18 @@ export function Remote() {
 
         {/* The shared running order (0.6.9): where the show is, and what's next in it. */}
         {canPlaylist && playlist && playlist.items.length > 0 && (
-          <section className="vo-remote-preview" aria-label="Послідовність">
+          <section className="vo-remote-preview" aria-label={tr('Послідовність')}>
             <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
-              <span style={{ fontWeight: 600 }}>Послідовність</span>
+              <span style={{ fontWeight: 600 }}>{tr('Послідовність')}</span>
               <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>
-                {listCurrent ? `зараз: ${listCurrent.label}` : `${playlist.items.length} елем.`}
+                {listCurrent
+                  ? tr('зараз: {item}', { item: listCurrent.label })
+                  : trn(playlist.items.length, '{n} елем.|{n} елем.|{n} елем.')}
               </span>
             </div>
             {listNext && (
               <p className="vo-remote-text vo-remote-text-small" style={{ margin: 0 }}>
-                Далі: {listNext.label}
+                {tr('Далі: {item}', { item: listNext.label })}
               </p>
             )}
             <div className="vo-remote-row">
@@ -601,7 +613,7 @@ export function Remote() {
                 disabled={!ready}
                 onClick={() => setListOpen(true)}
               >
-                Список…
+                {tr('Список…')}
               </button>
               {listNext &&
                 (canShow ? (
@@ -611,7 +623,7 @@ export function Remote() {
                     disabled={!ready}
                     onClick={() => press('show', undefined, listNext)}
                   >
-                    Наступне на екран
+                    {tr('Наступне на екран')}
                   </button>
                 ) : (
                   <button
@@ -620,7 +632,7 @@ export function Remote() {
                     disabled={!ready}
                     onClick={() => press('pick', undefined, listNext)}
                   >
-                    Наступне в передпоказ
+                    {tr('Наступне в передпоказ')}
                   </button>
                 ))}
             </div>
@@ -631,16 +643,16 @@ export function Remote() {
         {suggestion && (
           <section
             className="vo-remote-preview vo-remote-suggest"
-            aria-label="Пропозиція оператора"
+            aria-label={tr('Пропозиція оператора')}
           >
             <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
-              <span style={{ fontWeight: 600 }}>Оператор пропонує</span>
+              <span style={{ fontWeight: 600 }}>{tr('Оператор пропонує')}</span>
               <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>{suggestion.reference}</span>
               <button
                 type="button"
                 className="vo-remote-chip"
                 onClick={() => setSuggestion(null)}
-                aria-label="Відхилити пропозицію"
+                aria-label={tr('Відхилити пропозицію')}
               >
                 ✕
               </button>
@@ -660,7 +672,7 @@ export function Remote() {
                   setSuggestion(null);
                 }}
               >
-                У передпоказ
+                {tr('У передпоказ')}
               </button>
               {canShow && (
                 <button
@@ -672,7 +684,7 @@ export function Remote() {
                     setSuggestion(null);
                   }}
                 >
-                  {REMOTE_LABEL.show}
+                  {tr(REMOTE_LABEL.show)}
                 </button>
               )}
             </div>
@@ -681,17 +693,17 @@ export function Remote() {
 
         {/* The speaker's own preview (0.6.1): a verse chosen here — «Далі» walks it. */}
         {canPick && cursor && (
-          <section className="vo-remote-preview vo-remote-mine" aria-label="Ваш передпоказ">
+          <section className="vo-remote-preview vo-remote-mine" aria-label={tr('Ваш передпоказ')}>
             <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
-              <span style={{ fontWeight: 600 }}>Ваш передпоказ</span>
+              <span style={{ fontWeight: 600 }}>{tr('Ваш передпоказ')}</span>
               <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>
-                {mineOnScreen ? 'на екрані' : cursorRef}
+                {mineOnScreen ? tr('на екрані') : cursorRef}
               </span>
               <button
                 type="button"
                 className="vo-remote-chip"
                 onClick={() => setCursor(null)}
-                aria-label="Скинути: гортати разом з оператором"
+                aria-label={tr('Скинути: гортати разом з оператором')}
               >
                 ✕
               </button>
@@ -706,7 +718,7 @@ export function Remote() {
                 disabled={!ready}
                 onClick={() => setPickerOpen(true)}
               >
-                Вибрати…
+                {tr('Вибрати…')}
               </button>
               {canShow && (
                 <button
@@ -715,7 +727,7 @@ export function Remote() {
                   disabled={!ready || mineOnScreen}
                   onClick={() => press('show', cursor)}
                 >
-                  {REMOTE_LABEL.show}
+                  {tr(REMOTE_LABEL.show)}
                 </button>
               )}
             </div>
@@ -729,20 +741,20 @@ export function Remote() {
             onClick={() => setPickerOpen(true)}
           >
             {canVerses && canSongs
-              ? 'Вибрати вірш або пісню…'
+              ? tr('Вибрати вірш або пісню…')
               : canSongs
-                ? 'Вибрати пісню…'
-                : 'Вибрати вірш…'}
+                ? tr('Вибрати пісню…')
+                : tr('Вибрати вірш…')}
           </button>
         )}
 
         {/* «На екран» (0.6.0): what the operator's preview holds, if it isn't on screen yet. */}
         {allowed.includes('show') && !cursor && (
-          <section className="vo-remote-preview" aria-label="Передпоказ">
+          <section className="vo-remote-preview" aria-label={tr('Передпоказ')}>
             <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
-              <span style={{ fontWeight: 600 }}>Передпоказ</span>
+              <span style={{ fontWeight: 600 }}>{tr('Передпоказ')}</span>
               <span style={{ opacity: 0.65 }}>
-                {previewOnScreen ? 'уже на екрані' : (previewText?.reference ?? 'порожньо')}
+                {previewOnScreen ? tr('уже на екрані') : (previewText?.reference ?? tr('порожньо'))}
               </span>
             </div>
             {previewText && !previewOnScreen && (
@@ -759,16 +771,16 @@ export function Remote() {
               disabled={!ready || !previewText || previewOnScreen}
               onClick={() => press('show')}
             >
-              {REMOTE_LABEL.show}
+              {tr(REMOTE_LABEL.show)}
             </button>
           </section>
         )}
 
         {/* What «Далі» will show — so the speaker knows where the next press goes. */}
         {next && next.text && !cursor && (
-          <section className="vo-remote-next" aria-label="Далі">
+          <section className="vo-remote-next" aria-label={tr('Далі')}>
             <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
-              <span style={{ fontWeight: 600 }}>Далі</span>
+              <span style={{ fontWeight: 600 }}>{tr('Далі')}</span>
               <span style={{ opacity: 0.65 }}>{next.reference}</span>
             </div>
             <p
@@ -789,7 +801,7 @@ export function Remote() {
                 disabled={!ready}
                 onClick={() => press('blank')}
               >
-                {screen?.status === 'blank' ? 'Показати текст' : REMOTE_LABEL.blank}
+                {screen?.status === 'blank' ? tr('Показати текст') : tr(REMOTE_LABEL.blank)}
               </button>
             )}
             {allowed.includes('black') && (
@@ -799,7 +811,7 @@ export function Remote() {
                 disabled={!ready}
                 onClick={() => press('black')}
               >
-                {screen?.status === 'black' ? 'Зняти чорне' : REMOTE_LABEL.black}
+                {screen?.status === 'black' ? tr('Зняти чорне') : tr(REMOTE_LABEL.black)}
               </button>
             )}
           </div>
@@ -827,7 +839,7 @@ export function Remote() {
               disabled={!ready}
               onClick={() => walk(-1)}
             >
-              ← {REMOTE_LABEL.prev}
+              ← {tr(REMOTE_LABEL.prev)}
             </button>
           )}
           {(allowed.includes('next') || walks) && (
@@ -837,7 +849,7 @@ export function Remote() {
               disabled={!ready}
               onClick={() => walk(1)}
             >
-              {REMOTE_LABEL.next} →
+              {tr(REMOTE_LABEL.next)} →
             </button>
           )}
         </div>

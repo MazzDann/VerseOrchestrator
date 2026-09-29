@@ -10,6 +10,7 @@ import {
   saveReader,
   type ReaderPrefs,
 } from '../lib/readerPrefs';
+import { tr, useLang } from '../i18n';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -17,6 +18,7 @@ import {
  * the QR in Control) to read the current verse/text on their own screens. Never publishes.
  */
 export function Follow() {
+  useLang();
   const [slide, setSlide] = useState<Slide | null>(null);
   /** The operator switched follow-along off (or hasn't started it yet). */
   const [paused, setPaused] = useState(false);
@@ -117,8 +119,8 @@ export function Follow() {
           }}
         >
           {off
-            ? 'Показ завершено: застосунок вимкнено.'
-            : 'Немає зв’язку з показом. Перепідключаюся…'}
+            ? tr('Показ завершено: застосунок вимкнено.')
+            : tr('Немає зв’язку з показом. Перепідключаюся…')}
         </div>
       )}
       <div
@@ -192,10 +194,10 @@ export function Follow() {
         ) : paused ? (
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', maxWidth: 420 }}>
             <p style={{ margin: 0, fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 600 }}>
-              Трансляцію призупинено
+              {tr('Трансляцію призупинено')}
             </p>
             <p style={{ margin: '0.6em 0 0', opacity: 0.65, fontSize: 'clamp(14px, 4vw, 17px)' }}>
-              Текст з’явиться тут, щойно оператор її ввімкне. Сторінку можна не закривати.
+              {tr('Текст з’явиться тут, щойно оператор її ввімкне. Сторінку можна не закривати.')}
             </p>
           </div>
         ) : (
@@ -212,20 +214,20 @@ export function Follow() {
       <button
         type="button"
         className="vo-reader-btn"
-        aria-label="Налаштування тексту"
+        aria-label={tr('Налаштування тексту')}
         aria-expanded={readerOpen}
         onClick={() => setReaderOpen((o) => !o)}
       >
         Aa
       </button>
       {readerOpen && (
-        <div className="vo-reader-sheet" role="dialog" aria-label="Налаштування тексту">
+        <div className="vo-reader-sheet" role="dialog" aria-label={tr('Налаштування тексту')}>
           <div className="vo-reader-row">
-            <span className="vo-reader-label">Розмір</span>
+            <span className="vo-reader-label">{tr('Розмір')}</span>
             <button
               type="button"
               className="vo-remote-chip"
-              aria-label="Менший текст"
+              aria-label={tr('Менший текст')}
               disabled={reader.size === 0}
               onClick={() => setPrefs({ size: reader.size - 1 })}
             >
@@ -239,7 +241,7 @@ export function Follow() {
             <button
               type="button"
               className="vo-remote-chip"
-              aria-label="Більший текст"
+              aria-label={tr('Більший текст')}
               disabled={reader.size === READER_SIZES.length - 1}
               onClick={() => setPrefs({ size: reader.size + 1 })}
             >
@@ -254,7 +256,7 @@ export function Follow() {
               data-selected={reader.bold ? 'true' : undefined}
               onClick={() => setPrefs({ bold: !reader.bold })}
             >
-              Жирніше
+              {tr('Жирніше')}
             </button>
             <button
               type="button"
@@ -263,12 +265,13 @@ export function Follow() {
               data-selected={reader.easy ? 'true' : undefined}
               onClick={() => setPrefs({ easy: !reader.easy })}
             >
-              Легше читати
+              {tr('Легше читати')}
             </button>
           </div>
           <p className="vo-reader-hint">
-            «Легше читати» — шрифт Andika, ширші проміжки, текст ліворуч (зручніше при дислексії).
-            Зберігається лише на цьому телефоні.
+            {tr(
+              '«Легше читати» — шрифт Andika, ширші проміжки, текст ліворуч (зручніше при дислексії). Зберігається лише на цьому телефоні.',
+            )}
           </p>
           <div className="vo-reader-row">
             <button
@@ -276,7 +279,7 @@ export function Follow() {
               className="vo-remote-chip"
               onClick={() => setPrefs(DEFAULT_READER)}
             >
-              Скинути
+              {tr('Скинути')}
             </button>
             <button
               type="button"
@@ -284,7 +287,7 @@ export function Follow() {
               data-selected="true"
               onClick={() => setReaderOpen(false)}
             >
-              Готово
+              {tr('Готово')}
             </button>
           </div>
         </div>

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import type { PlaylistEntry, SharedPlaylist } from '../lib/commands';
+import { N_, tr, useLang } from '../i18n';
 
 const KIND_MARK: Record<PlaylistEntry['kind'], string> = {
   passage: '📖',
   song: '♪',
-  text: 'Т',
+  text: N_('Т'), // «Текст»: one letter
 };
 
 /**
@@ -23,6 +24,7 @@ export function RemotePlaylist({
   onTake: (entry: PlaylistEntry, show: boolean) => void;
   onClose: () => void;
 }) {
+  useLang();
   const at = playlist.items.findIndex((i) => i.id === playlist.currentId);
   const [chosen, setChosen] = useState<string | null>(
     playlist.items[at + 1]?.id ?? playlist.items[0]?.id ?? null,
@@ -30,12 +32,12 @@ export function RemotePlaylist({
   const entry = playlist.items.find((i) => i.id === chosen) ?? null;
 
   return (
-    <div className="vo-remote-sheet" role="dialog" aria-label="Послідовність показу">
+    <div className="vo-remote-sheet" role="dialog" aria-label={tr('Послідовність показу')}>
       <header className="vo-remote-sheet-head">
-        <button type="button" className="vo-remote-chip" onClick={onClose} aria-label="Назад">
+        <button type="button" className="vo-remote-chip" onClick={onClose} aria-label={tr('Назад')}>
           ←
         </button>
-        <strong className="vo-remote-sheet-title">Послідовність</strong>
+        <strong className="vo-remote-sheet-title">{tr('Послідовність')}</strong>
       </header>
       <div className="vo-remote-sheet-body">
         {playlist.items.map((it, i) => (
@@ -49,10 +51,10 @@ export function RemotePlaylist({
           >
             <span className="vo-verse-num">{i + 1}</span>
             <span aria-hidden style={{ opacity: 0.6 }}>
-              {KIND_MARK[it.kind]}
+              {tr(KIND_MARK[it.kind])}
             </span>
             <span style={{ flex: 1, minWidth: 0 }}>{it.label}</span>
-            {it.id === playlist.currentId && <span className="vo-remote-now">зараз</span>}
+            {it.id === playlist.currentId && <span className="vo-remote-now">{tr('зараз')}</span>}
           </button>
         ))}
       </div>
@@ -63,7 +65,7 @@ export function RemotePlaylist({
           disabled={!entry}
           onClick={() => entry && onTake(entry, false)}
         >
-          У передпоказ
+          {tr('У передпоказ')}
         </button>
         {canShow && (
           <button
@@ -72,7 +74,7 @@ export function RemotePlaylist({
             disabled={!entry}
             onClick={() => entry && onTake(entry, true)}
           >
-            На екран
+            {tr('На екран')}
           </button>
         )}
       </footer>
