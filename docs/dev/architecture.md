@@ -104,6 +104,14 @@ remotes' commands ────────────────────�
   pipeline (`web/src/lib/commands.ts`), with priorities (an open song before verse
   navigation) and ids, so a resent command applies once.
 
+## How pages load
+
+Every page — `/`, `/presenter`, `/stage`, `/follow`, `/remote`, `/settings`, `/bench` — is its
+own chunk, loaded with `React.lazy` in `web/src/main.tsx`. The control window's start (the
+server probe, the settings sync, the browser engine) is `web/src/lib/controlBoot.ts`, loaded
+only on `/`. So a phone on `/follow` downloads the reader, not the control window's panels,
+the database engine, or the benchmarks.
+
 ## State
 
 | Where                               | What                                                                                                                                                  |

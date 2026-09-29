@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MantineProvider } from '@mantine/core';
@@ -6,25 +6,25 @@ import { Notifications } from '@mantine/notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
-import { probeServer, setBoot, useServer } from './serverStore';
-import { localEngine } from './lib/engine';
-import { restoreLocalSegments } from './lib/engine/restore';
+import { setBoot } from './serverStore';
 import { installScrollingFlag } from './lib/scrolling';
 import './styles.css';
 
 import { theme } from './theme';
-import { Control } from './pages/Control';
-import { Presenter } from './pages/Presenter';
-import { Stage } from './pages/Stage';
-import { Follow } from './pages/Follow';
-import { Remote } from './pages/Remote';
-import { Settings } from './pages/Settings';
-import { Bench } from './pages/Bench';
-import { BenchPeer } from './pages/BenchPeer';
 import { useSettings } from './settingsStore';
 import { usePlaylist } from './playlistStore';
 import { listenForForget } from './lib/browserData';
-import { startUiStateSync } from './lib/uiState';
+
+// Each page is its own chunk (0.12.1): a phone on /follow loads the reader, not the control
+// window with its panels, the database engine and the benchmarks.
+const Control = lazy(() => import('./pages/Control').then((m) => ({ default: m.Control })));
+const Presenter = lazy(() => import('./pages/Presenter').then((m) => ({ default: m.Presenter })));
+const Stage = lazy(() => import('./pages/Stage').then((m) => ({ default: m.Stage })));
+const Follow = lazy(() => import('./pages/Follow').then((m) => ({ default: m.Follow })));
+const Remote = lazy(() => import('./pages/Remote').then((m) => ({ default: m.Remote })));
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
+const Bench = lazy(() => import('./pages/Bench').then((m) => ({ default: m.Bench })));
+const BenchPeer = lazy(() => import('./pages/BenchPeer').then((m) => ({ default: m.BenchPeer })));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false } },
@@ -40,20 +40,10 @@ window.addEventListener('storage', (e) => {
 // «Вимкнути повністю» with «стерти дані браузера» in another window: stop writing here (0.7.1)
 listenForForget();
 
-// Control window: is the server there? Without it (static deployment / server stopped)
-// the library runs in the browser — switch to it and restore the remembered segments.
-// Library reads wait for this (whenBooted), so nothing hits a missing API first.
+// Control window: the server, the settings sync, the browser library (lib/controlBoot.ts —
+// its own chunk, only for this page). Library reads wait for it (whenBooted).
 if (window.location.pathname === '/') {
-  setBoot(
-    probeServer().then(() => {
-      // settings and the running order kept with the app in data/ (0.7.4)
-      if (useServer.getState().available) void startUiStateSync();
-      // (no server → reads go to the browser engine via effectiveSource(); the saved
-      // preference is left alone so a temporary outage doesn't flip it)
-      restoreLocalSegments();
-      return localEngine.whenReady();
-    }),
-  );
+  setBoot(import('./lib/controlBoot').then((m) => m.bootControl()));
 }
 
 // no hover flashes on rows passing under a still pointer while a list scrolls (0.6.5)
@@ -74,16 +64,19 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <Notifications position="bottom-left" />
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Control />} />
-            <Route path="/presenter" element={<Presenter />} />
-            <Route path="/stage" element={<Stage />} />
-            <Route path="/follow" element={<Follow />} />
-            <Route path="/remote" element={<Remote />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/bench" element={<Bench />} />
-            <Route path="/bench/peer" element={<BenchPeer />} />
-          </Routes>
+          {/* nothing while a page's chunk arrives — a fraction of a second, once per window */}
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<Control />} />
+              <Route path="/presenter" element={<Presenter />} />
+              <Route path="/stage" element={<Stage />} />
+              <Route path="/follow" element={<Follow />} />
+              <Route path="/remote" element={<Remote />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/bench" element={<Bench />} />
+              <Route path="/bench/peer" element={<BenchPeer />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </QueryClientProvider>
     </MantineProvider>
