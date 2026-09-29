@@ -13,7 +13,24 @@ const SOURCES = ['web/src', 'server/src', 'shared/src', 'builder/src'];
  * Cyrillic may stand there outside `tr` / `trn` / `N_` keys and comments — a line that must
  * keep it (a regex, data such as the bundle name «ПС») says `i18n-ignore`.
  */
-const TRANSLATED = ['web/src/i18n.ts', 'web/src/components/SettingsPanel.tsx'];
+const TRANSLATED = [
+  'web/src/i18n.ts',
+  'web/src/components/SettingsPanel.tsx',
+  // 0.11.1 — the settings sections and the browser library
+  'web/src/components/PresetsSection.tsx',
+  'web/src/components/TemplateEditor.tsx',
+  'web/src/components/HotkeysSettings.tsx',
+  'web/src/hotkeys.ts',
+  'web/src/components/DataSourceSection.tsx',
+  'web/src/components/StandbySection.tsx',
+  'web/src/components/ShortcutSection.tsx',
+  'web/src/components/ShutdownSection.tsx',
+  'web/src/serverStore.ts',
+  'web/src/lib/engine/restore.ts',
+  'web/src/lib/engine/cache.ts',
+  'web/src/lib/engine/index.ts',
+  'web/src/lib/engine/worker.ts',
+];
 
 const walk = (dir: string): string[] =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -98,7 +115,7 @@ const skipSpace = (src: string, i: number) => {
 
 function keysOf(file: string, src: string): Key[] {
   const keys: Key[] = [];
-  for (const m of src.matchAll(/\b(tr|trn|N_)\(/g)) {
+  for (const m of src.matchAll(/\b(tr|trn|N_|Nn_)\(/g)) {
     let i = m.index + m[0].length;
     if (m[1] === 'trn') {
       i = afterTopComma(src, i);
@@ -106,7 +123,8 @@ function keysOf(file: string, src: string): Key[] {
     }
     i = skipSpace(src, i);
     const lit = literalAt(src, i);
-    if (lit) keys.push({ text: lit.text, plural: m[1] === 'trn', file, at: [i, lit.end] });
+    const plural = m[1] === 'trn' || m[1] === 'Nn_';
+    if (lit) keys.push({ text: lit.text, plural, file, at: [i, lit.end] });
   }
   return keys;
 }
@@ -165,6 +183,15 @@ describe('the English interface (0.11.x)', () => {
       });
     }
     expect(left).toEqual([]);
+  });
+
+  it('renders translated components again on a language switch (useLang)', () => {
+    // a .tsx file that translates in render must subscribe to the language
+    const unsubscribed = TRANSLATED.filter((rel) => rel.endsWith('.tsx')).filter((rel) => {
+      const src = stripComments(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+      return /\btrn?\(/.test(src) && !/\buseLang\(/.test(src);
+    });
+    expect(unsubscribed).toEqual([]);
   });
 });
 

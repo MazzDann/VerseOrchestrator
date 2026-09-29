@@ -2,6 +2,7 @@ import { api, SegmentManifestSchema, type SegmentInfo } from '../../api';
 import { effectiveSource, useDataSource } from '../../dataSourceStore';
 import type { MyBibleKind } from '@vo/shared';
 import { localEngine } from './index';
+import { fmtNumber, N_, Nn_, tr, trn } from '../../i18n';
 import type { EngineKind, SegmentCounts, SegmentUnit } from './protocol';
 import {
   cacheDropped,
@@ -73,7 +74,9 @@ export async function loadSegments(
         const cached = await cachedBytes(drop.sha);
         if (!cached) {
           throw new SegmentGone(
-            `Файл «${drop.name}» більше не в кеші браузера — перетягніть його ще раз`,
+            tr('Файл «{name}» більше не в кеші браузера — перетягніть його ще раз', {
+              name: drop.name,
+            }),
           );
         }
         onProgress?.(key, 'cache');
@@ -82,7 +85,9 @@ export async function loadSegments(
         manifest ??= await getManifest();
         const info = manifest.segments.find((s) => s.file === key);
         if (!info) {
-          throw new SegmentGone(`Сегмента ${key} немає в маніфесті (бібліотеку перезібрано?)`);
+          throw new SegmentGone(
+            tr('Сегмента {key} немає в маніфесті (бібліотеку перезібрано?)', { key }),
+          );
         }
         onProgress?.(key, 'download');
         const r = await segmentBytes(info, () => api.segmentBytes(key));
@@ -91,7 +96,7 @@ export async function loadSegments(
       }
       onProgress?.(key, 'merge');
       const r = await localEngine.add(key, bytes);
-      onProgress?.(key, 'done', `${segmentItems(r)}, ${r.ms} мс`);
+      onProgress?.(key, 'done', tr('{items}, {ms} мс', { items: segmentItems(r), ms: r.ms }));
     } catch (err) {
       if (!(opts.skipGone && err instanceof SegmentGone)) throw err;
       gone.push(key);
@@ -100,32 +105,24 @@ export async function loadSegments(
   return gone;
 }
 
-const UNIT_FORMS: Record<SegmentUnit, [string, string, string]> = {
-  verses: ['вірш', 'вірші', 'віршів'],
-  entries: ['стаття', 'статті', 'статей'],
-  notes: ['коментар', 'коментарі', 'коментарів'],
-  refs: ['посилання', 'посилання', 'посилань'],
-  songs: ['пісня', 'пісні', 'пісень'],
+const UNIT_FORMS: Record<SegmentUnit, string> = {
+  verses: Nn_('{n} вірш|{n} вірші|{n} віршів'),
+  entries: Nn_('{n} стаття|{n} статті|{n} статей'),
+  notes: Nn_('{n} коментар|{n} коментарі|{n} коментарів'),
+  refs: Nn_('{n} посилання|{n} посилання|{n} посилань'),
+  songs: Nn_('{n} пісня|{n} пісні|{n} пісень'),
 };
 
 /** «31 102 вірші», «14 250 статей» — what a segment holds, in words. */
 export function segmentItems(c: Pick<SegmentCounts, 'items' | 'unit'>): string {
-  const n = c.items;
-  const [one, few, many] = UNIT_FORMS[c.unit];
-  const form =
-    n % 10 === 1 && n % 100 !== 11
-      ? one
-      : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)
-        ? few
-        : many;
-  return `${n.toLocaleString('uk-UA')} ${form}`;
+  return trn(c.items, UNIT_FORMS[c.unit]);
 }
 
 const KIND_LABEL: Record<MyBibleKind, string> = {
-  bible: 'Біблія',
-  dictionary: 'словник',
-  commentaries: 'коментарі',
-  crossreferences: 'перехресні посилання',
+  bible: N_('Біблія'),
+  dictionary: N_('словник'),
+  commentaries: N_('коментарі'),
+  crossreferences: N_('перехресні посилання'),
 };
 
 export interface Dropped {
@@ -153,7 +150,12 @@ export async function addDroppedFile(
   const r = await localEngine.add(key, bytes);
   const what = segmentItems(r);
   const summary = converted
-    ? `${converted.abbr} — ${KIND_LABEL[converted.kind]}, ${what} (перетворено за ${(ms / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} с)`
+    ? tr('{abbr} — {kind}, {items} (перетворено за {s} с)', {
+        abbr: converted.abbr,
+        kind: tr(KIND_LABEL[converted.kind]),
+        items: what,
+        s: fmtNumber(ms / 1000, { maximumFractionDigits: 1 }),
+      })
     : `${file.name} — ${what}`;
   return { key, summary };
 }

@@ -11,8 +11,12 @@ import {
   conflictsForAction,
   type HotkeyActionId,
 } from '../hotkeys';
+import { tr, useLang } from '../i18n';
 
-const labelFor = (id: HotkeyActionId) => HOTKEY_ACTIONS.find((a) => a.id === id)?.label ?? id;
+const labelFor = (id: HotkeyActionId) => {
+  const label = HOTKEY_ACTIONS.find((a) => a.id === id)?.label;
+  return label ? tr(label) : id;
+};
 
 /**
  * Rebind operator shortcuts. Click "змінити" to record the next key combo for an
@@ -26,6 +30,7 @@ export function HotkeysSettings() {
   const setHotkey = useSettings((s) => s.setHotkey);
   const resetKeymap = useSettings((s) => s.resetKeymap);
   const [recording, setRecording] = useState<HotkeyActionId | null>(null);
+  useLang();
 
   useEffect(() => {
     if (!recording) return;
@@ -51,8 +56,9 @@ export function HotkeysSettings() {
     <Stack gap="xs">
       {IS_MAC && (
         <Text size="xs" c="dimmed">
-          На Mac F-клавіші натискають разом із Fn, тому типово працюють і поєднання з ⌘: ⌘↩ — на
-          екран, ⌘F — пошук у перекладі, ⇧⌘F — пошук скрізь, ⌘K — палітра команд.
+          {tr(
+            'На Mac F-клавіші натискають разом із Fn, тому типово працюють і поєднання з ⌘: ⌘↩ — на екран, ⌘F — пошук у перекладі, ⇧⌘F — пошук скрізь, ⌘K — палітра команд.',
+          )}
         </Text>
       )}
       {HOTKEY_ACTIONS.map((a) => {
@@ -64,14 +70,16 @@ export function HotkeysSettings() {
           <Group key={a.id} justify="space-between" wrap="nowrap" gap="xs" align="flex-start">
             <div style={{ minWidth: 0, flex: 1 }}>
               <Text size="sm" fw={500} truncate>
-                {a.label}
+                {tr(a.label)}
               </Text>
               <Text size="xs" c="dimmed" truncate>
-                {a.hint}
+                {tr(a.hint)}
               </Text>
               {conflicts.length > 0 && (
                 <Text size="xs" c="orange">
-                  Конфлікт із «{conflicts.map(labelFor).join('», «')}» — спрацюють разом
+                  {tr('Конфлікт із «{actions}» — спрацюють разом', {
+                    actions: conflicts.map(labelFor).join('», «'),
+                  })}
                 </Text>
               )}
             </div>
@@ -83,7 +91,7 @@ export function HotkeysSettings() {
                   color="orange"
                   onClick={() => setRecording(null)}
                 >
-                  Натисніть клавіші… (Esc — скасувати)
+                  {tr('Натисніть клавіші… (Esc — скасувати)')}
                 </Button>
               ) : (
                 <>
@@ -92,24 +100,24 @@ export function HotkeysSettings() {
                       <Kbd key={i}>{formatChord(c)}</Kbd>
                     ))}
                   </Group>
-                  <Tooltip label="Змінити">
+                  <Tooltip label={tr('Змінити')}>
                     <ActionIcon
                       variant="default"
                       size="sm"
                       onClick={() => setRecording(a.id)}
-                      aria-label={`Змінити клавішу: ${a.label}`}
+                      aria-label={tr('Змінити клавішу: {action}', { action: tr(a.label) })}
                     >
                       <IconPencil size={14} />
                     </ActionIcon>
                   </Tooltip>
                   {customised && (
-                    <Tooltip label="Типова">
+                    <Tooltip label={tr('Типова')}>
                       <ActionIcon
                         variant="subtle"
                         color="gray"
                         size="sm"
                         onClick={() => setHotkey(a.id, DEFAULT_KEYMAP[a.id])}
-                        aria-label={`Типова клавіша: ${a.label}`}
+                        aria-label={tr('Типова клавіша: {action}', { action: tr(a.label) })}
                       >
                         <IconRotateClockwise size={14} />
                       </ActionIcon>
@@ -127,7 +135,7 @@ export function HotkeysSettings() {
         leftSection={<IconRotateClockwise size={14} />}
         onClick={resetKeymap}
       >
-        Скинути всі клавіші
+        {tr('Скинути всі клавіші')}
       </Button>
     </Stack>
   );

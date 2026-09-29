@@ -30,8 +30,11 @@ import {
   type Dropped,
 } from '../lib/engine/restore';
 import { cacheAvailable, cacheUsage, clearCache, requestPersistence } from '../lib/engine/cache';
+import { fmtNumber, tr, trn, useLang } from '../i18n';
 
-const mb = (b: number) => `${(b / 1048576).toFixed(b < 10 * 1048576 ? 1 : 0)} МБ`;
+const mb = (b: number) =>
+  tr('{n} МБ', { n: fmtNumber(b / 1048576, { maximumFractionDigits: b < 10 * 1048576 ? 1 : 0 }) });
+const segs = (n: number) => trn(n, '{n} сегм.|{n} сегм.|{n} сегм.');
 
 /** MyBible modules (converted in the browser) and ready segments. */
 const DROPPABLE = /\.(sqlite3|vodb|vodb\.gz)$/i;
@@ -51,6 +54,7 @@ export function DataSourceSection() {
   const setSource = useDataSource((s) => s.setSource);
   const setSegments = useDataSource((s) => s.setSegments);
   const engine = useDataSource((s) => s.engine);
+  useLang();
 
   // From the server, or the last one seen when it's unreachable (offline).
   const manifest = useQuery({ queryKey: ['segments'], queryFn: getManifest, retry: false });
@@ -93,10 +97,10 @@ export function DataSourceSection() {
       let done = 0;
       void requestPersistence(); // keep the cache from being evicted
       const stateLabel = {
-        cache: 'З кешу',
-        download: 'Завантаження',
-        merge: 'Збирання',
-        done: 'Готово',
+        cache: tr('З кешу'),
+        download: tr('Завантаження'),
+        merge: tr('Збирання'),
+        done: tr('Готово'),
       };
       await loadSegments(picked, (file, state) => {
         if (state === 'done') done += 1;
@@ -112,12 +116,15 @@ export function DataSourceSection() {
       setSource('local');
       switchedData();
       notifications.show({
-        message: 'Бібліотека в браузері готова',
+        message: tr('Бібліотека в браузері готова'),
         color: 'green',
         autoClose: 1500,
       });
     } catch (e) {
-      notifications.show({ message: `Не вдалося: ${(e as Error).message}`, color: 'red' });
+      notifications.show({
+        message: tr('Не вдалося: {error}', { error: tr((e as Error).message) }),
+        color: 'red',
+      });
     } finally {
       setProgress(null);
       refreshStatus();
@@ -128,7 +135,7 @@ export function DataSourceSection() {
     const list = [...files].filter((f) => DROPPABLE.test(f.name));
     if (list.length === 0) {
       notifications.show({
-        message: 'Підходять модулі MyBible (.SQLite3) і сегменти (.vodb / .vodb.gz)',
+        message: tr('Підходять модулі MyBible (.SQLite3) і сегменти (.vodb / .vodb.gz)'),
         color: 'red',
       });
       return;
@@ -141,14 +148,14 @@ export function DataSourceSection() {
           setProgress({
             done: i,
             total: list.length,
-            label: `${stage === 'convert' ? 'Перетворення' : 'Збирання'}: ${f.name}`,
+            label: `${stage === 'convert' ? tr('Перетворення') : tr('Збирання')}: ${f.name}`,
           }),
         );
         added.push(r);
       }
     } catch (e) {
       notifications.show({
-        message: `Не вдалося додати файл: ${(e as Error).message}`,
+        message: tr('Не вдалося додати файл: {error}', { error: tr((e as Error).message) }),
         color: 'red',
       });
     } finally {
@@ -181,7 +188,11 @@ export function DataSourceSection() {
   const changeEngine = async (kind: EngineKind) => {
     if (kind === engine) return;
     const total = loaded.length;
-    setProgress({ done: 0, total: Math.max(total, 1), label: `Запуск: ${ENGINE_LABEL[kind]}` });
+    setProgress({
+      done: 0,
+      total: Math.max(total, 1),
+      label: tr('Запуск: {engine}', { engine: ENGINE_LABEL[kind] }),
+    });
     try {
       let done = 0;
       const ms = await switchEngine(kind, (key, state) => {
@@ -195,13 +206,20 @@ export function DataSourceSection() {
       switchedData();
       notifications.show({
         message: total
-          ? `${ENGINE_LABEL[kind]}: ${total} сегм. за ${(ms / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 1 })} с`
-          : `Рушій: ${ENGINE_LABEL[kind]}`,
+          ? tr('{engine}: {segments} за {s} с', {
+              engine: ENGINE_LABEL[kind],
+              segments: segs(total),
+              s: fmtNumber(ms / 1000, { maximumFractionDigits: 1 }),
+            })
+          : tr('Рушій: {engine}', { engine: ENGINE_LABEL[kind] }),
         color: 'green',
         autoClose: 2500,
       });
     } catch (e) {
-      notifications.show({ message: `Не вдалося: ${(e as Error).message}`, color: 'red' });
+      notifications.show({
+        message: tr('Не вдалося: {error}', { error: tr((e as Error).message) }),
+        color: 'red',
+      });
     } finally {
       setProgress(null);
       refreshStatus();
@@ -211,14 +229,18 @@ export function DataSourceSection() {
   const dropCache = async () => {
     await clearCache();
     refreshStatus();
-    notifications.show({ message: 'Кеш сегментів очищено', color: 'green', autoClose: 1500 });
+    notifications.show({
+      message: tr('Кеш сегментів очищено'),
+      color: 'green',
+      autoClose: 1500,
+    });
   };
 
   const kindLabel: Record<SegmentInfo['kind'], string> = {
-    translation: 'Переклади',
-    dictionary: 'Словники',
-    study: 'Посилання й коментарі',
-    songs: 'Пісні',
+    translation: tr('Переклади'),
+    dictionary: tr('Словники'),
+    study: tr('Посилання й коментарі'),
+    songs: tr('Пісні'),
   };
   const groups = (['translation', 'dictionary', 'study', 'songs'] as const)
     .map((k) => ({ k, items: (manifest.data?.segments ?? []).filter((s) => s.kind === k) }))
@@ -229,7 +251,7 @@ export function DataSourceSection() {
     <Stack gap="xs">
       <div>
         <Text size="sm" fw={500} mb={4}>
-          Джерело даних
+          {tr('Джерело даних')}
         </Text>
         <SegmentedControl
           fullWidth
@@ -240,20 +262,26 @@ export function DataSourceSection() {
             switchedData();
           }}
           data={[
-            { label: 'Сервер', value: 'server', disabled: serverAvailable === false },
-            { label: 'У браузері', value: 'local', disabled: loaded.length === 0 },
+            { label: tr('Сервер'), value: 'server', disabled: serverAvailable === false },
+            { label: tr('У браузері'), value: 'local', disabled: loaded.length === 0 },
           ]}
         />
         <Text size="xs" c="dimmed" mt={4}>
           {source === 'server'
-            ? 'Уся бібліотека з сервера. «У браузері» — вибрані переклади працюють прямо тут (база в WebAssembly), без запитів до сервера.'
-            : `У браузері: ${loaded.length} сегм., ${mb(engineInfo.data?.dbBytes ?? loadedBytes)} у пам’яті${engineInfo.data ? ` · ${engineInfo.data.version}` : ''}.`}
+            ? tr(
+                'Уся бібліотека з сервера. «У браузері» — вибрані переклади працюють прямо тут (база в WebAssembly), без запитів до сервера.',
+              )
+            : tr('У браузері: {segments}, {size} у пам’яті{version}.', {
+                segments: segs(loaded.length),
+                size: mb(engineInfo.data?.dbBytes ?? loadedBytes),
+                version: engineInfo.data ? ` · ${engineInfo.data.version}` : '',
+              })}
         </Text>
       </div>
 
       <Group gap="xs" wrap="nowrap">
         <Text size="xs" c="dimmed">
-          Рушій бази
+          {tr('Рушій бази')}
         </Text>
         <SegmentedControl
           size="xs"
@@ -266,12 +294,12 @@ export function DataSourceSection() {
             { label: 'PostgreSQL', value: 'pglite' },
           ]}
         />
-        <Tooltip label="Порівняти рушії бази на тих самих запитах (нове вікно)">
+        <Tooltip label={tr('Порівняти рушії бази на тих самих запитах (нове вікно)')}>
           <ActionIcon
             variant="subtle"
             color="gray"
             size="sm"
-            aria-label="Порівняти рушії бази"
+            aria-label={tr('Порівняти рушії бази')}
             onClick={() => window.open('/bench', 'vo-bench')}
           >
             <IconChartBar size={14} />
@@ -281,13 +309,16 @@ export function DataSourceSection() {
 
       {manifest.data?.offline && (
         <Text size="xs" c="orange">
-          Сервер недоступний — список сегментів з кешу браузера; працюють лише збережені сегменти.
+          {tr(
+            'Сервер недоступний — список сегментів з кешу браузера; працюють лише збережені сегменти.',
+          )}
         </Text>
       )}
       {manifest.isError ? (
         <Text size="xs" c="dimmed">
-          Сегменти на сервері не зібрано (npm run build:segments). Можна додати модулі MyBible чи
-          сегменти файлами — нижче.
+          {tr(
+            'Сегменти на сервері не зібрано (npm run build:segments). Можна додати модулі MyBible чи сегменти файлами — нижче.',
+          )}
         </Text>
       ) : (
         <ScrollArea.Autosize mah={220} type="hover">
@@ -309,7 +340,9 @@ export function DataSourceSection() {
                             {s.abbr}{' '}
                             <Text span size="xs" c="dimmed">
                               {mb(s.bytes)}
-                              {loaded.some((l) => l.key === s.file) ? ' · завантажено' : ''}
+                              {loaded.some((l) => l.key === s.file)
+                                ? ` · ${tr('завантажено')}`
+                                : ''}
                             </Text>
                           </span>
                         }
@@ -326,7 +359,7 @@ export function DataSourceSection() {
       {loaded.some((l) => !byFile.has(l.key)) && (
         <div>
           <Text size="xs" c="dimmed" mb={2}>
-            Перетягнуті файли
+            {tr('Перетягнуті файли')}
           </Text>
           {loaded
             .filter((l) => !byFile.has(l.key))
@@ -356,7 +389,8 @@ export function DataSourceSection() {
             disabled={picked.length === 0 || !manifest.data}
             onClick={() => void loadPicked()}
           >
-            Завантажити{picked.length ? ` (${mb(pickedBytes)})` : ''}
+            {tr('Завантажити')}
+            {picked.length ? ` (${mb(pickedBytes)})` : ''}
           </Button>
           <Button
             size="xs"
@@ -366,7 +400,7 @@ export function DataSourceSection() {
             disabled={loaded.length === 0}
             onClick={() => void clear()}
           >
-            Очистити
+            {tr('Очистити')}
           </Button>
         </Group>
       )}
@@ -374,8 +408,8 @@ export function DataSourceSection() {
       {cacheAvailable() ? (
         <Group gap="xs" justify="space-between" wrap="nowrap">
           <Text size="xs" c="dimmed">
-            Кеш браузера:{' '}
-            {usage.data ? `${usage.data.segments} сегм., ${mb(usage.data.bytes)}` : '…'}
+            {tr('Кеш браузера:')}{' '}
+            {usage.data ? `${segs(usage.data.segments)}, ${mb(usage.data.bytes)}` : '…'}
           </Text>
           <Button
             size="compact-xs"
@@ -384,13 +418,14 @@ export function DataSourceSection() {
             disabled={!usage.data?.segments}
             onClick={() => void dropCache()}
           >
-            Очистити кеш
+            {tr('Очистити кеш')}
           </Button>
         </Group>
       ) : (
         <Text size="xs" c="dimmed">
-          Кеш браузера недоступний (сторінка відкрита не через localhost/HTTPS) — сегменти щоразу
-          завантажуються з сервера.
+          {tr(
+            'Кеш браузера недоступний (сторінка відкрита не через localhost/HTTPS) — сегменти щоразу завантажуються з сервера.',
+          )}
         </Text>
       )}
 
@@ -416,8 +451,9 @@ export function DataSourceSection() {
         <Group gap={6} justify="center" wrap="nowrap">
           <IconDatabase size={14} />
           <Text size="xs" c="dimmed">
-            Перетягніть сюди модулі MyBible (.SQLite3) — Біблії, словники, коментарі, посилання —
-            або сегменти .vodb
+            {tr(
+              'Перетягніть сюди модулі MyBible (.SQLite3) — Біблії, словники, коментарі, посилання — або сегменти .vodb',
+            )}
           </Text>
         </Group>
         <FileButton
@@ -427,7 +463,7 @@ export function DataSourceSection() {
         >
           {(props) => (
             <Button {...props} size="compact-xs" variant="subtle" mt={4} disabled={!!progress}>
-              Вибрати файли…
+              {tr('Вибрати файли…')}
             </Button>
           )}
         </FileButton>

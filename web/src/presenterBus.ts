@@ -1,3 +1,4 @@
+import { N_ } from '@vo/shared';
 import { createBus, type BusChannel, type BusStorage, type Wire } from './lib/bus';
 
 /**
@@ -148,11 +149,12 @@ export type SlideSource =
 
 /** Built-in layout presets. The first (null template) is the default centred look. */
 export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }[] = [
-  { label: 'Класичний (за замовчуванням)', template: null },
+  { label: N_('Класичний (за замовчуванням)'), template: null },
   {
-    label: 'По центру з рискою',
+    label: N_('По центру з рискою'),
     template: {
-      name: 'По центру з рискою',
+      // the name is stored with the settings and finds the preset: never translated in place
+      name: 'По центру з рискою', // i18n-ignore
       objects: [
         { kind: 'quote', visible: true, x: 6, y: 5, w: 88, h: 66, align: 'center', size: 0 },
         {
@@ -172,9 +174,9 @@ export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }
     },
   },
   {
-    label: 'Нижня третина',
+    label: N_('Нижня третина'),
     template: {
-      name: 'Нижня третина',
+      name: 'Нижня третина', // i18n-ignore
       objects: [
         { kind: 'quote', visible: true, x: 5, y: 58, w: 90, h: 27, align: 'left', size: 0 },
         { kind: 'subline', visible: false, x: 5, y: 85, w: 90, h: 6, align: 'left', size: 3 },
@@ -184,9 +186,9 @@ export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }
     },
   },
   {
-    label: 'Мінімал',
+    label: N_('Мінімал'),
     template: {
-      name: 'Мінімал',
+      name: 'Мінімал', // i18n-ignore
       objects: [
         { kind: 'quote', visible: true, x: 8, y: 12, w: 84, h: 66, align: 'center', size: 0 },
         { kind: 'subline', visible: false, x: 8, y: 80, w: 84, h: 8, align: 'center', size: 3.6 },

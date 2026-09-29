@@ -70,3 +70,6 @@ export function pickLang(preferred: readonly string[]): Lang {
  * module loads; `tr(value)` translates it where it is shown.
  */
 export const N_ = (uk: string): string => uk;
+
+/** The same for plural forms («{n} пісня|{n} пісні|{n} пісень»), shown through `trn`. */
+export const Nn_ = (forms: string): string => forms;

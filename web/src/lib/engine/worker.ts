@@ -10,6 +10,7 @@ import {
   loadSegmentPg,
   mergeSql,
   moduleHash,
+  N_,
   PG_SCHEMA_SQL,
   pgPlaceholders,
   SCHEMA_SQL,
@@ -193,8 +194,10 @@ function deserialize(s3: Sqlite3Static, conn: Database, schema: string, raw: Uin
   if (rc) throw new Error(`sqlite3_deserialize: ${s3.capi.sqlite3_js_rc_str(rc)}`);
 }
 
-const NOT_SQLITE =
-  'Це не файл бази SQLite (очікується модуль MyBible .SQLite3 або сегмент .vodb / .vodb.gz)';
+// shown by the page through tr (lib/engine/index.ts): the worker has no interface language
+const NOT_SQLITE = N_(
+  'Це не файл бази SQLite (очікується модуль MyBible .SQLite3 або сегмент .vodb / .vodb.gz)',
+);
 
 /** What the attached segment mostly holds — for the UI («31 102 вірші», «14 250 статей»). */
 function counts(conn: Database, alias: string, bytes: number): SegmentCounts {
@@ -220,7 +223,7 @@ function counts(conn: Database, alias: string, bytes: number): SegmentCounts {
   return { verses, items: 0, unit: 'verses', bytes };
 }
 
-const NOT_SEGMENT = 'Це не сегмент бібліотеки — модулі MyBible спершу перетворюються (convert)';
+const NOT_SEGMENT = N_('Це не сегмент бібліотеки — модулі MyBible спершу перетворюються (convert)');
 
 async function add(key: string, gz: ArrayBuffer): Promise<SegmentCounts> {
   if (engine === 'pglite') await openPg(); // brings back what the persisted DB holds

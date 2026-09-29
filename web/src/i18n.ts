@@ -1,16 +1,19 @@
-import { useMemo } from 'react';
 import { LOCALES, translate, translatePlural, type Lang, type Vars } from '@vo/shared';
 import { useSettings } from './settingsStore';
 
 /**
  * The interface language (0.11.0, `@vo/shared` i18n): the copy stays Ukrainian in the code,
- * wrapped in `tr('…')`; English comes from `shared/src/i18n/en.ts`. Components take `tr` from
- * `useTr()`, so a language switch renders them again; code outside React (callbacks,
- * notifications) calls the module-level `tr`, which reads the language when it runs.
+ * wrapped in `tr('…')`; English comes from `shared/src/i18n/en.ts`. `tr` reads the language
+ * when it runs, so a component that shows translated text calls `useLang()` — a language
+ * switch then renders it again, and every `tr` in its render reads the new language. Callbacks
+ * and notifications need nothing more.
  */
-export { N_ } from '@vo/shared';
+export { N_, Nn_ } from '@vo/shared';
 
 export const currentLang = (): Lang => useSettings.getState().language;
+
+/** For toLocaleString and Intl. */
+export const currentLocale = (): string => LOCALES[currentLang()];
 
 /** Ukrainian text in the interface language, `{name}` places filled from `vars`. */
 export const tr = (uk: string, vars?: Vars): string => translate(currentLang(), uk, vars);
@@ -20,26 +23,14 @@ export const trn = (n: number, forms: string, vars?: Vars): string =>
   translatePlural(currentLang(), n, forms, vars);
 
 /** A number the interface language's way (31 102 / 31,102). */
-export const fmtNumber = (n: number): string => n.toLocaleString(LOCALES[currentLang()]);
+export const fmtNumber = (n: number, opts?: Intl.NumberFormatOptions): string =>
+  n.toLocaleString(currentLocale(), opts);
 
-export interface Translator {
-  lang: Lang;
-  /** for toLocaleString and Intl */
-  locale: string;
-  tr: (uk: string, vars?: Vars) => string;
-  trn: (n: number, forms: string, vars?: Vars) => string;
-}
-
-/** `tr` / `trn` for a component: it renders again when the language changes. */
-export function useTr(): Translator {
-  const lang = useSettings((s) => s.language);
-  return useMemo(
-    () => ({
-      lang,
-      locale: LOCALES[lang],
-      tr: (uk: string, vars?: Vars) => translate(lang, uk, vars),
-      trn: (n: number, forms: string, vars?: Vars) => translatePlural(lang, n, forms, vars),
-    }),
-    [lang],
-  );
+/**
+ * Subscribe a component to the interface language: it renders again on a switch. Call it in
+ * every component that shows translated text (a `useMemo` over translated text lists the
+ * language among its dependencies).
+ */
+export function useLang(): Lang {
+  return useSettings((s) => s.language);
 }
