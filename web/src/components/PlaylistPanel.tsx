@@ -53,6 +53,9 @@ interface Props {
   /** The program «Скасувати» would put back, and its place in the list (null = nothing). */
   deletedProgram: { name: string; index: number } | null;
   onUndoDelete: () => void;
+  /** The program that replaced a non-empty list, while «Скасувати» can still undo it. */
+  replacedBy: string | null;
+  onUndoLoad: () => void;
 }
 
 const KIND_ICON = {
@@ -87,6 +90,8 @@ export function PlaylistPanel({
   onDelete,
   deletedProgram,
   onUndoDelete,
+  replacedBy,
+  onUndoLoad,
 }: Props) {
   const [programsOpen, setProgramsOpen] = useState(false);
   const [name, setName] = useState('');
@@ -268,6 +273,26 @@ export function PlaylistPanel({
       </Collapse>
 
       <Divider my={2} />
+
+      {replacedBy && (
+        // the list above is the program just opened; the one it replaced can come back (0.9.3)
+        <Group gap={4} wrap="nowrap" pl={8}>
+          <Text size="sm" c="dimmed" truncate title={replacedBy} style={{ flex: 1, minWidth: 0 }}>
+            Відкрито: {replacedBy}
+          </Text>
+          <Tooltip label="Повернути список, який був до цієї програми">
+            <Button
+              size="compact-xs"
+              variant="light"
+              leftSection={<IconArrowBackUp size={14} />}
+              onClick={onUndoLoad}
+              style={{ flexShrink: 0 }}
+            >
+              Скасувати
+            </Button>
+          </Tooltip>
+        </Group>
+      )}
 
       {items.length === 0 && cleared > 0 ? (
         <Stack gap="xs" align="center" py="md">

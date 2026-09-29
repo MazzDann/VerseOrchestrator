@@ -226,6 +226,8 @@ export function Control() {
   const playlistDeleteProgram = usePlaylist((s) => s.deleteProgram);
   const playlistDeleted = usePlaylist((s) => s.deleted);
   const playlistUndoDelete = usePlaylist((s) => s.undoDelete);
+  const playlistReplacedBy = usePlaylist((s) => s.replaced?.program ?? null);
+  const playlistUndoLoad = usePlaylist((s) => s.undoLoad);
 
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
@@ -2841,6 +2843,8 @@ export function Control() {
               : null
           }
           onUndoDelete={playlistUndoDelete}
+          replacedBy={playlistReplacedBy}
+          onUndoLoad={playlistUndoLoad}
         />
       </FloatingPanel>
 

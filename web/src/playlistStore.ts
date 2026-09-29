@@ -72,6 +72,14 @@ interface PlaylistState {
   saveProgram: (name: string) => void;
   /** Replace the current items with a saved program's (fresh ids; currentId reset). */
   loadProgram: (name: string) => void;
+  /**
+   * The list a program replaced (0.9.3), so «Скасувати» can bring it back. Offered while the
+   * program's list is untouched: adding, removing, moving, clearing or opening another
+   * program forgets it. Not saved.
+   */
+  replaced: { program: string; items: SeqItem[]; currentId: string | null } | null;
+  /** Bring back the list the last opened program replaced. */
+  undoLoad: () => void;
   deleteProgram: (name: string) => void;
   /**
    * The program «Видалити програму» took away last and where it stood (0.9.1), so
@@ -94,13 +102,19 @@ export const usePlaylist = create<PlaylistState>()(
       currentId: null,
       saved: [],
       cleared: null,
+      replaced: null,
       deleted: null,
       add: (item) =>
-        set((s) => ({ items: [...s.items, { ...item, id: newId() } as SeqItem], cleared: null })),
+        set((s) => ({
+          items: [...s.items, { ...item, id: newId() } as SeqItem],
+          cleared: null,
+          replaced: null,
+        })),
       removeItem: (id) =>
         set((s) => ({
           items: s.items.filter((i) => i.id !== id),
           currentId: s.currentId === id ? null : s.currentId,
+          replaced: null,
         })),
       move: (id, dir) =>
         set((s) => {
@@ -109,7 +123,7 @@ export const usePlaylist = create<PlaylistState>()(
           if (idx < 0 || to < 0 || to >= s.items.length) return s;
           const items = [...s.items];
           [items[idx], items[to]] = [items[to], items[idx]];
-          return { items };
+          return { items, replaced: null };
         }),
       reorder: (from, to) =>
         set((s) => {
@@ -118,13 +132,18 @@ export const usePlaylist = create<PlaylistState>()(
           const items = [...s.items];
           const [moved] = items.splice(from, 1);
           items.splice(to, 0, moved);
-          return { items };
+          return { items, replaced: null };
         }),
       clear: () =>
         set((s) =>
           s.items.length === 0
             ? s
-            : { items: [], currentId: null, cleared: { items: s.items, currentId: s.currentId } },
+            : {
+                items: [],
+                currentId: null,
+                cleared: { items: s.items, currentId: s.currentId },
+                replaced: null,
+              },
         ),
       undoClear: () =>
         set((s) =>
@@ -151,8 +170,18 @@ export const usePlaylist = create<PlaylistState>()(
             ...it,
             id: newId(),
           }));
-          return { items, currentId: null, cleared: null };
+          // an empty list loses nothing: no undo to offer
+          const replaced = s.items.length
+            ? { program: prog.name, items: s.items, currentId: s.currentId }
+            : null;
+          return { items, currentId: null, cleared: null, replaced };
         }),
+      undoLoad: () =>
+        set((s) =>
+          s.replaced
+            ? { items: s.replaced.items, currentId: s.replaced.currentId, replaced: null }
+            : s,
+        ),
       deleteProgram: (name) =>
         set((s) => {
           const index = s.saved.findIndex((p) => p.name === name);
