@@ -56,6 +56,25 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
   `0.6.29 — Hub: back within 2 s after an outage`. The body explains why, and gives the
   measurements.
 
+## Releases
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the checks above on every push to `main`
+and on every pull request. When the pushed commit carries the tag of its own version
+(`v` + the `version` in `package.json`), the same run makes a release:
+
+1. On Windows, macOS, and Linux runners, `npm run portable -- --release` builds a copy with
+   its own Node.js — no settings of the build machine and never the library, whose
+   translations have their own licences.
+2. The copies are archived as `VerseOrchestrator-windows-x64.zip`,
+   `VerseOrchestrator-macos-arm64.zip`, and `VerseOrchestrator-linux-x64.tar.gz`. The names
+   carry no version, so `…/releases/latest/download/<file>` stays the same link.
+3. A GitHub release for the tag gets the archives, `SHA256SUMS.txt`, and notes from
+   `.github/scripts/release-notes.mjs`. Versions `0.x` come out as pre-releases.
+
+A push of several tagged commits releases the newest one. To try the packages without a
+release, run the workflow by hand: **Actions** → **CI** → **Run workflow**; the archives
+are in the run's artifacts for seven days.
+
 ## UI conventions
 
 - **Copy.** The UI is written in Ukrainian: sentence case, polite imperative («Додайте…»,

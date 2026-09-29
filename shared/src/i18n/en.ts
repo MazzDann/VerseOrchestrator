@@ -975,8 +975,8 @@ export const EN: Record<string, string> = {
   'Тексти: бібліотеку вже додано.': 'Texts: the library is already included.',
   'Тексти: покладіть модулі MyBible (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).':
     'Texts: put MyBible modules (*.SQLite3) into the modules/ folder — the app builds\nthe library itself (a few minutes).',
-  'Невідомий параметр «{arg}». Можна: --with-library':
-    'Unknown option “{arg}”. Options: --with-library',
+  'Невідомий параметр «{arg}». Можна: --with-library, --release':
+    'Unknown option “{arg}”. Options: --with-library, --release',
   'Портативна копія {name}': 'Portable copy {name}',
   'Файли проєкту: {n}': 'Project files: {n}',
   'Збираю інтерфейс': 'Building the interface',
@@ -1155,4 +1155,7 @@ export const EN: Record<string, string> = {
     'Your data is in the data/ folder: settings, the library, songs. The app itself is in the\napp/ folder: a new version replaces only that folder; data/ and modules/ stay.',
   'Зверху: {start}, modules/, data/; застосунок — у app/':
     'At the top: {start}, modules/, data/; the app is in app/',
+  // 0.14.1 release copies
+  'У реліз бібліотека не потрапляє: переклади мають власні ліцензії. Приберіть --with-library.':
+    'A release never carries the library: the translations have their own licences. Drop --with-library.',
 };

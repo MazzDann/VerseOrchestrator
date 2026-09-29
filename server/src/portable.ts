@@ -12,6 +12,10 @@
  * app at the user's folders (layout.ts). A new version replaces `app/` and nothing else.
  *
  *   npm run portable [-- --with-library]
+ *   npm run portable -- --release        (0.14.1: what the release workflow publishes)
+ *
+ * `--release` makes a copy for everyone: none of this machine's settings (ui-state.json), never
+ * the library (the translations carry their own licences), and the note in both languages.
  *
  * Like launcher.ts: only node: imports and no TS-only syntax (`node server/src/portable.ts`).
  */
@@ -21,7 +25,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NPM_CI, writeDepsRecord } from './launcher.ts';
 import { buildUi, run } from './standby.ts';
-import { consoleLang, setLang, tr } from './lang.ts';
+import { consoleLang, setLang, tr, type Lang } from './lang.ts';
 import { LAYOUT_MARKER, RELEASE_MARKER } from './layout.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -48,16 +52,21 @@ export function nodeCopy(
     if (missing) {
       return tr('немає {file} — потрібен Node.js з npm', { file: path.win32.join(dir, missing) });
     }
+    // Node's own licence goes with the binary (0.14.1: copies are published now)
+    if (exists(path.win32.join(dir, 'LICENSE'))) files.push('LICENSE');
     return files.map((f) => ({ from: path.win32.join(dir, f), to: f }));
   }
   const npm = [execPath, realExecPath]
     .map((p) => path.posix.join(path.posix.dirname(p), '..', 'lib', 'node_modules', 'npm'))
     .find((p) => exists(p));
   if (!npm) return tr('немає npm поруч із {node} — потрібен Node.js з npm', { node: realExecPath });
-  return [
+  const copy = [
     { from: realExecPath, to: 'bin/node' },
     { from: npm, to: 'lib/node_modules/npm' },
   ];
+  const licence = path.posix.join(path.posix.dirname(realExecPath), '..', 'LICENSE');
+  if (exists(licence)) copy.push({ from: licence, to: 'LICENSE' });
+  return copy;
 }
 
 /** bin/npm and bin/npx of the copy: the npm beside it, run by the node beside it. */
@@ -82,43 +91,55 @@ export const START_FILE: Record<string, string> = {
 };
 
 /** The note next to the launchers, for whoever opens the folder — in the console's language. */
-export function howToStart(o: {
-  version: string;
-  platform: NodeJS.Platform;
-  arch: string;
-  withLibrary: boolean;
-}): string {
+export function howToStart(
+  o: {
+    version: string;
+    platform: NodeJS.Platform;
+    arch: string;
+    withLibrary: boolean;
+  },
+  lang?: Lang,
+): string {
   const launcher =
     o.platform === 'win32'
-      ? tr('двічі клацніть start.cmd')
+      ? tr('двічі клацніть start.cmd', undefined, lang)
       : o.platform === 'darwin'
-        ? tr('двічі клацніть start.command')
-        : tr('виконайте ./start.sh у терміналі');
+        ? tr('двічі клацніть start.command', undefined, lang)
+        : tr('виконайте ./start.sh у терміналі', undefined, lang);
   const off =
     o.platform === 'win32' ? 'start.cmd --off' : `./${START_FILE[o.platform] ?? 'start.sh'} --off`;
   return [
-    tr('VerseOrchestrator {version} — портативна копія для {system} ({arch})', {
-      version: o.version,
-      system: SYSTEM[o.platform] ?? o.platform,
-      arch: o.arch,
-    }),
+    tr(
+      'VerseOrchestrator {version} — портативна копія для {system} ({arch})',
+      { version: o.version, system: SYSTEM[o.platform] ?? o.platform, arch: o.arch },
+      lang,
+    ),
     '',
-    tr('Node.js та інтернет не потрібні: усе потрібне — у цій папці.'),
+    tr('Node.js та інтернет не потрібні: усе потрібне — у цій папці.', undefined, lang),
     '',
     tr(
       'Запуск: {launcher}. Вікно керування відкриється в браузері, адресу для\nтелефонів видно у вікні запуску.',
       { launcher },
+      lang,
     ),
-    tr('Зупинити: закрийте вікно запуску. Вимкнути все й прибрати автозапуск: {off}.', { off }),
+    tr(
+      'Зупинити: закрийте вікно запуску. Вимкнути все й прибрати автозапуск: {off}.',
+      { off },
+      lang,
+    ),
     '',
     o.withLibrary
-      ? tr('Тексти: бібліотеку вже додано.')
+      ? tr('Тексти: бібліотеку вже додано.', undefined, lang)
       : tr(
           'Тексти: покладіть модулі MyBible (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).',
+          undefined,
+          lang,
         ),
     '',
     tr(
       'Ваші дані — у папці data/: налаштування, бібліотека, пісні. Сам застосунок — у папці\napp/: нова версія замінює лише її, а data/ і modules/ лишаються.',
+      undefined,
+      lang,
     ),
     '',
   ].join('\n');
@@ -166,9 +187,18 @@ function folderBytes(dir: string): number {
 async function main(argv: string[]): Promise<number> {
   setLang(consoleLang(process.env.VO_DATA_DIR ?? path.join(root, 'data')));
   const withLibrary = argv.includes('--with-library');
-  const unknown = argv.find((a) => a !== '--with-library');
+  const release = argv.includes('--release');
+  const unknown = argv.find((a) => a !== '--with-library' && a !== '--release');
   if (unknown) {
-    say(tr('Невідомий параметр «{arg}». Можна: --with-library', { arg: unknown }));
+    say(tr('Невідомий параметр «{arg}». Можна: --with-library, --release', { arg: unknown }));
+    return 2;
+  }
+  if (release && withLibrary) {
+    say(
+      tr(
+        'У реліз бібліотека не потрапляє: переклади мають власні ліцензії. Приберіть --with-library.',
+      ),
+    );
     return 2;
   }
   const started = Date.now();
@@ -266,9 +296,9 @@ async function main(argv: string[]): Promise<number> {
     say(`✓ ${tr('Бібліотеку додано')}`);
   }
 
-  // the operator's settings and running order travel with the copy (0.7.4)
+  // the operator's settings and running order travel with the copy (0.7.4) — not with a release
   const uiState = path.join(process.env.VO_DATA_DIR ?? path.join(root, 'data'), 'ui-state.json');
-  if (fs.existsSync(uiState)) {
+  if (!release && fs.existsSync(uiState)) {
     fs.mkdirSync(path.join(out, 'data'), { recursive: true });
     fs.copyFileSync(uiState, path.join(out, 'data', 'ui-state.json'));
     say(`✓ ${tr('Налаштування вигляду й послідовність')}`);
@@ -280,10 +310,13 @@ async function main(argv: string[]): Promise<number> {
   fs.copyFileSync(path.join(app, start), path.join(out, start));
   if (process.platform !== 'win32') fs.chmodSync(path.join(out, start), 0o755);
   for (const d of ['modules', 'data']) fs.mkdirSync(path.join(out, d), { recursive: true });
-  fs.writeFileSync(
-    path.join(out, tr('ЯК ЗАПУСТИТИ.txt')),
-    howToStart({ version, platform: process.platform, arch: process.arch, withLibrary }),
-  );
+  // a release is for everyone: the note in both languages; a copy for yourself — in yours
+  const notes: (Lang | undefined)[] = release ? ['uk', 'en'] : [undefined];
+  for (const lang of notes)
+    fs.writeFileSync(
+      path.join(out, tr('ЯК ЗАПУСТИТИ.txt', undefined, lang)),
+      howToStart({ version, platform: process.platform, arch: process.arch, withLibrary }, lang),
+    );
   say(`✓ ${tr('Зверху: {start}, modules/, data/; застосунок — у app/', { start })}`);
   const mb = Math.round(folderBytes(out) / 1048576);
   say('');
