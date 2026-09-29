@@ -139,12 +139,14 @@ CREATE TABLE sources (
 DROP TABLE IF EXISTS song_slides;
 DROP TABLE IF EXISTS songs;
 
--- Hymns/songs extracted from .pptx (one slide = one stanza).
+-- Songs from the song bundles (data/songs/*.vosongs, 0.10.0; one slide = one stanza).
+-- id is stable: derived from the bundle's id and the song's key (songs/bundle.ts).
 CREATE TABLE songs (
   id         INTEGER PRIMARY KEY,
   number     INTEGER,
   title      TEXT,
-  title_norm TEXT
+  title_norm TEXT,
+  bundle     TEXT          -- the bundle's name
 );
 CREATE INDEX idx_songs_num ON songs (number);
 CREATE INDEX idx_songs_norm ON songs (title_norm);

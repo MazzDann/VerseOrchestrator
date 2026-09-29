@@ -46,6 +46,8 @@ export interface SongInfo {
   id: number;
   number: number | null;
   title: string;
+  /** The song bundle's name (0.10.0); '' in a library built before bundles. */
+  bundle: string;
 }
 export interface SongSlideOut {
   text: string;
@@ -452,40 +454,71 @@ export function createLibrary(db: SqlDriver) {
     return rows.map((r) => ({ source: r.source, marker: r.marker ?? '', text: r.text ?? '' }));
   }
 
-  /** Search hymns by number (prefix) or title (diacritic-insensitive); empty query lists by number. */
-  async function searchSongs(q: string, limit = 60): Promise<SongInfo[]> {
+  /** The song columns this library has (`bundle` since 0.10.0). */
+  const songColumns = async (): Promise<string> =>
+    (await columnExists('songs', 'bundle'))
+      ? 'id, number, title, bundle'
+      : `id, number, title, '' AS bundle`;
+
+  /** The song bundles in the library, by name (0.10.0). */
+  async function listSongBundles(): Promise<{ name: string; count: number }[]> {
+    if (!(await tableExists('songs')) || !(await columnExists('songs', 'bundle'))) return [];
+    const rows = await db.all<AnyRow>(
+      `SELECT bundle AS name, COUNT(*) AS count FROM songs
+       WHERE bundle IS NOT NULL GROUP BY bundle ORDER BY bundle`,
+    );
+    return rows.map((r) => ({ name: r.name, count: Number(r.count) }));
+  }
+
+  /**
+   * Search songs by number (prefix) or title (diacritic-insensitive); an empty query lists
+   * them by number. `bundle` narrows the search to one bundle.
+   */
+  async function searchSongs(q: string, limit = 60, bundle?: string): Promise<SongInfo[]> {
     if (!(await tableExists('songs'))) return [];
+    const cols = await songColumns();
+    const inBundle = bundle && cols.endsWith(', bundle') ? ' AND bundle = ?' : '';
+    const bundleArg = inBundle ? [bundle!] : [];
     const query = q.trim();
     let rows: AnyRow[];
     if (/^\d+$/.test(query)) {
       rows = await db.all(
-        `SELECT id, number, title FROM songs
-         WHERE number = ? OR CAST(number AS TEXT) LIKE ?
-         ORDER BY number LIMIT ?`,
-        [Number(query), `${query}%`, limit],
+        `SELECT ${cols} FROM songs
+         WHERE (number = ? OR CAST(number AS TEXT) LIKE ?)${inBundle}
+         ORDER BY number, bundle LIMIT ?`,
+        [Number(query), `${query}%`, ...bundleArg, limit],
       );
     } else if (query) {
       rows = await db.all(
-        `SELECT id, number, title FROM songs WHERE title_norm LIKE ? ORDER BY number LIMIT ?`,
-        [`%${normalizeForSearch(query)}%`, limit],
+        `SELECT ${cols} FROM songs WHERE title_norm LIKE ?${inBundle}
+         ORDER BY number, bundle LIMIT ?`,
+        [`%${normalizeForSearch(query)}%`, ...bundleArg, limit],
       );
     } else {
-      rows = await db.all('SELECT id, number, title FROM songs ORDER BY number LIMIT ?', [limit]);
+      rows = await db.all(
+        `SELECT ${cols} FROM songs WHERE 1 = 1${inBundle} ORDER BY number, bundle LIMIT ?`,
+        [...bundleArg, limit],
+      );
     }
-    return rows.map((r) => ({ id: r.id, number: r.number, title: r.title }));
+    return rows.map((r) => ({
+      id: r.id,
+      number: r.number,
+      title: r.title,
+      bundle: r.bundle ?? '',
+    }));
   }
 
-  /** A hymn with its stanzas (one per slide). */
+  /** A song with its stanzas (one per slide). */
   async function getSong(id: number): Promise<SongDetail | null> {
     if (!(await tableExists('songs'))) return null;
-    const s = await db.get<AnyRow>('SELECT id, number, title FROM songs WHERE id = ?', [id]);
+    const s = await db.get<AnyRow>(`SELECT ${await songColumns()} FROM songs WHERE id = ?`, [id]);
     if (!s) return null;
     const slides = (
       await db.all<AnyRow>('SELECT text, render FROM song_slides WHERE song_id = ? ORDER BY ord', [
         id,
       ])
     ).map((r) => ({ text: r.text as string, style: r.render ? JSON.parse(r.render) : null }));
-    return { id: s.id, number: s.number, title: s.title, slides };
+    return { id: s.id, number: s.number, title: s.title, bundle: s.bundle ?? '', slides };
   }
 
   /** Does (book, chapter[, verse]) exist in any of the given translations? */
@@ -785,6 +818,7 @@ export function createLibrary(db: SqlDriver) {
     getCrossrefs,
     getCommentary,
     searchSongs,
+    listSongBundles,
     getSong,
     search,
     resolveBookCandidates,

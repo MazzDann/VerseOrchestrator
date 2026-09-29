@@ -1,6 +1,6 @@
 {
   "name": "@vo/builder",
-  "version": "0.9.3",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,6 @@
   "dependencies": {
     "@vo/shared": "*",
     "better-sqlite3": "^12.11.1",
-    "fflate": "^0.8.3",
     "tsx": "^4.19.2"
   },
   "devDependencies": {

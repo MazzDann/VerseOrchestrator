@@ -16,7 +16,8 @@ import { SCHEMA_SQL } from './schema.js';
 import { readModule } from './mybible.js';
 import { readDictionary } from './dictionary.js';
 import { readCrossrefs, readCommentaries } from './extras.js';
-import { readSong, listPptx } from './songs.js';
+import { writeLibrarySongs } from '@vo/shared';
+import { bundlesDir, legacySongsDir, readBundles, syncFolderBundle } from '@vo/shared/songs-node';
 import { selectModules, SelectionError } from './selection.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -41,15 +42,6 @@ function resolveModulesDir(): string {
 // the app doesn't use (devotionals, reading plans, bundles).
 const SKIP =
   /\.(commentaries|dictionary|crossreferences|subheadings|devotions|plan|bundle|referencedata)\.SQLite3$/i;
-
-/** Songs (.pptx hymns): $SONGS_DIR, else project `songs/`, else the reference `old/ПС укр 1-477`. */
-function resolveSongsDir(): string {
-  if (process.env.SONGS_DIR) return path.resolve(process.env.SONGS_DIR);
-  for (const dir of [path.join(repoRoot, 'songs'), path.join(repoRoot, 'old', 'ПС укр 1-477')]) {
-    if (fs.existsSync(dir)) return dir;
-  }
-  return path.join(repoRoot, 'songs');
-}
 
 function listModuleFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -88,12 +80,16 @@ function buildOnce(): void {
     commentaries: listByExt(modulesDir, /\.commentaries\.SQLite3$/i),
     crossreferences: listByExt(modulesDir, /\.crossreferences\.SQLite3$/i),
   };
-  const songsDir = resolveSongsDir();
-  const songFiles = listPptx(songsDir);
+  // Songs come from the song bundles (0.10.0); a folder of .pptx songs keeps feeding its own.
+  const songsDir = bundlesDir(DATA_DIR);
+  syncFolderBundle(songsDir, legacySongsDir(repoRoot), (m) => console.log(`[builder] ${m}`));
+  const bundles = readBundles(songsDir);
+  const songCount = bundles.reduce((n, b) => n + b.songs.length, 0);
   console.log(`[builder] modules dir: ${modulesDir}`);
   console.log(
     `[builder] available: ${candidates.bibles.length} Bibles, ${candidates.dictionaries.length} dictionaries, ` +
-      `${candidates.crossreferences.length} crossrefs, ${candidates.commentaries.length} commentaries, ${songFiles.length} songs`,
+      `${candidates.crossreferences.length} crossrefs, ${candidates.commentaries.length} commentaries, ` +
+      `${songCount} songs in ${bundles.length} bundles`,
   );
 
   // Which of them go into the library — data/settings.json → library (seeded on first run).
@@ -328,29 +324,12 @@ function buildOnce(): void {
       }
     }
 
-    // Songs/hymns extracted from .pptx (one slide = one stanza).
-    const insSong = db.prepare(
-      `INSERT INTO songs (id, number, title, title_norm) VALUES (@id, @number, @title, @titleNorm)`,
-    );
-    const insSongSlide = db.prepare(
-      `INSERT INTO song_slides (song_id, ord, text, render) VALUES (?, ?, ?, ?)`,
-    );
-    let songId = 0;
-    for (const file of songFiles) {
-      const song = readSong(file);
-      if (!song) continue;
-      songId += 1;
-      insSong.run({
-        id: songId,
-        number: song.number,
-        title: song.title,
-        titleNorm: normalizeForSearch(song.title),
-      });
-      song.slides.forEach((s, i) =>
-        insSongSlide.run(songId, i, s.text, s.style ? JSON.stringify(s.style) : null),
-      );
+    // Songs from the bundles (one slide = one stanza), with stable ids.
+    const songsIn = writeLibrarySongs(db, bundles);
+    if (songsIn > 0) {
+      const names = bundles.map((b) => `«${b.meta.name}» ${b.songs.length}`).join(', ');
+      console.log(`[builder]   songs — ${songsIn} from ${names} (${songsDir})`);
     }
-    if (songId > 0) console.log(`[builder]   songs — ${songId} indexed (${songsDir})`);
   });
 
   const started = Date.now();

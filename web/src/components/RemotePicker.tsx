@@ -81,6 +81,8 @@ export function RemotePicker({
     queryFn: () => api.songs(songQuery),
     enabled: step === 'songs',
   });
+  // songs from several bundles (0.10.0): each one says whose it is
+  const severalBundles = new Set((songs.data ?? []).map((s) => s.bundle)).size > 1;
   const song = useQuery({
     queryKey: ['song', songId],
     queryFn: () => api.song(songId!),
@@ -331,7 +333,10 @@ export function RemotePicker({
               }}
             >
               <span className="vo-verse-num">{s.number ?? ''}</span>
-              <span>{s.title}</span>
+              <span>
+                {s.title}
+                {severalBundles && s.bundle && <span style={{ opacity: 0.65 }}> · {s.bundle}</span>}
+              </span>
             </button>
           ))}
 

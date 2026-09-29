@@ -79,6 +79,7 @@ import {
 } from '../presenterBus';
 import { parseRedLetter, strongLangFor } from '@vo/shared';
 import { parseStrongTokens } from '../lib/strong';
+import { findSong } from '../lib/songLink';
 import { openPresenterWindow, openStageWindow } from '../openPresenter';
 import { SearchPanel, type SearchScope } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
@@ -227,6 +228,7 @@ export function Control() {
   const playlistDeleted = usePlaylist((s) => s.deleted);
   const playlistUndoDelete = usePlaylist((s) => s.undoDelete);
   const playlistReplacedBy = usePlaylist((s) => s.replaced?.program ?? null);
+  const playlistRelinkSong = usePlaylist((s) => s.relinkSong);
   const playlistUndoLoad = usePlaylist((s) => s.undoLoad);
 
   const primaryId = selectedIds[0] ?? null;
@@ -869,16 +871,23 @@ export function Control() {
     openSong(it.songId);
     setSongsOpen(true);
     try {
-      const s = await queryClient.fetchQuery({
-        queryKey: ['song', it.songId],
-        queryFn: () => api.song(it.songId),
+      // by its id — or by its label when the id changed (song bundles, 0.10.0)
+      const s = await findSong(it.songId, it.label, it.bundle, {
+        song: (id) =>
+          queryClient.fetchQuery({ queryKey: ['song', id], queryFn: () => api.song(id) }),
+        search: (q) => api.songs(q),
       });
+      if (!s) return;
+      if (s.id !== it.songId) {
+        playlistRelinkSong(it.songId, it.label, s.id, s.bundle);
+        openSong(s.id);
+      }
       if (s.slides.length > 0) {
         projectText(
           s.slides[0].text,
           `№${s.number ?? ''} ${s.title}`.trim(),
           it.faithful ? s.slides[0].style : null,
-          { kind: 'song', songId: it.songId, stanza: 0 },
+          { kind: 'song', songId: s.id, stanza: 0 },
         );
         // Seed the panel's stanza highlight to 0 so the first arrow/clicker advances
         // to stanza 1 (not re-projects the title we just put on screen).
@@ -931,11 +940,17 @@ export function Control() {
     });
   };
 
-  const addSongToPlaylist = (song: { songId: number; label: string; faithful: boolean }) => {
+  const addSongToPlaylist = (song: {
+    songId: number;
+    label: string;
+    bundle: string;
+    faithful: boolean;
+  }) => {
     playlistAdd({
       kind: 'song',
       label: song.label || 'Пісня',
       songId: song.songId,
+      ...(song.bundle ? { bundle: song.bundle } : {}),
       faithful: song.faithful,
     });
     notifications.show({

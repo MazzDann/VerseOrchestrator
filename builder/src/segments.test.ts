@@ -54,7 +54,7 @@ beforeAll(() => {
   db.exec(`INSERT INTO verse_strongs VALUES (2316, 'G', 1, 101)`);
   db.exec(`INSERT INTO dictionaries VALUES (1, 'Strong', 'Strong', 'en', 'strong', 1)`);
   db.exec(`INSERT INTO dictionary_entries VALUES (1, 'G2316', '2316', 'G', 'θεός')`);
-  db.exec(`INSERT INTO songs VALUES (1, 12, 'Боже Вічний', 'боже вічний')`);
+  db.exec(`INSERT INTO songs VALUES (1, 12, 'Боже Вічний', 'боже вічний', 'ПС')`);
   db.close();
   manifest = buildSegments(libPath, path.join(dir, 'segments'));
 });

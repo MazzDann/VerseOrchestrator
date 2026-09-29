@@ -83,8 +83,19 @@ export type CrossRef = z.infer<typeof CrossRefSchema>;
 const CommentarySchema = z.object({ source: str(), marker: str(), text: str() });
 export type CommentaryNote = z.infer<typeof CommentarySchema>;
 
-const SongInfoSchema = z.object({ id: z.number(), number: z.number().nullable(), title: str() });
+const SongInfoSchema = z.object({
+  id: z.number(),
+  number: z.number().nullable(),
+  title: str(),
+  /** the song bundle's name (0.10.0); '' from a library built before bundles */
+  bundle: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? ''),
+});
 export type SongInfo = z.infer<typeof SongInfoSchema>;
+const SongBundleSchema = z.object({ name: z.string(), count: z.number() });
+export type SongBundleInfo = z.infer<typeof SongBundleSchema>;
 const SongStyleSchema = z
   .object({
     bg: str(),
@@ -320,12 +331,15 @@ export const api = {
       (l) => l.getCommentary(book, chapter, verse),
       `/api/commentary?book=${book}&chapter=${chapter}&verse=${verse}`,
     ),
-  songs: (q: string) =>
+  songs: (q: string, bundle?: string) =>
     fromLibrary(
       z.array(SongInfoSchema),
-      (l) => l.searchSongs(q),
-      `/api/songs?q=${encodeURIComponent(q)}`,
+      (l) => l.searchSongs(q, 60, bundle),
+      `/api/songs?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}`,
     ),
+  /** The song bundles in the library, with their song counts (0.10.0). */
+  songBundles: () =>
+    fromLibrary(z.array(SongBundleSchema), (l) => l.listSongBundles(), '/api/song-bundles'),
   song: (id: number) =>
     fromLibrary(
       SongDetailSchema,

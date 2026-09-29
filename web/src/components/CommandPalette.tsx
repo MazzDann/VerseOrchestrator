@@ -125,11 +125,14 @@ export function CommandPalette({
     // Songs (API search) — only when the debounce has caught up to the current query,
     // so stale results from a prior query don't flash under a new/empty input.
     if (q && norm(debounced) === q) {
-      for (const s of (songsQuery.data ?? []).slice(0, 8)) {
+      const found = (songsQuery.data ?? []).slice(0, 8);
+      // songs from several bundles (0.10.0): say whose each one is
+      const several = new Set(found.map((s) => s.bundle)).size > 1;
+      for (const s of found) {
         out.push({
           key: `song:${s.id}`,
           section: 'Пісні',
-          label: `${s.number != null ? `№${s.number} ` : ''}${s.title}`,
+          label: `${s.number != null ? `№${s.number} ` : ''}${s.title}${several && s.bundle ? ` · ${s.bundle}` : ''}`,
           icon: <IconMusic size={16} />,
           run: () => onOpenSong(s.id),
         });

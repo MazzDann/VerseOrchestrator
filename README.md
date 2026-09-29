@@ -72,7 +72,8 @@ provide them in the standard **MyBible** `.SQLite3` format, which the MyBible ap
 module catalog offers. Next to Bible translations, the library also imports Strong's
 dictionaries (`*.dictionary.SQLite3`), cross-references (`*.crossreferences.SQLite3`),
 and commentaries (`*.commentaries.SQLite3`) for the «Стронг» and «Контекст» tabs, and
-songs from `.pptx` files in `songs/`.
+songs from song bundles (`data/songs/*.vosongs`, one file per songbook), which the app
+makes from `.pptx` files in `songs/`.
 
 Many translations — and most song collections — are still under copyright. Use them for
 your own reading and projection, don't redistribute them, and prefer public-domain texts
@@ -132,9 +133,9 @@ Also run `npx tsc -b` in each of `web/`, `server/`, and `builder/`.
 An npm-workspaces monorepo on Node.js 24 and TypeScript:
 
 - **`shared/`**: library queries written once for every database engine, the SQLite and
-  Postgres schemas, MyBible conversion rules, segments, text normalization, and
-  reference parsing.
-- **`builder/`**: converts MyBible modules and `.pptx` songs into one merged
+  Postgres schemas, MyBible conversion rules, segments, song bundles and the `.pptx`
+  reader, text normalization, and reference parsing.
+- **`builder/`**: converts MyBible modules and the song bundles into one merged
   `data/library.db` with a normalized full-text index, and into segments for the
   browser. It runs as its own process, so the app never freezes.
 - **`server/`**: Express + better-sqlite3, a read-only library API on the loopback

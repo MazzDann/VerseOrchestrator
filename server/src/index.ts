@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ApiError, closeDb, library, libraryInfo } from './db.js';
+import { ApiError, closeDb, library, libraryInfo, libraryPath } from './db.js';
 import { isLocalRequest, lanIps } from './access.js';
 import {
   announceShutdown,
@@ -35,6 +35,7 @@ import {
 } from './serverSettings.js';
 import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
+import { syncSongsAtStart } from './songs.js';
 import { createShortcut } from './shortcut.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 
@@ -59,6 +60,11 @@ const dataDir = process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data');
 const settings = initServerSettings(path.join(dataDir, 'settings.json'));
 initUiState(path.join(dataDir, 'ui-state.json'));
 initRemoteStore({ file: path.join(dataDir, 'secrets.json'), persist: settings.remotes.persist });
+try {
+  syncSongsAtStart({ dataDir, repoRoot, libraryPath, log: (m) => console.log(`[server] ${m}`) });
+} catch (err) {
+  console.warn(`[server] songs: ${(err as Error).message}`);
+}
 
 /** A library rebuild (builder process) is in flight — guard against overlapping runs. */
 let rebuilding = false;
@@ -423,7 +429,21 @@ app.get(
 
 app.get(
   '/api/songs',
-  wrap(async (req, res) => res.json(await library().searchSongs(String(req.query.q ?? '')))),
+  wrap(async (req, res) =>
+    res.json(
+      await library().searchSongs(
+        String(req.query.q ?? ''),
+        60,
+        req.query.bundle ? String(req.query.bundle) : undefined,
+      ),
+    ),
+  ),
+);
+
+/** The song bundles in the library, by name, with their song counts (0.10.0). */
+app.get(
+  '/api/song-bundles',
+  wrap(async (_req, res) => res.json(await library().listSongBundles())),
 );
 
 app.get(

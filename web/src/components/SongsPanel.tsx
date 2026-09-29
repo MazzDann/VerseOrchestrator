@@ -11,6 +11,7 @@ import {
   Loader,
   Badge,
   SegmentedControl,
+  Select,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
@@ -37,7 +38,12 @@ interface Props {
   activeStanza: number | null;
   onActiveStanzaChange: (idx: number | null) => void;
   /** Add the open song to the presentation sequence. */
-  onAddToPlaylist?: (song: { songId: number; label: string; faithful: boolean }) => void;
+  onAddToPlaylist?: (song: {
+    songId: number;
+    label: string;
+    bundle: string;
+    faithful: boolean;
+  }) => void;
   /** Suspend the stanza arrow-key listener (e.g. while the command palette is open). */
   keysPaused?: boolean;
   /**
@@ -66,11 +72,22 @@ export function SongsPanel({
   const [query, setQuery] = useState('');
   const [debounced] = useDebouncedValue(query, 200);
   const [faithful, setFaithful] = useState(true);
+  /** '' = every bundle (0.10.0) */
+  const [bundle, setBundle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const bundlesQuery = useQuery({
+    queryKey: ['song-bundles'],
+    queryFn: api.songBundles,
+    enabled: open,
+  });
+  const bundles = [...(bundlesQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+  // with one bundle its name says nothing: no filter, no name on the rows
+  const several = bundles.length > 1;
+  const inBundle = several && bundles.some((b) => b.name === bundle) ? bundle : '';
   const listQuery = useQuery({
-    queryKey: ['songs', debounced],
-    queryFn: () => api.songs(debounced),
+    queryKey: ['songs', debounced, inBundle],
+    queryFn: () => api.songs(debounced, inBundle || undefined),
     enabled: open,
   });
   const songQuery = useQuery({
@@ -200,6 +217,7 @@ export function SongsPanel({
                     onAddToPlaylist({
                       songId: song.id,
                       label: `${song.number != null ? `№${song.number} ` : ''}${song.title}`.trim(),
+                      bundle: song.bundle,
                       faithful,
                     })
                   }
@@ -283,6 +301,20 @@ export function SongsPanel({
               leftSection={<IconMusic size={18} />}
               rightSection={listQuery.isFetching ? <Loader size="xs" /> : null}
             />
+            {several && (
+              <Select
+                w={140}
+                aria-label="Бандл пісень"
+                data={[
+                  { value: '', label: 'Усі бандли' },
+                  ...bundles.map((b) => ({ value: b.name, label: `${b.name} (${b.count})` })),
+                ]}
+                value={inBundle}
+                onChange={(v) => setBundle(v ?? '')}
+                allowDeselect={false}
+                comboboxProps={{ withinPortal: true }}
+              />
+            )}
             <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Закрити">
               <IconX size={18} />
             </ActionIcon>
@@ -303,6 +335,11 @@ export function SongsPanel({
                     }
                   }}
                 >
+                  {several && !inBundle && s.bundle && (
+                    <Badge size="xs" variant="light" color="gray" mr={4}>
+                      {s.bundle}
+                    </Badge>
+                  )}
                   {s.number != null && (
                     <Badge size="xs" variant="light" mr={6}>
                       {s.number}
