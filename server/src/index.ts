@@ -36,6 +36,7 @@ import {
 import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
+import { precompressed } from './precompressed.js';
 import { bundlesDir, importSongs, listBundles, refreshLibrarySongs } from '@vo/shared/songs-node';
 import { keyedError, N_, sameBundleName } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
@@ -668,17 +669,18 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
  */
 const webDist = process.env.VO_WEB_DIST ?? path.join(repoRoot, 'web', 'dist');
 if (fs.existsSync(path.join(webDist, 'index.html'))) {
+  // hashed bundles never change; everything else revalidates
+  const cacheControl = (file: string) =>
+    path.basename(path.dirname(file)) === 'assets'
+      ? 'public, max-age=31536000, immutable'
+      : 'no-cache';
+  // The build's .br / .gz copies first (0.12.2) — the files themselves only for a browser
+  // that takes neither.
+  app.use(precompressed(webDist, cacheControl));
   app.use(
     express.static(webDist, {
       index: false,
-      setHeaders: (res, file) =>
-        // hashed bundles never change; everything else revalidates
-        res.setHeader(
-          'Cache-Control',
-          path.basename(path.dirname(file)) === 'assets'
-            ? 'public, max-age=31536000, immutable'
-            : 'no-cache',
-        ),
+      setHeaders: (res, file) => res.setHeader('Cache-Control', cacheControl(file)),
     }),
   );
   // Client-side routes (/presenter, /follow, /remote#…, /bench …) → the app shell.

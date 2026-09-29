@@ -112,6 +112,13 @@ server probe, the settings sync, the browser engine) is `web/src/lib/controlBoot
 only on `/`. So a phone on `/follow` downloads the reader, not the control window's panels,
 the database engine, or the benchmarks.
 
+The build also writes a compressed copy of every text file next to it — `file.br` and
+`file.gz` (the `precompress` plugin in `web/vite.config.ts`). The app server sends the copy
+the browser accepts (`server/src/precompressed.ts`): brotli on `localhost`, gzip for a phone
+on plain `http://` over Wi-Fi, where browsers don't offer brotli. The browser engines' `.wasm`
+and `.data` files stay as they are: only the control window loads them, from the same
+computer.
+
 ## State
 
 | Where                               | What                                                                                                                                                  |
