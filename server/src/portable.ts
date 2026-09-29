@@ -7,6 +7,10 @@
  * interface and, with `--with-library`, the library and its segments. The launchers use the Node
  * inside the folder first.
  *
+ * The layout of a release (0.14.0): at the top only what a user needs — the start file of this
+ * system, `modules/`, `data/` and a note; everything else in `app/` with a marker that points the
+ * app at the user's folders (layout.ts). A new version replaces `app/` and nothing else.
+ *
  *   npm run portable [-- --with-library]
  *
  * Like launcher.ts: only node: imports and no TS-only syntax (`node server/src/portable.ts`).
@@ -18,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { NPM_CI, writeDepsRecord } from './launcher.ts';
 import { buildUi, run } from './standby.ts';
 import { consoleLang, setLang, tr } from './lang.ts';
+import { LAYOUT_MARKER, RELEASE_MARKER } from './layout.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -63,6 +68,18 @@ exec "$here/node" "$here/../lib/node_modules/npm/bin/${cli}.js" "$@"
 `;
 
 const SYSTEM: Record<string, string> = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
+/** In the folder's name: the words people use, not Node's (win32, darwin). */
+export const OS_NAME: Record<string, string> = {
+  win32: 'windows',
+  darwin: 'macos',
+  linux: 'linux',
+};
+/** The start file a user of this system clicks; it hands over to app/ (0.14.0). */
+export const START_FILE: Record<string, string> = {
+  win32: 'start.cmd',
+  darwin: 'start.command',
+  linux: 'start.sh',
+};
 
 /** The note next to the launchers, for whoever opens the folder — in the console's language. */
 export function howToStart(o: {
@@ -77,7 +94,8 @@ export function howToStart(o: {
       : o.platform === 'darwin'
         ? tr('двічі клацніть start.command')
         : tr('виконайте ./start.sh у терміналі');
-  const off = o.platform === 'win32' ? 'start.cmd --off' : './start.sh --off';
+  const off =
+    o.platform === 'win32' ? 'start.cmd --off' : `./${START_FILE[o.platform] ?? 'start.sh'} --off`;
   return [
     tr('VerseOrchestrator {version} — портативна копія для {system} ({arch})', {
       version: o.version,
@@ -98,6 +116,10 @@ export function howToStart(o: {
       : tr(
           'Тексти: покладіть модулі MyBible (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).',
         ),
+    '',
+    tr(
+      'Ваші дані — у папці data/: налаштування, бібліотека, пісні. Сам застосунок — у папці\napp/: нова версія замінює лише її, а data/ і modules/ лишаються.',
+    ),
     '',
   ].join('\n');
 }
@@ -151,11 +173,13 @@ async function main(argv: string[]): Promise<number> {
   }
   const started = Date.now();
   const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-  const name = `VerseOrchestrator-${version}-${process.platform}-${process.arch}`;
+  const name = `VerseOrchestrator-${version}-${OS_NAME[process.platform] ?? process.platform}-${process.arch}`;
   const out = path.join(root, 'portable', name);
+  /** the app itself; the user's folders sit next to it (0.14.0) */
+  const app = path.join(out, 'app');
   say(tr('Портативна копія {name}', { name }));
   fs.rmSync(out, { recursive: true, force: true });
-  fs.mkdirSync(out, { recursive: true });
+  fs.mkdirSync(app, { recursive: true });
 
   // 1. The project's files — what git tracks (no data, builds, modules or tooling), or the
   // same by name without git (a downloaded zip, a machine without git)
@@ -172,11 +196,11 @@ async function main(argv: string[]): Promise<number> {
   for (const f of files) {
     const from = path.join(root, f);
     if (!fs.existsSync(from)) continue; // deleted, not committed yet
-    fs.mkdirSync(path.dirname(path.join(out, f)), { recursive: true });
-    fs.copyFileSync(from, path.join(out, f));
+    fs.mkdirSync(path.dirname(path.join(app, f)), { recursive: true });
+    fs.copyFileSync(from, path.join(app, f));
   }
   if (process.platform !== 'win32')
-    for (const f of ['start.sh', 'start.command']) fs.chmodSync(path.join(out, f), 0o755);
+    for (const f of ['start.sh', 'start.command']) fs.chmodSync(path.join(app, f), 0o755);
   say(`✓ ${tr('Файли проєкту: {n}', { n: files.length })}`);
 
   // 2. The interface, built for this version (the copy has no bundler)
@@ -188,7 +212,7 @@ async function main(argv: string[]): Promise<number> {
     await buildUi(root, () => undefined);
     say(`✓ ${tr('Інтерфейс зібрано за {time}', { time: secs(t) })}`);
   }
-  fs.cpSync(path.join(root, 'web', 'dist'), path.join(out, 'web', 'dist'), { recursive: true });
+  fs.cpSync(path.join(root, 'web', 'dist'), path.join(app, 'web', 'dist'), { recursive: true });
 
   // 3. This Node, with npm
   const copy = nodeCopy(process.platform, process.execPath, fs.realpathSync(process.execPath));
@@ -197,10 +221,10 @@ async function main(argv: string[]): Promise<number> {
     return 1;
   }
   for (const { from, to } of copy)
-    fs.cpSync(from, path.join(out, 'node', to), { recursive: true, dereference: true });
+    fs.cpSync(from, path.join(app, 'node', to), { recursive: true, dereference: true });
   if (process.platform !== 'win32') {
-    fs.writeFileSync(path.join(out, 'node', 'bin', 'npm'), npmShim('npm-cli'), { mode: 0o755 });
-    fs.writeFileSync(path.join(out, 'node', 'bin', 'npx'), npmShim('npx-cli'), { mode: 0o755 });
+    fs.writeFileSync(path.join(app, 'node', 'bin', 'npm'), npmShim('npm-cli'), { mode: 0o755 });
+    fs.writeFileSync(path.join(app, 'node', 'bin', 'npx'), npmShim('npx-cli'), { mode: 0o755 });
   }
   say(`✓ Node ${process.versions.node} (${process.platform}-${process.arch})`);
 
@@ -208,22 +232,22 @@ async function main(argv: string[]): Promise<number> {
   const t = Date.now();
   say(`… ${tr('Встановлюю залежності для роботи (без засобів розробки)')}`);
   try {
-    await run('npm', NPM_CI.runtime, out, () => undefined, { inherit: true });
+    await run('npm', NPM_CI.runtime, app, () => undefined, { inherit: true });
   } catch {
     say(`✗ ${tr('Не вдалося встановити залежності (потрібен інтернет або кеш npm).')}`);
     return 1;
   }
   const sqlite = spawnSync(
-    path.join(out, 'node', process.platform === 'win32' ? 'node.exe' : 'bin/node'),
+    path.join(app, 'node', process.platform === 'win32' ? 'node.exe' : 'bin/node'),
     ['-e', "new (require('better-sqlite3'))(':memory:').close()"],
-    { cwd: path.join(out, 'server'), windowsHide: true },
+    { cwd: path.join(app, 'server'), windowsHide: true },
   );
   if (sqlite.status !== 0) {
     say(`✗ ${tr('Модуль SQLite не завантажується в копії.')}`);
     return 1;
   }
   // the launcher there counts these as installed, and reinstalls the same way if ever needed
-  writeDepsRecord(out, 'runtime');
+  writeDepsRecord(app, 'runtime');
   say(`✓ ${tr('Залежності встановлено за {time}', { time: secs(t) })}`);
 
   // 5. The texts, if asked (the library is large; modules can be added to the copy later)
@@ -250,10 +274,17 @@ async function main(argv: string[]): Promise<number> {
     say(`✓ ${tr('Налаштування вигляду й послідовність')}`);
   }
 
+  // 6. What a user sees (0.14.0): the start file, modules/, data/ and the note — the rest is app/
+  fs.writeFileSync(path.join(app, LAYOUT_MARKER), `${JSON.stringify(RELEASE_MARKER)}\n`);
+  const start = START_FILE[process.platform] ?? 'start.sh';
+  fs.copyFileSync(path.join(app, start), path.join(out, start));
+  if (process.platform !== 'win32') fs.chmodSync(path.join(out, start), 0o755);
+  for (const d of ['modules', 'data']) fs.mkdirSync(path.join(out, d), { recursive: true });
   fs.writeFileSync(
     path.join(out, tr('ЯК ЗАПУСТИТИ.txt')),
     howToStart({ version, platform: process.platform, arch: process.arch, withLibrary }),
   );
+  say(`✓ ${tr('Зверху: {start}, modules/, data/; застосунок — у app/', { start })}`);
   const mb = Math.round(folderBytes(out) / 1048576);
   say('');
   say(`✓ ${tr('Готово за {time}: {folder} ({mb} МБ)', { time: secs(started), folder: out, mb })}`);

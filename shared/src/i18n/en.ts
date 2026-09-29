@@ -1150,4 +1150,9 @@ export const EN: Record<string, string> = {
   'Немає чого повертати на екран': 'Nothing to bring back',
   'Знову на екрані': 'Back on screen',
   'Повернути прибраний слайд': 'Bring back the cleared slide',
+  // 0.14.0 the release layout
+  'Ваші дані — у папці data/: налаштування, бібліотека, пісні. Сам застосунок — у папці\napp/: нова версія замінює лише її, а data/ і modules/ лишаються.':
+    'Your data is in the data/ folder: settings, the library, songs. The app itself is in the\napp/ folder: a new version replaces only that folder; data/ and modules/ stay.',
+  'Зверху: {start}, modules/, data/; застосунок — у app/':
+    'At the top: {start}, modules/, data/; the app is in app/',
 };

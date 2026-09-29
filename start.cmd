@@ -1,6 +1,11 @@
 @echo off
 rem VerseOrchestrator - start the app on Windows: double-click this file.
 rem Everything else happens in server\src\launcher.ts (the same on macOS and Linux).
+rem A release folder (npm run portable, 0.14.0) keeps the app in app\ next to this file.
+if exist "%~dp0app\start.cmd" (
+  call "%~dp0app\start.cmd" %*
+  exit /b
+)
 cd /d "%~dp0"
 chcp 65001 >nul
 rem a portable copy (npm run portable) carries its own Node, npm included
