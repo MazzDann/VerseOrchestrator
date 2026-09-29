@@ -6,6 +6,7 @@ import {
   strongNumbers,
 } from '../normalize.js';
 import type { Row, SqlParam } from './driver.js';
+import { fill, N_, type Vars } from '../i18n/index.js';
 
 /**
  * MyBible modules → our schema. The builder imports a whole modules folder into
@@ -213,7 +214,15 @@ export interface Converted {
   items: number;
 }
 
-export class ModuleError extends Error {}
+/** A module that can't be imported; the message is a dictionary key, with `vars` apart (0.11.6). */
+export class ModuleError extends Error {
+  constructor(
+    readonly key: string,
+    readonly vars?: Vars,
+  ) {
+    super(fill(key, vars));
+  }
+}
 
 function readInfo(src: SyncConn): Record<string, string> {
   const info: Record<string, string> = {};
@@ -262,7 +271,9 @@ export function convertMyBible(
   const kind = myBibleKind(tables);
   if (!kind) {
     throw new ModuleError(
-      'Це не модуль MyBible, який можна імпортувати (Біблія, словник, коментарі чи перехресні посилання)',
+      N_(
+        'Це не модуль MyBible, який можна імпортувати (Біблія, словник, коментарі чи перехресні посилання)',
+      ),
     );
   }
   const info = readInfo(src);
@@ -278,10 +289,10 @@ export function convertMyBible(
       'SELECT book_number, chapter, verse, text FROM verses ORDER BY book_number, chapter, verse',
     );
     if (books.length === 0 || verses.length === 0) {
-      throw new ModuleError('У модулі немає книг або віршів');
+      throw new ModuleError(N_('У модулі немає книг або віршів'));
     }
     if (verses.length >= DROPPED_VERSE_STRIDE) {
-      throw new ModuleError(`Забагато віршів у модулі (${verses.length})`);
+      throw new ModuleError(N_('Забагато віршів у модулі ({n})'), { n: verses.length });
     }
     const abbr = cleanAbbr(label, meta.description);
     bulk(
@@ -353,7 +364,7 @@ export function convertMyBible(
 
   if (kind === 'dictionary') {
     const entries = src.all('SELECT topic, definition FROM dictionary');
-    if (entries.length === 0) throw new ModuleError('Словник порожній');
+    if (entries.length === 0) throw new ModuleError(N_('Словник порожній'));
     const meta = dictMeta(
       info,
       entries.map((e) => String(e.topic)),

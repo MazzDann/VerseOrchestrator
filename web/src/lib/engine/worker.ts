@@ -17,6 +17,7 @@ import {
   SEGMENT_NORM_TABLE_SQL,
   type SqlParam,
   type SyncConn,
+  type Vars,
 } from '@vo/shared';
 import type { PGlite } from '@electric-sql/pglite';
 import {
@@ -462,7 +463,9 @@ async function reopen(): Promise<ReopenResult> {
 }
 
 async function handle(req: EngineRequest): Promise<void> {
-  type Reply = { ok: true; result: unknown } | { ok: false; error: string };
+  type Reply =
+    | { ok: true; result: unknown }
+    | { ok: false; error: string; key?: string; vars?: Vars };
   const reply = (r: Reply, transfer: Transferable[] = []) =>
     (self as unknown as Worker).postMessage({ id: req.id, ...r } as EngineResponse, transfer);
   try {
@@ -499,7 +502,9 @@ async function handle(req: EngineRequest): Promise<void> {
       reply({ ok: true, result: null });
     }
   } catch (err) {
-    reply({ ok: false, error: (err as Error).message });
+    // ModuleError / LibraryError: the key and its values, for the page to translate
+    const { key, vars } = err as { key?: string; vars?: Vars };
+    reply({ ok: false, error: (err as Error).message, key, vars });
   }
 }
 

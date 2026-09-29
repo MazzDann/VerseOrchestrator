@@ -90,13 +90,17 @@ export function desktopDir(platform: NodeJS.Platform = process.platform): string
 export const macCommand = (root: string) =>
   `#!/bin/sh\n# VerseOrchestrator — made by «start --shortcut» (0.7.5); delete it to remove the shortcut.\nexec sh "${root.replace(/(["\\`$])/g, '\\$1')}/start.sh" --app\n`;
 
+/** The desktop entry's own Ukrainian line (Comment[uk]): the system picks the one in its language. */
+const UK_COMMENT = 'Читання й показ тексту на кількох екранах'; // i18n-ignore: the .desktop file's own translation
+
 /** Linux: a desktop entry (desktop + applications menu). */
 export const linuxDesktopEntry = (root: string) => {
   const q = (s: string) => `"${s.replace(/(["\\`$])/g, '\\$1')}"`;
   return `[Desktop Entry]
 Type=Application
 Name=VerseOrchestrator
-Comment=Читання й показ тексту на кількох екранах
+Comment=Reading and showing text on several screens
+Comment[uk]=${UK_COMMENT}
 Exec=${q(path.posix.join(root, 'start.sh'))} --app
 Path=${root}
 Icon=${path.posix.join(root, 'web', 'public', 'icon.svg')}

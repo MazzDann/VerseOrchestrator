@@ -70,7 +70,7 @@ export function createEngine(kind: EngineKind, opts: { persist?: boolean } = {})
       pending.delete(e.data.id);
       if (e.data.ok) p.resolve(e.data.result);
       // the worker's own messages are keys of the dictionary (N_ there)
-      else p.reject(new Error(tr(e.data.error)));
+      else p.reject(new Error(e.data.key ? tr(e.data.key, e.data.vars) : tr(e.data.error)));
     };
     w.onerror = (e) => failAll(e.message || tr('Помилка рушія бази'));
     // The worker handles messages in order, so this runs before anything else.

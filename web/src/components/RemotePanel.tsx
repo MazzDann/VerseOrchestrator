@@ -105,7 +105,10 @@ export function RemotePanel() {
   const create = async () => {
     setBusy(true);
     try {
-      const r = await api.createRemote(name, allowed);
+      const r = await api.createRemote(
+        name.trim() || tr('Пульт {n}', { n: (remotes.data?.length ?? 0) + 1 }),
+        allowed,
+      );
       setFresh({ name: r.name, token: r.token });
       setName('');
       void qc.invalidateQueries({ queryKey: ['remotes'] });

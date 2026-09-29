@@ -805,4 +805,68 @@ export const EN: Record<string, string> = {
   'Відскануйте камерою телефона — та сама мережа Wi-Fi':
     "Scan with your phone's camera — the same Wi-Fi network",
   'Текст на телефоні': 'The text on your phone',
+  // the server: API errors (server/src/index.ts, songs.ts, autostart.ts)
+  'Керування доступне лише з цього комп’ютера': 'Control is available only from this computer',
+  'Очікую { key, value, at }': 'Expected { key, value, at }',
+  'Пульт не знайдено': 'Remote not found',
+  'Сегменти ще не зібрано. Запустіть: npm run build:segments':
+    'The segments are not built yet. Run: npm run build:segments',
+  'Порт — ціле число від 1024 до 65535, крім 5173 і 8787':
+    'The port is a whole number from 1024 to 65535, except 5173 and 8787',
+  'Порт {port} уже зайнятий іншою програмою — виберіть інший':
+    'Port {port} is already taken by another program — choose another one',
+  'Порт {port} зайнятий іншою програмою — змініть порт':
+    'Port {port} is taken by another program — change the port',
+  'Бібліотека саме перебудовується — спробуйте за хвилину':
+    'The library is being rebuilt — try again in a minute',
+  'Бандл не знайдено — відкрийте імпорт ще раз': 'Bundle not found — open the import again',
+  'Бандл «{bundle}» уже є — виберіть його в списку':
+    'The bundle “{bundle}” already exists — choose it in the list',
+  'Перебудова вже триває': 'A rebuild is already running',
+  'Не вдалося запустити збірку: {error}': "Couldn't start the build: {error}",
+  'Збірка завершилась з кодом {code}': 'The build ended with code {code}',
+  'Імпорт пісень: незрозумілий вигляд слайда': 'Song import: a slide style that makes no sense',
+  'Імпорт пісень: вкажіть бандл або назву нового': 'Song import: name a bundle or a new one',
+  'Імпорт пісень: немає пісень': 'Song import: no songs',
+  'Імпорт пісень: забагато пісень за раз (до 5000)':
+    'Song import: too many songs at once (up to 5000)',
+  'Імпорт пісень: пісня без назви файлу': 'Song import: a song without a file name',
+  'Імпорт пісень: у «{song}» незрозуміла назва':
+    'Song import: “{song}” has a title that makes no sense',
+  'Імпорт пісень: у «{song}» незрозумілий номер':
+    'Song import: “{song}” has a number that makes no sense',
+  'Імпорт пісень: у «{song}» незрозумілі слайди':
+    'Song import: “{song}” has slides that make no sense',
+  'Імпорт пісень: у «{song}» незрозумілий текст слайда':
+    'Song import: “{song}” has slide text that makes no sense',
+  'Автозапуск не підтримується на цій системі':
+    'Starting with the computer is not supported on this system',
+  'Бандл не знайдено': 'Bundle not found',
+  // the hub: what a remote is told (server/src/live.ts)
+  'Код цього пульта перевипущено. Відскануйте новий QR у вікні керування.':
+    "This remote's code was reissued. Scan the new QR code in the control window.",
+  'Пульт не знайдено або його відкликано': 'The remote was not found or was revoked',
+  'Немає доступу': 'No access',
+  'Ця дія пульту не дозволена': 'This remote may not do that',
+  'Неправильний уривок': 'An invalid passage',
+  'Неправильна строфа': 'An invalid stanza',
+  'Неправильний елемент': 'An invalid item',
+  'Вибір віршів пульту не дозволено': 'This remote may not choose verses',
+  'Пісні пульту не дозволено': 'This remote may not use songs',
+  'Послідовність пульту не дозволено': 'This remote may not use the running order',
+  'Забагато натискань': 'Too many presses',
+  'Вікно керування не відкрите': 'The control window is not open',
+  'Вікно керування не відповіло': "The control window didn't answer",
+  'Нічого не вибрано': 'Nothing chosen',
+  'Цьому пульту не дозволено вірші': 'This remote may not use verses',
+  'Цьому пульту не дозволено пісні': 'This remote may not use songs',
+  'Пульт не на зв’язку': 'The remote is not connected',
+  // MyBible modules (shared/src/library/mybible.ts)
+  'Це не модуль MyBible, який можна імпортувати (Біблія, словник, коментарі чи перехресні посилання)':
+    'This is not a MyBible module that can be imported (a Bible, a dictionary, commentaries, or cross-references)',
+  'У модулі немає книг або віршів': 'The module has no books or verses',
+  'Забагато віршів у модулі ({n})': 'Too many verses in the module ({n})',
+  'Словник порожній': 'The dictionary is empty',
+  // a remote without a name (web/src/components/RemotePanel.tsx)
+  'Пульт {n}': 'Remote {n}',
 };

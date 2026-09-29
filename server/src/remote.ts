@@ -78,7 +78,7 @@ export function initRemoteStore(opts: { file: string | null; persist: boolean })
       continue;
     pairings.set(raw.id, {
       id: raw.id,
-      name: String(raw.name ?? 'Пульт').slice(0, 40),
+      name: String(raw.name ?? 'Пульт').slice(0, 40), // i18n-ignore: a stored name
       tokenHash: raw.tokenHash,
       allowed: sanitizeAllowed(raw.allowed),
       createdAt: Number(raw.createdAt) || Date.now(),
@@ -120,7 +120,8 @@ export function createPairing(name: string, allowed?: unknown): Pairing & { toke
   const token = newToken();
   const p: Pairing = {
     id: randomUUID(),
-    name: name.trim().slice(0, 40) || `Пульт ${pairings.size + 1}`,
+    // the page names it in its language; this is for a request without a name
+    name: name.trim().slice(0, 40) || `Пульт ${pairings.size + 1}`, // i18n-ignore: a stored name
     tokenHash: hashToken(token),
     allowed: sanitizeAllowed(allowed),
     createdAt: Date.now(),

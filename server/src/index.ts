@@ -37,7 +37,7 @@ import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
 import { bundlesDir, importSongs, listBundles, refreshLibrarySongs } from '@vo/shared/songs-node';
-import { sameBundleName } from '@vo/shared';
+import { keyedError, N_, sameBundleName } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 
@@ -89,7 +89,8 @@ const wrap =
       .then(() => handler(req, res))
       .catch((err) => {
         if (err instanceof ApiError) {
-          res.status(err.status).json({ error: err.message });
+          // the key and its values apart too: the page shows it in its own language (0.11.6)
+          res.status(err.status).json(keyedError(err.key, err.vars));
         } else {
           console.error(err);
           res.status(500).json({ error: (err as Error).message });
@@ -106,7 +107,7 @@ const wrap =
  */
 const requireLocalControl: express.RequestHandler = (req, res, next) => {
   if (req.get('x-vo-control') !== '1' || !isLocalRequest(req)) {
-    res.status(403).json({ error: 'Керування доступне лише з цього комп’ютера' });
+    res.status(403).json({ error: N_('Керування доступне лише з цього комп’ютера') });
     return;
   }
   next();
@@ -146,7 +147,7 @@ app.get(
  */
 const requireLocal: express.RequestHandler = (req, res, next) => {
   if (!isLocalRequest(req)) {
-    res.status(403).json({ error: 'Керування доступне лише з цього комп’ютера' });
+    res.status(403).json({ error: N_('Керування доступне лише з цього комп’ютера') });
     return;
   }
   next();
@@ -169,7 +170,7 @@ app.put(
   wrap((req, res) => {
     const { key, value, at } = (req.body ?? {}) as { key?: unknown; value?: unknown; at?: unknown };
     if (!isUiKey(key) || typeof value !== 'string' || typeof at !== 'number')
-      throw new ApiError(400, 'Очікую { key, value, at }');
+      throw new ApiError(400, N_('Очікую { key, value, at }'));
     res.json(saveUiEntry(key, value, at));
   }),
 );
@@ -195,7 +196,7 @@ app.put(
   requireLocalControl,
   wrap((req, res) => {
     const p = setPairingAllowed(String(req.params.id), req.body?.allowed);
-    if (!p) throw new ApiError(404, 'Пульт не знайдено');
+    if (!p) throw new ApiError(404, N_('Пульт не знайдено'));
     notifyAllowed(p.id, p.allowed);
     res.json({ id: p.id, name: p.name, allowed: p.allowed });
   }),
@@ -206,7 +207,7 @@ app.post(
   requireLocalControl,
   wrap((req, res) => {
     const p = reissuePairing(String(req.params.id));
-    if (!p) throw new ApiError(404, 'Пульт не знайдено');
+    if (!p) throw new ApiError(404, N_('Пульт не знайдено'));
     dropRemote(p.id, 'reissued'); // the phone holding the old code loses control now
     res.json({ id: p.id, name: p.name, allowed: p.allowed, token: p.token });
   }),
@@ -224,7 +225,7 @@ app.get(
   wrap((_req, res) => {
     const file = path.join(segmentsDir, 'manifest.json');
     if (!fs.existsSync(file)) {
-      throw new ApiError(404, 'Сегменти ще не зібрано. Запустіть: npm run build:segments');
+      throw new ApiError(404, N_('Сегменти ще не зібрано. Запустіть: npm run build:segments'));
     }
     res.set('Cache-Control', 'no-cache').type('json').send(fs.readFileSync(file));
   }),
@@ -315,10 +316,12 @@ app.put(
     let relaunch = false;
     if (body.port !== undefined && body.port !== before.port) {
       if (!validStandbyPort(body.port)) {
-        throw new ApiError(400, 'Порт — ціле число від 1024 до 65535, крім 5173 і 8787');
+        throw new ApiError(400, N_('Порт — ціле число від 1024 до 65535, крім 5173 і 8787'));
       }
       if (!(await portFree(body.port))) {
-        throw new ApiError(409, `Порт ${body.port} уже зайнятий іншою програмою — виберіть інший`);
+        throw new ApiError(409, N_('Порт {port} уже зайнятий іншою програмою — виберіть інший'), {
+          port: body.port,
+        });
       }
       updateServerSettings({ standby: { port: body.port } });
       relaunch = !!running; // a waiter on the old port moves over
@@ -326,7 +329,9 @@ app.put(
     const port = getServerSettings().standby.port;
     if (body.enabled === true) {
       if (!running && !relaunch && !(await portFree(port))) {
-        throw new ApiError(409, `Порт ${port} зайнятий іншою програмою — змініть порт`);
+        throw new ApiError(409, N_('Порт {port} зайнятий іншою програмою — змініть порт'), {
+          port,
+        });
       }
       setAutostart(autostart, true);
       if (!running) startWaiter();
@@ -376,7 +381,7 @@ app.delete(
   requireLocalControl,
   wrap((req, res) => {
     const id = String(req.params.id);
-    if (!revokePairing(id)) throw new ApiError(404, 'Пульт не знайдено');
+    if (!revokePairing(id)) throw new ApiError(404, N_('Пульт не знайдено'));
     dropRemote(id);
     res.json({ ok: true });
   }),
@@ -474,16 +479,18 @@ app.post(
   express.json({ limit: '64mb' }),
   wrap(async (req, res) => {
     if (rebuilding)
-      throw new ApiError(409, 'Бібліотека саме перебудовується — спробуйте за хвилину');
+      throw new ApiError(409, N_('Бібліотека саме перебудовується — спробуйте за хвилину'));
     const { target, songs } = parseSongImport(req.body);
     const dir = bundlesDir(dataDir);
     const existing = listBundles(dir);
     if ('id' in target && !existing.some((b) => b.meta.id === target.id)) {
-      throw new ApiError(404, 'Бандл не знайдено — відкрийте імпорт ще раз');
+      throw new ApiError(404, N_('Бандл не знайдено — відкрийте імпорт ще раз'));
     }
     // the library tells bundles apart by name: a second «ПС» would merge into the first
     if ('name' in target && existing.some((b) => sameBundleName(b.meta.name, target.name))) {
-      throw new ApiError(409, `Бандл «${target.name}» уже є — виберіть його в списку`);
+      throw new ApiError(409, N_('Бандл «{bundle}» уже є — виберіть його в списку'), {
+        bundle: target.name,
+      });
     }
     const started = Date.now();
     const done = importSongs(dir, target, songs);
@@ -611,7 +618,7 @@ app.get(
  */
 app.post('/api/rebuild', requireLocalControl, (_req, res) => {
   if (rebuilding) {
-    res.status(409).json({ error: 'Перебудова вже триває' });
+    res.status(409).json({ error: N_('Перебудова вже триває') });
     return;
   }
   rebuilding = true;
@@ -634,13 +641,21 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
     stderr += d.toString();
   });
   child.stdout?.on('data', (d) => process.stdout.write(d));
-  child.on('error', (err) => finish(500, { error: `Не вдалося запустити збірку: ${err.message}` }));
+  child.on('error', (err) =>
+    finish(500, keyedError(N_('Не вдалося запустити збірку: {error}'), { error: err.message })),
+  );
   child.on('close', (code) => {
     if (code === 0) {
       closeDb();
       finish(200, { ok: true });
     } else {
-      finish(500, { error: stderr.trim().slice(-500) || `Збірка завершилась з кодом ${code}` });
+      const tail = stderr.trim().slice(-500);
+      finish(
+        500,
+        tail
+          ? { error: tail }
+          : keyedError(N_('Збірка завершилась з кодом {code}'), { code: String(code) }),
+      );
     }
   });
 });

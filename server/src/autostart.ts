@@ -3,6 +3,12 @@ import os from 'node:os';
 import path from 'node:path';
 
 /**
+ * Marks a message for the dictionary (the page shows it translated). Local, not from @vo/shared:
+ * this module runs under plain Node too (the launcher, the waiter), which can't load the package.
+ */
+const N_ = (uk: string): string => uk;
+
+/**
  * Start the standby waiter (standby.ts) with the computer (0.5.2) — one file per platform,
  * written when «Запускати застосунок за адресою» is switched on, removed when it's off:
  *   - Windows: a tiny .vbs in the user's Startup folder — it starts Node HIDDEN (a
@@ -104,7 +110,7 @@ export function isAutostartOn(entry: AutostartEntry | null): boolean {
 }
 
 export function setAutostart(entry: AutostartEntry | null, on: boolean): void {
-  if (!entry) throw new Error('Автозапуск не підтримується на цій системі');
+  if (!entry) throw new Error(N_('Автозапуск не підтримується на цій системі'));
   if (on) {
     fs.mkdirSync(path.dirname(entry.file), { recursive: true });
     if (entry.utf16) {

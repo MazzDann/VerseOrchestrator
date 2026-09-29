@@ -76,6 +76,21 @@ const TRANSLATED = [
   'web/src/components/FollowPanel.tsx',
   'web/src/components/PhoneLink.tsx',
   'web/src/components/QrCard.tsx',
+  // 0.11.6 — messages from the server and the shared library
+  'server/src/index.ts',
+  'server/src/songs.ts',
+  'server/src/live.ts',
+  'server/src/autostart.ts',
+  'server/src/remote.ts',
+  'server/src/shortcut.ts',
+  'shared/src/library/driver.ts',
+  'shared/src/library/mybible.ts',
+  'shared/src/library/queries.ts',
+  'shared/src/songs/node.ts',
+  'shared/src/songs/bundle.ts',
+  'shared/src/songs/pptx.ts',
+  'builder/src/segments.ts',
+  'web/src/lib/engine/protocol.ts',
 ];
 
 const walk = (dir: string): string[] =>
@@ -84,6 +99,9 @@ const walk = (dir: string): string[] =>
     if (e.isDirectory()) return e.name === 'node_modules' || e.name === 'dist' ? [] : walk(full);
     return /\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name) ? [full] : [];
   });
+
+/** What may stand before a regex literal's opening slash (not a division). */
+const REGEX_CAN_START = /(?:[(,=:[!&|?{};]|\breturn)\s*$|^\s*$/;
 
 /** Comments out, strings and code kept (a crude lexer: enough for our sources). */
 function stripComments(src: string): string {
@@ -100,6 +118,19 @@ function stripComments(src: string): string {
     if (c === '/' && src[i + 1] === '/') {
       while (i < src.length && src[i] !== '\n') i++;
       out += '\n';
+      continue;
+    }
+    // a regex literal (where one can start): copied whole, so its quotes open no string
+    if (c === '/' && src[i + 1] !== '*' && REGEX_CAN_START.test(out.slice(-40))) {
+      let j = i + 1;
+      for (let inClass = false; j < src.length && src[j] !== '\n'; j++) {
+        if (src[j] === '\\') j++;
+        else if (src[j] === '[') inClass = true;
+        else if (src[j] === ']') inClass = false;
+        else if (src[j] === '/' && !inClass) break;
+      }
+      out += src.slice(i, j + 1);
+      i = j;
       continue;
     }
     if (c === '/' && src[i + 1] === '*') {
