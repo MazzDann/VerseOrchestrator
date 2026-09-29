@@ -152,7 +152,7 @@ export function TranslationPicker({
               ))}
               {groups.length === 0 && (
                 <Text size="xs" c="dimmed" py="xs">
-                  {tr('Нічого не знайдено')}
+                  {translations.length === 0 ? tr('Перекладів ще немає') : tr('Нічого не знайдено')}
                 </Text>
               )}
             </Stack>

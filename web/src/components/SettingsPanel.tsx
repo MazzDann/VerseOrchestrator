@@ -21,8 +21,6 @@ import {
   IconDatabaseImport,
   IconExternalLink,
 } from '@tabler/icons-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { notifications } from '@mantine/notifications';
 import {
   useSettings,
   FONT_OPTIONS,
@@ -32,12 +30,12 @@ import {
   type StrongSubline,
 } from '../settingsStore';
 import type { SlideTransition } from '../presenterBus';
-import { api } from '../api';
 import { fileToDownscaledDataUrl } from '../lib/image';
 import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
+import { useRebuildLibrary } from '../lib/rebuild';
 import { StandbySection } from './StandbySection';
 import { ShutdownSection } from './ShutdownSection';
 import { ShortcutSection } from './ShortcutSection';
@@ -60,8 +58,7 @@ export function SettingsPanel() {
   const setPlacement = useSettings((s) => s.setPanelPlacement);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
-  const queryClient = useQueryClient();
-  const [rebuilding, setRebuilding] = useState(false);
+  const { rebuilding, rebuild: rebuildLibrary } = useRebuildLibrary();
   // Which groups are expanded — a per-viewer convenience, remembered locally.
   const [openSections, setOpenSectionsState] = useState<string[]>(() => {
     try {
@@ -81,24 +78,6 @@ export function SettingsPanel() {
   };
 
   // Re-run the builder, then refresh all queries so new translations/songs appear.
-  const rebuildLibrary = async () => {
-    setRebuilding(true);
-    try {
-      await api.rebuild();
-      await queryClient.invalidateQueries();
-      notifications.show({ message: tr('Бібліотеку оновлено'), color: 'green' });
-    } catch (e) {
-      notifications.show({
-        message: tr('Не вдалося перебудувати бібліотеку: {error}', {
-          error: (e as Error).message,
-        }),
-        color: 'red',
-      });
-    } finally {
-      setRebuilding(false);
-    }
-  };
-
   const padMax = a.padUnit === '%' ? 25 : 400;
   // Respect the link mode: all four together / vertical+horizontal pairs / independent.
   const setSide = (side: 'padTop' | 'padRight' | 'padBottom' | 'padLeft', value: number) => {

@@ -52,7 +52,14 @@ import {
   IconPower,
 } from '@tabler/icons-react';
 
-import { api, type Verse, type SongStyle, type RemoteCommand, type Pairing } from '../api';
+import {
+  api,
+  ApiFailure,
+  type Verse,
+  type SongStyle,
+  type RemoteCommand,
+  type Pairing,
+} from '../api';
 import { useStore } from '../store';
 import {
   useSettings,
@@ -77,7 +84,7 @@ import {
   type SlideSource,
   type TextSpan,
 } from '../presenterBus';
-import { parseRedLetter, strongLangFor } from '@vo/shared';
+import { NO_LIBRARY, parseRedLetter, strongLangFor } from '@vo/shared';
 import { parseStrongTokens } from '../lib/strong';
 import { findSong } from '../lib/songLink';
 import { openPresenterWindow, openStageWindow } from '../openPresenter';
@@ -128,7 +135,8 @@ import {
 } from '../lib/commands';
 import { useServer, NEEDS_SERVER, START_AGAIN } from '../serverStore';
 import { tr, useLang } from '../i18n';
-import { useDataSource } from '../dataSourceStore';
+import { useDataSource, useEffectiveSource } from '../dataSourceStore';
+import { NoLibrary, type LibraryGap } from '../components/NoLibrary';
 import { sameContent, sameSlide, summarize, toggleBlack, toggleHidden } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
@@ -269,10 +277,8 @@ export function Control() {
   const [goToValue, setGoToValue] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const serverAvailable = useServer((s) => s.available);
-  // First run with no server and nothing loaded: the library can only come from the
-  // browser engine — open the settings on «Джерело даних» and say why.
-  useEffect(() => {
-    if (serverAvailable !== false || useDataSource.getState().segments.length > 0) return;
+  /** The settings panel, opened on «Застосунок» (where «Джерело даних» is). */
+  const openAppSettings = () => {
     try {
       const open = JSON.parse(localStorage.getItem('vo:settingsSections') ?? '[]');
       if (Array.isArray(open) && !open.includes('app'))
@@ -281,6 +287,12 @@ export function Control() {
       /* storage unavailable */
     }
     setSettingsOpen(true);
+  };
+  // First run with no server and nothing loaded: the library can only come from the
+  // browser engine — open the settings on «Джерело даних» and say why.
+  useEffect(() => {
+    if (serverAvailable !== false || useDataSource.getState().segments.length > 0) return;
+    openAppSettings();
     // next tick: on first paint the notifications host may not be mounted yet
     window.setTimeout(() =>
       notifications.show({
@@ -395,8 +407,23 @@ export function Control() {
     setSearchOpen(true);
   };
 
-  const translationsQuery = useQuery({ queryKey: ['translations'], queryFn: api.translations });
+  const translationsQuery = useQuery({
+    queryKey: ['translations'],
+    queryFn: api.translations,
+    // no library on the server: say so at once, not after three retries (0.13.1)
+    retry: (n, e) => !(e instanceof ApiFailure && e.key === NO_LIBRARY) && n < 3,
+  });
   const translations = translationsQuery.data ?? EMPTY_ARRAY;
+  const effectiveSource = useEffectiveSource();
+  /** Nothing to read, and why (0.13.1) — the centre then says what to do. */
+  const libraryGap: LibraryGap | null =
+    translationsQuery.error instanceof ApiFailure && translationsQuery.error.key === NO_LIBRARY
+      ? 'missing'
+      : translationsQuery.isSuccess && translations.length === 0
+        ? effectiveSource === 'local'
+          ? 'local'
+          : 'empty'
+        : null;
 
   const booksQuery = useQuery({
     queryKey: ['books', primaryId],
@@ -2465,11 +2492,15 @@ export function Control() {
                 renderRow={(b) => b.longName || b.shortName}
                 estimateSize={30}
                 empty={
-                  primaryId == null
-                    ? tr('Позначте переклад угорі, щоб побачити його книги')
-                    : bookFilter.trim()
-                      ? tr('Немає книг, що збігаються з «{filter}»', { filter: bookFilter.trim() })
-                      : tr('У цьому перекладі немає книг')
+                  libraryGap
+                    ? tr('Перекладів ще немає')
+                    : primaryId == null
+                      ? tr('Позначте переклад угорі, щоб побачити його книги')
+                      : bookFilter.trim()
+                        ? tr('Немає книг, що збігаються з «{filter}»', {
+                            filter: bookFilter.trim(),
+                          })
+                        : tr('У цьому перекладі немає книг')
                 }
               />
             </Box>
@@ -2814,15 +2845,18 @@ export function Control() {
                       </span>
                     </div>
                   ))}
-                  {primaryVerses.length === 0 && (
-                    <Text c="dimmed" size="sm" p="sm">
-                      {currentBook == null
-                        ? tr('Оберіть книгу ліворуч, потім розділ угорі.')
-                        : chapter == null
-                          ? tr('Оберіть розділ угорі.')
-                          : tr('У цьому розділі немає віршів у головному перекладі.')}
-                    </Text>
-                  )}
+                  {primaryVerses.length === 0 &&
+                    (libraryGap ? (
+                      <NoLibrary gap={libraryGap} onOpenSettings={openAppSettings} />
+                    ) : (
+                      <Text c="dimmed" size="sm" p="sm">
+                        {currentBook == null
+                          ? tr('Оберіть книгу ліворуч, потім розділ угорі.')
+                          : chapter == null
+                            ? tr('Оберіть розділ угорі.')
+                            : tr('У цьому розділі немає віршів у головному перекладі.')}
+                      </Text>
+                    ))}
                 </Stack>
               </ScrollArea>
               {concordanceStrong && (

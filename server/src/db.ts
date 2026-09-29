@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
-import { createLibrary, LibraryError, type Library, type SqlDriver } from '@vo/shared';
+import { createLibrary, LibraryError, NO_LIBRARY, type Library, type SqlDriver } from '@vo/shared';
 
 /**
  * The server's engine for the shared library queries (@vo/shared `createLibrary`):
@@ -25,7 +25,8 @@ let db: Database.Database | null = null;
 function getDb(): Database.Database {
   if (db) return db;
   if (!fs.existsSync(DB_PATH)) {
-    throw new LibraryError(503, 'Library not built yet. Run: npm run build:library');
+    // a dictionary key, like every server message (0.13.1: it was an English sentence)
+    throw new LibraryError(503, NO_LIBRARY);
   }
   db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
   db.pragma('busy_timeout = 3000');

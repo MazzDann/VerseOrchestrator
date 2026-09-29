@@ -114,6 +114,20 @@ const SongDetailSchema = SongInfoSchema.extend({
 });
 export type SongDetail = z.infer<typeof SongDetailSchema>;
 
+/**
+ * A request the server refused: the message in the reader's language, plus the status and
+ * the server's key, so a page can tell one refusal from another (0.13.1: no library yet).
+ */
+export class ApiFailure extends Error {
+  readonly status: number;
+  readonly key: string | undefined;
+  constructor(message: string, status: number, key?: string) {
+    super(message);
+    this.status = status;
+    this.key = key;
+  }
+}
+
 /** Human-readable failure: the server's own message, else what went wrong in plain words. */
 async function failure(res: Response): Promise<Error> {
   const body = (await res.json().catch(() => ({}))) as {
@@ -122,15 +136,16 @@ async function failure(res: Response): Promise<Error> {
     vars?: Vars;
   };
   // the server's messages are keys of the dictionary; one with values sends them apart (0.11.6)
-  if (body.key) return new Error(tr(body.key, body.vars));
-  if (body.error) return new Error(tr(body.error));
+  if (body.key) return new ApiFailure(tr(body.key, body.vars), res.status, body.key);
+  if (body.error) return new ApiFailure(tr(body.error), res.status);
   // No JSON error body on a 5xx = the dev proxy couldn't reach the API process.
-  return new Error(
+  return new ApiFailure(
     res.status >= 500
       ? tr(
           'сервер недоступний. Перевірте вікно, де запущено застосунок (start.cmd, start.sh або npm run dev)',
         )
       : tr('сервер відповів помилкою {status}', { status: res.status }),
+    res.status,
   );
 }
 
