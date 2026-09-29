@@ -28,6 +28,7 @@ export type HotkeyActionId =
   | 'blank'
   | 'black'
   | 'clear'
+  | 'restore'
   | 'searchCurrent'
   | 'searchAll'
   | 'palette';
@@ -82,6 +83,13 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     label: N_('Очистити'),
     hint: N_('Прибрати слайд з екрана'),
     default: 'escape',
+  },
+  {
+    id: 'restore',
+    label: N_('Повернути на екран'),
+    hint: N_('Скасувати «Очистити»: прибраний слайд — знову на екрані'),
+    default: 'ctrl+z',
+    mac: 'meta+z',
   },
   {
     id: 'searchCurrent',

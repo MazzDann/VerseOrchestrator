@@ -146,6 +146,8 @@ import { formatCombo, matchesCombo } from '../hotkeys';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
+/** One «Екран очищено» notice at a time (0.13.2): a new clear replaces the last one. */
+const CLEARED_NOTICE = 'screen-cleared';
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
 
 type InlinePanel = 'search' | 'songs' | 'text';
@@ -713,10 +715,13 @@ export function Control() {
     reveal: number;
     override: Slide | null;
   } | null>(null);
+  /** The slide «Очистити» removed, until something else is shown (0.13.2). */
+  const clearedRef = useRef<Slide | null>(null);
   const pushLive = (slide: Slide, opts?: { audience?: boolean }) => {
     if (!leaderRef.current) return; // standby: never overrides the leader's screen
     if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
     lastPushed.current = slide;
+    if (slide.visible) clearedRef.current = null; // something else is on screen: nothing to take back
     publishSlide(slide);
     setLiveSlide(slide);
     // the QR slide stays off the phones: they are already reading (0.6.16)
@@ -1309,9 +1314,35 @@ export function Control() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideStyle.qrCorner, slideStyle.qrStyle]);
 
+  // «Очистити» can be taken back (0.13.2): the slide it removed stays at hand (`clearedRef`)
+  // until something else goes on screen. Esc again keeps the screen empty — a panicked double
+  // press must not bring back what was just cleared — so taking back is its own key
+  // (Ctrl+Z / ⌘Z), the palette, or «Повернути» in the notice.
   const clearScreen = () => {
+    const was = liveSlideRef.current;
+    const takeBack = leaderRef.current && was.visible;
     pushLive({ lines: [], reference: '', blank: false, visible: false });
     setLive(false);
+    if (!takeBack) return;
+    clearedRef.current = was;
+    notifications.hide(CLEARED_NOTICE);
+    notifications.show({
+      id: CLEARED_NOTICE,
+      color: 'gray',
+      autoClose: 6000,
+      message: (
+        <Group gap="xs" justify="space-between" wrap="nowrap">
+          <Text size="sm">
+            {tr('Екран очищено · {key} повертає', {
+              key: formatCombo(useSettings.getState().keymap.restore),
+            })}
+          </Text>
+          <Button size="compact-xs" variant="light" onClick={() => restoreRef.current()}>
+            {tr('Повернути')}
+          </Button>
+        </Group>
+      ),
+    });
   };
   useHotkeys(keymap.blank, () => hideToggle(), [keymap.blank, versePreview, live]);
   // Esc with a floating panel open closes the panel (FloatingPanel) — not the screen too.
@@ -1443,6 +1474,31 @@ export function Control() {
     );
   };
   useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
+
+  /** Take back «Очистити» (0.13.2): exactly the slide it removed, as the toggles do. */
+  const restoreCleared = () => {
+    if (!leaderRef.current) return standbyNotice();
+    const back = clearedRef.current;
+    notifications.hide(CLEARED_NOTICE);
+    if (!back || liveSlideRef.current.visible) {
+      clearedRef.current = null;
+      notifications.show({
+        message: tr('Немає чого повертати на екран'),
+        color: 'gray',
+        autoClose: 1200,
+      });
+      return;
+    }
+    pushLive(back);
+    afterToggle(back);
+    notifications.show({ message: tr('Знову на екрані'), color: 'live', autoClose: 1200 });
+  };
+  // the notice's button and the key run the latest one (it reads the current preview)
+  const restoreRef = useRef(restoreCleared);
+  restoreRef.current = restoreCleared;
+  useHotkeys(keymap.restore, () => restoreRef.current(), { preventDefault: true }, [
+    keymap.restore,
+  ]);
 
   // «Далі» after a song's last stanza (0.6.24): an empty slide — the stanza's text goes, its
   // background stays (the same slide, hidden, as «Сховати текст»); «Назад» or any stanza
@@ -2022,6 +2078,12 @@ export function Control() {
       run: blackToggle,
     },
     { id: 'clear', label: tr('Прибрати з екрана'), keywords: 'clear ochystyty', run: clearScreen },
+    {
+      id: 'restore',
+      label: tr('Повернути прибраний слайд'),
+      keywords: 'undo restore povernuty',
+      run: () => restoreRef.current(),
+    },
     {
       id: 'addPassage',
       label: tr('Додати уривок у показ'),

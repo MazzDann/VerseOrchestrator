@@ -1141,4 +1141,13 @@ export const EN: Record<string, string> = {
     'Add a MyBible module or a segment under “Data source” (Settings → App).',
   'Джерело даних…': 'Data source…',
   'Перекладів ще немає': 'No translations yet',
+  // 0.13.2 bring back a cleared slide
+  'Повернути на екран': 'Bring back to the screen',
+  'Скасувати «Очистити»: прибраний слайд — знову на екрані':
+    'Undo “Clear”: the cleared slide is back on screen',
+  'Екран очищено · {key} повертає': 'Screen cleared · {key} brings it back',
+  Повернути: 'Bring back',
+  'Немає чого повертати на екран': 'Nothing to bring back',
+  'Знову на екрані': 'Back on screen',
+  'Повернути прибраний слайд': 'Bring back the cleared slide',
 };

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   comboFromEvent,
+  conflictsForAction,
   sanitizeKeymap,
   DEFAULT_KEYMAP,
   defaultKeymap,
@@ -94,6 +95,16 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
     expect(mac.palette).toBe('ctrl+k,ctrl+p,meta+k');
     expect(mac.blank).toBe('b');
     expect(defaultKeymap(false).project).toBe('f5,f2'); // Windows / Linux unchanged
+  });
+
+  it('«Повернути на екран» takes back «Очистити» with Ctrl+Z / ⌘Z, clashing with nothing (0.13.2)', () => {
+    expect(defaultKeymap(false).restore).toBe('ctrl+z');
+    expect(defaultKeymap(true).restore).toBe('ctrl+z,meta+z');
+    for (const mac of [false, true]) {
+      expect(conflictsForAction(defaultKeymap(mac), 'restore')).toEqual([]);
+    }
+    // a keymap saved before 0.13.2 gets the new action with its default
+    expect(sanitizeKeymap({ clear: 'escape' }, false).restore).toBe('ctrl+z');
   });
 
   it('a keymap saved before stays the user’s, but untouched old defaults get the ⌘ chords', () => {
