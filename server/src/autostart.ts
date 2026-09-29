@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 /**
- * Start the standby waiter (standby.ts) with the computer (1.4.2) — one file per platform,
+ * Start the standby waiter (standby.ts) with the computer (0.5.2) — one file per platform,
  * written when «Запускати застосунок за адресою» is switched on, removed when it's off:
  *   - Windows: a tiny .vbs in the user's Startup folder — it starts Node HIDDEN (a
  *     console program run from Startup/Task Scheduler would show a console window);

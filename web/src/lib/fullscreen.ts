@@ -1,5 +1,5 @@
 /**
- * Fullscreen for output windows, driven from the control window (1.4.7).
+ * Fullscreen for output windows, driven from the control window (0.5.7).
  *
  * `requestFullscreen()` only works from a user gesture in the SAME window, so a window
  * we have just opened can't go fullscreen by itself. Chrome (and Edge) let one window

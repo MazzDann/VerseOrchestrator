@@ -69,7 +69,7 @@ describe('engine benchmark report', () => {
     const cases = Object.fromEntries(BENCH_CASES.map((c) => [c.id, stats()]));
     const report: BenchReport = {
       createdAt: '2026-09-27T00:00:00.000Z',
-      app: '1.2.10',
+      app: '0.3.10',
       userAgent: 'test',
       cores: 8,
       iterations: 20,

@@ -1,5 +1,5 @@
 /**
- * `npm run portable` (1.6.3): a copy of the app for another computer of the same system (Windows,
+ * `npm run portable` (0.7.3): a copy of the app for another computer of the same system (Windows,
  * macOS or Linux, the same processor) that needs neither Node.js nor the internet — for a PC
  * without them, carried on a flash drive. Into `portable/VerseOrchestrator-<version>-<os>-<arch>/`:
  * the project's tracked files, this Node (node + npm, so the launcher can still install or rebuild
@@ -230,7 +230,7 @@ async function main(argv: string[]): Promise<number> {
     say('✓ Бібліотеку додано');
   }
 
-  // the operator's settings and running order travel with the copy (1.6.4)
+  // the operator's settings and running order travel with the copy (0.7.4)
   const uiState = path.join(process.env.VO_DATA_DIR ?? path.join(root, 'data'), 'ui-state.json');
   if (fs.existsSync(uiState)) {
     fs.mkdirSync(path.join(out, 'data'), { recursive: true });

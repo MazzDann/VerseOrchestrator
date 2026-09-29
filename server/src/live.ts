@@ -65,7 +65,7 @@ let wss: WebSocketServer | null = null;
 const meta = new WeakMap<WebSocket, Meta>();
 
 /**
- * ONE control socket in charge (1.5.8). Within a browser, Web Locks already leave a single
+ * ONE control socket in charge (0.6.8). Within a browser, Web Locks already leave a single
  * control window with a socket (lib/leader.ts) — but control windows in two browsers each
  * held one, and every remote command went to both (a double «Далі»), both sent the remotes
  * their screen and both published to the phones. The first control socket leads; the
@@ -119,7 +119,7 @@ function pushLive(): number {
 }
 
 /**
- * The app is being switched off on purpose («Вимкнути повністю», 1.6.1): every page — control
+ * The app is being switched off on purpose («Вимкнути повністю», 0.7.1): every page — control
  * windows, remotes, phones — says so, instead of «no connection, reconnecting».
  */
 export function announceShutdown(): void {
@@ -176,7 +176,7 @@ export function notifyAllowed(pairingId: string, allowed: readonly string[]): vo
 }
 
 /**
- * The shared running order (1.5.9): the control window in charge sends a summary of its
+ * The shared running order (0.6.9): the control window in charge sends a summary of its
  * «Послідовність показу» (ids, kinds, labels, what a remote needs to walk an item, the
  * current one); remotes allowed «Послідовність» get it — others get nothing.
  */
@@ -236,7 +236,7 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
 }
 
 /**
- * Remote commands (1.3.3): the remote is acked with the REAL outcome — the control window
+ * Remote commands (0.4.3): the remote is acked with the REAL outcome — the control window
  * applies the command and answers `{ type: 'result', id, ok, reason }` — or told it didn't
  * answer in time. Every command has an id (made up here for older remote pages); a retry
  * with the same id (the phone resending after a reconnect) is not forwarded again, it just
@@ -284,7 +284,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   // `songs` / `playlist` are permissions only, never commands.
   if (!isRemoteAction(cmd) || (cmd !== 'pick' && cmd !== 'queue' && !p.allowed.includes(cmd)))
     return reject('Ця дія пульту не дозволена');
-  // A passage (1.5.1), a song stanza (1.5.3) or a running-order item (1.5.9) chosen on
+  // A passage (0.6.1), a song stanza (0.6.3) or a running-order item (0.6.9) chosen on
   // the phone — one of them; `pick` and `queue` need one.
   const passage = msg.passage === undefined ? null : sanitizePassage(msg.passage);
   if (msg.passage !== undefined && !passage) return reject('Неправильний уривок');
@@ -316,7 +316,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   if (m.recent.length >= MAX_COMMANDS_PER_SEC) return reject('Забагато натискань');
   m.recent.push(now);
   touchPairing(p);
-  // only the control window in charge applies it (1.5.8)
+  // only the control window in charge applies it (0.6.8)
   const controls = activeControl?.readyState === WebSocket.OPEN ? [activeControl] : [];
   if (controls.length === 0) return reject('Вікно керування не відкрите');
   pending.set(id, {
@@ -341,7 +341,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
 }
 
 /**
- * The operator suggests something to a remote (1.5.4): a passage or a song stanza the
+ * The operator suggests something to a remote (0.6.4): a passage or a song stanza the
  * speaker may take into their preview or put on screen — or ignore. Nothing changes until
  * the speaker acts, so there is nothing to resolve between the two. Only to a remote
  * allowed to choose that kind; the control window hears how many of its pages got it.

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Show commands in the control window (1.3.3): one pipeline for everything that drives
+ * Show commands in the control window (0.4.3): one pipeline for everything that drives
  * the show from outside the operator's keyboard — an output window's keys (a clicker on
  * the second monitor) and paired speaker remotes. Before, each source reached its own
  * code: a remote's «Далі» never reached an open song (the songs panel only listened to
@@ -15,8 +15,8 @@ import { useEffect, useRef } from 'react';
  */
 
 /**
- * `show` (1.5.0, remotes): put the preview on screen — the operator's F5 / «На екран»; with
- * a passage (1.5.1), put THAT on screen. `pick` (1.5.1): the speaker's own preview — a
+ * `show` (0.6.0, remotes): put the preview on screen — the operator's F5 / «На екран»; with
+ * a passage (0.6.1), put THAT on screen. `pick` (0.6.1): the speaker's own preview — a
  * passage chosen on the phone (the remote's cursor), not on screen yet.
  */
 export type ShowCommand = 'next' | 'prev' | 'blank' | 'black' | 'show' | 'pick' | 'queue';
@@ -29,7 +29,7 @@ export interface RemotePassage {
   verses: number[];
 }
 
-/** A song stanza chosen on a remote (1.5.3). */
+/** A song stanza chosen on a remote (0.6.3). */
 export interface RemoteSong {
   songId: number;
   stanza: number;
@@ -43,12 +43,12 @@ export type RemoteTarget =
 export interface CommandArgs {
   passage?: RemotePassage;
   song?: RemoteSong;
-  /** an item of the shared running order, by id (1.5.9) */
+  /** an item of the shared running order, by id (0.6.9) */
   item?: string;
 }
 
 /**
- * One item of the shared running order as a remote sees it (1.5.9): what to show, and
+ * One item of the shared running order as a remote sees it (0.6.9): what to show, and
  * what the phone needs to walk it with its own cursor (verses / song).
  */
 export type PlaylistEntry =

@@ -1,5 +1,5 @@
 /**
- * «Мигає при прокручуванні» (user, 1.5.5): scrolling a long psalm with the mouse wheel moved
+ * «Мигає при прокручуванні» (user, 0.6.5): scrolling a long psalm with the mouse wheel moved
  * row after row under the still pointer, and each one lit up with the hover background for
  * a moment (30 of 30 wheel steps in a measured run) — the search list moved its highlight
  * and re-rendered on every row too. While anything scrolls, `<html data-scrolling>` is set

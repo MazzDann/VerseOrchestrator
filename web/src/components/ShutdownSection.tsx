@@ -12,7 +12,7 @@ import { closeOutput } from '../openPresenter';
 const size = (b: number) => (b < 1048576 ? 'менше 1 МБ' : `≈ ${Math.round(b / 1048576)} МБ`);
 
 /**
- * «Вимкнути повністю» (1.6.1): the app, its standby waiter and the «Запуск за адресою»
+ * «Вимкнути повністю» (0.7.1): the app, its standby waiter and the «Запуск за адресою»
  * autostart go — nothing keeps running or starts with the computer; the output windows close;
  * phones and remotes say «Застосунок вимкнено». Optionally the browser also forgets what it
  * keeps for this address (lib/browserData.ts).

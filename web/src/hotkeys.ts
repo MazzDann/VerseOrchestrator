@@ -5,7 +5,7 @@
  * Combo strings use the react-hotkeys-hook grammar: `+` joins modifiers
  * (`ctrl+f`), `,` separates alternatives (`right,down,pagedown`).
  *
- * macOS (1.4.12, Mac test): F-keys there need Fn, so the defaults add ⌘ chords — ⌘↩ on
+ * macOS (0.5.12, Mac test): F-keys there need Fn, so the defaults add ⌘ chords — ⌘↩ on
  * screen, ⌘F / ⇧⌘F search, ⌘K palette — next to the F-keys, which stay. Combos are shown
  * the Mac way there (⇧⌘F).
  */
@@ -250,9 +250,9 @@ export function conflictsForAction(keymap: Keymap, self: HotkeyActionId): Hotkey
 /**
  * Coerce a persisted/foreign keymap into a valid one: every action gets a string chord or
  * its default. An action still on the other platform's default gets this platform's: on a
- * Mac the ⌘ chords are added to a keymap saved elsewhere or before 1.4.12, and elsewhere
+ * Mac the ⌘ chords are added to a keymap saved elsewhere or before 0.5.12, and elsewhere
  * they are dropped from one saved on a Mac (settings travel with the app folder since
- * 1.6.4). Anything the user changed stays.
+ * 0.7.4). Anything the user changed stays.
  */
 export function sanitizeKeymap(raw: unknown, mac: boolean = IS_MAC): Keymap {
   const r = (raw ?? {}) as Record<string, unknown>;

@@ -24,7 +24,7 @@ import { api, type RemoteCommand } from '../api';
 import { PhoneLink } from './PhoneLink';
 import { REMOTE_LABEL } from '../lib/remote';
 
-/** In display order. New abilities (`show`, 1.5.0) start unticked — the operator turns them on. */
+/** In display order. New abilities (`show`, 0.6.0) start unticked — the operator turns them on. */
 const ALL: RemoteCommand[] = [
   'next',
   'prev',
@@ -71,7 +71,7 @@ export function RemotePanel() {
     }
   };
 
-  // What an existing remote may do (1.5.0); its open page updates its buttons at once.
+  // What an existing remote may do (0.6.0); its open page updates its buttons at once.
   const setRemoteAllowed = async (id: string, next: RemoteCommand[]) => {
     try {
       await api.updateRemote(id, next);

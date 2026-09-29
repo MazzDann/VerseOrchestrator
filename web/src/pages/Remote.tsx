@@ -71,7 +71,7 @@ function entryTarget(e: PlaylistEntry): RemoteTarget | undefined {
   return undefined;
 }
 
-/** The remembered cursor — also one saved by 1.5.1, which was a bare passage. */
+/** The remembered cursor — also one saved by 0.6.1, which was a bare passage. */
 function recallCursor(): RemoteTarget | null {
   const raw = recall<RemoteTarget | RemotePassage>(CURSOR_KEY);
   if (!raw) return null;
@@ -111,7 +111,7 @@ const RESEND_MS = 5000;
 type State =
   | { kind: 'connecting' }
   | { kind: 'ready'; name: string; allowed: RemoteCommand[] }
-  /** `off`: the operator switched the app off («Вимкнути повністю», 1.6.1) — not a blip */
+  /** `off`: the operator switched the app off («Вимкнути повністю», 0.7.1) — not a blip */
   | { kind: 'offline'; name?: string; allowed?: RemoteCommand[]; off?: boolean }
   | { kind: 'denied'; reason: string };
 
@@ -122,13 +122,13 @@ export function Remote() {
   );
   const [screen, setScreen] = useState<ScreenSummary | null>(null);
   const [next, setNext] = useState<ScreenSummary | null>(null);
-  /** The control window's preview — what «На екран» puts on screen (1.5.0). */
+  /** The control window's preview — what «На екран» puts on screen (0.6.0). */
   const [preview, setPreview] = useState<ScreenSummary | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const conn = useRef<LiveConnection | null>(null);
   const noticeTimer = useRef<number | undefined>();
   /**
-   * Presses not yet answered, by id (1.3.3). The server acks with the control window's
+   * Presses not yet answered, by id (0.4.3). The server acks with the control window's
    * real outcome; a press made while the connection is down is resent on reconnect with
    * the SAME id — applied once even if the first copy did get through.
    */
@@ -147,7 +147,7 @@ export function Remote() {
     >(),
   );
   /**
-   * The speaker's own cursor: a verse (1.5.1) or a song stanza (1.5.3) chosen on this
+   * The speaker's own cursor: a verse (0.6.1) or a song stanza (0.6.3) chosen on this
    * phone. It moves only once the control window has taken it (ack ok); «Далі/Назад» then
    * walk it instead of the operator's selection. Null: the remote follows the operator.
    */
@@ -157,10 +157,10 @@ export function Remote() {
     remember(CURSOR_KEY, t);
   };
   const [pickerOpen, setPickerOpen] = useState(false);
-  /** The operator's running order (1.5.9) — when this remote may see it. */
+  /** The operator's running order (0.6.9) — when this remote may see it. */
   const [playlist, setPlaylist] = useState<SharedPlaylist | null>(null);
   const [listOpen, setListOpen] = useState(false);
-  /** What the operator suggested (1.5.4) — the speaker takes it or not. */
+  /** What the operator suggested (0.6.4) — the speaker takes it or not. */
   const [suggestion, setSuggestion] = useState<{
     target: RemoteTarget;
     reference: string;
@@ -210,7 +210,7 @@ export function Remote() {
           setNext((f.next as ScreenSummary | null) ?? null);
           setPreview((f.preview as ScreenSummary | null) ?? null);
         } else if (f.type === 'playlist') {
-          // the operator's running order, when this remote may see it (1.5.9)
+          // the operator's running order, when this remote may see it (0.6.9)
           setPlaylist((f.playlist as SharedPlaylist | null) ?? null);
         } else if (f.type === 'suggest') {
           const target: RemoteTarget | null = f.passage
@@ -227,7 +227,7 @@ export function Remote() {
             });
           }
         } else if (f.type === 'allowed') {
-          // the operator changed what this remote may do (1.5.0): buttons follow at once
+          // the operator changed what this remote may do (0.6.0): buttons follow at once
           const allowed = (f.allowed as RemoteCommand[]) ?? [];
           setState((s) => (s.kind === 'ready' || s.kind === 'offline' ? { ...s, allowed } : s));
         } else if (f.type === 'welcome') {
@@ -326,7 +326,7 @@ export function Remote() {
   });
   const queryClient = useQueryClient();
   const crossArm = useRef<CrossArm | null>(null);
-  /** the song's end as this phone last left it (1.5.24) — see walk() */
+  /** the song's end as this phone last left it (0.6.24) — see walk() */
   const endGuard = useRef<EndGuard | null>(null);
   const cursorSong = useQuery({
     queryKey: ['song', songPick?.songId],
@@ -352,7 +352,7 @@ export function Remote() {
     let next: RemoteTarget;
     if (songPick) {
       const count = cursorSong.data?.slides.length ?? 0;
-      // its last stanza on screen (1.5.24): «Далі» empties the screen, again → the end,
+      // its last stanza on screen (0.6.24): «Далі» empties the screen, again → the end,
       // «Назад» brings exactly that stanza back (lib/songEnd.ts)
       const key = `${songPick.songId}:${songPick.stanza}`;
       const now = Date.now();
@@ -389,7 +389,7 @@ export function Remote() {
     press(mineOnScreen && canShow ? 'show' : 'pick', next);
   };
   /**
-   * The cursor at its chapter's edge (1.5.23): the first press says where a second one
+   * The cursor at its chapter's edge (0.6.23): the first press says where a second one
    * goes; pressed again within 5 s the cursor opens the next chapter's first verse (the
    * previous one's last going back) — on screen when the cursor is on screen.
    */
@@ -491,7 +491,7 @@ export function Remote() {
 
   return (
     <div className="vo-follow vo-remote">
-      {/* everything scrolls except the footer: «Назад / Далі» stay under the thumb (1.5.15) */}
+      {/* everything scrolls except the footer: «Назад / Далі» stay under the thumb (0.6.15) */}
       <div className="vo-remote-body">
         <header style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
           <span
@@ -580,7 +580,7 @@ export function Remote() {
           />
         )}
 
-        {/* The shared running order (1.5.9): where the show is, and what's next in it. */}
+        {/* The shared running order (0.6.9): where the show is, and what's next in it. */}
         {canPlaylist && playlist && playlist.items.length > 0 && (
           <section className="vo-remote-preview" aria-label="Послідовність">
             <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
@@ -627,7 +627,7 @@ export function Remote() {
           </section>
         )}
 
-        {/* The operator's suggestion (1.5.4): take it into your preview, show it, or not. */}
+        {/* The operator's suggestion (0.6.4): take it into your preview, show it, or not. */}
         {suggestion && (
           <section
             className="vo-remote-preview vo-remote-suggest"
@@ -679,7 +679,7 @@ export function Remote() {
           </section>
         )}
 
-        {/* The speaker's own preview (1.5.1): a verse chosen here — «Далі» walks it. */}
+        {/* The speaker's own preview (0.6.1): a verse chosen here — «Далі» walks it. */}
         {canPick && cursor && (
           <section className="vo-remote-preview vo-remote-mine" aria-label="Ваш передпоказ">
             <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
@@ -736,7 +736,7 @@ export function Remote() {
           </button>
         )}
 
-        {/* «На екран» (1.5.0): what the operator's preview holds, if it isn't on screen yet. */}
+        {/* «На екран» (0.6.0): what the operator's preview holds, if it isn't on screen yet. */}
         {allowed.includes('show') && !cursor && (
           <section className="vo-remote-preview" aria-label="Передпоказ">
             <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>

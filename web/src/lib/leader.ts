@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * One control window in charge (1.3.4). Two control windows used to both publish their own
+ * One control window in charge (0.4.4). Two control windows used to both publish their own
  * selection to the outputs (they fought) and both apply every remote command. Now they
  * elect a LEADER with the Web Locks API: each asks for one lock; the holder leads, the
  * others wait in the lock's queue — and when the leader closes or crashes the browser

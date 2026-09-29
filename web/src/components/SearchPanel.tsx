@@ -205,7 +205,7 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
  * One result. Memoized: moving the highlight re-renders the two rows that change, not all
  * of them (with their term highlighting). The highlight follows the pointer only when it
  * really MOVES — rows scrolling under a still pointer used to take it one after another
- * (20 flashes and 44 renders of the list in 20 wheel steps, 1.5.5).
+ * (20 flashes and 44 renders of the list in 20 wheel steps, 0.6.5).
  */
 const ResultRow = memo(function ResultRow({
   r,

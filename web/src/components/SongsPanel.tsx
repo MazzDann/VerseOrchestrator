@@ -41,7 +41,7 @@ interface Props {
   /** Suspend the stanza arrow-key listener (e.g. while the command palette is open). */
   keysPaused?: boolean;
   /**
-   * «Далі» after the last stanza (1.5.24): the parent empties the screen — the text goes,
+   * «Далі» after the last stanza (0.6.24): the parent empties the screen — the text goes,
    * the background stays. Without it the last stanza is where the song ends.
    */
   onSongEnd?: () => Outcome;
@@ -93,7 +93,7 @@ export function SongsPanel({
       if (!s || s.slides.length === 0) return { ok: false, reason: 'Пісня ще завантажується' };
       const count = s.slides.length;
       const cur = activeStanza ?? -1;
-      // past the last stanza: an empty slide once, then the song is over (1.5.24);
+      // past the last stanza: an empty slide once, then the song is over (0.6.24);
       // «Назад» from there projects the last stanza again (the clamp below)
       if (dir > 0 && activeStanza != null && cur >= count - 1) {
         if (cur >= count) return { ok: false, reason: 'Кінець пісні' };
@@ -132,7 +132,7 @@ export function SongsPanel({
       e.preventDefault();
       e.stopPropagation();
       const o = stepStanza(dir);
-      // the song's own end says so («Кінець пісні») — like the verses' edges (1.5.23)
+      // the song's own end says so («Кінець пісні») — like the verses' edges (0.6.23)
       if (!o.ok && o.reason) {
         notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
       }
@@ -163,7 +163,7 @@ export function SongsPanel({
       { kind: 'song', songId: song?.id ?? songId ?? 0, stanza: idx },
     );
   };
-  // the «Кінець» row: the empty slide after the last stanza, by click as well (1.5.24)
+  // the «Кінець» row: the empty slide after the last stanza, by click as well (0.6.24)
   const endSong = () => {
     if (!song || !onSongEnd) return;
     const done = onSongEnd();

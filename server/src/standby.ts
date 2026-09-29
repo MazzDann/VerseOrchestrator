@@ -1,7 +1,7 @@
 /**
- * Standby waiter (1.4.1). A small process that holds the app's address (default :4747, on
+ * Standby waiter (0.5.1). A small process that holds the app's address (default :4747, on
  * every interface so phones reach it) and uses next to no memory until someone opens it:
- *   - the first visit starts the real app (the server of 1.4.0, which also serves the UI)
+ *   - the first visit starts the real app (the server of 0.5.0, which also serves the UI)
  *     on a free loopback port — a page load meanwhile gets «Запуск…» that refreshes
  *     itself, API calls and WebSocket upgrades simply wait for it;
  *   - then everything is forwarded: HTTP and WebSocket tunnels, with the visitor's address
@@ -10,7 +10,7 @@
  *   - when nothing has used it for a while (no requests, no open sockets — an open control
  *     window or phone keeps a socket, so a live show never stops) the app is stopped and
  *     the address waits again;
- *   - turned off (Налаштування → Застосунок, 1.4.2): it exits once the app has stopped;
+ *   - turned off (Налаштування → Застосунок, 0.5.2): it exits once the app has stopped;
  *     port changed: it relaunches itself — the old one closes, a fresh one reads the port.
  *
  * Control (the app talks to it — only from this machine, with the X-VO-Control header,
@@ -18,7 +18,7 @@
  *   GET /__standby            status (state, app port, …)
  *   POST /__standby/retire    exit once the app has stopped;  /resume  cancels that
  *   POST /__standby/relaunch  stop the app, close, start a fresh waiter (new port)
- *   POST /__standby/shutdown  stop the app and close now («Вимкнути повністю», 1.6.1)
+ *   POST /__standby/shutdown  stop the app and close now («Вимкнути повністю», 0.7.1)
  *
  * Only node: imports, no TS-only syntax — Node runs this file as it is
  * (`node server/src/standby.ts`, type stripping); tsx is loaded only for the app itself.
@@ -296,7 +296,7 @@ export function createStandby(o: StandbyOptions) {
   }
 
   const api = {
-    /** Start the app now instead of on the first visit (the launcher, 1.6.0). */
+    /** Start the app now instead of on the first visit (the launcher, 0.7.0). */
     start: () => ensureApp(),
     listen: () =>
       new Promise<number>((resolve, reject) => {
@@ -315,7 +315,7 @@ export function createStandby(o: StandbyOptions) {
 }
 
 // ---------------------------------------------------------------------------------------
-// The real app and the command line (`npm run standby`, or the autostart entry, 1.4.2).
+// The real app and the command line (`npm run standby`, or the autostart entry, 0.5.2).
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -392,7 +392,7 @@ export async function buildUi(
   fs.writeFileSync(path.join(root, 'web', 'dist', '.vo-version'), version);
 }
 
-/** Start the app of 1.4.0 (tsx-loaded server, any free loopback port) — building the UI first if needed. */
+/** Start the app of 0.5.0 (tsx-loaded server, any free loopback port) — building the UI first if needed. */
 export function appProcess(root: string, log: (m: string) => void) {
   return async (progress: (m: string) => void): Promise<RunningApp> => {
     if (needsBuild(root)) {
@@ -508,7 +508,7 @@ async function main(): Promise<void> {
   });
   try {
     const port = await standby.listen();
-    // the app it starts inherits this: «Вимкнути повністю» tells this very waiter (1.6.1)
+    // the app it starts inherits this: «Вимкнути повністю» tells this very waiter (0.7.1)
     process.env.VO_STANDBY_PORT = String(port);
     log(`waiting on :${port} (stops the app after ${settings.idleMinutes} min idle)`);
   } catch (err) {

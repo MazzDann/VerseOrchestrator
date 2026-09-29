@@ -10,8 +10,8 @@ import type { SlideTransition } from '../presenterBus';
 import { fadeTiming, planSlideChange } from '../lib/slideFade';
 
 /**
- * The slide change on every output (1.5.10, Mac test): the shown slide fades out, then the
- * latest one fades in — the 1.5.7 modes (lib/slideFade.ts).
+ * The slide change on every output (0.6.10, Mac test): the shown slide fades out, then the
+ * latest one fades in — the 0.6.7 modes (lib/slideFade.ts).
  *
  * Replaces framer-motion's AnimatePresence, which flashed at both ends of every fade: its
  * opacity runs as a Web Animation, and when that ends it cancels the animation at once but

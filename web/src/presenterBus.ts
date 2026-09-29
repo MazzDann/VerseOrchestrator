@@ -4,7 +4,7 @@ import { createBus, type BusChannel, type BusStorage, type Wire } from './lib/bu
  * Slides and the transport between the control window and the output windows.
  *
  * Abstraction boundary: the rest of the app only calls publishSlide / readSlide /
- * subscribeSlide (+ next, commands). The protocol lives in lib/bus.ts (1.3.1: versioned
+ * subscribeSlide (+ next, commands). The protocol lives in lib/bus.ts (0.4.1: versioned
  * messages, backgrounds sent once as assets, hello handshake); here it is bound to
  * BroadcastChannel + localStorage (same-origin, no server). To support a second device or
  * a desktop wrapper, give createBus another channel without touching the UI.
@@ -42,20 +42,20 @@ export interface SlideStyle {
   jesusColor: string;
   highlightColor: string; // emphasised (hot) word colour
   bold?: boolean; // bold body text (e.g. faithful pptx song slides)
-  /** how one slide gives way to the next (1.5.7); absent = smooth */
+  /** how one slide gives way to the next (0.6.7); absent = smooth */
   transition?: SlideTransition;
-  /** the viewers' QR (their /follow address) in a corner of every slide (1.5.16) */
+  /** the viewers' QR (their /follow address) in a corner of every slide (0.6.16) */
   qrCorner?: string | null;
-  /** how the viewers' QR is drawn (1.5.20); absent = square modules */
+  /** how the viewers' QR is drawn (0.6.20); absent = square modules */
   qrStyle?: QrStyle;
 }
 
-/** The viewers' QR look (1.5.20): classic squares, rounded modules, or dots. */
+/** The viewers' QR look (0.6.20): classic squares, rounded modules, or dots. */
 export type QrStyle = 'square' | 'rounded' | 'dots';
 
 /**
- * Slide change (1.5.7): `smooth` fades the old slide out, then the new one in (0.35 s each
- * — the new text appears ~0.37 s after the command, measured in 1.5.6); `fast` swaps at
+ * Slide change (0.6.7): `smooth` fades the old slide out, then the new one in (0.35 s each
+ * — the new text appears ~0.37 s after the command, measured in 0.6.6); `fast` swaps at
  * once and fades the new one in over 0.15 s; `none` swaps instantly.
  */
 export type SlideTransition = 'smooth' | 'fast' | 'none';
@@ -120,12 +120,12 @@ export interface Slide {
   reveal?: SlideReveal | null;
   /** Where the slide comes from — so a control window that takes over stands on it. */
   source?: SlideSource;
-  /** A QR slide («QR на екран», 1.5.16): the viewers' address as a big QR instead of text. */
+  /** A QR slide («QR на екран», 0.6.16): the viewers' address as a big QR instead of text. */
   qr?: string;
 }
 
 /**
- * What produced a slide (1.4.10): the verse selection (with the page of a long passage
+ * What produced a slide (0.5.10): the verse selection (with the page of a long passage
  * and the reveal step) or a song stanza. A control window that becomes the leader after
  * another one led (takeover / failover) puts its own selection there, so its first
  * «Далі» continues from the screen instead of from where that window was left. Output
@@ -141,7 +141,7 @@ export type SlideSource =
       verses: number[];
       page: number;
       reveal: number;
-      /** put there by a speaker's remote (1.5.2) — its name */
+      /** put there by a speaker's remote (0.6.2) — its name */
       by?: string;
     }
   | { kind: 'song'; songId: number; stanza: number; by?: string };

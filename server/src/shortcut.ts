@@ -1,5 +1,5 @@
 /**
- * A desktop shortcut and the control window as an app window (1.6.5). The shortcut starts the
+ * A desktop shortcut and the control window as an app window (0.7.5). The shortcut starts the
  * app with `--app`: the launcher then opens the control window in Chrome or Edge as a window of
  * its own — no tabs, no address bar — or in the default browser when neither is there.
  *   Windows: VerseOrchestrator.lnk on the desktop (made by PowerShell's WScript.Shell),
@@ -88,7 +88,7 @@ export function desktopDir(platform: NodeJS.Platform = process.platform): string
 
 /** macOS: a double-clickable script on the desktop that starts the app as an app window. */
 export const macCommand = (root: string) =>
-  `#!/bin/sh\n# VerseOrchestrator — made by «start --shortcut» (1.6.5); delete it to remove the shortcut.\nexec sh "${root.replace(/(["\\`$])/g, '\\$1')}/start.sh" --app\n`;
+  `#!/bin/sh\n# VerseOrchestrator — made by «start --shortcut» (0.7.5); delete it to remove the shortcut.\nexec sh "${root.replace(/(["\\`$])/g, '\\$1')}/start.sh" --app\n`;
 
 /** Linux: a desktop entry (desktop + applications menu). */
 export const linuxDesktopEntry = (root: string) => {

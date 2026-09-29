@@ -40,7 +40,7 @@ export interface Appearance {
   revealSpotlight: boolean;
   /** Show unrevealed verses faintly (else invisible but space kept). */
   revealPlaceholders: boolean;
-  /** How one slide gives way to the next on the outputs (1.5.7). */
+  /** How one slide gives way to the next on the outputs (0.6.7). */
   transition: SlideTransition;
 }
 
@@ -93,14 +93,14 @@ export interface SavedOutput {
   screenLabel: string;
 }
 
-/** Output windows (1.3.2): several presenter windows or one; the remembered layout. */
+/** Output windows (0.4.2): several presenter windows or one; the remembered layout. */
 export interface OutputSettings {
   /** «Вікно показу» opens another window each time instead of reusing the open one */
   multiple: boolean;
-  /** a window goes fullscreen as soon as it opens (Chrome/Edge: gesture delegation, 1.4.7) */
+  /** a window goes fullscreen as soon as it opens (Chrome/Edge: gesture delegation, 0.5.7) */
   fullscreen: boolean;
   /**
-   * each output window in its own browsing context group (`noopener`, 1.4.13): its own
+   * each output window in its own browsing context group (`noopener`, 0.5.13): its own
    * renderer process in Chrome/Edge, so its crash doesn't take the control window down;
    * managed over the bus only, fullscreen by F / a click in the window itself
    */
@@ -165,9 +165,9 @@ interface SettingsState {
   liveFollow: boolean;
   /** When true, mirror the live slide to the server so phones can follow along. */
   followAlong: boolean;
-  /** The viewers' QR in a corner of the output while follow-along is on (1.5.16). */
+  /** The viewers' QR in a corner of the output while follow-along is on (0.6.16). */
   followQrCorner: boolean;
-  /** How the viewers' QR is drawn on the output (1.5.20). */
+  /** How the viewers' QR is drawn on the output (0.6.20). */
   followQrStyle: QrStyle;
   /** Active positioned layout; null → the default centred layout. */
   slideTemplate: SlideTemplate | null;
@@ -451,7 +451,7 @@ export const useSettings = create<SettingsState>()(
             ...DEFAULT_APPEARANCE,
             ...preset.appearance,
             bgImage: s.appearance.bgImage,
-            // how slides change is the operator's choice, not part of a look (1.5.7)
+            // how slides change is the operator's choice, not part of a look (0.6.7)
             transition: s.appearance.transition,
           },
           slideTemplate: preset.template ?? null,
@@ -464,7 +464,7 @@ export const useSettings = create<SettingsState>()(
             ...DEFAULT_APPEARANCE,
             ...preset.appearance,
             bgImage: s.appearance.bgImage,
-            // how slides change is the operator's choice, not part of a look (1.5.7)
+            // how slides change is the operator's choice, not part of a look (0.6.7)
             transition: s.appearance.transition,
           },
           slideTemplate: preset.template ?? null,

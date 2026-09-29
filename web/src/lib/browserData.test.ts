@@ -65,7 +65,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('browser data («Вимкнути повністю», 1.6.1)', () => {
+describe('browser data («Вимкнути повністю», 0.7.1)', () => {
   it('says roughly how much this address keeps', async () => {
     const localBytes = ('vo:settings{"state":{}}'.length + 'vo:playlist[]'.length) * 2;
     expect(await browserDataBytes()).toBe(1_000_000 + localBytes);

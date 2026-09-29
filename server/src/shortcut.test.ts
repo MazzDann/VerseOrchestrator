@@ -12,7 +12,7 @@ const winEnv = {
   LOCALAPPDATA: 'C:\\Users\\Operator\\AppData\\Local',
 };
 
-describe('app window and desktop shortcut (1.6.5)', () => {
+describe('app window and desktop shortcut (0.7.5)', () => {
   it('opens the control window in Chrome, else Edge, as an app window', () => {
     const chrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
     const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';

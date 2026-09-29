@@ -8,7 +8,7 @@ const KIND_MARK: Record<PlaylistEntry['kind'], string> = {
 };
 
 /**
- * The operator's running order on the speaker's phone (1.5.9, «Послідовність»): the list
+ * The operator's running order on the speaker's phone (0.6.9, «Послідовність»): the list
  * with the current item marked; an item goes to the speaker's preview or on screen. Plain
  * elements with vo-remote-* classes, like the picker.
  */

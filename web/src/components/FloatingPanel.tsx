@@ -46,7 +46,7 @@ const EST_HEIGHT = 440;
 /**
  * Mantine sizes are in rem: with a larger browser font (Chrome «Large», 20 px) every
  * button and gap grows by a quarter, so a panel fixed at 380 px overflowed (Mac test,
- * 1.4.8). Default widths scale with the root font; a size the operator dragged is kept
+ * 0.5.8). Default widths scale with the root font; a size the operator dragged is kept
  * in px as dragged.
  */
 function rootScale(): number {

@@ -101,7 +101,7 @@ export function PlaylistPanel({
     onClear();
     requestAnimationFrame(() => undoRef.current?.focus());
   };
-  // the same for a program: its row, trash icon and all, is gone (1.8.1)
+  // the same for a program: its row, trash icon and all, is gone (0.9.1)
   const remove = (program: string) => {
     onDelete(program);
     requestAnimationFrame(() => undoDeleteRef.current?.focus());

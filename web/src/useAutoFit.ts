@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, type DependencyList } from 'react';
  * resize, on `deps` change (font/alignment), and — crucially — whenever the
  * content OR container element (re)mounts, so animated slide swaps refit correctly.
  *
- * Both refs are CALLBACK refs: when `SlideFade` (1.5.10; framer-motion before) swaps a
+ * Both refs are CALLBACK refs: when `SlideFade` (0.6.10; framer-motion before) swaps a
  * slide, the whole box+content subtree remounts as new DOM nodes. The container
  * callback re-points the ResizeObserver at the new box, and every (re)mount
  * schedules a fit on the next animation frame (so layout has settled and both
@@ -25,7 +25,7 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
     const content = contentEl.current;
     if (!container || !content) return;
     // A slide that is fading out keeps its size (SlideFade marks it): refitting it by the
-    // NEXT slide's limits made a leaving song title jump 96 → 100 px (1.5.10).
+    // NEXT slide's limits made a leaving song title jump 96 → 100 px (0.6.10).
     if (content.closest('[data-leaving]')) return;
     let lo = min;
     // Cap the upper bound at `maxCqh`% of the SLIDE height when given (faithful pptx

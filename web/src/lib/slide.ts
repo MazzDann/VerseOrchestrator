@@ -28,7 +28,7 @@ export interface ScreenSummary {
   /** First line's text, capped — enough to recognise the slide on a phone. */
   text: string;
   font?: string;
-  /** where it comes from (1.5.1): a remote knows whether its own cursor is on screen */
+  /** where it comes from (0.6.1): a remote knows whether its own cursor is on screen */
   source?: SlideSource;
 }
 
@@ -51,7 +51,7 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
 }
 
 /**
- * «Сховати текст» (1.5.18) over what is on screen — the operator: «щоб вертався рівно
+ * «Сховати текст» (0.6.18) over what is on screen — the operator: «щоб вертався рівно
  * той же контент». Hiding keeps the whole slide (lines, style, source) with blank: the
  * text fades, the background and the corner QR stay; again → the same slide back. From
  * black it goes to «hidden». Null: nothing on screen to hide.
@@ -64,7 +64,7 @@ export function toggleHidden(s: Slide): Slide | null {
 }
 
 /**
- * «Чорний екран» (1.5.18): an instant cut to black — background and corner QR included —
+ * «Чорний екран» (0.6.18): an instant cut to black — background and corner QR included —
  * over whatever is there (kept inside the slide); again → exactly that back.
  */
 export function toggleBlack(s: Slide): Slide {

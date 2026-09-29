@@ -170,7 +170,7 @@ describe('output windows registry', () => {
   it('commands (move / close / focus / leave fullscreen) reach only the named window', async () => {
     const h = hub();
     // a control window that did NOT open the outputs (another group of windows): the
-    // channel is all it needs (Windows two-monitor test, 1.4.11)
+    // channel is all it needs (Windows two-monitor test, 0.5.11)
     const other = createOutputs(h.endpoint());
     const got: string[] = [];
     const a = createOutputs(h.endpoint()).announce(

@@ -74,22 +74,22 @@ converted segment is cached, so a reload doesn't convert again.
 
 ## Measurements
 
-The numbers come from the development PC (Windows 10) during milestone 1.2, completed on
+The numbers come from the development PC (Windows 10) during milestone 0.3, completed on
 2026-09-27; each change is in the commit named in the first column.
 
 Storage and loading:
 
 | Change                                                               | Before                 | After                    |
 | -------------------------------------------------------------------- | ---------------------- | ------------------------ |
-| 1.2.2: contentless FTS5 per translation, no duplicate text columns   | 636 MB                 | 452 MB (−29 %)           |
-| 1.2.2: a search planner that uses the index's term counts («бог»)    | 37 ms                  | 14 ms                    |
-| 1.2.3: segments instead of the whole library                         | 452 MB                 | 130 MB gzipped, 25 files |
-| 1.2.3: normalization per verse                                       | 18.3 µs                | 12.0 µs                  |
-| 1.2.6: segments carry normalized text; one SQL statement fills FTS5  | ~1.7 s per translation | 0.41–0.48 s              |
-| 1.2.8: bulk inserts with `json_each` when converting a module (KJV+) | 6.5 s                  | 2.8 s                    |
-| 1.2.9: a PGlite snapshot in IndexedDB instead of reloading segments  | 42 s                   | 4.4 s                    |
+| 0.3.2: contentless FTS5 per translation, no duplicate text columns   | 636 MB                 | 452 MB (−29 %)           |
+| 0.3.2: a search planner that uses the index's term counts («бог»)    | 37 ms                  | 14 ms                    |
+| 0.3.3: segments instead of the whole library                         | 452 MB                 | 130 MB gzipped, 25 files |
+| 0.3.3: normalization per verse                                       | 18.3 µs                | 12.0 µs                  |
+| 0.3.6: segments carry normalized text; one SQL statement fills FTS5  | ~1.7 s per translation | 0.41–0.48 s              |
+| 0.3.8: bulk inserts with `json_each` when converting a module (KJV+) | 6.5 s                  | 2.8 s                    |
+| 0.3.9: a PGlite snapshot in IndexedDB instead of reloading segments  | 42 s                   | 4.4 s                    |
 
-The engines side by side, on the `/bench` page (1.2.11), with the same segments and 16
+The engines side by side, on the `/bench` page (0.3.11), with the same segments and 16
 queries:
 
 | Measure              | Server (HTTP) | SQLite-WASM | PGlite |

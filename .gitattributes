@@ -3,7 +3,7 @@
 # taken from a bundle, 31 files there failed `prettier --check` with no change of their own.
 * text=auto eol=lf
 
-# The launchers (1.6.0): shell scripts must keep LF even in a Windows checkout — a CRLF
+# The launchers (0.7.0): shell scripts must keep LF even in a Windows checkout — a CRLF
 # start.sh copied to a Mac or Linux (the flash copy) fails with "bad interpreter";
 # cmd.exe wants CRLF for its labels.
 *.sh      text eol=lf

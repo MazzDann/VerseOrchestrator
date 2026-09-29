@@ -291,7 +291,7 @@ export function Control() {
   /** Output windows open right now (they announce themselves — lib/outputs.ts). */
   const outputWindows = useOutputWindows();
   /**
-   * One control window in charge (1.3.4, lib/leader.ts): only the leader publishes to the
+   * One control window in charge (0.4.4, lib/leader.ts): only the leader publishes to the
    * outputs, takes commands and holds the server's control socket; a second control window
    * is on standby — it mirrors what is on screen and can «Взяти керування».
    */
@@ -325,7 +325,7 @@ export function Control() {
   // The slide actually published to the output window (for the in-app live monitor).
   const [liveSlide, setLiveSlide] = useState<Slide>(() => readSlide());
   /**
-   * The speaker's own preview (1.5.2): the passage a remote picked last, as a slide — the
+   * The speaker's own preview (0.6.2): the passage a remote picked last, as a slide — the
    * operator sees it next to their own preview; hidden with ✕ until the next pick.
    */
   const [remoteView, setRemoteView] = useState<{
@@ -336,7 +336,7 @@ export function Control() {
   } | null>(null);
 
   // `focus`: hand the keyboard to the verse landed on (search, «Перейти»), so ↩ puts it on
-  // screen and the arrows walk on. Mac re-check (1.5.13): after a search pick the panel
+  // screen and the arrows walk on. Mac re-check (0.6.13): after a search pick the panel
   // closed and left the focus on <body> — ↩ did nothing, only ⌘↩ (a page-wide hotkey)
   // projected. Other jumps (history, concordance, sequence, remotes) keep the focus.
   const focusJump = useRef(false);
@@ -502,7 +502,7 @@ export function Control() {
       jesusColor: appearance.jesusColor,
       highlightColor: appearance.highlightColor,
       transition: appearance.transition,
-      // the viewers' QR in a corner (1.5.16) — only while the relay is on to read from
+      // the viewers' QR in a corner (0.6.16) — only while the relay is on to read from
       qrCorner: followAlong && followQrCorner ? followUrl : null,
       qrStyle: followQrStyle,
     }),
@@ -533,7 +533,7 @@ export function Control() {
         }
       : undefined;
 
-  /** Where a verse slide comes from (1.4.10, SlideSource): the selection, page, reveal step. */
+  /** Where a verse slide comes from (0.5.10, SlideSource): the selection, page, reveal step. */
   const verseSource = (
     verses: number[] = selectedVerses,
     page: number = safePageIndex,
@@ -655,11 +655,11 @@ export function Control() {
     if (!controlConn.current?.send({ type: 'publish', paused: true })) void api.livePause();
   };
   // What was pushed last. Live-follow re-sends whenever slideLines gets a new identity —
-  // every render (useQueries) — which re-published the SAME slide 7–10× per step (1.3.1,
+  // every render (useQueries) — which re-published the SAME slide 7–10× per step (0.4.1,
   // measured): each copy re-rendered this window, went to every output window, the
   // remotes' «screen» frame and the phones. An identical slide is now a no-op.
   const lastPushed = useRef<Slide | null>(null);
-  /** A takeover still restoring page / reveal (1.4.10): key = the selection it waits for. */
+  /** A takeover still restoring page / reveal (0.5.10): key = the selection it waits for. */
   const adopting = useRef<{
     key: string;
     page: number;
@@ -672,7 +672,7 @@ export function Control() {
     lastPushed.current = slide;
     publishSlide(slide);
     setLiveSlide(slide);
-    // the QR slide stays off the phones: they are already reading (1.5.16)
+    // the QR slide stays off the phones: they are already reading (0.6.16)
     if (followAlongRef.current && opts?.audience !== false) publishAudience(slide);
   };
 
@@ -1031,7 +1031,7 @@ export function Control() {
     return { ok: true };
   };
 
-  // At the chapter's edge (1.5.23): the first press says where a second one goes; pressed
+  // At the chapter's edge (0.6.23): the first press says where a second one goes; pressed
   // again within 5 s it opens the next chapter's first verse (the previous one's last going
   // back) — on screen too when the screen follows the selection.
   const crossArm = useRef<CrossArm | null>(null);
@@ -1130,7 +1130,7 @@ export function Control() {
     setRevealCount(1);
   }, [selectedVerses, safePageIndex, primaryId]);
 
-  // Taking over (1.4.10): once the adopted selection is in, restore its page, then its
+  // Taking over (0.5.10): once the adopted selection is in, restore its page, then its
   // reveal step and a Strong slide — declared after the reset effects above, so it runs
   // after them in the same commit and wins. Live-follow waits until this is done.
   useEffect(() => {
@@ -1183,7 +1183,7 @@ export function Control() {
   // Remove the slide from the output. Drops out of live so the live-follow effect
   // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
   // which would re-run that effect).
-  // «QR на екран» (1.5.16): the viewers' QR as a slide; «Прибрати QR» brings back exactly
+  // «QR на екран» (0.6.16): the viewers' QR as a slide; «Прибрати QR» brings back exactly
   // the slide it covered (not the selection — the operator may have browsed meanwhile).
   const qrReturn = useRef<Slide | null>(null);
   const showQr = () => {
@@ -1219,7 +1219,7 @@ export function Control() {
     // verses: live-follow picks up again on the next step; a song / text keeps the screen
     setPreviewOverride(restored.source?.kind === 'verses' ? null : restored);
   };
-  // The corner QR switched on/off or restyled (1.5.20): show it on what is on screen now,
+  // The corner QR switched on/off or restyled (0.6.20): show it on what is on screen now,
   // whatever that is (the QR slide itself too).
   useEffect(() => {
     const s = liveSlideRef.current;
@@ -1329,7 +1329,7 @@ export function Control() {
     ],
   );
 
-  // «Сховати текст» / «Чорний екран» (1.5.18): switches over what is on screen — the same
+  // «Сховати текст» / «Чорний екран» (0.6.18): switches over what is on screen — the same
   // slide comes back on the second press (lib/slide.ts). Hiding: the text fades, the
   // background and the corner QR stay (B). Black: an instant cut, everything (.).
   const afterToggle = (s: Slide) => {
@@ -1371,7 +1371,7 @@ export function Control() {
   };
   useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
 
-  // «Далі» after a song's last stanza (1.5.24): an empty slide — the stanza's text goes, its
+  // «Далі» after a song's last stanza (0.6.24): an empty slide — the stanza's text goes, its
   // background stays (the same slide, hidden, as «Сховати текст»); «Назад» or any stanza
   // brings text back. Only over a song: after a song the screen shows nothing to read.
   const songEnd = (): Outcome => {
@@ -1395,7 +1395,7 @@ export function Control() {
     if (cmd === 'next') return advance(1);
     if (cmd === 'prev') return advance(-1);
     const by = _source.name ?? 'Пульт';
-    // an item of the shared running order (1.5.9)
+    // an item of the shared running order (0.6.9)
     if (args.item && (cmd === 'show' || cmd === 'pick')) {
       const it = playlistItems.find((i) => i.id === args.item);
       if (!it) return { ok: false, reason: 'Цього елемента вже немає в послідовності' };
@@ -1441,11 +1441,11 @@ export function Control() {
   }, PRIORITY.verses);
 
   /**
-   * A remote's «На екран» (1.5.0): what the preview shows goes on screen — the operator's
+   * A remote's «На екран» (0.6.0): what the preview shows goes on screen — the operator's
    * F5. A song stanza / free text / Strong slide in the preview is what's shown then.
    */
   /**
-   * A passage chosen on a speaker's phone (1.5.1, the remote's own cursor) as a slide —
+   * A passage chosen on a speaker's phone (0.6.1, the remote's own cursor) as a slide —
    * built here, in the operator's style, from the library; the operator's selection is
    * not touched. Throws «Уривок недоступний» when none of its translations has it.
    */
@@ -1483,7 +1483,7 @@ export function Control() {
     };
   }
 
-  /** A song stanza chosen on a remote (1.5.3), in the operator's style (not «як у pptx»). */
+  /** A song stanza chosen on a remote (0.6.3), in the operator's style (not «як у pptx»). */
   async function remoteSongSlide(p: RemoteSong, by: string): Promise<Slide> {
     const s = await queryClient.fetchQuery({
       queryKey: ['song', p.songId],
@@ -1522,7 +1522,7 @@ export function Control() {
         : null;
 
   /**
-   * A running-order item shown from a remote (1.5.9) — built like the speaker's own choice
+   * A running-order item shown from a remote (0.6.9) — built like the speaker's own choice
    * (the operator's style, their selection untouched); a free-text item as the operator
    * projects it.
    */
@@ -1540,7 +1540,7 @@ export function Control() {
     });
   }
 
-  /** The speaker adds their choice to the shared running order (1.5.9). */
+  /** The speaker adds their choice to the shared running order (0.6.9). */
   async function queueFromRemote(t: RemoteTarget, by: string): Promise<Outcome> {
     let label: string;
     if (t.kind === 'verses') {
@@ -1607,7 +1607,7 @@ export function Control() {
         if (!leaderRef.current) return;
         void commands.dispatch(id, cmd, { kind: 'output' }).then((o) => {
           // a clicker at the output window can't see why nothing moved — the operator can
-          // (at a chapter's edge: where a second press goes, 1.5.23)
+          // (at a chapter's edge: where a second press goes, 0.6.23)
           if (!o.ok && !o.duplicate && o.reason) {
             notifications.show({ message: o.reason, color: 'gray', autoClose: 2500 });
           }
@@ -1624,7 +1624,7 @@ export function Control() {
     type: 'screen',
     screen: summarize(liveSlideRef.current),
     next: nextSlideRef.current ? summarize(nextSlideRef.current) : null,
-    // what the remote's «На екран» would put there (1.5.0)
+    // what the remote's «На екран» would put there (0.6.0)
     preview: JSON.parse(previewSummary.current) as ReturnType<typeof summarize>,
   });
   // the preview gets a new identity every render: compare its summary instead
@@ -1635,12 +1635,12 @@ export function Control() {
   const nextSlideRef = useRef(nextSlide);
   nextSlideRef.current = nextSlide;
 
-  // Leader ⇄ standby (1.3.4). Standby: publish nothing and mirror what the leader shows
+  // Leader ⇄ standby (0.4.4). Standby: publish nothing and mirror what the leader shows
   // (the «На екрані» monitor stays true). Becoming leader — at start, when the leading
   // window closes, or on «Взяти керування»: take the screen over as it is (republished
   // under this window's session, nothing visibly changes) and publish this window's «next».
   //
-  // Taking over after another window led (1.4.10) — not at start, when nobody else did —
+  // Taking over after another window led (0.5.10) — not at start, when nobody else did —
   // also stands this window on what is on screen (lib/takeover.ts): the selection, page
   // and reveal step, or the song and stanza, so its first «Далі» continues the show.
   const mirrored = useRef(false);
@@ -1699,18 +1699,18 @@ export function Control() {
   /** Audience phones currently on /follow (pushed by the hub). */
   const [viewers, setViewers] = useState(0);
   /**
-   * Is this the control window the server listens to (1.5.8)? With control windows in two
+   * Is this the control window the server listens to (0.6.8)? With control windows in two
    * browsers, remotes, their «На екрані» and the phones follow one — the first; the other
    * shows a note and can take over («Слухати тут»).
    */
   const [hubActive, setHubActive] = useState(true);
   /**
-   * The socket to the hub has been down for more than a blink (1.5.25). Then nobody can say
+   * The socket to the hub has been down for more than a blink (0.6.25). Then nobody can say
    * which window is in charge: the Mac test saw «Слухати тут» stay up (and do nothing) after
    * the server had stopped — the last word from the hub, never taken back.
    */
   const [hubLost, setHubLost] = useState(false);
-  /** The hub said the app is being switched off on purpose («Вимкнути повністю», 1.6.1). */
+  /** The hub said the app is being switched off on purpose («Вимкнути повністю», 0.7.1). */
   const [appOff, setAppOff] = useState(false);
   useEffect(() => {
     // No server (static deployment / stopped): there is no hub to talk to. Standby: the
@@ -1772,7 +1772,7 @@ export function Control() {
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
         } else if (f.type === 'suggested') {
-          // the hub's answer to «Запропонувати пульту» (1.5.4)
+          // the hub's answer to «Запропонувати пульту» (0.6.4)
           const name =
             queryClient.getQueryData<Pairing[]>(['remotes'])?.find((p) => p.id === f.to)?.name ??
             'пульт';
@@ -1793,7 +1793,7 @@ export function Control() {
       c.stop();
     };
   }, [queryClient, serverAvailable, isLeader]);
-  // The shared running order (1.5.9): a summary of «Послідовність показу» for remotes
+  // The shared running order (0.6.9): a summary of «Послідовність показу» for remotes
   // allowed «Послідовність» (the hub relays it to them only) — ids, labels, the current
   // item, and what a phone needs to walk a passage / song with its own cursor.
   const sharedPlaylist: SharedPlaylist = useMemo(
@@ -1823,7 +1823,7 @@ export function Control() {
     if (hubActive) controlConn.current?.send({ type: 'playlist', playlist: sharedPlaylist });
   }, [sharedPlaylist, hubActive]);
 
-  // «Запропонувати пульту» (1.5.4): the operator's preview — a verse page or a song stanza —
+  // «Запропонувати пульту» (0.6.4): the operator's preview — a verse page or a song stanza —
   // to a speaker's remote allowed to choose that kind and online now.
   const remotesQuery = useQuery({
     queryKey: ['remotes'],
@@ -2905,11 +2905,11 @@ function stripBg(slide: Slide): Slide {
 
 /** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */
 const GAP = '…';
-/** The book list keeps about four rows however short the window (1.5.26). */
+/** The book list keeps about four rows however short the window (0.6.26). */
 const BOOKS_MIN_HEIGHT = 120;
 /**
- * How long the socket to the hub may be down before the operator is told (1.5.25), counted
- * from the drop (1.5.29: a failed retry no longer restarts it — with retries every 2 s it
+ * How long the socket to the hub may be down before the operator is told (0.6.25), counted
+ * from the drop (0.6.29: a failed retry no longer restarts it — with retries every 2 s it
  * never ran out). The retries 0.5 / 1.5 / 3.5 s after the drop catch a restart of up to
  * ~3.5 s before this.
  */

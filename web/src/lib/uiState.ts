@@ -3,7 +3,7 @@ import { usePlaylist } from '../playlistStore';
 import { useSettings } from '../settingsStore';
 
 /**
- * The UI state kept with the app in data/ (1.6.4, server/src/uiState.ts): appearance, presets
+ * The UI state kept with the app in data/ (0.7.4, server/src/uiState.ts): appearance, presets
  * and hotkeys, the running order and saved programmes. The browser keeps its own copy per
  * address (localStorage), so the copies are synced from the control window: at start the newer
  * one wins — the server's is written into the browser and the store reloads, the browser's is
@@ -102,7 +102,7 @@ export async function startUiStateSync(): Promise<void> {
       window.clearTimeout(timers[key]);
       timers[key] = window.setTimeout(() => {
         const value = get(key);
-        // nothing to send: unchanged, or the browser data was just cleared (1.6.1)
+        // nothing to send: unchanged, or the browser data was just cleared (0.7.1)
         if (value === null || value === sent[key]) return;
         // a change here, newer than data/ — remembered even if the server is away now, so the
         // next start sends it

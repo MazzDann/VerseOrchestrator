@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Output windows registry (1.3.2): every output window (presenter, stage) announces itself
+ * Output windows registry (0.4.2): every output window (presenter, stage) announces itself
  * on a channel of its own — what it is, where it sits, whether it is fullscreen / visible —
  * on open, on every change and as a heartbeat; it says `bye` when it closes. The control
  * window tracks the list (a window that stops beating is dropped) and can ask one window
  * to identify itself (a big «Показ 1» on that screen, like an OS «identify displays»).
  *
- * Since 1.4.11 it also sends it COMMANDS — move / close / focus / leave fullscreen — that
+ * Since 0.5.11 it also sends it COMMANDS — move / close / focus / leave fullscreen — that
  * the window carries out on itself. A control window opened separately (a new window, a
  * typed address) can't reach the windows another one opened: window names only resolve
  * within one group of windows that opened each other (Windows two-monitor test). An
@@ -67,7 +67,7 @@ export const HEARTBEAT_MS = 5000;
 /** Three missed heartbeats and a window counts as gone (crashed, or closed without `bye`). */
 export const STALE_MS = 3 * HEARTBEAT_MS;
 /**
- * A hidden window (its Space isn't shown, another window covers it — macOS test, 1.4.4)
+ * A hidden window (its Space isn't shown, another window covers it — macOS test, 0.5.4)
  * gets its timers throttled by the browser: Chrome lets a hidden page's chained timers
  * run about once a minute, so its heartbeats arrive 30–45 s apart. Such a window is
  * kept until it has been silent for longer than that; it still says `bye` when closed.
@@ -274,7 +274,7 @@ export function useAnnounceOutput(kind: OutputKind): string | null {
 }
 
 // One tracker per control page, shared by the hooks and openOutput (which needs to know
-// what is open: with `noopener` it gets no window reference back — 1.4.13).
+// what is open: with `noopener` it gets no window reference back — 0.5.13).
 let known: TrackedOutput[] = [];
 const knownSubs = new Set<(list: TrackedOutput[]) => void>();
 let tracking = false;

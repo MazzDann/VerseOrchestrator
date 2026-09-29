@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { planSync } from './uiState';
 
-describe('UI state sync (1.6.4)', () => {
+describe('UI state sync (0.7.4)', () => {
   const remote = (value: string, at: number) => ({ value, at });
 
   it('a first start after the update moves the browser’s settings into data/', () => {

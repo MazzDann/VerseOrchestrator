@@ -58,7 +58,7 @@ const NOT_OURS_FULLSCREEN =
   'Відкрите з іншого вікна керування: на весь екран його переведе F або клік у самому вікні';
 
 /**
- * «Вікна виводу» (1.3.2): the screens of this computer with «open here» buttons, the
+ * «Вікна виводу» (0.4.2): the screens of this computer with «open here» buttons, the
  * output windows open right now (live, from their own announcements — lib/outputs.ts),
  * and the remembered layout. Rendered inside a FloatingPanel.
  */
@@ -250,7 +250,7 @@ export function OutputsPanel() {
               const label = labels.get(o.id)!;
               // Move / close / focus go to the window itself (any control window); going
               // fullscreen needs our reference — a window this page opened, re-acquired
-              // by name after a reload of this page (1.4.5).
+              // by name after a reload of this page (0.5.5).
               const canFullscreen = o.fullscreen || !!outputRef(o);
               const on = screenOf(o.bounds, screens);
               const state = [

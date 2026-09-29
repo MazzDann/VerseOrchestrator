@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { howToStart, nodeCopy, npmShim, projectFiles } from './portable';
 
-describe('portable copy (1.6.3)', () => {
+describe('portable copy (0.7.3)', () => {
   it('copies node.exe with the npm beside it on Windows', () => {
     const copy = nodeCopy('win32', 'C:\\Program Files\\nodejs\\node.exe', '', () => true);
     expect(copy).toEqual([
@@ -41,12 +41,12 @@ describe('portable copy (1.6.3)', () => {
   });
 
   it('tells how to start, in the system’s own words', () => {
-    const win = howToStart({ version: '1.6.3', platform: 'win32', arch: 'x64', withLibrary: true });
+    const win = howToStart({ version: '0.7.3', platform: 'win32', arch: 'x64', withLibrary: true });
     expect(win).toContain('для Windows (x64)');
     expect(win).toContain('start.cmd');
     expect(win).toContain('бібліотеку вже додано');
     const mac = howToStart({
-      version: '1.6.3',
+      version: '0.7.3',
       platform: 'darwin',
       arch: 'arm64',
       withLibrary: false,

@@ -25,7 +25,7 @@ the round trip (median), how long the send blocks the sender, and bursts.
 
 Round trip for a slide with a background photo (a data URL of about 1.5 MB):
 
-| Transport        | Windows, 1.3.0             | Mac, Chrome 154, a separate window |
+| Transport        | Windows, 0.4.0             | Mac, Chrome 154, a separate window |
 | ---------------- | -------------------------- | ---------------------------------- |
 | BroadcastChannel | 10 ms (sender blocked 2.5) | 1.7 ms                             |
 | `storage` events | 46 ms (blocked 14, max 32) | 12 ms                              |
@@ -64,7 +64,7 @@ localStorage copy, behind the `presenterBus.ts` API:
 - **No duplicates.** An identical publish is dropped, both in the bus and in the control
   window.
 
-What bus v2 changed (1.3.1, measured in the control window):
+What bus v2 changed (0.4.1, measured in the control window):
 
 | Measure                                              | Before  | After                                  |
 | ---------------------------------------------------- | ------- | -------------------------------------- |
@@ -84,7 +84,7 @@ renderer process of their own. When an output window's renderer crashed (Edge, C
 `Page.crash`), the control window survived and the window's row went from the panel in
 about 9 seconds; without the option, the control window crashed with it.
 
-Latency from a phone's **Далі** to the output window (1.5.28, Windows, Chrome 154, 10 runs
+Latency from a phone's **Далі** to the output window (0.6.28, Windows, Chrome 154, 10 runs
 each) — the message arrives / the new text is in the page / the text is fully shown:
 
 | Transition   | Shared renderer   | Own process      |
@@ -117,7 +117,7 @@ The command pipeline (`web/src/lib/commands.ts`):
 
 The hub forwards a remote's command to the leading control window and acks the remote
 with the control window's real result, or with a timeout after 2.5 seconds. The ack took
-1.8 ms (1.3.3).
+1.8 ms (0.4.3).
 
 ## Phones: the hub
 
@@ -128,7 +128,7 @@ to polling `GET /api/live` every 1.5 seconds while its socket is down.
 
 Clients reconnect after 0.5 s, 1 s, and then every 2 seconds, and at once when the
 network comes back or the page is shown again (`web/src/lib/liveSocket.ts`). Rejoin time
-after the server is back, with a TCP proxy playing the outage (1.5.29, Chrome 154):
+after the server is back, with a TCP proxy playing the outage (0.6.29, Chrome 154):
 
 | Outage | Retries capped at 10 s | Retries every 2 s |
 | ------ | ---------------------- | ----------------- |

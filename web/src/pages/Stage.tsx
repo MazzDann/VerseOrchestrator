@@ -54,7 +54,7 @@ export function Stage() {
     };
   }, []);
 
-  // Like the presenter window (Mac test, 1.4.6): fullscreen needs a user gesture, so
+  // Like the presenter window (Mac test, 0.5.6): fullscreen needs a user gesture, so
   // «F» or a click anywhere toggles it once the window sits on its screen.
   useEffect(() => listenFullscreen(setFullscreen), []);
   useEffect(() => {
