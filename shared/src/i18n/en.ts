@@ -529,6 +529,11 @@ export const EN: Record<string, string> = {
   'Повернути версію {version}': 'Go back to version {version}',
   'Застосунок перезапуститься з версією {version}: це займе до хвилини. Версія {current} лишиться поруч — до неї можна повернутися тут само.':
     'The app restarts as version {version}: it takes up to a minute. Version {current} stays next to it — you can come back to it right here.',
+  'Застосунок перезапуститься з версією {version}: це займе до хвилини. Версія {version} ще не вміє повертати версії: щоб знову перейти на {current}, оновіться в «Оновлення» — потрібен інтернет.':
+    'The app restarts as version {version}: it takes up to a minute. Version {version} can’t go back to another version yet: to switch to {current} again, update in “Updates” — this needs the internet.',
+  'Зачекайте, доки оновлення розпакується': 'Wait until the update is unpacked',
+  'Завантаження оновлення зупиниться.': 'The update download stops.',
+  'Застосунок уже перезапускається': 'The app is already restarting',
   'Попередньої версії немає': 'There is no previous version',
   'Попередня версія не запустилася — працює та, що була':
     "The previous version didn't start — the one before it runs",

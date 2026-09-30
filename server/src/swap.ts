@@ -12,7 +12,10 @@
  *     start that one, and say why (`result.json`, which the app shows in «Оновлення»).
  *
  * «Повернути попередню версію» (1.4.0) goes the same way: the server turns `app.previous`
- * into `app.next` first, and the plan says `kind: 'rollback'`.
+ * into `app.next` first, and the plan says `kind: 'rollback'`. Back to a version before 1.4.0,
+ * which has no such button (`keepAsNext`, 1.4.1), the version left becomes that one's
+ * `app.next` once it answers: its «Оновлення» then offers it again with no download, as long as
+ * it is GitHub's latest.
  *
  * The new version runs in the background, as with «Запуск за адресою» (the console window of
  * the start file has closed with the old version).
@@ -43,6 +46,11 @@ export interface SwapPlan {
   log: string;
   /** a new version, or back to the one before (1.4.0) — the app words its result by it */
   kind?: 'update' | 'rollback';
+  /**
+   * a rollback to a version that can't go back itself (before 1.4.0): the version left stays
+   * as `app.next`, ready for that one's «Перезапустити й оновити» (1.4.1)
+   */
+  keepAsNext?: boolean;
 }
 
 export interface SwapResult {
@@ -93,6 +101,11 @@ export async function swapFolders(top: string): Promise<void> {
     await renameRetry(previous, app);
     throw e;
   }
+}
+
+/** After a rollback: the version left (`app.previous`) waits as `app.next`, like a downloaded update. */
+export async function previousAsNext(top: string): Promise<void> {
+  await renameRetry(path.join(top, 'app.previous'), path.join(top, 'app.next'));
 }
 
 /** The new `app` failed: keep it as `app.failed`, put the previous one back. */
@@ -232,6 +245,14 @@ export async function runSwap(plan: SwapPlan, waitMs = 90_000): Promise<SwapResu
         copyTopFiles(plan.topFiles, plan.top);
       } catch (e) {
         log(`top files not replaced: ${(e as Error).message}`);
+      }
+    }
+    if (plan.keepAsNext) {
+      try {
+        await previousAsNext(plan.top);
+        log(`${plan.from} waits in app.next`);
+      } catch (e) {
+        log(`${plan.from} stays in app.previous: ${(e as Error).message}`);
       }
     }
     return done({ ok: true });
