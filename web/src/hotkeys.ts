@@ -30,6 +30,7 @@ export type HotkeyActionId =
   | 'project'
   | 'blank'
   | 'black'
+  | 'cover'
   | 'clear'
   | 'restore'
   | 'searchCurrent'
@@ -107,6 +108,14 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     label: N_('Чорний екран'),
     hint: N_('Одразу все чорне, навіть фон; ще раз — усе назад'),
     default: 'period',
+  },
+  // 1.4.0: the operator's logo and a line of text between items (Налаштування вигляду →
+  // Заставка); again — exactly what it covered, like the two toggles above
+  {
+    id: 'cover',
+    label: N_('Заставка'),
+    hint: N_('Логотип і текст між елементами; ще раз — те, що було'),
+    default: 'l',
   },
   {
     id: 'clear',
