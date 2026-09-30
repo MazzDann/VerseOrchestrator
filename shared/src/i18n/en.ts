@@ -488,6 +488,13 @@ export const EN: Record<string, string> = {
   'Простий текст': 'Plain text',
   Заголовок: 'Title',
   'Куплет {n}': 'Stanza {n}',
+  Приспів: 'Chorus',
+  'Приспів {n}': 'Chorus {n}',
+  'До приспіву': 'To the chorus',
+  'У відкритій пісні: найближчий приспів — одразу на екран':
+    'In the open song: the nearest chorus, straight on screen',
+  'У цій пісні немає приспіву': 'This song has no chorus',
+  'Далі в пісні приспіву немає': 'No chorus further on in this song',
   Кінець: 'End',
   'Порожній слайд: текст сховано, фон лишається':
     'An empty slide: the text hidden, the background stays',

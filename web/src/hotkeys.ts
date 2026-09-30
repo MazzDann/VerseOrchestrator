@@ -26,6 +26,7 @@ export type HotkeyActionId =
   | 'advancePrev'
   | 'previewNext'
   | 'previewPrev'
+  | 'chorus'
   | 'project'
   | 'blank'
   | 'black'
@@ -78,6 +79,14 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     hint: N_('Попередній вірш лише в прев’ю — екран стоїть до «На екран»'),
     default: 'ctrl+left,ctrl+up',
     macInstead: 'alt+left,alt+up',
+  },
+  // 1.3.0: songs repeat their chorus after every verse, and some have a different one —
+  // this finds the next chorus of the open song (shared/src/songs/sections.ts)
+  {
+    id: 'chorus',
+    label: N_('До приспіву'),
+    hint: N_('У відкритій пісні: найближчий приспів — одразу на екран'),
+    default: 'c',
   },
   {
     id: 'project',
