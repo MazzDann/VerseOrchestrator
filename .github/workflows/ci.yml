@@ -1,6 +1,6 @@
-# Checks on every push and pull request; on a push to main whose commit carries its version's
-# tag (every PATCH is tagged — docs/dev/contributing.md), the release packages
-# for Windows, macOS and Linux and a GitHub release with them (0.14.1). Versions 0.x come out as
+# Checks on every push to main and every pull request; on a push to main whose commit carries
+# its version's tag (a release commit — docs/dev/contributing.md), the release packages for
+# Windows, macOS and Linux and a GitHub release with them. Versions 0.x came out as
 # pre-releases; the first regular release is 1.0.0.
 name: CI
 

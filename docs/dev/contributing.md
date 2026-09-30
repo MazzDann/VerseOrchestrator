@@ -1,8 +1,8 @@
 # Contributing
 
 This page is for developers who change VerseOrchestrator: how to set up the project, the
-checks every commit passes, and the conventions for versions, commits, UI, and docs. How
-the code is organized is in [Architecture](architecture.md).
+checks every commit passes, and the conventions for branches, versions, commits, UI, and
+docs. How the code is organized is in [Architecture](architecture.md).
 
 ## Set up
 
@@ -44,17 +44,28 @@ performance claims need numbers. Measure before you change a hot path and after,
 put both in the commit message. The `/bench` page compares the database engines and the
 window-sync transports, and `npm run bench:db` benchmarks the server's queries.
 
-## Versions and commits
+## Branches, versions, and commits
 
-- **Versions.** Until the first release, the version is `0.MINOR.PATCH`: `MINOR` is one
-  themed milestone, and `PATCH` goes up with every commit in it. The first release is
-  `1.0.0`. Bump `"version"` in all five `package.json` files (the root, `shared`,
-  `builder`, `server`, and `web`) and run `npm install --package-lock-only` in the same
-  commit. Check `git log` first: another branch may have taken the next number.
-- **Tags.** Tag every commit with an annotated tag: `git tag -a vX.Y.Z -m "…"`.
-- **Commit messages.** The subject is `X.Y.Z — Theme: summary`, for example
-  `0.6.29 — Hub: back within 2 s after an outage`. The body explains why, and gives the
+- **Branches.** `main` always holds a version that works. Do each change on its own
+  branch — `feat/NAME` for a feature, `fix/NAME` for a fix — and open a pull request to
+  `main`. CI runs the checks on the pull request; merge it once they pass. A merge commit
+  keeps the branch's commits, with their measurements, in the history.
+- **Versions.** `MAJOR.MINOR.PATCH`, starting with `1.0.0`, the first regular release.
+  The version changes only when a release is made, once for everything merged since the
+  last one: `PATCH` for fixes only, `MINOR` for new features, `MAJOR` for changes that
+  older data or settings can't follow. Commits on a branch leave the version alone.
+  Before 1.0.0 every commit on `main` was a release of its own, `0.MINOR.PATCH`.
+- **Commit messages.** The subject is `Theme: summary`, for example
+  `Hub: back within 2 s after an outage`. The body explains why, and gives the
   measurements.
+- **Releases.** On `main`, once the pull requests for a release are merged:
+
+  1. Set `"version"` in all five `package.json` files (the root, `shared`, `builder`,
+     `server`, and `web`) and run `npm install --package-lock-only`.
+  2. Commit with the subject `X.Y.Z — Theme: summary`, where the summary says what the
+     release brings.
+  3. Tag the commit: `git tag -a vX.Y.Z -m "…"`.
+  4. Push `main` and the tag. CI builds the packages — see [Releases](#releases).
 
 ## Releases
 
