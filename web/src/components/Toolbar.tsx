@@ -46,6 +46,13 @@ function Tip({ label, hint, combo }: { label: string; hint?: string; combo?: str
   );
 }
 
+/**
+ * `multiline` (1.0.1): a tooltip is `nowrap` otherwise — the hint ran past its 240 px and off
+ * the window by the header's right edge («Чорний екран»), the page grew a scrollbar, the header
+ * shifted under the pointer, and the tooltip flickered on and off.
+ */
+const TIP_PROPS = { withArrow: true, openDelay: 250, multiline: true } as const;
+
 interface ToolProps {
   /** Unique action name — tooltip title and aria-label. */
   label: string;
@@ -75,7 +82,7 @@ export function ToolIcon({
   dot,
 }: ToolProps) {
   return (
-    <Tooltip label={<Tip label={label} hint={hint} combo={combo} />} withArrow openDelay={250}>
+    <Tooltip label={<Tip label={label} hint={hint} combo={combo} />} {...TIP_PROPS}>
       <Indicator disabled={!dot} size={8} offset={4} color="brand" withBorder>
         <ActionIcon
           variant={active ? 'filled' : 'default'}
@@ -104,7 +111,7 @@ export function ToolButton({
   if (compact) return <ToolIcon label={label} {...rest} active={variant === 'filled'} />;
   const { hint, combo, icon, onClick, color, disabled } = rest;
   return (
-    <Tooltip label={<Tip label={label} hint={hint} combo={combo} />} withArrow openDelay={250}>
+    <Tooltip label={<Tip label={label} hint={hint} combo={combo} />} {...TIP_PROPS}>
       <Button
         variant={variant}
         color={color ?? 'brand'}
