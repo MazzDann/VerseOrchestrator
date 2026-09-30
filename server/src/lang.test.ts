@@ -36,8 +36,9 @@ describe('the console language (0.11.7)', () => {
   it('takes a page language from Accept-Language', () => {
     expect(requestLang('en-US,en;q=0.9,uk;q=0.8')).toBe('en');
     expect(requestLang('de-DE,uk;q=0.5')).toBe('uk');
-    expect(requestLang('fr')).toBe('uk');
+    expect(requestLang('fr')).toBe('en'); // none of ours: English (1.1.0)
     expect(requestLang(undefined)).toBe('uk');
+    expect(requestLang('*')).toBe('uk'); // «any language» asks for none
   });
 
   it('translates keys and keyed errors', () => {
