@@ -566,8 +566,58 @@ export const api = {
   songBundleFiles: () =>
     getJson(
       '/api/song-bundles/files',
-      z.array(z.object({ id: z.string(), name: z.string(), count: z.number() })),
+      z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          count: z.number(),
+          /** the .pptx folder that keeps it up to date (1.4.0) */
+          source: z.string().optional(),
+        }),
+      ),
     ),
+  /** Rename a bundle (1.4.0): its songs keep their ids. */
+  renameSongBundle: async (id: string, name: string) => {
+    const res = await request(`/api/song-bundles/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({ id: z.string(), name: z.string(), count: z.number() })
+      .parse(await res.json());
+  },
+  /** Delete a bundle (1.4.0): it waits aside for «Скасувати» (`restoreSongBundle`). */
+  deleteSongBundle: async (id: string) => {
+    const res = await request(`/api/song-bundles/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({ trashed: z.string(), name: z.string(), source: z.string().optional() })
+      .parse(await res.json());
+  },
+  restoreSongBundle: async (trashed: string) => {
+    const res = await request('/api/song-bundles/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ trashed }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({ id: z.string(), name: z.string(), count: z.number() })
+      .parse(await res.json());
+  },
+  /** «Скасувати» the last import (1.4.0): the bundle as it was, or gone if the import made it. */
+  undoSongImport: async () => {
+    const res = await request('/api/song-bundles/import/undo', {
+      method: 'POST',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+  },
   /**
    * Import songs read from .pptx files in the browser into a bundle — an existing one (`id`)
    * or a new one (`name`) — and bring the library's songs up to date (0.10.1).
