@@ -693,3 +693,24 @@ body[data-resizing='y'] {
   padding: 10px 14px;
   border: 1px dashed var(--mantine-color-cue-filled);
 }
+
+/* A revealed line on a phone (/follow) fades in. */
+.vo-follow-line {
+  transition: opacity 0.25s ease;
+}
+/* Less motion in the system (1.2.1): the operator's own screen and phones change at once —
+   hover fades, a phone's revealed lines, the settings sections' turning chevron, Mantine's
+   striped progress bars. (Mantine's own transitions follow theme.respectReducedMotion; the
+   control window's monitors pass `calm` to SlideCanvas.) Output windows keep the
+   transition chosen for the audience. */
+@media (prefers-reduced-motion: reduce) {
+  .vo-resize-handle::after,
+  .vo-panel-resize::after,
+  .vo-follow-line,
+  .mantine-Accordion-chevron {
+    transition: none;
+  }
+  .mantine-Progress-section {
+    animation: none;
+  }
+}

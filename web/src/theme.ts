@@ -67,6 +67,9 @@ export const theme = createTheme({
   autoContrast: true,
   defaultRadius: 'md',
   cursorType: 'pointer',
+  // «Less motion» in the system (1.2.1): popovers, tooltips, menus, the settings accordion
+  // and notifications appear at once instead of sliding or growing.
+  respectReducedMotion: true,
   focusRing: 'auto',
   fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   fontFamilyMonospace: 'ui-monospace, SFMono-Regular, Menlo, monospace',
