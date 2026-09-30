@@ -108,6 +108,7 @@ import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
 import { useOutputWindows } from '../lib/outputs';
 import { useSlideErrorNotices } from '../lib/slideErrorNotices';
+import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
 import { formatReference } from '../lib/reference';
@@ -321,6 +322,8 @@ export function Control() {
   const outputWindows = useOutputWindows();
   // a slide that failed to draw here or in an output window → a red notice (0.13.0)
   useSlideErrorNotices();
+  // an output window the browser kept out of fullscreen → how to do it by hand (1.2.1)
+  useFullscreenRefusedNotices();
   // a newer version on GitHub: a dot on the settings button, no interruption (1.0.0)
   const update = useUpdateState();
   /**

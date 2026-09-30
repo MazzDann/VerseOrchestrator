@@ -160,8 +160,8 @@ export function Follow() {
                         whiteSpace: 'pre-line',
                         opacity,
                         visibility: hidden ? 'hidden' : 'visible',
-                        transition: 'opacity 0.25s ease',
                       }}
+                      className="vo-follow-line"
                     >
                       {u}
                     </p>

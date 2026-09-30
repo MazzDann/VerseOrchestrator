@@ -211,6 +211,28 @@ describe('output windows registry', () => {
     off();
   });
 
+  it('a window the browser kept out of fullscreen says so to the control windows (1.2.1)', async () => {
+    const h = hub();
+    const control = createOutputs(h.endpoint());
+    const refused: string[] = [];
+    const errors: string[] = [];
+    const off = control.track(
+      () => undefined,
+      (id, message) => errors.push(`${id}: ${message}`),
+      (id, message) => refused.push(`${id}: ${message}`),
+    );
+    const w = createOutputs(h.endpoint()).announce(
+      () => info('w1'),
+      () => undefined,
+    );
+    w.refused('Permissions check failed');
+    await flush();
+    expect(refused).toEqual(['w1: Permissions check failed']);
+    expect(errors).toEqual([]);
+    w.stop();
+    off();
+  });
+
   it('the tracked list keeps who opened each window', async () => {
     const h = hub();
     const control = createOutputs(h.endpoint());
