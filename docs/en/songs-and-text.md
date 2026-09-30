@@ -1,0 +1,122 @@
+# Songs and custom text
+
+[Українською](../songs-and-text.md) · English
+
+This page is for the operator: how to show a song slide by slide and how to put your own
+text on screen, for example an announcement. How to gather songs and texts into a program
+beforehand is in [Running order](running-order.md).
+
+## Where songs are kept
+
+Songs are kept in bundles. A bundle is a collection of songs in one file in the app's
+`data/songs/` folder, for example `data/songs/Hymns.vosongs`. The bundle holds the text and
+the look of every slide, so the app no longer needs the `.pptx` files the songs came from.
+To move a collection to another computer, copy the bundle file into the same folder there.
+A bundle file added or deleted by hand reaches the library at the next start of the app.
+
+When there are several bundles, a bundle choice appears next to the song search, and each
+song in the list shows its bundle's name. Each bundle has its own song numbers.
+
+## Import songs from .pptx files
+
+Songs come from PowerPoint presentations: one song, one `.pptx` file. The browser reads the
+files, and the app writes the songs into the bundle you choose. Import works while the app
+is running (`start.cmd`, `start.command`, or `./start.sh`).
+
+To import songs:
+
+1. At the top, click the **Songs** icon.
+2. To the right of the song search, click the **Import songs** icon.
+3. Under **From**, click **.pptx files…** and choose the files, or click **Folder…** and
+   choose a folder. Subfolders are read too. Below the buttons you see how many songs were
+   found and which files were skipped.
+4. In the **To** list, choose a bundle. To create a bundle, choose **New bundle…** and type
+   its name.
+5. Click **Import**.
+
+After the import, the search shows the songs of the bundle they went into. If the bundle
+already has a song with the same file name, the new version replaces it, and the song keeps
+its places in [running orders](running-order.md).
+
+## Add songs from a folder
+
+You can also add songs without the control window, through the app's `songs/` folder:
+
+1. Copy the `.pptx` files into the `songs/` folder. Subfolders are fine too.
+2. In the control window, open **Settings** → **App** and click **Rescan modules**.
+
+Songs from the `songs/` folder go into the bundle named «Пісні» (Ukrainian for “songs”).
+New and changed files in the same folder update that bundle after the rescan.
+
+## How the app reads a .pptx file
+
+- The song's number and title come from the file name, for example
+  `123. Song title.pptx`. A period, a hyphen, or a parenthesis follows the number. A song
+  without a number in its file name can be found only by its title.
+- Every slide with text becomes a slide of the song; slides without text are skipped.
+- The first slide is labeled **Title**, the next ones **Stanza 1**, **Stanza 2**, and so on.
+- The lines and paragraphs of the text stay as they are in the file.
+- For **As in the file**, the app takes the background color, the text's color and font,
+  bold, alignment, the text box's place and size, and the font size from the file.
+
+## Show a song
+
+To show a song:
+
+1. At the top, click the **Songs** icon. The song search appears above the verses.
+2. Type the song's number or a few letters of its title.
+3. In the list, click the song. Its slides appear: the first is labeled **Title**, the next
+   ones **Stanza 1**, **Stanza 2**, and so on.
+4. Click a slide. It appears on screen at once.
+
+While a song is open, the arrow keys, PageUp, and PageDown step through its slides, not the
+verses. A clicker, the keys in the presentation window, and the speaker remote step through
+the song too.
+
+After the last stanza, **Next** shows an empty slide: the text disappears, the background
+stays. The **End** line at the end of the list does the same.
+
+To find another song, click **Back to search** — the arrow before the song's title. You can
+also open a song from the command palette: press Ctrl+K (on macOS, ⌘K) and type its number
+or title.
+
+## Choose how a song looks
+
+Above the song's slides there is a switch:
+
+- **As in the file** (the default) — as in the `.pptx` file: the same font, text and
+  background colors, the size and place of the text on the slide.
+- **Plain text** — like the verses: the font, colors, background, and template from the
+  [appearance settings](appearance.md).
+
+## Show custom text
+
+Custom text is a slide with any text of yours: an announcement, a note, a question. It
+looks the same as the verses.
+
+To show custom text:
+
+1. At the top, click the **Custom text** icon. The **Text to screen** panel appears above
+   the verses.
+2. If you need a title, type it in the **Title (optional)** field. On the slide it stands
+   where the reference stands for verses.
+3. In the field below the title, type the slide's text.
+4. Click **To screen** or press Ctrl+Enter (on macOS, ⌘↩). The text appears on screen at
+   once.
+
+![The Text to screen panel: the title “Announcement”, the text “Next meeting — on
+Wednesday at 6 p.m.”, and the To the running order and To screen
+buttons](../img/en/own-text.png)
+
+The texts you showed go into the **Recent** list at the bottom of the panel. To show such a
+text again, click it in the list — it goes back into the fields — and click **To screen**.
+To remove a text from the list, click the trash icon **Remove from the list**.
+
+**To the running order** doesn't show the text; it adds it to the
+[running order](running-order.md).
+
+## What's next
+
+- [Running order](running-order.md): a program of passages, songs, and texts.
+- [Slide appearance](appearance.md): font, colors, background, template, presets.
+- [VerseOrchestrator documentation](README.md): the contents of all parts.
