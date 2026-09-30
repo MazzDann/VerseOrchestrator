@@ -67,7 +67,15 @@ function QuoteLines({ lines, style }: { lines: SlideLine[]; style: SlideStyle })
  * default, faint when `placeholders` is on. In spotlight mode only the last revealed
  * unit stays bright.
  */
-function RevealLines({ reveal, style }: { reveal: SlideReveal; style: SlideStyle }) {
+function RevealLines({
+  reveal,
+  style,
+  calm,
+}: {
+  reveal: SlideReveal;
+  style: SlideStyle;
+  calm?: boolean;
+}) {
   return (
     <>
       {reveal.units.map((u, i) => {
@@ -91,7 +99,7 @@ function RevealLines({ reveal, style }: { reveal: SlideReveal; style: SlideStyle
               whiteSpace: 'pre-line',
               opacity,
               visibility: hidden ? 'hidden' : 'visible',
-              transition: 'opacity 0.25s ease',
+              transition: calm ? undefined : 'opacity 0.25s ease',
             }}
           >
             {u}
@@ -188,12 +196,19 @@ class SlideGuard extends Component<GuardProps, GuardState> {
  * A slide that can't be drawn leaves the last one that could on screen, and if even that
  * fails, black — never an empty white window (0.13.0). The inner guard shows the last good
  * slide; an error while drawing it again goes up to the outer guard.
+ *
+ * `calm` (1.2.1): no animation between slides or revealed lines, whatever the slide's own
+ * transition — for the operator's monitors when the system asks for less motion. The output
+ * windows keep the transition the operator chose for the audience.
  */
-export function SlideCanvas({ slide }: { slide: Slide }) {
+export function SlideCanvas({ slide, calm }: { slide: Slide; calm?: boolean }) {
   return (
     <SlideGuard slide={slide} fallback={() => BLACK}>
-      <SlideGuard slide={slide} fallback={(last) => (last ? <DrawnSlide slide={last} /> : BLACK)}>
-        <DrawnSlide slide={slide} />
+      <SlideGuard
+        slide={slide}
+        fallback={(last) => (last ? <DrawnSlide slide={last} calm={calm} /> : BLACK)}
+      >
+        <DrawnSlide slide={slide} calm={calm} />
       </SlideGuard>
     </SlideGuard>
   );
@@ -204,8 +219,9 @@ export function SlideCanvas({ slide }: { slide: Slide }) {
  * is set) a positioned template — each object placed in % of the slide so preview ≡
  * presenter.
  */
-function DrawnSlide({ slide }: { slide: Slide }) {
+function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   const style = slide.style ?? DEFAULT_STYLE;
+  const transition = calm ? 'none' : style.transition;
   const show = slide.visible && !slide.blank && (slide.lines.length > 0 || !!slide.qr);
   const slideKey = !show
     ? 'blank'
@@ -263,7 +279,7 @@ function DrawnSlide({ slide }: { slide: Slide }) {
         {scrim}
         <SlideFade
           slideKey={show ? slideKey : null}
-          mode={style.transition}
+          mode={transition}
           style={{
             position: 'absolute',
             inset: 0,
@@ -322,7 +338,7 @@ function DrawnSlide({ slide }: { slide: Slide }) {
                 <div key={i} ref={containerRef} style={box}>
                   <div ref={contentRef} style={{ maxWidth: '100%', textAlign: o.align }}>
                     {slide.reveal ? (
-                      <RevealLines reveal={slide.reveal} style={style} />
+                      <RevealLines reveal={slide.reveal} style={style} calm={calm} />
                     ) : (
                       <QuoteLines lines={slide.lines} style={style} />
                     )}
@@ -381,7 +397,7 @@ function DrawnSlide({ slide }: { slide: Slide }) {
       >
         <SlideFade
           slideKey={show ? slideKey : null}
-          mode={style.transition}
+          mode={transition}
           layerRef={contentRef}
           style={{
             position: 'relative',
@@ -401,7 +417,7 @@ function DrawnSlide({ slide }: { slide: Slide }) {
           {slide.qr ? (
             <QrCard url={slide.qr} variant="full" look={style.qrStyle} />
           ) : slide.reveal ? (
-            <RevealLines reveal={slide.reveal} style={style} />
+            <RevealLines reveal={slide.reveal} style={style} calm={calm} />
           ) : (
             <QuoteLines lines={slide.lines} style={style} />
           )}

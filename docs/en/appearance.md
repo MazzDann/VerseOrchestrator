@@ -46,6 +46,10 @@ In the **Text** section:
   - **Fast** — the new slide at once, with a short fade-in.
   - **No animation** — an instant swap.
 
+The transition applies to the presentation windows. If the system is set to reduce motion,
+the monitors in the control window change the slide without animation, while the
+presentation windows keep the chosen transition.
+
 ## Change the background
 
 In the **Background** section:
