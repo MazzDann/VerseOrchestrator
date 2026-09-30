@@ -129,7 +129,10 @@ computer.
 | `data/secrets.json`                 | hashes of remote pairing codes (`server/src/remote.ts`)                                                                                               |
 | Browser Cache Storage and IndexedDB | segment cache and PGlite snapshots for the in-browser engines                                                                                         |
 
-Server data follows `VO_DATA_DIR` (default `data/`). A portable copy keeps the app in `app/`
+Server data follows `VO_DATA_DIR` (default `data/`). The server asks GitHub's releases API
+about newer versions (`server/src/updates.ts`, at most every 12 hours, switch
+`updates.check` in `settings.json`; `VO_UPDATE_URL` points it elsewhere — a test can pass a
+`data:` URL). A portable copy keeps the app in `app/`
 with a marker, `.vo-portable`, that the launcher and the waiter turn into `VO_DATA_DIR` and
 `MODULES_DIR` pointing next to it (`server/src/layout.ts`), so a new version replaces `app/`
 alone.

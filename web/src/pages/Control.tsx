@@ -137,6 +137,7 @@ import { useServer, NEEDS_SERVER, START_AGAIN } from '../serverStore';
 import { tr, useLang } from '../i18n';
 import { useDataSource, useEffectiveSource } from '../dataSourceStore';
 import { NoLibrary, type LibraryGap } from '../components/NoLibrary';
+import { useUpdateState } from '../lib/updates';
 import { sameContent, sameSlide, summarize, toggleBlack, toggleHidden } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
@@ -314,6 +315,8 @@ export function Control() {
   const outputWindows = useOutputWindows();
   // a slide that failed to draw here or in an output window → a red notice (0.13.0)
   useSlideErrorNotices();
+  // a newer version on GitHub: a dot on the settings button, no interruption (1.0.0)
+  const update = useUpdateState();
   /**
    * One control window in charge (0.4.4, lib/leader.ts): only the leader publishes to the
    * outputs, takes commands and holds the server's control socket; a second control window
@@ -2485,8 +2488,15 @@ export function Control() {
               <ToolZone label={tr('Застосунок')}>
                 <ToolIcon
                   label={tr('Налаштування вигляду')}
-                  hint={tr('Шрифт, кольори, шаблон слайда, пресети, клавіші')}
+                  hint={
+                    update?.available && update.latest
+                      ? tr('Доступна версія {version} — див. «Застосунок» → «Оновлення»', {
+                          version: update.latest.version,
+                        })
+                      : tr('Шрифт, кольори, шаблон слайда, пресети, клавіші')
+                  }
                   icon={<IconAdjustments size={18} stroke={1.5} />}
+                  dot={!!update?.available}
                   active={settingsOpen}
                   onClick={() => setSettingsOpen((o) => !o)}
                 />

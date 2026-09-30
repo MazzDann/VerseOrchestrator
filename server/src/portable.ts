@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { NPM_CI, writeDepsRecord } from './launcher.ts';
 import { buildUi, run } from './standby.ts';
 import { consoleLang, setLang, tr, type Lang } from './lang.ts';
-import { LAYOUT_MARKER, RELEASE_MARKER } from './layout.ts';
+import { LAYOUT_MARKER, OS_NAME, RELEASE_MARKER } from './layout.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -77,12 +77,6 @@ exec "$here/node" "$here/../lib/node_modules/npm/bin/${cli}.js" "$@"
 `;
 
 const SYSTEM: Record<string, string> = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
-/** In the folder's name: the words people use, not Node's (win32, darwin). */
-export const OS_NAME: Record<string, string> = {
-  win32: 'windows',
-  darwin: 'macos',
-  linux: 'linux',
-};
 /** The start file a user of this system clicks; it hands over to app/ (0.14.0). */
 export const START_FILE: Record<string, string> = {
   win32: 'start.cmd',

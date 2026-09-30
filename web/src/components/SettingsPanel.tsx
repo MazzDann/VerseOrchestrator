@@ -37,6 +37,7 @@ import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
 import { useRebuildLibrary } from '../lib/rebuild';
 import { StandbySection } from './StandbySection';
+import { UpdateSection } from './UpdateSection';
 import { ShutdownSection } from './ShutdownSection';
 import { ShortcutSection } from './ShortcutSection';
 import { useEffectiveSource } from '../dataSourceStore';
@@ -499,6 +500,7 @@ export function SettingsPanel() {
               {tr('Пересканувати модулі')}
             </Button>
           </div>
+          <UpdateSection />
           <StandbySection active={openSections.includes('app')} />
           <ShortcutSection />
           <ShutdownSection />
