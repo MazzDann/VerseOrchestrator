@@ -42,7 +42,7 @@ describe('launcher', () => {
   });
 
   it('reads its command line', () => {
-    const none = { off: false, app: false, shortcut: false };
+    const none = { off: false, app: false, shortcut: false, newWindow: false };
     expect(parseArgs([])).toEqual({ browser: true, port: null, check: false, ...none });
     expect(parseArgs(['--no-browser', '--port', '4798', '--check'])).toEqual({
       browser: false,
@@ -53,6 +53,7 @@ describe('launcher', () => {
     expect(parseArgs(['--off'])).toMatchObject({ off: true });
     expect(parseArgs(['--app'])).toMatchObject({ app: true });
     expect(parseArgs(['--shortcut'])).toMatchObject({ shortcut: true });
+    expect(parseArgs(['--new-window'])).toMatchObject({ newWindow: true });
     expect(parseArgs(['--port', '80'])).toMatch(/1024/);
     expect(parseArgs(['--fast'])).toMatch(/Невідомий параметр/);
   });

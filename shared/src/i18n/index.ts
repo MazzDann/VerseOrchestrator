@@ -55,14 +55,15 @@ export function translatePlural(lang: Lang, n: number, forms: string, vars?: Var
 
 /**
  * Which of our languages a browser (or a system) prefers: the first of its languages that we
- * have; Ukrainian when none is — the app's own language.
+ * have. One that prefers only others (German, Polish, …) gets English, the one most people
+ * read (1.1.0 — it got Ukrainian before); one that says nothing, the app's own Ukrainian.
  */
 export function pickLang(preferred: readonly string[]): Lang {
   for (const tag of preferred) {
     const base = tag.toLowerCase().split(/[-_]/)[0];
     if (isLang(base)) return base;
   }
-  return 'uk';
+  return preferred.some((tag) => tag.trim() && tag.trim() !== '*') ? 'en' : 'uk';
 }
 
 /**

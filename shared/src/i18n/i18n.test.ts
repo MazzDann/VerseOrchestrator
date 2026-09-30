@@ -220,7 +220,8 @@ describe('translating', () => {
   it('takes the first of the preferred languages that the app has', () => {
     expect(pickLang(['en-US', 'uk'])).toBe('en');
     expect(pickLang(['de-DE', 'uk-UA', 'en'])).toBe('uk');
-    expect(pickLang(['de-DE', 'fr'])).toBe('uk');
+    expect(pickLang(['de-DE', 'fr'])).toBe('en'); // none of ours: English (1.1.0)
     expect(pickLang([])).toBe('uk');
+    expect(pickLang([''])).toBe('uk');
   });
 });
