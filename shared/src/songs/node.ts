@@ -8,6 +8,7 @@ import {
   bundleFileName,
   prepareBundle,
   readBundleMeta,
+  countBundleSongs,
   readBundleSongs,
   sameBundleName,
   upsertBundleSongs,
@@ -60,8 +61,7 @@ export function listBundles(dir: string): BundleFile[] {
       const b = withBundle(path.join(dir, file), true, (db) => {
         const meta = readBundleMeta(db);
         if (!meta) return null;
-        const { n } = db.prepare('SELECT COUNT(*) AS n FROM songs').get() as { n: number };
-        return { file, meta, count: n };
+        return { file, meta, count: countBundleSongs(db) };
       });
       if (b) out.push(b);
     } catch {
@@ -160,7 +160,7 @@ export function legacySongsDir(repoRoot: string): string | null {
 
 /** «ПС укр 1-477» → «ПС» (the user's name for it); `songs` → «Пісні»; else the folder's name. */
 export function legacyBundleName(dir: string): string {
-  const base = path.basename(dir).trim();
+  const base = path.basename(dir).trim().normalize('NFC');
   // bundle names are data: the same in every interface language
   if (/^ПС(\s|$)/.test(base)) return 'ПС'; // i18n-ignore
   if (base.toLowerCase() === 'songs') return 'Пісні'; // i18n-ignore
@@ -191,9 +191,10 @@ export function syncFolderBundle(
   if (!folder) return null;
   const files = listPptx(folder);
   if (files.length === 0) return null;
-  const source = path.basename(folder);
+  // the folder's name in one Unicode form, as keys are (a Mac spells «й» in two characters)
+  const source = path.basename(folder).normalize('NFC');
   const bundles = listBundles(dir);
-  let bundle = bundles.find((b) => b.meta.source === source);
+  let bundle = bundles.find((b) => b.meta.source?.normalize('NFC') === source);
   const adopt = bundles.find(
     (b) => !b.meta.source && sameBundleName(b.meta.name, legacyBundleName(folder)),
   );

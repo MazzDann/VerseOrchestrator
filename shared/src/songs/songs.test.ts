@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SCHEMA_SQL } from '../library/schema.js';
 import {
   bundleFileName,
+  countBundleSongs,
   prepareBundle,
   readBundleMeta,
   readBundleSongs,
@@ -34,6 +35,7 @@ import {
   SECOND_CLOSE,
   SECOND_OPEN,
   secondParts,
+  songKey,
   songNumberTitle,
   unmark,
 } from './pptx.js';
@@ -285,6 +287,7 @@ describe('song bundles', () => {
     expect(sameBundleName('ПС', ' пс ')).toBe(true);
     expect(sameBundleName('Молодіжні', 'МОЛОДІЖНІ')).toBe(true);
     expect(sameBundleName('ПС', 'ПС укр')).toBe(false);
+    expect(sameBundleName('Мої', 'Мої'.normalize('NFD'))).toBe(true); // a Mac\'s «ї»
   });
 
   it('a bundle file: meta, songs replaced by key', () => {
@@ -304,6 +307,55 @@ describe('song bundles', () => {
       updated: 1,
     });
     expect(readBundleSongs(db).map((s) => s.title)).toEqual(['А', 'Бб']);
+  });
+
+  it("keys in one Unicode form: a Mac's decomposed «й» is the same song as Windows' one", () => {
+    const nfc = '1. Боже Вічний'; // «й» as one character (Windows, browsers)
+    const nfd = nfc.normalize('NFD'); // «и» + a combining breve (a Mac\'s file names)
+    expect(nfd).not.toBe(nfc);
+    expect(songKey(`/songs/${nfd}.pptx`)).toBe(nfc);
+    expect(stableSongId('b1', songKey(`${nfd}.pptx`))).toBe(stableSongId('b1', nfc));
+
+    const db = new Database(':memory:');
+    prepareBundle(db);
+    const slides = [{ text: 'a', style: null }];
+    upsertBundleSongs(db, [{ key: nfc, number: 1, title: 'Боже Вічний', slides }]);
+    const again = [{ key: nfd, number: 1, title: 'Боже Вічний'.normalize('NFD'), slides }];
+    expect(upsertBundleSongs(db, again)).toEqual({ added: 0, updated: 1 });
+    expect(db.prepare('SELECT key, title FROM songs').all()).toEqual([
+      { key: nfc, title: 'Боже Вічний' },
+    ]);
+
+    // a bundle 1.3.0 wrote on a Mac: the Windows row and the Mac's under another spelling
+    const put = db.prepare('INSERT INTO songs (key, number, title, slides) VALUES (?, ?, ?, ?)');
+    put.run(nfd, 1, 'Боже Вічний'.normalize('NFD'), JSON.stringify([{ text: 'b', style: null }]));
+    put.run('2. Слава', 2, 'Слава', JSON.stringify(slides));
+    expect(countBundleSongs(db)).toBe(2);
+    const read = readBundleSongs(db);
+    expect(read.map((s) => [s.key, s.title, s.slides[0].text])).toEqual([
+      [nfc, 'Боже Вічний', 'b'], // one song, the row written last
+      ['2. Слава', 'Слава', 'a'],
+    ]);
+    // the next write leaves one spelling
+    expect(upsertBundleSongs(db, [{ key: nfc, number: 1, title: 'Боже Вічний', slides }])).toEqual({
+      added: 0,
+      updated: 1,
+    });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM songs').get()).toEqual({ n: 2 });
+  });
+
+  it('one key twice in one write (two spellings) counts once', () => {
+    const db = new Database(':memory:');
+    prepareBundle(db);
+    const slides = [{ text: 'a', style: null }];
+    const nfc = '1. Боже Вічний';
+    const both = [
+      { key: nfc, number: 1, title: 'Боже Вічний', slides },
+      { key: nfc.normalize('NFD'), number: 1, title: 'Боже Вічний', slides },
+    ];
+    expect(upsertBundleSongs(db, both)).toEqual({ added: 1, updated: 1 });
+    expect(upsertBundleSongs(db, both)).toEqual({ added: 0, updated: 2 });
+    expect(db.prepare('SELECT key FROM songs').all()).toEqual([{ key: nfc }]);
   });
 
   it('the library: stable ids, the bundle name, slides; an old songs table gets its column', () => {
@@ -420,9 +472,84 @@ describe('song bundles on disk', () => {
     expect(syncFolderBundle(dir, legacy)).toBeNull(); // read by this reader: nothing to do
   });
 
+  it("a Windows bundle and a Mac's folder: one song per file, the doubles 1.3.0 made go", () => {
+    const legacy = path.join(tmp, 'ПС укр 1-477');
+    fs.mkdirSync(legacy, { recursive: true });
+    const nfc = '1. Боже Вічний';
+    // the Mac\'s folder: the file name decomposed
+    const file = path.join(legacy, `${nfc.normalize('NFD')}.pptx`);
+    fs.writeFileSync(file, pptx(['Боже Вічний']));
+    fs.writeFileSync(path.join(legacy, '2. Слава.pptx'), pptx(['Слава']));
+    const past = new Date(Date.now() - 60_000);
+    for (const f of fs.readdirSync(legacy)) fs.utimesSync(path.join(legacy, f), past, past);
+    // the bundle as it came from Windows: composed keys, read by 1.3.0\'s reader
+    const dir = path.join(tmp, 'data', 'songs');
+    const slides = [{ text: 'old', style: null }];
+    const made = importSongs(dir, { name: 'ПС', source: 'ПС укр 1-477' }, [
+      { key: nfc, number: 1, title: 'Боже Вічний', slides },
+      { key: '2. Слава', number: 2, title: 'Слава', slides },
+    ]);
+    const bundleFile = path.join(dir, made.bundle.file);
+    const db = new Database(bundleFile);
+    writeBundleMeta(db, { ...made.bundle.meta, reader: 3 });
+    // and the double 1.3.0 added on the Mac
+    db.prepare('INSERT INTO songs (key, number, title, slides) VALUES (?, ?, ?, ?)').run(
+      nfc.normalize('NFD'),
+      1,
+      'Боже Вічний'.normalize('NFD'),
+      JSON.stringify(slides),
+    );
+    db.close();
+    expect(listBundles(dir)[0].count).toBe(2); // counted once already
+
+    const again = syncFolderBundle(dir, legacy)!; // reader 3 < 4: read again
+    expect(again).toMatchObject({ count: 2, meta: { reader: PPTX_READER } });
+    const bdb = new Database(bundleFile, { readonly: true });
+    const rows = bdb.prepare('SELECT key FROM songs ORDER BY key').all() as { key: string }[];
+    bdb.close(); // an open handle keeps Windows from deleting the temp folder
+    expect(rows.map((r) => r.key)).toEqual([nfc, '2. Слава']);
+    expect(readBundles(dir)[0].songs[0].slides[0].text).not.toBe('old');
+    expect(syncFolderBundle(dir, legacy)).toBeNull();
+
+    // the library: the ids Windows gives these songs
+    const libFile = path.join(tmp, 'library.db');
+    const lib = new Database(libFile);
+    lib.exec(SCHEMA_SQL);
+    lib.close();
+    expect(refreshLibrarySongs(libFile, dir)).toBe(2);
+    const ldb = new Database(libFile, { readonly: true });
+    const ids = ldb.prepare('SELECT id FROM songs ORDER BY number').all() as { id: number }[];
+    ldb.close();
+    expect(ids.map((r) => r.id)).toEqual([
+      stableSongId(made.bundle.meta.id, nfc),
+      stableSongId(made.bundle.meta.id, '2. Слава'),
+    ]);
+  });
+
   it('names for old folders', () => {
     expect(legacyBundleName('/x/ПС укр 1-477')).toBe('ПС');
     expect(legacyBundleName('/x/songs')).toBe('Пісні');
     expect(legacyBundleName('/x/Молодіжні')).toBe('Молодіжні');
+    expect(legacyBundleName('/x/Мої пісні'.normalize('NFD'))).toBe('Мої пісні');
+  });
+
+  it('a folder whose name a Mac spells decomposed finds the bundle Windows made from it', () => {
+    const nfc = 'Мої пісні';
+    const legacy = path.join(tmp, nfc.normalize('NFD'));
+    fs.mkdirSync(legacy, { recursive: true });
+    const file = path.join(legacy, '2. Слава.pptx');
+    fs.writeFileSync(file, pptx(['Слава']));
+    const past = new Date(Date.now() - 60_000);
+    fs.utimesSync(file, past, past);
+    const dir = path.join(tmp, 'data', 'songs');
+    const slides = [{ text: 'Слава', style: null }];
+    const made = importSongs(dir, { name: nfc, source: nfc }, [
+      { key: '2. Слава', number: 2, title: 'Слава', slides },
+    ]);
+    const db = new Database(path.join(dir, made.bundle.file));
+    writeBundleMeta(db, { ...made.bundle.meta, reader: PPTX_READER });
+    db.close();
+    expect(syncFolderBundle(dir, legacy)).toBeNull(); // the same bundle, nothing newer
+    expect(listBundles(dir)).toHaveLength(1);
   });
 });
