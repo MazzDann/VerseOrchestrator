@@ -120,6 +120,8 @@ import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
 import { formatReference } from '../lib/reference';
+import { parseQuickRef } from '../lib/quickRef';
+import { QuickRefPill } from '../components/QuickRefPill';
 import {
   chapterName,
   crossTarget,
@@ -399,6 +401,11 @@ export function Control() {
   const goTo = async (q: string) => {
     const query = q.trim();
     if (!query || primaryId == null) return;
+    // numbers only («3:16», «16»): a place in the open book (1.4.0)
+    if (parseQuickRef(query) && bookNumber != null) {
+      if (await quickJump(query)) setGoToValue('');
+      return;
+    }
     try {
       const res = await api.search(query, [primaryId]);
       if (res.results.length > 0) {
@@ -423,6 +430,99 @@ export function Control() {
       });
     }
   };
+
+  /**
+   * «3:16» typed straight into the control window, or into «Перейти до посилання» (1.4.0):
+   * a place in the open book — the verse (or verses) selected, its row focused, so Enter
+   * puts it on screen; on screen at once while the screen follows the selection.
+   */
+  const quickJump = async (q: string): Promise<boolean> => {
+    const r = parseQuickRef(q);
+    const say = (message: string) => {
+      notifications.show({ message, color: 'gray', autoClose: 2500 });
+      return false;
+    };
+    if (!r) {
+      return say(
+        tr('«{query}» — не місце в книзі. Введіть вірш або розділ:вірш, як-от 3:16', { query: q }),
+      );
+    }
+    if (primaryId == null || bookNumber == null) return say(tr('Спершу виберіть книгу'));
+    const ch = r.chapter ?? chapter;
+    if (ch == null) return say(tr('Спершу виберіть розділ'));
+    const book = currentBook;
+    if (!chapters.includes(ch)) {
+      return say(tr('{book}: розділу {n} немає', { book: book?.longName ?? '', n: ch }));
+    }
+    const tid = primaryId;
+    const bn = bookNumber;
+    const verses = await queryClient
+      .fetchQuery({ queryKey: ['verses', tid, bn, ch], queryFn: () => api.verses(tid, bn, ch) })
+      .catch(() => []);
+    const have = verses.map((v) => v.verse);
+    const from = r.verse ?? Math.min(...have);
+    if (!have.includes(from)) {
+      return say(tr('{place}: вірша {n} немає', { place: chapterName(book, ch), n: from }));
+    }
+    const to = Math.min(r.verseEnd ?? from, Math.max(...have));
+    if (ch !== chapter) selectChapter(ch);
+    setSelectedVerses(have.filter((v) => v >= from && v <= to));
+    setScrollTarget(from);
+    focusJump.current = true;
+    return true;
+  };
+
+  // Numbers typed where no field has the focus start a quick jump (1.4.0): the pill at the
+  // bottom shows them, Enter goes, Esc (or any other key) lets go. While typing, «.» and the
+  // space are separators, not «Чорний екран» or a verse's selection; Esc only cancels.
+  const [quick, setQuick] = useState<string | null>(null);
+  const quickRef = useRef<string | null>(null);
+  quickRef.current = quick;
+  const quickJumpRef = useRef(quickJump);
+  quickJumpRef.current = quickJump;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const q = quickRef.current;
+      if (e.ctrlKey || e.altKey || e.metaKey || isFormField(e.target) || paletteOpen) {
+        if (q !== null) setQuick(null);
+        return;
+      }
+      const digit = /^[0-9]$/.test(e.key);
+      if (q === null) {
+        if (!digit || bookNumber == null) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setQuick(e.key);
+        return;
+      }
+      const take = () => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      if (digit || [':', '.', ',', ' ', '-'].includes(e.key)) {
+        take();
+        setQuick((q + e.key).slice(0, 12));
+      } else if (e.key === 'Backspace') {
+        take();
+        setQuick(q.length > 1 ? q.slice(0, -1) : null);
+      } else if (e.key === 'Escape') {
+        take();
+        setQuick(null);
+      } else if (e.key === 'Enter') {
+        take();
+        setQuick(null);
+        void quickJumpRef.current(q);
+      } else setQuick(null);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [bookNumber, paletteOpen]);
+  // forgotten halfway: gone after a few seconds without a key
+  useEffect(() => {
+    if (quick === null) return;
+    const t = window.setTimeout(() => setQuick(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [quick]);
 
   const openSearch = (scope: SearchScope) => {
     setSearchScope(scope);
@@ -3239,6 +3339,8 @@ export function Control() {
       >
         <RemotePanel />
       </FloatingPanel>
+
+      {quick !== null && <QuickRefPill value={quick} place={currentBook?.longName ?? ''} />}
 
       <CommandPalette
         open={paletteOpen}
