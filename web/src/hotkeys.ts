@@ -191,6 +191,12 @@ function mapKey(raw: string | undefined): string {
     .replace(/key|digit|numpad|arrow/, '');
 }
 
+/** The parts of a keydown a chord is made of (a KeyboardEvent is one; tests pass plain objects). */
+export type KeyChord = Pick<
+  KeyboardEvent,
+  'key' | 'code' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey'
+>;
+
 /**
  * Build a combo string from a keydown event, or null for a lone modifier press.
  * The base token is derived from `e.code` the way react-hotkeys-hook does — so it
@@ -199,7 +205,7 @@ function mapKey(raw: string | undefined): string {
  * Falls back to e.key when there is no code. Modifiers (ctrl, alt, shift, meta) are
  * order-independent flags in rhh; we emit a stable order for display.
  */
-export function comboFromEvent(e: KeyboardEvent): string | null {
+export function comboFromEvent(e: KeyChord): string | null {
   if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return null;
   const mods: string[] = [];
   if (e.ctrlKey) mods.push('ctrl');
@@ -276,7 +282,7 @@ export function formatCombo(combo: string, mac: boolean = IS_MAC): string {
 }
 
 /** Is this keydown one of the combo's chords? */
-export function matchesCombo(e: KeyboardEvent, combo: string): boolean {
+export function matchesCombo(e: KeyChord, combo: string): boolean {
   const chord = comboFromEvent(e);
   return !!chord && combo.split(',').includes(chord);
 }
