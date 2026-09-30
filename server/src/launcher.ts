@@ -30,12 +30,12 @@ import {
   buildUi,
   CONTROL_HEADER,
   createStandby,
-  needsBuild,
   portFree,
   readStandbySettings,
   run,
   waiterAt,
 } from './standby.ts';
+import { needsBuild } from './uiStamp.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 

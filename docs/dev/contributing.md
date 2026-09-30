@@ -38,6 +38,12 @@ as CI does:
 npm run build --workspace @vo/web
 ```
 
+Every web build stamps `web/dist/.vo-version` with the version and a hash of the interface's
+sources (`server/src/uiStamp.ts`). `npm start`, `start.command`, and the standby waiter
+compare the stamp with the code, so after a pull or a checkout they rebuild the interface
+instead of serving the old one. `npm run portable` copies the Node.js it runs on: use one
+from nodejs.org, fnm, or nvm, not Homebrew's.
+
 Tests sit next to the code as `*.test.ts`. Library queries are tested on an in-memory
 SQLite fixture (`server/src/library.test.ts`), and `builder/src/pglite.test.ts` checks
 that SQLite and Postgres return the same results. For a bug fix, add a test that fails
