@@ -16,14 +16,19 @@ language (Ukrainian, English, Greek, Hebrew, Arabic, and others).
 
 ## Download
 
-Download the archive for your system from the [Releases](https://github.com/MazzDann/VerseOrchestrator/releases) page. Versions 0.x
-are previews; the first release will be 1.0.0.
+Download the archive for your system; each link gets the latest release:
 
-| System                | File                                 |
-| --------------------- | ------------------------------------ |
-| Windows 10/11 (x64)   | `VerseOrchestrator-windows-x64.zip`  |
-| macOS (Apple Silicon) | `VerseOrchestrator-macos-arm64.zip`  |
-| Linux (x64)           | `VerseOrchestrator-linux-x64.tar.gz` |
+| System                | Download                                      |
+| --------------------- | --------------------------------------------- |
+| Windows 10/11 (x64)   | [`VerseOrchestrator-windows-x64.zip`][win]    |
+| macOS (Apple Silicon) | [`VerseOrchestrator-macos-arm64.zip`][mac]    |
+| Linux (x64)           | [`VerseOrchestrator-linux-x64.tar.gz`][linux] |
+
+[win]: https://github.com/MazzDann/VerseOrchestrator/releases/latest/download/VerseOrchestrator-windows-x64.zip
+[mac]: https://github.com/MazzDann/VerseOrchestrator/releases/latest/download/VerseOrchestrator-macos-arm64.zip
+[linux]: https://github.com/MazzDann/VerseOrchestrator/releases/latest/download/VerseOrchestrator-linux-x64.tar.gz
+
+Checksums, release notes, and earlier versions are on the [Releases](https://github.com/MazzDann/VerseOrchestrator/releases) page.
 
 To start the app:
 

@@ -8,18 +8,21 @@
 
 ## Завантажте застосунок
 
-Готові архіви для кожної системи лежать на сторінці [Releases](https://github.com/MazzDann/VerseOrchestrator/releases). Версії 0.x —
-попередні, перший реліз буде 1.0.0. Щоб встановити застосунок:
+Щоб встановити застосунок:
 
-1. Відкрийте сторінку [Releases](https://github.com/MazzDann/VerseOrchestrator/releases) і завантажте архів для своєї системи:
+1. Завантажте архів для своєї системи — посилання ведуть на останній реліз:
 
-   | Система               | Файл                                 |
-   | --------------------- | ------------------------------------ |
-   | Windows 10/11 (x64)   | `VerseOrchestrator-windows-x64.zip`  |
-   | macOS (Apple Silicon) | `VerseOrchestrator-macos-arm64.zip`  |
-   | Linux (x64)           | `VerseOrchestrator-linux-x64.tar.gz` |
+   | Система               | Архів                                         |
+   | --------------------- | --------------------------------------------- |
+   | Windows 10/11 (x64)   | [`VerseOrchestrator-windows-x64.zip`][win]    |
+   | macOS (Apple Silicon) | [`VerseOrchestrator-macos-arm64.zip`][mac]    |
+   | Linux (x64)           | [`VerseOrchestrator-linux-x64.tar.gz`][linux] |
 
 2. Розпакуйте архів у зручну папку, наприклад у «Документи».
+
+[win]: https://github.com/MazzDann/VerseOrchestrator/releases/latest/download/VerseOrchestrator-windows-x64.zip
+[mac]: https://github.com/MazzDann/VerseOrchestrator/releases/latest/download/VerseOrchestrator-macos-arm64.zip
+[linux]: https://github.com/MazzDann/VerseOrchestrator/releases/latest/download/VerseOrchestrator-linux-x64.tar.gz
 
 У папці застосунку нагорі лише те, що вам знадобиться:
 
@@ -32,7 +35,8 @@
 | `app/`                                      | сам застосунок: код, Node.js, пакети, зібраний інтерфейс |
 
 Архів уже містить Node.js, тож нічого встановлювати не треба. Контрольні суми архівів
-лежать у файлі `SHA256SUMS.txt` на тій самій сторінці.
+лежать у файлі `SHA256SUMS.txt` на сторінці [останнього релізу](https://github.com/MazzDann/VerseOrchestrator/releases/latest), а
+попередні версії — на сторінці [Releases](https://github.com/MazzDann/VerseOrchestrator/releases).
 
 Застосунок можна запускати й з копії репозиторію — так роблять розробники; див.
 [README проєкту](../README.md#run-from-the-source).
