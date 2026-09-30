@@ -49,6 +49,10 @@ web/public/segments/
 # Whole-history dumps (git bundles for moving work between machines)
 *.bundle
 
+# macOS Finder metadata (.DS_Store) and AppleDouble files (._NAME on non-Mac drives)
+.DS_Store
+._*
+
 # AI-assisted dev tooling (Claude Code) — kept local, not part of the project
 .claude/
 .mcp.json
