@@ -136,6 +136,14 @@ export interface Slide {
   source?: SlideSource;
   /** A QR slide («QR на екран», 0.6.16): the viewers' address as a big QR instead of text. */
   qr?: string;
+  /** «Заставка» (1.4.0): the operator's logo and a line of text, between items. */
+  cover?: SlideCover;
+}
+
+/** What «Заставка» shows (1.4.0): an image (a data URL) and/or text, on the slide's background. */
+export interface SlideCover {
+  text: string;
+  image: string | null;
 }
 
 /**

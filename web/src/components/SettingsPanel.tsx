@@ -13,6 +13,7 @@ import {
   FileButton,
   ActionIcon,
   Accordion,
+  Textarea,
 } from '@mantine/core';
 import {
   IconUpload,
@@ -45,6 +46,7 @@ import { useEffectiveSource } from '../dataSourceStore';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
 import { tr, useLang } from '../i18n';
+import { formatCombo } from '../hotkeys';
 
 const SECTIONS_KEY = 'vo:settingsSections';
 
@@ -52,6 +54,7 @@ const SECTIONS_KEY = 'vo:settingsSections';
 export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const a = useSettings((s) => s.appearance);
   const set = useSettings((s) => s.setAppearance);
+  const keymapCover = useSettings((s) => s.keymap.cover);
   const reset = useSettings((s) => s.resetAppearance);
   const template = useSettings((s) => s.slideTemplate);
   const dataSource = useEffectiveSource();
@@ -222,6 +225,73 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 { label: tr('Без анімації'), value: 'none' },
               ]}
             />
+          </div>
+        </Section>
+
+        <Section
+          value="cover"
+          title={tr('Заставка')}
+          summary={
+            a.coverImage || a.coverText.trim()
+              ? summary(a.coverImage ? tr('логотип') : '', a.coverText.trim() ? tr('текст') : '')
+              : tr('порожня — лише фон')
+          }
+        >
+          <Text size="xs" c="dimmed">
+            {tr(
+              'Між елементами показу: логотип і рядок тексту на фоні слайда. Клавіша {key} чи кнопка «Заставка» вгорі показує її; ще раз — повертає те, що було.',
+              { key: formatCombo(keymapCover) },
+            )}
+          </Text>
+          <Textarea
+            label={tr('Текст заставки')}
+            placeholder={tr('Наприклад, назва зібрання')}
+            value={a.coverText}
+            onChange={(e) => set({ coverText: e.currentTarget.value.slice(0, 300) })}
+            autosize
+            minRows={1}
+            maxRows={3}
+            size="sm"
+          />
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              {tr('Логотип')}
+            </Text>
+            <Group gap="xs">
+              <FileButton
+                accept="image/png,image/jpeg,image/webp"
+                onChange={async (f) => {
+                  if (!f) return;
+                  try {
+                    // PNG keeps a logo's transparency; 800 px is plenty for a logo
+                    set({ coverImage: await fileToDownscaledDataUrl(f, 800, 'image/png') });
+                  } catch {
+                    /* ignore unreadable image */
+                  }
+                }}
+              >
+                {(props) => (
+                  <Button
+                    {...props}
+                    variant="light"
+                    size="xs"
+                    leftSection={<IconUpload size={16} />}
+                  >
+                    {a.coverImage ? tr('Замінити') : tr('Завантажити')}
+                  </Button>
+                )}
+              </FileButton>
+              {a.coverImage && (
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  onClick={() => set({ coverImage: null })}
+                  aria-label={tr('Прибрати логотип')}
+                >
+                  <IconTrash size={16} />
+                </ActionIcon>
+              )}
+            </Group>
           </div>
         </Section>
 

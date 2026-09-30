@@ -313,6 +313,12 @@ export const EN: Record<string, string> = {
   'Додано у показ: {item}': 'Added to the running order: {item}',
   Пісня: 'Song',
   'Текст додано у показ': 'Text added to the running order',
+  '«{query}» — не місце в книзі. Введіть вірш або розділ:вірш, як-от 3:16':
+    '“{query}” is not a place in the book. Type a verse, or chapter:verse, like 3:16',
+  'Спершу виберіть книгу': 'Choose a book first',
+  '{book}: розділу {n} немає': '{book}: there is no chapter {n}',
+  '{place}: вірша {n} немає': '{place}: there is no verse {n}',
+  'Enter — перейти · Esc — скасувати': 'Enter — go · Esc — cancel',
   'Спершу виберіть розділ': 'Choose a chapter first',
   'У цьому розділі немає віршів': 'This chapter has no verses',
   'Це остання сторінка': 'This is the last page',
@@ -455,8 +461,12 @@ export const EN: Record<string, string> = {
     'End of the chapter. Press “Next” again — {place}',
   'Початок розділу. Натисніть «Назад» ще раз — {place}':
     'Start of the chapter. Press “Back” again — {place}',
-  'Це останній вірш книги': 'This is the last verse of the book',
-  'Це перший вірш книги': 'This is the first verse of the book',
+  'Це останній вірш перекладу': 'This is the translation’s last verse',
+  'Кінець книги. Натисніть «Далі» ще раз — {place}':
+    'End of the book. Press “Next” again — {place}',
+  'Початок книги. Натисніть «Назад» ще раз — {place}':
+    'Start of the book. Press “Back” again — {place}',
+  'Це перший вірш перекладу': 'This is the translation’s first verse',
   'Не вдалося прочитати зображення': "Couldn't read the image",
   'сервер недоступний. Перевірте вікно, де запущено застосунок (start.cmd, start.sh або npm run dev)':
     "the server can't be reached. Check the window where the app runs (start.cmd, start.sh, or npm run dev)",
@@ -511,6 +521,32 @@ export const EN: Record<string, string> = {
   'Бандл не знайдено — відкрийте список ще раз': 'Bundle not found — open the list again',
   'Бандл уже не повернути': 'The bundle can no longer be brought back',
   'Імпорт уже не скасувати': 'The import can no longer be undone',
+  'Повернуто версію {to} замість {from} ({when}).':
+    'Went back to version {to} from {from} ({when}).',
+  'Повернути версію {to} не вдалося.': "Couldn't go back to version {to}.",
+  'Попередня версія {version} лишилася в папці застосунку.':
+    'The previous version, {version}, is kept in the app’s folder.',
+  'Повернути версію {version}': 'Go back to version {version}',
+  'Застосунок перезапуститься з версією {version}: це займе до хвилини. Версія {current} лишиться поруч — до неї можна повернутися тут само.':
+    'The app restarts as version {version}: it takes up to a minute. Version {current} stays next to it — you can come back to it right here.',
+  'Попередньої версії немає': 'There is no previous version',
+  'Попередня версія не запустилася — працює та, що була':
+    "The previous version didn't start — the one before it runs",
+  Заставка: 'Cover',
+  логотип: 'logo',
+  текст: 'text',
+  'порожня — лише фон': 'empty — the background only',
+  'Між елементами показу: логотип і рядок тексту на фоні слайда. Клавіша {key} чи кнопка «Заставка» вгорі показує її; ще раз — повертає те, що було.':
+    'Between the items of a show: a logo and a line of text on the slide’s background. The {key} key or the “Cover” button at the top shows it; again — brings back what was there.',
+  'Текст заставки': 'Cover text',
+  'Наприклад, назва зібрання': 'For example, the gathering’s name',
+  Логотип: 'Logo',
+  'Прибрати логотип': 'Remove the logo',
+  'Логотип і текст між елементами; ще раз — те, що було':
+    'A logo and text between items; again — what was there',
+  'Заставка поки порожня — лише фон. Додайте логотип чи текст: Налаштування вигляду → Заставка':
+    'The cover is empty for now — the background only. Add a logo or text: Settings → Cover',
+  'Прибрати заставку': 'Remove the cover',
   Приспів: 'Chorus',
   'Приспів {n}': 'Chorus {n}',
   'До приспіву': 'To the chorus',
