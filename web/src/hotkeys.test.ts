@@ -128,6 +128,15 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
     expect(formatChord('alt+right', true)).toBe('⌥→');
   });
 
+  it('«Заставка» on L everywhere, clashing with nothing (1.4.0)', () => {
+    for (const mac of [false, true]) {
+      expect(defaultKeymap(mac).cover).toBe('l');
+      expect(conflictsForAction(defaultKeymap(mac), 'cover')).toEqual([]);
+    }
+    expect(sanitizeKeymap({ blank: 'b' }, false).cover).toBe('l');
+    expect(matchesCombo(evt('д', 'KeyL'), 'l')).toBe(true); // «д» on a Ukrainian layout
+  });
+
   it('«До приспіву» on C everywhere, clashing with nothing (1.3.0)', () => {
     for (const mac of [false, true]) {
       expect(defaultKeymap(mac).chorus).toBe('c');

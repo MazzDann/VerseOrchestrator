@@ -39,13 +39,17 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
     ? 'black'
     : slide.blank
       ? 'blank'
-      : slide.visible && (slide.lines.length > 0 || !!slide.qr)
+      : slide.visible && (slide.lines.length > 0 || !!slide.qr || !!slide.cover)
         ? 'live'
         : 'empty';
   return {
     status,
     reference: slide.reference ?? '',
-    text: slide.qr ? tr('QR для глядачів') : (slide.lines[0]?.text ?? '').slice(0, 400),
+    text: slide.qr
+      ? tr('QR для глядачів')
+      : slide.cover
+        ? tr('Заставка')
+        : (slide.lines[0]?.text ?? '').slice(0, 400),
     font: slide.style?.font,
     source: slide.source,
   };
@@ -60,7 +64,7 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
 export function toggleHidden(s: Slide): Slide | null {
   if (s.forceBlack) return { ...s, forceBlack: false, blank: true };
   if (s.blank) return { ...s, blank: false };
-  if (!s.visible || (s.lines.length === 0 && !s.qr)) return null;
+  if (!s.visible || (s.lines.length === 0 && !s.qr && !s.cover)) return null;
   return { ...s, blank: true };
 }
 

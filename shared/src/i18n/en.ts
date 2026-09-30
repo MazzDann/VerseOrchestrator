@@ -498,6 +498,21 @@ export const EN: Record<string, string> = {
   'Простий текст': 'Plain text',
   Заголовок: 'Title',
   'Куплет {n}': 'Stanza {n}',
+  Заставка: 'Cover',
+  логотип: 'logo',
+  текст: 'text',
+  'порожня — лише фон': 'empty — the background only',
+  'Між елементами показу: логотип і рядок тексту на фоні слайда. Клавіша {key} чи кнопка «Заставка» вгорі показує її; ще раз — повертає те, що було.':
+    'Between the items of a show: a logo and a line of text on the slide’s background. The {key} key or the “Cover” button at the top shows it; again — brings back what was there.',
+  'Текст заставки': 'Cover text',
+  'Наприклад, назва зібрання': 'For example, the gathering’s name',
+  Логотип: 'Logo',
+  'Прибрати логотип': 'Remove the logo',
+  'Логотип і текст між елементами; ще раз — те, що було':
+    'A logo and text between items; again — what was there',
+  'Заставка поки порожня — лише фон. Додайте логотип чи текст: Налаштування вигляду → Заставка':
+    'The cover is empty for now — the background only. Add a logo or text: Settings → Cover',
+  'Прибрати заставку': 'Remove the cover',
   Приспів: 'Chorus',
   'Приспів {n}': 'Chorus {n}',
   'До приспіву': 'To the chorus',

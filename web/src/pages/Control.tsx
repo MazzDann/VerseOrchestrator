@@ -41,6 +41,7 @@ import {
   IconMusic,
   IconLetterT,
   IconSquareFilled,
+  IconPhoto,
   IconChevronLeft,
   IconChevronRight,
   IconAdjustments,
@@ -1511,6 +1512,49 @@ export function Control() {
     setPreviewOverride(slide);
     setLive(true);
   };
+  // «Заставка» (1.4.0): the logo and text from Налаштування вигляду → Заставка over whatever
+  // is on screen; again — exactly the slide it covered (as «QR на екран» does). The phones get
+  // it without the image: an empty slide, «· · ·».
+  const coverReturn = useRef<Slide | null>(null);
+  const coverToggle = () => {
+    if (!leaderRef.current) return standbyNotice();
+    const now = liveSlideRef.current;
+    if (!now.cover) {
+      coverReturn.current = now.qr ? qrReturn.current : now;
+      const slide: Slide = {
+        lines: [],
+        reference: tr('Заставка'),
+        blank: false,
+        visible: true,
+        style: slideStyle,
+        cover: { text: appearance.coverText, image: appearance.coverImage },
+      };
+      pushLive(slide);
+      setPreviewOverride(slide);
+      setLive(true);
+      if (!appearance.coverText && !appearance.coverImage) {
+        notifications.show({
+          message: tr(
+            'Заставка поки порожня — лише фон. Додайте логотип чи текст: Налаштування вигляду → Заставка',
+          ),
+          color: 'gray',
+          autoClose: 4000,
+        });
+      }
+      return;
+    }
+    const back = coverReturn.current;
+    coverReturn.current = null;
+    const showing = back && back.visible && !back.cover && !back.forceBlack;
+    if (!back || !showing) {
+      pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
+      setLive(false);
+      setPreviewOverride(null);
+      return;
+    }
+    pushLive(back);
+    afterToggle(back);
+  };
   const hideQr = () => {
     const back = qrReturn.current;
     qrReturn.current = null;
@@ -1713,6 +1757,7 @@ export function Control() {
     );
   };
   useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
+  useHotkeys(keymap.cover, () => coverToggle(), [keymap.cover, versePreview, appearance]);
 
   /** Take back «Очистити» (0.13.2): exactly the slide it removed, as the toggles do. */
   const restoreCleared = () => {
@@ -2292,11 +2337,12 @@ export function Control() {
   // In-app "what's on screen now" monitor — reflects the actually-published slide.
   const textHidden = liveSlide.blank && !liveSlide.forceBlack;
   const blackOn = !!liveSlide.forceBlack;
+  const coverOn = !!liveSlide.cover && !liveSlide.forceBlack;
   const liveActive =
     liveSlide.visible &&
     !liveSlide.blank &&
     !liveSlide.forceBlack &&
-    (liveSlide.lines.length > 0 || !!liveSlide.qr);
+    (liveSlide.lines.length > 0 || !!liveSlide.qr || !!liveSlide.cover);
   const liveLabel = liveSlide.forceBlack
     ? tr('Чорний екран')
     : liveSlide.blank
@@ -2747,6 +2793,19 @@ export function Control() {
                   active={blackOn}
                   disabled={!isLeader}
                   onClick={blackToggle}
+                />
+                <ToolIcon
+                  label={coverOn ? tr('Прибрати заставку') : tr('Заставка')}
+                  hint={
+                    coverOn
+                      ? tr('Повернути те, що було')
+                      : tr('Логотип і текст між елементами; ще раз — те, що було')
+                  }
+                  combo={keymap.cover}
+                  icon={<IconPhoto size={18} stroke={1.5} />}
+                  active={coverOn}
+                  disabled={!isLeader}
+                  onClick={coverToggle}
                 />
               </ToolZone>
               <ToolZone label={tr('Застосунок')}>
@@ -3360,8 +3419,10 @@ export function Control() {
 
 /** Drop the (potentially large) background image before mirroring to the follow relay. */
 function stripBg(slide: Slide): Slide {
-  if (!slide.style?.bgImage) return slide;
-  return { ...slide, style: { ...slide.style, bgImage: null } };
+  // «Заставка»'s image stays off the phones too (1.4.0): an empty slide there
+  const s = slide.cover ? { ...slide, cover: undefined } : slide;
+  if (!s.style?.bgImage) return s;
+  return { ...s, style: { ...s.style, bgImage: null } };
 }
 
 /** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */
