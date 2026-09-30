@@ -8,7 +8,8 @@ docs. How the code is organized is in [Architecture](architecture.md).
 
 You need Node.js 24 (22.18 at least) and, to see real texts, some MyBible modules in
 `modules/` (see [Modules and copyright](../../README.md#modules-and-copyright)). The tests
-don't need modules: they build small in-memory fixtures.
+don't need modules: they build small in-memory fixtures. Version managers such as fnm,
+nodenv, and asdf pick Node 24 from `.node-version`.
 
 To set up and run the development servers:
 
@@ -30,7 +31,12 @@ npx eslint .
 npx vitest run
 ```
 
-Then run `npx tsc -b` in each of `web/`, `server/`, and `builder/`.
+Then run `npx tsc -b` in each of `web/`, `server/`, and `builder/`, and build the web app
+as CI does:
+
+```bash
+npm run build --workspace @vo/web
+```
 
 Tests sit next to the code as `*.test.ts`. Library queries are tested on an in-memory
 SQLite fixture (`server/src/library.test.ts`), and `builder/src/pglite.test.ts` checks
