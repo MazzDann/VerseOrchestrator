@@ -40,8 +40,11 @@ const uk = [
   '**Приватність і безпека** → «Усе одно відкрити» (Open Anyway) → підтвердьте (лише першого',
   'разу; до macOS 15 — правою кнопкою на файлі → **Відкрити**).',
   '',
-  'Оновлення: замініть папку `app/` папкою `app/` з нового архіву. Папки `data/` (налаштування,',
-  'бібліотека, пісні) і `modules/` лишаються. Контрольні суми архівів — у `SHA256SUMS.txt`.',
+  'Оновлення: з 1.0.0 застосунок сам каже про нову версію й установлює її — **Налаштування',
+  'вигляду** → **Застосунок** → **Оновлення** → **Завантажити оновлення**, потім **Перезапустити й',
+  'оновити**. Версію 0.x оновіть вручну: замініть папку `app/` папкою `app/` з нового архіву. Папки',
+  '`data/` (налаштування, бібліотека, пісні) і `modules/` лишаються. Контрольні суми архівів — у',
+  '`SHA256SUMS.txt`.',
 ];
 const en = [
   '### Download for your system',
@@ -58,8 +61,11 @@ const en = [
   '**Privacy & Security** > **Open Anyway** > confirm (the first time only; before macOS 15,',
   'right-click the file > **Open**).',
   '',
-  'Updating: replace the `app/` folder with the `app/` folder from the new archive. The `data/`',
-  '(settings, library, songs) and `modules/` folders stay. Archive checksums are in `SHA256SUMS.txt`.',
+  'Updating: from 1.0.0 on, the app tells you about a new version and installs it — **Налаштування',
+  'вигляду** > **Застосунок** > **Оновлення** > **Завантажити оновлення**, then **Перезапустити й',
+  'оновити**. Update a 0.x version by hand: replace the `app/` folder with the one from the new',
+  'archive. The `data/` (settings, library, songs) and `modules/` folders stay. Archive checksums',
+  'are in `SHA256SUMS.txt`.',
 ];
 
 const blocks = [
