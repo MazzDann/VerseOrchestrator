@@ -122,4 +122,26 @@ describe('connectLive', () => {
     vi.advanceTimersByTime(500); // the backoff restarted at 0.5 s after the early try
     expect(FakeSocket.all).toHaveLength(3);
   });
+
+  it('the app was updated under the page: reloads into the new version, once (1.0.0)', () => {
+    const reload = vi.fn();
+    const store = new Map<string, string>();
+    vi.stubGlobal('__APP_VERSION__', '1.0.0');
+    vi.stubGlobal('location', { protocol: 'http:', host: 'localhost:5173', reload });
+    vi.stubGlobal('sessionStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => store.set(k, v),
+    });
+    const live = connectLive({});
+    const ws = FakeSocket.all.at(-1)!;
+    ws.accept();
+    const frame = (f: object) => ws.onmessage?.({ data: JSON.stringify(f) });
+    frame({ type: 'app', version: '1.0.0' });
+    expect(reload).not.toHaveBeenCalled();
+    frame({ type: 'app', version: '1.0.1' });
+    expect(reload).toHaveBeenCalledTimes(1);
+    frame({ type: 'app', version: '1.0.1' }); // the reload brought the old page back: stay
+    expect(reload).toHaveBeenCalledTimes(1);
+    live.stop();
+  });
 });
