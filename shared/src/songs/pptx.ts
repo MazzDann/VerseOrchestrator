@@ -10,9 +10,10 @@ import { unzipSync, strFromU8 } from 'fflate';
 /**
  * The version of this reader. A bundle a folder of .pptx files feeds is read again when an
  * older reader wrote it (2 — 1.2.1: title slides kept their authors in the title's box; 3 —
- * 1.3.0: a second part in another colour).
+ * 1.3.0: a second part in another colour; 4: keys in one Unicode form, so a Mac's reading
+ * replaces a Windows one instead of doubling it).
  */
-export const PPTX_READER = 3;
+export const PPTX_READER = 4;
 
 /**
  * A second part (1.3.0): words the file colours apart from the rest of the box — an echo or
@@ -392,12 +393,17 @@ function boxOf(shape: string, sw: number, sh: number, theme: Theme) {
   return { color, font, bold, align, x, y, w, h, size };
 }
 
-/** A song's key from its file name: no folders, no `.pptx`. */
+/**
+ * A song's key from its file name: no folders, no `.pptx`, composed Unicode (NFC). A Mac
+ * spells «й» / «ї» in file names as a letter + a combining mark, Windows and browsers as one
+ * character — the same song must get the same key (and so the same id) on both.
+ */
 export function songKey(fileName: string): string {
   return fileName
     .replace(/^.*[\\/]/, '')
     .replace(/\.pptx$/i, '')
-    .trim();
+    .trim()
+    .normalize('NFC');
 }
 
 /** «123. Назва» (a dot, dash or bracket after the number) → number + title; else the whole name. */

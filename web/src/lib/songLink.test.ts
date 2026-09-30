@@ -62,6 +62,13 @@ describe('a running-order song after the ids changed (0.10.0)', () => {
     expect((await findSong(3, '№12 Слава', undefined, lib.load))?.id).toBe(9001);
   });
 
+  it('a label a Mac stored decomposed finds the song under its new id (1.3.1)', async () => {
+    const lib = library([song(9004, 12, 'Боже Вічний')]); // the library: composed «й»
+    const old = '№12 Боже Вічний'.normalize('NFD'); // the item: «и» + a combining breve
+    expect(old).not.toBe('№12 Боже Вічний');
+    expect((await findSong(3, old, 'ПС', lib.load))?.id).toBe(9004);
+  });
+
   it('nothing matches the label: what the id gives, else nothing', async () => {
     const lib = library([song(2, 120, 'Хвала')]);
     expect((await findSong(2, '№12 Слава', undefined, lib.load))?.id).toBe(2);
