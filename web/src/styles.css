@@ -131,6 +131,15 @@ html[data-scrolling] .vo-list-item:hover:not([data-selected='true']) {
 .vo-verse-item[data-selected='true'] .vo-verse-num {
   color: var(--mantine-color-brand-light-color);
 }
+/* A song's chorus rows (1.3.0): the label reads as text, not as a dimmed number, so the
+   choruses stand out in the list without a colour of their own. */
+.vo-stanza-row[data-part='chorus'] .vo-verse-num {
+  color: var(--mantine-color-text);
+  font-weight: 600;
+}
+.vo-stanza-row[data-part='chorus'][data-selected='true'] .vo-verse-num {
+  color: var(--mantine-color-brand-light-color);
+}
 
 /* Chapter picker: compact fixed-width cells so long books wrap into a tidy grid. */
 .vo-chapter-grid {

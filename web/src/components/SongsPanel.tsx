@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Paper,
   TextInput,
@@ -23,14 +23,17 @@ import {
   IconChevronLeft,
   IconPlaylistAdd,
   IconFileImport,
+  IconRepeat,
 } from '@tabler/icons-react';
+import { nextChorus, songParts, type SongPart } from '@vo/shared';
 import { api, type SongStyle } from '../api';
 import type { SlideSource } from '../presenterBus';
 import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { SongImport } from './SongImport';
 import { tr, useLang } from '../i18n';
-import { matchesCombo } from '../hotkeys';
+import { formatCombo, matchesCombo } from '../hotkeys';
+import { isFormField } from '../lib/keyScroll';
 import { useSettings } from '../settingsStore';
 
 interface Props {
@@ -63,6 +66,15 @@ interface Props {
    * the background stays. Without it the last stanza is where the song ends.
    */
   onSongEnd?: () => Outcome;
+}
+
+/** A slide's label in the list (1.3.0): «Заголовок», «Куплет 2», «Приспів», «Приспів 2 · 1/2». */
+function partLabel(p: SongPart): string {
+  if (p.kind === 'title') return tr('Заголовок');
+  if (p.kind === 'verse') return tr('Куплет {n}', { n: p.verse });
+  // a label that says more («Приспів (до 5-го куплету)») is the file's words — data
+  const base = p.name ?? (p.variant ? tr('Приспів {n}', { n: p.variant }) : tr('Приспів'));
+  return p.parts ? `${base} · ${p.part}/${p.parts}` : base;
 }
 
 /**
@@ -111,6 +123,13 @@ export function SongsPanel({
     queryFn: () => api.song(songId!),
     enabled: open && songId != null,
   });
+  // title, verses, choruses (1.3.0): the labels and «До приспіву»
+  const parts = useMemo(
+    () => (songQuery.data ? songParts(songQuery.data.slides.map((sl) => sl.text)) : []),
+    [songQuery.data],
+  );
+  const hasChorus = parts.some((p) => p.kind === 'chorus');
+  const chorusKey = useSettings((st) => st.keymap.chorus);
 
   useEffect(() => {
     if (open && songId == null && !importing) {
@@ -122,6 +141,35 @@ export function SongsPanel({
   useEffect(() => {
     if (!open) setImporting(false);
   }, [open]);
+
+  // Put stanza `idx` of the open song on screen.
+  const showStanza = useCallback(
+    (idx: number) => {
+      const s = songQuery.data;
+      if (!s) return;
+      onActiveStanzaChange(idx);
+      onProjectStanza(
+        s.slides[idx].text,
+        `№${s.number ?? ''} ${s.title}`.trim(),
+        faithful ? s.slides[idx].style : null,
+        { kind: 'song', songId: s.id, stanza: idx },
+      );
+    },
+    [songQuery.data, faithful, onActiveStanzaChange, onProjectStanza],
+  );
+
+  // «До приспіву» (1.3.0): the next chorus of the open song — a different one where the song
+  // has its own chorus after a verse; past the last chorus, the one before.
+  const toChorus = useCallback((): Outcome => {
+    if (!songQuery.data) return { ok: false, reason: tr('Пісня ще завантажується') };
+    if (!parts.some((p) => p.kind === 'chorus')) {
+      return { ok: false, reason: tr('У цій пісні немає приспіву') };
+    }
+    const idx = nextChorus(parts, activeStanza);
+    if (idx === null) return { ok: false, reason: tr('Далі в пісні приспіву немає') };
+    showStanza(idx);
+    return { ok: true };
+  }, [songQuery.data, parts, activeStanza, showStanza]);
 
   // Step to the next/previous stanza and project it.
   const stepStanza = useCallback(
@@ -143,16 +191,10 @@ export function SongsPanel({
       if (activeStanza != null && idx === cur) {
         return { ok: false, reason: dir > 0 ? tr('Це остання строфа') : tr('Це перша строфа') };
       }
-      onActiveStanzaChange(idx);
-      onProjectStanza(
-        s.slides[idx].text,
-        `№${s.number ?? ''} ${s.title}`.trim(),
-        faithful ? s.slides[idx].style : null,
-        { kind: 'song', songId: s.id, stanza: idx },
-      );
+      showStanza(idx);
       return { ok: true };
     },
-    [songQuery.data, activeStanza, faithful, onActiveStanzaChange, onProjectStanza, onSongEnd],
+    [songQuery.data, activeStanza, onActiveStanzaChange, onSongEnd, showStanza],
   );
 
   // While a song is open, arrows / PageUp-PageDown step through its stanzas.
@@ -160,6 +202,19 @@ export function SongsPanel({
   useEffect(() => {
     if (!open || songId == null || keysPaused) return;
     const onKey = (e: KeyboardEvent) => {
+      const say = (o: Outcome) => {
+        if (!o.ok && o.reason) {
+          notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
+        }
+      };
+      // «До приспіву» (1.3.0) — not while typing
+      const { chorus } = useSettings.getState().keymap;
+      if (chorus && matchesCombo(e, chorus) && !isFormField(e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        say(toChorus());
+        return;
+      }
       const dir = ['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key)
         ? 1
         : ['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)
@@ -178,15 +233,12 @@ export function SongsPanel({
       }
       e.preventDefault();
       e.stopPropagation();
-      const o = stepStanza(dir);
       // the song's own end says so («Кінець пісні») — like the verses' edges (0.6.23)
-      if (!o.ok && o.reason) {
-        notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
-      }
+      say(stepStanza(dir));
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [open, songId, stepStanza, songQuery.data, keysPaused]);
+  }, [open, songId, stepStanza, toChorus, songQuery.data, keysPaused]);
 
   // Show commands from outside the keyboard — an output window's clicker keys and speaker
   // remotes (lib/commands.ts): while a song is open it owns next/prev, ahead of the verse
@@ -201,15 +253,7 @@ export function SongsPanel({
   const songs = listQuery.data ?? [];
   const song = songQuery.data;
 
-  const project = (idx: number, slide: { text: string; style: SongStyle | null }) => {
-    onActiveStanzaChange(idx);
-    onProjectStanza(
-      slide.text,
-      song ? `№${song.number ?? ''} ${song.title}`.trim() : '',
-      faithful ? slide.style : null,
-      { kind: 'song', songId: song?.id ?? songId ?? 0, stanza: idx },
-    );
-  };
+  const project = (idx: number) => showStanza(idx);
   // the «Кінець» row: the empty slide after the last stanza, by click as well (0.6.24)
   const endSong = () => {
     if (!song || !onSongEnd) return;
@@ -250,6 +294,25 @@ export function SongsPanel({
               </Text>
             </Group>
             <Group gap={4} wrap="nowrap">
+              {hasChorus && (
+                <Tooltip
+                  label={`${tr('До приспіву')}${chorusKey ? ` · ${formatCombo(chorusKey)}` : ''}`}
+                  withArrow
+                >
+                  <ActionIcon
+                    variant="subtle"
+                    onClick={() => {
+                      const o = toChorus();
+                      if (!o.ok && o.reason) {
+                        notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
+                      }
+                    }}
+                    aria-label={tr('До приспіву')}
+                  >
+                    <IconRepeat size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
               {onAddToPlaylist && (
                 <ActionIcon
                   variant="subtle"
@@ -298,16 +361,17 @@ export function SongsPanel({
                   role="button"
                   tabIndex={0}
                   data-selected={activeStanza === i ? 'true' : undefined}
-                  onClick={() => project(i, s)}
+                  data-part={parts[i]?.kind}
+                  onClick={() => project(i)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      project(i, s);
+                      project(i);
                     }
                   }}
                 >
                   <span className="vo-verse-num">
-                    {i === 0 ? tr('Заголовок') : tr('Куплет {n}', { n: i })}
+                    {parts[i] ? partLabel(parts[i]) : tr('Куплет {n}', { n: i })}
                   </span>
                   <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={5}>
                     {s.text}

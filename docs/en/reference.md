@@ -17,6 +17,7 @@ These are the control window's standard keys. You can change them in **Settings*
 | **Back** — the previous verse        | ←, ↑, PageUp      |                        |
 | **Preview: next** — the preview only | Ctrl+→, Ctrl+↓    | ⌥→, ⌥↓ instead of Ctrl |
 | **Preview: back** — the preview only | Ctrl+←, Ctrl+↑    | ⌥←, ⌥↑ instead of Ctrl |
+| **To the chorus** — in a song        | C                 |                        |
 | **To screen**                        | F5, F2            | ⌘↩                     |
 | **Hide text**                        | B                 |                        |
 | **Black screen**                     | . (period)        |                        |
