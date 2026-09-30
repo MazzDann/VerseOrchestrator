@@ -108,6 +108,10 @@ Above the song's slides there is a switch:
 - **Plain text** — like the verses: the font, colors, background, and template from the
   [appearance settings](appearance.md).
 
+If the file colors some of the words apart, such as an echo or a second part — “word
+(word)” in yellow — **As in the file** keeps that color. **Plain text** shows those words
+dimmer than the rest, and so do the viewers' phones.
+
 ## Show custom text
 
 Custom text is a slide with any text of yours: an announcement, a note, a question. It

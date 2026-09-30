@@ -121,6 +121,8 @@ const SongStyleSchema = z
       .transform((v) => v ?? 0),
     anchor: AnchorSchema.optional(),
     sub: SongBoxSchema.optional(),
+    /** words in another colour (1.3.0): the main text with them marked, and that colour */
+    second: z.object({ text: z.string(), color: str() }).optional(),
   })
   .nullable();
 export type SongStyle = NonNullable<z.infer<typeof SongStyleSchema>>;

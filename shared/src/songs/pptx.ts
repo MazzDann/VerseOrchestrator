@@ -9,9 +9,24 @@ import { unzipSync, strFromU8 } from 'fflate';
 
 /**
  * The version of this reader. A bundle a folder of .pptx files feeds is read again when an
- * older reader wrote it (1.2.1: title slides kept their authors in the title's box).
+ * older reader wrote it (2 — 1.2.1: title slides kept their authors in the title's box; 3 —
+ * 1.3.0: a second part in another colour).
  */
-export const PPTX_READER = 2;
+export const PPTX_READER = 3;
+
+/**
+ * A second part (1.3.0): words the file colours apart from the rest of the box — an echo or
+ * a second voice, «слово (слово)» in yellow. In `SlideSecond.text` they sit between these
+ * two private-use characters, which no song text holds.
+ */
+export const SECOND_OPEN = '';
+export const SECOND_CLOSE = '';
+
+/** The main box's text with its second part marked, and that part's colour in the file. */
+export interface SlideSecond {
+  text: string;
+  color: string;
+}
 
 /** Where the text sits in its box, top to bottom (`<a:bodyPr anchor>`). */
 export type TextAnchor = 'top' | 'middle' | 'bottom';
@@ -52,6 +67,8 @@ export interface SlideStyleSpec {
    * `mainText` takes it out again for the faithful look.
    */
   sub?: SlideBoxSpec;
+  /** The main box's words in another colour (1.3.0); absent: one colour. */
+  second?: SlideSecond;
 }
 
 export interface SongSlide {
@@ -236,6 +253,8 @@ function readSlide(
     ...boxOf(main.xml, sw, sh, theme),
     anchor: shapeAnchor(main, layout, master),
   };
+  const second = secondOf(main.xml, style.color, theme);
+  if (second) style.second = second;
   const other = shapes.length === 2 ? shapes.find((x) => x !== main) : undefined;
   const subText = other ? bodyText(other.xml) : '';
   const own = bodyText(main.xml);
@@ -265,6 +284,89 @@ export function mainText(text: string, style: SlideStyleSpec | null | undefined)
   if (text.startsWith(`${sub}\n`)) return text.slice(sub.length + 1);
   if (text.endsWith(`\n${sub}`)) return text.slice(0, text.length - sub.length - 1);
   return text;
+}
+
+const MARKS = /[]/g;
+
+/** The text without the second part's marks. */
+export function unmark(marked: string): string {
+  return marked.replace(MARKS, '');
+}
+
+/**
+ * The words of a box in another colour than `color` (1.3.0) — in the reference songbook an
+ * echo or a second voice in yellow, 184 slides of 49 songs. Neighbouring runs make one
+ * part; the first other colour stands for all of them. None when the marks would move a
+ * space or a line (the plain text must stay exactly as it was).
+ */
+function secondOf(shape: string, color: string, theme: Theme): SlideSecond | undefined {
+  let other: string | undefined;
+  const marked = shape.replace(/<a:r>([\s\S]*?)<\/a:r>/g, (run, inner: string) => {
+    const fill = first(inner, /<a:rPr\b[\s\S]*?<a:solidFill>([\s\S]*?)<\/a:solidFill>/);
+    const c = resolveFill(fill ? `<a:solidFill>${fill}</a:solidFill>` : undefined, theme);
+    if (!c || c === color) return run;
+    other ??= c;
+    return run.replace(
+      /<a:t>([\s\S]*?)<\/a:t>/g,
+      (_, t: string) => `<a:t>${SECOND_OPEN}${t}${SECOND_CLOSE}</a:t>`,
+    );
+  });
+  if (!other) return undefined;
+  const text = alignMarks(bodyText(marked), bodyText(shape))?.replace(
+    new RegExp(`${SECOND_CLOSE}(\\s*)${SECOND_OPEN}`, 'g'),
+    '$1',
+  );
+  return text && unmark(text) === bodyText(shape) ? { text, color: other } : undefined;
+}
+
+/**
+ * The marks put into the plain text. Tidying a text drops spaces at line ends and doubled
+ * ones, but a mark between a space and the line's end keeps that space from going — so walk
+ * both texts and let the marked one skip the spaces the plain one doesn't have.
+ */
+function alignMarks(marked: string, plain: string): string | null {
+  let out = '';
+  let j = 0;
+  for (const ch of marked) {
+    if (ch === SECOND_OPEN || ch === SECOND_CLOSE) out += ch;
+    else if (ch === plain[j]) {
+      out += ch;
+      j++;
+    } else if (!/\s/.test(ch)) return null;
+  }
+  return j === plain.length ? out : null;
+}
+
+/** A marked text in parts: the second part's and the rest, in order (1.3.0). */
+export function secondParts(marked: string): { text: string; second: boolean }[] {
+  const parts: { text: string; second: boolean }[] = [];
+  let second = false;
+  let text = '';
+  for (const ch of marked) {
+    if (ch === SECOND_OPEN || ch === SECOND_CLOSE) {
+      if (text) parts.push({ text, second });
+      text = '';
+      second = ch === SECOND_OPEN;
+    } else text += ch;
+  }
+  if (text) parts.push({ text, second });
+  return parts;
+}
+
+/**
+ * The whole slide's text with its second part marked — the main box's marks put into the
+ * text that also holds a separate box's words (plain text shows both). Null: nothing marked,
+ * or the texts don't match (a bundle written by another reader).
+ */
+export function markedText(text: string, style: SlideStyleSpec | null | undefined): string | null {
+  const second = style?.second;
+  if (!second) return null;
+  const main = mainText(text, style);
+  if (unmark(second.text) !== main) return null;
+  if (text === main) return second.text;
+  if (text.startsWith(`${main}\n`)) return second.text + text.slice(main.length);
+  if (text.endsWith(`\n${main}`)) return text.slice(0, text.length - main.length) + second.text;
+  return null;
 }
 
 /** A text box: its place (% of the slide), its first run's look, its original font size. */
