@@ -1,87 +1,19 @@
 import { useMemo } from 'react';
-import QRCode from 'qrcode';
 import type { QrStyle } from '../presenterBus';
 import { tr, useLang } from '../i18n';
-
-/** Modules of quiet zone drawn inside the SVG; the card's white padding adds the rest. */
-const MARGIN = 2;
-const INK = '#16161a';
-
-/** Top-left corners of the three finder patterns («eyes») of an n×n symbol. */
-const eyes = (n: number): [number, number][] => [
-  [0, 0],
-  [n - 7, 0],
-  [0, n - 7],
-];
-const inEye = (n: number, x: number, y: number) =>
-  eyes(n).some(([ex, ey]) => x >= ex && x < ex + 7 && y >= ey && y < ey + 7);
+import { QR_INK, qrSvgMarkup } from '../lib/qrSvg';
 
 /**
- * A QR as SVG, crisp at any size. `square`: every dark module a unit square (one path).
- * `rounded` / `dots` (0.6.20, the operator asked for some styling): data modules as
- * rounded squares or dots and the three eyes as a rounded ring + a rounded centre — at
- * error-correction Q, so the softer shapes still scan.
+ * The QR as an image, not inline SVG: dark-mode extensions (Dark Reader and the like) recolour
+ * a page's SVG fills and backgrounds — the ink went dark on a dark card and the eyes light,
+ * and phones couldn't read it. An image they leave as it is.
  */
-function QrSvg({ text, size, look }: { text: string; size: string; look: QrStyle }) {
-  const svg = useMemo(() => {
-    const m = QRCode.create(text, { errorCorrectionLevel: look === 'square' ? 'M' : 'Q' }).modules;
-    const n = m.size;
-    if (look === 'square') {
-      let d = '';
-      for (let y = 0; y < n; y++)
-        for (let x = 0; x < n; x++) if (m.get(y, x)) d += `M${x} ${y}h1v1h-1z`;
-      return { n, body: <path d={d} fill={INK} /> };
-    }
-    const cells: JSX.Element[] = [];
-    for (let y = 0; y < n; y++) {
-      for (let x = 0; x < n; x++) {
-        if (!m.get(y, x) || inEye(n, x, y)) continue;
-        cells.push(
-          look === 'dots' ? (
-            <circle key={`${x}-${y}`} cx={x + 0.5} cy={y + 0.5} r={0.44} />
-          ) : (
-            <rect key={`${x}-${y}`} x={x + 0.06} y={y + 0.06} width={0.88} height={0.88} rx={0.3} />
-          ),
-        );
-      }
-    }
-    const eyeShapes = eyes(n).map(([ex, ey]) => (
-      <g key={`eye-${ex}-${ey}`}>
-        <rect
-          x={ex + 0.5}
-          y={ey + 0.5}
-          width={6}
-          height={6}
-          rx={look === 'dots' ? 2.2 : 1.6}
-          fill="none"
-          stroke={INK}
-          strokeWidth={1}
-        />
-        <rect x={ex + 2} y={ey + 2} width={3} height={3} rx={look === 'dots' ? 1.5 : 0.9} />
-      </g>
-    ));
-    return {
-      n,
-      body: (
-        <g fill={INK}>
-          {cells}
-          {eyeShapes}
-        </g>
-      ),
-    };
-  }, [text, look]);
-  return (
-    <svg
-      viewBox={`${-MARGIN} ${-MARGIN} ${svg.n + 2 * MARGIN} ${svg.n + 2 * MARGIN}`}
-      width={size}
-      height={size}
-      shapeRendering={look === 'square' ? 'crispEdges' : 'geometricPrecision'}
-      aria-hidden
-      style={{ display: 'block' }}
-    >
-      {svg.body}
-    </svg>
+function QrImage({ text, size, look }: { text: string; size: string; look: QrStyle }) {
+  const src = useMemo(
+    () => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvgMarkup(text, look))}`,
+    [text, look],
   );
+  return <img src={src} alt="" style={{ display: 'block', width: size, height: size }} />;
 }
 
 /**
@@ -112,7 +44,7 @@ export function QrCard({
         gap: full ? '2cqh' : '0.6cqh',
         padding: full ? '3cqh 4cqh' : '1.2cqh',
         background: '#fff',
-        color: INK,
+        color: QR_INK,
         borderRadius: full ? '2.4cqh' : '1.2cqh',
         boxShadow: '0 1cqh 4cqh rgba(0, 0, 0, 0.35)',
         fontFamily: 'Inter, system-ui, sans-serif',
@@ -125,7 +57,7 @@ export function QrCard({
       {full && (
         <div style={{ fontSize: '4.6cqh', fontWeight: 700 }}>{tr('Читайте з телефона')}</div>
       )}
-      <QrSvg text={url} size={full ? '52cqh' : '17cqh'} look={look} />
+      <QrImage text={url} size={full ? '52cqh' : '17cqh'} look={look} />
       <div style={{ fontSize: full ? '2.8cqh' : '1.7cqh', fontWeight: 600, opacity: 0.85 }}>
         {full ? tr('Відскануйте камерою телефона — та сама мережа Wi-Fi') : tr('Текст на телефоні')}
       </div>
