@@ -872,8 +872,6 @@ export const EN: Record<string, string> = {
   // the launcher console (server/src/launcher.ts)
   'Порт — ціле число від 1024 до 65535, наприклад: --port 4748':
     'The port is a whole number from 1024 to 65535, for example: --port 4748',
-  'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut':
-    'Unknown option “{arg}”. Options: --no-browser, --port N, --check, --off, --app, --shortcut',
   '{s} с': '{s} s',
   'Відкрийте в браузері: {url}': 'Open in a browser: {url}',
   перевірка: 'check',
@@ -1227,4 +1225,17 @@ export const EN: Record<string, string> = {
     'The previous verse in the preview only — the screen stays until “To screen”',
   'Екран стоїть, прев’ю йде далі. Показати прев’ю — «На екран».':
     'The screen stays, the preview moves on. To show the preview, press “To screen”.',
+  // 1.1.0 one control window
+  керування: 'control',
+  'Закрити це вікно': 'Close this window',
+  'Браузер не дає закрити цю вкладку — закрийте її самі ({key}).':
+    'The browser keeps this tab open — close it yourself ({key}).',
+  'Вікно керування вже відкрите — перемикаю на нього.':
+    'The control window is open already — switching to it.',
+  'Вікно керування вже відкрите — знайдіть його серед вікон браузера.':
+    'The control window is open already — find it among the browser’s windows.',
+  'Щоб відкрити ще одне, запустіть з --new-window.':
+    'To open another one, start with --new-window.',
+  'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window':
+    'Unknown option “{arg}”. Available: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window',
 };

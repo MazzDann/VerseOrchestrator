@@ -145,6 +145,7 @@ import { ResizeHandle } from '../components/ResizeHandle';
 import { setAppShellWidth } from '../lib/appShell';
 import { formatCombo, matchesCombo } from '../hotkeys';
 import { isFormField, scrollableAround } from '../lib/keyScroll';
+import { closeThisWindow } from '../lib/closeWindow';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
@@ -155,7 +156,7 @@ type Jumpable = { translationId: number; bookNumber: number; chapter: number; ve
 type InlinePanel = 'search' | 'songs' | 'text';
 
 export function Control() {
-  useLang();
+  const lang = useLang();
   const { toggleColorScheme } = useMantineColorScheme();
   const colorScheme = useComputedColorScheme('dark');
 
@@ -1906,6 +1907,17 @@ export function Control() {
    * the server had stopped — the last word from the hub, never taken back.
    */
   const [hubLost, setHubLost] = useState(false);
+  // The window in charge has its own title (1.1.0): the start file finds it by that
+  // (shortcut.ts CONTROL_TITLES) instead of opening a second one, and among the browser's
+  // windows it is the one to pick. One on standby, or not in charge of the hub, keeps the plain
+  // name, so the start file never brings that one forward.
+  const inCharge = isLeader && hubActive;
+  useEffect(() => {
+    document.title = inCharge ? `VerseOrchestrator — ${tr('керування')}` : 'VerseOrchestrator';
+    return () => {
+      document.title = 'VerseOrchestrator';
+    };
+  }, [inCharge, lang]);
   /** The hub said the app is being switched off on purpose («Вимкнути повністю», 0.7.1). */
   const [appOff, setAppOff] = useState(false);
   useEffect(() => {
@@ -2739,6 +2751,9 @@ export function Control() {
                     'Показом керує інше вікно керування. Тут можна готувати наступне — на екран іде лише звідти.',
                   )}
                 </Text>
+                <Button size="xs" variant="subtle" color="gray" onClick={closeThisWindow}>
+                  {tr('Закрити це вікно')}
+                </Button>
                 <Button size="xs" variant="light" onClick={takeOver}>
                   {tr('Взяти керування')}
                 </Button>
@@ -2812,6 +2827,9 @@ export function Control() {
                     'Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси показ іде лише на вікна виводу цього браузера.',
                   )}
                 </Text>
+                <Button size="xs" variant="subtle" color="gray" onClick={closeThisWindow}>
+                  {tr('Закрити це вікно')}
+                </Button>
                 <Button
                   size="xs"
                   variant="light"
