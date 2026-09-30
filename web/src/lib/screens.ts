@@ -137,3 +137,25 @@ export function screenOf(
 export function featuresFor(s: ScreenInfo): string {
   return `popup,left=${s.x},top=${s.y},width=${s.w},height=${s.h}`;
 }
+
+type Box = { left: number; top: number; width: number; height: number };
+type WindowPlace = Pick<
+  Window,
+  'screenX' | 'screenY' | 'outerWidth' | 'innerWidth' | 'outerHeight' | 'innerHeight'
+>;
+
+/**
+ * Where a box of this page (the settings panel) is on the screen, as window.open wants it:
+ * the page's own place plus the browser's frame around it. The new window's title bar comes on
+ * top, so its text sits a bar lower than the panel's — near enough to feel like the same place.
+ */
+export function screenBox(r: Box, w: WindowPlace = window): Box {
+  const side = Math.max(0, (w.outerWidth - w.innerWidth) / 2);
+  const above = Math.max(0, w.outerHeight - w.innerHeight - side);
+  return {
+    left: Math.round(w.screenX + side + r.left),
+    top: Math.round(w.screenY + above + r.top),
+    width: Math.round(r.width),
+    height: Math.round(r.height),
+  };
+}

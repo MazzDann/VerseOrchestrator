@@ -56,8 +56,15 @@ function pick(tags: string[]): Lang | null {
 }
 
 /**
+ * None of ours among languages asked for: English; none asked for (nothing, or `*` — «any»,
+ * which Node's own fetch sends): Ukrainian — as pickLang.
+ */
+const otherwise = (tags: string[]): Lang =>
+  tags.some((t) => t.trim() && t.trim() !== '*') ? 'en' : 'uk';
+
+/**
  * The console's language: `VO_LANG`, else the one chosen in the control window (kept in
- * data/ui-state.json), else the system's, else Ukrainian.
+ * data/ui-state.json), else the system's — English for a system in another language.
  */
 export function consoleLang(dataDir: string): Lang {
   const env = pick([process.env.VO_LANG ?? '']);
@@ -69,10 +76,12 @@ export function consoleLang(dataDir: string): Lang {
   } catch {
     /* nothing saved yet */
   }
-  return pick([Intl.DateTimeFormat().resolvedOptions().locale]) ?? 'uk';
+  const system = [Intl.DateTimeFormat().resolvedOptions().locale];
+  return pick(system) ?? otherwise(system);
 }
 
 /** A page's language from its request's Accept-Language (the waiter's «Запуск…» page). */
 export function requestLang(acceptLanguage: string | undefined): Lang {
-  return pick((acceptLanguage ?? '').split(',').map((part) => part.split(';')[0])) ?? 'uk';
+  const tags = (acceptLanguage ?? '').split(',').map((part) => part.split(';')[0]);
+  return pick(tags) ?? otherwise(tags);
 }

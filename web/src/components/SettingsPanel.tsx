@@ -48,7 +48,7 @@ import { tr, useLang } from '../i18n';
 const SECTIONS_KEY = 'vo:settingsSections';
 
 /** Appearance controls for the projected screen. Persisted via the settings store. */
-export function SettingsPanel() {
+export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const a = useSettings((s) => s.appearance);
   const set = useSettings((s) => s.setAppearance);
   const reset = useSettings((s) => s.resetAppearance);
@@ -126,7 +126,13 @@ export function SettingsPanel() {
           variant="default"
           size="xs"
           leftSection={<IconExternalLink size={14} />}
-          onClick={() => void openSettingsWindow()}
+          onClick={(e) => {
+            // the window takes the panel's place and size; the panel goes (1.1.0)
+            const panel = e.currentTarget.closest('[data-floating-panel]');
+            void openSettingsWindow(panel?.getBoundingClientRect()).then((w) => {
+              if (w) onDetach?.();
+            });
+          }}
         >
           {tr('Відкрити окремим вікном')}
         </Button>

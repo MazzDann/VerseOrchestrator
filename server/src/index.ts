@@ -17,6 +17,7 @@ import {
   notifyRemotesChanged,
   publishLive,
   viewerCount,
+  controlCount,
 } from './live.js';
 import {
   createPairing,
@@ -276,6 +277,10 @@ const updates = createUpdateChecker({
   install: readLayout(repoRoot) ? 'release' : 'source',
   isEnabled: () => getServerSettings().updates.check,
 });
+
+// Is a control window open on this machine? The start file and the shortcut then open no
+// second one (1.1.0, launcher.ts).
+app.get('/api/control-windows', requireLocal, (_req, res) => res.json({ open: controlCount() }));
 
 // Installing (1.0.0): only a copy in the release layout, whose app/ can be replaced
 const release = readLayout(repoRoot);

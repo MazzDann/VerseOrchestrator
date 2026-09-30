@@ -6,7 +6,7 @@ import {
   type OutputInfo,
   type OutputKind,
 } from './lib/outputs';
-import { featuresFor, listScreens, type ScreenInfo } from './lib/screens';
+import { featuresFor, listScreens, screenBox, type ScreenInfo } from './lib/screens';
 import { delegateFullscreen } from './lib/fullscreen';
 import { useSettings } from './settingsStore';
 
@@ -266,13 +266,30 @@ export function openStageWindow(another = false): Promise<boolean> {
   return openOutput('stage', { another });
 }
 
-/** Open the settings in a standalone window — on a secondary screen if possible. */
-export async function openSettingsWindow(): Promise<Window | null> {
-  const s = (await listScreens(true)).screens.find((x) => !x.primary);
-  const at = s ? `,left=${s.x},top=${s.y}` : '';
-  return window.open(
-    `${location.origin}/settings`,
-    'vo-settings',
-    `popup,width=560,height=820${at}`,
-  );
+let settingsWin: Window | null = null;
+
+/**
+ * Open the settings in a standalone window. From the settings panel (1.1.0, the operator's
+ * ask): where the panel was and its size — the panel closes; else on a secondary screen if
+ * possible. Already open: brought forward (this window opened it, so it may).
+ */
+export async function openSettingsWindow(from?: DOMRect): Promise<Window | null> {
+  if (settingsWin && !settingsWin.closed) {
+    if (from) {
+      const b = screenBox(from);
+      settingsWin.moveTo(b.left, b.top);
+    }
+    settingsWin.focus();
+    return settingsWin;
+  }
+  let features = 'popup,width=560,height=820';
+  if (from) {
+    const b = screenBox(from);
+    features = `popup,width=${b.width},height=${b.height},left=${b.left},top=${b.top}`;
+  } else {
+    const s = (await listScreens(true)).screens.find((x) => !x.primary);
+    if (s) features += `,left=${s.x},top=${s.y}`;
+  }
+  settingsWin = window.open(`${location.origin}/settings`, 'vo-settings', features);
+  return settingsWin;
 }

@@ -350,7 +350,7 @@ export function presetToFile(p: AppearancePreset): PresetFile {
   };
 }
 
-/** The interface language a browser prefers of ours (Ukrainian when it prefers neither). */
+/** The interface language a browser prefers of ours (English when it prefers neither). */
 function browserLang(): Lang {
   // a real page only: Node has a `navigator` too (with the system's language), and the tests
   // must not depend on the machine they run on

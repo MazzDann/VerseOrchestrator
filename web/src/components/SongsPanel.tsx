@@ -30,6 +30,8 @@ import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { SongImport } from './SongImport';
 import { tr, useLang } from '../i18n';
+import { matchesCombo } from '../hotkeys';
+import { useSettings } from '../settingsStore';
 
 interface Props {
   open: boolean;
@@ -164,6 +166,16 @@ export function SongsPanel({
           ? -1
           : 0;
       if (!dir || !songQuery.data || songQuery.data.slides.length === 0) return;
+      if (e.ctrlKey || e.altKey || e.metaKey) {
+        // the verses' preview-only step (1.1.0) does nothing while a song owns the keys — not
+        // the stanza, not the verses behind it; Alt+↑/↓ scroll, the rest is the browser's
+        const { previewNext, previewPrev } = useSettings.getState().keymap;
+        if (matchesCombo(e, previewNext) || matchesCombo(e, previewPrev)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       const o = stepStanza(dir);
