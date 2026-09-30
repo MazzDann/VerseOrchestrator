@@ -1,7 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { N_, type BundleSong, type SlideStyleSpec, type Vars } from '@vo/shared';
+import {
+  N_,
+  type BundleSong,
+  type SlideBoxSpec,
+  type SlideStyleSpec,
+  type TextAnchor,
+  type Vars,
+} from '@vo/shared';
 import { ApiError } from './db.js';
 import {
   bundlesDir,
@@ -80,6 +87,31 @@ const bad = (key: string, vars?: Vars) => new ApiError(400, key, vars);
 const isText = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const ALIGNS = new Set(['left', 'center', 'right']);
+const ANCHORS = new Set(['top', 'middle', 'bottom']);
+
+/** A slide's second text box (1.2.1), or undefined. */
+function parseBox(v: unknown): SlideBoxSpec | undefined {
+  if (v === null || v === undefined) return undefined;
+  const b = v as Record<string, unknown>;
+  const ok =
+    isText(b.text, 20000) &&
+    isText(b.color, 32) &&
+    ALIGNS.has(b.align as string) &&
+    ANCHORS.has(b.anchor as string) &&
+    ['x', 'y', 'w', 'h', 'size'].every((k) => isNum(b[k]));
+  if (!ok) throw bad(N_('Імпорт пісень: незрозумілий вигляд слайда'));
+  return {
+    text: b.text as string,
+    color: b.color as string,
+    align: b.align as SlideBoxSpec['align'],
+    anchor: b.anchor as TextAnchor,
+    x: b.x as number,
+    y: b.y as number,
+    w: b.w as number,
+    h: b.h as number,
+    size: b.size as number,
+  };
+}
 
 /** A slide's faithful style as the browser's .pptx reader makes it, or null. */
 function parseStyle(v: unknown): SlideStyleSpec | null {
@@ -91,8 +123,10 @@ function parseStyle(v: unknown): SlideStyleSpec | null {
     isText(s.font, 200) &&
     typeof s.bold === 'boolean' &&
     ALIGNS.has(s.align as string) &&
-    ['x', 'y', 'w', 'h', 'size'].every((k) => isNum(s[k]));
+    ['x', 'y', 'w', 'h', 'size'].every((k) => isNum(s[k])) &&
+    (s.anchor === undefined || ANCHORS.has(s.anchor as string));
   if (!ok) throw bad(N_('Імпорт пісень: незрозумілий вигляд слайда'));
+  const sub = parseBox(s.sub);
   return {
     bg: s.bg as string,
     color: s.color as string,
@@ -104,6 +138,8 @@ function parseStyle(v: unknown): SlideStyleSpec | null {
     w: s.w as number,
     h: s.h as number,
     size: s.size as number,
+    ...(s.anchor ? { anchor: s.anchor as TextAnchor } : {}),
+    ...(sub ? { sub } : {}),
   };
 }
 

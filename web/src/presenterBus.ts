@@ -79,6 +79,8 @@ export interface SlideObject {
   w: number; // % width
   h: number; // % height
   align: 'left' | 'center' | 'right';
+  /** where the text sits in its box, top to bottom (1.2.1: a faithful song's); absent = middle */
+  valign?: 'top' | 'middle' | 'bottom';
   size: number; // font size in cqh (% of slide height); ignored for `quote` (auto-fit) and `divider`
   color?: string; // overrides the slide colour
   tiedToSubline?: boolean; // divider: render only when the slide has a subline

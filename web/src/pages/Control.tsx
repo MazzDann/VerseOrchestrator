@@ -86,7 +86,7 @@ import {
   type SlideSource,
   type TextSpan,
 } from '../presenterBus';
-import { NO_LIBRARY, parseRedLetter, strongLangFor } from '@vo/shared';
+import { NO_LIBRARY, mainText, parseRedLetter, strongLangFor } from '@vo/shared';
 import { parseStrongTokens } from '../lib/strong';
 import { findSong } from '../lib/songLink';
 import { openPresenterWindow, openStageWindow } from '../openPresenter';
@@ -808,7 +808,8 @@ export function Control() {
   };
 
   // Project a text slide (song stanza). With `faithful`, reproduce the pptx look
-  // (its background/colour/font/bold + a positioned quote box); else use the app style.
+  // (its background/colour/font/bold + a positioned quote box, anchored as in the file, and
+  // a second box of its own — a title slide's authors, 1.2.1); else use the app style.
   const projectText = (
     text: string,
     reference: string,
@@ -818,6 +819,8 @@ export function Control() {
     if (!text.trim()) return;
     let style = slideStyle;
     let template = slideTemplate;
+    let quote = text;
+    let subline: string | undefined;
     if (faithful) {
       style = {
         ...slideStyle,
@@ -840,14 +843,36 @@ export function Control() {
             w: faithful.w,
             h: faithful.h,
             align: faithful.align,
+            valign: faithful.anchor,
             // Original pptx font size (cqh) → render the stanza "as made", not auto-fit.
             size: faithful.size,
           },
+          ...(faithful.sub
+            ? [
+                {
+                  kind: 'subline' as const,
+                  visible: true,
+                  x: faithful.sub.x,
+                  y: faithful.sub.y,
+                  w: faithful.sub.w,
+                  h: faithful.sub.h,
+                  align: faithful.sub.align,
+                  valign: faithful.sub.anchor,
+                  size: faithful.sub.size || 4, // unknown size: a caption's
+                  color: faithful.sub.color,
+                },
+              ]
+            : []),
         ],
       } satisfies SlideTemplate;
+      if (faithful.sub) {
+        quote = mainText(text, faithful);
+        subline = faithful.sub.text;
+      }
     }
     const slide: Slide = {
-      lines: [{ translationAbbr: '', text, rtl: false }],
+      lines: [{ translationAbbr: '', text: quote, rtl: false }],
+      ...(subline ? { subline } : {}),
       reference,
       blank: false,
       visible: true,
