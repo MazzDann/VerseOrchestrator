@@ -28,6 +28,7 @@ import {
   IconDeviceTv,
   IconSquareOff,
   IconSun,
+  IconHelp,
   IconMoonStars,
   IconSearch,
   IconBookmark,
@@ -146,6 +147,7 @@ import { setAppShellWidth } from '../lib/appShell';
 import { formatCombo, matchesCombo } from '../hotkeys';
 import { isFormField, scrollableAround } from '../lib/keyScroll';
 import { closeThisWindow } from '../lib/closeWindow';
+import { docsUrl } from '../lib/docs';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
@@ -2247,6 +2249,13 @@ export function Control() {
       run: () => setLiveFollow(!liveFollow),
     },
     {
+      id: 'docs',
+      label: tr('Довідка'),
+      keywords: 'help docs guide manual dovidka posibnyk',
+      icon: <IconHelp size={16} />,
+      run: () => window.open(docsUrl(lang), '_blank', 'noopener'),
+    },
+    {
       id: 'theme',
       label: colorScheme === 'dark' ? tr('Світла тема') : tr('Темна тема'),
       keywords: 'theme tema dark light',
@@ -2575,6 +2584,12 @@ export function Control() {
                   dot={!!update?.available}
                   active={settingsOpen}
                   onClick={() => setSettingsOpen((o) => !o)}
+                />
+                <ToolIcon
+                  label={tr('Довідка')}
+                  hint={tr('Посібник користувача — відкривається на GitHub')}
+                  icon={<IconHelp size={18} stroke={1.5} />}
+                  onClick={() => window.open(docsUrl(lang), '_blank', 'noopener')}
                 />
                 <ToolIcon
                   label={colorScheme === 'dark' ? tr('Світла тема') : tr('Темна тема')}
