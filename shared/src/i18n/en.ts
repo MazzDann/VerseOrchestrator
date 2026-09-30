@@ -488,6 +488,17 @@ export const EN: Record<string, string> = {
   'Простий текст': 'Plain text',
   Заголовок: 'Title',
   'Куплет {n}': 'Stanza {n}',
+  'Повернуто версію {to} замість {from} ({when}).':
+    'Went back to version {to} from {from} ({when}).',
+  'Повернути версію {to} не вдалося.': "Couldn't go back to version {to}.",
+  'Попередня версія {version} лишилася в папці застосунку.':
+    'The previous version, {version}, is kept in the app’s folder.',
+  'Повернути версію {version}': 'Go back to version {version}',
+  'Застосунок перезапуститься з версією {version}: це займе до хвилини. Версія {current} лишиться поруч — до неї можна повернутися тут само.':
+    'The app restarts as version {version}: it takes up to a minute. Version {current} stays next to it — you can come back to it right here.',
+  'Попередньої версії немає': 'There is no previous version',
+  'Попередня версія не запустилася — працює та, що була':
+    "The previous version didn't start — the one before it runs",
   Приспів: 'Chorus',
   'Приспів {n}': 'Chorus {n}',
   'До приспіву': 'To the chorus',

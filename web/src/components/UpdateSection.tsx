@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Anchor, Button, Group, Progress, Switch, Text } from '@mantine/core';
-import { IconDownload, IconRefresh, IconReload } from '@tabler/icons-react';
+import { Anchor, Button, Group, Popover, Progress, Switch, Text } from '@mantine/core';
+import { IconArrowBackUp, IconDownload, IconRefresh, IconReload } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type UpdateState } from '../api';
@@ -49,21 +49,28 @@ export function UpdateSection() {
     onSuccess: (s) => queryClient.setQueryData(['update'], s),
     onError: fail,
   });
+  const afterRestart = async ({ to }: { to: string }) => {
+    setRestarting(to);
+    if (await waitForRestart(to)) window.location.reload();
+    else {
+      setRestarting(null);
+      notifications.show({
+        message: tr(
+          'Застосунок не відповідає після оновлення. Запустіть його знову файлом запуску; що сталося — у data/updates/swap.log.',
+        ),
+        color: 'red',
+      });
+    }
+  };
+  // «Повернути попередню версію» (1.4.0): the same restart, into what the last update replaced
+  const rollback = useMutation({
+    mutationFn: api.rollbackUpdate,
+    onSuccess: afterRestart,
+    onError: fail,
+  });
   const restart = useMutation({
     mutationFn: api.restartForUpdate,
-    onSuccess: async ({ to }) => {
-      setRestarting(to);
-      if (await waitForRestart(to)) window.location.reload();
-      else {
-        setRestarting(null);
-        notifications.show({
-          message: tr(
-            'Застосунок не відповідає після оновлення. Запустіть його знову файлом запуску; що сталося — у data/updates/swap.log.',
-          ),
-          color: 'red',
-        });
-      }
-    },
+    onSuccess: afterRestart,
     onError: fail,
   });
   const toggle = useMutation({
@@ -121,6 +128,15 @@ export function UpdateSection() {
           onRestart={() => restart.mutate()}
         />
       )}
+      {!restarting && state?.install === 'release' && state.previous && (
+        <Rollback
+          version={state.previous}
+          current={state.current}
+          outputsOpen={outputs.length}
+          pending={rollback.isPending}
+          onRollback={() => rollback.mutate()}
+        />
+      )}
       {restarting && (
         <Text size="xs" c="dimmed" mb={4}>
           {tr(
@@ -158,19 +174,91 @@ export function UpdateSection() {
 
 /** How the last update went: once, for a day. */
 function LastUpdate({ last }: { last: NonNullable<UpdateState['lastUpdate']> }) {
+  const vars = { from: last.from, to: last.to, when: fmtDateTime(last.at) };
+  const back = last.kind === 'rollback';
   return last.ok ? (
     <Text size="xs" c="dimmed" mb={4}>
-      {tr('Оновлено з {from} до {to} ({when}).', {
-        from: last.from,
-        to: last.to,
-        when: fmtDateTime(last.at),
-      })}
+      {back
+        ? tr('Повернуто версію {to} замість {from} ({when}).', vars)
+        : tr('Оновлено з {from} до {to} ({when}).', vars)}
     </Text>
   ) : (
     <Text size="xs" c="red" mb={4}>
-      {tr('Оновлення до {to} не вдалося.', { to: last.to })} {last.error && `${tr(last.error)}. `}
+      {back
+        ? tr('Повернути версію {to} не вдалося.', vars)
+        : tr('Оновлення до {to} не вдалося.', vars)}{' '}
+      {last.error && `${tr(last.error)}. `}
       {tr('Подробиці — у data/updates/swap.log.')}
     </Text>
+  );
+}
+
+/**
+ * «Повернути попередню версію» (1.4.0): the version the last update replaced is kept next to the
+ * app (`app.previous/`); a confirmation, then the same restart as an update — and back to this
+ * one by itself if that one doesn't start. Not during a show.
+ */
+function Rollback({
+  version,
+  current,
+  outputsOpen,
+  pending,
+  onRollback,
+}: {
+  version: string;
+  current: string;
+  outputsOpen: number;
+  pending: boolean;
+  onRollback: () => void;
+}) {
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <div>
+      <Text size="xs" c="dimmed" mb={4}>
+        {tr('Попередня версія {version} лишилася в папці застосунку.', { version })}
+      </Text>
+      <Popover opened={confirm} onChange={setConfirm} position="bottom-start" withArrow shadow="md">
+        <Popover.Target>
+          <Button
+            size="xs"
+            variant="default"
+            leftSection={<IconArrowBackUp size={14} />}
+            loading={pending}
+            disabled={outputsOpen > 0}
+            onClick={() => setConfirm((o) => !o)}
+          >
+            {tr('Повернути версію {version}', { version })}
+          </Button>
+        </Popover.Target>
+        <Popover.Dropdown maw={300}>
+          <Text size="xs" mb="xs">
+            {tr(
+              'Застосунок перезапуститься з версією {version}: це займе до хвилини. Версія {current} лишиться поруч — до неї можна повернутися тут само.',
+              { version, current },
+            )}
+          </Text>
+          <Group gap="xs" justify="flex-end">
+            <Button size="xs" variant="default" onClick={() => setConfirm(false)}>
+              {tr('Скасувати')}
+            </Button>
+            <Button
+              size="xs"
+              onClick={() => {
+                setConfirm(false);
+                onRollback();
+              }}
+            >
+              {tr('Повернути')}
+            </Button>
+          </Group>
+        </Popover.Dropdown>
+      </Popover>
+      {outputsOpen > 0 && (
+        <Text size="xs" c="dimmed" mt={4}>
+          {tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')}
+        </Text>
+      )}
+    </div>
   );
 }
 

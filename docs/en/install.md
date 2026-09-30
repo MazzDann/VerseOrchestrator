@@ -175,6 +175,18 @@ that didn't start, in `app.failed/`.
 An update doesn't touch the `data/` and `modules/` folders: settings, the library, songs,
 and modules carry over to the new version.
 
+### Go back to the previous version
+
+If something is wrong with a new version, go back to the one you had before the update:
+
+1. Close the output windows: the app doesn't restart during a show.
+2. In **Settings** → **App** → **Updates**, click **Go back to version …** with the previous
+   version's number, then **Bring back** in the confirmation.
+
+In a few seconds the app runs the previous version, and **Updates** says “Went back to
+version …”. The version you left stays next to it, so you can go to it with the same button.
+If the previous version doesn't start, the app keeps the one you had.
+
 ### Update by hand
 
 Versions before 1.0.0 can't update themselves. To update such a version, or if the update
