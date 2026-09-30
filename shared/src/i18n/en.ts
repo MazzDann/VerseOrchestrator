@@ -1238,4 +1238,7 @@ export const EN: Record<string, string> = {
     'To open another one, start with --new-window.',
   'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window':
     'Unknown option “{arg}”. Available: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window',
+  // 1.1.0 help
+  Довідка: 'Help',
+  'Посібник користувача — відкривається на GitHub': 'The user guide — opens on GitHub',
 };
