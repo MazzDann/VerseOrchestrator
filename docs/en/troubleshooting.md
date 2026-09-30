@@ -149,6 +149,19 @@ the app restarted with **Remember remotes after a server restart** turned off. T
 speaker a new code, create a remote or reissue the code — see
 [Manage remotes](remote.md#manage-remotes).
 
+## If nothing helped
+
+Send feedback: tell what happened, or suggest how to make it better. To send feedback:
+
+1. In the control window, open **Settings** → **App** and click **Send feedback**. Or press
+   Ctrl+K (on macOS, ⌘K) and choose **Send feedback**.
+2. The feedback form opens on GitHub with the app's version, the system and browser, and
+   the interface language already filled in. It needs a GitHub account.
+3. Choose what it is — a bug, an idea, or a question — describe it, and submit it.
+
+Feedback is public, so don't include personal data, passwords, or remote codes. The app
+sends nothing itself: you fill in the form and submit it.
+
 ## What's next
 
 - [Install and start](install.md): requirements, modules, shortcut, portable copy.
