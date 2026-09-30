@@ -1,4 +1,4 @@
-import { Component, type CSSProperties, type ReactNode } from 'react';
+import { Component, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   type Slide,
   type SlideLine,
@@ -14,6 +14,15 @@ import { QrCard } from './QrCard';
 import { reportSlideError } from '../lib/slideErrors';
 
 const ALIGN_ITEMS = { left: 'flex-start', center: 'center', right: 'flex-end' } as const;
+/** The cover's text at full size, in cqh — the 1.4.0 look; a longer one fits below it. */
+const COVER_TEXT_CQH = 7;
+/**
+ * How far a small logo may grow (1.4.1): to twice its own pixels on a 1920-wide slide, where
+ * 1 cqw is 19.2 px — so a file N px wide gets at most N / 9.6 cqw, the same share on every
+ * screen. From 768 px on it fills the 80 % box; a smaller file stays smaller instead of going
+ * soft (1.4.0 kept a small file as it was, and stored every logo at 800 px at most).
+ */
+const LOGO_PX_PER_CQW = 9.6;
 const VALIGN_ITEMS = { top: 'flex-start', middle: 'center', bottom: 'flex-end' } as const;
 
 /** The verse line(s) with red-letter / highlighted-word colouring — shared by both layouts. */
@@ -116,17 +125,26 @@ function RevealLines({
 }
 
 /**
- * «Заставка» (1.4.0): the operator's logo over its line of text, sized to the slide (cqh), so
- * the auto-fit around it changes nothing.
+ * «Заставка» (1.4.0): the operator's logo over its line of text. Sized to the slide (1.4.1), so
+ * the preview, the stage display and every output show the same proportions — 1.4.0 drew the
+ * logo at its pixel size: a different share of every screen, soft on a Retina one. The logo
+ * fills 80 % of the slide's width, as tall as its shape asks but at most 50 % of the height
+ * under text (70 % alone), its shape kept. The sizes follow the em of the auto-fitted layer,
+ * capped at the 1.4.0 size (7 cqh text, `DrawnSlide`): a long text shrinks with the logo
+ * instead of running off the slide. A small file grows at most twice (`LOGO_PX_PER_CQW`). The
+ * logo loading after the fit ran asks for a refit.
  */
-function CoverContent({ cover }: { cover: SlideCover }) {
+function CoverContent({ cover, onImageLoad }: { cover: SlideCover; onImageLoad: () => void }) {
+  // the file's width in pixels, known once it has loaded: how far it may grow
+  const [pixels, setPixels] = useState(0);
   return (
     <div
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '4cqh',
+        gap: '0.57em', // ≈ 4 cqh
+        maxWidth: '100%',
         textAlign: 'center',
       }}
     >
@@ -134,18 +152,25 @@ function CoverContent({ cover }: { cover: SlideCover }) {
         <img
           src={cover.image}
           alt=""
+          onLoad={(e) => {
+            setPixels(e.currentTarget.naturalWidth);
+            onImageLoad();
+          }}
           style={{
-            maxWidth: '80cqw',
-            maxHeight: cover.text ? '50cqh' : '70cqh',
+            display: 'block',
+            width: '80cqw',
+            maxWidth:
+              pixels > 0 ? `min(100%, ${+(pixels / LOGO_PX_PER_CQW).toFixed(2)}cqw)` : '100%',
+            height: 'auto',
+            // 50 / 70 cqh at the full size (the fit's whole pixels put 1em a little under
+            // 7 cqh: the em bound alone came out up to 5 % smaller in a small preview); less
+            // as the fit shrinks the text
+            maxHeight: cover.text ? 'min(50cqh, 7.5em)' : 'min(70cqh, 10.5em)',
             objectFit: 'contain',
           }}
         />
       )}
-      {cover.text && (
-        <div style={{ fontSize: '7cqh', lineHeight: 1.25, whiteSpace: 'pre-line' }}>
-          {cover.text}
-        </div>
-      )}
+      {cover.text && <div style={{ lineHeight: 1.25, whiteSpace: 'pre-line' }}>{cover.text}</div>}
     </div>
   );
 }
@@ -283,11 +308,13 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   // A faithful pptx song's quote carries the original font size (cqh); cap the
   // auto-fit at it so stanzas render "as made" and only shrink when too long.
   const quoteMaxCqh = slide.template?.objects.find((o) => o.kind === 'quote')?.size ?? 0;
-  const { containerRef, contentRef } = useAutoFit(
+  // «Заставка» (1.4.1) fits too, never past its 1.4.0 size: text 7 cqh (CoverContent)
+  const maxCqh = slide.cover ? COVER_TEXT_CQH : quoteMaxCqh > 0 ? quoteMaxCqh : undefined;
+  const { containerRef, contentRef, refit } = useAutoFit(
     [slideKey, style.font, style.align],
     6,
     240,
-    quoteMaxCqh > 0 ? quoteMaxCqh : undefined,
+    maxCqh,
   );
 
   // Pure-black override: paint solid black over everything, ignoring the
@@ -460,7 +487,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
           {slide.qr ? (
             <QrCard url={slide.qr} variant="full" look={style.qrStyle} />
           ) : slide.cover ? (
-            <CoverContent cover={slide.cover} />
+            <CoverContent cover={slide.cover} onImageLoad={refit} />
           ) : slide.reveal ? (
             <RevealLines reveal={slide.reveal} style={style} calm={calm} />
           ) : (

@@ -243,9 +243,9 @@ export const EMPTY_SLIDE: Slide = { lines: [], reference: '', blank: false, visi
  * Commands sent FROM an output window TO the control window: the operator drives the show
  * (advance, blank) with a clicker/keyboard while the output window on the second monitor
  * holds keyboard focus — the control window owns the selection, so the keypress must
- * travel back to it.
+ * travel back to it. `cover` (1.4.1): «Заставка», the L key.
  */
-export type PresenterCommand = 'next' | 'prev' | 'blank' | 'black';
+export type PresenterCommand = 'next' | 'prev' | 'blank' | 'black' | 'cover';
 
 // The default bus of this window: BroadcastChannel between same-origin windows,
 // localStorage for cold start (protocol: lib/bus.ts).

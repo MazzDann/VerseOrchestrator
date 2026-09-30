@@ -51,6 +51,12 @@ In the presentation window:
 | →, ↓, PageDown             | **Next**             |
 | ←, ↑, PageUp               | **Back**             |
 | . (period)                 | **Black screen**     |
+| B                          | **Hide text**        |
+| L                          | **Cover**            |
+
+These keys work by their place on the keyboard, whatever the layout: with the Ukrainian one,
+F types «а», L types «д», and the period key types «ю». They are always these: changes in
+**Settings** → **Hotkeys** apply only in the control window.
 
 In the **Stage** window, F makes the window full screen. The keys of a Bluetooth clicker on
 the speaker's phone are described in [Speaker remote](remote.md#what-the-speaker-sees).

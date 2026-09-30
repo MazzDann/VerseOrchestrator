@@ -18,9 +18,36 @@ import { tr } from '../i18n';
 /**
  * `show` (0.6.0, remotes): put the preview on screen — the operator's F5 / «На екран»; with
  * a passage (0.6.1), put THAT on screen. `pick` (0.6.1): the speaker's own preview — a
- * passage chosen on the phone (the remote's cursor), not on screen yet.
+ * passage chosen on the phone (the remote's cursor), not on screen yet. `cover` (1.4.1):
+ * «Заставка» on and off, the L key in an output window (not a remote's action).
  */
-export type ShowCommand = 'next' | 'prev' | 'blank' | 'black' | 'show' | 'pick' | 'queue';
+export type ShowCommand = 'next' | 'prev' | 'blank' | 'black' | 'cover' | 'show' | 'pick' | 'queue';
+
+/** The switches of the show in the control window: «Сховати текст», «Чорний екран», «Заставка». */
+export type ShowToggle = 'hide' | 'black' | 'cover';
+
+/**
+ * Which switch a command flips — `blank` hides the text (B), `black` is «Чорний екран» («.»),
+ * `cover` is «Заставка» (L, 1.4.1) — or null when it isn't a switch. Each by name: the control
+ * window sent every command it didn't know to «Чорний екран», so a new one pressed in an
+ * output window blacked the screen out; a command added later must be placed here to build.
+ */
+export function toggleOf(cmd: ShowCommand): ShowToggle | null {
+  switch (cmd) {
+    case 'blank':
+      return 'hide';
+    case 'black':
+      return 'black';
+    case 'cover':
+      return 'cover';
+    case 'next':
+    case 'prev':
+    case 'show':
+    case 'pick':
+    case 'queue':
+      return null;
+  }
+}
 
 /** A passage chosen on a remote (its cursor): the operator's selection is not touched. */
 export interface RemotePassage {
