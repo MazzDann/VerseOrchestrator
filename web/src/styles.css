@@ -723,3 +723,14 @@ body[data-resizing='y'] {
     animation: none;
   }
 }
+
+/* A quick jump's numbers as they are typed (1.4.0, components/QuickRefPill.tsx): bottom
+   centre, over the page like the floating panels (their band, 200–299). */
+.vo-quick-ref {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 250;
+  text-align: center;
+}
