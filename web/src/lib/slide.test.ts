@@ -85,6 +85,31 @@ describe("the viewers' QR slide (0.6.16)", () => {
   });
 });
 
+describe('«Заставка» (1.4.0)', () => {
+  const cover: Slide = {
+    lines: [],
+    reference: 'Заставка',
+    blank: false,
+    visible: true,
+    cover: { text: 'Недільне зібрання', image: null },
+  };
+
+  it('counts as something on screen, and «Сховати текст» can hide it', () => {
+    expect(summarize(cover)).toMatchObject({ status: 'live', text: 'Заставка' });
+    const hidden = toggleHidden(cover)!;
+    expect(hidden.blank).toBe(true);
+    expect(toggleHidden(hidden)).toEqual({ ...cover, blank: false });
+  });
+
+  it('a change of its text or image is a new slide', () => {
+    expect(sameSlide(cover, { ...cover, cover: { text: 'Інше', image: null } })).toBe(false);
+    expect(
+      sameSlide(cover, { ...cover, cover: { text: 'Недільне зібрання', image: 'data:x' } }),
+    ).toBe(false);
+    expect(sameSlide(cover, { ...cover, cover: { ...cover.cover! } })).toBe(true);
+  });
+});
+
 describe('«Сховати текст» / «Чорний екран» toggles (0.6.18)', () => {
   const verse = {
     lines: [{ translationAbbr: 'UKRK', text: 'На початку було Слово', rtl: false }],
