@@ -313,6 +313,12 @@ export const EN: Record<string, string> = {
   'Додано у показ: {item}': 'Added to the running order: {item}',
   Пісня: 'Song',
   'Текст додано у показ': 'Text added to the running order',
+  '«{query}» — не місце в книзі. Введіть вірш або розділ:вірш, як-от 3:16':
+    '“{query}” is not a place in the book. Type a verse, or chapter:verse, like 3:16',
+  'Спершу виберіть книгу': 'Choose a book first',
+  '{book}: розділу {n} немає': '{book}: there is no chapter {n}',
+  '{place}: вірша {n} немає': '{place}: there is no verse {n}',
+  'Enter — перейти · Esc — скасувати': 'Enter — go · Esc — cancel',
   'Спершу виберіть розділ': 'Choose a chapter first',
   'У цьому розділі немає віршів': 'This chapter has no verses',
   'Це остання сторінка': 'This is the last page',
