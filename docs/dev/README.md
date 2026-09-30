@@ -11,4 +11,4 @@ TypeScript, React, and Node.js. The user documentation, in Ukrainian, starts at
 - [Window synchronization](window-sync.md): the window bus, output windows, the leading
   control window, commands, and the hub for phones, with the measurements.
 - [Contributing](contributing.md): the setup, the checks before every commit, and the
-  project's conventions for versions, commits, UI, and docs.
+  project's conventions for branches, versions, commits, UI, and docs.
