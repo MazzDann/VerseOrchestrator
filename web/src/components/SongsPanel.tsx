@@ -13,8 +13,9 @@ import {
   SegmentedControl,
   Select,
   Tooltip,
+  Button,
 } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
@@ -24,6 +25,8 @@ import {
   IconPlaylistAdd,
   IconFileImport,
   IconRepeat,
+  IconStack2,
+  IconArrowBackUp,
 } from '@tabler/icons-react';
 import { nextChorus, songParts, type SongPart } from '@vo/shared';
 import { api, type SongStyle } from '../api';
@@ -31,6 +34,7 @@ import type { SlideSource } from '../presenterBus';
 import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { SongImport } from './SongImport';
+import { SongBundles } from './SongBundles';
 import { tr, useLang } from '../i18n';
 import { formatCombo, matchesCombo } from '../hotkeys';
 import { isFormField } from '../lib/keyScroll';
@@ -105,7 +109,17 @@ export function SongsPanel({
   const [bundle, setBundle] = useState('');
   /** the import view (0.10.1) instead of the search */
   const [importing, setImporting] = useState(false);
+  /** «Бандли пісень» (1.4.0): rename / delete bundles, instead of the search */
+  const [managing, setManaging] = useState(false);
+  /** the last import, with its «Скасувати» (1.4.0), until the panel closes */
+  const [imported, setImported] = useState<{
+    bundle: string;
+    added: number;
+    updated: number;
+  } | null>(null);
+  const [undoing, setUndoing] = useState(false);
   const serverAvailable = useServer((s) => s.available);
+  const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const bundlesQuery = useQuery({
@@ -143,7 +157,11 @@ export function SongsPanel({
   }, [open, songId, importing]);
   // a closed panel opens on the search again
   useEffect(() => {
-    if (!open) setImporting(false);
+    if (!open) {
+      setImporting(false);
+      setManaging(false);
+      setImported(null);
+    }
   }, [open]);
 
   // Put stanza `idx` of the open song on screen.
@@ -276,10 +294,20 @@ export function SongsPanel({
           preferred={inBundle}
           onBack={() => setImporting(false)}
           onClose={onClose}
-          onDone={(name) => {
+          onDone={(name, counts) => {
             setImporting(false);
             setQuery('');
             setBundle(name);
+            setImported({ bundle: name, ...counts });
+          }}
+        />
+      ) : managing && !song ? (
+        <SongBundles
+          onBack={() => setManaging(false)}
+          onClose={onClose}
+          onChanged={() => {
+            setBundle('');
+            setImported(null); // the undo of an import doesn't reach across a rename / delete
           }}
         />
       ) : song ? (
@@ -451,10 +479,63 @@ export function SongsPanel({
                 <IconFileImport size={18} />
               </ActionIcon>
             </Tooltip>
+            {serverAvailable !== false && (
+              <Tooltip label={tr('Бандли пісень: перейменувати, видалити')}>
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => setManaging(true)}
+                  aria-label={tr('Бандли пісень')}
+                >
+                  <IconStack2 size={18} />
+                </ActionIcon>
+              </Tooltip>
+            )}
             <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
               <IconX size={18} />
             </ActionIcon>
           </Group>
+          {imported && (
+            <Group
+              justify="space-between"
+              wrap="nowrap"
+              gap="xs"
+              mt="xs"
+              className="vo-import-done"
+            >
+              <Text size="xs" style={{ minWidth: 0 }}>
+                {tr('Імпортовано в «{bundle}»: нових {added}, оновлено {updated}', imported)}
+              </Text>
+              <Button
+                size="compact-xs"
+                variant="light"
+                leftSection={<IconArrowBackUp size={14} />}
+                loading={undoing}
+                onClick={async () => {
+                  setUndoing(true);
+                  try {
+                    await api.undoSongImport();
+                    for (const key of ['songs', 'song', 'song-bundles', 'song-bundle-files']) {
+                      void queryClient.invalidateQueries({ queryKey: [key] });
+                    }
+                    setBundle('');
+                    notifications.show({
+                      message: tr('Імпорт скасовано'),
+                      color: 'green',
+                      autoClose: 1500,
+                    });
+                  } catch (e) {
+                    notifications.show({ message: tr((e as Error).message), color: 'red' });
+                  } finally {
+                    setUndoing(false);
+                    setImported(null);
+                  }
+                }}
+              >
+                {tr('Скасувати')}
+              </Button>
+            </Group>
+          )}
           <ScrollArea.Autosize mah="min(320px, 30vh)" mt="xs">
             <Stack gap={0}>
               {songs.map((s) => (

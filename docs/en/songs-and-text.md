@@ -38,6 +38,32 @@ After the import, the search shows the songs of the bundle they went into. If th
 already has a song with the same file name, the new version replaces it, and the song keeps
 its places in [running orders](running-order.md).
 
+Below the song search, “Imported into “…”: … new, … updated” appears with a **Cancel**
+button. It brings the bundle back to how it was before the import, and deletes a bundle the
+import created. You can cancel until you close the song search, import again, rename or
+delete a bundle, or rescan the modules.
+
+## Rename or delete a bundle
+
+To rename a bundle:
+
+1. At the top, click the **Songs** icon.
+2. To the right of the song search, click the **Song bundles** icon.
+3. In the bundle's row, click the **Rename** icon, type the new name, and press Enter.
+
+The bundle's songs stay the same, so [running orders](running-order.md) still find them
+after the rename. The bundle's file in the `data/songs/` folder gets the new name.
+
+To delete a bundle, click the trash icon in its row of **Song bundles**. In its place,
+“Deleted: …” appears with a **Cancel** button that brings the bundle back with all its
+songs. You can cancel until you delete another bundle or go back to the song search. The
+last ten deleted bundles stay in the `data/songs/.trash/` folder: to bring one back later,
+move its file back into `data/songs/` and start the app again.
+
+A bundle that a folder of `.pptx` files fills, such as the `songs/` folder, comes back at
+the next start while the folder holds those files. The “Deleted: …” row names that folder.
+To delete such a bundle for good, first remove the files from the folder.
+
 ## Add songs from a folder
 
 You can also add songs without the control window, through the app's `songs/` folder:
