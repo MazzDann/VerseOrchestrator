@@ -1,6 +1,7 @@
 import { N_, tr } from '../i18n';
 import { useEffect, useState } from 'react';
 import { onSlideError } from './slideErrors';
+import { onFullscreenRefused } from './fullscreen';
 
 /**
  * Output windows registry (0.4.2): every output window (presenter, stage) announces itself
@@ -17,7 +18,8 @@ import { onSlideError } from './slideErrors';
  * window manages every output window. Only going fullscreen needs the opener's click.
  *
  * Since 0.13.0 a window also says when a slide failed to draw there (`error`): it keeps the
- * last slide that did, and the control window tells the operator.
+ * last slide that did, and the control window tells the operator. Since 1.2.1 it says when
+ * the browser refused to put it fullscreen at the control window's request (`refused`).
  */
 
 export type OutputKind = 'presenter' | 'stage';
@@ -50,7 +52,8 @@ export type OutputWire =
   | { t: 'who' }
   | { t: 'identify'; id: string; label: string }
   | { t: 'do'; id: string; cmd: OutputCommand }
-  | { t: 'error'; id: string; message: string };
+  | { t: 'error'; id: string; message: string }
+  | { t: 'refused'; id: string; message: string };
 
 export interface OutputChannel {
   post(msg: OutputWire): void;
@@ -102,6 +105,8 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
       changed: send,
       /** a slide failed to draw here (0.13.0) */
       failed: (message: string) => channel.post({ t: 'error', id: info().id, message }),
+      /** the browser refused fullscreen asked for by a control window (1.2.1) */
+      refused: (message: string) => channel.post({ t: 'refused', id: info().id, message }),
       stop() {
         clearInterval(beat);
         off();
@@ -114,6 +119,7 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
   function track(
     cb: (list: TrackedOutput[]) => void,
     onError: (id: string, message: string) => void = () => undefined,
+    onRefused: (id: string, message: string) => void = () => undefined,
   ) {
     const map = new Map<string, TrackedOutput>();
     const emit = () => cb([...map.values()].sort((a, b) => a.openedAt - b.openedAt));
@@ -129,6 +135,7 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
           emit();
       } else if (m.t === 'bye' && map.delete(m.id)) emit();
       else if (m.t === 'error') onError(m.id, m.message);
+      else if (m.t === 'refused') onRefused(m.id, m.message);
     });
     const prune = setInterval(() => {
       let gone = false;
@@ -233,13 +240,13 @@ function windowId(): string {
 /**
  * Announce this window as an output of `kind` until `stop()`: heartbeats, moves, fullscreen
  * and visibility changes, commands from the control windows. `failed` tells them a slide
- * didn't draw here (0.13.0).
+ * didn't draw here (0.13.0), `refused` that the browser kept it out of fullscreen (1.2.1).
  */
 function announceWindow(
   kind: OutputKind,
   onIdentify: (label: string | null) => void,
-): { failed: (message: string) => void; stop: () => void } {
-  if (!outputs) return { failed: () => undefined, stop: () => undefined };
+): { failed: (message: string) => void; refused: (message: string) => void; stop: () => void } {
+  if (!outputs) return { failed: () => undefined, refused: () => undefined, stop: () => undefined };
   const openedAt = Date.now();
   const id = windowId();
   const info = (): OutputInfo => ({
@@ -279,6 +286,7 @@ function announceWindow(
   window.addEventListener('pagehide', bye);
   return {
     failed: a.failed,
+    refused: a.refused,
     stop() {
       window.clearInterval(poll);
       window.clearTimeout(timer);
@@ -301,8 +309,11 @@ export function useAnnounceOutput(kind: OutputKind): string | null {
     const w = announceWindow(kind, setIdentify);
     // a slide that failed to draw here: the control window tells the operator (0.13.0)
     const offError = onSlideError(w.failed);
+    // fullscreen the control window asked for and the browser refused (1.2.1)
+    const offRefused = onFullscreenRefused(w.refused);
     return () => {
       offError();
+      offRefused();
       w.stop();
     };
   }, [kind]);
@@ -324,6 +335,7 @@ export function announceBrokenOutput(kind: OutputKind, message: string): () => v
 let known: TrackedOutput[] = [];
 const knownSubs = new Set<(list: TrackedOutput[]) => void>();
 const errorSubs = new Set<(id: string, message: string) => void>();
+const refusedSubs = new Set<(id: string, message: string) => void>();
 let tracking = false;
 
 function startTracking(): void {
@@ -338,6 +350,9 @@ function startTracking(): void {
     (id, message) => {
       for (const cb of errorSubs) cb(id, message);
     },
+    (id, message) => {
+      for (const cb of refusedSubs) cb(id, message);
+    },
   );
 }
 
@@ -347,6 +362,15 @@ export function onOutputError(cb: (id: string, message: string) => void): () => 
   errorSubs.add(cb);
   return () => {
     errorSubs.delete(cb);
+  };
+}
+
+/** For the control window: an output window was refused fullscreen (1.2.1). */
+export function onOutputRefused(cb: (id: string, message: string) => void): () => void {
+  startTracking();
+  refusedSubs.add(cb);
+  return () => {
+    refusedSubs.delete(cb);
   };
 }
 

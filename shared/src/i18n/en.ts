@@ -612,6 +612,9 @@ export const EN: Record<string, string> = {
     'The browser blocked the window — allow pop-ups for this site',
   'Цей браузер не передає жест іншому вікну — натисніть F у самому вікні':
     "This browser doesn't pass the gesture to another window — press F in the window itself",
+  '{window}: не вдалося перейти на весь екран': "{window}: couldn't go full screen",
+  'Браузер не дозволив. Натисніть F у самому вікні або клацніть у ньому.':
+    'The browser refused. Press F in the window itself, or click in it.',
   '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну':
     "{window} didn't close — the browser won't let it be closed from here. Close it by hand",
   'Розкладку збережено: {n} вікно|Розкладку збережено: {n} вікна|Розкладку збережено: {n} вікон':
