@@ -321,7 +321,13 @@ function lastUpdate(): SwapResult | null {
   if (done || !installer) return done;
   const plan = readUpdateFile<SwapPlan>('plan.json');
   return plan?.to === appVersion
-    ? { ok: true, from: plan.from, to: plan.to, at: Date.now() }
+    ? {
+        ok: true,
+        from: plan.from,
+        to: plan.to,
+        at: Date.now(),
+        ...(plan.kind ? { kind: plan.kind } : {}),
+      }
     : null;
 }
 
@@ -345,7 +351,13 @@ async function updateAnswer(force: boolean) {
   // downloaded by an earlier run and not installed yet: ready all the same
   if (install?.phase === 'idle' && s.latest && installer?.readyVersion() === s.latest.version)
     install = { ...install, phase: 'ready', version: s.latest.version };
-  return { ...s, installer: install, lastUpdate: lastUpdate() };
+  return {
+    ...s,
+    installer: install,
+    lastUpdate: lastUpdate(),
+    // what the last update left behind, to go back to (1.4.0)
+    previous: installer?.previousVersion() ?? null,
+  };
 }
 
 app.get(
@@ -373,6 +385,57 @@ app.post(
   }),
 );
 
+/**
+ * Hand over to the swap helper (swap.ts): `app.next/` becomes `app/` — a new version, or the one
+ * before it («Повернути попередню версію», 1.4.0) — then this app and its waiter stop.
+ */
+function startSwap(
+  inst: NonNullable<typeof installer>,
+  top: string,
+  version: string,
+  kind: 'update' | 'rollback',
+  res: express.Response,
+) {
+  // the helper runs outside app/, with a copy of this Node: nothing in app/ may stay in use
+  const dir = inst.updatesDir;
+  fs.mkdirSync(dir, { recursive: true });
+  const node = path.join(dir, path.basename(process.execPath));
+  fs.copyFileSync(process.execPath, node);
+  if (process.platform !== 'win32') fs.chmodSync(node, 0o755);
+  // .mts: an ES module wherever the release sits (a package.json above it can't say otherwise)
+  const helper = path.join(dir, 'swap.mts');
+  fs.copyFileSync(path.join(repoRoot, 'server', 'src', 'swap.ts'), helper);
+  fs.rmSync(path.join(dir, 'result.json'), { force: true });
+  const waiterPid = process.env.VO_STANDBY === '1' ? process.ppid : null;
+  const plan: SwapPlan = {
+    top,
+    pids: waiterPid ? [process.pid, waiterPid] : [process.pid],
+    port: Number(process.env.VO_STANDBY_PORT) || getServerSettings().standby.port,
+    from: appVersion,
+    to: version,
+    // a rollback keeps the start file as it is: the older release's isn't kept
+    ...(kind === 'update' ? { topFiles: path.join(dir, TOP_FILES_DIR) } : {}),
+    result: path.join(dir, 'result.json'),
+    log: path.join(dir, 'swap.log'),
+    kind,
+  };
+  const planFile = path.join(dir, 'plan.json');
+  fs.writeFileSync(planFile, JSON.stringify(plan));
+  spawn(node, ['--disable-warning=ExperimentalWarning', helper, planFile], {
+    cwd: dir,
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  }).unref();
+  inst.markRestarting();
+  res.json({ ok: true, from: appVersion, to: version });
+  // after the answer: our waiter stops us and itself; the helper waits for both
+  setTimeout(() => {
+    if (waiterPid) void tellWaiter(plan.port, 'update');
+    setTimeout(() => process.exit(0), waiterPid ? 3000 : 300);
+  }, 300);
+}
+
 app.post(
   '/api/update/restart',
   requireLocalControl,
@@ -381,42 +444,20 @@ app.post(
     const version = installer?.readyVersion();
     if (!installer || !releaseTop || !version || !s.latest || version !== s.latest.version)
       throw new ApiError(409, N_('Оновлення ще не завантажено'));
-    // the helper runs outside app/, with a copy of this Node: nothing in app/ may stay in use
-    const dir = installer.updatesDir;
-    fs.mkdirSync(dir, { recursive: true });
-    const node = path.join(dir, path.basename(process.execPath));
-    fs.copyFileSync(process.execPath, node);
-    if (process.platform !== 'win32') fs.chmodSync(node, 0o755);
-    // .mts: an ES module wherever the release sits (a package.json above it can't say otherwise)
-    const helper = path.join(dir, 'swap.mts');
-    fs.copyFileSync(path.join(repoRoot, 'server', 'src', 'swap.ts'), helper);
-    fs.rmSync(path.join(dir, 'result.json'), { force: true });
-    const waiterPid = process.env.VO_STANDBY === '1' ? process.ppid : null;
-    const plan: SwapPlan = {
-      top: releaseTop,
-      pids: waiterPid ? [process.pid, waiterPid] : [process.pid],
-      port: Number(process.env.VO_STANDBY_PORT) || getServerSettings().standby.port,
-      from: appVersion,
-      to: version,
-      topFiles: path.join(dir, TOP_FILES_DIR),
-      result: path.join(dir, 'result.json'),
-      log: path.join(dir, 'swap.log'),
-    };
-    const planFile = path.join(dir, 'plan.json');
-    fs.writeFileSync(planFile, JSON.stringify(plan));
-    spawn(node, ['--disable-warning=ExperimentalWarning', helper, planFile], {
-      cwd: dir,
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-    }).unref();
-    installer.markRestarting();
-    res.json({ ok: true, from: appVersion, to: version });
-    // after the answer: our waiter stops us and itself; the helper waits for both
-    setTimeout(() => {
-      if (waiterPid) void tellWaiter(plan.port, 'update');
-      setTimeout(() => process.exit(0), waiterPid ? 3000 : 300);
-    }, 300);
+    startSwap(installer, releaseTop, version, 'update', res);
+  }),
+);
+
+// «Повернути попередню версію» (1.4.0): back to what the last update replaced
+app.post(
+  '/api/update/rollback',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    if (!installer || !releaseTop)
+      throw new ApiError(409, N_('Оновлювати сам уміє лише застосунок з архіву релізу'));
+    const version = installer.prepareRollback();
+    if (!version) throw new ApiError(409, N_('Попередньої версії немає'));
+    startSwap(installer, releaseTop, version, 'rollback', res);
   }),
 );
 

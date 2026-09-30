@@ -4,6 +4,7 @@ import {
   type SlideLine,
   type SlideStyle,
   type SlideReveal,
+  type SlideCover,
   DEFAULT_STYLE,
 } from '../presenterBus';
 import { useAutoFit } from '../useAutoFit';
@@ -111,6 +112,41 @@ function RevealLines({
         );
       })}
     </>
+  );
+}
+
+/**
+ * «Заставка» (1.4.0): the operator's logo over its line of text, sized to the slide (cqh), so
+ * the auto-fit around it changes nothing.
+ */
+function CoverContent({ cover }: { cover: SlideCover }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '4cqh',
+        textAlign: 'center',
+      }}
+    >
+      {cover.image && (
+        <img
+          src={cover.image}
+          alt=""
+          style={{
+            maxWidth: '80cqw',
+            maxHeight: cover.text ? '50cqh' : '70cqh',
+            objectFit: 'contain',
+          }}
+        />
+      )}
+      {cover.text && (
+        <div style={{ fontSize: '7cqh', lineHeight: 1.25, whiteSpace: 'pre-line' }}>
+          {cover.text}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -226,12 +262,15 @@ export function SlideCanvas({ slide, calm }: { slide: Slide; calm?: boolean }) {
 function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   const style = slide.style ?? DEFAULT_STYLE;
   const transition = calm ? 'none' : style.transition;
-  const show = slide.visible && !slide.blank && (slide.lines.length > 0 || !!slide.qr);
+  const show =
+    slide.visible && !slide.blank && (slide.lines.length > 0 || !!slide.qr || !!slide.cover);
   const slideKey = !show
     ? 'blank'
     : slide.qr
       ? `qr|${slide.qr}`
-      : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
+      : slide.cover
+        ? `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}`
+        : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
   // the viewers' QR in a corner (0.6.16) — over any slide but the QR slide itself
   const corner =
     style.qrCorner && !slide.qr ? (
@@ -276,7 +315,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   ) : null;
 
   // --- Positioned template layout ---------------------------------------------
-  const template = slide.qr ? null : slide.template;
+  const template = slide.qr || slide.cover ? null : slide.template;
   if (template) {
     return (
       <div style={rootStyle}>
@@ -420,12 +459,14 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
         >
           {slide.qr ? (
             <QrCard url={slide.qr} variant="full" look={style.qrStyle} />
+          ) : slide.cover ? (
+            <CoverContent cover={slide.cover} />
           ) : slide.reveal ? (
             <RevealLines reveal={slide.reveal} style={style} calm={calm} />
           ) : (
             <QuoteLines lines={slide.lines} style={style} />
           )}
-          {!slide.qr && slide.subline && (
+          {!slide.qr && !slide.cover && slide.subline && (
             <div
               style={{
                 marginTop: '0.35em',
@@ -442,7 +483,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
               </div>
             </div>
           )}
-          {!slide.qr && (
+          {!slide.qr && !slide.cover && (
             <div
               style={{ marginTop: '0.3em', fontSize: '0.42em', opacity: 0.75, letterSpacing: 1 }}
             >
