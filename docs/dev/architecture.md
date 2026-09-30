@@ -132,7 +132,15 @@ computer.
 Server data follows `VO_DATA_DIR` (default `data/`). The server asks GitHub's releases API
 about newer versions (`server/src/updates.ts`, at most every 12 hours, switch
 `updates.check` in `settings.json`; `VO_UPDATE_URL` points it elsewhere — a test can pass a
-`data:` URL). A portable copy keeps the app in `app/`
+`data:` URL). A copy in the release layout installs a newer release on request:
+`server/src/installer.ts` downloads this system's archive into `data/updates/`, checks it
+against the release's `SHA256SUMS.txt`, and unpacks it with the system's `tar` or `ditto`
+into `app.next/` next to the running `app/`. «Перезапустити й оновити» copies Node and
+`server/src/swap.ts` into `data/updates/` and starts them; the app and its waiter exit, the
+swap renames `app/` → `app.previous/` and `app.next/` → `app/`, starts the new waiter on the
+same port, and asks `/api/health` for the new version. No answer in 90 s: the new app goes
+to `app.failed/` and the previous one comes back. `data/updates/result.json` says how it
+went. A portable copy keeps the app in `app/`
 with a marker, `.vo-portable`, that the launcher and the waiter turn into `VO_DATA_DIR` and
 `MODULES_DIR` pointing next to it (`server/src/layout.ts`), so a new version replaces `app/`
 alone.

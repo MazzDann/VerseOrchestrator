@@ -55,6 +55,7 @@ describe('update check (1.0.0)', () => {
       version: '0.14.2',
       prerelease: true,
       asset: { name: asset, url: 'https://dl/v0.14.2/w.zip', size: 66_000_000 },
+      sums: 'https://dl/v0.14.2/sums',
     });
     // a release without this system's archive: known, but not installable by the app
     expect(pickLatest(LIST, 'stable', 'VerseOrchestrator-linux-arm64.tar.gz')?.asset).toBeNull();
