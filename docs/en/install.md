@@ -1,0 +1,243 @@
+# Install and start
+
+[Українською](../install.md) · English
+
+This page is for whoever prepares the computer for a show: where to get the app and what it
+needs, where to put texts and songs, how to start it with a shortcut or with the computer,
+how to update it, make a portable copy, and switch everything off. The first start step by
+step is in the [Quick start](quickstart.md), and the development setup in the
+[project README](../../README.md).
+
+## Download the app
+
+To install the app:
+
+1. Download the archive for your system — the links lead to the latest release:
+
+   | System                | Archive                                       |
+   | --------------------- | --------------------------------------------- |
+   | Windows 10/11 (x64)   | [`VerseOrchestrator-windows-x64.zip`][win]    |
+   | macOS (Apple Silicon) | [`VerseOrchestrator-macos-arm64.zip`][mac]    |
+   | Linux (x64)           | [`VerseOrchestrator-linux-x64.tar.gz`][linux] |
+
+2. Extract the archive to a folder of your choice, for example Documents.
+
+[win]: https://github.com/MazzDann/VerseOrchestrator/releases/latest/download/VerseOrchestrator-windows-x64.zip
+[mac]: https://github.com/MazzDann/VerseOrchestrator/releases/latest/download/VerseOrchestrator-macos-arm64.zip
+[linux]: https://github.com/MazzDann/VerseOrchestrator/releases/latest/download/VerseOrchestrator-linux-x64.tar.gz
+
+At the top of the app's folder there is only what you need:
+
+| What                                        | What for                                                     |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| `start.cmd`, `start.command`, or `start.sh` | starting the app                                             |
+| `modules/`                                  | MyBible modules: the app builds its library from them        |
+| `data/`                                     | your data: settings, library, songs                          |
+| `ЯК ЗАПУСТИТИ.txt`, `HOW TO START.txt`      | how to start and switch off the app                          |
+| `app/`                                      | the app itself: code, Node.js, packages, the built interface |
+
+The archive already contains Node.js, so there is nothing else to install. The archives'
+checksums are in the `SHA256SUMS.txt` file on the
+[latest release's page](https://github.com/MazzDann/VerseOrchestrator/releases/latest), and
+earlier versions are on the [Releases](https://github.com/MazzDann/VerseOrchestrator/releases)
+page.
+
+You can also run the app from a clone of the repository — developers do; see the
+[project README](../../README.md#run-from-the-source).
+
+## Requirements
+
+- Windows 10 or 11, macOS on Apple Silicon, or Linux (x64). From a clone of the repository
+  the app runs on other processors too.
+- Chrome or Edge. The app works in other browsers but doesn't open presentation windows on
+  the screen you choose.
+- Disk space: about 70 MB for the archive and 175 MB for the extracted app, plus the
+  library. A library of 20 translations with dictionaries takes about 500 MB.
+- To run from a clone of the repository: Node.js 22.18 or later (24 LTS is better) and an
+  internet connection on the first start, when the app downloads its parts. The archive and
+  a portable copy need neither Node.js nor the internet.
+
+## Add texts and songs
+
+The app reads texts from MyBible modules — `*.SQLite3` files. To add texts:
+
+1. Copy the modules into the app's `modules/` folder:
+   - Bible translations, for example `KJV.SQLite3`;
+   - optionally, a Strong's dictionary (`*.dictionary.SQLite3`), cross-references
+     (`*.crossreferences.SQLite3`), and commentaries (`*.commentaries.SQLite3`) for the
+     **Strong's** and **Context** tabs.
+2. Start the app. On start it builds the library from the modules — the
+   `data/library.db` file.
+
+To add modules later, copy them into `modules/`, then in the control window open
+**Settings** → **App** and click **Rescan modules**.
+
+Put only the modules you need in `modules/`. If there are more than 60 modules of one kind,
+for example a whole MyBible catalog, the app doesn't take them into the library until you
+list the files you need in `data/settings.json` → `library` (the `bibles`, `dictionaries`,
+`commentaries`, and `crossreferences` lists).
+
+Songs are kept in bundles in the `data/songs/` folder. You can add them from `.pptx` files
+with the import in the control window or through the `songs/` folder — see
+[Songs and custom text](songs-and-text.md#import-songs-from-pptx-files).
+
+## Start the app
+
+To start the app, in its folder:
+
+- on Windows, double-click `start.cmd`;
+- on macOS, double-click `start.command`;
+- on Linux, run `./start.sh` in a terminal.
+
+The first start of the app from the archive builds the library from the modules — from a
+few seconds to a few minutes. From a clone of the repository, the first start also installs
+the parts and builds the interface. Later starts take a second or two. The start window must
+stay open while the app runs.
+
+On the first start from the archive, the system may warn about a file from the internet:
+
+- on Windows, confirm running `start.cmd`;
+- on macOS, the app isn't signed by Apple, so the system blocks `start.command`. Open
+  **System Settings** → **Privacy & Security**, click **Open Anyway** next to
+  `start.command`, and confirm. Before macOS 15, it's enough to right-click the file and
+  choose **Open**. After that the file opens with a normal double-click.
+
+If the start window shows a message marked ✗ or !, see [Troubleshooting](troubleshooting.md).
+
+## Choose the interface language
+
+The app's interface is in Ukrainian and English. Until you choose a language, the app opens
+in the browser's language: Ukrainian or English, whichever the browser ranks higher. If the
+browser asks for neither, for example only German, the app opens in English.
+
+To change the language, open **Settings** → **App** in the control window and in the
+**Interface language** field choose **Українська** or **English**. The choice is saved with
+the app's other settings.
+
+The start window speaks the same language from the next start of the app. Viewers' phones
+and the speaker remote show their browser's language, as does the page that appears while
+the app starts.
+
+## Create a shortcut
+
+The shortcut starts the app and opens the control window as a window of its own — without
+tabs or an address bar (in Chrome or Edge).
+
+To create a shortcut, open **Settings** → **App** in the control window and click
+**Create shortcut**. The shortcut appears on the desktop; on Linux, in the applications menu
+too.
+
+## Start with the computer
+
+For the app to be ready as soon as the computer is on, open **Settings** → **App** in the
+control window and turn on **Start on open**.
+
+Then a small process starts with the computer and holds the app's address. The app starts as
+soon as someone opens that address — in the computer's browser or from a phone. If nobody
+uses the app for 15 minutes, it stops, and the address keeps waiting.
+
+The standard address is `http://localhost:4747`. To change the port, type a new one in the
+**Port** field below the switch, click **Change**, and confirm. The new port also applies to
+starting with `start.cmd`, `start.command`, or `./start.sh`.
+
+## Update the app
+
+The app finds out about new versions itself: every 12 hours it asks GitHub whether a newer
+one is out. When there is one, a dot appears on the **Settings** button, and in
+**Settings** → **App** → **Updates** you see the new version's number and a **What’s new**
+link. **Check now** asks at once. To keep the app from contacting GitHub, turn off
+**Check for updates**. The app downloads and installs a new version only when you click the
+button.
+
+Versions 0.x are previews: while you have a 0.x version, the app offers previews too; from
+1.0.0 on, only regular releases.
+
+### Update the app from the archive
+
+To update an app installed from the archive:
+
+1. In **Settings** → **App** → **Updates**, click **Download the update**. The app downloads
+   the new version's archive, checks its checksum, and extracts it next to the `app/`
+   folder. The show goes on meanwhile.
+2. If output windows are open, close them: the app doesn't restart during a show.
+3. Click **Restart and update**. In a few seconds the app starts in the new version: the
+   control window reloads by itself, and phones reconnect.
+
+The new version runs in the background, as with **Start on open**: the start window closes
+with the old version. To stop the app, click **Switch off completely** in **Settings** →
+**App**.
+
+If the new version doesn't answer within a minute and a half, the app brings back the
+previous one and says so in **Updates**, with the details in `data/updates/swap.log`. The
+previous version stays in the `app.previous/` folder until the next update, and a version
+that didn't start, in `app.failed/`.
+
+An update doesn't touch the `data/` and `modules/` folders: settings, the library, songs,
+and modules carry over to the new version.
+
+### Update by hand
+
+Versions before 1.0.0 can't update themselves. To update such a version, or if the update
+with the button failed:
+
+1. Stop the app: click **Switch off completely** or close the start window.
+2. Download the new version's archive from the
+   [Releases](https://github.com/MazzDann/VerseOrchestrator/releases) page and extract it
+   to a separate folder.
+3. Replace your app's `app/` folder with the `app/` folder of the new version.
+
+### Update a clone of the repository
+
+To update a clone of the repository, get the new changes (`git pull`) and start the app: it
+installs the new parts and rebuilds the interface by itself.
+
+## Make a portable copy
+
+A portable copy is a folder with the app and Node.js inside. You run it on another computer
+with the same system and processor without installing anything and without the internet,
+for example from a flash drive.
+
+To make a portable copy, run in the app's folder:
+
+```bash
+npm run portable
+```
+
+The copy appears in the `portable/` folder, in a subfolder named with the version, system,
+and processor, for example `VerseOrchestrator-VERSION-windows-x64`. The appearance settings
+and the running order go into it. To add the library too, run
+`npm run portable -- --with-library`.
+
+At the top of the copy there is only what a user needs:
+
+| What                                        | What for                                                              |
+| ------------------------------------------- | --------------------------------------------------------------------- |
+| `start.cmd`, `start.command`, or `start.sh` | starting: the file for the system the copy was made for               |
+| `modules/`                                  | MyBible modules: the app builds its library from them                 |
+| `data/`                                     | your data: settings, library, songs                                   |
+| `HOW TO START.txt`                          | how to start and switch off the copy (in the start window's language) |
+| `app/`                                      | the app itself: code, Node.js, packages, the built interface          |
+
+To update the copy to a new version, replace its `app/` folder with the `app/` folder of a
+new copy. The `data/` and `modules/` folders stay as they are.
+
+## Switch the app off completely
+
+Closing the start window stops the app, but with **Start on open** turned on, the address
+keeps waiting and starts with the computer. To switch everything off, open **Settings** →
+**App** in the control window, click **Switch off completely…**, and confirm with
+**Switch off**. To also erase the app's data in the browser, first select **Also erase the
+browser's data**.
+
+If the control window doesn't open, run `.\start.cmd --off` in a terminal in the app's
+folder (on macOS and Linux, `./start.sh --off`). This switches off everything except the
+browser's data.
+
+After that nothing runs in the background or starts with the computer, and you can delete
+the app's folder.
+
+## What's next
+
+- [Quick start](quickstart.md): the first verse on a second screen.
+- [Troubleshooting](troubleshooting.md): messages of the start window and other problems.
+- [VerseOrchestrator documentation](README.md): the contents of all parts.

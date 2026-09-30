@@ -50,13 +50,14 @@ with the one from a newer archive.
 
 ## Documentation
 
-The user documentation is in Ukrainian, like the app:
+The user documentation is in English and Ukrainian, like the app, and the control window's
+**Help** button opens it in the interface language:
 
-- [Швидкий старт](docs/quickstart.md) (quickstart): start the app and show the first
-  verse on a second screen.
-- [Документація](docs/README.md) (index): finding and showing text, songs, the running
-  order, slide appearance, viewers' phones, the speaker's remote, installation,
-  troubleshooting, and a reference of hotkeys, launcher options, and files.
+- [Quick start](docs/en/quickstart.md) ([українською](docs/quickstart.md)): start the app
+  and show the first verse on a second screen.
+- [Documentation](docs/en/README.md) ([українською](docs/README.md)): finding and showing
+  text, songs, the running order, slide appearance, viewers' phones, the speaker's remote,
+  installation, troubleshooting, and a reference of hotkeys, launcher options, and files.
 
 The developer documentation is in English: [docs/dev](docs/dev/README.md) covers the
 architecture and how to contribute.

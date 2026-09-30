@@ -1,8 +1,9 @@
 # Developer documentation
 
 These pages are for developers who change VerseOrchestrator's code. They assume you know
-TypeScript, React, and Node.js. The user documentation, in Ukrainian, starts at
-[docs/README.md](../README.md).
+TypeScript, React, and Node.js. The user documentation starts at
+[docs/en/README.md](../en/README.md) in English and [docs/README.md](../README.md) in
+Ukrainian.
 
 - [Architecture](architecture.md): the packages, the processes, how data flows, and
   where to start reading for a given change.

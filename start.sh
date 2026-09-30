@@ -14,10 +14,19 @@ if ! command -v node >/dev/null 2>&1; then
     echo "Встановіть Node.js 24 LTS з https://nodejs.org, пакетом вашого дистрибутива"
     echo "або через nvm (https://github.com/nvm-sh/nvm) і запустіть ще раз."
   fi
+  echo
+  echo "Node.js not found — VerseOrchestrator needs it to start."
+  if [ "$(uname)" = Darwin ]; then
+    echo "Install Node.js 24 LTS from https://nodejs.org (or: brew install node) and run this again."
+  else
+    echo "Install Node.js 24 LTS from https://nodejs.org, your distribution's package,"
+    echo "or nvm (https://github.com/nvm-sh/nvm) and run this again."
+  fi
   exit 1
 fi
 if ! node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>=24||a===23&&b>=6||a===22&&b>=18?0:1)"; then
   echo "Node.js $(node -v) застарий: потрібен 22.18 або новіший (краще 24 LTS) з https://nodejs.org"
+  echo "Node.js $(node -v) is too old: 22.18 or later is needed (24 LTS is better) from https://nodejs.org"
   exit 1
 fi
 exec node --disable-warning=ExperimentalWarning server/src/launcher.ts "$@"
