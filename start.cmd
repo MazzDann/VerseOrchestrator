@@ -21,11 +21,16 @@ exit /b %VO_EXIT%
 echo Не знайдено Node.js — він потрібен, щоб запустити VerseOrchestrator.
 echo Встановіть Node.js 24 LTS з https://nodejs.org
 echo (або в PowerShell: winget install OpenJS.NodeJS.LTS) і запустіть цей файл ще раз.
+echo.
+echo Node.js not found — VerseOrchestrator needs it to start.
+echo Install Node.js 24 LTS from https://nodejs.org
+echo (or in PowerShell: winget install OpenJS.NodeJS.LTS) and run this file again.
 pause
 exit /b 1
 
 :oldnode
 for /f "delims=" %%v in ('node -v') do set VO_NODE=%%v
 echo Node.js %VO_NODE% застарий: потрібен 22.18 або новіший (краще 24 LTS) з https://nodejs.org
+echo Node.js %VO_NODE% is too old: 22.18 or later is needed (24 LTS is better) from https://nodejs.org
 pause
 exit /b 1

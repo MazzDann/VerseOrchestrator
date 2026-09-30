@@ -156,11 +156,16 @@ same dictionary.
 
 ## Docs
 
-- User documentation lives in `docs/`, in Ukrainian, written in the Google developer
-  documentation style. Developer documentation lives in `docs/dev/`, in English.
+- User documentation lives in `docs/` in Ukrainian and in `docs/en/` in English, one page
+  for one page, written in the Google developer documentation style. A page names the
+  buttons as its language's interface does: take the English from `shared/src/i18n/en.ts`.
+  Change both languages in the same commit. The **Help** button opens the index in the
+  interface language (`web/src/lib/docs.ts`). Developer documentation lives in
+  `docs/dev/`, in English.
 - Change the docs in the same commit as the behavior they describe.
 - Screenshots show public-domain text only, such as Kulish 1905 or the KJV, and never a
-  remote's pairing QR code: it carries the remote's code.
+  remote's pairing QR code: it carries the remote's code. The English pages have their own,
+  of the English interface, in `docs/img/en/`.
 
 ## Data and copyright
 
