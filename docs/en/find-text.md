@@ -44,9 +44,12 @@ the ones of the main translation.
 To move inside the open book, numbers are enough. When the cursor isn't in a text field,
 type them straight into the control window: `16` — a verse of the open chapter, `3:16` —
 a chapter and a verse, `3:16-18` — a few verses, `3:` — the start of a chapter. A period,
-a comma, or a space works instead of the colon. What you type shows at the bottom of the
-window; Enter goes there, Esc cancels. The verse becomes the selected one, so Enter again
-shows it on screen. The **Go to** field understands numbers without a book name too.
+a comma, or a space works instead of the colon; on a Ukrainian layout the Ю and Б keys do
+too (where the English layout has the period and the comma). What you type shows at the
+bottom of the window. Enter goes there and the verse becomes the selected one, so Enter
+again shows it on screen. ⌘↩ on macOS (Ctrl+Enter elsewhere) or the **To screen** key goes
+there and shows it on screen at once. Esc cancels. The **Go to** field understands numbers
+without a book name too.
 
 ## Search the text
 
