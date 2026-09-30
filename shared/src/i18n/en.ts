@@ -1158,4 +1158,26 @@ export const EN: Record<string, string> = {
   // 0.14.1 release copies
   'У реліз бібліотека не потрапляє: переклади мають власні ліцензії. Приберіть --with-library.':
     'A release never carries the library: the translations have their own licences. Drop --with-library.',
+  // 1.0.0 update check
+  'У вас остання версія': 'You have the latest version',
+  'Перевіряю…': 'Checking…',
+  'Доступна версія {version} (у вас {current}).':
+    'Version {version} is available (you have {current}).',
+  'Ще не перевіряли.': 'Not checked yet.',
+  'У вас остання версія ({current}). Перевірено {when}.':
+    'You have the latest version ({current}). Checked {when}.',
+  Оновлення: 'Updates',
+  'Що нового': 'What’s new',
+  'Щоб оновити, завантажте архів зі сторінки релізу й замініть папку app/.':
+    'To update, download the archive from the release page and replace the app/ folder.',
+  'Щоб оновити копію репозиторію, виконайте git pull і запустіть застосунок.':
+    'To update a clone of the repository, run git pull and start the app.',
+  'Перевірити зараз': 'Check now',
+  'Перевіряти оновлення': 'Check for updates',
+  'Раз на 12 годин застосунок питає GitHub про нові версії. Нічого не завантажує й не встановлює сам.':
+    'Every 12 hours the app asks GitHub about new versions. It downloads and installs nothing on its own.',
+  'Доступна версія {version} — див. «Застосунок» → «Оновлення»':
+    'Version {version} is available — see “App” → “Updates”',
+  'Не вдалося перевірити оновлення: немає зв’язку з GitHub':
+    'Couldn’t check for updates: no connection to GitHub',
 };

@@ -22,6 +22,22 @@ export interface Layout {
   modules: string;
 }
 
+/** In the names of a copy and of its release archive: the words people use, not Node's. */
+export const OS_NAME: Record<string, string> = {
+  win32: 'windows',
+  darwin: 'macos',
+  linux: 'linux',
+};
+
+/**
+ * The release archive for a system (0.14.1, .github/workflows/ci.yml): no version in the name,
+ * a zip for Windows and macOS, a tarball for Linux.
+ */
+export function releaseAsset(platform: string, arch: string): string {
+  const os = OS_NAME[platform] ?? platform;
+  return `VerseOrchestrator-${os}-${arch}${platform === 'linux' ? '.tar.gz' : '.zip'}`;
+}
+
 /** The marker's content for a release: the user's folders next to `app/`. */
 export const RELEASE_MARKER = { data: '../data', modules: '../modules' };
 

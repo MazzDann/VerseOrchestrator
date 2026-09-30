@@ -36,6 +36,8 @@ import {
 import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
+import { createUpdateChecker } from './updates.js';
+import { readLayout } from './layout.js';
 import { precompressed } from './precompressed.js';
 import { bundlesDir, importSongs, listBundles, refreshLibrarySongs } from '@vo/shared/songs-node';
 import { keyedError, N_, sameBundleName } from '@vo/shared';
@@ -260,6 +262,36 @@ app.put(
     res.json(next);
   }),
 );
+
+// --- Updates (1.0.0): is there a newer release? The control window asks; nothing is installed.
+
+const appVersion = (
+  JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { version: string }
+).version;
+const updates = createUpdateChecker({
+  current: appVersion,
+  install: readLayout(repoRoot) ? 'release' : 'source',
+  isEnabled: () => getServerSettings().updates.check,
+});
+
+app.get(
+  '/api/update',
+  requireLocal,
+  wrap(async (_req, res) => res.json(await updates.check())),
+);
+
+app.post(
+  '/api/update/check',
+  requireLocalControl,
+  wrap(async (_req, res) => res.json(await updates.check(true))),
+);
+
+// the first look a little after the start, then twice a day (check() skips a fresh answer);
+// never from the tests
+if (!process.env.VITEST) {
+  setTimeout(() => void updates.check(), 15_000).unref();
+  setInterval(() => void updates.check(), 60 * 60 * 1000).unref();
+}
 
 // --- Standby waiter (0.5.2): «Запускати застосунок за адресою» in the control window.
 
