@@ -60,6 +60,9 @@ screen back to the selection too.
 - On the last verse of a chapter, the first **Next** only says where the next one leads:
   “End of the chapter. Press “Next” again — …”. Press it again within five seconds to go
   to the next chapter. This way a clicker doesn't leave the chapter by accident.
+  The last verse of a book works the same way: “End of the book. Press “Next” again — …”,
+  and the second **Next** opens the next book's first chapter. **Back** on a first verse
+  goes to the previous chapter or book.
 - To show a long passage one verse at a time, turn on **Progressive reveal** in the same
   settings.
 

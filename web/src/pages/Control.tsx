@@ -123,12 +123,12 @@ import { formatReference } from '../lib/reference';
 import { parseQuickRef } from '../lib/quickRef';
 import { QuickRefPill } from '../components/QuickRefPill';
 import {
-  bookEdge,
   chapterName,
+  crossTarget,
   edgeNotice,
   landingVerse,
-  neighbourChapter,
   pressAtEdge,
+  translationEdge,
   type CrossArm,
 } from '../lib/chapterCross';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
@@ -1267,51 +1267,70 @@ export function Control() {
 
   // At the chapter's edge (0.6.23): the first press says where a second one goes; pressed
   // again within 5 s it opens the next chapter's first verse (the previous one's last going
-  // back) — on screen too when the screen follows the selection.
+  // back) — on screen too when the screen follows the selection. At a book's edge the same
+  // two presses open the next book (1.4.0).
   const crossArm = useRef<CrossArm | null>(null);
-  const crossChapter = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
+  const crossChapter = async (delta: number, previewOnly = false): Promise<Outcome> => {
     if (primaryId == null || bookNumber == null || chapter == null) {
       return { ok: false, reason: tr('Спершу виберіть розділ') };
     }
-    const to = neighbourChapter(chapters, chapter, delta);
-    if (to == null) return { ok: false, reason: bookEdge(delta) };
-    const key = `${primaryId}:${bookNumber}:${chapter}:${delta > 0 ? 1 : -1}`;
+    const tid = primaryId;
+    const book = bookNumber;
+    // armed before anything loads, so a quick second press still counts as the second
+    const key = `${tid}:${book}:${chapter}:${delta > 0 ? 1 : -1}`;
     const press = pressAtEdge(crossArm.current, key, Date.now());
     crossArm.current = press.arm;
-    if (!press.cross) {
-      return { ok: false, reason: edgeNotice(delta, chapterName(currentBook, to)) };
-    }
-    const book = bookNumber;
     const onScreen = !previewOnly && liveFollow && live && !previewOverride;
-    return queryClient
-      .fetchQuery({
-        queryKey: ['verses', primaryId, book, to],
-        queryFn: () => api.verses(primaryId, book, to),
-      })
-      .then(async (verses): Promise<Outcome> => {
-        const v = landingVerse(
-          verses.map((x) => x.verse),
-          delta,
-        );
-        if (v == null) return { ok: false, reason: tr('У цьому розділі немає віршів') };
-        const label = formatReference(currentBook, to, [v]);
-        if (onScreen) {
-          await activatePassage({
-            kind: 'passage',
-            id: `cross-${book}-${to}-${v}`,
-            label,
-            translationIds: selectedIds,
-            bookNumber: book,
-            chapter: to,
-            verses: [v],
-          });
-        } else {
-          selectChapter(to);
-          setSelectedVerses([v]);
-          setScrollTarget(v);
-        }
-        return { ok: true, reason: label };
+    const target = await crossTarget(
+      { book, chapter },
+      chapters,
+      books.map((b) => b.bookNumber),
+      delta,
+      (b) =>
+        queryClient.fetchQuery({
+          queryKey: ['chapters', tid, b],
+          queryFn: () => api.chapters(tid, b),
+        }),
+    );
+    if (!target) {
+      crossArm.current = null;
+      return { ok: false, reason: translationEdge(delta) };
+    }
+    const to = target.chapter;
+    const toBook = books.find((b) => b.bookNumber === target.book) ?? currentBook;
+    if (!press.cross) {
+      return {
+        ok: false,
+        reason: edgeNotice(delta, chapterName(toBook, to), target.newBook),
+      };
+    }
+    const verses = await queryClient.fetchQuery({
+      queryKey: ['verses', tid, target.book, to],
+      queryFn: () => api.verses(tid, target.book, to),
+    });
+    const v = landingVerse(
+      verses.map((x) => x.verse),
+      delta,
+    );
+    if (v == null) return { ok: false, reason: tr('У цьому розділі немає віршів') };
+    const label = formatReference(toBook, to, [v]);
+    if (onScreen) {
+      await activatePassage({
+        kind: 'passage',
+        id: `cross-${target.book}-${to}-${v}`,
+        label,
+        translationIds: selectedIds,
+        bookNumber: target.book,
+        chapter: to,
+        verses: [v],
       });
+    } else {
+      if (target.newBook) selectBook(target.book);
+      selectChapter(to);
+      setSelectedVerses([v]);
+      setScrollTarget(v);
+    }
+    return { ok: true, reason: label };
   };
   /** Keys and buttons: say why the show didn't move (at a chapter's edge: what's next). */
   const advanceAndSay = (delta: number, previewOnly = false) => {

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   CROSS_MS,
-  bookEdge,
   chapterName,
+  crossTarget,
   edgeNotice,
   landingVerse,
+  neighbourBook,
   neighbourChapter,
   pressAtEdge,
+  translationEdge,
 } from './chapterCross';
 
 describe('neighbourChapter', () => {
@@ -59,7 +61,55 @@ describe('notices', () => {
     expect(chapterName(null, 4)).toBe('розділ 4');
     expect(edgeNotice(1, 'Івана 4')).toBe('Кінець розділу. Натисніть «Далі» ще раз — Івана 4');
     expect(edgeNotice(-1, 'Івана 2')).toBe('Початок розділу. Натисніть «Назад» ще раз — Івана 2');
-    expect(bookEdge(1)).toBe('Це останній вірш книги');
-    expect(bookEdge(-1)).toBe('Це перший вірш книги');
+    expect(edgeNotice(1, 'Діяння 1', true)).toBe(
+      'Кінець книги. Натисніть «Далі» ще раз — Діяння 1',
+    );
+    expect(edgeNotice(-1, 'Луки 24', true)).toBe(
+      'Початок книги. Натисніть «Назад» ще раз — Луки 24',
+    );
+    expect(translationEdge(1)).toBe('Це останній вірш перекладу');
+    expect(translationEdge(-1)).toBe('Це перший вірш перекладу');
+  });
+});
+
+describe('across a book’s edge (1.4.0)', () => {
+  // MyBible numbers: Luke 490, John 500, Acts 510
+  const books = [500, 490, 510];
+  const chaptersOf = async (book: number) =>
+    ({ 490: [1, 2, 24], 500: [1, 21], 510: [2, 1, 28] })[book] ?? [];
+
+  it('the neighbouring book by number, null past the ends or for an unknown one', () => {
+    expect(neighbourBook(books, 500, 1)).toBe(510);
+    expect(neighbourBook(books, 500, -1)).toBe(490);
+    expect(neighbourBook(books, 510, 1)).toBeNull();
+    expect(neighbourBook(books, 490, -1)).toBeNull();
+    expect(neighbourBook(books, 999, 1)).toBeNull();
+  });
+
+  it('inside a book the next chapter; at its edge the next book’s first or last chapter', async () => {
+    expect(await crossTarget({ book: 500, chapter: 1 }, [1, 21], books, 1, chaptersOf)).toEqual({
+      book: 500,
+      chapter: 21,
+      newBook: false,
+    });
+    expect(await crossTarget({ book: 500, chapter: 21 }, [1, 21], books, 1, chaptersOf)).toEqual({
+      book: 510,
+      chapter: 1,
+      newBook: true,
+    });
+    expect(await crossTarget({ book: 500, chapter: 1 }, [1, 21], books, -1, chaptersOf)).toEqual({
+      book: 490,
+      chapter: 24,
+      newBook: true,
+    });
+  });
+
+  it('nothing past the translation’s first or last chapter', async () => {
+    expect(
+      await crossTarget({ book: 510, chapter: 28 }, [1, 2, 28], books, 1, chaptersOf),
+    ).toBeNull();
+    expect(
+      await crossTarget({ book: 490, chapter: 1 }, [1, 2, 24], books, -1, chaptersOf),
+    ).toBeNull();
   });
 });
