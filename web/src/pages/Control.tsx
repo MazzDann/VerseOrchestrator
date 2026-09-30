@@ -3036,7 +3036,7 @@ export function Control() {
         width={400}
         icon={<IconAdjustments size={16} />}
       >
-        <SettingsPanel />
+        <SettingsPanel onDetach={() => setSettingsOpen(false)} />
       </FloatingPanel>
 
       <FloatingPanel
