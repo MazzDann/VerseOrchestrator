@@ -19,18 +19,20 @@
  *   POST /__standby/retire    exit once the app has stopped;  /resume  cancels that
  *   POST /__standby/relaunch  stop the app, close, start a fresh waiter (new port)
  *   POST /__standby/shutdown  stop the app and close now («Вимкнути повністю», 0.7.1)
+ *   POST /__standby/update    the same, for an update: swap.ts starts the new version (1.0.0)
  *
  * Only node: imports, no TS-only syntax — Node runs this file as it is
  * (`node server/src/standby.ts`, type stripping); tsx is loaded only for the app itself.
  */
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KeyedError, N_, requestLang, tr, trError, type Lang } from './lang.ts';
-import { applyLayout } from './layout.ts';
+import { applyLayout, readLayout } from './layout.ts';
 
 export interface RunningApp {
   port: number;
@@ -40,7 +42,7 @@ export interface RunningApp {
 
 export type StandbyState = 'waiting' | 'starting' | 'running' | 'stopping';
 
-export type ShutdownReason = 'retire' | 'shutdown' | 'close';
+export type ShutdownReason = 'retire' | 'shutdown' | 'close' | 'update';
 
 export interface StandbyOptions {
   port: number;
@@ -57,7 +59,8 @@ export interface StandbyOptions {
   checkMs?: number;
   /**
    * called when this waiter has shut down for good (the CLI exits): `retire` — switched off,
-   * once the app was idle; `shutdown` — «Вимкнути повністю»; `close` — its owner closed it
+   * once the app was idle; `shutdown` — «Вимкнути повністю»; `close` — its owner closed it;
+   * `update` — the app is being replaced by a newer version (swap.ts)
    */
   onRetired?: (why: ShutdownReason) => void;
   /** called after a relaunch request closed this waiter (the CLI starts a fresh one) */
@@ -227,10 +230,10 @@ export function createStandby(o: StandbyOptions) {
       reply(200, { relaunching: true });
       relaunching = true;
       void shutdown('close');
-    } else if (action === 'shutdown') {
-      // «Вимкнути повністю»: now, open pages or not — they have been told (live.ts)
+    } else if (action === 'shutdown' || action === 'update') {
+      // «Вимкнути повністю» or an update: now, open pages or not — they have been told (live.ts)
       reply(200, { shuttingDown: true });
-      void shutdown('shutdown');
+      void shutdown(action);
     } else reply(404, { error: 'unknown action' });
     return true;
   }
@@ -391,28 +394,63 @@ export function portFree(port: number): Promise<boolean> {
   });
 }
 
-/** The UI build to serve is missing, or was made for another version of the code. */
+/** What the UI build is made from (besides node_modules, which package-lock.json stands for). */
+const UI_SOURCES = [
+  'package-lock.json',
+  'web/index.html',
+  'web/vite.config.ts',
+  'web/package.json',
+  'web/public',
+  'web/src',
+  'shared/src',
+];
+
+/**
+ * What a UI build is stamped with: the code's version and, in a clone, the content of its
+ * sources — since 1.0.0 the version changes only with a release, so a `git pull` between
+ * releases must be told apart by what changed (≈ 40 ms for ≈ 160 files on Windows). A release's build
+ * is made for its version and never rebuilt (it has no bundler): the version alone.
+ */
+export function uiStamp(root: string): string {
+  const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+  if (readLayout(root)) return version;
+  const hash = createHash('sha1');
+  const add = (rel: string): void => {
+    const file = path.join(root, rel);
+    if (!fs.existsSync(file)) return;
+    if (fs.statSync(file).isDirectory()) {
+      for (const name of fs.readdirSync(file).sort()) add(`${rel}/${name}`);
+      return;
+    }
+    hash.update(`${rel}\0`);
+    hash.update(fs.readFileSync(file));
+  };
+  for (const rel of UI_SOURCES) add(rel);
+  return `${version}+${hash.digest('hex').slice(0, 12)}`;
+}
+
+/** The UI build to serve is missing, or was made from other code. */
 export function needsBuild(root: string): boolean {
   const dist = path.join(root, 'web', 'dist');
   if (!fs.existsSync(path.join(dist, 'index.html'))) return true;
   try {
     const built = fs.readFileSync(path.join(dist, '.vo-version'), 'utf8').trim();
-    const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-    return built !== version;
+    // a release compares versions only: its build was stamped in the clone it came from
+    if (readLayout(root)) return built.split('+')[0] !== uiStamp(root);
+    return built !== uiStamp(root);
   } catch {
     return false; // built by hand (no stamp): serve it as it is
   }
 }
 
-/** Build the UI (web/dist) and stamp it with the code's version (read by needsBuild). */
+/** Build the UI (web/dist) and stamp it with what it was built from (read by needsBuild). */
 export async function buildUi(
   root: string,
   log: (m: string) => void,
   opts: { inherit?: boolean } = {},
 ): Promise<void> {
   await run('npm', ['run', 'build', '--workspace', '@vo/web'], root, log, opts);
-  const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-  fs.writeFileSync(path.join(root, 'web', 'dist', '.vo-version'), version);
+  fs.writeFileSync(path.join(root, 'web', 'dist', '.vo-version'), uiStamp(root));
 }
 
 /** Start the app of 0.5.0 (tsx-loaded server, any free loopback port) — building the UI first if needed. */
@@ -515,8 +553,12 @@ async function main(): Promise<void> {
     if (process.stdout.isTTY) process.stdout.write(line);
   };
   const settings = readStandbySettings(dataDir);
+  // after an update the new waiter takes the port the old one had (swap.ts) — this
+  // once: a relaunch (the port changed in the settings) must read the settings again
+  const listen = Number(process.env.VO_STANDBY_LISTEN) || settings.port;
+  delete process.env.VO_STANDBY_LISTEN;
   const standby = createStandby({
-    port: settings.port,
+    port: listen,
     host: '0.0.0.0',
     idleMs: settings.idleMinutes * 60_000,
     startApp: appProcess(repoRoot, log),

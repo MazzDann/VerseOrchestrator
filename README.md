@@ -35,8 +35,13 @@ The archive carries its own Node.js and needs no internet connection. On the fir
 Windows may warn about a file from the internet: confirm to run it. macOS blocks
 `start.command` the first time, because the app isn't signed by Apple: open **System
 Settings** > **Privacy & Security**, select **Open Anyway** next to `start.command`, and
-confirm (before macOS 15, right-click the file and select **Open**). To update, replace the
-`app/` folder with the one from a newer archive; `data/` and `modules/` stay.
+confirm (before macOS 15, right-click the file and select **Open**).
+
+The app tells you when a newer version is out and installs it when you click **Завантажити
+оновлення** and then **Перезапустити й оновити** (**Налаштування вигляду** > **Застосунок** >
+**Оновлення**); if the new version doesn't start, the previous one comes back. `data/` and
+`modules/` stay as they are. Versions before 1.0.0 update by hand: replace the `app/` folder
+with the one from a newer archive.
 
 ## Documentation
 

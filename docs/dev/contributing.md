@@ -1,8 +1,8 @@
 # Contributing
 
 This page is for developers who change VerseOrchestrator: how to set up the project, the
-checks every commit passes, and the conventions for versions, commits, UI, and docs. How
-the code is organized is in [Architecture](architecture.md).
+checks every commit passes, and the conventions for branches, versions, commits, UI, and
+docs. How the code is organized is in [Architecture](architecture.md).
 
 ## Set up
 
@@ -44,23 +44,43 @@ performance claims need numbers. Measure before you change a hot path and after,
 put both in the commit message. The `/bench` page compares the database engines and the
 window-sync transports, and `npm run bench:db` benchmarks the server's queries.
 
-## Versions and commits
+## Branches, versions, and commits
 
-- **Versions.** Until the first release, the version is `0.MINOR.PATCH`: `MINOR` is one
-  themed milestone, and `PATCH` goes up with every commit in it. The first release is
-  `1.0.0`. Bump `"version"` in all five `package.json` files (the root, `shared`,
-  `builder`, `server`, and `web`) and run `npm install --package-lock-only` in the same
-  commit. Check `git log` first: another branch may have taken the next number.
-- **Tags.** Tag every commit with an annotated tag: `git tag -a vX.Y.Z -m "…"`.
-- **Commit messages.** The subject is `X.Y.Z — Theme: summary`, for example
-  `0.6.29 — Hub: back within 2 s after an outage`. The body explains why, and gives the
+- **Branches.** `main` always holds a version that works, and GitHub protects it: changes
+  arrive only through pull requests whose **Checks** passed, and nobody pushes to it
+  directly. Do each change on its own branch — `feat/NAME` for a feature, `fix/NAME` for a
+  fix — and open a pull request to `main`. Merge it once the checks pass. A merge commit
+  keeps the branch's commits, with their measurements, in the history.
+- **Versions.** `MAJOR.MINOR.PATCH`, starting with `1.0.0`, the first regular release.
+  The version changes only when a release is made, once for everything merged since the
+  last one: `PATCH` for fixes only, `MINOR` for new features, `MAJOR` for changes that
+  older data or settings can't follow. Commits on a branch leave the version alone.
+  Before 1.0.0 every commit on `main` was a release of its own, `0.MINOR.PATCH`.
+- **Commit messages.** The subject is `Theme: summary`, for example
+  `Hub: back within 2 s after an outage`. The body explains why, and gives the
   measurements.
+- **Releases.** Once the pull requests for a release are merged:
+
+  1. On a branch `release/X.Y.Z` from `main`, set `"version"` in all five `package.json`
+     files (the root, `shared`, `builder`, `server`, and `web`) and run
+     `npm install --package-lock-only`.
+  2. Commit with the subject `X.Y.Z — Theme: summary`, where the summary says what the
+     release brings, and merge it through a pull request like any change.
+  3. On the updated `main`, tag the merge commit and push the tag:
+
+     ```bash
+     git tag -a vX.Y.Z -m "X.Y.Z — Theme: summary"
+     git push origin vX.Y.Z
+     ```
+
+     CI builds the packages and publishes the release — see [Releases](#releases).
 
 ## Releases
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the checks above on every push to `main`
-and on every pull request. When the pushed commit carries the tag of its own version
-(`v` + the `version` in `package.json`), the same run makes a release:
+and on every pull request. A pushed tag `vX.Y.Z` makes a release when `X.Y.Z` is the
+`version` in the tagged commit's `package.json` and the commit is on `main`; otherwise the
+run fails and says why:
 
 1. On Windows, macOS, and Linux runners, `npm run portable -- --release` builds a copy with
    its own Node.js — no settings of the build machine and never the library, whose
@@ -71,8 +91,8 @@ and on every pull request. When the pushed commit carries the tag of its own ver
 3. A GitHub release for the tag gets the archives, `SHA256SUMS.txt`, and notes from
    `.github/scripts/release-notes.mjs`. Versions `0.x` come out as pre-releases.
 
-A push of several tagged commits releases the newest one. To try the packages without a
-release, run the workflow by hand: **Actions** → **CI** → **Run workflow**; the archives
+To try the packages without a release — for example, a pull request's branch — run the
+workflow by hand: **Actions** → **CI** → **Run workflow**, and pick the branch; the archives
 are in the run's artifacts for seven days.
 
 ## UI conventions

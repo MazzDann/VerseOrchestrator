@@ -289,7 +289,53 @@ export type StandbyStatus = z.infer<typeof StandbySchema>;
 const ServerSettingsSchema = z.object({
   version: z.number(),
   remotes: z.object({ persist: z.boolean() }),
+  updates: z.object({ check: z.boolean() }),
 });
+
+/** Is there a newer version (1.0.0, server/src/updates.ts)? */
+const UpdateStateSchema = z.object({
+  current: z.string(),
+  channel: z.enum(['stable', 'preview']),
+  install: z.enum(['release', 'source']),
+  enabled: z.boolean(),
+  checkedAt: z.number().nullable(),
+  latest: z
+    .object({
+      version: z.string(),
+      url: z.string(),
+      publishedAt: z.string(),
+      prerelease: z.boolean(),
+      asset: z.object({ name: z.string(), url: z.string(), size: z.number() }).nullable(),
+      sums: z.string().nullable().optional(),
+    })
+    .nullable(),
+  available: z.boolean(),
+  error: z.string().nullable(),
+  /** installing (server/src/installer.ts) — only a copy from a release archive */
+  installer: z
+    .object({
+      phase: z.enum(['idle', 'download', 'verify', 'unpack', 'ready', 'restarting', 'error']),
+      version: z.string().nullable(),
+      received: z.number(),
+      total: z.number(),
+      error: z.string().nullable(),
+      vars: z.record(z.string(), z.string()).optional(),
+    })
+    .nullable()
+    .optional(),
+  /** how the last update went (server/src/swap.ts), for a day */
+  lastUpdate: z
+    .object({
+      ok: z.boolean(),
+      from: z.string(),
+      to: z.string(),
+      at: z.number(),
+      error: z.string().optional(),
+    })
+    .nullable()
+    .optional(),
+});
+export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
 export const api = {
   // --- Library reads: server or browser engine (see fromLibrary) ---
@@ -458,6 +504,27 @@ export const api = {
   },
   /** Server options (data/settings.json) — not secrets. */
   serverSettings: () => getJson('/api/server-settings', ServerSettingsSchema),
+  update: () => getJson('/api/update', UpdateStateSchema),
+  checkUpdate: async () => {
+    const res = await request('/api/update/check', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return UpdateStateSchema.parse(await res.json());
+  },
+  /** Download, check and unpack the newer version next to this one; the page follows the phases. */
+  downloadUpdate: async () => {
+    const res = await request('/api/update/download', {
+      method: 'POST',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return UpdateStateSchema.parse(await res.json());
+  },
+  /** Restart into the downloaded version; the app goes away for a while. */
+  restartForUpdate: async () => {
+    const res = await request('/api/update/restart', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return z.object({ from: z.string(), to: z.string() }).parse(await res.json());
+  },
   uiState: () => getJson('/api/ui-state', UiStateSchema),
   saveUiState: async (key: keyof UiState, value: string, at: number) => {
     const res = await request('/api/ui-state', {
@@ -516,7 +583,10 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return z.object({ ok: z.boolean(), autostartRemoved: z.boolean() }).parse(await res.json());
   },
-  updateServerSettings: async (patch: { remotes?: { persist?: boolean } }) => {
+  updateServerSettings: async (patch: {
+    remotes?: { persist?: boolean };
+    updates?: { check?: boolean };
+  }) => {
     const res = await request('/api/server-settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },

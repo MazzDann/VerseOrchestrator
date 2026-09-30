@@ -40,6 +40,10 @@ export function trx(uk: string, nodes: Record<string, ReactNode>): ReactNode[] {
 export const fmtNumber = (n: number, opts?: Intl.NumberFormatOptions): string =>
   n.toLocaleString(currentLocale(), opts);
 
+/** A moment (ms since 1970) the interface language's way: 30.09.2026, 14:05 / 9/30/26, 2:05 PM. */
+export const fmtDateTime = (ms: number): string =>
+  new Date(ms).toLocaleString(currentLocale(), { dateStyle: 'short', timeStyle: 'short' });
+
 /**
  * Subscribe a component to the interface language: it renders again on a switch. Call it in
  * every component that shows translated text (a `useMemo` over translated text lists the

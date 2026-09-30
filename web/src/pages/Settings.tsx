@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { ScrollArea, Box, Title, Group } from '@mantine/core';
 import { IconAdjustments } from '@tabler/icons-react';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { tr, useLang } from '../i18n';
+import { probeServer, useServer } from '../serverStore';
 
 /**
  * Standalone settings window (`/settings`) — opened on a second monitor next to the
@@ -10,6 +12,11 @@ import { tr, useLang } from '../i18n';
  */
 export function Settings() {
   useLang();
+  // the control window finds out whether the server is there; this window must ask itself —
+  // «Оновлення» and the other server-backed sections wait for the answer
+  useEffect(() => {
+    if (useServer.getState().available === null) void probeServer();
+  }, []);
   return (
     <ScrollArea style={{ height: '100vh' }} type="auto">
       <Box maw={560} mx="auto" px="md" py="lg">
