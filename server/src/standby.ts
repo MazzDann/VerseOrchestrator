@@ -24,13 +24,14 @@
  * (`node server/src/standby.ts`, type stripping); tsx is loaded only for the app itself.
  */
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KeyedError, N_, requestLang, tr, trError, type Lang } from './lang.ts';
-import { applyLayout } from './layout.ts';
+import { applyLayout, readLayout } from './layout.ts';
 
 export interface RunningApp {
   port: number;
@@ -391,28 +392,63 @@ export function portFree(port: number): Promise<boolean> {
   });
 }
 
-/** The UI build to serve is missing, or was made for another version of the code. */
+/** What the UI build is made from (besides node_modules, which package-lock.json stands for). */
+const UI_SOURCES = [
+  'package-lock.json',
+  'web/index.html',
+  'web/vite.config.ts',
+  'web/package.json',
+  'web/public',
+  'web/src',
+  'shared/src',
+];
+
+/**
+ * What a UI build is stamped with: the code's version and, in a clone, the content of its
+ * sources — since 1.0.0 the version changes only with a release, so a `git pull` between
+ * releases must be told apart by what changed (≈ 40 ms for ≈ 160 files on Windows). A release's build
+ * is made for its version and never rebuilt (it has no bundler): the version alone.
+ */
+export function uiStamp(root: string): string {
+  const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+  if (readLayout(root)) return version;
+  const hash = createHash('sha1');
+  const add = (rel: string): void => {
+    const file = path.join(root, rel);
+    if (!fs.existsSync(file)) return;
+    if (fs.statSync(file).isDirectory()) {
+      for (const name of fs.readdirSync(file).sort()) add(`${rel}/${name}`);
+      return;
+    }
+    hash.update(`${rel}\0`);
+    hash.update(fs.readFileSync(file));
+  };
+  for (const rel of UI_SOURCES) add(rel);
+  return `${version}+${hash.digest('hex').slice(0, 12)}`;
+}
+
+/** The UI build to serve is missing, or was made from other code. */
 export function needsBuild(root: string): boolean {
   const dist = path.join(root, 'web', 'dist');
   if (!fs.existsSync(path.join(dist, 'index.html'))) return true;
   try {
     const built = fs.readFileSync(path.join(dist, '.vo-version'), 'utf8').trim();
-    const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-    return built !== version;
+    // a release compares versions only: its build was stamped in the clone it came from
+    if (readLayout(root)) return built.split('+')[0] !== uiStamp(root);
+    return built !== uiStamp(root);
   } catch {
     return false; // built by hand (no stamp): serve it as it is
   }
 }
 
-/** Build the UI (web/dist) and stamp it with the code's version (read by needsBuild). */
+/** Build the UI (web/dist) and stamp it with what it was built from (read by needsBuild). */
 export async function buildUi(
   root: string,
   log: (m: string) => void,
   opts: { inherit?: boolean } = {},
 ): Promise<void> {
   await run('npm', ['run', 'build', '--workspace', '@vo/web'], root, log, opts);
-  const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-  fs.writeFileSync(path.join(root, 'web', 'dist', '.vo-version'), version);
+  fs.writeFileSync(path.join(root, 'web', 'dist', '.vo-version'), uiStamp(root));
 }
 
 /** Start the app of 0.5.0 (tsx-loaded server, any free loopback port) — building the UI first if needed. */
