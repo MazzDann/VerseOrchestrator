@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Group, Text } from '@mantine/core';
+import { useReducedMotion } from '@mantine/hooks';
 import { type Slide } from '../presenterBus';
 import { SlideCanvas } from './SlideCanvas';
 
@@ -31,6 +32,9 @@ export function Monitor({
   actions?: ReactNode;
   maxWidth?: number;
 }) {
+  // the system asks for less motion (1.2.1): the monitor changes at once, no fades
+  // (read at once, so a monitor that mounts with a slide doesn't fade it in first)
+  const calm = useReducedMotion(false, { getInitialValueInEffect: false });
   return (
     <div style={{ width: '100%', maxWidth, marginInline: maxWidth ? 'auto' : undefined }}>
       <Group justify="space-between" gap={6} wrap="nowrap" mb={6} mih={22}>
@@ -68,7 +72,7 @@ export function Monitor({
           boxShadow: `0 0 0 ${state === 'idle' ? 1 : 2}px ${TALLY_VAR[state]}`,
         }}
       >
-        <SlideCanvas slide={slide} />
+        <SlideCanvas slide={slide} calm={calm} />
       </div>
     </div>
   );
