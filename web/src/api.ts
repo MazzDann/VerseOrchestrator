@@ -91,6 +91,19 @@ const SongInfoSchema = z.object({
 });
 export type SongInfo = z.infer<typeof SongInfoSchema>;
 const SongBundleSchema = z.object({ name: z.string(), count: z.number() });
+const AnchorSchema = z.enum(['top', 'middle', 'bottom']);
+/** A slide's second text box (1.2.1): a title slide's authors, a «Приспів:» label. */
+const SongBoxSchema = z.object({
+  text: z.string(),
+  color: str(),
+  align: z.enum(['left', 'center', 'right']),
+  anchor: AnchorSchema,
+  x: z.number(),
+  y: z.number(),
+  w: z.number(),
+  h: z.number(),
+  size: z.number(),
+});
 const SongStyleSchema = z
   .object({
     bg: str(),
@@ -106,6 +119,8 @@ const SongStyleSchema = z
       .number()
       .nullish()
       .transform((v) => v ?? 0),
+    anchor: AnchorSchema.optional(),
+    sub: SongBoxSchema.optional(),
   })
   .nullable();
 export type SongStyle = NonNullable<z.infer<typeof SongStyleSchema>>;
