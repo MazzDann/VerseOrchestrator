@@ -1,10 +1,15 @@
 import { tr } from '../i18n';
 
 /**
- * Read an image File and return a downscaled JPEG data URL. Keeps localStorage
- * (where appearance is persisted) from blowing past its ~5MB quota.
+ * Read an image File and return a downscaled data URL — JPEG, or PNG where transparency
+ * matters (a logo, 1.4.0). Keeps localStorage (where appearance is persisted) from blowing
+ * past its ~5MB quota.
  */
-export async function fileToDownscaledDataUrl(file: File, maxDim = 1920): Promise<string> {
+export async function fileToDownscaledDataUrl(
+  file: File,
+  maxDim = 1920,
+  type: 'image/jpeg' | 'image/png' = 'image/jpeg',
+): Promise<string> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
@@ -28,5 +33,5 @@ export async function fileToDownscaledDataUrl(file: File, maxDim = 1920): Promis
   const ctx = canvas.getContext('2d');
   if (!ctx) return dataUrl;
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.85);
+  return type === 'image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL(type, 0.85);
 }
