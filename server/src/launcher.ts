@@ -24,7 +24,7 @@ import { lanIps } from './access.ts';
 import { applyLayout } from './layout.ts';
 import { consoleLang, setLang, tr, trError } from './lang.ts';
 import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
-import { appWindowCommand, createShortcut } from './shortcut.ts';
+import { appWindowCommand, createShortcut, raiseControlWindow } from './shortcut.ts';
 import {
   appProcess,
   buildUi,
@@ -53,6 +53,8 @@ export interface LaunchOptions {
   /** the control window as an app window: Chrome/Edge `--app` (0.7.5) */
   app: boolean;
   shortcut: boolean;
+  /** open the control window even when one is open already (1.1.0) */
+  newWindow: boolean;
 }
 
 /** The command line, or what is wrong with it. */
@@ -64,6 +66,7 @@ export function parseArgs(argv: string[]): LaunchOptions | string {
     off: false,
     app: false,
     shortcut: false,
+    newWindow: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -72,6 +75,7 @@ export function parseArgs(argv: string[]): LaunchOptions | string {
     else if (a === '--off') o.off = true;
     else if (a === '--app') o.app = true;
     else if (a === '--shortcut') o.shortcut = true;
+    else if (a === '--new-window') o.newWindow = true;
     else if (a === '--port') {
       const port = Number(argv[++i]);
       if (!Number.isInteger(port) || port < 1024 || port > 65535)
@@ -79,7 +83,7 @@ export function parseArgs(argv: string[]): LaunchOptions | string {
       o.port = port;
     } else
       return tr(
-        'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut',
+        'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window',
         { arg: a },
       );
   }
@@ -281,6 +285,19 @@ function sqliteLoads(): { ok: boolean; error: string } {
   return { ok: r.status === 0, error: error.trim().slice(0, 200) };
 }
 
+/** Is a control window connected to the app on `port`? Asked only of a running app. */
+async function controlWindowOpen(port: number, state: string): Promise<boolean> {
+  if (state !== 'running') return false; // a stopped app has no window connected
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/control-windows`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    return r.ok && Number(((await r.json()) as { open?: unknown }).open) > 0;
+  } catch {
+    return false; // an older app without the question: open one as before
+  }
+}
+
 function openBrowser(url: string, asApp = false): void {
   // an app window if asked and Chrome/Edge is there, else the default browser
   const cmd =
@@ -368,13 +385,24 @@ async function main(argv: string[]): Promise<number> {
     }
   }
 
-  // Already running (autostart, a second launch): open it — there is nothing to prepare
-  const running = !!(await waiterAt(port));
-  if (running && !opts.check) {
+  // Already running (autostart, a second launch): open it — there is nothing to prepare. A
+  // control window already open is shown instead of a second one (1.1.0, the operator's ask).
+  const waiter = await waiterAt(port);
+  if (waiter && !opts.check) {
     say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
-    if (opts.browser) openBrowser(`${local}/`, opts.app);
+    if (opts.browser && !opts.newWindow && (await controlWindowOpen(port, waiter.state))) {
+      say(
+        `  ${
+          raiseControlWindow()
+            ? tr('Вікно керування вже відкрите — перемикаю на нього.')
+            : tr('Вікно керування вже відкрите — знайдіть його серед вікон браузера.')
+        }`,
+      );
+      say(`  ${tr('Щоб відкрити ще одне, запустіть з --new-window.')}`);
+    } else if (opts.browser) openBrowser(`${local}/`, opts.app);
     return 0;
   }
+  const running = !!waiter;
 
   // 1. Dependencies (npm ci on a fresh copy — needs the internet once)
   const deps = depsState(root);

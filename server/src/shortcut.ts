@@ -8,10 +8,11 @@
  *
  * Only node: imports — the launcher runs before `npm ci` (like standby.ts).
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { tr } from './lang.ts';
 
 /** Chrome first (the user's choice for tests and work), then Edge. */
 export function appBrowserCandidates(
@@ -157,4 +158,31 @@ export function createShortcut(
     fs.writeFileSync(f, entry, { mode: 0o755 });
   }
   return files;
+}
+
+/** The control window's titles (Control.tsx sets them, 1.1.0): what the system looks for. */
+export const CONTROL_TITLES = (['uk', 'en'] as const).map(
+  (lang) => `VerseOrchestrator — ${tr('керування', undefined, lang)}`,
+);
+
+/**
+ * Bring the open control window forward instead of opening a second one (1.1.0). Windows:
+ * WScript.Shell's AppActivate finds a window whose title begins with one of CONTROL_TITLES
+ * (a browser adds its own name after it) — allowed for a start the user just clicked. Elsewhere
+ * nothing: false.
+ */
+export function raiseControlWindow(platform: NodeJS.Platform = process.platform): boolean {
+  if (platform !== 'win32') return false;
+  const tries = CONTROL_TITLES.map((t) => `$s.AppActivate('${t}')`).join(' -or ');
+  const r = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `$s = New-Object -ComObject WScript.Shell; if (${tries}) { 'yes' }`,
+    ],
+    { encoding: 'utf8', windowsHide: true, timeout: 5000 },
+  );
+  return (r.stdout ?? '').trim() === 'yes';
 }

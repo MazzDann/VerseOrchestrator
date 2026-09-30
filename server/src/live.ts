@@ -128,6 +128,11 @@ export function announceShutdown(): void {
   for (const c of sockets()) send(c, { type: 'shutdown' });
 }
 
+/** Control windows connected right now (1.1.0: the launcher opens no second one). */
+export function controlCount(): number {
+  return sockets('control').length;
+}
+
 /** Audience sockets (not the control window, not remotes). */
 export function viewerCount(): number {
   return sockets('viewer').length;
