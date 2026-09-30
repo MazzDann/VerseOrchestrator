@@ -132,6 +132,8 @@ export function UpdateSection() {
         <Rollback
           version={state.previous}
           current={state.current}
+          selfReturn={state.previousHasRollback !== false}
+          phase={state.installer?.phase ?? 'idle'}
           outputsOpen={outputs.length}
           pending={rollback.isPending}
           onRollback={() => rollback.mutate()}
@@ -196,22 +198,37 @@ function LastUpdate({ last }: { last: NonNullable<UpdateState['lastUpdate']> }) 
 /**
  * «Повернути попередню версію» (1.4.0): the version the last update replaced is kept next to the
  * app (`app.previous/`); a confirmation, then the same restart as an update — and back to this
- * one by itself if that one doesn't start. Not during a show.
+ * one by itself if that one doesn't start. Not during a show, nor while an update unpacks; a
+ * download under way stops, and the confirmation says so (1.4.1). A version before 1.4.0 can't
+ * come back here by itself: the confirmation says how (1.4.1).
  */
 function Rollback({
   version,
   current,
+  selfReturn,
+  phase,
   outputsOpen,
   pending,
   onRollback,
 }: {
   version: string;
   current: string;
+  /** `version` has «Повернути версію» of its own (1.4.0 or later) */
+  selfReturn: boolean;
+  /** the installer's phase */
+  phase: string;
   outputsOpen: number;
   pending: boolean;
   onRollback: () => void;
 }) {
   const [confirm, setConfirm] = useState(false);
+  const wait =
+    phase === 'restarting'
+      ? tr('Застосунок уже перезапускається')
+      : phase === 'unpack'
+        ? tr('Зачекайте, доки оновлення розпакується')
+        : null;
+  const downloading = phase === 'download' || phase === 'verify';
   return (
     <div>
       <Text size="xs" c="dimmed" mb={4}>
@@ -224,7 +241,7 @@ function Rollback({
             variant="default"
             leftSection={<IconArrowBackUp size={14} />}
             loading={pending}
-            disabled={outputsOpen > 0}
+            disabled={outputsOpen > 0 || !!wait}
             onClick={() => setConfirm((o) => !o)}
           >
             {tr('Повернути версію {version}', { version })}
@@ -232,10 +249,16 @@ function Rollback({
         </Popover.Target>
         <Popover.Dropdown maw={300}>
           <Text size="xs" mb="xs">
-            {tr(
-              'Застосунок перезапуститься з версією {version}: це займе до хвилини. Версія {current} лишиться поруч — до неї можна повернутися тут само.',
-              { version, current },
-            )}
+            {selfReturn
+              ? tr(
+                  'Застосунок перезапуститься з версією {version}: це займе до хвилини. Версія {current} лишиться поруч — до неї можна повернутися тут само.',
+                  { version, current },
+                )
+              : tr(
+                  'Застосунок перезапуститься з версією {version}: це займе до хвилини. Версія {version} ще не вміє повертати версії: щоб знову перейти на {current}, оновіться в «Оновлення» — потрібен інтернет.',
+                  { version, current },
+                )}
+            {downloading && ` ${tr('Завантаження оновлення зупиниться.')}`}
           </Text>
           <Group gap="xs" justify="flex-end">
             <Button size="xs" variant="default" onClick={() => setConfirm(false)}>
@@ -253,10 +276,16 @@ function Rollback({
           </Group>
         </Popover.Dropdown>
       </Popover>
-      {outputsOpen > 0 && (
+      {wait ? (
         <Text size="xs" c="dimmed" mt={4}>
-          {tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')}
+          {`${wait}.`}
         </Text>
+      ) : (
+        outputsOpen > 0 && (
+          <Text size="xs" c="dimmed" mt={4}>
+            {tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')}
+          </Text>
+        )
       )}
     </div>
   );
