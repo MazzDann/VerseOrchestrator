@@ -102,5 +102,7 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
     [],
   );
 
-  return { containerRef, contentRef };
+  // `refit`: something inside changed size on its own — an image that finished loading
+  // (the cover's logo, 1.4.1) grows the content after the fit has run
+  return { containerRef, contentRef, refit: scheduleFit };
 }

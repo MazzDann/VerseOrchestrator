@@ -68,13 +68,26 @@ window turns it on and off.
 
 In the **Cover** section:
 
-- **Cover text** — for example, the gathering's name. Up to three lines.
-- **Logo** — click **Upload** and choose a PNG, JPEG, or WebP file. A PNG keeps its
-  transparency, and a large image is scaled down to 800 pixels on its longer side. To remove
-  the logo, click the trash icon **Remove the logo**.
+- **Cover text** — for example, the gathering's name. Best up to three lines: a longer text
+  gets smaller together with the logo so that the cover fits on the slide.
+- **Logo** — click **Upload** and choose a PNG, JPEG, or WebP file. The logo takes up to 80%
+  of the slide's width (under text, up to half its height), the same in the preview and on
+  every screen, so for a sharp picture use a file of 1600 pixels or more on its longer side. A
+  smaller file is stretched at most twice on a Full HD screen, so a small logo takes up less
+  room. A PNG keeps its transparency; a larger image is scaled down to 1600 pixels, and a photo
+  is saved as JPEG so that it doesn't fill the browser's storage. Save an iPhone's HEIC photo
+  as JPEG first. To remove the logo, click the trash icon **Remove the logo**.
+
+A logo uploaded in version 1.4.0 was stored at 800 pixels at most on its longer side, so it
+looks softer on a large screen. For a sharp picture, upload the logo again from the original
+file.
 
 An empty cover shows only the background. Presets don't keep the cover: it stays yours
 whichever look you choose.
+
+The browser keeps the logo and the background image in its storage, and that storage is small
+(5 MB in Safari). If it runs out of room, the message **Couldn't save the settings** appears
+and the image stays as it was: choose a smaller file or remove the background or the logo.
 
 ## Place the slide's elements
 
