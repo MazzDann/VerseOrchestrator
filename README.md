@@ -1,5 +1,7 @@
 # VerseOrchestrator
 
+[![CI](https://github.com/MazzDann/VerseOrchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/MazzDann/VerseOrchestrator/actions/workflows/ci.yml)
+
 A local web app for **multi-screen reading of structured texts**. You navigate and
 search in the main window; selected passages appear on a separate `/presenter` output
 window you place on a second monitor, with state synced live between the windows.
@@ -11,6 +13,30 @@ sections → numbered units_ (books → chapters → verses) with full-text sear
 to any structured book (reference works, normative documents, manuals). The interface
 is Ukrainian and English; search is case- and diacritic-insensitive and handles any module
 language (Ukrainian, English, Greek, Hebrew, Arabic, and others).
+
+## Download
+
+Download the archive for your system from the [Releases](https://github.com/MazzDann/VerseOrchestrator/releases) page. Versions 0.x
+are previews; the first release will be 1.0.0.
+
+| System                | File                                 |
+| --------------------- | ------------------------------------ |
+| Windows 10/11 (x64)   | `VerseOrchestrator-windows-x64.zip`  |
+| macOS (Apple Silicon) | `VerseOrchestrator-macos-arm64.zip`  |
+| Linux (x64)           | `VerseOrchestrator-linux-x64.tar.gz` |
+
+To start the app:
+
+1. Extract the archive to a folder of your choice.
+2. Put MyBible modules (`*.SQLite3`) in its `modules/` folder.
+3. Run `start.cmd` (Windows), `start.command` (macOS), or `./start.sh` (Linux).
+
+The archive carries its own Node.js and needs no internet connection. On the first start,
+Windows may warn about a file from the internet: confirm to run it. macOS blocks
+`start.command` the first time, because the app isn't signed by Apple: open **System
+Settings** > **Privacy & Security**, select **Open Anyway** next to `start.command`, and
+confirm (before macOS 15, right-click the file and select **Open**). To update, replace the
+`app/` folder with the one from a newer archive; `data/` and `modules/` stay.
 
 ## Documentation
 
@@ -25,20 +51,21 @@ The user documentation is in Ukrainian, like the app:
 The developer documentation is in English: [docs/dev](docs/dev/README.md) covers the
 architecture and how to contribute.
 
-## Quick start
+## Run from the source
 
-You need **Node.js 22.18 or later** (24 LTS recommended) and MyBible modules. A
-portable copy of the app carries its own Node.js.
+To run the app from a clone of this repository, you need **Node.js 22.18 or later**
+(24 LTS recommended) and MyBible modules. A release archive or a portable copy carries its
+own Node.js.
 
 1. Put your MyBible Bible modules (`*.SQLite3`) into a `modules/` folder at the
    repository root, for example `modules/KJV+.SQLite3`.
 2. Start the launcher for your system:
 
-   | System  | Launcher                                                                                                        |
-   | ------- | --------------------------------------------------------------------------------------------------------------- |
-   | Windows | Double-click `start.cmd`.                                                                                       |
-   | macOS   | Double-click `start.command`. If macOS blocks a file from a downloaded zip, right-click it and select **Open**. |
-   | Linux   | Run `./start.sh` in a terminal.                                                                                 |
+   | System  | Launcher                                                                                                                      |
+   | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+   | Windows | Double-click `start.cmd`.                                                                                                     |
+   | macOS   | Double-click `start.command`. If macOS blocks it, allow it in **System Settings** > **Privacy & Security** > **Open Anyway**. |
+   | Linux   | Run `./start.sh` in a terminal.                                                                                               |
 
 On the first start, the launcher installs the dependencies (`npm ci`, internet
 required), builds the library `data/library.db` from `modules/`, and builds the
