@@ -73,7 +73,9 @@ describe('a song import body (0.10.1)', () => {
       h: 20,
       size: 4.9,
     };
-    const titled = { ...style, anchor: 'bottom', sub };
+    // …and its words in another colour (1.3.0)
+    const second = { text: 'Світло (світло)', color: '#ffff00' };
+    const titled = { ...style, anchor: 'bottom', sub, second };
     const r = parseSongImport({
       target: { id: 'b1' },
       songs: [song({ slides: [{ text: 'Світло\nЯн Вільсон', style: titled }] })],
@@ -83,6 +85,8 @@ describe('a song import body (0.10.1)', () => {
       { ...style, anchor: 'centre' },
       { ...style, sub: { ...sub, anchor: 'nowhere' } },
       { ...style, sub: { ...sub, size: 'big' } },
+      { ...style, second: { text: 5, color: '#ffff00' } },
+      { ...style, second: { text: 'a' } },
     ];
     for (const s of wrong) {
       const bad = refusal({

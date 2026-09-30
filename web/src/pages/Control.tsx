@@ -86,7 +86,15 @@ import {
   type SlideSource,
   type TextSpan,
 } from '../presenterBus';
-import { NO_LIBRARY, mainText, parseRedLetter, strongLangFor } from '@vo/shared';
+import {
+  NO_LIBRARY,
+  mainText,
+  markedText,
+  parseRedLetter,
+  secondParts,
+  strongLangFor,
+  unmark,
+} from '@vo/shared';
 import { parseStrongTokens } from '../lib/strong';
 import { findSong } from '../lib/songLink';
 import { openPresenterWindow, openStageWindow } from '../openPresenter';
@@ -813,17 +821,21 @@ export function Control() {
   // Project a text slide (song stanza). With `faithful`, reproduce the pptx look
   // (its background/colour/font/bold + a positioned quote box, anchored as in the file, and
   // a second box of its own — a title slide's authors, 1.2.1); else use the app style.
+  // `look` is the stanza's own style in either mode: its second part (1.3.0) keeps the
+  // file's colour with `faithful`, and goes dimmer in the app style.
   const projectText = (
     text: string,
     reference: string,
     faithful?: SongStyle | null,
     source?: SlideSource,
+    look?: SongStyle | null,
   ) => {
     if (!text.trim()) return;
     let style = slideStyle;
     let template = slideTemplate;
     let quote = text;
     let subline: string | undefined;
+    let line: SlideLine = { translationAbbr: '', text, rtl: false };
     if (faithful) {
       style = {
         ...slideStyle,
@@ -872,9 +884,16 @@ export function Control() {
         quote = mainText(text, faithful);
         subline = faithful.sub.text;
       }
+      line = { ...line, text: quote };
+      const second = faithful.second;
+      if (second && unmark(second.text) === quote)
+        line = withSecond(line, second.text, second.color);
+    } else {
+      const marked = markedText(text, look);
+      if (marked) line = withSecond(line, marked);
     }
     const slide: Slide = {
-      lines: [{ translationAbbr: '', text: quote, rtl: false }],
+      lines: [line],
       ...(subline ? { subline } : {}),
       reference,
       blank: false,
@@ -984,6 +1003,7 @@ export function Control() {
           `№${s.number ?? ''} ${s.title}`.trim(),
           it.faithful ? s.slides[0].style : null,
           { kind: 'song', songId: s.id, stanza: 0 },
+          s.slides[0].style,
         );
         // Seed the panel's stanza highlight to 0 so the first arrow/clicker advances
         // to stanza 1 (not re-projects the title we just put on screen).
@@ -1720,8 +1740,11 @@ export function Control() {
     });
     const stanza = s.slides[p.stanza];
     if (!stanza) throw new Error(tr('Такої строфи немає'));
+    const line: SlideLine = { translationAbbr: '', text: stanza.text, rtl: false };
+    const marked = markedText(stanza.text, stanza.style);
     return {
-      lines: [{ translationAbbr: '', text: stanza.text, rtl: false }],
+      // its second part dimmer, as in «Простий текст» (1.3.0)
+      lines: [marked ? withSecond(line, marked) : line],
       reference: `№${s.number ?? ''} ${s.title}`.trim(),
       blank: false,
       visible: true,
@@ -3248,6 +3271,19 @@ function joinVerses(verses: Verse[], selected: number[], showNum: boolean): stri
 }
 
 /** Build red-letter (words of Jesus) segments for a translation's selected verses. */
+/**
+ * A song line with its second part (1.3.0): `marked` is the line's text with the second part
+ * marked (shared/src/songs/pptx.ts); it keeps `color` — the file's — or, without one, goes
+ * dimmer. The pieces are the text itself, so they join without spaces.
+ */
+function withSecond(line: SlideLine, marked: string, color?: string): SlideLine {
+  if (unmark(marked) !== line.text) return line;
+  const segments: TextSpan[] = secondParts(marked).map((p) =>
+    p.second ? { text: p.text, ...(color ? { color } : { soft: true }) } : { text: p.text },
+  );
+  return { ...line, segments, exact: true };
+}
+
 function redLetterSegments(verses: Verse[], selected: number[], showNum: boolean): TextSpan[] {
   const out: TextSpan[] = [];
   let prev: number | null = null;

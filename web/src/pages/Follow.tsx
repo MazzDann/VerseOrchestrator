@@ -182,7 +182,14 @@ export function Follow() {
                         {line.translationAbbr}
                       </span>
                     )}
-                    {line.text}
+                    {line.exact && line.segments
+                      ? // a song's second part (1.3.0): dimmer, whatever colour the screen gives it
+                        line.segments.map((s, j) => (
+                          <span key={j} style={s.color || s.soft ? { opacity: 0.6 } : undefined}>
+                            {s.text}
+                          </span>
+                        ))
+                      : line.text}
                   </p>
                 ))}
             {slide!.subline && (

@@ -127,6 +127,11 @@ function parseStyle(v: unknown): SlideStyleSpec | null {
     (s.anchor === undefined || ANCHORS.has(s.anchor as string));
   if (!ok) throw bad(N_('Імпорт пісень: незрозумілий вигляд слайда'));
   const sub = parseBox(s.sub);
+  // the words in another colour (1.3.0): the marked text and that colour
+  const sec = s.second as Record<string, unknown> | undefined | null;
+  if (sec != null && !(isText(sec.text, 20000) && isText(sec.color, 32))) {
+    throw bad(N_('Імпорт пісень: незрозумілий вигляд слайда'));
+  }
   return {
     bg: s.bg as string,
     color: s.color as string,
@@ -140,6 +145,7 @@ function parseStyle(v: unknown): SlideStyleSpec | null {
     size: s.size as number,
     ...(s.anchor ? { anchor: s.anchor as TextAnchor } : {}),
     ...(sub ? { sub } : {}),
+    ...(sec ? { second: { text: sec.text as string, color: sec.color as string } } : {}),
   };
 }
 

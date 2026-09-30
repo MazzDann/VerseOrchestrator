@@ -41,17 +41,21 @@ function QuoteLines({ lines, style }: { lines: SlideLine[]; style: SlideStyle })
                   key={j}
                   style={{
                     // Words of Jesus / highlighted words render as a *tint* of the
-                    // base text colour toward the chosen accent, not a flat colour.
-                    color: s.hot
-                      ? mixHex(style.color, style.highlightColor ?? '#ffd43b', 0.55)
-                      : s.jesus && style.redLetter
-                        ? mixHex(style.color, style.jesusColor ?? '#ff6b6b', 0.5)
-                        : undefined,
+                    // base text colour toward the chosen accent, not a flat colour. A song's
+                    // second part (1.3.0) takes the file's colour, or goes dimmer.
+                    color:
+                      s.color ??
+                      (s.hot
+                        ? mixHex(style.color, style.highlightColor ?? '#ffd43b', 0.55)
+                        : s.jesus && style.redLetter
+                          ? mixHex(style.color, style.jesusColor ?? '#ff6b6b', 0.5)
+                          : undefined),
                     fontWeight: s.hot ? 700 : undefined,
+                    opacity: s.soft ? 0.6 : undefined,
                   }}
                 >
                   {s.text}
-                  {j < line.segments!.length - 1 ? ' ' : ''}
+                  {!line.exact && j < line.segments!.length - 1 ? ' ' : ''}
                 </span>
               ))
             : line.text}
