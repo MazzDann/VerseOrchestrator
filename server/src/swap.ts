@@ -11,6 +11,9 @@
  *  4. if it doesn't answer as the new version within 90 s: stop it, put the old `app` back,
  *     start that one, and say why (`result.json`, which the app shows in «Оновлення»).
  *
+ * «Повернути попередню версію» (1.4.0) goes the same way: the server turns `app.previous`
+ * into `app.next` first, and the plan says `kind: 'rollback'`.
+ *
  * The new version runs in the background, as with «Запуск за адресою» (the console window of
  * the start file has closed with the old version).
  *
@@ -38,6 +41,8 @@ export interface SwapPlan {
   /** where to write how it went */
   result: string;
   log: string;
+  /** a new version, or back to the one before (1.4.0) — the app words its result by it */
+  kind?: 'update' | 'rollback';
 }
 
 export interface SwapResult {
@@ -47,6 +52,7 @@ export interface SwapResult {
   at: number;
   /** a dictionary key when not ok */
   error?: string;
+  kind?: 'update' | 'rollback';
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -180,7 +186,13 @@ export async function runSwap(plan: SwapPlan, waitMs = 90_000): Promise<SwapResu
     }
   };
   const done = (r: Omit<SwapResult, 'from' | 'to' | 'at'>): SwapResult => {
-    const result = { ...r, from: plan.from, to: plan.to, at: Date.now() };
+    const result = {
+      ...r,
+      from: plan.from,
+      to: plan.to,
+      at: Date.now(),
+      ...(plan.kind ? { kind: plan.kind } : {}),
+    };
     fs.writeFileSync(plan.result, JSON.stringify(result));
     log(`done: ${JSON.stringify(result)}`);
     return result;
@@ -237,7 +249,10 @@ export async function runSwap(plan: SwapPlan, waitMs = 90_000): Promise<SwapResu
   startWaiter(plan.top, plan.port);
   return done({
     ok: false,
-    error: N_('Нова версія не запустилася — повернуто попередню'),
+    error:
+      plan.kind === 'rollback'
+        ? N_('Попередня версія не запустилася — працює та, що була')
+        : N_('Нова версія не запустилася — повернуто попередню'),
   });
 }
 

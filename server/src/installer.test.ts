@@ -9,6 +9,7 @@ import {
   createInstaller,
   findUnpackedApp,
   NEXT_DIR,
+  PREVIOUS_DIR,
   TOP_FILES_DIR,
   unpackCommand,
 } from './installer';
@@ -131,6 +132,30 @@ describe('installing an update (1.0.0)', () => {
     await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 15_000 });
     return { top, dataDir, inst };
   }
+
+  it('«Повернути попередню версію»: app.previous becomes app.next (1.4.0)', () => {
+    const top = releaseFolder(tempDir(), '1.4.0');
+    const inst = createInstaller({ top, dataDir: path.join(top, 'data') });
+    expect(inst.previousVersion()).toBeNull();
+    expect(inst.prepareRollback()).toBeNull();
+    // what the last update left behind
+    const prev = path.join(top, PREVIOUS_DIR);
+    fs.mkdirSync(prev);
+    fs.writeFileSync(path.join(prev, 'package.json'), JSON.stringify({ version: '1.3.1' }));
+    expect(inst.previousVersion()).toBeNull(); // no marker: not a release app
+    fs.writeFileSync(path.join(prev, LAYOUT_MARKER), '{}');
+    expect(inst.previousVersion()).toBe('1.3.1');
+    // a downloaded update waiting in app.next goes: the swap takes app.next
+    fs.mkdirSync(path.join(top, NEXT_DIR));
+    fs.writeFileSync(
+      path.join(top, NEXT_DIR, 'package.json'),
+      JSON.stringify({ version: '1.5.0' }),
+    );
+    expect(inst.prepareRollback()).toBe('1.3.1');
+    expect(inst.readyVersion()).toBe('1.3.1');
+    expect(fs.existsSync(prev)).toBe(false);
+    expect(inst.previousVersion()).toBeNull();
+  });
 
   it('downloads, checks and unpacks next to the running app', async () => {
     const { latest, fetch } = served('1.0.1');

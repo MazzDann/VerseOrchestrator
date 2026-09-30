@@ -348,9 +348,13 @@ const UpdateStateSchema = z.object({
       to: z.string(),
       at: z.number(),
       error: z.string().optional(),
+      /** a new version, or back to the one before (1.4.0) */
+      kind: z.enum(['update', 'rollback']).optional(),
     })
     .nullable()
     .optional(),
+  /** the version the last update left behind, to go back to (1.4.0) */
+  previous: z.string().nullish(),
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
@@ -535,6 +539,15 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return UpdateStateSchema.parse(await res.json());
+  },
+  /** «Повернути попередню версію» (1.4.0): restart as the version the last update replaced. */
+  rollbackUpdate: async () => {
+    const res = await request('/api/update/rollback', {
+      method: 'POST',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ from: z.string(), to: z.string() }).parse(await res.json());
   },
   /** Restart into the downloaded version; the app goes away for a while. */
   restartForUpdate: async () => {
