@@ -1,12 +1,14 @@
-# Checks on every push to main and every pull request; on a push to main whose commit carries
-# its version's tag (a release commit — docs/dev/contributing.md), the release packages for
-# Windows, macOS and Linux and a GitHub release with them. Versions 0.x came out as
-# pre-releases; the first regular release is 1.0.0.
+# Checks on every push to main and every pull request (main is protected: changes arrive only
+# through pull requests whose «Checks» passed). A pushed tag vX.Y.Z — on a commit of main whose
+# package.json says X.Y.Z (docs/dev/contributing.md) — also packages the app for Windows, macOS
+# and Linux and makes a GitHub release with them. Versions 0.x came out as pre-releases; the
+# first regular release is 1.0.0.
 name: CI
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -53,15 +55,23 @@ jobs:
         with:
           fetch-depth: 0 # the tags
       - id: tag
-        name: Is this commit tagged with its version?
+        name: Is this a release tag — this commit's version, on main?
         run: |
-          tag="v$(node -p "require('./package.json').version")"
-          if [ "$(git rev-parse -q --verify "refs/tags/$tag^{commit}")" = "$(git rev-parse HEAD)" ]; then
-            echo "tag=$tag" >> "$GITHUB_OUTPUT"
-            echo "Release $tag"
-          else
-            echo "No release: HEAD doesn't carry $tag"
+          if [ "$GITHUB_REF_TYPE" != tag ]; then
+            echo "No release: a release is a pushed tag"
+            exit 0
           fi
+          tag="v$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "$tag" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME doesn't match package.json ($tag)"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::$tag isn't on main: merge its pull request first"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Release $tag"
 
   package:
     name: Package ${{ matrix.os }}

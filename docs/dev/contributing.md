@@ -46,9 +46,10 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
 
 ## Branches, versions, and commits
 
-- **Branches.** `main` always holds a version that works. Do each change on its own
-  branch — `feat/NAME` for a feature, `fix/NAME` for a fix — and open a pull request to
-  `main`. CI runs the checks on the pull request; merge it once they pass. A merge commit
+- **Branches.** `main` always holds a version that works, and GitHub protects it: changes
+  arrive only through pull requests whose **Checks** passed, and nobody pushes to it
+  directly. Do each change on its own branch — `feat/NAME` for a feature, `fix/NAME` for a
+  fix — and open a pull request to `main`. Merge it once the checks pass. A merge commit
   keeps the branch's commits, with their measurements, in the history.
 - **Versions.** `MAJOR.MINOR.PATCH`, starting with `1.0.0`, the first regular release.
   The version changes only when a release is made, once for everything merged since the
@@ -58,20 +59,28 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
 - **Commit messages.** The subject is `Theme: summary`, for example
   `Hub: back within 2 s after an outage`. The body explains why, and gives the
   measurements.
-- **Releases.** On `main`, once the pull requests for a release are merged:
+- **Releases.** Once the pull requests for a release are merged:
 
-  1. Set `"version"` in all five `package.json` files (the root, `shared`, `builder`,
-     `server`, and `web`) and run `npm install --package-lock-only`.
+  1. On a branch `release/X.Y.Z` from `main`, set `"version"` in all five `package.json`
+     files (the root, `shared`, `builder`, `server`, and `web`) and run
+     `npm install --package-lock-only`.
   2. Commit with the subject `X.Y.Z — Theme: summary`, where the summary says what the
-     release brings.
-  3. Tag the commit: `git tag -a vX.Y.Z -m "…"`.
-  4. Push `main` and the tag. CI builds the packages — see [Releases](#releases).
+     release brings, and merge it through a pull request like any change.
+  3. On the updated `main`, tag the merge commit and push the tag:
+
+     ```bash
+     git tag -a vX.Y.Z -m "X.Y.Z — Theme: summary"
+     git push origin vX.Y.Z
+     ```
+
+     CI builds the packages and publishes the release — see [Releases](#releases).
 
 ## Releases
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the checks above on every push to `main`
-and on every pull request. When the pushed commit carries the tag of its own version
-(`v` + the `version` in `package.json`), the same run makes a release:
+and on every pull request. A pushed tag `vX.Y.Z` makes a release when `X.Y.Z` is the
+`version` in the tagged commit's `package.json` and the commit is on `main`; otherwise the
+run fails and says why:
 
 1. On Windows, macOS, and Linux runners, `npm run portable -- --release` builds a copy with
    its own Node.js — no settings of the build machine and never the library, whose
@@ -82,8 +91,8 @@ and on every pull request. When the pushed commit carries the tag of its own ver
 3. A GitHub release for the tag gets the archives, `SHA256SUMS.txt`, and notes from
    `.github/scripts/release-notes.mjs`. Versions `0.x` come out as pre-releases.
 
-A push of several tagged commits releases the newest one. To try the packages without a
-release, run the workflow by hand: **Actions** → **CI** → **Run workflow**; the archives
+To try the packages without a release — for example, a pull request's branch — run the
+workflow by hand: **Actions** → **CI** → **Run workflow**, and pick the branch; the archives
 are in the run's artifacts for seven days.
 
 ## UI conventions
