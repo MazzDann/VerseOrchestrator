@@ -12,7 +12,7 @@ export interface LiveFrame {
   paused?: boolean;
 }
 
-/** Any frame the hub sends (slide · welcome · denied · ack · revoked · command · remotes). */
+/** Any frame the hub sends (app · slide · welcome · denied · ack · revoked · command · remotes). */
 export type HubFrame = { type: string } & Record<string, unknown>;
 
 export interface LiveConnection {
@@ -27,6 +27,22 @@ export interface LiveConnection {
  * for up to 10 s after the app came back (a viewer took 9.5 s after a 26 s outage).
  */
 export const RETRY_CAP_MS = 2000;
+
+/**
+ * The hub speaks for another version: the app was updated under this page (1.0.0), so load
+ * the new one — phones and a second control window follow without anyone reloading them.
+ * Once per version: should the reload bring the same old page back (a cache), stay.
+ */
+function followAppVersion(version: string): void {
+  if (typeof __APP_VERSION__ === 'undefined' || version === __APP_VERSION__) return;
+  try {
+    if (sessionStorage.getItem('vo-reloaded-for') === version) return;
+    sessionStorage.setItem('vo-reloaded-for', version);
+  } catch {
+    return; // no storage: no way to tell a loop from a reload
+  }
+  location.reload();
+}
 
 export function connectLive(opts: {
   /** Sent on every (re)connect to claim a role: control / remote. Omit for a viewer. */
@@ -75,6 +91,7 @@ export function connectLive(opts: {
         return; // ignore malformed frames
       }
       if (!f || typeof f.type !== 'string') return;
+      if (f.type === 'app' && typeof f.version === 'string') followAppVersion(f.version);
       if (f.type === 'slide' && typeof f.version === 'number')
         opts.onFrame?.(f as unknown as LiveFrame);
       opts.onMessage?.(f);

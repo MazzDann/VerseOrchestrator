@@ -846,6 +846,6 @@ const server = app.listen(PORT, HOST, () => {
   // Started by the standby waiter (standby.ts, PORT=0 → any free port): tell it where.
   process.send?.({ type: 'ready', port });
 });
-attachLiveHub(server);
+attachLiveHub(server, appVersion);
 // …and go with it: a waiter killed outright must not leave the app on a stray port.
 if (process.send) process.on('disconnect', () => process.exit(0));
