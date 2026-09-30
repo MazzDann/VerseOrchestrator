@@ -32,6 +32,8 @@ On macOS the F keys work together with Fn, so there are ⌘ keys by default as w
 
 Other keys of the control window:
 
+- Digits outside text fields — go to a place in the open book: `16`, `3:16`, `3:16-18`,
+  then Enter; Esc cancels. More in [Find a text](find-text.md).
 - Enter on a verse in the list — show that verse on screen.
 - Space on a verse — choose it; Ctrl+Space, Shift+Space, Ctrl+Enter, or Shift+Enter — add
   the verse to the selection or remove it from it.
