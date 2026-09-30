@@ -85,10 +85,11 @@ export function stableSongId(bundleId: string, key: string): number {
 
 /**
  * Do two bundle names name the same bundle? The library tells bundles apart by name, so
- * «ПС» and « пс» must not become two (case and outer spaces don't count).
+ * «ПС» and « пс» must not become two (case, outer spaces and the Unicode form don't count).
  */
 export function sameBundleName(a: string, b: string): boolean {
-  return a.trim().toLocaleLowerCase('uk') === b.trim().toLocaleLowerCase('uk');
+  const norm = (s: string) => s.normalize('NFC').trim().toLocaleLowerCase('uk');
+  return norm(a) === norm(b);
 }
 
 /** A file name for a bundle called `name`, not one of `taken` (lower-cased names). */
@@ -147,24 +148,57 @@ export function readBundleMeta(db: SyncDb): BundleMeta | null {
   };
 }
 
+/**
+ * A bundle's songs, keys and titles composed (NFC) — see `songKey`. A bundle written before
+ * that may hold one song under two spellings of its key (1.3.0 on a Mac: a Windows reading
+ * plus the Mac's); it reads as one song, the row written last.
+ */
 export function readBundleSongs(db: SyncDb): BundleSong[] {
-  const rows = db
-    .prepare('SELECT key, number, title, slides FROM songs ORDER BY number IS NULL, number, key')
-    .all() as { key: string; number: number | null; title: string; slides: string }[];
-  return rows.map((r) => ({
-    key: r.key,
-    number: r.number,
-    title: r.title,
-    slides: JSON.parse(r.slides) as SongSlide[],
-  }));
+  const rows = db.prepare('SELECT key, number, title, slides FROM songs ORDER BY rowid').all() as {
+    key: string;
+    number: number | null;
+    title: string;
+    slides: string;
+  }[];
+  const byKey = new Map<string, BundleSong>();
+  for (const r of rows) {
+    const key = r.key.normalize('NFC');
+    byKey.delete(key); // keep the order of the row that wins
+    byKey.set(key, {
+      key,
+      number: r.number,
+      title: r.title.normalize('NFC'),
+      slides: JSON.parse(r.slides) as SongSlide[],
+    });
+  }
+  return [...byKey.values()].sort(
+    (a, b) =>
+      (a.number === null ? 1 : 0) - (b.number === null ? 1 : 0) ||
+      (a.number ?? 0) - (b.number ?? 0) ||
+      (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+  );
 }
 
-/** Add songs, replacing the ones with the same key. */
+/** How many songs a bundle holds — two spellings of one key count once. */
+export function countBundleSongs(db: SyncDb): number {
+  const rows = db.prepare('SELECT key FROM songs').all() as { key: string }[];
+  return new Set(rows.map((r) => r.key.normalize('NFC'))).size;
+}
+
+/**
+ * Add songs, replacing the ones with the same key — under any spelling of it: the key is
+ * stored composed (NFC), another spelling of it already in the bundle goes.
+ */
 export function upsertBundleSongs(
   db: SyncDb,
   songs: BundleSong[],
 ): { added: number; updated: number } {
-  const has = db.prepare('SELECT 1 FROM songs WHERE key = ?');
+  const spellings = new Map<string, string[]>();
+  for (const { key } of db.prepare('SELECT key FROM songs').all() as { key: string }[]) {
+    const nfc = key.normalize('NFC');
+    spellings.set(nfc, [...(spellings.get(nfc) ?? []), key]);
+  }
+  const drop = db.prepare('DELETE FROM songs WHERE key = ?');
   const put = db.prepare(
     'INSERT OR REPLACE INTO songs (key, number, title, slides) VALUES (?, ?, ?, ?)',
   );
@@ -172,9 +206,13 @@ export function upsertBundleSongs(
   let updated = 0;
   db.transaction(() => {
     for (const s of songs) {
-      if (has.get(s.key)) updated++;
+      const key = s.key.normalize('NFC');
+      const old = spellings.get(key);
+      if (old?.length) updated++;
       else added++;
-      put.run(s.key, s.number, s.title, JSON.stringify(s.slides));
+      for (const k of old ?? []) if (k !== key) drop.run(k);
+      spellings.set(key, [key]);
+      put.run(key, s.number, s.title.normalize('NFC'), JSON.stringify(s.slides));
     }
   })();
   return { added, updated };
