@@ -39,12 +39,16 @@ import { useSettings } from '../settingsStore';
 interface Props {
   open: boolean;
   onClose: () => void;
-  /** Project a stanza; `style` (when in faithful mode) reproduces the original pptx look. */
+  /**
+   * Project a stanza; `style` (when in faithful mode) reproduces the original pptx look;
+   * `look` is the stanza's own style either way (its second part, 1.3.0).
+   */
   onProjectStanza: (
     text: string,
     reference: string,
     style: SongStyle | null,
     source: SlideSource,
+    look: SongStyle | null,
   ) => void;
   /** Open song (controlled by the parent so the playlist can open a specific song). */
   songId: number | null;
@@ -153,6 +157,7 @@ export function SongsPanel({
         `№${s.number ?? ''} ${s.title}`.trim(),
         faithful ? s.slides[idx].style : null,
         { kind: 'song', songId: s.id, stanza: idx },
+        s.slides[idx].style,
       );
     },
     [songQuery.data, faithful, onActiveStanzaChange, onProjectStanza],

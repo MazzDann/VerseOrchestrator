@@ -17,6 +17,10 @@ export interface TextSpan {
   text: string;
   jesus?: boolean; // words of Jesus (red-letter)
   hot?: boolean; // emphasised word (e.g. the Strong word being projected)
+  /** a song's second part as the file colours it (1.3.0, «Точний показ») */
+  color?: string;
+  /** a song's second part in the app's own style: dimmer (1.3.0, «Простий текст») */
+  soft?: boolean;
 }
 
 export interface SlideLine {
@@ -25,6 +29,11 @@ export interface SlideLine {
   rtl: boolean;
   /** Rich rendering (red-letter / highlighted word); falls back to `text` if absent. */
   segments?: TextSpan[];
+  /**
+   * The segments are the text itself, cut in pieces — join them as they are (a song's second
+   * part, 1.3.0). Otherwise they are words, joined with spaces.
+   */
+  exact?: boolean;
 }
 
 export type PadUnit = 'px' | '%';
