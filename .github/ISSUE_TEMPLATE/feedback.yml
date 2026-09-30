@@ -1,0 +1,57 @@
+# The feedback form (1.2.0): «Надіслати відгук» in the app (Налаштування вигляду → Застосунок, the
+# command palette) opens it with `version`, `system`, and `language` filled in from the query —
+# nothing is sent until the person reads it and submits it on GitHub. Bilingual, like the app.
+name: Відгук · Feedback
+description: Помилка, ідея чи питання · A bug, an idea, or a question
+title: "[Відгук · Feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Дякуємо, що пишете! Відгук буде видно всім — не пишіть особистих даних, паролів чи кодів пультів.
+        Thank you for writing! Feedback is public — don't include personal data, passwords, or remote codes.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Що це? · What is it?
+      options:
+        - Помилка · A bug
+        - Ідея · An idea
+        - Питання · A question
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: Що сталося або що ви пропонуєте? · What happened, or what do you suggest?
+      description: |
+        Для помилки — що ви робили, що очікували й що побачили. Знімок екрана допомагає.
+        For a bug — what you did, what you expected, and what you saw. A screenshot helps.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Як це повторити · How to repeat it
+      description: Лише для помилки · For a bug only
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: input
+    id: version
+    attributes:
+      label: Версія · Version
+      description: Налаштування вигляду → внизу · Settings → at the bottom
+      placeholder: "1.1.0"
+  - type: input
+    id: system
+    attributes:
+      label: Система й браузер · System and browser
+      placeholder: Windows · Chrome 140
+  - type: input
+    id: language
+    attributes:
+      label: Мова інтерфейсу · Interface language
+      placeholder: uk / en

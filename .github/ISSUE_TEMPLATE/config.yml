@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Документація · Documentation
+    url: https://github.com/MazzDann/VerseOrchestrator/blob/main/docs/README.md
+    about: Відповіді на часті питання — розділ «Якщо щось не працює» · Answers to common questions — see Troubleshooting (docs/en)

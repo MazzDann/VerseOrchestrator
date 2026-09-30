@@ -167,6 +167,15 @@ same dictionary.
   remote's pairing QR code: it carries the remote's code. The English pages have their own,
   of the English interface, in `docs/img/en/`.
 
+## Feedback
+
+Reports and ideas come as issues through the feedback form,
+`.github/ISSUE_TEMPLATE/feedback.yml` — bilingual, with the version, the system, and the
+interface language filled in by the app's «Надіслати відгук» (`web/src/lib/feedback.ts`,
+by the form fields' ids). The app sends nothing and holds no token: the person submits the
+form on GitHub. A new field the app should fill needs an `id` in the form and a parameter
+in `feedbackUrl`.
+
 ## Data and copyright
 
 `modules/`, `data/`, `songs/`, and builds stay out of git (`.gitignore`). Many

@@ -38,6 +38,7 @@ import { DataSourceSection } from './DataSourceSection';
 import { useRebuildLibrary } from '../lib/rebuild';
 import { StandbySection } from './StandbySection';
 import { UpdateSection } from './UpdateSection';
+import { FeedbackSection } from './FeedbackSection';
 import { ShutdownSection } from './ShutdownSection';
 import { ShortcutSection } from './ShortcutSection';
 import { useEffectiveSource } from '../dataSourceStore';
@@ -507,6 +508,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             </Button>
           </div>
           <UpdateSection />
+          <FeedbackSection />
           <StandbySection active={openSections.includes('app')} />
           <ShortcutSection />
           <ShutdownSection />

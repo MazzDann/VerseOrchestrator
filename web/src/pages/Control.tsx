@@ -29,6 +29,7 @@ import {
   IconSquareOff,
   IconSun,
   IconHelp,
+  IconMessageReport,
   IconMoonStars,
   IconSearch,
   IconBookmark,
@@ -148,6 +149,7 @@ import { formatCombo, matchesCombo } from '../hotkeys';
 import { isFormField, scrollableAround } from '../lib/keyScroll';
 import { closeThisWindow } from '../lib/closeWindow';
 import { docsUrl } from '../lib/docs';
+import { openFeedback } from '../lib/feedback';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
@@ -2247,6 +2249,13 @@ export function Control() {
       label: liveFollow ? tr('Наживо: вимкнути') : tr('Наживо: увімкнути'),
       keywords: 'live follow',
       run: () => setLiveFollow(!liveFollow),
+    },
+    {
+      id: 'feedback',
+      label: tr('Надіслати відгук'),
+      keywords: 'feedback bug issue idea report vidguk pomylka',
+      icon: <IconMessageReport size={16} />,
+      run: () => openFeedback(lang),
     },
     {
       id: 'docs',
