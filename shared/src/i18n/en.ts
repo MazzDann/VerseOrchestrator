@@ -455,8 +455,12 @@ export const EN: Record<string, string> = {
     'End of the chapter. Press “Next” again — {place}',
   'Початок розділу. Натисніть «Назад» ще раз — {place}':
     'Start of the chapter. Press “Back” again — {place}',
-  'Це останній вірш книги': 'This is the last verse of the book',
-  'Це перший вірш книги': 'This is the first verse of the book',
+  'Це останній вірш перекладу': 'This is the translation’s last verse',
+  'Кінець книги. Натисніть «Далі» ще раз — {place}':
+    'End of the book. Press “Next” again — {place}',
+  'Початок книги. Натисніть «Назад» ще раз — {place}':
+    'Start of the book. Press “Back” again — {place}',
+  'Це перший вірш перекладу': 'This is the translation’s first verse',
   'Не вдалося прочитати зображення': "Couldn't read the image",
   'сервер недоступний. Перевірте вікно, де запущено застосунок (start.cmd, start.sh або npm run dev)':
     "the server can't be reached. Check the window where the app runs (start.cmd, start.sh, or npm run dev)",
