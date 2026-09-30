@@ -97,6 +97,13 @@ repeats, save the text after “Reason:” for the developer.
 If the reason is “a slide of unknown shape”, a window of another version of the app sent the
 slide. Reload all the app's windows: the control window and the presentation windows.
 
+### “Presentation 1: couldn't go full screen”
+
+The browser didn't let the presentation window go full screen when the control window
+asked — from the **Output windows** panel or with **Open in full screen**. This happens when
+other windows hide the presentation window. Press F in the presentation window itself, or
+click in it.
+
 ## The control window
 
 ### “Another control window runs the show”

@@ -1,6 +1,7 @@
 import {
   CONTROL_PAGE_ID,
   currentOutputs,
+  onOutputRefused,
   outputs,
   waitForNewOutput,
   type OutputInfo,
@@ -100,6 +101,12 @@ function lendNextClick(name: string): void {
   pending.set(name, Date.now());
   if (clickHook) return;
   clickHook = true;
+  // A window the browser refused (1.2.1) gets no more clicks: the operator was told to
+  // press F in it, and every click would only bring the same notice back.
+  onOutputRefused((id) => {
+    const o = currentOutputs().find((w) => w.id === id);
+    if (o) pending.delete(o.name);
+  });
   window.addEventListener(
     'click',
     () => {
@@ -141,6 +148,8 @@ export function outputRef(o: Target): Window | null {
  * Fullscreen on / off for an output window. On: from a click handler in this window,
  * whose gesture is lent to it (lib/fullscreen.ts) — needs our reference; false when
  * there is none or the browser can't delegate (the window still takes F / a click).
+ * The window comes forward first: on a Mac, Chrome refused a presenter hidden behind
+ * other windows (1.2.1); a refusal still reaches the operator (lib/fullscreenNotices.ts).
  * Off needs no gesture: the window is told to leave.
  */
 export function fullscreenOutput(o: Target, on: boolean): boolean {
@@ -149,7 +158,9 @@ export function fullscreenOutput(o: Target, on: boolean): boolean {
     return true;
   }
   const w = outputRef(o);
-  return !!w && delegateFullscreen(w, true);
+  if (!w) return false;
+  w.focus();
+  return delegateFullscreen(w, true);
 }
 
 /** How long a window opened with `noopener` may take to announce itself (dev build: ~1–3 s). */
