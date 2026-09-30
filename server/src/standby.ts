@@ -19,6 +19,7 @@
  *   POST /__standby/retire    exit once the app has stopped;  /resume  cancels that
  *   POST /__standby/relaunch  stop the app, close, start a fresh waiter (new port)
  *   POST /__standby/shutdown  stop the app and close now («Вимкнути повністю», 0.7.1)
+ *   POST /__standby/update    the same, for an update: swap.ts starts the new version (1.0.0)
  *
  * Only node: imports, no TS-only syntax — Node runs this file as it is
  * (`node server/src/standby.ts`, type stripping); tsx is loaded only for the app itself.
@@ -41,7 +42,7 @@ export interface RunningApp {
 
 export type StandbyState = 'waiting' | 'starting' | 'running' | 'stopping';
 
-export type ShutdownReason = 'retire' | 'shutdown' | 'close';
+export type ShutdownReason = 'retire' | 'shutdown' | 'close' | 'update';
 
 export interface StandbyOptions {
   port: number;
@@ -58,7 +59,8 @@ export interface StandbyOptions {
   checkMs?: number;
   /**
    * called when this waiter has shut down for good (the CLI exits): `retire` — switched off,
-   * once the app was idle; `shutdown` — «Вимкнути повністю»; `close` — its owner closed it
+   * once the app was idle; `shutdown` — «Вимкнути повністю»; `close` — its owner closed it;
+   * `update` — the app is being replaced by a newer version (swap.ts)
    */
   onRetired?: (why: ShutdownReason) => void;
   /** called after a relaunch request closed this waiter (the CLI starts a fresh one) */
@@ -228,10 +230,10 @@ export function createStandby(o: StandbyOptions) {
       reply(200, { relaunching: true });
       relaunching = true;
       void shutdown('close');
-    } else if (action === 'shutdown') {
-      // «Вимкнути повністю»: now, open pages or not — they have been told (live.ts)
+    } else if (action === 'shutdown' || action === 'update') {
+      // «Вимкнути повністю» or an update: now, open pages or not — they have been told (live.ts)
       reply(200, { shuttingDown: true });
-      void shutdown('shutdown');
+      void shutdown(action);
     } else reply(404, { error: 'unknown action' });
     return true;
   }
@@ -551,8 +553,12 @@ async function main(): Promise<void> {
     if (process.stdout.isTTY) process.stdout.write(line);
   };
   const settings = readStandbySettings(dataDir);
+  // after an update the new waiter takes the port the old one had (swap.ts) — this
+  // once: a relaunch (the port changed in the settings) must read the settings again
+  const listen = Number(process.env.VO_STANDBY_LISTEN) || settings.port;
+  delete process.env.VO_STANDBY_LISTEN;
   const standby = createStandby({
-    port: settings.port,
+    port: listen,
     host: '0.0.0.0',
     idleMs: settings.idleMinutes * 60_000,
     startApp: appProcess(repoRoot, log),

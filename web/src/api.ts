@@ -306,10 +306,34 @@ const UpdateStateSchema = z.object({
       publishedAt: z.string(),
       prerelease: z.boolean(),
       asset: z.object({ name: z.string(), url: z.string(), size: z.number() }).nullable(),
+      sums: z.string().nullable().optional(),
     })
     .nullable(),
   available: z.boolean(),
   error: z.string().nullable(),
+  /** installing (server/src/installer.ts) — only a copy from a release archive */
+  installer: z
+    .object({
+      phase: z.enum(['idle', 'download', 'verify', 'unpack', 'ready', 'restarting', 'error']),
+      version: z.string().nullable(),
+      received: z.number(),
+      total: z.number(),
+      error: z.string().nullable(),
+      vars: z.record(z.string(), z.string()).optional(),
+    })
+    .nullable()
+    .optional(),
+  /** how the last update went (server/src/swap.ts), for a day */
+  lastUpdate: z
+    .object({
+      ok: z.boolean(),
+      from: z.string(),
+      to: z.string(),
+      at: z.number(),
+      error: z.string().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
@@ -485,6 +509,21 @@ export const api = {
     const res = await request('/api/update/check', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);
     return UpdateStateSchema.parse(await res.json());
+  },
+  /** Download, check and unpack the newer version next to this one; the page follows the phases. */
+  downloadUpdate: async () => {
+    const res = await request('/api/update/download', {
+      method: 'POST',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return UpdateStateSchema.parse(await res.json());
+  },
+  /** Restart into the downloaded version; the app goes away for a while. */
+  restartForUpdate: async () => {
+    const res = await request('/api/update/restart', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return z.object({ from: z.string(), to: z.string() }).parse(await res.json());
   },
   uiState: () => getJson('/api/ui-state', UiStateSchema),
   saveUiState: async (key: keyof UiState, value: string, at: number) => {

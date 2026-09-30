@@ -38,6 +38,8 @@ import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
 import { createUpdateChecker } from './updates.js';
 import { readLayout } from './layout.js';
+import { createInstaller, TOP_FILES_DIR } from './installer.js';
+import type { SwapPlan, SwapResult } from './swap.js';
 import { precompressed } from './precompressed.js';
 import { bundlesDir, importSongs, listBundles, refreshLibrarySongs } from '@vo/shared/songs-node';
 import { keyedError, N_, sameBundleName } from '@vo/shared';
@@ -116,7 +118,11 @@ const requireLocalControl: express.RequestHandler = (req, res, next) => {
   next();
 };
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+const appVersion = (
+  JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { version: string }
+).version;
+// the version too: after an update the swap asks the new app who it is (swap.ts)
+app.get('/api/health', (_req, res) => res.json({ ok: true, version: appVersion }));
 
 /**
  * Audience "follow-along": the control window POSTs the current slide here; it's pushed
@@ -265,25 +271,137 @@ app.put(
 
 // --- Updates (1.0.0): is there a newer release? The control window asks; nothing is installed.
 
-const appVersion = (
-  JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { version: string }
-).version;
 const updates = createUpdateChecker({
   current: appVersion,
   install: readLayout(repoRoot) ? 'release' : 'source',
   isEnabled: () => getServerSettings().updates.check,
 });
 
+// Installing (1.0.0): only a copy in the release layout, whose app/ can be replaced
+const release = readLayout(repoRoot);
+const releaseTop = release ? path.dirname(repoRoot) : null;
+const installer = releaseTop ? createInstaller({ top: releaseTop, dataDir }) : null;
+
+const readUpdateFile = <T>(file: string): T | null => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(installer!.updatesDir, file), 'utf8')) as T;
+  } catch {
+    return null;
+  }
+};
+
+/** How the last update went, as swap.ts wrote it — for a day. */
+function swapResult(): SwapResult | null {
+  const r = installer ? readUpdateFile<SwapResult>('result.json') : null;
+  return r && Date.now() - r.at < 24 * 60 * 60 * 1000 ? r : null;
+}
+
+/**
+ * …and while the swap still checks this very version (its plan names it, no result yet), this
+ * app answering is the answer — pages that load now (the swap writes a second later) say so too.
+ */
+function lastUpdate(): SwapResult | null {
+  const done = swapResult();
+  if (done || !installer) return done;
+  const plan = readUpdateFile<SwapPlan>('plan.json');
+  return plan?.to === appVersion
+    ? { ok: true, from: plan.from, to: plan.to, at: Date.now() }
+    : null;
+}
+
+// an update — installed or rolled back — leaves the helper's copy of Node, its plan and the
+// release's top files behind: tidy up (at the next start — the helper may still be finishing
+// when the app first starts; what it holds stays for the start after)
+if (installer && swapResult()) {
+  for (const f of fs.readdirSync(installer.updatesDir)) {
+    if (f === 'result.json' || f === 'swap.log') continue;
+    try {
+      fs.rmSync(path.join(installer.updatesDir, f), { recursive: true, force: true });
+    } catch {
+      /* still in use: next time */
+    }
+  }
+}
+
+async function updateAnswer(force: boolean) {
+  const s = await updates.check(force);
+  let install = installer?.state() ?? null;
+  // downloaded by an earlier run and not installed yet: ready all the same
+  if (install?.phase === 'idle' && s.latest && installer?.readyVersion() === s.latest.version)
+    install = { ...install, phase: 'ready', version: s.latest.version };
+  return { ...s, installer: install, lastUpdate: lastUpdate() };
+}
+
 app.get(
   '/api/update',
   requireLocal,
-  wrap(async (_req, res) => res.json(await updates.check())),
+  wrap(async (_req, res) => res.json(await updateAnswer(false))),
 );
 
 app.post(
   '/api/update/check',
   requireLocalControl,
-  wrap(async (_req, res) => res.json(await updates.check(true))),
+  wrap(async (_req, res) => res.json(await updateAnswer(true))),
+);
+
+app.post(
+  '/api/update/download',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    const s = updates.state();
+    if (!installer)
+      throw new ApiError(409, N_('Оновлювати сам уміє лише застосунок з архіву релізу'));
+    if (!s.available || !s.latest) throw new ApiError(409, N_('Новішої версії немає'));
+    installer.start(s.latest);
+    res.status(202).json(await updateAnswer(false));
+  }),
+);
+
+app.post(
+  '/api/update/restart',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    const s = updates.state();
+    const version = installer?.readyVersion();
+    if (!installer || !releaseTop || !version || !s.latest || version !== s.latest.version)
+      throw new ApiError(409, N_('Оновлення ще не завантажено'));
+    // the helper runs outside app/, with a copy of this Node: nothing in app/ may stay in use
+    const dir = installer.updatesDir;
+    fs.mkdirSync(dir, { recursive: true });
+    const node = path.join(dir, path.basename(process.execPath));
+    fs.copyFileSync(process.execPath, node);
+    if (process.platform !== 'win32') fs.chmodSync(node, 0o755);
+    // .mts: an ES module wherever the release sits (a package.json above it can't say otherwise)
+    const helper = path.join(dir, 'swap.mts');
+    fs.copyFileSync(path.join(repoRoot, 'server', 'src', 'swap.ts'), helper);
+    fs.rmSync(path.join(dir, 'result.json'), { force: true });
+    const waiterPid = process.env.VO_STANDBY === '1' ? process.ppid : null;
+    const plan: SwapPlan = {
+      top: releaseTop,
+      pids: waiterPid ? [process.pid, waiterPid] : [process.pid],
+      port: Number(process.env.VO_STANDBY_PORT) || getServerSettings().standby.port,
+      from: appVersion,
+      to: version,
+      topFiles: path.join(dir, TOP_FILES_DIR),
+      result: path.join(dir, 'result.json'),
+      log: path.join(dir, 'swap.log'),
+    };
+    const planFile = path.join(dir, 'plan.json');
+    fs.writeFileSync(planFile, JSON.stringify(plan));
+    spawn(node, ['--disable-warning=ExperimentalWarning', helper, planFile], {
+      cwd: dir,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    }).unref();
+    installer.markRestarting();
+    res.json({ ok: true, from: appVersion, to: version });
+    // after the answer: our waiter stops us and itself; the helper waits for both
+    setTimeout(() => {
+      if (waiterPid) void tellWaiter(plan.port, 'update');
+      setTimeout(() => process.exit(0), waiterPid ? 3000 : 300);
+    }, 300);
+  }),
 );
 
 // the first look a little after the start, then twice a day (check() skips a fresh answer);
@@ -300,7 +418,7 @@ const autostart = currentEntry(repoRoot);
 
 function tellWaiter(
   port: number,
-  action: 'retire' | 'resume' | 'relaunch' | 'shutdown',
+  action: 'retire' | 'resume' | 'relaunch' | 'shutdown' | 'update',
 ): Promise<unknown> {
   return fetch(`http://127.0.0.1:${port}/__standby/${action}`, {
     method: 'POST',

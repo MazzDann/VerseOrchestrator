@@ -4,8 +4,8 @@ import { releaseAsset } from './layout.js';
 /**
  * Is there a newer version (1.0.0)? The server asks GitHub for the project's releases now and
  * then — twice a day at most, quietly, never while it has nothing to go on (offline is just
- * «not checked») — and the control window says so. Downloading and installing come with the
- * next step; nothing here changes the app.
+ * «not checked») — and the control window says so. Installing is installer.ts and swap.ts;
+ * nothing here changes the app.
  *
  * Versions 0.x are previews: an installation of 0.x looks at pre-releases too, one of 1.0.0 or
  * later only at regular releases.
@@ -34,6 +34,8 @@ export interface LatestRelease {
   prerelease: boolean;
   /** the archive for this system, if the release has one */
   asset: ReleaseAsset | null;
+  /** the release's SHA256SUMS.txt */
+  sums: string | null;
 }
 
 export interface UpdateState {
@@ -91,6 +93,7 @@ export function pickLatest(
     const version = r.tag_name.replace(/^v/, '');
     if (best && compareVersions(version, best.version) <= 0) continue;
     const a = (r.assets ?? []).find((x) => x?.name === assetName);
+    const sums = (r.assets ?? []).find((x) => x?.name === 'SHA256SUMS.txt');
     best = {
       version,
       url: typeof r.html_url === 'string' ? r.html_url : '',
@@ -100,6 +103,7 @@ export function pickLatest(
         a && typeof a.browser_download_url === 'string'
           ? { name: assetName, url: a.browser_download_url, size: Number(a.size) || 0 }
           : null,
+      sums: typeof sums?.browser_download_url === 'string' ? sums.browser_download_url : null,
     };
   }
   return best;
