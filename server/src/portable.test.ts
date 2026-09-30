@@ -21,31 +21,135 @@ describe('portable copy (0.7.3)', () => {
     );
   });
 
-  it('finds npm beside the node on PATH or beside the file it links to (Homebrew, nvm)', () => {
-    const have = new Set(['/opt/homebrew/lib/node_modules/npm']);
+  it('finds npm beside the node on PATH or beside the file it links to (nodejs.org, fnm, nvm)', () => {
+    // a symlink on PATH to an official tarball, as fnm and nvm install it
+    const real = '/Users/me/.local/share/fnm/node-versions/v24.9.0/installation/bin/node';
+    const have = new Set([
+      '/Users/me/.local/share/fnm/node-versions/v24.9.0/installation/lib/node_modules/npm',
+    ]);
     expect(
       nodeCopy(
         'darwin',
-        '/opt/homebrew/bin/node',
-        '/opt/homebrew/Cellar/node/24.9.0/bin/node',
+        '/usr/local/bin/node',
+        real,
         (p) => have.has(p),
+        () => [],
       ),
     ).toEqual([
-      { from: '/opt/homebrew/Cellar/node/24.9.0/bin/node', to: 'bin/node' },
-      { from: '/opt/homebrew/lib/node_modules/npm', to: 'lib/node_modules/npm' },
+      { from: real, to: 'bin/node' },
+      {
+        from: '/Users/me/.local/share/fnm/node-versions/v24.9.0/installation/lib/node_modules/npm',
+        to: 'lib/node_modules/npm',
+      },
     ]);
-    expect(nodeCopy('linux', '/usr/bin/node', '/usr/bin/node', () => false)).toMatch(/npm/);
-    // an official tarball keeps LICENSE next to bin/: it travels too
-    have.add('/opt/homebrew/Cellar/node/24.9.0/LICENSE');
+    // a node on PATH that links to a folder without npm: npm beside the one on PATH
+    expect(
+      nodeCopy(
+        'linux',
+        '/usr/local/bin/node',
+        '/opt/node-24/bin/node',
+        (p) => p === '/usr/local/lib/node_modules/npm',
+        () => [],
+      ),
+    ).toEqual([
+      { from: '/opt/node-24/bin/node', to: 'bin/node' },
+      { from: '/usr/local/lib/node_modules/npm', to: 'lib/node_modules/npm' },
+    ]);
+    // nodejs.org's installer: npm beside the node on PATH
     expect(
       nodeCopy(
         'darwin',
-        '/opt/homebrew/bin/node',
-        '/opt/homebrew/Cellar/node/24.9.0/bin/node',
-        (p) => have.has(p),
+        '/usr/local/bin/node',
+        '/usr/local/bin/node',
+        (p) => p === '/usr/local/lib/node_modules/npm',
+        () => ['node_modules'],
       ),
-    ).toContainEqual({ from: '/opt/homebrew/Cellar/node/24.9.0/LICENSE', to: 'LICENSE' });
+    ).toContainEqual({ from: '/usr/local/lib/node_modules/npm', to: 'lib/node_modules/npm' });
+    expect(
+      nodeCopy(
+        'linux',
+        '/usr/bin/node',
+        '/usr/bin/node',
+        () => false,
+        () => [],
+      ),
+    ).toMatch(/npm/);
+    // an official tarball keeps LICENSE next to bin/: it travels too
+    have.add('/Users/me/.local/share/fnm/node-versions/v24.9.0/installation/LICENSE');
+    expect(
+      nodeCopy(
+        'darwin',
+        '/usr/local/bin/node',
+        real,
+        (p) => have.has(p),
+        () => [],
+      ),
+    ).toContainEqual({
+      from: '/Users/me/.local/share/fnm/node-versions/v24.9.0/installation/LICENSE',
+      to: 'LICENSE',
+    });
   });
+
+  it('refuses a Node that needs the libraries beside it: Homebrew’s (1.4.1)', () => {
+    // macOS reports the real file: npm is in /opt/homebrew/lib, libnode in the Cellar's lib/
+    const cellar = '/opt/homebrew/Cellar/node/25.6.1/bin/node';
+    const libs = (dir: string) =>
+      dir === '/opt/homebrew/Cellar/node/25.6.1/lib' ? ['libnode.141.dylib'] : [];
+    for (const [real, files] of [
+      [cellar, libs],
+      [cellar, () => []], // …even if libnode moves: Homebrew links libuv, OpenSSL, ICU of its own
+      ['/opt/homebrew/Cellar/node@24/24.9.0/bin/node', () => []],
+      ['/usr/local/Cellar/node/24.9.0/bin/node', () => []], // an Intel Mac
+      ['/home/linuxbrew/.linuxbrew/Cellar/node/24.9.0/bin/node', () => []],
+      [
+        '/opt/node-shared/bin/node',
+        (d: string) => (d === '/opt/node-shared/lib' ? ['libnode.so.137'] : []),
+      ],
+    ] as [string, (d: string) => string[]][]) {
+      const message = nodeCopy('darwin', real, real, () => true, files);
+      expect(message).toBeTypeOf('string');
+      expect(message).toContain(real);
+      expect(message).toContain('Homebrew');
+      expect(message).toContain('nodejs.org');
+    }
+  });
+
+  // a real folder: only a libnode that is a file counts, not a link to another Node's (1.4.1)
+  it.runIf(process.platform !== 'win32')(
+    'takes nodejs.org’s Node beside the libnode link Homebrew puts in /usr/local/lib (Intel Mac)',
+    () => {
+      const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-node-'));
+      try {
+        const node = path.join(prefix, 'bin', 'node');
+        const lib = path.join(prefix, 'lib');
+        const cellar = path.join(prefix, 'Cellar', 'node', '25.6.1');
+        fs.mkdirSync(path.join(prefix, 'bin'));
+        fs.writeFileSync(node, '');
+        fs.mkdirSync(path.join(lib, 'node_modules', 'npm'), { recursive: true });
+        fs.mkdirSync(path.join(cellar, 'bin'), { recursive: true });
+        fs.mkdirSync(path.join(cellar, 'lib'));
+        fs.writeFileSync(path.join(cellar, 'bin', 'node'), '');
+        fs.writeFileSync(path.join(cellar, 'lib', 'libnode.141.dylib'), '');
+        // what `brew install node` leaves in the prefix's lib/
+        fs.symlinkSync(
+          '../Cellar/node/25.6.1/lib/libnode.141.dylib',
+          path.join(lib, 'libnode.141.dylib'),
+        );
+        expect(nodeCopy('darwin', node, node)).toContainEqual({
+          from: path.join(lib, 'node_modules', 'npm'),
+          to: 'lib/node_modules/npm',
+        });
+        // Homebrew's own node, and a Node built with its libnode as a file beside it: refused
+        const brew = path.join(cellar, 'bin', 'node');
+        expect(nodeCopy('darwin', node, brew)).toBeTypeOf('string');
+        fs.rmSync(path.join(lib, 'libnode.141.dylib'));
+        fs.writeFileSync(path.join(lib, 'libnode.141.dylib'), '');
+        expect(nodeCopy('darwin', node, node)).toContain('Homebrew');
+      } finally {
+        fs.rmSync(prefix, { recursive: true, force: true });
+      }
+    },
+  );
 
   it('runs npm with the node beside it (no symlink — a flash drive would lose it)', () => {
     expect(npmShim('npm-cli')).toContain(

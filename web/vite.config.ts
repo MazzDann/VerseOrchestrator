@@ -5,6 +5,7 @@ import zlib from 'node:zlib';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import rootPkg from '../package.json' with { type: 'json' };
+import { STAMP_FILE, uiStamp } from '../server/src/uiStamp.ts';
 
 const brotli = promisify(zlib.brotliCompress);
 const gzip = promisify(zlib.gzip);
@@ -49,8 +50,45 @@ function precompress(): Plugin {
   };
 }
 
+/**
+ * Every build says what it was built from (1.4.1): `dist/.vo-version`, the stamp the launcher and
+ * the waiter compare with the code before they serve a build (server/src/uiStamp.ts). Before, only
+ * the launcher's own build wrote it, and a plain `npm run build --workspace @vo/web` — a step of
+ * the check list — left a build that a clone then served after every pull. The stamp is taken
+ * from the sources as the build starts to read them, and written once everything is written.
+ */
+export function stamp(): Plugin {
+  let root = '';
+  let outDir = '';
+  let value = '';
+  let written = false;
+  return {
+    name: 'vo-stamp',
+    apply: 'build',
+    configResolved(config) {
+      root = path.resolve(config.root, '..');
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    buildStart() {
+      value = uiStamp(root);
+      written = false;
+    },
+    writeBundle() {
+      written = true;
+    },
+    // after the compressed copies (a failed or cut-off build keeps no stamp: it gets rebuilt)
+    closeBundle: {
+      order: 'post',
+      sequential: true,
+      async handler() {
+        if (written) await fs.writeFile(path.join(outDir, STAMP_FILE), value);
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), precompress()],
+  plugins: [react(), precompress(), stamp()],
   // The browser DB engine runs in a module worker (lib/engine/worker.ts).
   worker: { format: 'es' },
   // One version for the whole app (root package.json), shown in the settings panel.

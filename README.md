@@ -155,7 +155,8 @@ npx vitest run
 ```
 
 Also run `npx tsc -b` in each of `web/`, `server/`, and `builder/`, and build the web app
-with `npm run build --workspace @vo/web`, as CI does.
+with `npm run build --workspace @vo/web`, as CI does. Every web build stamps `web/dist` with
+what it was built from, so `npm start` rebuilds it after a pull or a checkout.
 
 ### Scripts
 
