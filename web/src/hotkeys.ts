@@ -24,6 +24,8 @@ export const IS_MAC =
 export type HotkeyActionId =
   | 'advanceNext'
   | 'advancePrev'
+  | 'previewNext'
+  | 'previewPrev'
   | 'project'
   | 'blank'
   | 'black'
@@ -42,6 +44,8 @@ export interface HotkeyActionDef {
   default: string;
   /** extra default chords on macOS, next to `default` */
   mac?: string;
+  /** the default on macOS instead of `default` (where macOS itself takes those keys) */
+  macInstead?: string;
 }
 
 /** The operator actions that can be rebound, in display order. */
@@ -57,6 +61,23 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     label: N_('Назад'),
     hint: N_('Попередній вірш або сторінка'),
     default: 'left,up,pageup',
+  },
+  // 1.1.0, the operator's ask: with «Наживо» on, walk the preview ahead while the screen stays.
+  // Ctrl+arrows (they only scrolled the list before — Alt+↑/↓ does that now, Control.tsx); on a
+  // Mac ⌥, since macOS takes ⌃+arrows for its desktops and Mission Control
+  {
+    id: 'previewNext',
+    label: N_('Прев’ю: далі'),
+    hint: N_('Наступний вірш лише в прев’ю — екран стоїть до «На екран»'),
+    default: 'ctrl+right,ctrl+down',
+    macInstead: 'alt+right,alt+down',
+  },
+  {
+    id: 'previewPrev',
+    label: N_('Прев’ю: назад'),
+    hint: N_('Попередній вірш лише в прев’ю — екран стоїть до «На екран»'),
+    default: 'ctrl+left,ctrl+up',
+    macInstead: 'alt+left,alt+up',
   },
   {
     id: 'project',
@@ -120,7 +141,7 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
 export type Keymap = Record<HotkeyActionId, string>;
 
 const defaultFor = (a: HotkeyActionDef, mac: boolean) =>
-  mac && a.mac ? `${a.default},${a.mac}` : a.default;
+  mac && a.macInstead ? a.macInstead : mac && a.mac ? `${a.default},${a.mac}` : a.default;
 
 /** The default keymap for a platform (the Mac one adds the ⌘ chords). */
 export function defaultKeymap(mac: boolean = IS_MAC): Keymap {
