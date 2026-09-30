@@ -207,6 +207,35 @@ export function createInstaller(o: InstallerOptions) {
         return null;
       }
     },
+    /**
+     * The version the last update left in `app.previous/` (1.4.0) — one that can be run again:
+     * a release copy (the marker) with its version. Null: none.
+     */
+    previousVersion(): string | null {
+      const prev = path.join(o.top, PREVIOUS_DIR);
+      try {
+        if (!fs.existsSync(path.join(prev, LAYOUT_MARKER))) return null;
+        const pkg = JSON.parse(fs.readFileSync(path.join(prev, 'package.json'), 'utf8')) as {
+          version?: string;
+        };
+        return pkg.version ?? null;
+      } catch {
+        return null;
+      }
+    },
+    /**
+     * «Повернути попередню версію» (1.4.0): `app.previous/` becomes `app.next/`, so the swap
+     * that installs an update brings it back (a downloaded update waiting there goes). Returns
+     * its version, or null when there is none.
+     */
+    prepareRollback(): string | null {
+      const version = this.previousVersion();
+      if (!version) return null;
+      fs.rmSync(path.join(o.top, NEXT_DIR), { recursive: true, force: true });
+      fs.renameSync(path.join(o.top, PREVIOUS_DIR), path.join(o.top, NEXT_DIR));
+      state = { ...state, phase: 'idle', version: null };
+      return version;
+    },
     markRestarting(): void {
       state = { ...state, phase: 'restarting' };
     },
