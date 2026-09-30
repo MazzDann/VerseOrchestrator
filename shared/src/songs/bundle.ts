@@ -38,6 +38,11 @@ export interface BundleMeta {
   created: string;
   /** The .pptx folder (its name, not its path) that keeps this bundle up to date, if any. */
   source?: string;
+  /**
+   * The .pptx reader (`PPTX_READER`) that last read the folder into it — a folder-fed bundle
+   * written by an older one is read again (1.2.1). Absent: before 1.2.1.
+   */
+  reader?: number;
 }
 
 export interface BundleSong {
@@ -114,6 +119,7 @@ export function writeBundleMeta(db: SyncDb, meta: BundleMeta): void {
     put.run('format', String(meta.format));
     put.run('created', meta.created);
     if (meta.source) put.run('source', meta.source);
+    if (meta.reader) put.run('reader', String(meta.reader));
   })();
 }
 
@@ -130,12 +136,14 @@ export function readBundleMeta(db: SyncDb): BundleMeta | null {
   const name = m.get('name');
   if (!id || !name) return null;
   const source = m.get('source');
+  const reader = Number(m.get('reader'));
   return {
     id,
     name,
     format: Number(m.get('format') ?? 1),
     created: m.get('created') ?? '',
     ...(source ? { source } : {}),
+    ...(reader > 0 ? { reader } : {}),
   };
 }
 

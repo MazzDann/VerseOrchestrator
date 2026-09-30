@@ -13,6 +13,7 @@ import { QrCard } from './QrCard';
 import { reportSlideError } from '../lib/slideErrors';
 
 const ALIGN_ITEMS = { left: 'flex-start', center: 'center', right: 'flex-end' } as const;
+const VALIGN_ITEMS = { top: 'flex-start', middle: 'center', bottom: 'flex-end' } as const;
 
 /** The verse line(s) with red-letter / highlighted-word colouring — shared by both layouts. */
 function QuoteLines({ lines, style }: { lines: SlideLine[]; style: SlideStyle }) {
@@ -323,7 +324,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
               width: `${cw}%`,
               height: `${ch}%`,
               display: 'flex',
-              alignItems: 'center',
+              alignItems: VALIGN_ITEMS[o.valign ?? 'middle'],
               justifyContent: ALIGN_ITEMS[o.align],
               textAlign: o.align,
               color: o.color,
@@ -353,6 +354,8 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
                   fontSize: `${o.size}cqh`,
                   opacity: o.kind === 'reference' ? 0.85 : 0.95,
                   letterSpacing: o.kind === 'reference' ? 1 : undefined,
+                  // a faithful song's second box keeps its lines (a title slide's authors)
+                  whiteSpace: 'pre-line',
                 }}
               >
                 {o.kind === 'reference' ? slide.reference : slide.subline}
