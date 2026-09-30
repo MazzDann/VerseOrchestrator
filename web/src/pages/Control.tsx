@@ -144,6 +144,7 @@ import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { setAppShellWidth } from '../lib/appShell';
 import { formatCombo, matchesCombo } from '../hotkeys';
+import { isFormField, scrollableAround } from '../lib/keyScroll';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
 
 const EMPTY_ARRAY: never[] = [];
@@ -720,6 +721,12 @@ export function Control() {
   } | null>(null);
   /** The slide «Очистити» removed, until something else is shown (0.13.2). */
   const clearedRef = useRef<Slide | null>(null);
+  /**
+   * «Прев’ю: далі / назад» (Alt+arrows, 1.1.0): the preview walked ahead and the screen stays,
+   * though «Наживо» is on — until «На екран», a plain step, or «Наживо» switched.
+   */
+  const [screenHeld, setScreenHeld] = useState(false);
+  useEffect(() => setScreenHeld(false), [liveFollow]);
   const pushLive = (slide: Slide, opts?: { audience?: boolean }) => {
     if (!leaderRef.current) return; // standby: never overrides the leader's screen
     if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
@@ -757,6 +764,7 @@ export function Control() {
     // Projecting the verse selection ends any song/text/Strong override, so the
     // preview and live-follow track the verses again (no preview/screen desync).
     setPreviewOverride(null);
+    setScreenHeld(false); // the screen shows the preview: it follows again
   };
 
   // Project the Strong-bearing (primary) translation only, with a "word — gloss"
@@ -1030,7 +1038,7 @@ export function Control() {
   // verses clears the override, after which live-follow resumes.
   useEffect(() => {
     if (adopting.current) return; // taking over: the screen stays until page/reveal are set
-    if (liveFollow && live && slideLines.length > 0 && !previewOverride) send();
+    if (liveFollow && live && !screenHeld && slideLines.length > 0 && !previewOverride) send();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     slideLines,
@@ -1038,6 +1046,7 @@ export function Control() {
     slideStyle,
     slideTemplate,
     liveFollow,
+    screenHeld,
     previewOverride,
     revealCount,
     appearance.reveal,
@@ -1091,13 +1100,13 @@ export function Control() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference]);
 
-  const stepVerse = (delta: number): Outcome | Promise<Outcome> => {
+  const stepVerse = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
     if (primaryVerses.length === 0) return { ok: false, reason: tr('Спершу виберіть розділ') };
     const all = primaryVerses.map((v) => v.verse);
     const current = selectedVerses.length ? selectedVerses[selectedVerses.length - 1] : all[0] - 1;
     const idx = all.indexOf(current);
     const next = all[Math.min(all.length - 1, Math.max(0, idx + delta))];
-    if (next == null || next === current) return crossChapter(delta);
+    if (next == null || next === current) return crossChapter(delta, previewOnly);
     crossArm.current = null;
     setSelectedVerses([next]);
     return { ok: true };
@@ -1107,7 +1116,7 @@ export function Control() {
   // again within 5 s it opens the next chapter's first verse (the previous one's last going
   // back) — on screen too when the screen follows the selection.
   const crossArm = useRef<CrossArm | null>(null);
-  const crossChapter = (delta: number): Outcome | Promise<Outcome> => {
+  const crossChapter = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
     if (primaryId == null || bookNumber == null || chapter == null) {
       return { ok: false, reason: tr('Спершу виберіть розділ') };
     }
@@ -1120,7 +1129,7 @@ export function Control() {
       return { ok: false, reason: edgeNotice(delta, chapterName(currentBook, to)) };
     }
     const book = bookNumber;
-    const onScreen = liveFollow && live && !previewOverride;
+    const onScreen = !previewOnly && liveFollow && live && !previewOverride;
     return queryClient
       .fetchQuery({
         queryKey: ['verses', primaryId, book, to],
@@ -1152,8 +1161,17 @@ export function Control() {
       });
   };
   /** Keys and buttons: say why the show didn't move (at a chapter's edge: what's next). */
-  const advanceAndSay = (delta: number) => {
-    void Promise.resolve(advance(delta)).then((o) => {
+  const advanceAndSay = (delta: number, previewOnly = false) => {
+    // the first preview-only step while the screen follows: say that the screen stays
+    if (previewOnly && liveFollow && live && !screenHeld) {
+      notifications.show({
+        id: 'screen-held',
+        message: tr('Екран стоїть, прев’ю йде далі. Показати прев’ю — «На екран».'),
+        color: 'cue',
+        autoClose: 3000,
+      });
+    }
+    void Promise.resolve(advance(delta, previewOnly)).then((o) => {
       if (!o.ok && o.reason) {
         notifications.show({ message: o.reason, color: 'gray', autoClose: 2500 });
       }
@@ -1163,8 +1181,12 @@ export function Control() {
   // "Next/previous": with a long passage split across pages, step pages; otherwise
   // step the single verse. Drives arrows, the PageDown/PageUp clicker keys, and the
   // preview's page arrows — so the same gesture always means "advance the screen".
-  /** One step of the show (reveal → page → verse); says whether anything moved. */
-  const advance = (delta: number): Outcome | Promise<Outcome> => {
+  /**
+   * One step of the show (reveal → page → verse); says whether anything moved. `previewOnly`
+   * (Alt+arrows): the screen stays while «Наживо» is on; a plain step lets it follow again.
+   */
+  const advance = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
+    setScreenHeld(previewOnly && liveFollow && live);
     // Progressive reveal first: step through the verses of the current slide before
     // moving on. Only while projecting the verse selection (no song/text override).
     if (appearance.reveal && revealUnits && revealUnits.length > 1 && !previewOverride) {
@@ -1195,7 +1217,7 @@ export function Control() {
       setPageIndex(target);
       return { ok: true };
     }
-    const moved = stepVerse(delta);
+    const moved = stepVerse(delta, previewOnly);
     if (!(moved instanceof Promise) && moved.ok) setRevealCount(1); // same batch as the verse
     return moved;
   };
@@ -1255,6 +1277,48 @@ export function Control() {
     selectedIds,
     currentBook,
   ]);
+  // «Прев’ю: далі / назад» (1.1.0): the same step, the screen stays. preventDefault: the
+  // browser would scroll the list (Ctrl+↑/↓) or, on a Mac with ⌥, move the caret.
+  const previewDeps = [
+    pageCount,
+    pageIndex,
+    primaryVerses,
+    selectedVerses,
+    revealCount,
+    revealUnits,
+    appearance.reveal,
+    previewOverride,
+    chapters,
+    live,
+    liveFollow,
+    screenHeld,
+    selectedIds,
+    currentBook,
+  ];
+  useHotkeys(keymap.previewNext, () => advanceAndSay(1, true), { preventDefault: true }, [
+    keymap.previewNext,
+    ...previewDeps,
+  ]);
+  useHotkeys(keymap.previewPrev, () => advanceAndSay(-1, true), { preventDefault: true }, [
+    keymap.previewPrev,
+    ...previewDeps,
+  ]);
+  // Alt+↑/↓ scroll the list under the focus (else the verses) by a line — what Ctrl+↑/↓ did
+  // before they became the preview's (1.1.0, the operator's ask); Alt+←/→ do nothing rather
+  // than the browser's Back and Forward, which would leave the control window mid-show.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      if (isFormField(e.target)) return; // the caret's own moves
+      if (matchesCombo(e, keymap.previewNext) || matchesCombo(e, keymap.previewPrev)) return;
+      e.preventDefault();
+      const dy = e.key === 'ArrowDown' ? 40 : e.key === 'ArrowUp' ? -40 : 0;
+      if (dy) scrollableAround(document.activeElement, '.vo-verse-item')?.scrollBy({ top: dy });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [keymap.previewNext, keymap.previewPrev]);
   // Remove the slide from the output. Drops out of live so the live-follow effect
   // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
   // which would re-run that effect).

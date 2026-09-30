@@ -1218,4 +1218,13 @@ export const EN: Record<string, string> = {
     'Close the output windows first — the app doesn’t restart during a show.',
   'Спробувати ще раз': 'Try again',
   'Завантажити оновлення ({mb} МБ)': 'Download the update ({mb} MB)',
+  // 1.1.0 preview-only steps
+  'Прев’ю: далі': 'Preview: next',
+  'Прев’ю: назад': 'Preview: back',
+  'Наступний вірш лише в прев’ю — екран стоїть до «На екран»':
+    'The next verse in the preview only — the screen stays until “To screen”',
+  'Попередній вірш лише в прев’ю — екран стоїть до «На екран»':
+    'The previous verse in the preview only — the screen stays until “To screen”',
+  'Екран стоїть, прев’ю йде далі. Показати прев’ю — «На екран».':
+    'The screen stays, the preview moves on. To show the preview, press “To screen”.',
 };

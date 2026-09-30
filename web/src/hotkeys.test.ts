@@ -107,6 +107,27 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
     expect(sanitizeKeymap({ clear: 'escape' }, false).restore).toBe('ctrl+z');
   });
 
+  it('«Прев’ю: далі / назад» on Ctrl+arrows, ⌥ on a Mac, clashing with nothing (1.1.0)', () => {
+    expect(defaultKeymap(false).previewNext).toBe('ctrl+right,ctrl+down');
+    expect(defaultKeymap(false).previewPrev).toBe('ctrl+left,ctrl+up');
+    // macOS takes ⌃+arrows for its desktops: ⌥ instead
+    expect(defaultKeymap(true).previewNext).toBe('alt+right,alt+down');
+    expect(defaultKeymap(true).previewPrev).toBe('alt+left,alt+up');
+    for (const mac of [false, true]) {
+      expect(conflictsForAction(defaultKeymap(mac), 'previewNext')).toEqual([]);
+      expect(conflictsForAction(defaultKeymap(mac), 'previewPrev')).toEqual([]);
+    }
+    // a keymap saved before 1.1.0 gets them; one moved between a Mac and Windows takes the other's
+    expect(sanitizeKeymap({ advanceNext: 'right' }, false).previewNext).toBe(
+      'ctrl+right,ctrl+down',
+    );
+    expect(sanitizeKeymap({ previewNext: 'alt+right,alt+down' }, false).previewNext).toBe(
+      'ctrl+right,ctrl+down',
+    );
+    expect(formatChord('ctrl+right', false)).toBe('Ctrl + →');
+    expect(formatChord('alt+right', true)).toBe('⌥→');
+  });
+
   it('a keymap saved before stays the user’s, but untouched old defaults get the ⌘ chords', () => {
     const km = sanitizeKeymap(
       { project: 'f5,f2', searchAll: 'f9', palette: 'ctrl+k,ctrl+p' },
