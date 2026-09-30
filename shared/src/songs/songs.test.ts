@@ -25,7 +25,18 @@ import {
   readBundles,
   refreshLibrarySongs,
 } from './node.js';
-import { isSongFile, mainText, parsePptx, PPTX_READER, songNumberTitle } from './pptx.js';
+import {
+  isSongFile,
+  mainText,
+  markedText,
+  parsePptx,
+  PPTX_READER,
+  SECOND_CLOSE,
+  SECOND_OPEN,
+  secondParts,
+  songNumberTitle,
+  unmark,
+} from './pptx.js';
 
 /** A minimal .pptx: a theme, a master with a scheme-coloured background, the given slides. */
 function pptx(slides: string[]): Uint8Array {
@@ -67,6 +78,8 @@ function titledPptx(): Uint8Array {
     `<p:sp><p:nvSpPr><p:nvPr>${ph}</p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/>` +
     `<a:ext cx="${cx}" cy="${cy}"/></a:xfrm></p:spPr><p:txBody><a:bodyPr/>${body}</p:txBody></p:sp>`;
   const sld = (shapes: string) => `<p:sld><p:cSld><p:spTree>${shapes}</p:spTree></p:cSld></p:sld>`;
+  const run = (t: string, fill: string) =>
+    `<a:r><a:rPr lang="uk-UA" sz="7200"><a:solidFill>${fill}</a:solidFill></a:rPr><a:t>${t}</a:t></a:r>`;
   const rels = (layout: number) =>
     `<Relationships><Relationship Id="rId1" Target="../slideLayouts/slideLayout${layout}.xml"/></Relationships>`;
   const layoutSp = (ph: string, bodyPr: string) =>
@@ -111,6 +124,25 @@ function titledPptx(): Uint8Array {
       sp('<p:ph type="title"/>', 0, 273844, 9144000, 4597701, para('Строфа', 7200)),
     ),
     'ppt/slides/_rels/slide3.xml.rels': rels(6),
+    // an echo in yellow (1.3.0): «Слово істини (істини)», then a whole yellow line with a
+    // space at its end; «white» as a preset colour is the same white, not a second part
+    'ppt/slides/slide4.xml': sld(
+      sp(
+        '<p:ph type="title"/>',
+        0,
+        273844,
+        9144000,
+        4597701,
+        '<a:p>' +
+          run('Слово істини (', '<a:schemeClr val="bg1"/>') +
+          run('істини', '<a:srgbClr val="FFFF00"/>') +
+          run(')', '<a:prstClr val="white"/>') +
+          '</a:p><a:p>' +
+          run('вічне ', '<a:srgbClr val="FFFF00"/>') +
+          '</a:p>',
+      ),
+    ),
+    'ppt/slides/_rels/slide4.xml.rels': rels(6),
   };
   return zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)])));
 }
@@ -167,6 +199,52 @@ describe('a .pptx song', () => {
     expect(stanza.style!.sub).toBeUndefined();
     expect(mainText(stanza.text, stanza.style)).toBe('Строфа');
     expect(mainText('Старий текст', null)).toBe('Старий текст');
+  });
+
+  it('words in another colour are the second part, marked in the main text (1.3.0)', () => {
+    const song = parsePptx(titledPptx(), '10. Вся шир землі.pptx')!;
+    const echo = song.slides[3];
+    const [o, c] = [SECOND_OPEN, SECOND_CLOSE];
+    expect(echo.text).toBe('Слово істини (істини)\nвічне');
+    // the space at the yellow line's end goes, as in the plain text
+    expect(echo.style!.second).toEqual({
+      text: `Слово істини (${o}істини${c})\n${o}вічне${c}`,
+      color: '#ffff00',
+    });
+    expect(secondParts(echo.style!.second!.text)).toEqual([
+      { text: 'Слово істини (', second: false },
+      { text: 'істини', second: true },
+      { text: ')\n', second: false },
+      { text: 'вічне', second: true },
+    ]);
+    expect(unmark(echo.style!.second!.text)).toBe(echo.text);
+    expect(markedText(echo.text, echo.style)).toBe(echo.style!.second!.text);
+    // one colour — no second part
+    expect(song.slides[2].style!.second).toBeUndefined();
+    expect(markedText(song.slides[2].text, song.slides[2].style)).toBeNull();
+  });
+
+  it('the whole slide marked where a separate box adds its words (1.3.0)', () => {
+    const [o, c] = [SECOND_OPEN, SECOND_CLOSE];
+    const box = {
+      color: '#ffffff',
+      align: 'center',
+      anchor: 'top',
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 1,
+      size: 4,
+    };
+    const style = {
+      ...{ bg: '#000000', color: '#ffffff', font: 'x', bold: false, align: 'center' as const },
+      ...{ x: 0, y: 10, w: 100, h: 80, size: 10 },
+      sub: { ...box, text: 'Приспів:', align: 'center' as const, anchor: 'top' as const },
+      second: { text: `Слава (${o}слава${c})`, color: '#ffff00' },
+    };
+    expect(markedText('Приспів:\nСлава (слава)', style)).toBe(`Приспів:\nСлава (${o}слава${c})`);
+    // a text that doesn't match the marks (another reader wrote them): none
+    expect(markedText('Приспів:\nІнше', style)).toBeNull();
   });
 
   it('not a song: no text, or not a zip', () => {
