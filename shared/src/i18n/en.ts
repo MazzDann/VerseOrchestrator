@@ -1241,4 +1241,9 @@ export const EN: Record<string, string> = {
   // 1.1.0 help
   Довідка: 'Help',
   'Посібник користувача — відкривається на GitHub': 'The user guide — opens on GitHub',
+  // 1.2.0 feedback
+  Відгук: 'Feedback',
+  'Помітили помилку чи маєте ідею? Форма відкривається на GitHub (потрібен акаунт), з версією, системою й мовою. Відгук видно всім — не пишіть особистих даних.':
+    'Found a bug or have an idea? The form opens on GitHub (an account is needed), with the version, system, and language filled in. Feedback is public — don’t include personal data.',
+  'Надіслати відгук': 'Send feedback',
 };

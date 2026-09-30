@@ -62,6 +62,14 @@ The user documentation is in English and Ukrainian, like the app, and the contro
 The developer documentation is in English: [docs/dev](docs/dev/README.md) covers the
 architecture and how to contribute.
 
+## Feedback
+
+Found a bug or have an idea? Open the
+[feedback form](https://github.com/MazzDann/VerseOrchestrator/issues/new?template=feedback.yml),
+or click **Надіслати відгук** / **Send feedback** in the app (**Settings** > **App**, or the
+command palette): it fills in the version, the system, and the interface language.
+Feedback is public — don't include personal data.
+
 ## Run from the source
 
 To run the app from a clone of this repository, you need **Node.js 22.18 or later**
