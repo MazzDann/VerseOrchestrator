@@ -154,7 +154,8 @@ npx eslint .
 npx vitest run
 ```
 
-Also run `npx tsc -b` in each of `web/`, `server/`, and `builder/`.
+Also run `npx tsc -b` in each of `web/`, `server/`, and `builder/`, and build the web app
+with `npm run build --workspace @vo/web`, as CI does.
 
 ### Scripts
 

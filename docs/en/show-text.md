@@ -60,6 +60,9 @@ screen back to the selection too.
 - On the last verse of a chapter, the first **Next** only says where the next one leads:
   “End of the chapter. Press “Next” again — …”. Press it again within five seconds to go
   to the next chapter. This way a clicker doesn't leave the chapter by accident.
+  The last verse of a book works the same way: “End of the book. Press “Next” again — …”,
+  and the second **Next** opens the next book's first chapter. **Back** on a first verse
+  goes to the previous chapter or book.
 - To show a long passage one verse at a time, turn on **Progressive reveal** in the same
   settings.
 
@@ -71,10 +74,13 @@ To take the text away for a while, use one of these actions:
 | ---------------- | --- | ----------------------------------- |
 | **Hide text**    | B   | the slide's background without text |
 | **Black screen** | .   | a completely black screen           |
+| **Cover**        | L   | your logo and text on the background |
 | Clear            | Esc | an empty screen; the preview stays  |
 
-**Hide text** and **Black screen** are toggles: press again, and what was on screen comes
-back.
+**Hide text**, **Black screen**, and **Cover** are toggles: press again, and what was on
+screen comes back. The cover — a logo and a line of text between the items of a show — is
+set up in [Slide appearance](appearance.md#set-up-the-cover). During the cover the viewers'
+phones show an empty screen.
 
 **Clear** is not a toggle: pressing Esc again leaves the screen empty. To bring back the
 slide you cleared, press Ctrl+Z (⌘Z on a Mac) or click **Bring back** in the “Screen

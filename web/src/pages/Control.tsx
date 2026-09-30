@@ -41,6 +41,7 @@ import {
   IconMusic,
   IconLetterT,
   IconSquareFilled,
+  IconPhoto,
   IconChevronLeft,
   IconChevronRight,
   IconAdjustments,
@@ -120,13 +121,15 @@ import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
 import { formatReference } from '../lib/reference';
+import { parseQuickRef } from '../lib/quickRef';
+import { QuickRefPill } from '../components/QuickRefPill';
 import {
-  bookEdge,
   chapterName,
+  crossTarget,
   edgeNotice,
   landingVerse,
-  neighbourChapter,
   pressAtEdge,
+  translationEdge,
   type CrossArm,
 } from '../lib/chapterCross';
 import { connectLive, type LiveConnection } from '../lib/liveSocket';
@@ -399,6 +402,11 @@ export function Control() {
   const goTo = async (q: string) => {
     const query = q.trim();
     if (!query || primaryId == null) return;
+    // numbers only («3:16», «16»): a place in the open book (1.4.0)
+    if (parseQuickRef(query) && bookNumber != null) {
+      if (await quickJump(query)) setGoToValue('');
+      return;
+    }
     try {
       const res = await api.search(query, [primaryId]);
       if (res.results.length > 0) {
@@ -423,6 +431,99 @@ export function Control() {
       });
     }
   };
+
+  /**
+   * «3:16» typed straight into the control window, or into «Перейти до посилання» (1.4.0):
+   * a place in the open book — the verse (or verses) selected, its row focused, so Enter
+   * puts it on screen; on screen at once while the screen follows the selection.
+   */
+  const quickJump = async (q: string): Promise<boolean> => {
+    const r = parseQuickRef(q);
+    const say = (message: string) => {
+      notifications.show({ message, color: 'gray', autoClose: 2500 });
+      return false;
+    };
+    if (!r) {
+      return say(
+        tr('«{query}» — не місце в книзі. Введіть вірш або розділ:вірш, як-от 3:16', { query: q }),
+      );
+    }
+    if (primaryId == null || bookNumber == null) return say(tr('Спершу виберіть книгу'));
+    const ch = r.chapter ?? chapter;
+    if (ch == null) return say(tr('Спершу виберіть розділ'));
+    const book = currentBook;
+    if (!chapters.includes(ch)) {
+      return say(tr('{book}: розділу {n} немає', { book: book?.longName ?? '', n: ch }));
+    }
+    const tid = primaryId;
+    const bn = bookNumber;
+    const verses = await queryClient
+      .fetchQuery({ queryKey: ['verses', tid, bn, ch], queryFn: () => api.verses(tid, bn, ch) })
+      .catch(() => []);
+    const have = verses.map((v) => v.verse);
+    const from = r.verse ?? Math.min(...have);
+    if (!have.includes(from)) {
+      return say(tr('{place}: вірша {n} немає', { place: chapterName(book, ch), n: from }));
+    }
+    const to = Math.min(r.verseEnd ?? from, Math.max(...have));
+    if (ch !== chapter) selectChapter(ch);
+    setSelectedVerses(have.filter((v) => v >= from && v <= to));
+    setScrollTarget(from);
+    focusJump.current = true;
+    return true;
+  };
+
+  // Numbers typed where no field has the focus start a quick jump (1.4.0): the pill at the
+  // bottom shows them, Enter goes, Esc (or any other key) lets go. While typing, «.» and the
+  // space are separators, not «Чорний екран» or a verse's selection; Esc only cancels.
+  const [quick, setQuick] = useState<string | null>(null);
+  const quickRef = useRef<string | null>(null);
+  quickRef.current = quick;
+  const quickJumpRef = useRef(quickJump);
+  quickJumpRef.current = quickJump;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const q = quickRef.current;
+      if (e.ctrlKey || e.altKey || e.metaKey || isFormField(e.target) || paletteOpen) {
+        if (q !== null) setQuick(null);
+        return;
+      }
+      const digit = /^[0-9]$/.test(e.key);
+      if (q === null) {
+        if (!digit || bookNumber == null) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setQuick(e.key);
+        return;
+      }
+      const take = () => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      if (digit || [':', '.', ',', ' ', '-'].includes(e.key)) {
+        take();
+        setQuick((q + e.key).slice(0, 12));
+      } else if (e.key === 'Backspace') {
+        take();
+        setQuick(q.length > 1 ? q.slice(0, -1) : null);
+      } else if (e.key === 'Escape') {
+        take();
+        setQuick(null);
+      } else if (e.key === 'Enter') {
+        take();
+        setQuick(null);
+        void quickJumpRef.current(q);
+      } else setQuick(null);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [bookNumber, paletteOpen]);
+  // forgotten halfway: gone after a few seconds without a key
+  useEffect(() => {
+    if (quick === null) return;
+    const t = window.setTimeout(() => setQuick(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [quick]);
 
   const openSearch = (scope: SearchScope) => {
     setSearchScope(scope);
@@ -1167,51 +1268,70 @@ export function Control() {
 
   // At the chapter's edge (0.6.23): the first press says where a second one goes; pressed
   // again within 5 s it opens the next chapter's first verse (the previous one's last going
-  // back) — on screen too when the screen follows the selection.
+  // back) — on screen too when the screen follows the selection. At a book's edge the same
+  // two presses open the next book (1.4.0).
   const crossArm = useRef<CrossArm | null>(null);
-  const crossChapter = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
+  const crossChapter = async (delta: number, previewOnly = false): Promise<Outcome> => {
     if (primaryId == null || bookNumber == null || chapter == null) {
       return { ok: false, reason: tr('Спершу виберіть розділ') };
     }
-    const to = neighbourChapter(chapters, chapter, delta);
-    if (to == null) return { ok: false, reason: bookEdge(delta) };
-    const key = `${primaryId}:${bookNumber}:${chapter}:${delta > 0 ? 1 : -1}`;
+    const tid = primaryId;
+    const book = bookNumber;
+    // armed before anything loads, so a quick second press still counts as the second
+    const key = `${tid}:${book}:${chapter}:${delta > 0 ? 1 : -1}`;
     const press = pressAtEdge(crossArm.current, key, Date.now());
     crossArm.current = press.arm;
-    if (!press.cross) {
-      return { ok: false, reason: edgeNotice(delta, chapterName(currentBook, to)) };
-    }
-    const book = bookNumber;
     const onScreen = !previewOnly && liveFollow && live && !previewOverride;
-    return queryClient
-      .fetchQuery({
-        queryKey: ['verses', primaryId, book, to],
-        queryFn: () => api.verses(primaryId, book, to),
-      })
-      .then(async (verses): Promise<Outcome> => {
-        const v = landingVerse(
-          verses.map((x) => x.verse),
-          delta,
-        );
-        if (v == null) return { ok: false, reason: tr('У цьому розділі немає віршів') };
-        const label = formatReference(currentBook, to, [v]);
-        if (onScreen) {
-          await activatePassage({
-            kind: 'passage',
-            id: `cross-${book}-${to}-${v}`,
-            label,
-            translationIds: selectedIds,
-            bookNumber: book,
-            chapter: to,
-            verses: [v],
-          });
-        } else {
-          selectChapter(to);
-          setSelectedVerses([v]);
-          setScrollTarget(v);
-        }
-        return { ok: true, reason: label };
+    const target = await crossTarget(
+      { book, chapter },
+      chapters,
+      books.map((b) => b.bookNumber),
+      delta,
+      (b) =>
+        queryClient.fetchQuery({
+          queryKey: ['chapters', tid, b],
+          queryFn: () => api.chapters(tid, b),
+        }),
+    );
+    if (!target) {
+      crossArm.current = null;
+      return { ok: false, reason: translationEdge(delta) };
+    }
+    const to = target.chapter;
+    const toBook = books.find((b) => b.bookNumber === target.book) ?? currentBook;
+    if (!press.cross) {
+      return {
+        ok: false,
+        reason: edgeNotice(delta, chapterName(toBook, to), target.newBook),
+      };
+    }
+    const verses = await queryClient.fetchQuery({
+      queryKey: ['verses', tid, target.book, to],
+      queryFn: () => api.verses(tid, target.book, to),
+    });
+    const v = landingVerse(
+      verses.map((x) => x.verse),
+      delta,
+    );
+    if (v == null) return { ok: false, reason: tr('У цьому розділі немає віршів') };
+    const label = formatReference(toBook, to, [v]);
+    if (onScreen) {
+      await activatePassage({
+        kind: 'passage',
+        id: `cross-${target.book}-${to}-${v}`,
+        label,
+        translationIds: selectedIds,
+        bookNumber: target.book,
+        chapter: to,
+        verses: [v],
       });
+    } else {
+      if (target.newBook) selectBook(target.book);
+      selectChapter(to);
+      setSelectedVerses([v]);
+      setScrollTarget(v);
+    }
+    return { ok: true, reason: label };
   };
   /** Keys and buttons: say why the show didn't move (at a chapter's edge: what's next). */
   const advanceAndSay = (delta: number, previewOnly = false) => {
@@ -1391,6 +1511,49 @@ export function Control() {
     pushLive(slide, { audience: false });
     setPreviewOverride(slide);
     setLive(true);
+  };
+  // «Заставка» (1.4.0): the logo and text from Налаштування вигляду → Заставка over whatever
+  // is on screen; again — exactly the slide it covered (as «QR на екран» does). The phones get
+  // it without the image: an empty slide, «· · ·».
+  const coverReturn = useRef<Slide | null>(null);
+  const coverToggle = () => {
+    if (!leaderRef.current) return standbyNotice();
+    const now = liveSlideRef.current;
+    if (!now.cover) {
+      coverReturn.current = now.qr ? qrReturn.current : now;
+      const slide: Slide = {
+        lines: [],
+        reference: tr('Заставка'),
+        blank: false,
+        visible: true,
+        style: slideStyle,
+        cover: { text: appearance.coverText, image: appearance.coverImage },
+      };
+      pushLive(slide);
+      setPreviewOverride(slide);
+      setLive(true);
+      if (!appearance.coverText && !appearance.coverImage) {
+        notifications.show({
+          message: tr(
+            'Заставка поки порожня — лише фон. Додайте логотип чи текст: Налаштування вигляду → Заставка',
+          ),
+          color: 'gray',
+          autoClose: 4000,
+        });
+      }
+      return;
+    }
+    const back = coverReturn.current;
+    coverReturn.current = null;
+    const showing = back && back.visible && !back.cover && !back.forceBlack;
+    if (!back || !showing) {
+      pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
+      setLive(false);
+      setPreviewOverride(null);
+      return;
+    }
+    pushLive(back);
+    afterToggle(back);
   };
   const hideQr = () => {
     const back = qrReturn.current;
@@ -1594,6 +1757,7 @@ export function Control() {
     );
   };
   useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
+  useHotkeys(keymap.cover, () => coverToggle(), [keymap.cover, versePreview, appearance]);
 
   /** Take back «Очистити» (0.13.2): exactly the slide it removed, as the toggles do. */
   const restoreCleared = () => {
@@ -2173,11 +2337,12 @@ export function Control() {
   // In-app "what's on screen now" monitor — reflects the actually-published slide.
   const textHidden = liveSlide.blank && !liveSlide.forceBlack;
   const blackOn = !!liveSlide.forceBlack;
+  const coverOn = !!liveSlide.cover && !liveSlide.forceBlack;
   const liveActive =
     liveSlide.visible &&
     !liveSlide.blank &&
     !liveSlide.forceBlack &&
-    (liveSlide.lines.length > 0 || !!liveSlide.qr);
+    (liveSlide.lines.length > 0 || !!liveSlide.qr || !!liveSlide.cover);
   const liveLabel = liveSlide.forceBlack
     ? tr('Чорний екран')
     : liveSlide.blank
@@ -2628,6 +2793,19 @@ export function Control() {
                   active={blackOn}
                   disabled={!isLeader}
                   onClick={blackToggle}
+                />
+                <ToolIcon
+                  label={coverOn ? tr('Прибрати заставку') : tr('Заставка')}
+                  hint={
+                    coverOn
+                      ? tr('Повернути те, що було')
+                      : tr('Логотип і текст між елементами; ще раз — те, що було')
+                  }
+                  combo={keymap.cover}
+                  icon={<IconPhoto size={18} stroke={1.5} />}
+                  active={coverOn}
+                  disabled={!isLeader}
+                  onClick={coverToggle}
                 />
               </ToolZone>
               <ToolZone label={tr('Застосунок')}>
@@ -3221,6 +3399,8 @@ export function Control() {
         <RemotePanel />
       </FloatingPanel>
 
+      {quick !== null && <QuickRefPill value={quick} place={currentBook?.longName ?? ''} />}
+
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
@@ -3239,8 +3419,10 @@ export function Control() {
 
 /** Drop the (potentially large) background image before mirroring to the follow relay. */
 function stripBg(slide: Slide): Slide {
-  if (!slide.style?.bgImage) return slide;
-  return { ...slide, style: { ...slide.style, bgImage: null } };
+  // «Заставка»'s image stays off the phones too (1.4.0): an empty slide there
+  const s = slide.cover ? { ...slide, cover: undefined } : slide;
+  if (!s.style?.bgImage) return s;
+  return { ...s, style: { ...s.style, bgImage: null } };
 }
 
 /** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */

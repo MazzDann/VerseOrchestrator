@@ -16,12 +16,12 @@ import { RemotePlaylist } from '../components/RemotePlaylist';
 import { type ScreenSummary } from '../lib/slide';
 import { formatReference } from '../lib/reference';
 import {
-  bookEdge,
   chapterName,
+  crossTarget,
   edgeNotice,
   landingVerse,
-  neighbourChapter,
   pressAtEdge,
+  translationEdge,
   type CrossArm,
 } from '../lib/chapterCross';
 import { believedHidden, songEndStep, type EndGuard } from '../lib/songEnd';
@@ -394,29 +394,40 @@ export function Remote() {
   /**
    * The cursor at its chapter's edge (0.6.23): the first press says where a second one
    * goes; pressed again within 5 s the cursor opens the next chapter's first verse (the
-   * previous one's last going back) — on screen when the cursor is on screen.
+   * previous one's last going back) — on screen when the cursor is on screen. At a book's
+   * edge the same two presses open the next book (1.4.0).
    */
   const crossChapter = async (p: RemotePassage, delta: number) => {
-    const to = neighbourChapter(cursorChapters.data ?? [], p.chapter, delta);
-    if (to == null) {
-      return flash(
-        cursorChapters.data
-          ? bookEdge(delta)
-          : delta > 0
-            ? tr('Це останній вірш розділу')
-            : tr('Це перший вірш розділу'),
-      );
+    if (!cursorChapters.data || !cursorBooks.data) {
+      return flash(delta > 0 ? tr('Це останній вірш розділу') : tr('Це перший вірш розділу'));
     }
-    const key = `${p.translationIds[0]}:${p.bookNumber}:${p.chapter}:${delta > 0 ? 1 : -1}`;
+    const tid = p.translationIds[0];
+    const key = `${tid}:${p.bookNumber}:${p.chapter}:${delta > 0 ? 1 : -1}`;
     const step = pressAtEdge(crossArm.current, key, Date.now());
     crossArm.current = step.arm;
-    const book = cursorBooks.data?.find((b) => b.bookNumber === p.bookNumber) ?? null;
-    if (!step.cross) return flash(edgeNotice(delta, chapterName(book, to)));
     const onScreenNow = mineOnScreen && canShow;
     try {
+      const target = await crossTarget(
+        { book: p.bookNumber, chapter: p.chapter },
+        cursorChapters.data,
+        cursorBooks.data.map((b) => b.bookNumber),
+        delta,
+        (b) =>
+          queryClient.fetchQuery({
+            queryKey: ['chapters', tid, b],
+            queryFn: () => api.chapters(tid, b),
+          }),
+      );
+      if (!target) {
+        crossArm.current = null;
+        return flash(translationEdge(delta));
+      }
+      const to = target.chapter;
+      const book = cursorBooks.data.find((b) => b.bookNumber === target.book) ?? null;
+      if (!step.cross) return flash(edgeNotice(delta, chapterName(book, to), target.newBook));
       const verses = await queryClient.fetchQuery({
-        queryKey: ['verses', p.translationIds[0], p.bookNumber, to],
-        queryFn: () => api.verses(p.translationIds[0], p.bookNumber, to),
+        queryKey: ['verses', tid, target.book, to],
+        queryFn: () => api.verses(tid, target.book, to),
       });
       const v = landingVerse(
         verses.map((x) => x.verse),
@@ -426,7 +437,7 @@ export function Remote() {
       setNotice(null); // «натисніть ще раз» is done with
       press(onScreenNow ? 'show' : 'pick', {
         kind: 'verses',
-        passage: { ...p, chapter: to, verses: [v] },
+        passage: { ...p, bookNumber: target.book, chapter: to, verses: [v] },
       });
     } catch {
       flash(tr('Не вдалося відкрити розділ — перевірте зв’язок'));

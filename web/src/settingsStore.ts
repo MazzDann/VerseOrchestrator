@@ -44,6 +44,9 @@ export interface Appearance {
   revealPlaceholders: boolean;
   /** How one slide gives way to the next on the outputs (0.6.7). */
   transition: SlideTransition;
+  /** «Заставка» (1.4.0): its line of text and its image (a data URL, PNG keeps transparency). */
+  coverText: string;
+  coverImage: string | null;
 }
 
 export interface RefItem {
@@ -237,6 +240,8 @@ export const DEFAULT_APPEARANCE: Appearance = {
   revealSpotlight: false,
   revealPlaceholders: false,
   transition: 'smooth',
+  coverText: '',
+  coverImage: null,
 };
 
 export const FONT_OPTIONS = [
@@ -292,6 +297,9 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     revealSpotlight: !!m.revealSpotlight,
     revealPlaceholders: !!m.revealPlaceholders,
     transition: TRANSITIONS.includes(m.transition) ? m.transition : DEFAULT_APPEARANCE.transition,
+    // the cover is the operator's content, not a look: a preset carries neither (1.4.0)
+    coverText: '',
+    coverImage: null,
   };
 }
 
@@ -444,7 +452,7 @@ export const useSettings = create<SettingsState>()(
           // many can be saved/exported without blowing the localStorage quota.
           const preset: AppearancePreset = {
             name: n,
-            appearance: { ...s.appearance, bgImage: null },
+            appearance: { ...s.appearance, bgImage: null, coverText: '', coverImage: null },
             template: s.slideTemplate,
           };
           return { presets: [preset, ...s.presets.filter((p) => p.name !== n)].slice(0, 100) };
@@ -460,6 +468,8 @@ export const useSettings = create<SettingsState>()(
               ...p.appearance,
               bgImage: s.appearance.bgImage,
               transition: s.appearance.transition,
+              coverText: s.appearance.coverText,
+              coverImage: s.appearance.coverImage,
             },
             slideTemplate: p.template ?? null,
           };
@@ -472,6 +482,8 @@ export const useSettings = create<SettingsState>()(
             bgImage: s.appearance.bgImage,
             // how slides change is the operator's choice, not part of a look (0.6.7)
             transition: s.appearance.transition,
+            coverText: s.appearance.coverText,
+            coverImage: s.appearance.coverImage,
           },
           slideTemplate: preset.template ?? null,
         })),
@@ -485,6 +497,8 @@ export const useSettings = create<SettingsState>()(
             bgImage: s.appearance.bgImage,
             // how slides change is the operator's choice, not part of a look (0.6.7)
             transition: s.appearance.transition,
+            coverText: s.appearance.coverText,
+            coverImage: s.appearance.coverImage,
           },
           slideTemplate: preset.template ?? null,
         }));

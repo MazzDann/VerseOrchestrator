@@ -21,6 +21,7 @@ These are the control window's standard keys. You can change them in **Settings*
 | **To screen**                        | F5, F2            | ⌘↩                     |
 | **Hide text**                        | B                 |                        |
 | **Black screen**                     | . (period)        |                        |
+| **Cover** — logo and text            | L                 |                        |
 | **Clear** — take the slide off       | Esc               |                        |
 | **Bring back to the screen**         | Ctrl+Z            | ⌘Z                     |
 | **Search (current)**                 | F3, Ctrl+F        | ⌘F                     |
@@ -31,6 +32,8 @@ On macOS the F keys work together with Fn, so there are ⌘ keys by default as w
 
 Other keys of the control window:
 
+- Digits outside text fields — go to a place in the open book: `16`, `3:16`, `3:16-18`,
+  then Enter; Esc cancels. More in [Find a text](find-text.md).
 - Enter on a verse in the list — show that verse on screen.
 - Space on a verse — choose it; Ctrl+Space, Shift+Space, Ctrl+Enter, or Shift+Enter — add
   the verse to the selection or remove it from it.
