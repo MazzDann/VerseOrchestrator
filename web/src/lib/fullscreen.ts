@@ -34,11 +34,53 @@ export function isFullscreenWire(d: unknown): d is FullscreenWire {
   );
 }
 
-/** Output side: apply fullscreen requests from a same-origin window (the control). */
-export function listenFullscreen(apply: (on: boolean) => void): () => void {
-  const onMessage = (e: MessageEvent) => {
-    if (e.origin === location.origin && isFullscreenWire(e.data)) apply(e.data.on);
+/** Output side: enter or leave fullscreen in this window — rejects when the browser refuses. */
+export async function setOwnFullscreen(on: boolean): Promise<void> {
+  if (on === !!document.fullscreenElement) return;
+  if (!on) return document.exitFullscreen();
+  if (!document.documentElement.requestFullscreen) throw new Error('Fullscreen API unavailable');
+  return document.documentElement.requestFullscreen();
+}
+
+/** F or a click in the output window: its own gesture, and the operator sees the result there. */
+export function toggleOwnFullscreen(): void {
+  setOwnFullscreen(!document.fullscreenElement).catch(() => undefined);
+}
+
+type RefusedListener = (message: string) => void;
+const refused = new Set<RefusedListener>();
+
+/**
+ * Output side: the browser refused a request the control window sent (1.2.1). Seen on a
+ * Mac with a presenter behind other windows: «Permissions check failed», and the operator
+ * never knew. The window passes it on (lib/outputs.ts), the control window says what to do.
+ */
+export function onFullscreenRefused(cb: RefusedListener): () => void {
+  refused.add(cb);
+  return () => {
+    refused.delete(cb);
   };
+}
+
+/**
+ * Output side: carry out one message if it is a fullscreen request from `origin` (the
+ * control window's), and report a refusal. Returns the attempt, for tests.
+ */
+export function handleFullscreenMessage(
+  e: Pick<MessageEvent, 'origin' | 'data'>,
+  origin: string,
+  apply: (on: boolean) => Promise<void> = setOwnFullscreen,
+): Promise<void> | undefined {
+  if (e.origin !== origin || !isFullscreenWire(e.data)) return undefined;
+  return apply(e.data.on).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    for (const l of refused) l(message);
+  });
+}
+
+/** Output side: apply fullscreen requests from a same-origin window (the control). */
+export function listenFullscreen(): () => void {
+  const onMessage = (e: MessageEvent) => void handleFullscreenMessage(e, location.origin);
   window.addEventListener('message', onMessage);
   return () => window.removeEventListener('message', onMessage);
 }
