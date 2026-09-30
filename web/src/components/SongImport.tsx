@@ -53,8 +53,8 @@ export function SongImport({
 }: {
   /** the bundle the songs panel is filtered to: where to by default */
   preferred: string;
-  /** after an import: the name of the bundle the songs went into */
-  onDone: (bundle: string) => void;
+  /** after an import: the bundle the songs went into, and how many were new / replaced */
+  onDone: (bundle: string, counts: { added: number; updated: number }) => void;
   onBack: () => void;
   onClose: () => void;
 }) {
@@ -118,19 +118,11 @@ export function SongImport({
         target === NEW ? { name: trimmed } : { id: target },
         found.songs,
       );
-      notifications.show({
-        message: tr('Імпортовано в «{bundle}»: нових {added}, оновлено {updated}', {
-          bundle: r.bundle.name,
-          added: r.added,
-          updated: r.updated,
-        }),
-        color: 'green',
-        autoClose: 3000,
-      });
       for (const key of ['songs', 'song', 'song-bundles', 'song-bundle-files']) {
         void queryClient.invalidateQueries({ queryKey: [key] });
       }
-      onDone(r.bundle.name);
+      // the panel says what came in, with «Скасувати» (1.4.0)
+      onDone(r.bundle.name, { added: r.added, updated: r.updated });
     } catch (e) {
       notifications.show({
         message: tr('Не вдалося імпортувати: {error}', { error: tr((e as Error).message) }),

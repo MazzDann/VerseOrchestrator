@@ -22,6 +22,11 @@ import {
   importSongs,
   legacyBundleName,
   listBundles,
+  renameBundle,
+  restoreBundle,
+  snapshotBundle,
+  trashBundle,
+  undoImport,
   syncFolderBundle,
   readBundles,
   refreshLibrarySongs,
@@ -524,6 +529,54 @@ describe('song bundles on disk', () => {
       stableSongId(made.bundle.meta.id, nfc),
       stableSongId(made.bundle.meta.id, '2. Слава'),
     ]);
+  });
+
+  const song = (key: string, text = key) => ({
+    key,
+    number: Number.parseInt(key, 10) || null,
+    title: key,
+    slides: [{ text, style: null }],
+  });
+
+  it('a bundle renamed keeps its id and songs, its file follows the name (1.4.0)', () => {
+    const dir = path.join(tmp, 'songs');
+    const { bundle } = importSongs(dir, { name: 'Молодіжні' }, [song('1. Світло')]);
+    const renamed = renameBundle(dir, bundle.meta.id, ' Юнацькі ')!;
+    expect(renamed.meta).toMatchObject({ id: bundle.meta.id, name: 'Юнацькі' });
+    expect(renamed.file).toBe('Юнацькі.vosongs');
+    expect(listBundles(dir).map((b) => [b.file, b.meta.name, b.count])).toEqual([
+      ['Юнацькі.vosongs', 'Юнацькі', 1],
+    ]);
+    expect(renameBundle(dir, 'no-such-id', 'x')).toBeNull();
+  });
+
+  it('a deleted bundle waits in the trash for «Скасувати» (1.4.0)', () => {
+    const dir = path.join(tmp, 'songs');
+    const { bundle } = importSongs(dir, { name: 'ПС' }, [song('1. Світло'), song('2. Слава')]);
+    const gone = trashBundle(dir, bundle.meta.id)!;
+    expect(listBundles(dir)).toEqual([]);
+    const back = restoreBundle(dir, gone.trashed)!;
+    expect(back.meta.id).toBe(bundle.meta.id);
+    expect(back.count).toBe(2);
+    // once more deleted, and a bundle of that name made meanwhile: it can't come back
+    const again = trashBundle(dir, bundle.meta.id)!;
+    importSongs(dir, { name: ' пс' }, []);
+    expect(restoreBundle(dir, again.trashed)).toBeNull();
+    expect(restoreBundle(dir, 'nothing-there.vosongs')).toBeNull();
+  });
+
+  it('an import can be undone: the bundle as it was, or gone if it made it (1.4.0)', () => {
+    const dir = path.join(tmp, 'songs');
+    const { bundle } = importSongs(dir, { name: 'ПС' }, [song('1. Світло', 'стара')]);
+    const undo = snapshotBundle(dir, bundle.file);
+    importSongs(dir, { id: bundle.meta.id }, [song('1. Світло', 'нова'), song('2. Слава')]);
+    expect(readBundles(dir)[0].songs.map((x) => x.slides[0].text)).toEqual(['нова', '2. Слава']);
+    expect(undoImport(dir, undo)).toBe(true);
+    expect(readBundles(dir)[0].songs.map((x) => x.slides[0].text)).toEqual(['стара']);
+    expect(undoImport(dir, undo)).toBe(false); // once
+    const made = importSongs(dir, { name: 'Нові' }, [song('9. Нова')]);
+    expect(undoImport(dir, { file: made.bundle.file, created: true })).toBe(true);
+    expect(listBundles(dir).map((b) => b.meta.name)).toEqual(['ПС']);
   });
 
   it('names for old folders', () => {

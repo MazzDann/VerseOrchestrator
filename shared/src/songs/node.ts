@@ -237,3 +237,103 @@ export function refreshLibrarySongs(libraryPath: string, dir: string): number {
     db.close();
   }
 }
+
+// ── Managing bundles (1.4.0): rename, delete with «Скасувати», undo an import ──────────────
+
+/** Deleted bundles wait here for «Скасувати»; an import's «before» copy waits in UNDO_DIR. */
+export const TRASH_DIR = '.trash';
+export const UNDO_DIR = '.undo';
+/** how many deleted bundles the trash keeps */
+const TRASH_KEEP = 10;
+
+const findBundle = (dir: string, id: string): BundleFile | undefined =>
+  listBundles(dir).find((b) => b.meta.id === id);
+
+/**
+ * Rename a bundle: its name and its file (song ids stay — they come from the bundle's id).
+ * The caller checks that no other bundle has the name. Null: no such bundle.
+ */
+export function renameBundle(dir: string, id: string, name: string): BundleFile | null {
+  const b = findBundle(dir, id);
+  if (!b) return null;
+  const meta = { ...b.meta, name: name.trim() };
+  withBundle(path.join(dir, b.file), false, (db) => writeBundleMeta(db, meta));
+  const file = bundleFileName(
+    meta.name,
+    bundleFiles(dir).filter((f) => f !== b.file),
+  );
+  if (file !== b.file) fs.renameSync(path.join(dir, b.file), path.join(dir, file));
+  return { ...b, file, meta };
+}
+
+/**
+ * Move a bundle aside, into `.trash/`, so «Скасувати» can bring it back; the oldest there go
+ * once there are more than ten. Returns the name it has there, or null: no such bundle.
+ */
+export function trashBundle(
+  dir: string,
+  id: string,
+): { trashed: string; bundle: BundleFile } | null {
+  const b = findBundle(dir, id);
+  if (!b) return null;
+  const trash = path.join(dir, TRASH_DIR);
+  fs.mkdirSync(trash, { recursive: true });
+  const trashed = `${Date.now()}-${b.file}`;
+  fs.renameSync(path.join(dir, b.file), path.join(trash, trashed));
+  const kept = fs
+    .readdirSync(trash)
+    .filter((f) => f.toLowerCase().endsWith(BUNDLE_EXT))
+    .sort();
+  for (const old of kept.slice(0, Math.max(0, kept.length - TRASH_KEEP))) {
+    fs.rmSync(path.join(trash, old), { force: true });
+  }
+  return { trashed, bundle: b };
+}
+
+/**
+ * «Скасувати» for a deleted bundle: back from `.trash/` under a free file name. Null: it is no
+ * longer there, or a bundle of that name was made meanwhile (the library tells them by name).
+ */
+export function restoreBundle(dir: string, trashed: string): BundleFile | null {
+  const from = path.join(dir, TRASH_DIR, path.basename(trashed));
+  if (!fs.existsSync(from)) return null;
+  const meta = withBundle(from, true, (db) => readBundleMeta(db));
+  if (!meta || listBundles(dir).some((b) => sameBundleName(b.meta.name, meta.name))) return null;
+  const file = bundleFileName(meta.name, bundleFiles(dir));
+  fs.renameSync(from, path.join(dir, file));
+  return listBundles(dir).find((b) => b.file === file) ?? null;
+}
+
+/** What an import changed, for its «Скасувати»: the bundle file, and a copy of it from before. */
+export interface ImportUndo {
+  file: string;
+  /** the import made the bundle: undoing deletes it */
+  created: boolean;
+  /** the copy from before, in UNDO_DIR (an existing bundle) */
+  before?: string;
+}
+
+/** Keep a copy of an existing bundle before an import changes it. */
+export function snapshotBundle(dir: string, file: string): ImportUndo {
+  const undo = path.join(dir, UNDO_DIR);
+  fs.mkdirSync(undo, { recursive: true });
+  for (const f of fs.readdirSync(undo)) fs.rmSync(path.join(undo, f), { force: true });
+  const before = `${Date.now()}-${file}`;
+  fs.copyFileSync(path.join(dir, file), path.join(undo, before));
+  return { file, created: false, before };
+}
+
+/** «Скасувати» an import: the bundle as it was, or gone if the import made it. */
+export function undoImport(dir: string, u: ImportUndo): boolean {
+  const target = path.join(dir, u.file);
+  if (u.created) {
+    if (!fs.existsSync(target)) return false;
+    fs.rmSync(target, { force: true });
+    return true;
+  }
+  const before = u.before && path.join(dir, UNDO_DIR, u.before);
+  if (!before || !fs.existsSync(before)) return false;
+  fs.copyFileSync(before, target);
+  fs.rmSync(before, { force: true });
+  return true;
+}

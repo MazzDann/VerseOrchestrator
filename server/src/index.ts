@@ -42,7 +42,18 @@ import { readLayout } from './layout.js';
 import { createInstaller, TOP_FILES_DIR } from './installer.js';
 import type { SwapPlan, SwapResult } from './swap.js';
 import { precompressed } from './precompressed.js';
-import { bundlesDir, importSongs, listBundles, refreshLibrarySongs } from '@vo/shared/songs-node';
+import {
+  bundlesDir,
+  importSongs,
+  listBundles,
+  refreshLibrarySongs,
+  renameBundle,
+  restoreBundle,
+  snapshotBundle,
+  trashBundle,
+  undoImport,
+  type ImportUndo,
+} from '@vo/shared/songs-node';
 import { keyedError, N_, sameBundleName } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
@@ -620,6 +631,8 @@ app.get(
         id: b.meta.id,
         name: b.meta.name,
         count: b.count,
+        // a .pptx folder keeps it up to date (1.4.0: deleting it lasts only as long as the folder)
+        ...(b.meta.source ? { source: b.meta.source } : {}),
       })),
     ),
   ),
@@ -649,13 +662,13 @@ app.post(
       });
     }
     const started = Date.now();
+    // what «Скасувати» needs (1.4.0): the bundle as it was, or that the import made it
+    const before = 'id' in target ? existing.find((b) => b.meta.id === target.id) : undefined;
+    const undo = before ? snapshotBundle(dir, before.file) : null;
     const done = importSongs(dir, target, songs);
+    lastImport = undo ?? { file: done.bundle.file, created: true };
     const written = Date.now();
-    let library: number | null = null;
-    if (fs.existsSync(libraryPath)) {
-      library = refreshLibrarySongs(libraryPath, dir);
-      closeDb(); // the next read sees the new songs
-    }
+    const library = refreshSongs(dir);
     console.log(
       `[server] songs: import → «${done.bundle.meta.name}»: ${done.added} new, ${done.updated} updated` +
         ` (bundle ${written - started} ms, library ${Date.now() - written} ms)`,
@@ -666,6 +679,94 @@ app.post(
       updated: done.updated,
       library,
     });
+  }),
+);
+
+// ── Managing bundles (1.4.0): rename, delete with «Скасувати», undo the last import ─────
+
+/** The last import, for its «Скасувати» (in memory: the undo is for right after it). */
+let lastImport: ImportUndo | null = null;
+
+/** The library's songs from the bundles again, after a bundle changed. */
+function refreshSongs(dir: string): number | null {
+  if (!fs.existsSync(libraryPath)) return null;
+  const n = refreshLibrarySongs(libraryPath, dir);
+  closeDb(); // the next read sees the new songs
+  return n;
+}
+
+const notDuringRebuild = () => {
+  if (rebuilding)
+    throw new ApiError(409, N_('Бібліотека саме перебудовується — спробуйте за хвилину'));
+};
+
+app.put(
+  '/api/song-bundles/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    if (!name || name.length > 100)
+      throw new ApiError(400, N_('Назва бандла — від 1 до 100 символів'));
+    const dir = bundlesDir(dataDir);
+    const id = String(req.params.id);
+    if (listBundles(dir).some((b) => b.meta.id !== id && sameBundleName(b.meta.name, name)))
+      throw new ApiError(409, N_('Бандл «{bundle}» уже є — виберіть іншу назву'), { bundle: name });
+    const b = renameBundle(dir, id, name);
+    if (!b) throw new ApiError(404, N_('Бандл не знайдено — відкрийте список ще раз'));
+    lastImport = null; // the undo of an import doesn't reach across a rename
+    refreshSongs(dir);
+    console.log(`[server] songs: bundle renamed → «${b.meta.name}»`);
+    res.json({ id: b.meta.id, name: b.meta.name, count: b.count });
+  }),
+);
+
+app.delete(
+  '/api/song-bundles/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const dir = bundlesDir(dataDir);
+    const gone = trashBundle(dir, String(req.params.id));
+    if (!gone) throw new ApiError(404, N_('Бандл не знайдено — відкрийте список ще раз'));
+    lastImport = null; // nor across a delete
+    refreshSongs(dir);
+    console.log(`[server] songs: bundle «${gone.bundle.meta.name}» deleted (kept for undo)`);
+    res.json({
+      trashed: gone.trashed,
+      name: gone.bundle.meta.name,
+      ...(gone.bundle.meta.source ? { source: gone.bundle.meta.source } : {}),
+    });
+  }),
+);
+
+app.post(
+  '/api/song-bundles/restore',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const dir = bundlesDir(dataDir);
+    const trashed = typeof req.body?.trashed === 'string' ? req.body.trashed : '';
+    const b = trashed ? restoreBundle(dir, trashed) : null;
+    if (!b) throw new ApiError(409, N_('Бандл уже не повернути'));
+    lastImport = null;
+    refreshSongs(dir);
+    res.json({ id: b.meta.id, name: b.meta.name, count: b.count });
+  }),
+);
+
+app.post(
+  '/api/song-bundles/import/undo',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    notDuringRebuild();
+    const dir = bundlesDir(dataDir);
+    const u = lastImport;
+    lastImport = null;
+    if (!u || !undoImport(dir, u)) throw new ApiError(409, N_('Імпорт уже не скасувати'));
+    refreshSongs(dir);
+    console.log('[server] songs: the last import undone');
+    res.json({ ok: true });
   }),
 );
 
@@ -778,6 +879,7 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
     return;
   }
   rebuilding = true;
+  lastImport = null; // a rescan rewrites the folder-fed bundle: an old snapshot would undo it
   let stderr = '';
   let done = false;
   const finish = (status: number, body: object) => {
