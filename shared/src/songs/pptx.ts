@@ -7,6 +7,31 @@ import { unzipSync, strFromU8 } from 'fflate';
  * the same way.
  */
 
+/**
+ * The version of this reader. A bundle a folder of .pptx files feeds is read again when an
+ * older reader wrote it (1.2.1: title slides kept their authors in the title's box).
+ */
+export const PPTX_READER = 2;
+
+/** Where the text sits in its box, top to bottom (`<a:bodyPr anchor>`). */
+export type TextAnchor = 'top' | 'middle' | 'bottom';
+
+/**
+ * A slide's second text box, in its own place and size (1.2.1): a title slide's authors
+ * under the title, a «Приспів:» label over a chorus.
+ */
+export interface SlideBoxSpec {
+  text: string;
+  color: string;
+  align: 'left' | 'center' | 'right';
+  anchor: TextAnchor;
+  x: number; // % of slide
+  y: number;
+  w: number;
+  h: number;
+  size: number; // original font size, cqh; 0 = unknown
+}
+
 /** Faithful render style of one slide (a positioned text box on a background). */
 export interface SlideStyleSpec {
   bg: string; // background colour (hex)
@@ -19,6 +44,14 @@ export interface SlideStyleSpec {
   w: number;
   h: number;
   size: number; // original font size, % of slide height (cqh); 0 = unknown → auto-fit
+  /** Where the text sits in its box (1.2.1); absent (bundles read before) = middle. */
+  anchor?: TextAnchor;
+  /**
+   * The slide's other text box, shown apart (1.2.1). Its text is in the slide's `text` too —
+   * before or after the main box's, by where it stands — for plain text and search;
+   * `mainText` takes it out again for the faithful look.
+   */
+  sub?: SlideBoxSpec;
 }
 
 export interface SongSlide {
@@ -133,23 +166,109 @@ const ALIGN: Record<string, SlideStyleSpec['align']> = {
   just: 'left',
 };
 
-/** Build the faithful render style for one slide (its first text shape on the master background). */
-function slideStyle(
+interface Shape {
+  xml: string;
+  /** placeholder type (`body` for a placeholder without one), null for a plain text box */
+  type: string | null;
+  idx?: string;
+}
+
+/** The shapes of a slide, layout or master — only those with text, when `withText`. */
+function shapesOf(xml: string, withText: boolean): Shape[] {
+  const out: Shape[] = [];
+  for (const m of xml.matchAll(/<p:sp>([\s\S]*?)<\/p:sp>/g)) {
+    if (withText && !/<a:t>[^<]/.test(m[1])) continue;
+    const ph = first(m[1], /(<p:ph\b[^>]*>)/);
+    out.push({
+      xml: m[1],
+      type: ph ? (first(ph, /type="(\w+)"/) ?? 'body') : null,
+      idx: ph ? first(ph, /idx="(\d+)"/) : undefined,
+    });
+  }
+  return out;
+}
+
+const ANCHOR: Record<string, TextAnchor> = { t: 'top', ctr: 'middle', b: 'bottom' };
+const anchorOf = (xml: string): TextAnchor | undefined =>
+  ANCHOR[first(xml, /<a:bodyPr\b[^>]*\banchor="(\w+)"/) ?? ''];
+const isTitle = (type: string | null) => type === 'title' || type === 'ctrTitle';
+
+/**
+ * Where a shape's text sits: its own `anchor`, else its placeholder's on the slide's layout
+ * (same type, else same idx), else the master's (its title, or its body for the rest), else
+ * the top — PowerPoint's default. A title slide's layout anchors the title to the bottom
+ * of its box: centred, it sat high above the authors.
+ */
+function shapeAnchor(shape: Shape, layout: Shape[], master: Shape[]): TextAnchor {
+  const own = anchorOf(shape.xml);
+  if (own || shape.type === null) return own ?? 'top';
+  const onLayout =
+    layout.find((l) => l.type === shape.type) ??
+    (shape.idx !== undefined ? layout.find((l) => l.idx === shape.idx) : undefined);
+  const fromLayout = onLayout && anchorOf(onLayout.xml);
+  if (fromLayout) return fromLayout;
+  const onMaster = master.find((m) =>
+    isTitle(shape.type) ? m.type === 'title' : m.type === 'body',
+  );
+  return (onMaster && anchorOf(onMaster.xml)) ?? 'top';
+}
+
+/**
+ * One slide: its text and faithful style — the title's box (else the first text box's) on
+ * the master background. A slide with exactly two text boxes keeps the other one apart
+ * (`sub`, 1.2.1): before, its text went into the title's box, so a title slide showed its
+ * authors in the title's size, and a chorus its «Приспів:» label after the chorus.
+ */
+function readSlide(
   slideXml: string,
+  layout: Shape[],
+  master: Shape[],
   sw: number,
   sh: number,
   bg: string,
   theme: Theme,
-): SlideStyleSpec | null {
-  // first shape that actually has text
-  let shape: string | null = null;
-  for (const m of slideXml.matchAll(/<p:sp>([\s\S]*?)<\/p:sp>/g)) {
-    if (/<a:t>[^<]/.test(m[1])) {
-      shape = m[1];
-      break;
-    }
-  }
-  if (!shape) return null;
+): SongSlide {
+  const shapes = shapesOf(slideXml, true);
+  if (shapes.length === 0) return { text: bodyText(slideXml), style: null };
+  const main = shapes.find((x) => isTitle(x.type)) ?? shapes[0];
+  const style: SlideStyleSpec = {
+    bg,
+    ...boxOf(main.xml, sw, sh, theme),
+    anchor: shapeAnchor(main, layout, master),
+  };
+  const other = shapes.length === 2 ? shapes.find((x) => x !== main) : undefined;
+  const subText = other ? bodyText(other.xml) : '';
+  const own = bodyText(main.xml);
+  if (!other || !subText || !own) return { text: bodyText(slideXml), style };
+  const box = boxOf(other.xml, sw, sh, theme);
+  style.sub = {
+    text: subText,
+    color: box.color,
+    align: box.align,
+    anchor: shapeAnchor(other, layout, master),
+    x: box.x,
+    y: box.y,
+    w: box.w,
+    h: box.h,
+    size: box.size,
+  };
+  // plain text reads top to bottom, by the boxes' middles (a chorus box can start above its
+  // label and still hold its text lower): a label over the chorus first, the authors last
+  const above = box.y + box.h / 2 < style.y + style.h / 2;
+  return { text: above ? `${subText}\n${own}` : `${own}\n${subText}`, style };
+}
+
+/** What the main box shows on a faithful slide: the text without its separate box's (1.2.1). */
+export function mainText(text: string, style: SlideStyleSpec | null | undefined): string {
+  const sub = style?.sub?.text;
+  if (!sub) return text;
+  if (text.startsWith(`${sub}\n`)) return text.slice(sub.length + 1);
+  if (text.endsWith(`\n${sub}`)) return text.slice(0, text.length - sub.length - 1);
+  return text;
+}
+
+/** A text box: its place (% of the slide), its first run's look, its original font size. */
+function boxOf(shape: string, sw: number, sh: number, theme: Theme) {
   const off = shape.match(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/);
   const ext = shape.match(/<a:ext cx="(\d+)" cy="(\d+)"\/>/);
   const x = off ? (Number(off[1]) / sw) * 100 : 5;
@@ -168,7 +287,7 @@ function slideStyle(
   // exactly, regardless of screen size, instead of auto-fitting to the text box.
   const szRaw = Number(first(shape, /<a:rPr\b[^>]*\bsz="(\d+)"/) ?? 0);
   const size = szRaw && sh ? (szRaw * 12700) / sh : 0;
-  return { bg, color, font, bold, align, x, y, w, h, size };
+  return { color, font, bold, align, x, y, w, h, size };
 }
 
 /** A song's key from its file name: no folders, no `.pptx`. */
@@ -201,6 +320,7 @@ export function parsePptx(bytes: Uint8Array, fileName: string): ParsedSong | nul
     zip = unzipSync(bytes, {
       filter: (f) =>
         /^ppt\/slides\/slide\d+\.xml$/.test(f.name) ||
+        /^ppt\/slides\/_rels\/slide\d+\.xml\.rels$/.test(f.name) ||
         f.name === 'ppt/slideMasters/slideMaster1.xml' ||
         f.name === 'ppt/theme/theme1.xml' ||
         f.name === 'ppt/presentation.xml',
@@ -209,7 +329,35 @@ export function parsePptx(bytes: Uint8Array, fileName: string): ParsedSong | nul
     return null;
   }
   const get = (n: string) => (zip[n] ? strFromU8(zip[n]) : '');
+  // the layouts the slides use — a deck carries a dozen, a song uses two: unpack only those
+  const layoutOf = (slide: string) =>
+    first(
+      get(slide.replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels'),
+      /Target="\.\.\/slideLayouts\/(slideLayout\d+\.xml)"/,
+    );
+  const slideNames = Object.keys(zip)
+    .filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+    .sort((a, b) => slideNum(a) - slideNum(b));
+  const used = new Set(slideNames.map((n) => `ppt/slideLayouts/${layoutOf(n)}`));
+  let layoutFiles: Record<string, Uint8Array> = {};
+  try {
+    layoutFiles = unzipSync(bytes, { filter: (f) => used.has(f.name) });
+  } catch {
+    /* read before: can't fail now; without layouts, anchors come from the master */
+  }
+  const layouts = new Map<string, Shape[]>();
+  const layoutShapes = (name: string | undefined): Shape[] => {
+    if (!name) return [];
+    let shapes = layouts.get(name);
+    if (!shapes) {
+      const file = layoutFiles[`ppt/slideLayouts/${name}`];
+      shapes = file ? shapesOf(strFromU8(file), false) : [];
+      layouts.set(name, shapes);
+    }
+    return shapes;
+  };
   const masterXml = get('ppt/slideMasters/slideMaster1.xml');
+  const master = shapesOf(masterXml, false);
   const theme = parseTheme(get('ppt/theme/theme1.xml'), masterXml);
   const presXml = get('ppt/presentation.xml');
   const sw = Number(first(presXml, /<p:sldSz cx="(\d+)"/) ?? 9144000);
@@ -218,13 +366,8 @@ export function parsePptx(bytes: Uint8Array, fileName: string): ParsedSong | nul
   const bg =
     resolveFill(bgFill ? `<a:solidFill>${bgFill}</a:solidFill>` : undefined, theme) ?? '#000000';
 
-  const slides: SongSlide[] = Object.keys(zip)
-    .filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
-    .sort((a, b) => slideNum(a) - slideNum(b))
-    .map((n) => {
-      const xml = get(n);
-      return { text: bodyText(xml), style: slideStyle(xml, sw, sh, bg, theme) };
-    })
+  const slides: SongSlide[] = slideNames
+    .map((n) => readSlide(get(n), layoutShapes(layoutOf(n)), master, sw, sh, bg, theme))
     .filter((s) => s.text.trim());
   if (slides.length === 0) return null;
 

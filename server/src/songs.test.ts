@@ -61,6 +61,38 @@ describe('a song import body (0.10.1)', () => {
     });
   });
 
+  it('keeps where the text sits and a slide’s second box (1.2.1)', () => {
+    const sub = {
+      text: 'Ян Вільсон',
+      color: '#ffffff',
+      align: 'center',
+      anchor: 'top',
+      x: 8,
+      y: 80,
+      w: 84,
+      h: 20,
+      size: 4.9,
+    };
+    const titled = { ...style, anchor: 'bottom', sub };
+    const r = parseSongImport({
+      target: { id: 'b1' },
+      songs: [song({ slides: [{ text: 'Світло\nЯн Вільсон', style: titled }] })],
+    });
+    expect(r.songs[0].slides[0].style).toEqual(titled);
+    const wrong = [
+      { ...style, anchor: 'centre' },
+      { ...style, sub: { ...sub, anchor: 'nowhere' } },
+      { ...style, sub: { ...sub, size: 'big' } },
+    ];
+    for (const s of wrong) {
+      const bad = refusal({
+        target: { id: 'b1' },
+        songs: [song({ slides: [{ text: 'a', style: s }] })],
+      });
+      expect(bad?.message).toContain('вигляд слайда');
+    }
+  });
+
   it('refuses what the browser reader never sends, with a 400 in words', () => {
     const cases: [unknown, string][] = [
       [{ songs: [song()] }, 'вкажіть бандл'],

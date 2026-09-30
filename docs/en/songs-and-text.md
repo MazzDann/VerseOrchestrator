@@ -57,7 +57,14 @@ New and changed files in the same folder update that bundle after the rescan.
 - The first slide is labeled **Title**, the next ones **Stanza 1**, **Stanza 2**, and so on.
 - The lines and paragraphs of the text stay as they are in the file.
 - For **As in the file**, the app takes the background color, the text's color and font,
-  bold, alignment, the text box's place and size, and the font size from the file.
+  bold, alignment, the text box's place and size, the font size, and where the text sits
+  in its box — top, middle, or bottom — from the file.
+- If a slide has two text boxes, for example the title and the authors on the first slide
+  or a “Chorus:” label over a chorus, **As in the file** shows each box in its own place
+  and size. **Plain text** shows both as one text, top to bottom.
+- When the app starts reading `.pptx` files more exactly, it reads a bundle from the
+  `songs/` folder again by itself at the next start. A bundle made with **Import songs**
+  changes only when you import the same files again.
 
 ## Show a song
 

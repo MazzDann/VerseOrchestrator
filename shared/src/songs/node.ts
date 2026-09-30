@@ -17,7 +17,7 @@ import {
   type BundleMeta,
   type BundleSong,
 } from './bundle.js';
-import { isSongFile, parsePptx } from './pptx.js';
+import { isSongFile, parsePptx, PPTX_READER } from './pptx.js';
 import { N_ } from '../i18n/index.js';
 
 /**
@@ -89,6 +89,7 @@ export function createBundle(dir: string, name: string, source?: string): Bundle
     format: BUNDLE_FORMAT,
     created: new Date().toISOString(),
     ...(source ? { source } : {}),
+    reader: PPTX_READER,
   };
   withBundle(path.join(dir, file), false, (db) => {
     prepareBundle(db);
@@ -177,8 +178,9 @@ const mtime = (file: string): number => {
 /**
  * A folder of .pptx songs feeds a bundle of its own (0.10.0), so dropping files into it and
  * rescanning still works: the first time the folder becomes a bundle, afterwards its songs
- * go into that bundle again whenever a file in it is newer than the bundle. The bundle knows
- * its folder by name (not path), so a copy of the app on another drive finds it too.
+ * go into that bundle again whenever a file in it is newer than the bundle — or an older
+ * .pptx reader wrote it (1.2.1), so a better reading reaches the songs by itself. The bundle
+ * knows its folder by name (not path), so a copy of the app on another drive finds it too.
  * Returns the bundle it wrote, or null when there was nothing to do.
  */
 export function syncFolderBundle(
@@ -200,7 +202,11 @@ export function syncFolderBundle(
     bundle = { ...adopt, meta: { ...adopt.meta, source } };
     withBundle(path.join(dir, adopt.file), false, (db) => writeBundleMeta(db, bundle!.meta));
   }
-  if (bundle && Math.max(...files.map(mtime)) <= mtime(path.join(dir, bundle.file))) return null;
+  const fresh =
+    bundle &&
+    (bundle.meta.reader ?? 1) >= PPTX_READER &&
+    Math.max(...files.map(mtime)) <= mtime(path.join(dir, bundle.file));
+  if (fresh) return null;
   const { songs, failed } = readPptxFiles(files);
   if (songs.length === 0) return null;
   const done = importSongs(
@@ -208,13 +214,16 @@ export function syncFolderBundle(
     bundle ? { id: bundle.meta.id } : { name: legacyBundleName(folder), source },
     songs,
   );
+  // every song of the folder was read just now: the bundle is this reader's
+  const meta = { ...done.bundle.meta, reader: PPTX_READER };
+  withBundle(path.join(dir, done.bundle.file), false, (db) => writeBundleMeta(db, meta));
   log(
     bundle
       ? `songs: ${folder} → bundle «${done.bundle.meta.name}»: ${done.added} new, ${done.updated} updated`
       : `songs: ${folder} → new bundle «${done.bundle.meta.name}» (${done.bundle.count} songs)`,
   );
   for (const f of failed) log(`songs: skipped ${f} (not a readable song)`);
-  return { ...done.bundle, failed };
+  return { ...done.bundle, meta, failed };
 }
 
 /** Replace the library's songs with the bundles' songs; the library file must exist. */

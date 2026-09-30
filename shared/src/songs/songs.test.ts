@@ -25,7 +25,7 @@ import {
   readBundles,
   refreshLibrarySongs,
 } from './node.js';
-import { isSongFile, parsePptx, songNumberTitle } from './pptx.js';
+import { isSongFile, mainText, parsePptx, PPTX_READER, songNumberTitle } from './pptx.js';
 
 /** A minimal .pptx: a theme, a master with a scheme-coloured background, the given slides. */
 function pptx(slides: string[]): Uint8Array {
@@ -55,6 +55,66 @@ function pptx(slides: string[]): Uint8Array {
   return zipSync(files);
 }
 
+/**
+ * A song as PowerPoint makes one (1.2.1): a title slide (a title placeholder the layout
+ * anchors to the bottom + the authors in a subtitle), a chorus with a «Приспів:» text box
+ * over it, a plain stanza. The master centres titles.
+ */
+function titledPptx(): Uint8Array {
+  const para = (t: string, sz: number) =>
+    `<a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="uk-UA" sz="${sz}"/><a:t>${t}</a:t></a:r></a:p>`;
+  const sp = (ph: string, x: number, y: number, cx: number, cy: number, body: string) =>
+    `<p:sp><p:nvSpPr><p:nvPr>${ph}</p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/>` +
+    `<a:ext cx="${cx}" cy="${cy}"/></a:xfrm></p:spPr><p:txBody><a:bodyPr/>${body}</p:txBody></p:sp>`;
+  const sld = (shapes: string) => `<p:sld><p:cSld><p:spTree>${shapes}</p:spTree></p:cSld></p:sld>`;
+  const rels = (layout: number) =>
+    `<Relationships><Relationship Id="rId1" Target="../slideLayouts/slideLayout${layout}.xml"/></Relationships>`;
+  const layoutSp = (ph: string, bodyPr: string) =>
+    `<p:sp><p:nvSpPr><p:nvPr>${ph}</p:nvPr></p:nvSpPr><p:txBody>${bodyPr}</p:txBody></p:sp>`;
+  const files: Record<string, string> = {
+    'ppt/presentation.xml':
+      '<p:presentation><p:sldSz cx="9144000" cy="5143500" type="screen16x9"/></p:presentation>',
+    'ppt/theme/theme1.xml':
+      '<a:theme><a:clrScheme name="x"><a:dk1><a:srgbClr val="000000"/></a:dk1><a:lt1><a:srgbClr val="FFFFFF"/></a:lt1></a:clrScheme></a:theme>',
+    'ppt/slideMasters/slideMaster1.xml':
+      '<p:sldMaster><p:cSld><p:spTree>' +
+      layoutSp('<p:ph type="title"/>', '<a:bodyPr vert="horz" anchor="ctr"/>') +
+      layoutSp('<p:ph type="body" idx="1"/>', '<a:bodyPr vert="horz"/>') +
+      '</p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1"/></p:sldMaster>',
+    'ppt/slideLayouts/slideLayout1.xml':
+      '<p:sldLayout><p:cSld><p:spTree>' +
+      layoutSp('<p:ph type="ctrTitle"/>', '<a:bodyPr anchor="b"/>') +
+      layoutSp('<p:ph type="subTitle" idx="1"/>', '<a:bodyPr/>') +
+      '</p:spTree></p:cSld></p:sldLayout>',
+    'ppt/slideLayouts/slideLayout6.xml':
+      '<p:sldLayout><p:cSld><p:spTree>' +
+      layoutSp('<p:ph type="title"/>', '<a:bodyPr/>') +
+      '</p:spTree></p:cSld></p:sldLayout>',
+    'ppt/slides/slide1.xml': sld(
+      sp('<p:ph type="ctrTitle"/>', 0, 841772, 9144000, 1790700, para('10. Вся шир землі', 6000)) +
+        sp(
+          '<p:ph type="subTitle" idx="1"/>',
+          728663,
+          4135211,
+          7686675,
+          1241822,
+          para('Ян Вільсон', 2000) + para('Укр. текст: О. Павлюк', 2000),
+        ),
+    ),
+    'ppt/slides/_rels/slide1.xml.rels': rels(1),
+    'ppt/slides/slide2.xml': sld(
+      sp('<p:ph type="title"/>', 0, 273844, 9144000, 4597701, para('Алілуя, Алілуя', 7200)) +
+        sp('', 2996419, 340000, 3094892, 400110, para('Приспів:', 2000)),
+    ),
+    'ppt/slides/_rels/slide2.xml.rels': rels(6),
+    'ppt/slides/slide3.xml': sld(
+      sp('<p:ph type="title"/>', 0, 273844, 9144000, 4597701, para('Строфа', 7200)),
+    ),
+    'ppt/slides/_rels/slide3.xml.rels': rels(6),
+  };
+  return zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)])));
+}
+
 describe('a .pptx song', () => {
   it('number and title from the file name, one slide per slide with text, the look kept', () => {
     const song = parsePptx(pptx(['Слава', '', 'Слава Богу\nна висоті']), 'ПС/12. Слава.pptx');
@@ -72,6 +132,41 @@ describe('a .pptx song', () => {
     });
     expect(song!.slides[0].style!.font).toMatch(/^"Arial"/);
     expect(song!.slides[0].style!.size).toBeCloseTo((4000 * 12700) / 5143500, 5);
+  });
+
+  it('a title slide keeps its authors in their own box, the title at its box’s bottom (1.2.1)', () => {
+    const song = parsePptx(titledPptx(), '10. Вся шир землі.pptx')!;
+    const [title, chorus, stanza] = song.slides;
+    // plain text and search: everything, top to bottom
+    expect(title.text.split('\n')).toEqual([
+      '10. Вся шир землі',
+      'Ян Вільсон',
+      'Укр. текст: О. Павлюк',
+    ]);
+    expect(title.style).toMatchObject({ anchor: 'bottom', x: 0, w: 100 });
+    expect(title.style!.y).toBeCloseTo(16.37, 1);
+    expect(title.style!.sub!.text.split('\n')).toEqual(['Ян Вільсон', 'Укр. текст: О. Павлюк']);
+    expect(title.style!.sub).toMatchObject({
+      anchor: 'top', // the subtitle: the layout says nothing, the master's body neither
+      align: 'center',
+    });
+    expect(title.style!.sub!.y).toBeCloseTo(80.4, 1);
+    expect(title.style!.sub!.size).toBeCloseTo((2000 * 12700) / 5143500, 5);
+    expect(mainText(title.text, title.style)).toBe('10. Вся шир землі');
+
+    // a label over the chorus comes first in the text; the chorus itself centred (master)
+    expect(chorus.text.split('\n')).toEqual(['Приспів:', 'Алілуя, Алілуя']);
+    expect(chorus.style).toMatchObject({
+      anchor: 'middle',
+      sub: { text: 'Приспів:', anchor: 'top' },
+    });
+    expect(mainText(chorus.text, chorus.style)).toBe('Алілуя, Алілуя');
+
+    expect(stanza.text).toBe('Строфа');
+    expect(stanza.style).toMatchObject({ anchor: 'middle' });
+    expect(stanza.style!.sub).toBeUndefined();
+    expect(mainText(stanza.text, stanza.style)).toBe('Строфа');
+    expect(mainText('Старий текст', null)).toBe('Старий текст');
   });
 
   it('not a song: no text, or not a zip', () => {
@@ -221,6 +316,30 @@ describe('song bundles on disk', () => {
     fs.utimesSync(path.join(legacy, '1. Боже Вічний.pptx'), past, past);
     expect(syncFolderBundle(dir, legacy)).toBeNull();
     expect(listBundles(dir).map((b) => b.meta.source)).toEqual(['ПС укр 1-477']);
+  });
+
+  it('a folder bundle an older .pptx reader wrote is read again, once (1.2.1)', () => {
+    const legacy = path.join(tmp, 'ПС укр 1-477');
+    fs.mkdirSync(legacy, { recursive: true });
+    const file = path.join(legacy, '10. Вся шир землі.pptx');
+    fs.writeFileSync(file, titledPptx());
+    const past = new Date(Date.now() - 60_000);
+    fs.utimesSync(file, past, past);
+    const dir = path.join(tmp, 'data', 'songs');
+    const made = syncFolderBundle(dir, legacy)!;
+    expect(made.meta.reader).toBe(PPTX_READER);
+    // as a bundle from before 1.2.1: no reader in its meta, the title slide read the old way
+    const bundleFile = path.join(dir, made.file);
+    const db = new Database(bundleFile);
+    db.prepare("DELETE FROM meta WHERE key = 'reader'").run();
+    db.prepare('UPDATE songs SET slides = ?').run(JSON.stringify([{ text: 'old', style: null }]));
+    db.close();
+    expect(listBundles(dir)[0].meta.reader).toBeUndefined();
+
+    const again = syncFolderBundle(dir, legacy); // the file is older than the bundle
+    expect(again).toMatchObject({ meta: { reader: PPTX_READER } });
+    expect(readBundles(dir)[0].songs[0].slides[0].style!.sub).toBeDefined();
+    expect(syncFolderBundle(dir, legacy)).toBeNull(); // read by this reader: nothing to do
   });
 
   it('names for old folders', () => {

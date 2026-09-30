@@ -186,7 +186,14 @@ export function Follow() {
                   </p>
                 ))}
             {slide!.subline && (
-              <p style={{ margin: 0, opacity: 0.85, fontSize: 'clamp(14px, 4vw, 22px)' }}>
+              <p
+                style={{
+                  margin: 0,
+                  opacity: 0.85,
+                  fontSize: 'clamp(14px, 4vw, 22px)',
+                  whiteSpace: 'pre-line', // a song title slide's authors: one per line
+                }}
+              >
                 {slide!.subline}
               </p>
             )}
