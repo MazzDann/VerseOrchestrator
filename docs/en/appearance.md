@@ -60,6 +60,22 @@ In the **Background** section:
   darkened a little so the text stays readable. To remove the image, click the trash icon
   **Remove the background**.
 
+## Set up the cover
+
+The cover is what the viewers see between the items of a show: your logo and a line of text
+on the slide's background. The L key or the **Cover** button at the top of the control
+window turns it on and off.
+
+In the **Cover** section:
+
+- **Cover text** — for example, the gathering's name. Up to three lines.
+- **Logo** — click **Upload** and choose a PNG, JPEG, or WebP file. A PNG keeps its
+  transparency, and a large image is scaled down to 800 pixels on its longer side. To remove
+  the logo, click the trash icon **Remove the logo**.
+
+An empty cover shows only the background. Presets don't keep the cover: it stays yours
+whichever look you choose.
+
 ## Place the slide's elements
 
 In the **Slide layout** section, in the **Template** field, choose how the slide's elements
