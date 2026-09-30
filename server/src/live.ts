@@ -30,8 +30,9 @@ import {
  * the output changes; the hub relays it to remotes only (never to audience viewers), and
  * sends control sockets { type: 'viewers', count } whenever the audience count changes.
  *
- * Server → client frames: slide · welcome · denied · ack · revoked · remotes (control only:
- * "the remote list/online state changed, refetch").
+ * Server → client frames: app · slide · welcome · denied · ack · revoked · remotes (control
+ * only: "the remote list/online state changed, refetch"). `app` comes first on every socket:
+ * { type: 'app', version } — a page of another version (the app was updated under it) reloads.
  */
 
 type Role = 'viewer' | 'control' | 'remote';
@@ -387,7 +388,7 @@ function onResult(msg: Record<string, unknown>) {
 }
 
 /** Attach the WebSocket endpoint to the HTTP server (upgrade on WS_PATH only). */
-export function attachLiveHub(server: Server): void {
+export function attachLiveHub(server: Server, appVersion?: string): void {
   wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES });
 
   server.on('upgrade', (req, socket, head) => {
@@ -402,6 +403,7 @@ export function attachLiveHub(server: Server): void {
   wss.on('connection', (ws, req: IncomingMessage) => {
     const m: Meta = { role: 'viewer', alive: true, recent: [] };
     meta.set(ws, m);
+    if (appVersion) send(ws, { type: 'app', version: appVersion });
     ws.on('pong', () => (m.alive = true));
     ws.on('message', (data) => {
       let msg: Record<string, unknown>;

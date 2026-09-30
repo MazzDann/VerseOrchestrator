@@ -1158,4 +1158,64 @@ export const EN: Record<string, string> = {
   // 0.14.1 release copies
   'У реліз бібліотека не потрапляє: переклади мають власні ліцензії. Приберіть --with-library.':
     'A release never carries the library: the translations have their own licences. Drop --with-library.',
+  // 1.0.0 update check
+  'У вас остання версія': 'You have the latest version',
+  'Перевіряю…': 'Checking…',
+  'Доступна версія {version} (у вас {current}).':
+    'Version {version} is available (you have {current}).',
+  'Ще не перевіряли.': 'Not checked yet.',
+  'У вас остання версія ({current}). Перевірено {when}.':
+    'You have the latest version ({current}). Checked {when}.',
+  Оновлення: 'Updates',
+  'Що нового': 'What’s new',
+  'Щоб оновити копію репозиторію, виконайте git pull і запустіть застосунок.':
+    'To update a clone of the repository, run git pull and start the app.',
+  'Перевірити зараз': 'Check now',
+  'Перевіряти оновлення': 'Check for updates',
+  'Доступна версія {version} — див. «Застосунок» → «Оновлення»':
+    'Version {version} is available — see “App” → “Updates”',
+  'Не вдалося перевірити оновлення: немає зв’язку з GitHub':
+    'Couldn’t check for updates: no connection to GitHub',
+  // 1.0.0 installing updates
+  'Оновлювати сам уміє лише застосунок з архіву релізу':
+    'Only the app from a release archive can update itself',
+  'Новішої версії немає': 'There is no newer version',
+  'Оновлення ще не завантажено': 'The update hasn’t been downloaded yet',
+  'Для цієї системи в релізі немає архіву': 'The release has no archive for this system',
+  'Замало місця на диску: потрібно близько {mb} МБ': 'Not enough disk space: about {mb} MB needed',
+  'Архів оновлення пошкоджено: контрольна сума не збігається':
+    'The update archive is damaged: the checksum doesn’t match',
+  'Не вдалося завантажити оновлення: немає зв’язку з GitHub':
+    'Couldn’t download the update: no connection to GitHub',
+  'Не вдалося розпакувати оновлення': 'Couldn’t unpack the update',
+  'Архів оновлення має незнайому будову': 'The update archive has an unknown layout',
+  'В архіві оновлення не та версія': 'The update archive holds a different version',
+  'Не вдалося замінити папку app/ — працює попередня версія':
+    'Couldn’t replace the app/ folder — the previous version is running',
+  'Нова версія не запустилася — повернуто попередню':
+    'The new version didn’t start — the previous one is back',
+  'Застосунок оновлюється: нова версія запуститься сама, у фоні.':
+    'The app is updating: the new version starts by itself, in the background.',
+  'Застосунок не відповідає після оновлення. Запустіть його знову файлом запуску; що сталося — у data/updates/swap.log.':
+    'The app doesn’t answer after the update. Start it again with the start file; what happened is in data/updates/swap.log.',
+  'Перезапускаю застосунок з версією {version}…': 'Restarting the app with version {version}…',
+  'Сторінка оновиться сама, щойно застосунок відповість. Телефони під’єднаються знову.':
+    'The page reloads by itself as soon as the app answers. Phones reconnect.',
+  'Раз на 12 годин застосунок питає GitHub про нові версії. Завантажує й установлює лише тоді, коли ви натиснете кнопку.':
+    'Every 12 hours the app asks GitHub about new versions. It downloads and installs only when you click the button.',
+  'Оновлено з {from} до {to} ({when}).': 'Updated from {from} to {to} ({when}).',
+  'Оновлення до {to} не вдалося.': 'The update to {to} failed.',
+  'Подробиці — у data/updates/swap.log.': 'Details are in data/updates/swap.log.',
+  'Для цієї системи в релізі немає архіву: завантажте застосунок зі сторінки релізу.':
+    'The release has no archive for this system: download the app from the release page.',
+  'Завантажую: {got} з {total} МБ': 'Downloading: {got} of {total} MB',
+  'Перевіряю контрольну суму…': 'Checking the checksum…',
+  'Розпаковую…': 'Unpacking…',
+  'Версію {version} завантажено. Перезапустіть застосунок, щоб перейти на неї: це займе до хвилини.':
+    'Version {version} is downloaded. Restart the app to switch to it: it takes up to a minute.',
+  'Перезапустити й оновити': 'Restart and update',
+  'Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.':
+    'Close the output windows first — the app doesn’t restart during a show.',
+  'Спробувати ще раз': 'Try again',
+  'Завантажити оновлення ({mb} МБ)': 'Download the update ({mb} MB)',
 };

@@ -1,5 +1,15 @@
 import type { ReactNode } from 'react';
-import { ActionIcon, Button, Divider, Group, Kbd, Stack, Text, Tooltip } from '@mantine/core';
+import {
+  ActionIcon,
+  Button,
+  Divider,
+  Group,
+  Indicator,
+  Kbd,
+  Stack,
+  Text,
+  Tooltip,
+} from '@mantine/core';
 import { formatChord } from '../hotkeys';
 
 /**
@@ -48,6 +58,8 @@ interface ToolProps {
   active?: boolean;
   color?: string;
   disabled?: boolean;
+  /** Something new behind this button (a newer version behind the settings, 1.0.0). */
+  dot?: boolean;
 }
 
 /** Icon-only toolbar button. */
@@ -60,20 +72,23 @@ export function ToolIcon({
   active,
   color,
   disabled,
+  dot,
 }: ToolProps) {
   return (
     <Tooltip label={<Tip label={label} hint={hint} combo={combo} />} withArrow openDelay={250}>
-      <ActionIcon
-        variant={active ? 'filled' : 'default'}
-        color={color ?? 'brand'}
-        size="lg"
-        onClick={onClick}
-        disabled={disabled}
-        aria-label={label}
-        aria-pressed={active}
-      >
-        {icon}
-      </ActionIcon>
+      <Indicator disabled={!dot} size={8} offset={4} color="brand" withBorder>
+        <ActionIcon
+          variant={active ? 'filled' : 'default'}
+          color={color ?? 'brand'}
+          size="lg"
+          onClick={onClick}
+          disabled={disabled}
+          aria-label={label}
+          aria-pressed={active}
+        >
+          {icon}
+        </ActionIcon>
+      </Indicator>
     </Tooltip>
   );
 }
