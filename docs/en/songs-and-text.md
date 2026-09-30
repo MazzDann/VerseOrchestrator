@@ -54,7 +54,13 @@ New and changed files in the same folder update that bundle after the rescan.
   `123. Song title.pptx`. A period, a hyphen, or a parenthesis follows the number. A song
   without a number in its file name can be found only by its title.
 - Every slide with text becomes a slide of the song; slides without text are skipped.
-- The first slide is labeled **Title**, the next ones **Stanza 1**, **Stanza 2**, and so on.
+- The first slide is labeled **Title**, the stanzas **Stanza 1**, **Stanza 2**, and so on.
+- A slide whose first line starts with the word “Chorus” (or «Приспів», «Припев»,
+  “Refrain”) is labeled **Chorus**, and so is a slide with the same words and no label. If a
+  song has several choruses with different words, they are numbered: **Chorus 1**,
+  **Chorus 2**. If a chorus takes several slides in a row, the label adds the part:
+  **Chorus · 1/2**. A label in the file that says more, such as «Приспів (до 5-го куплету)»,
+  is shown as the file writes it.
 - The lines and paragraphs of the text stay as they are in the file.
 - For **As in the file**, the app takes the background color, the text's color and font,
   bold, alignment, the text box's place and size, the font size, and where the text sits
@@ -72,13 +78,19 @@ To show a song:
 
 1. At the top, click the **Songs** icon. The song search appears above the verses.
 2. Type the song's number or a few letters of its title.
-3. In the list, click the song. Its slides appear: the first is labeled **Title**, the next
-   ones **Stanza 1**, **Stanza 2**, and so on.
+3. In the list, click the song. Its slides appear: **Title**, the stanzas, and the
+   choruses.
 4. Click a slide. It appears on screen at once.
 
 While a song is open, the arrow keys, PageUp, and PageDown step through its slides, not the
 verses. A clicker, the keys in the presentation window, and the speaker remote step through
 the song too.
+
+To show the chorus at once, press C or click the **To the chorus** icon above the song's
+slides. It shows the nearest chorus after the current slide, so in a song with its own
+chorus after each stanza, it is the one after that stanza. Past the last chorus of a song
+that writes its chorus once, **To the chorus** goes back to it. The icon is there only in
+songs with a chorus.
 
 After the last stanza, **Next** shows an empty slide: the text disappears, the background
 stays. The **End** line at the end of the list does the same.

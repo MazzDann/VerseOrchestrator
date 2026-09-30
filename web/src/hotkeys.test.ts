@@ -128,6 +128,16 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
     expect(formatChord('alt+right', true)).toBe('⌥→');
   });
 
+  it('«До приспіву» on C everywhere, clashing with nothing (1.3.0)', () => {
+    for (const mac of [false, true]) {
+      expect(defaultKeymap(mac).chorus).toBe('c');
+      expect(conflictsForAction(defaultKeymap(mac), 'chorus')).toEqual([]);
+    }
+    // a keymap saved before 1.3.0 gets it
+    expect(sanitizeKeymap({ blank: 'b' }, false).chorus).toBe('c');
+    expect(matchesCombo(evt('с', 'KeyC'), 'c')).toBe(true); // the Ukrainian layout's «с» key
+  });
+
   it('a keymap saved before stays the user’s, but untouched old defaults get the ⌘ chords', () => {
     const km = sanitizeKeymap(
       { project: 'f5,f2', searchAll: 'f9', palette: 'ctrl+k,ctrl+p' },
