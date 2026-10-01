@@ -30,8 +30,9 @@ start.cmd / start.command / start.sh
 
 - The **launcher** checks Node.js, runs `npm ci` when the lockfile's packages changed,
   rebuilds `better-sqlite3` for another Node.js ABI, builds the library from `modules/`
-  when there is none, builds `web/dist` when its version stamp is stale, and then runs
-  the standby waiter in the foreground.
+  when there is none, builds `web/dist` when its stamp is stale (`web/dist/.vo-version`,
+  written by every web build: the version and, in a clone, a hash of the interface's
+  sources), and then runs the standby waiter in the foreground.
 - The **standby waiter** holds the app's address on every interface. The first request
   starts the app server; from then on it forwards HTTP and WebSocket traffic and appends
   the visitor's address to `X-Forwarded-For`. After 15 idle minutes (no requests and no
@@ -159,7 +160,7 @@ alone.
 | a hotkey                                 | `web/src/hotkeys.ts`                                                                                                                                       |
 | a command from output windows or remotes | `web/src/lib/commands.ts`; for remotes also `server/src/remote.ts`, `server/src/live.ts`, `web/src/pages/Remote.tsx`, `web/src/components/RemotePanel.tsx` |
 | output windows and screens               | `web/src/lib/outputs.ts`, `web/src/lib/screens.ts`, `web/src/openPresenter.ts`, `OutputsPanel.tsx`                                                         |
-| starting, stopping, portable copies      | `server/src/launcher.ts`, `standby.ts`, `autostart.ts`, `portable.ts`, `shortcut.ts`                                                                       |
+| starting, stopping, portable copies      | `server/src/launcher.ts`, `standby.ts`, `autostart.ts`, `portable.ts`, `shortcut.ts`, `uiStamp.ts`                                                         |
 
 The launcher's files run before `npm ci`, straight from TypeScript through Node.js type
 stripping: they import only `node:` modules and each other (with `.ts` extensions) and

@@ -1043,6 +1043,8 @@ export const EN: Record<string, string> = {
   'немає {file} — потрібен Node.js з npm': 'no {file} — Node.js with npm is needed',
   'немає npm поруч із {node} — потрібен Node.js з npm':
     'no npm next to {node} — Node.js with npm is needed',
+  '{node} — Node.js, що залежить від бібліотек поруч (так його встановлює Homebrew): у копії він не запуститься. Запустіть npm run portable з Node.js з nodejs.org (або встановленим через fnm чи nvm).':
+    '{node} is a Node.js that depends on libraries next to it (Homebrew installs it that way): it won’t start in a copy. Run npm run portable with Node.js from nodejs.org (or installed with fnm or nvm).',
   'двічі клацніть start.cmd': 'double-click start.cmd',
   'двічі клацніть start.command': 'double-click start.command',
   'виконайте ./start.sh у терміналі': 'run ./start.sh in a terminal',
