@@ -38,6 +38,16 @@
   border-color: transparent;
 }
 
+/* «Ще» in the header (components/Toolbar.tsx ToolMore): an open panel's item reads as on,
+   like its toggle in the toolbar; a coloured item («Глядачі» broadcasting) keeps its colour */
+.vo-menu-item[data-active='true'] {
+  background: var(--mantine-color-brand-light);
+  color: var(--menu-item-color, var(--mantine-color-brand-light-color));
+}
+.vo-menu-item[data-active='true'][data-hovered] {
+  background: var(--mantine-color-brand-light-hover);
+}
+
 .vo-strong {
   cursor: pointer;
   border-bottom: 1px dotted var(--mantine-color-dimmed);
