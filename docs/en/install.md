@@ -179,13 +179,21 @@ and modules carry over to the new version.
 
 If something is wrong with a new version, go back to the one you had before the update:
 
-1. Close the output windows: the app doesn't restart during a show.
+1. Close the output windows: the app doesn't restart during a show. If an update is
+   unpacking, wait until it is ready. A download still under way stops.
 2. In **Settings** → **App** → **Updates**, click **Go back to version …** with the previous
    version's number, then **Bring back** in the confirmation.
 
 In a few seconds the app runs the previous version, and **Updates** says “Went back to
 version …”. The version you left stays next to it, so you can go to it with the same button.
 If the previous version doesn't start, the app keeps the one you had.
+
+Versions before 1.4.0 can't go back to another version yet. If you went back to such a
+version, it has no **Go back to version …** button, and **Updates** says “Updated from … to
+…”. To switch to the newer version again, update the app as described above: this needs the
+internet. If you went back from version 1.4.1 or later and it is still the latest, you don't
+have to download it again: **Updates** offers **Restart and update** at once. After going
+back from 1.4.0, the archive has to be downloaded again.
 
 ### Update by hand
 

@@ -367,6 +367,22 @@ function browserLang(): Lang {
   return pickLang(navigator.languages?.length ? navigator.languages : [navigator.language ?? '']);
 }
 
+/**
+ * Did the last write of the settings reach localStorage (1.4.1)? A full storage used to refuse
+ * it silently — in Safari's 5 MB a photo as the logo next to a background photo was enough —
+ * and every later change was lost with it, unnoticed: the window that made it still showed it.
+ */
+let lastSaveOk = true;
+const saveFailedWatchers = new Set<() => void>();
+export const settingsSaved = (): boolean => lastSaveOk;
+/** Called on every write of the settings the browser refuses (a page shows a notice). */
+export function onSettingsSaveFailed(cb: () => void): () => void {
+  saveFailedWatchers.add(cb);
+  return () => {
+    saveFailedWatchers.delete(cb);
+  };
+}
+
 export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
@@ -509,14 +525,18 @@ export const useSettings = create<SettingsState>()(
       name: 'vo:settings',
       version: 1,
       // Guard the write so a localStorage quota error (e.g. a large bgImage) can't
-      // throw out of an unrelated setState — it degrades to "not persisted" instead.
+      // throw out of an unrelated setState — it degrades to "not persisted" instead, and
+      // says so (1.4.1): `settingsSaved`, `onSettingsSaveFailed`.
       storage: createJSONStorage(() => ({
         getItem: (k) => localStorage.getItem(k),
         setItem: (k, v) => {
           try {
             localStorage.setItem(k, v);
+            lastSaveOk = true;
           } catch {
-            /* quota/availability — keep running with in-memory state */
+            // quota/availability — keep running with in-memory state
+            lastSaveOk = false;
+            for (const cb of saveFailedWatchers) cb();
           }
         },
         removeItem: (k) => localStorage.removeItem(k),
@@ -542,3 +562,17 @@ export const useSettings = create<SettingsState>()(
     },
   ),
 );
+
+/**
+ * Put a picked image into the appearance (1.4.1): the logo or the background. One the storage
+ * refuses is taken back at once — else the state that can't be stored keeps every later change
+ * from saving too. False: not kept (the pages say why: `onSettingsSaveFailed`).
+ */
+export function setAppearanceImage(field: 'coverImage' | 'bgImage', data: string): boolean {
+  const { appearance, setAppearance } = useSettings.getState();
+  const before = appearance[field];
+  setAppearance(field === 'coverImage' ? { coverImage: data } : { bgImage: data });
+  if (lastSaveOk) return true;
+  setAppearance(field === 'coverImage' ? { coverImage: before } : { bgImage: before });
+  return false;
+}

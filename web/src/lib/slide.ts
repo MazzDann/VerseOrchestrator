@@ -33,13 +33,25 @@ export interface ScreenSummary {
   source?: SlideSource;
 }
 
+/** Anything to show — text, the viewers' QR slide or «Заставка» (a cover has no lines). */
+const hasContent = (s: Slide) => s.lines.length > 0 || !!s.qr || !!s.cover;
+
+/**
+ * Do the viewers see the slide now — something to show, neither hidden nor black? The
+ * control window's toggles and the stage display ask this (1.4.1: they counted only lines,
+ * so «Заставка» read as an empty screen).
+ */
+export function showsSomething(s: Slide): boolean {
+  return s.visible && !s.blank && !s.forceBlack && hasContent(s);
+}
+
 export function summarize(slide: Slide | null | undefined): ScreenSummary {
   if (!slide) return { status: 'empty', reference: '', text: '' };
   const status: ScreenSummary['status'] = slide.forceBlack
     ? 'black'
     : slide.blank
       ? 'blank'
-      : slide.visible && (slide.lines.length > 0 || !!slide.qr || !!slide.cover)
+      : slide.visible && hasContent(slide)
         ? 'live'
         : 'empty';
   return {
@@ -64,7 +76,7 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
 export function toggleHidden(s: Slide): Slide | null {
   if (s.forceBlack) return { ...s, forceBlack: false, blank: true };
   if (s.blank) return { ...s, blank: false };
-  if (!s.visible || (s.lines.length === 0 && !s.qr && !s.cover)) return null;
+  if (!s.visible || !hasContent(s)) return null;
   return { ...s, blank: true };
 }
 

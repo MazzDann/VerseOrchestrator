@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sameSlide, summarize, toggleBlack, toggleHidden } from './slide';
+import { sameSlide, showsSomething, summarize, toggleBlack, toggleHidden } from './slide';
 import type { Slide } from '../presenterBus';
 
 const base: Slide = {
@@ -99,6 +99,18 @@ describe('«Заставка» (1.4.0)', () => {
     const hidden = toggleHidden(cover)!;
     expect(hidden.blank).toBe(true);
     expect(toggleHidden(hidden)).toEqual({ ...cover, blank: false });
+  });
+
+  it('is on screen for the stage display and the toggles, hidden or black is not (1.4.1)', () => {
+    // the stage header read «Порожньо» over it, and black → back left the control window's
+    // preview behind: both counted only lines
+    expect(showsSomething(cover)).toBe(true);
+    expect(showsSomething({ ...cover, cover: undefined, qr: 'http://x/follow' })).toBe(true);
+    expect(showsSomething(toggleBlack(cover))).toBe(false);
+    expect(showsSomething(toggleBlack(toggleBlack(cover)))).toBe(true);
+    expect(showsSomething(toggleHidden(cover)!)).toBe(false);
+    expect(showsSomething({ ...cover, visible: false })).toBe(false);
+    expect(showsSomething({ ...cover, cover: undefined })).toBe(false);
   });
 
   it('a change of its text or image is a new slide', () => {

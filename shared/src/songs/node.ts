@@ -36,13 +36,38 @@ export interface BundleFile {
   count: number;
 }
 
+/** A bundle's file, not a Mac's `._NAME.vosongs` companion on exFAT (1.4.1). */
+const isBundleFile = (f: string): boolean =>
+  !f.startsWith('._') && f.toLowerCase().endsWith(BUNDLE_EXT);
+
+/** The bundle files in `dir`, their names as the file system hands them back. */
 const bundleFiles = (dir: string): string[] =>
   fs.existsSync(dir)
     ? fs
         .readdirSync(dir)
-        .filter((f) => f.toLowerCase().endsWith(BUNDLE_EXT))
+        .filter(isBundleFile)
         .sort((a, b) => a.localeCompare(b, 'uk'))
     : [];
+
+const statOf = (file: string): fs.Stats | undefined => fs.statSync(file, { throwIfNoEntry: false });
+
+/**
+ * A file name for a new file of a bundle called `name` that takes no other bundle's file: not
+ * one of the bundle files in any case or Unicode form (`bundleFileName`), and nothing in `dir`
+ * answers to it by the file system's own rules either — a Mac's exFAT hands names back
+ * decomposed and opens them by either spelling (1.4.1). `own`: the bundle's file when it is
+ * renamed — the same file under a new case or spelling is still its own.
+ */
+function freeBundleFile(dir: string, name: string, own?: string): string {
+  const taken = bundleFiles(dir).filter((f) => f !== own);
+  const self = own === undefined ? undefined : statOf(path.join(dir, own));
+  for (;;) {
+    const file = bundleFileName(name, taken);
+    const there = statOf(path.join(dir, file));
+    if (!there || (self && there.ino === self.ino && there.dev === self.dev)) return file;
+    taken.push(file);
+  }
+}
 
 function withBundle<T>(file: string, readonly: boolean, fn: (db: Database.Database) => T): T {
   const db = new Database(file, { readonly, fileMustExist: readonly });
@@ -82,7 +107,7 @@ export function readBundles(dir: string): Bundle[] {
 /** A new, empty bundle called `name` in `dir` (`source`: the .pptx folder that feeds it). */
 export function createBundle(dir: string, name: string, source?: string): BundleFile {
   fs.mkdirSync(dir, { recursive: true });
-  const file = bundleFileName(name, bundleFiles(dir));
+  const file = freeBundleFile(dir, name);
   const meta: BundleMeta = {
     id: randomUUID(),
     name: name.trim(),
@@ -91,6 +116,8 @@ export function createBundle(dir: string, name: string, source?: string): Bundle
     ...(source ? { source } : {}),
     reader: PPTX_READER,
   };
+  // a new file, never an existing one: another bundle's file would take this one's meta (1.4.1)
+  fs.closeSync(fs.openSync(path.join(dir, file), 'wx')); // SQLite takes an empty file as new
   withBundle(path.join(dir, file), false, (db) => {
     prepareBundle(db);
     writeBundleMeta(db, meta);
@@ -116,14 +143,19 @@ export function importSongs(
   return { bundle: { ...bundle, count: bundle.count + result.added }, ...result };
 }
 
-/** .pptx files under a folder, recursively, without Office lock files (`~$…`). */
+/**
+ * .pptx files under a folder, recursively, without Office lock files (`~$…`), a Mac's `._…`
+ * companions (`isSongFile`) and hidden folders — `.Trashes` when the folder is a flash drive's
+ * root holds the songs deleted in the Finder (1.4.1).
+ */
 export function listPptx(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
   const out: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...listPptx(full));
-    else if (isSongFile(entry.name)) out.push(full);
+    if (entry.isDirectory()) {
+      if (!entry.name.startsWith('.')) out.push(...listPptx(full));
+    } else if (isSongFile(entry.name)) out.push(full);
   }
   return out;
 }
@@ -258,10 +290,9 @@ export function renameBundle(dir: string, id: string, name: string): BundleFile 
   if (!b) return null;
   const meta = { ...b.meta, name: name.trim() };
   withBundle(path.join(dir, b.file), false, (db) => writeBundleMeta(db, meta));
-  const file = bundleFileName(
-    meta.name,
-    bundleFiles(dir).filter((f) => f !== b.file),
-  );
+  const next = freeBundleFile(dir, meta.name, b.file);
+  // the same name in another Unicode form is the same file (exFAT on a Mac spells it decomposed)
+  const file = next.normalize('NFC') === b.file.normalize('NFC') ? b.file : next;
   if (file !== b.file) fs.renameSync(path.join(dir, b.file), path.join(dir, file));
   return { ...b, file, meta };
 }
@@ -280,10 +311,7 @@ export function trashBundle(
   fs.mkdirSync(trash, { recursive: true });
   const trashed = `${Date.now()}-${b.file}`;
   fs.renameSync(path.join(dir, b.file), path.join(trash, trashed));
-  const kept = fs
-    .readdirSync(trash)
-    .filter((f) => f.toLowerCase().endsWith(BUNDLE_EXT))
-    .sort();
+  const kept = fs.readdirSync(trash).filter(isBundleFile).sort();
   for (const old of kept.slice(0, Math.max(0, kept.length - TRASH_KEEP))) {
     fs.rmSync(path.join(trash, old), { force: true });
   }
@@ -292,16 +320,26 @@ export function trashBundle(
 
 /**
  * «Скасувати» for a deleted bundle: back from `.trash/` under a free file name. Null: it is no
- * longer there, or a bundle of that name was made meanwhile (the library tells them by name).
+ * longer there, or meanwhile a bundle came that it would double — one of that name (the
+ * library tells them by name), a copy with its id, or one its .pptx folder made anew after it
+ * was renamed and deleted (1.4.1: every song of that folder would be in the library twice).
  */
 export function restoreBundle(dir: string, trashed: string): BundleFile | null {
   const from = path.join(dir, TRASH_DIR, path.basename(trashed));
   if (!fs.existsSync(from)) return null;
   const meta = withBundle(from, true, (db) => readBundleMeta(db));
-  if (!meta || listBundles(dir).some((b) => sameBundleName(b.meta.name, meta.name))) return null;
-  const file = bundleFileName(meta.name, bundleFiles(dir));
-  fs.renameSync(from, path.join(dir, file));
-  return listBundles(dir).find((b) => b.file === file) ?? null;
+  if (!meta) return null;
+  const source = meta.source?.normalize('NFC');
+  const doubled = listBundles(dir).some(
+    (b) =>
+      b.meta.id === meta.id ||
+      sameBundleName(b.meta.name, meta.name) ||
+      (source !== undefined && b.meta.source?.normalize('NFC') === source),
+  );
+  if (doubled) return null;
+  fs.renameSync(from, path.join(dir, freeBundleFile(dir, meta.name)));
+  // by id: the file system may hand the name back in another Unicode form (exFAT on a Mac)
+  return findBundle(dir, meta.id) ?? null;
 }
 
 /** What an import changed, for its «Скасувати»: the bundle file, and a copy of it from before. */

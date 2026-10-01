@@ -62,7 +62,9 @@ move its file back into `data/songs/` and start the app again.
 
 A bundle that a folder of `.pptx` files fills, such as the `songs/` folder, comes back at
 the next start while the folder holds those files. The “Deleted: …” row names that folder.
-To delete such a bundle for good, first remove the files from the folder.
+To delete such a bundle for good, first remove the files from the folder. Once the folder
+has made its bundle again, **Cancel** doesn't bring the deleted one back: its songs would be
+in the library twice.
 
 ## Add songs from a folder
 
@@ -97,6 +99,9 @@ New and changed files in the same folder update that bundle after the rescan.
 - When the app starts reading `.pptx` files more exactly, it reads a bundle from the
   `songs/` folder again by itself at the next start. A bundle made with **Import songs**
   changes only when you import the same files again.
+- The app skips the `._…` files that a Mac makes next to the files it copies to an exFAT or
+  FAT flash drive: they hold no slides. In the `songs/` folder, it also skips hidden folders,
+  whose names start with a period, such as `.Trashes`.
 
 ## Show a song
 
