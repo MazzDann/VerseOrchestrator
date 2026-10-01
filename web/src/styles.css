@@ -209,6 +209,13 @@ html[data-scrolling] .vo-list-item:hover:not([data-selected='true']) {
 .vo-scroll-fit > div {
   min-width: 0;
 }
+/* Rows in a plain ScrollArea (history / saved, 1.4.6): Mantine lays its content out as a table
+   sized by the content, and the rows — a flexible title and a × button — get the list's width
+   only from the table's min-width; the Mac check showed the × buttons with no titles. As a
+   block the content is always the list's width (a vertical list: scrollbars="y"). */
+.vo-scroll-rows .mantine-ScrollArea-viewport > div {
+  display: block;
+}
 /* Floating panel corner grip (0.5.8): two short diagonal strokes, brand-coloured on hover. */
 .vo-panel-resize {
   position: absolute;
@@ -261,6 +268,107 @@ html[data-scrolling] .vo-list-item:hover:not([data-selected='true']) {
 body[data-resizing='xy'] {
   cursor: nwse-resize;
   user-select: none;
+}
+
+/* Floating panel edges (1.4.6): a panel at the window's right or bottom edge had no room to
+   grow from its corner grip (Mac check: the settings panel «can't be resized») — like a
+   window, it is resized from every edge and corner too. Invisible strips inside the border. */
+.vo-panel-edge {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: none;
+  touch-action: none;
+  z-index: 1;
+}
+.vo-panel-edge[data-edge='n'],
+.vo-panel-edge[data-edge='s'] {
+  left: 10px;
+  right: 10px;
+  height: 5px;
+  cursor: ns-resize;
+}
+.vo-panel-edge[data-edge='e'],
+.vo-panel-edge[data-edge='w'] {
+  top: 10px;
+  bottom: 10px;
+  width: 5px;
+  cursor: ew-resize;
+}
+/* The body's scrollbar stands clear of the right edge's 5 px: under the strip, the right part
+   of its thumb started a resize instead of a scroll (review of the Mac fix). */
+.vo-panel-scrollbar[data-orientation='vertical'] {
+  inset-inline-end: 5px;
+}
+.vo-panel-edge[data-edge='n'] {
+  top: 0;
+}
+.vo-panel-edge[data-edge='s'] {
+  bottom: 0;
+}
+.vo-panel-edge[data-edge='e'] {
+  right: 0;
+}
+.vo-panel-edge[data-edge='w'] {
+  left: 0;
+}
+.vo-panel-edge[data-edge='nw'],
+.vo-panel-edge[data-edge='ne'],
+.vo-panel-edge[data-edge='sw'] {
+  width: 10px;
+  height: 10px;
+}
+.vo-panel-edge[data-edge='nw'] {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.vo-panel-edge[data-edge='ne'] {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.vo-panel-edge[data-edge='sw'] {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+body[data-resizing='nesw'] {
+  cursor: nesw-resize;
+  user-select: none;
+}
+
+/* The display panel docked below the centre (1.4.6): the monitors stand side by side, each as
+   large as the panel's height allows — a 16:9 picture under its caption row (Monitor: 22 px +
+   6 px, in rem), 4 px left for the tally ring — or its share of the width, whichever is smaller;
+   the slide's text takes what is left and steps aside when that is too narrow to read. */
+.vo-monitor-row {
+  container-type: size;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  overflow: hidden;
+}
+.vo-monitor-cell {
+  flex: none;
+  width: min(
+    calc((100cqw - var(--monitors) * var(--mantine-spacing-md)) / var(--monitors)),
+    calc((100cqh - 1.75rem - 4px) * 16 / 9)
+  );
+}
+.vo-monitor-text {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  container-type: inline-size;
+}
+@container (max-width: 10rem) {
+  .vo-monitor-text-body {
+    display: none;
+  }
 }
 
 /* While dragging: keep the resize cursor everywhere and stop text selection. */

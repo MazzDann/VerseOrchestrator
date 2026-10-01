@@ -23,20 +23,18 @@ export function Monitor({
   title,
   detail,
   actions,
-  maxWidth,
 }: {
   slide: Slide;
   state: TallyState;
   title: string;
   detail?: string;
   actions?: ReactNode;
-  maxWidth?: number;
 }) {
   // the system asks for less motion (1.2.1): the monitor changes at once, no fades
   // (read at once, so a monitor that mounts with a slide doesn't fade it in first)
   const calm = useReducedMotion(false, { getInitialValueInEffect: false });
   return (
-    <div style={{ width: '100%', maxWidth, marginInline: maxWidth ? 'auto' : undefined }}>
+    <div style={{ width: '100%' }}>
       <Group justify="space-between" gap={6} wrap="nowrap" mb={6} mih={22}>
         <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
           <span
