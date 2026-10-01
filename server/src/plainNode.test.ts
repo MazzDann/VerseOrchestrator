@@ -19,6 +19,7 @@ describe('plain Node entry points', () => {
       'swap.ts',
       'uiStamp.ts',
       'versionLabel.ts',
+      'browsers.ts',
     ]
       .map((f) => `await import(${JSON.stringify(pathToFileURL(path.join(dir, f)).href)});`)
       .join('');

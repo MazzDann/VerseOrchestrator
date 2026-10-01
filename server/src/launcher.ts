@@ -25,6 +25,15 @@ import { applyLayout } from './layout.ts';
 import { consoleLang, setLang, tr, trError } from './lang.ts';
 import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
 import {
+  detectBrowsers,
+  knownBrowser,
+  openInCommand,
+  readLaunchSettings,
+  SYSTEM_BROWSER,
+  type InstalledBrowser,
+  type LaunchSettings,
+} from './browsers.ts';
+import {
   alreadyOpenLines,
   appWindowCommand,
   createShortcut,
@@ -233,6 +242,73 @@ export function browserCommand(
   return ['xdg-open', [url]];
 }
 
+/** What opens the control window, and the chosen browser's name when it is not here. */
+export interface BrowserLaunch {
+  cmd: [string, string[]] | null;
+  missing: string | null;
+  /** what opens instead of a missing one: Chrome or Edge as an app window (`--app`), else the system's browser */
+  instead?: 'app-window' | 'system';
+}
+
+/**
+ * How the launcher opens the control window: in the browser chosen in Налаштування вигляду →
+ * Застосунок (settings.json → launch), as an app window when asked — by the setting or `--app`
+ * (the desktop shortcut) — and the browser can; with «Браузер системи», or a chosen browser that
+ * is gone, as before: `--app` in Chrome or Edge when there, else the default browser. `find`
+ * looks for the chosen one only when there is one.
+ */
+export function browserLaunch(
+  platform: NodeJS.Platform,
+  url: string,
+  launch: LaunchSettings,
+  appFlag: boolean,
+  find: (id: string) => InstalledBrowser | undefined = (id) =>
+    detectBrowsers().find((b) => b.id === id),
+  env: NodeJS.ProcessEnv = process.env,
+  exists: (p: string) => boolean = fs.existsSync,
+): BrowserLaunch {
+  let missing: string | null = null;
+  if (launch.browser !== SYSTEM_BROWSER) {
+    const b = find(launch.browser);
+    if (b)
+      return { cmd: openInCommand(platform, b, url, appFlag || launch.appWindow, env), missing };
+    missing = knownBrowser(launch.browser)?.name ?? launch.browser;
+  }
+  const app = appFlag ? appWindowCommand(platform, url, exists, env) : null;
+  const cmd = app || browserCommand(platform, url, env);
+  return missing ? { cmd, missing, instead: app ? 'app-window' : 'system' } : { cmd, missing };
+}
+
+/**
+ * The launcher's choice as main() makes it: the settings read from the data folder
+ * (settings.json → launch), then browserLaunch — one step, so a test reaches both.
+ */
+export function controlWindowLaunch(
+  dataDir: string,
+  platform: NodeJS.Platform,
+  url: string,
+  appFlag: boolean,
+  find?: (id: string) => InstalledBrowser | undefined,
+  env?: NodeJS.ProcessEnv,
+  exists?: (p: string) => boolean,
+): BrowserLaunch {
+  return browserLaunch(platform, url, readLaunchSettings(dataDir), appFlag, find, env, exists);
+}
+
+/** The start window's line for a chosen browser that is gone; null when it is here. */
+export function missingBrowserLine(l: BrowserLaunch): string | null {
+  if (!l.missing) return null;
+  return l.instead === 'app-window'
+    ? tr(
+        '{browser} на цьому комп’ютері не знайдено — відкриваю окремим вікном у Chrome або Edge (Налаштування вигляду → Застосунок).',
+        { browser: l.missing },
+      )
+    : tr(
+        '{browser} на цьому комп’ютері не знайдено — відкриваю браузер системи (Налаштування вигляду → Застосунок).',
+        { browser: l.missing },
+      );
+}
+
 /** The page phones open, on the address they can most likely reach. */
 export const phoneUrl = (ips: string[], port: number): string | null =>
   ips[0] ? `http://${ips[0]}:${port}/follow` : null;
@@ -357,15 +433,25 @@ export async function openControlWindowLines(
   return open && open.open > 0 ? lines(open.active, port) : null;
 }
 
-function openBrowser(url: string, asApp = false): void {
-  // an app window if asked and Chrome/Edge is there, else the default browser
-  const cmd =
-    (asApp && appWindowCommand(process.platform, url)) || browserCommand(process.platform, url);
+function openBrowser(url: string, dataDir: string, asApp = false): void {
+  // the chosen browser (as an app window if asked and it can), else as before (browserLaunch)
+  const launch = controlWindowLaunch(dataDir, process.platform, url, asApp);
+  const { cmd } = launch;
+  const missing = missingBrowserLine(launch);
+  if (missing) say(`  ${missing}`);
   if (!cmd) {
     say(`  ${tr('Відкрийте в браузері: {url}', { url })}`);
     return;
   }
-  const child = spawn(cmd[0], cmd[1], { stdio: 'ignore', detached: true, windowsHide: true });
+  // Windows: `cmd /c start` hides its console. A browser started directly is a GUI program
+  // (no console to hide), and windowsHide would hand it SW_HIDE for its first window: Chromium
+  // shows itself anyway (0.7.5's --app had windowsHide), but Firefox, Zen and LibreWolf — now
+  // started directly when chosen — are not known to (2026-10-01; a Windows check is due)
+  const child = spawn(cmd[0], cmd[1], {
+    stdio: 'ignore',
+    detached: true,
+    windowsHide: cmd[0] === 'cmd',
+  });
   child.on('error', () => say(`  ${tr('Відкрийте в браузері: {url}', { url })}`));
   child.unref();
 }
@@ -442,7 +528,7 @@ async function main(argv: string[]): Promise<number> {
       const files = createShortcut(root);
       say(`✓ ${tr('Ярлик на робочому столі: {file}', { file: files[0] })}`);
       say(
-        `  ${tr('Він запускає застосунок і відкриває вікно керування окремим вікном (Chrome або Edge).')}`,
+        `  ${tr('Він запускає застосунок і відкриває вікно керування окремим вікном — у браузері на основі Chromium, вибраному в Налаштування вигляду → Застосунок, або в Chrome чи Edge.')}`,
       );
       return 0;
     } catch (err) {
@@ -465,7 +551,7 @@ async function main(argv: string[]): Promise<number> {
       // Firefox or a browser built on it, the one connected at `port` comes forward), or where
       // to find it
       for (const line of lines) say(`  ${line}`);
-    } else if (opts.browser) openBrowser(`${local}/`, opts.app);
+    } else if (opts.browser) openBrowser(`${local}/`, dataDir, opts.app);
     return 0;
   }
 
@@ -643,7 +729,7 @@ async function main(argv: string[]): Promise<number> {
     say(`✗ ${tr('Застосунок не запустився: {error}', { error: trError(err) })}`);
     return 1;
   }
-  if (opts.browser) openBrowser(`${local}/`, opts.app);
+  if (opts.browser) openBrowser(`${local}/`, dataDir, opts.app);
 
   const stop = () => {
     stopping = true;

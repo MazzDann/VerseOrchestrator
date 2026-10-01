@@ -4,7 +4,8 @@
 
 This page is for whoever prepares the computer for a show: where to get the app and what it
 needs, where to put texts and songs, how to start it with a shortcut or with the computer,
-how to update it, make a portable copy, and switch everything off. The first start step by
+which browser to open it in, how to update it, make a portable copy, and switch everything
+off. The first start step by
 step is in the [Quick start](quickstart.md), and the development setup in the
 [project README](../../README.md).
 
@@ -128,10 +129,36 @@ The start window speaks the same language from the next start of the app. Viewer
 and the speaker remote show their browser's language, as does the page that appears while
 the app starts.
 
+## Choose the browser
+
+The start file opens the control window in the system browser. To open it in another
+browser — for example, when the system browser is for work and you run the show in Chrome —
+open **Settings** → **App** in the control window and in the **Open the control window in…**
+field choose the browser. The list holds **System browser** and the browsers the app found on
+this computer. The choice works from the next start: the start file and the shortcut open the
+control window there.
+
+To open the control window as a separate window — without tabs or an address bar — turn on
+**As a separate window**. Browsers built on Chromium can: Chrome, Edge, Brave, Arc, Opera,
+Vivaldi, and Chromium. Firefox, Zen, and Safari open the control window as a regular window,
+so the switch is off there. A separate window has one tab, so a second start brings exactly
+that window forward more reliably.
+
+If the chosen browser is no longer on the computer, the start file opens the control window
+as with **System browser** — in the system browser, and from the shortcut in Chrome or Edge as
+a separate window — and says so in the start window. The choice is kept in
+`data/settings.json` → `launch`.
+
+Under the field you see the app's version — the same one stands at the top of **Settings**. A
+copy from the repository says `dev` and the branch there, for example
+`dev 1.4.4.try3 (feat/x · 36f9ddd)`.
+
 ## Create a shortcut
 
 The shortcut starts the app and opens the control window as a window of its own — without
-tabs or an address bar (in Chrome or Edge).
+tabs or an address bar: in the browser chosen in **Open the control window in…** if it is
+built on Chromium; with **System browser**, in Chrome or Edge. Firefox, Zen, and Safari open
+it as a regular window.
 
 To create a shortcut, open **Settings** → **App** in the control window and click
 **Create shortcut**. The shortcut appears on the desktop; on Linux, in the applications menu

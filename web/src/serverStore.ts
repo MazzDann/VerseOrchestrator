@@ -38,6 +38,19 @@ export const devLabelOf = (h: Health | null): string | null =>
 export const shownVersion = (devLabel: string | null, version: string): string =>
   devLabel ? devLabel.replace(/ \((.*)\)$/, ', $1') : version;
 
+/**
+ * What stands at the top of «Налаштування вигляду» (2026-10-01, the user's ask: «версія +
+ * індикатор»): a release by its name and version, «VerseOrchestrator 1.4.5»; a git checkout by
+ * its label, «dev 1.4.4.try3 (feat/x · abc1234)» — so a test build is told from the release it
+ * grew from at a glance.
+ */
+export const versionHeading = (devLabel: string | null, version: string): string =>
+  devLabel ?? `VerseOrchestrator ${version}`;
+
+/** The version alone («Версія …» under the browser choice): a checkout's label, else the semver. */
+export const versionText = (devLabel: string | null, version: string): string =>
+  devLabel ?? version;
+
 /** One quick health check (≤1.5 s). */
 export async function probeServer(): Promise<boolean> {
   let health: Health | null = null;

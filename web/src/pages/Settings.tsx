@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { ScrollArea, Box, Title, Group } from '@mantine/core';
+import { ScrollArea, Box, Title, Group, Text } from '@mantine/core';
 import { IconAdjustments } from '@tabler/icons-react';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { tr, useLang } from '../i18n';
-import { probeServer, useServer } from '../serverStore';
+import { probeServer, useServer, versionHeading } from '../serverStore';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 
 /**
@@ -13,6 +13,8 @@ import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
  */
 export function Settings() {
   useLang();
+  // the version in the header (2026-10-01): a git checkout by its label
+  const devLabel = useServer((s) => s.devLabel);
   // a change the browser can't store says so here too (1.4.1)
   useSettingsSaveNotice();
   // the control window finds out whether the server is there; this window must ask itself —
@@ -23,9 +25,14 @@ export function Settings() {
   return (
     <ScrollArea style={{ height: '100vh' }} type="auto">
       <Box maw={560} mx="auto" px="md" py="lg">
-        <Group gap={8} mb="md">
-          <IconAdjustments size={22} />
-          <Title order={4}>{tr('Налаштування вигляду')}</Title>
+        <Group gap={8} mb="md" wrap="nowrap">
+          <IconAdjustments size={22} style={{ flexShrink: 0 }} />
+          <Title order={4} style={{ flexShrink: 0 }}>
+            {tr('Налаштування вигляду')}
+          </Title>
+          <Text size="xs" c="dimmed" ml="auto" ta="right" style={{ minWidth: 0 }}>
+            {versionHeading(devLabel, __APP_VERSION__)}
+          </Text>
         </Group>
         <SettingsPanel />
       </Box>

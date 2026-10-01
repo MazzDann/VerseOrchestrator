@@ -10,7 +10,8 @@ in the preview and in every presentation window. Hotkeys are described in the
 
 ## Open the settings
 
-To open the settings, click the **Settings** icon at the top. A panel with sections opens.
+To open the settings, click the **Settings** icon at the top. A panel with sections opens;
+above them stands the app's version.
 Below each section's name you see its current values; click the name to expand or
 collapse the section.
 

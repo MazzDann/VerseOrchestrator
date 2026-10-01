@@ -73,9 +73,10 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
   `dev 1.4.2.try7 (mac-test · 20dd850)` means 7 commits after the tag `v1.4.2`, on the
   branch `mac-test`, at the commit `20dd850`. A `+` after the commit means uncommitted
   changes to tracked files, and right on a tag there is no `.tryN`. The start file prints the
-  label on its first line, and the control window shows it at the bottom of **Налаштування
-  вигляду** and in **Застосунок** → **Оновлення** (`server/src/versionLabel.ts`, `label` in
-  `GET /api/health`). When the app is already running, the start file asks it for its label
+  label on its first line, and the control window shows it at the top of **Налаштування
+  вигляду** (and of the `/settings` window), under **Відкривати вікно керування в…** and in
+  **Застосунок** → **Оновлення** (`server/src/versionLabel.ts`, `label` in `GET /api/health`).
+  A release shows `VerseOrchestrator X.Y.Z` there. When the app is already running, the start file asks it for its label
   and says «Працює інша збірка: …» if it differs — for example, the app was started before
   you switched branches. Then run `--off` and start again. Without git (or, on a Mac, with
   only the `/usr/bin/git` stub and no developer tools) or without a release tag, the label is
