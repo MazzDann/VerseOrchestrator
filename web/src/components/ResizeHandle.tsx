@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties } from 'react';
 import { tr, useLang } from '../i18n';
+import { resizeKeyStep } from '../lib/keyScroll';
 
 interface Props {
   /** 'x' = drag horizontally (panel width), 'y' = vertically (section height). */
@@ -69,13 +70,14 @@ export function ResizeHandle({ axis, edge, onDrag, onCommit, onReset, label }: P
         onCommit(last.current);
       }}
       onDoubleClick={onReset}
+      data-resize-keys={axis}
       onKeyDown={(e) => {
-        const grow = axis === 'x' ? (edge === 'right' ? 'ArrowRight' : 'ArrowLeft') : 'ArrowUp';
-        const shrink = axis === 'x' ? (edge === 'right' ? 'ArrowLeft' : 'ArrowRight') : 'ArrowDown';
-        if (e.key === grow || e.key === shrink) {
-          e.preventDefault();
-          onCommit(e.key === grow ? 16 : -16);
-        }
+        const step = resizeKeyStep(axis, e);
+        if (!step) return;
+        e.preventDefault();
+        // the arrows are also «Далі» / «Назад» (document-level hotkeys): not while they resize
+        e.stopPropagation();
+        onCommit((axis === 'x' ? step.dx : step.dy) * sign);
       }}
     />
   );

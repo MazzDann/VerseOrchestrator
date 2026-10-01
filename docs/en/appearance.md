@@ -15,9 +15,14 @@ above them stands the app's version.
 Below each section's name you see its current values; click the name to expand or
 collapse the section.
 
+You can drag the panel by its title, and resize it like a window, by any edge or corner.
+A double-click on an edge or a corner brings back the standard size. From the keyboard:
+reach the bottom-right corner with Tab and press the arrow keys.
+
 To see the settings and the preview side by side, click **Open in a separate window** at
 the top of the panel. The window opens where the panel was, at the same size, and the
-panel closes; you can drag the window, for example to a second monitor.
+panel closes; you can drag the window, for example to a second monitor. The size you give
+the separate window is remembered: the panel and the window open with it next time.
 
 ![The Settings panel: the Presets section expanded with three built-in presets, and the
 Text section with the font, color, and alignment](../img/en/appearance.png)
