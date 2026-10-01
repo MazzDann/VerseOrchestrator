@@ -92,9 +92,13 @@ export function sameBundleName(a: string, b: string): boolean {
   return norm(a) === norm(b);
 }
 
-/** A file name for a bundle called `name`, not one of `taken` (lower-cased names). */
+/**
+ * A file name for a bundle called `name`, not one of `taken` in any case or Unicode form: a
+ * Mac hands names on an exFAT drive back decomposed (1.4.1), and a file copied in by hand may
+ * be spelled either way — the composed candidate would open that file.
+ */
 export function bundleFileName(name: string, taken: Iterable<string> = []): string {
-  const used = new Set([...taken].map((t) => t.toLowerCase()));
+  const used = new Set([...taken].map((t) => t.normalize('NFC').toLowerCase()));
   const base =
     name
       .normalize('NFC')
