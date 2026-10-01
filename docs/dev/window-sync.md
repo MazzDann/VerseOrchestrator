@@ -51,7 +51,9 @@ The bus (`web/src/lib/bus.ts`, protocol v2) runs over one BroadcastChannel and a
 localStorage copy, behind the `presenterBus.ts` API:
 
 - **Assets once.** A background travels once as an asset whose id is its length plus an
-  FNV-1a hash; slides refer to it as `asset:<id>`, and receivers resolve it back.
+  FNV-1a hash; slides refer to it as `asset:<id>`, and receivers resolve it back. Since
+  1.4.2 the image of **Заставка** takes the same path, and so do the images of the slide
+  that a cover or the viewers' QR slide covers (`returnTo`, below).
 - **One ordered stream.** Live slides, the next slide, assets, commands, and the
   handshake share one channel. Publishes carry an `epoch` (the control window's session)
   and a `seq`, so a receiver drops stale copies.
@@ -59,8 +61,13 @@ localStorage copy, behind the `presenterBus.ts` API:
   answers with its assets and the current live and next slides. A receiver still missing
   an asset asks for it with `need`.
 - **Cold start.** localStorage keeps the last live and next slides, with the asset
-  reference, and the current asset. An output window opened while no control window runs
-  still shows the last slide.
+  references, and the live slide's background in `vo:asset`, written only when it
+  changes. An output window opened while no control window runs still shows the last
+  slide. The image of **Заставка** gets no copy: it is the logo that the settings already
+  store (`vo:settings`), and the bus finds it there by its id (`createBus`'s `kept`). A
+  second copy stayed in localStorage for good, so a larger background no longer fit under
+  Safari's quota. Before **Повернути версію**, the stored cover gets its image back inline
+  (`storeForOlderVersion`), because 1.4.1 resolves only the background.
 - **No duplicates.** An identical publish is dropped, both in the bus and in the control
   window.
 - **Only slides.** A received slide must pass `isSlide` — `lines`, `reference`,
@@ -74,6 +81,17 @@ What bus v2 changed (0.4.1, measured in the control window):
 | Publishing a slide with a 1.4 MB background (median) | 15.9 ms | 0.0 ms (14 ms once per new background) |
 | The slide kept in localStorage                       | 1.5 MB  | 1.4 KB                                 |
 | Publishes per step with **Наживо** on                | 7–10    | 1, plus 1 for the next slide           |
+
+**Заставка** went inline until 1.4.2: every L that put it on sent the logo over the channel
+and wrote it into `vo:slide`, and every window got a `storage` event of that size. Measured
+in the Browser pane (Chromium 152, macOS) with a 404 050-character logo, a 706 335-character
+background and Івана 3:1 under the cover, L pressed six times:
+
+| Each L that puts the cover on       | 1.4.1         | 1.4.2                                |
+| ----------------------------------- | ------------- | ------------------------------------ |
+| Sent over the channel               | 404 575 chars | 1 328 chars (the logo once: 404 093) |
+| Written to `vo:slide`               | 404 527 chars | 1 280 chars (the logo never)         |
+| The key press in the control window | 4.3–5.3 ms    | 1.0–1.2 ms (6.3 ms the first time)   |
 
 ## Output windows
 
@@ -116,6 +134,14 @@ the lock to the next window when the leader closes or crashes, without a heartbe
 **Взяти керування** steals the lock. A waiting window publishes nothing, mirrors what is
 on screen, and doesn't talk to the hub; a window that becomes the leader takes the
 screen over as it is.
+
+**Заставка** and the viewers' QR slide carry the slide they cover (`returnTo`,
+`web/src/lib/slide.ts` `coverOver` / `qrOver` / `uncover`, 1.4.2). Before, the covering
+window kept it to itself: after **Взяти керування**, or a reload of the control window, L
+emptied the screen, and the first window, leading again, brought back its own old slide.
+Now any leader gives back what is under the cover, and a window that takes over stands on
+the covered verses without projecting them (`web/src/lib/takeover.ts`), so the show goes
+on from there. The phones never get `returnTo`.
 
 ## Commands
 

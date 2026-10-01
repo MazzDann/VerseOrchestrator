@@ -157,12 +157,16 @@ import { useDataSource, useEffectiveSource } from '../dataSourceStore';
 import { NoLibrary, type LibraryGap } from '../components/NoLibrary';
 import { useUpdateState } from '../lib/updates';
 import {
+  coverOver,
+  forAudience,
+  qrOver,
   sameContent,
   sameSlide,
   showsSomething,
   summarize,
   toggleBlack,
   toggleHidden,
+  uncover,
 } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import {
@@ -873,7 +877,7 @@ export function Control() {
     // Only with a confirmed server: at startup (probe pending) the control socket's welcome
     // re-publishes anyway; without a server there is no audience relay at all.
     if (useServer.getState().available !== true) return;
-    const s = stripBg(slide);
+    const s = forAudience(slide);
     if (!controlConn.current?.send({ type: 'publish', slide: s })) void api.livePost(s);
   };
   const pauseAudience = () => {
@@ -1553,39 +1557,24 @@ export function Control() {
   // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
   // which would re-run that effect).
   // «QR на екран» (0.6.16): the viewers' QR as a slide; «Прибрати QR» brings back exactly
-  // the slide it covered (not the selection — the operator may have browsed meanwhile).
-  const qrReturn = useRef<Slide | null>(null);
+  // the slide it covered (not the selection — the operator may have browsed meanwhile). The
+  // slide carries what it covers (lib/slide.ts `qrOver`, 1.4.2), so any control window that
+  // leads now can give it back.
   const showQr = () => {
-    qrReturn.current = liveSlide.qr ? qrReturn.current : liveSlide;
-    const slide: Slide = {
-      lines: [],
-      reference: tr('QR для глядачів'),
-      blank: false,
-      visible: true,
-      style: slideStyle,
-      qr: followUrl,
-    };
+    const slide = qrOver(liveSlideRef.current, followUrl, slideStyle, tr('QR для глядачів'));
     pushLive(slide, { audience: false });
     setPreviewOverride(slide);
     setLive(true);
   };
   // «Заставка» (1.4.0): the logo and text from Налаштування вигляду → Заставка over whatever
-  // is on screen; again — exactly the slide it covered (as «QR на екран» does). The phones get
-  // it without the image: an empty slide, «· · ·».
-  const coverReturn = useRef<Slide | null>(null);
+  // is on screen; again — exactly the slide it covered (as «QR на екран» does, `coverOver`).
+  // The phones get it without the image: an empty slide, «· · ·».
   const coverToggle = () => {
     if (!leaderRef.current) return standbyNotice();
     const now = liveSlideRef.current;
     if (!now.cover) {
-      coverReturn.current = now.qr ? qrReturn.current : now;
-      const slide: Slide = {
-        lines: [],
-        reference: tr('Заставка'),
-        blank: false,
-        visible: true,
-        style: slideStyle,
-        cover: { text: appearance.coverText, image: appearance.coverImage },
-      };
+      const cover = { text: appearance.coverText, image: appearance.coverImage };
+      const slide = coverOver(now, cover, slideStyle, tr('Заставка'));
       pushLive(slide);
       setPreviewOverride(slide);
       setLive(true);
@@ -1600,10 +1589,8 @@ export function Control() {
       }
       return;
     }
-    const back = coverReturn.current;
-    coverReturn.current = null;
-    const showing = back && back.visible && !back.cover && !back.forceBlack;
-    if (!back || !showing) {
+    const back = uncover(now);
+    if (!back) {
       pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
       setLive(false);
       setPreviewOverride(null);
@@ -1613,10 +1600,8 @@ export function Control() {
     afterToggle(back);
   };
   const hideQr = () => {
-    const back = qrReturn.current;
-    qrReturn.current = null;
-    const showing = back && back.visible && !back.qr && !back.forceBlack;
-    if (!back || !showing) {
+    const back = uncover(liveSlideRef.current);
+    if (!back) {
       pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
       setLive(false);
       setPreviewOverride(null);
@@ -2261,7 +2246,7 @@ export function Control() {
             c.send(screenFrame());
             c.send({ type: 'playlist', playlist: sharedPlaylistRef.current });
             if (followAlongRef.current)
-              c.send({ type: 'publish', slide: stripBg(liveSlideRef.current) });
+              c.send({ type: 'publish', slide: forAudience(liveSlideRef.current) });
           }
         }
         if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
@@ -3584,14 +3569,6 @@ export function Control() {
       />
     </>
   );
-}
-
-/** Drop the (potentially large) background image before mirroring to the follow relay. */
-function stripBg(slide: Slide): Slide {
-  // «Заставка»'s image stays off the phones too (1.4.0): an empty slide there
-  const s = slide.cover ? { ...slide, cover: undefined } : slide;
-  if (!s.style?.bgImage) return s;
-  return { ...s, style: { ...s.style, bgImage: null } };
 }
 
 /** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */
