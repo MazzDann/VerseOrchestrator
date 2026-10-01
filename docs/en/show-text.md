@@ -87,11 +87,38 @@ To take the text away for a while, use one of these actions:
 **Hide text**, **Black screen**, and **Cover** are toggles: press again, and what was on
 screen comes back. The cover — a logo and a line of text between the items of a show — is
 set up in [Slide appearance](appearance.md#set-up-the-cover). During the cover the viewers'
-phones show an empty screen.
+phones show an empty screen, and during a [countdown](#show-a-countdown-before-the-start) the
+time to the start.
 
 **Clear** is not a toggle: pressing Esc again leaves the screen empty. To bring back the
 slide you cleared, press Ctrl+Z (⌘Z on a Mac) or click **Bring back** in the “Screen
 cleared” notification. You can bring the slide back until something else goes on screen.
+
+## Show a countdown before the start
+
+A countdown is the cover with the time to the start under its logo and text, for example
+“Starting in 4:59”. The time counts down on every screen, in the **Stage** window, and on the
+viewers' phones.
+
+To show a countdown:
+
+1. At the top of the control window, to the right of **Cover**, click the **Countdown** icon.
+2. In the **How long** row, choose the minutes. To count to a time of day, choose
+   **until…** and type the time in the **Until what time** field.
+3. Optional: in the **Words over the time** field, change the words over the time. Without
+   them, the screen says “Starting in”.
+4. Click the **Show** button.
+
+While the countdown is on screen, the **Countdown** icon is highlighted and its tooltip shows
+the time left. To change the countdown, click the icon again:
+
+- **−1 min** and **+1 min** move its end by a minute.
+- **Remove the countdown** brings back what was on screen before it, as the L key does.
+- **Keep the cover without the time** removes only the time.
+
+When the time is up, it leaves the screen and the cover stays. The control window says
+“The countdown has ended”. A countdown to a time that has already passed today doesn't
+start.
 
 ## Open output windows
 

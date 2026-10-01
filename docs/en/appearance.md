@@ -89,7 +89,8 @@ looks softer on a large screen. For a sharp picture, upload the logo again from 
 file.
 
 An empty cover shows only the background. Presets don't keep the cover: it stays yours
-whichever look you choose.
+whichever look you choose. Under the cover you can show the time to the start: see
+[Show a countdown before the start](show-text.md#show-a-countdown-before-the-start).
 
 The browser keeps the logo and the background image in its storage, and that storage is small
 (5 MB in Safari). If it runs out of room, the message **Couldn't save the settings** appears
