@@ -69,13 +69,19 @@ section](#the-start-file-doesnt-switch-to-the-control-window-on-macos).
 
 ### The start file doesn't switch to the control window on macOS
 
-The start file only says that the control window is open, and the window doesn't come
-forward. The reason is one of these:
+The start file says that the control window is open, but that window doesn't come forward.
+The reason is one of these:
 
-- The control window is open in a browser the start file can't control, for example
-  Firefox. The start file switches only to a window in Chrome, Edge, Brave, Chromium, Arc
-  or Safari. In other browsers, look for the window titled “VerseOrchestrator — control”
-  yourself.
+- The control window is open in Firefox or a browser built on it, such as Zen or LibreWolf:
+  the start window says “The control window is open in Firefox — showing Firefox.” (with that
+  browser's name). That browser comes forward, but the start file can't pick a window or tab
+  in it: if the control window is behind another of its windows, in another tab or minimized
+  to the Dock, find it yourself. If the app is open in two such browsers, the start file
+  can't tell which one has the control window and brings neither forward. For the start file
+  to switch to the control window itself, open it in Chrome, Edge, Brave, Chromium, Arc or
+  Safari.
+- The control window is open in another browser the start file can't control. Look for the
+  window titled “VerseOrchestrator — control” yourself.
 - The start window says “macOS doesn't let Terminal control …” or “macOS doesn't let the
   app the start window runs in control …”: when macOS asked whether to let that app control
   the browser, the permission wasn't given. Open **System Settings** → **Privacy &

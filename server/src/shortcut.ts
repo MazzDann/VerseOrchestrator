@@ -187,6 +187,40 @@ const spawnRunner: Runner = (cmd, args, timeout) => {
   };
 };
 
+/**
+ * The browser of the control window in charge, as the hub tells it from the User-Agent of its
+ * socket (live.ts browserOf; GET /api/control-windows). Chrome, Brave, Chromium and Arc send
+ * the same one; Edge adds its own mark.
+ */
+export type ControlBrowser = 'firefox' | 'edge' | 'chromium' | 'safari' | 'other';
+const CONTROL_BROWSERS: readonly ControlBrowser[] = [
+  'firefox',
+  'edge',
+  'chromium',
+  'safari',
+  'other',
+];
+
+/** What GET /api/control-windows says (the launcher asks before opening a control window). */
+export interface ControlWindows {
+  /** control windows connected */
+  open: number;
+  /** the browser of the one in charge; null when none is, or the app is older and doesn't say */
+  active: ControlBrowser | null;
+}
+
+/** The answer read leniently: an older app says only `open`, a newer one may name more browsers. */
+export function readControlWindows(json: unknown): ControlWindows {
+  const o = (json ?? {}) as { open?: unknown; active?: { browser?: unknown } | null };
+  const open = Number(o.open);
+  const browser = o.active?.browser;
+  const known = CONTROL_BROWSERS.find((b) => b === browser);
+  return {
+    open: Number.isFinite(open) && open > 0 ? open : 0,
+    active: typeof browser === 'string' ? (known ?? 'other') : null,
+  };
+}
+
 /** A browser on a Mac that AppleScript can ask for its windows and tabs. */
 export interface MacBrowser {
   /** the bundle id AppleScript addresses (`application id`) */
@@ -195,17 +229,79 @@ export interface MacBrowser {
   name: string;
   /** whose scripting terms: Chrome's (Edge, Brave and Chromium share them), Arc's, Safari's */
   terms: 'chromium' | 'arc' | 'safari';
+  /** the hub's name for it (its User-Agent): Arc and Brave pass for Chrome */
+  family: Extract<ControlBrowser, 'chromium' | 'edge' | 'safari'>;
 }
 
 /** In the order they are asked: Chrome first, as for the app window (appBrowserCandidates). */
 export const MAC_BROWSERS: readonly MacBrowser[] = [
-  { id: 'com.google.Chrome', name: 'Google Chrome', terms: 'chromium' },
-  { id: 'com.microsoft.edgemac', name: 'Microsoft Edge', terms: 'chromium' },
-  { id: 'com.brave.Browser', name: 'Brave Browser', terms: 'chromium' },
-  { id: 'org.chromium.Chromium', name: 'Chromium', terms: 'chromium' },
-  { id: 'company.thebrowser.Browser', name: 'Arc', terms: 'arc' },
-  { id: 'com.apple.Safari', name: 'Safari', terms: 'safari' },
+  { id: 'com.google.Chrome', name: 'Google Chrome', terms: 'chromium', family: 'chromium' },
+  { id: 'com.microsoft.edgemac', name: 'Microsoft Edge', terms: 'chromium', family: 'edge' },
+  { id: 'com.brave.Browser', name: 'Brave Browser', terms: 'chromium', family: 'chromium' },
+  { id: 'org.chromium.Chromium', name: 'Chromium', terms: 'chromium', family: 'chromium' },
+  { id: 'company.thebrowser.Browser', name: 'Arc', terms: 'arc', family: 'chromium' },
+  { id: 'com.apple.Safari', name: 'Safari', terms: 'safari', family: 'safari' },
 ];
+
+/**
+ * The browsers worth asking when the window in charge is in `active`: only those that can hold
+ * it — no Automation prompt for a browser that doesn't. Not known (an older app, a browser
+ * of another kind): all of them, in order.
+ */
+export const macBrowsersFor = (active: ControlBrowser | null): readonly MacBrowser[] =>
+  active === 'chromium' || active === 'edge' || active === 'safari'
+    ? MAC_BROWSERS.filter((b) => b.family === active)
+    : MAC_BROWSERS;
+
+const currentUid = () => process.getuid?.() ?? 0;
+
+/**
+ * The engine (libxul) every Gecko app — Firefox, its Developer Edition and Nightly, Zen,
+ * LibreWolf, Tor Browser… — loads from its bundle; no Chromium or WebKit browser has it. Their
+ * User-Agents all say «Firefox/», and none has an AppleScript dictionary (`sdef` prints
+ * nothing): nobody can ask them for a window or a tab. LaunchServices can still bring the
+ * running app forward — no Automation permission needed.
+ */
+export const GECKO_ENGINE = '/Contents/MacOS/XUL';
+
+/**
+ * The Gecko apps (their bundles) of this user that hold a page of the app open: the processes
+ * with a TCP connection to `port` here, then the bundle whose GECKO_ENGINE each has loaded —
+ * a helper process names its app's too. lsof only: no Apple Events, no prompt, and only apps
+ * that run (none is started).
+ */
+export function geckoAppsConnectedTo(
+  run: Runner,
+  port: number,
+  uid: number = currentUid(),
+): string[] {
+  const conns = run(
+    '/usr/sbin/lsof',
+    ['-nP', '-a', '-u', String(uid), `-iTCP:${port}`, '-sTCP:ESTABLISHED', '-Fpn'],
+    5000,
+  );
+  // «p9009» starts a process; «n127.0.0.1:53421->127.0.0.1:4747» is its end of a connection
+  // to `port` (the waiter's own end is «…:4747->127.0.0.1:53421»). None (status 1) → nothing.
+  const pids = new Set<string>();
+  let pid = '';
+  for (const line of conns.stdout.split('\n')) {
+    if (line.startsWith('p')) pid = line.slice(1);
+    else if (line.startsWith('n') && /->.*:(\d+)$/.exec(line)?.[1] === String(port)) pids.add(pid);
+  }
+  if (!pids.size) return [];
+  // their loaded files: «n/Applications/Firefox.app/Contents/MacOS/XUL» in a Gecko app
+  const files = run(
+    '/usr/sbin/lsof',
+    ['-nP', '-a', '-p', [...pids].join(','), '-d', 'txt', '-Fn'],
+    5000,
+  );
+  const apps = new Set<string>();
+  for (const line of files.stdout.split('\n')) {
+    if (line.startsWith('n/') && line.endsWith(GECKO_ENGINE))
+      apps.add(line.slice(1, -GECKO_ENGINE.length));
+  }
+  return [...apps];
+}
 
 /** `s` as an AppleScript string literal. */
 export const appleString = (s: string): string => `"${s.replace(/[\\"]/g, '\\$&')}"`;
@@ -261,16 +357,22 @@ export function macRaiseScript(b: MacBrowser, titles: readonly string[] = CONTRO
   ].join('\n');
 }
 
-/** The browsers of MAC_BROWSERS running for this user (pgrep: no Apple Events, no prompt). */
+/** Which of these processes run for this user (pgrep: no Apple Events, no prompt). */
+function runningProcesses(run: Runner, names: readonly string[], uid: number): Set<string> {
+  const r = run('/usr/bin/pgrep', ['-x', '-l', '-U', String(uid), `^(${names.join('|')})$`], 2000);
+  // «12345 Google Chrome» per process; none (status 1) or no pgrep → nothing
+  return new Set(r.stdout.split('\n').map((l) => l.trim().replace(/^\d+\s+/, '')));
+}
+
+/** The browsers of `among` (all of MAC_BROWSERS unless said) running for this user. */
 export function runningMacBrowsers(
   run: Runner = spawnRunner,
-  uid: number = process.getuid?.() ?? 0,
+  uid: number = currentUid(),
+  among: readonly MacBrowser[] = MAC_BROWSERS,
 ): MacBrowser[] {
-  const names = MAC_BROWSERS.map((b) => b.name).join('|');
-  const r = run('/usr/bin/pgrep', ['-x', '-l', '-U', String(uid), `^(${names})$`], 2000);
-  // «12345 Google Chrome» per process; none (status 1) or no pgrep → nothing
-  const found = new Set(r.stdout.split('\n').map((l) => l.trim().replace(/^\d+\s+/, '')));
-  return MAC_BROWSERS.filter((b) => found.has(b.name));
+  const names = among.map((b) => b.name);
+  const found = runningProcesses(run, names, uid);
+  return among.filter((b) => found.has(b.name));
 }
 
 /** Why an osascript run brought nothing forward; null when it ran (the window isn't there). */
@@ -292,6 +394,8 @@ export interface RaiseResult {
   raised: boolean;
   /** the browser that showed it (macOS) */
   browser?: string;
+  /** only the browser came forward — it can't be asked for the window or the tab (Gecko) */
+  appOnly?: boolean;
   /** browsers macOS doesn't let the start window's app control (Privacy & Security → Automation) */
   denied: string[];
   /** a browser didn't answer in time — macOS may still be asking for permission */
@@ -309,12 +413,17 @@ export const MAC_RAISE_TIMEOUT_MS = 30_000;
  * Bring the open control window forward instead of opening a second one — allowed for a start
  * the user just clicked. Windows (1.1.0): WScript.Shell's AppActivate finds a window whose
  * title begins with one of CONTROL_TITLES (a browser adds its own name after it). macOS: each
- * running browser in turn, by AppleScript (macRaiseScript), until one has it. Elsewhere
- * nothing.
+ * running browser that can hold it (`active`, the hub's word for the one in charge; every
+ * browser when not known) in turn, by AppleScript (macRaiseScript), until one has it — or,
+ * when it is in Firefox or a browser built on it, that browser itself, by LaunchServices: the
+ * one Gecko app with a page of the app open at `port` (the launcher's), when there is just one.
+ * Elsewhere nothing.
  */
 export function raiseControlWindow(
   platform: NodeJS.Platform = process.platform,
   run: Runner = spawnRunner,
+  active: ControlBrowser | null = null,
+  port: number | null = null,
 ): RaiseResult {
   const result: RaiseResult = { raised: false, denied: [], timedOut: false };
   if (platform === 'win32') {
@@ -332,7 +441,17 @@ export function raiseControlWindow(
     return { ...result, raised: r.stdout.trim() === 'yes' };
   }
   if (platform !== 'darwin') return result;
-  for (const b of runningMacBrowsers(run)) {
+  if (active === 'firefox') {
+    // the Gecko app with a page of the app open, not Firefox by name: Zen or LibreWolf say
+    // «Firefox/» too, and `open -b` would start a Firefox that isn't running
+    const apps = port ? geckoAppsConnectedTo(run, port) : [];
+    if (apps.length !== 1) return result; // none, or two of them: which one holds it is unknown
+    const r = run('/usr/bin/open', ['-a', apps[0]], 5000);
+    return r.error || r.status !== 0
+      ? result
+      : { ...result, raised: true, browser: path.posix.basename(apps[0], '.app'), appOnly: true };
+  }
+  for (const b of runningMacBrowsers(run, currentUid(), macBrowsersFor(active))) {
     const r = run('/usr/bin/osascript', ['-e', macRaiseScript(b)], MAC_RAISE_TIMEOUT_MS);
     const why = osascriptFailure(r);
     if (!why && r.stdout.trim() === 'yes') return { ...result, raised: true, browser: b.name };
@@ -355,6 +474,14 @@ const inTerminal = (env: NodeJS.ProcessEnv) => env.TERM_PROGRAM === 'Apple_Termi
 
 /** What raiseControlWindow's result means for the user (one line each). */
 export function raiseReport(r: RaiseResult, env: NodeJS.ProcessEnv = process.env): string[] {
+  if (r.raised && r.appOnly)
+    return [
+      tr('Вікно керування відкрите у {browser} — показую {browser}.', { browser: r.browser ?? '' }),
+      tr(
+        '{browser} не дає файлу запуску вибрати своє вікно чи вкладку — для цього тримайте вікно керування в Chrome або Safari.',
+        { browser: r.browser ?? '' },
+      ),
+    ];
   if (r.raised) return [tr('Вікно керування вже відкрите — перемикаю на нього.')];
   return [
     tr('Вікно керування вже відкрите — знайдіть його серед вікон браузера.'),
@@ -378,15 +505,19 @@ export function raiseReport(r: RaiseResult, env: NodeJS.ProcessEnv = process.env
 /**
  * What the launcher says when it finds a control window open already (one line each): the
  * window brought forward, or where to look and why it didn't come, then how to open another.
- * The launcher only prints these — the decision lives here, where a test can reach it.
+ * `active` is the browser of the one in charge, as the app says (readControlWindows); `port` is
+ * where the launcher reaches the app, as the browsers do. The launcher only prints these — the
+ * decision lives here, where a test can reach it.
  */
 export function alreadyOpenLines(
+  active: ControlBrowser | null = null,
+  port: number | null = null,
   platform: NodeJS.Platform = process.platform,
   run: Runner = spawnRunner,
   env: NodeJS.ProcessEnv = process.env,
 ): string[] {
   return [
-    ...raiseReport(raiseControlWindow(platform, run), env),
+    ...raiseReport(raiseControlWindow(platform, run, active, port), env),
     tr('Щоб відкрити ще одне, запустіть з --new-window.'),
   ];
 }

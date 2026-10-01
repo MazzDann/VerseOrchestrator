@@ -104,9 +104,12 @@ On the first start from the archive, the system may warn about a file from the i
 
 When the app is running already and a control window is open, starting it again doesn't
 open a second control window: it switches to that one (on Windows; on macOS when it is in
-Chrome, Edge, Brave, Chromium, Arc or Safari) or says that it is open. The first time, macOS
-asks whether to let Terminal control the browser — click **Allow**. If the permission wasn't
-given, see [The start file doesn't switch to the control window on
+Chrome, Edge, Brave, Chromium, Arc or Safari) or says that it is open. In those browsers, the
+first time, macOS asks whether to let Terminal control the browser the control window is open
+in — click **Allow**. If on macOS the control window is open in Firefox or a browser built on
+it, such as Zen or LibreWolf, nothing is asked: the start file brings that browser forward but
+can't pick the window or tab. If the permission wasn't given, see [The start file doesn't
+switch to the control window on
 macOS](troubleshooting.md#the-start-file-doesnt-switch-to-the-control-window-on-macos).
 
 If the start window shows a message marked ✗ or !, see [Troubleshooting](troubleshooting.md).

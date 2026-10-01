@@ -24,7 +24,13 @@ import { lanIps } from './access.ts';
 import { applyLayout } from './layout.ts';
 import { consoleLang, setLang, tr, trError } from './lang.ts';
 import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
-import { alreadyOpenLines, appWindowCommand, createShortcut } from './shortcut.ts';
+import {
+  alreadyOpenLines,
+  appWindowCommand,
+  createShortcut,
+  readControlWindows,
+  type ControlWindows,
+} from './shortcut.ts';
 import {
   appProcess,
   buildUi,
@@ -285,17 +291,34 @@ function sqliteLoads(): { ok: boolean; error: string } {
   return { ok: r.status === 0, error: error.trim().slice(0, 200) };
 }
 
-/** Is a control window connected to the app on `port`? Asked only of a running app. */
-async function controlWindowOpen(port: number, state: string): Promise<boolean> {
-  if (state !== 'running') return false; // a stopped app has no window connected
+/**
+ * The control windows connected to the app on `port` and the browser of the one in charge, or
+ * null when it can't say. Asked only of a running app.
+ */
+export async function controlWindows(port: number, state: string): Promise<ControlWindows | null> {
+  if (state !== 'running') return null; // a stopped app has no window connected
   try {
     const r = await fetch(`http://127.0.0.1:${port}/api/control-windows`, {
       signal: AbortSignal.timeout(1500),
     });
-    return r.ok && Number(((await r.json()) as { open?: unknown }).open) > 0;
+    return r.ok ? readControlWindows(await r.json()) : null;
   } catch {
-    return false; // an older app without the question: open one as before
+    return null; // an older app without the question: open one as before
   }
+}
+
+/**
+ * What to say when a control window is open in the app on `port` already — it brought forward
+ * (alreadyOpenLines: the browser in charge and the port go on to the Mac's decision), or where
+ * to look; null when none is open, and the launcher opens one.
+ */
+export async function openControlWindowLines(
+  port: number,
+  state: string,
+  lines: typeof alreadyOpenLines = alreadyOpenLines,
+): Promise<string[] | null> {
+  const open = await controlWindows(port, state);
+  return open && open.open > 0 ? lines(open.active, port) : null;
 }
 
 function openBrowser(url: string, asApp = false): void {
@@ -391,10 +414,14 @@ async function main(argv: string[]): Promise<number> {
   const waiter = await waiterAt(port);
   if (waiter && !opts.check) {
     say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
-    if (opts.browser && !opts.newWindow && (await controlWindowOpen(port, waiter.state))) {
-      // brought forward (on a Mac by AppleScript: the first time, macOS asks to let the start
-      // window's app — Terminal — control the browser), or where to find it
-      for (const line of alreadyOpenLines()) say(`  ${line}`);
+    const lines =
+      opts.browser && !opts.newWindow ? await openControlWindowLines(port, waiter.state) : null;
+    if (lines) {
+      // brought forward (on a Mac by AppleScript, asking only the browser of the one in charge:
+      // the first time, macOS asks to let the start window's app — Terminal — control it; in
+      // Firefox or a browser built on it, the one connected at `port` comes forward), or where
+      // to find it
+      for (const line of lines) say(`  ${line}`);
     } else if (opts.browser) openBrowser(`${local}/`, opts.app);
     return 0;
   }
