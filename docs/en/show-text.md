@@ -22,6 +22,13 @@ When the preview and the screen are the same, one monitor stays, with a red fram
 On screen monitor with the verse in one: what is prepared differs from what is on
 screen](../img/en/find-parallel.png)
 
+You can put the monitors below the verse list: **Settings** → **App** → **Preview panel
+position** → **Bottom of the center**. Then **Preview** and **On screen** stand side by
+side, with the slide's text to their right when there is room. To change the panel's
+height, drag its top edge (or reach it with Tab and press ↑ and ↓); a double-click on the
+edge brings back the standard height. In a short window the panel gets lower by itself, and a
+few verses above it stay in view; once there is room again, the panel returns to your height.
+
 ## Show the selection
 
 To show the selection:

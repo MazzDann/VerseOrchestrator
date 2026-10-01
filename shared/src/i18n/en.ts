@@ -462,6 +462,7 @@ export const EN: Record<string, string> = {
   'У цьому розділі немає віршів у головному перекладі.':
     'This chapter has no verses in the main translation.',
   'Ширина правої панелі': 'Right panel width',
+  'Висота панелі показу': 'Preview panel height',
   'Програму оновлено: {name}': 'Program updated: {name}',
   'Програму збережено: {name}': 'Program saved: {name}',
   'Відкрито програму: {name}': 'Program opened: {name}',

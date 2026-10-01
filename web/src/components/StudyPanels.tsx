@@ -23,6 +23,7 @@ import {
   IconSend,
 } from '@tabler/icons-react';
 
+import { type CSSProperties } from 'react';
 import { type Verse, type Book } from '../api';
 import { type RefItem } from '../settingsStore';
 import { type Slide, type SlideLine } from '../presenterBus';
@@ -58,7 +59,7 @@ interface Props {
   onPickRef?: (r: StrongPickRef) => void;
   pinned: boolean;
   onTogglePin: () => void;
-  /** Bottom-of-centre placement: constrain the preview and hide the pin. */
+  /** Bottom-of-centre placement: the monitors side by side, no pin. */
   compact?: boolean;
   /** The speaker's own preview (0.6.2, a remote's cursor) and what the operator can do with it. */
   remote?: {
@@ -167,7 +168,7 @@ export function StudyPanels({
   const liveDetail = liveActive
     ? `${liveSlide.reference}${liveBy ? ` · ${tr('пульт «{remote}»', { remote: liveBy })}` : ''}`
     : liveLabel;
-  const previewMonitor = (maxWidth?: number) => (
+  const previewMonitor = (
     <Monitor
       slide={previewSlide}
       state={previewState}
@@ -185,79 +186,132 @@ export function StudyPanels({
           {bookmarkButton}
         </Group>
       }
-      maxWidth={maxWidth}
     />
   );
   const programMonitor = !merged && (
-    <Box w="62%" mt="sm">
-      <Monitor
-        slide={liveSlide}
-        state={liveActive ? 'live' : 'idle'}
-        title={tr('На екрані')}
-        detail={liveDetail}
-      />
-    </Box>
+    <Monitor
+      slide={liveSlide}
+      state={liveActive ? 'live' : 'idle'}
+      title={tr('На екрані')}
+      detail={liveDetail}
+    />
   );
   // The speaker's own preview — only while it differs from the screen (a remote walking
   // on screen would just repeat the monitor above).
   const remoteOnScreen = !!remote && liveActive && sameContent(remote.slide, liveSlide);
   const remoteMonitor = remote && !remoteOnScreen && (
-    <Box w="62%" mt="sm">
-      <Monitor
-        slide={remote.slide}
-        state="cue"
-        title={tr('Пульт')}
-        detail={`«${remote.name}» · ${remote.slide.reference}`}
-        actions={
-          <Group gap={2} wrap="nowrap">
-            <Tooltip label={tr('На екран')}>
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="live"
-                onClick={remote.onShow}
-                aria-label={tr('На екран: передпоказ пульта «{remote}»', { remote: remote.name })}
-              >
-                <IconScreenShare size={14} />
-              </ActionIcon>
-            </Tooltip>
-            {remote.onAdopt && (
-              <Tooltip label={tr('Перейти сюди у своєму виборі')}>
-                <ActionIcon
-                  size="sm"
-                  variant="subtle"
-                  color="gray"
-                  onClick={remote.onAdopt}
-                  aria-label={tr('Перейти до передпоказу пульта «{remote}»', {
-                    remote: remote.name,
-                  })}
-                >
-                  <IconArrowBackUp size={14} />
-                </ActionIcon>
-              </Tooltip>
-            )}
-            <Tooltip label={tr('Сховати до наступного вибору на пульті')}>
+    <Monitor
+      slide={remote.slide}
+      state="cue"
+      title={tr('Пульт')}
+      detail={`«${remote.name}» · ${remote.slide.reference}`}
+      actions={
+        <Group gap={2} wrap="nowrap">
+          <Tooltip label={tr('На екран')}>
+            <ActionIcon
+              size="sm"
+              variant="subtle"
+              color="live"
+              onClick={remote.onShow}
+              aria-label={tr('На екран: передпоказ пульта «{remote}»', { remote: remote.name })}
+            >
+              <IconScreenShare size={14} />
+            </ActionIcon>
+          </Tooltip>
+          {remote.onAdopt && (
+            <Tooltip label={tr('Перейти сюди у своєму виборі')}>
               <ActionIcon
                 size="sm"
                 variant="subtle"
                 color="gray"
-                onClick={remote.onClose}
-                aria-label={tr('Сховати передпоказ пульта')}
+                onClick={remote.onAdopt}
+                aria-label={tr('Перейти до передпоказу пульта «{remote}»', {
+                  remote: remote.name,
+                })}
               >
-                <IconX size={14} />
+                <IconArrowBackUp size={14} />
               </ActionIcon>
             </Tooltip>
-          </Group>
-        }
-      />
-    </Box>
+          )}
+          <Tooltip label={tr('Сховати до наступного вибору на пульті')}>
+            <ActionIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              onClick={remote.onClose}
+              aria-label={tr('Сховати передпоказ пульта')}
+            >
+              <IconX size={14} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      }
+    />
+  );
+  // In the right column: a large preview, the smaller «На екрані» and the remote's below it.
+  const monitorStack = (
+    <>
+      {previewMonitor}
+      {programMonitor && (
+        <Box w="62%" mt="sm">
+          {programMonitor}
+        </Box>
+      )}
+      {remoteMonitor && (
+        <Box w="62%" mt="sm">
+          {remoteMonitor}
+        </Box>
+      )}
+    </>
+  );
+  // The slide's lines per translation (what the preview shows, as text).
+  const slideText = (
+    <Stack gap="md" pb="md">
+      {slideLines.map((line, i) => (
+        <div key={i} dir={line.rtl ? 'rtl' : 'ltr'}>
+          <Badge size="xs" variant="light" mb={4}>
+            {line.translationAbbr}
+          </Badge>
+          <Text size="sm" style={{ fontFamily: scriptureFont }}>
+            {line.text}
+          </Text>
+        </div>
+      ))}
+      {slideLines.length === 0 && (
+        <Text size="sm" c="dimmed">
+          {tr('Оберіть вірші у списку.')}
+        </Text>
+      )}
+    </Stack>
+  );
+  // Below the centre (1.4.6): the panel is wide and short — the monitors stand side by side,
+  // each as large as the panel's height allows (.vo-monitor-row), the text in what is left.
+  const monitors = (
+    [
+      ['preview', previewMonitor],
+      ['program', programMonitor],
+      ['remote', remoteMonitor],
+    ] as const
+  ).filter(([, m]) => m);
+  const monitorRow = (
+    <div className="vo-monitor-row" style={{ '--monitors': monitors.length } as CSSProperties}>
+      {monitors.map(([key, m]) => (
+        <div key={key} className="vo-monitor-cell">
+          {m}
+        </div>
+      ))}
+      <ScrollArea className="vo-monitor-text" type="hover" scrollbars="y">
+        <div className="vo-monitor-text-body">{slideText}</div>
+      </ScrollArea>
+    </div>
   );
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Group p="xs" gap="xs" wrap="nowrap">
+      {/* below the centre the row stays short and the tabs keep their own width (1.4.6) */}
+      <Group p="xs" py={compact ? 4 : undefined} gap="xs" wrap="nowrap">
         <SegmentedControl
-          flex={1}
+          flex={compact ? undefined : 1}
           size="xs"
           value={mode}
           onChange={(v) => setMode(v as AsideMode)}
@@ -284,36 +338,21 @@ export function StudyPanels({
       <Divider />
 
       <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {mode === 'preview' && (
-          <>
-            {(!pinned || compact) && (
-              <Box px="md" pt="sm" pb="xs">
-                {previewMonitor(compact ? 460 : undefined)}
-                {programMonitor}
-                {remoteMonitor}
-              </Box>
-            )}
-            <ScrollArea style={{ flex: 1 }} px="md">
-              <Stack gap="md" pb="md">
-                {slideLines.map((line, i) => (
-                  <div key={i} dir={line.rtl ? 'rtl' : 'ltr'}>
-                    <Badge size="xs" variant="light" mb={4}>
-                      {line.translationAbbr}
-                    </Badge>
-                    <Text size="sm" style={{ fontFamily: scriptureFont }}>
-                      {line.text}
-                    </Text>
-                  </div>
-                ))}
-                {slideLines.length === 0 && (
-                  <Text size="sm" c="dimmed">
-                    {tr('Оберіть вірші у списку.')}
-                  </Text>
-                )}
-              </Stack>
-            </ScrollArea>
-          </>
-        )}
+        {mode === 'preview' &&
+          (compact ? (
+            monitorRow
+          ) : (
+            <>
+              {!pinned && (
+                <Box px="md" pt="sm" pb="xs">
+                  {monitorStack}
+                </Box>
+              )}
+              <ScrollArea style={{ flex: 1 }} px="md">
+                {slideText}
+              </ScrollArea>
+            </>
+          ))}
         {mode === 'strong' && (
           <ScrollArea style={{ flex: 1 }}>
             <Group gap={6} px="md" pt="sm">
@@ -349,7 +388,10 @@ export function StudyPanels({
                 {tr('Налаштування вигляду')}
               </Text>
             </Group>
-            <SettingsPanel />
+            {/* the full width of the window below the centre is too wide for a form */}
+            <Box maw={compact ? 640 : undefined}>
+              <SettingsPanel />
+            </Box>
           </ScrollArea>
         )}
       </Box>
@@ -357,11 +399,7 @@ export function StudyPanels({
       {pinned && !compact && (
         <>
           <Divider />
-          <Box p="xs">
-            {previewMonitor()}
-            {programMonitor}
-            {remoteMonitor}
-          </Box>
+          <Box p="xs">{monitorStack}</Box>
         </>
       )}
     </Box>

@@ -37,7 +37,7 @@ import { SongImport } from './SongImport';
 import { SongBundles } from './SongBundles';
 import { tr, useLang } from '../i18n';
 import { formatCombo, matchesCombo } from '../hotkeys';
-import { isFormField } from '../lib/keyScroll';
+import { isFormField, isResizeKey } from '../lib/keyScroll';
 import { useSettings } from '../settingsStore';
 
 interface Props {
@@ -225,6 +225,8 @@ export function SongsPanel({
   useEffect(() => {
     if (!open || songId == null || keysPaused) return;
     const onKey = (e: KeyboardEvent) => {
+      // a focused resize handle's own arrows resize it, not the song (1.4.6)
+      if (isResizeKey(e)) return;
       const say = (o: Outcome) => {
         if (!o.ok && o.reason) {
           notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });

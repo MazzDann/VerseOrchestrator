@@ -89,6 +89,11 @@ export interface PanelLayout {
   asideWidth: number;
   /** Height of the history/saved section at the bottom of the left sidebar. */
   recentHeight: number;
+  /**
+   * Height of the display panel docked below the centre (`panelPlacement: 'bottom'`, 1.4.6) —
+   * the window may show less: the verse list above keeps its room (Control, BOTTOM_VERSES_MIN).
+   */
+  bottomHeight: number;
 }
 
 /** One remembered output window: what it shows and on which screen (lib/screens.ts). */
@@ -142,13 +147,19 @@ export function sanitizeOutputs(raw: unknown): OutputSettings {
   };
 }
 
-export const DEFAULT_LAYOUT: PanelLayout = { navWidth: 300, asideWidth: 380, recentHeight: 170 };
+export const DEFAULT_LAYOUT: PanelLayout = {
+  navWidth: 300,
+  asideWidth: 380,
+  recentHeight: 170,
+  bottomHeight: 280,
+};
 
 /** [min, max] per field — also applied to persisted values. */
 export const LAYOUT_LIMITS: Record<keyof PanelLayout, [number, number]> = {
   navWidth: [220, 480],
   asideWidth: [300, 640],
   recentHeight: [80, 480],
+  bottomHeight: [160, 720],
 };
 
 export function clampLayout(raw: unknown): PanelLayout {
