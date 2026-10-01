@@ -143,6 +143,21 @@ Now any leader gives back what is under the cover, and a window that takes over 
 the covered verses without projecting them (`web/src/lib/takeover.ts`), so the show goes
 on from there. The phones never get `returnTo`.
 
+Across browsers, Web Locks don't reach: the hub keeps one control socket in charge (the
+first; **Слухати тут** takes it). **Відкрити в … зараз** (2026-10-01) moves control to the
+browser chosen for the start file: the server opens `/?handover=<token>` there with the
+launcher's command (`server/src/handover.ts`; the token is random, single-use, in memory,
+good for 60 s). The page takes the token out of its address before the router reads it
+(`web/src/lib/handover.ts`), sends it in its first hello, and the hub puts that socket in
+charge and tells the others `{ type: 'hub', active: false, movedTo }`. A window that is on
+standby in its own browser first asks whether the token is still good, then steals the lock —
+only from another window holding it (`navigator.locks.query`, `claim` in
+`web/src/lib/leader.ts`; a window never steals from itself). Output windows don't move: each
+browser has its own window bus. The button hides in the browser it would open only when the
+page knows it runs there: Edge and Brave tell, the others share a User-Agent with browsers off
+the list, so the start file marks the address it opens `?browser=<id>` and the page remembers
+it (`vo:browser`, as the handover does).
+
 ## Commands
 
 The command pipeline (`web/src/lib/commands.ts`):

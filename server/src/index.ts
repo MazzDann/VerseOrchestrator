@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { ApiError, closeDb, library, libraryInfo, libraryPath } from './db.js';
-import { isLocalRequest, lanIps } from './access.js';
+import { isOwnAddress, lanIps } from './access.js';
+import { requireLocal, requireLocalControl } from './guards.js';
 import {
   announceShutdown,
   attachLiveHub,
@@ -57,6 +58,7 @@ import {
 import { keyedError, N_, sameBundleName } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
+import { handoverRoutes, spawnBrowser } from './handover.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 
 const app = express();
@@ -116,21 +118,6 @@ const wrap =
       });
   };
 
-/**
- * Guard for routes that change state. Only the operator's machine may write; phones on
- * the LAN are read-only viewers. The custom header forces a CORS preflight (which this
- * server never answers), so a random web page open in the operator's browser can't fire
- * these as "simple" cross-site requests either. Future remote roles (e.g. a speaker
- * remote paired via QR) would extend this check with a token rather than open the LAN.
- */
-const requireLocalControl: express.RequestHandler = (req, res, next) => {
-  if (req.get('x-vo-control') !== '1' || !isLocalRequest(req)) {
-    res.status(403).json({ error: N_('Керування доступне лише з цього комп’ютера') });
-    return;
-  }
-  next();
-};
-
 const appVersion = (
   JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { version: string }
 ).version;
@@ -165,19 +152,6 @@ app.get(
   wrap((_req, res) => res.json(getLive())),
 );
 
-/**
- * Speaker remotes (remote.ts): the operator pairs a phone, which gets a scoped token via
- * QR and then drives the show over the live WebSocket. All management is local-only; the
- * token is returned once, at creation, and never listed again.
- */
-const requireLocal: express.RequestHandler = (req, res, next) => {
-  if (!isLocalRequest(req)) {
-    res.status(403).json({ error: N_('Керування доступне лише з цього комп’ютера') });
-    return;
-  }
-  next();
-};
-
 /** «Ярлик на робочому столі» (0.7.5, Налаштування вигляду → Застосунок): shortcut.ts. */
 app.post(
   '/api/shortcut',
@@ -200,6 +174,9 @@ app.put(
   }),
 );
 
+// Speaker remotes (remote.ts): the operator pairs a phone, which gets a scoped token via QR and
+// then drives the show over the live WebSocket. All management is local-only (guards.ts); the
+// token is returned once, at creation, and never listed again.
 app.post(
   '/api/remote',
   requireLocalControl,
@@ -291,6 +268,18 @@ app.get(
   '/api/browsers',
   requireLocal,
   wrap((_req, res) => res.json({ browsers: browserListing(detectBrowsers()) })),
+);
+
+// «Відкрити в {browser} зараз» (2026-10-01): the control window opened in the chosen browser now,
+// with a one-time token that puts it in charge (handover.ts, live.ts)
+app.use(
+  handoverRoutes({
+    platform: process.platform,
+    launch: () => getServerSettings().launch,
+    find: (id) => detectBrowsers().find((b) => b.id === id),
+    own: (host) => host === 'localhost' || isOwnAddress(host),
+    run: spawnBrowser,
+  }),
 );
 
 // --- Updates (1.0.0): is there a newer release? The control window asks; nothing is installed.
