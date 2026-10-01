@@ -122,7 +122,7 @@ import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
 import { formatReference } from '../lib/reference';
-import { parseQuickRef } from '../lib/quickRef';
+import { parseQuickRef, placeKey, quickKeydown, showStep } from '../lib/quickRef';
 import { QuickRefPill } from '../components/QuickRefPill';
 import {
   chapterName,
@@ -445,11 +445,18 @@ export function Control() {
   };
 
   /**
+   * «На екран» pressed while typing numbers (Mac check of 1.4.0): the place gone to — shown
+   * once it is the selection and its verses are in (the effect after `sendAndNotify`).
+   */
+  const showJump = useRef<{ key: string; timer: number } | null>(null);
+
+  /**
    * «3:16» typed straight into the control window, or into «Перейти до посилання» (1.4.0):
    * a place in the open book — the verse (or verses) selected, its row focused, so Enter
-   * puts it on screen; on screen at once while the screen follows the selection.
+   * puts it on screen; on screen at once while the screen follows the selection, or with
+   * `show` (⌘↩ / Ctrl+Enter / «На екран» in the typed-number box).
    */
-  const quickJump = async (q: string): Promise<boolean> => {
+  const quickJump = async (q: string, opts?: { show?: boolean }): Promise<boolean> => {
     const r = parseQuickRef(q);
     const say = (message: string) => {
       notifications.show({ message, color: 'gray', autoClose: 2500 });
@@ -478,8 +485,28 @@ export function Control() {
       return say(tr('{place}: вірша {n} немає', { place: chapterName(book, ch), n: from }));
     }
     const to = Math.min(r.verseEnd ?? from, Math.max(...have));
+    const picked = have.filter((v) => v >= from && v <= to).sort((a, b) => a - b);
+    if (opts?.show) {
+      if (showJump.current) window.clearTimeout(showJump.current.timer);
+      const wait = { key: placeKey(bn, ch, picked), timer: 0 };
+      // never late: a slide that isn't ready in 3 s is not shown at some later moment — said
+      // so while the place is still the selection (one left meanwhile goes quietly)
+      wait.timer = window.setTimeout(() => {
+        if (showJump.current !== wait) return;
+        showJump.current = null;
+        const now = useStore.getState();
+        if (placeKey(now.bookNumber, now.chapter, now.selectedVerses) === wait.key) {
+          say(tr('Текст ще не завантажився — натисніть «На екран» ще раз'));
+        }
+      }, 3000);
+      showJump.current = wait;
+    }
     if (ch !== chapter) selectChapter(ch);
-    setSelectedVerses(have.filter((v) => v >= from && v <= to));
+    setSelectedVerses(picked);
+    // from its first page and reveal step in the same render as the selection — live-follow
+    // must not push it at the old page or step first (review of the Mac fix)
+    setPageIndex(0);
+    setRevealCount(1);
     setScrollTarget(from);
     focusJump.current = true;
     return true;
@@ -488,6 +515,9 @@ export function Control() {
   // Numbers typed where no field has the focus start a quick jump (1.4.0): the pill at the
   // bottom shows them, Enter goes, Esc (or any other key) lets go. While typing, «.» and the
   // space are separators, not «Чорний екран» or a verse's selection; Esc only cancels.
+  // Mac check of 1.4.0 (lib/quickRef.ts quickKeydown): a lone Shift (before «:») keeps the box;
+  // the «.» / «,» keys separate on any layout (Ukrainian: «ю» / «б»); ⌘↩ / Ctrl+Enter or «На
+  // екран» goes there and shows it — they projected the old selection; a click lets go.
   const [quick, setQuick] = useState<string | null>(null);
   const quickRef = useRef<string | null>(null);
   quickRef.current = quick;
@@ -495,41 +525,27 @@ export function Control() {
   quickJumpRef.current = quickJump;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const q = quickRef.current;
-      if (e.ctrlKey || e.altKey || e.metaKey || isFormField(e.target) || paletteOpen) {
-        if (q !== null) setQuick(null);
-        return;
-      }
-      const digit = /^[0-9]$/.test(e.key);
-      if (q === null) {
-        if (!digit || bookNumber == null) return;
-        e.preventDefault();
-        e.stopPropagation();
-        setQuick(e.key);
-        return;
-      }
-      const take = () => {
-        e.preventDefault();
-        e.stopPropagation();
-      };
-      if (digit || [':', '.', ',', ' ', '-'].includes(e.key)) {
-        take();
-        setQuick((q + e.key).slice(0, 12));
-      } else if (e.key === 'Backspace') {
-        take();
-        setQuick(q.length > 1 ? q.slice(0, -1) : null);
-      } else if (e.key === 'Escape') {
-        take();
-        setQuick(null);
-      } else if (e.key === 'Enter') {
-        take();
-        setQuick(null);
-        void quickJumpRef.current(q);
-      } else setQuick(null);
+      const box = quickRef.current;
+      const r = quickKeydown(box, e, {
+        canStart: bookNumber != null,
+        blocked: isFormField(e.target) || paletteOpen,
+        project: useSettings.getState().keymap.project,
+      });
+      if (r.box !== box) setQuick(r.box);
+      if (r.go) void quickJumpRef.current(r.go.text, { show: r.go.show });
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [bookNumber, paletteOpen]);
+  // a click lets go of the typed numbers: ⌘ / Shift + click in the verse list, then Enter,
+  // belongs to the verses clicked, not to a place typed a moment ago (review of the Mac fix)
+  useEffect(() => {
+    const onPointer = () => {
+      if (quickRef.current !== null) setQuick(null);
+    };
+    window.addEventListener('pointerdown', onPointer, true);
+    return () => window.removeEventListener('pointerdown', onPointer, true);
+  }, []);
   // forgotten halfway: gone after a few seconds without a key
   useEffect(() => {
     if (quick === null) return;
@@ -1673,6 +1689,38 @@ export function Control() {
       });
     }
   };
+
+  // «На екран» in the typed-number box (showJump, set by quickJump): show the place once it
+  // is the selection and every translation's verses are in — from its first page and reveal
+  // step (quickJump sets both with the selection; declared after their reset effects, so it
+  // runs after them in the same commit)
+  useEffect(() => {
+    const wait = showJump.current;
+    if (!wait) return;
+    const step = showStep(wait.key, {
+      place: placeKey(bookNumber, chapter, selectedVerses),
+      loading: verseQueries.some((q) => q.isPending),
+      ready: slideLines.length > 0,
+      page: safePageIndex,
+      revealStep: appearance.reveal ? revealCount : null,
+    });
+    if (step === 'firstPage') setPageIndex(0);
+    else if (step === 'firstStep') setRevealCount(1);
+    if (step !== 'show') return;
+    window.clearTimeout(wait.timer);
+    showJump.current = null;
+    sendAndNotify();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    bookNumber,
+    chapter,
+    selectedVerses,
+    verseQueries,
+    slideLines,
+    safePageIndex,
+    appearance.reveal,
+    revealCount,
+  ]);
 
   // Enter on a verse projects it straight away (no need to enable live-follow / press
   // F5). If it's already part of the selection, project the whole selection; otherwise

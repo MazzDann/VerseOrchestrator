@@ -318,7 +318,10 @@ export const EN: Record<string, string> = {
   'Спершу виберіть книгу': 'Choose a book first',
   '{book}: розділу {n} немає': '{book}: there is no chapter {n}',
   '{place}: вірша {n} немає': '{place}: there is no verse {n}',
-  'Enter — перейти · Esc — скасувати': 'Enter — go · Esc — cancel',
+  'Enter — перейти · {show} — на екран · Esc — скасувати':
+    'Enter — go · {show} — to screen · Esc — cancel',
+  'Текст ще не завантажився — натисніть «На екран» ще раз':
+    'The text hasn’t loaded yet — press “To screen” again',
   'Спершу виберіть розділ': 'Choose a chapter first',
   'У цьому розділі немає віршів': 'This chapter has no verses',
   'Це остання сторінка': 'This is the last page',
