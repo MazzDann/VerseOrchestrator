@@ -1,4 +1,4 @@
-import { type Slide, type SlideSource } from '../presenterBus';
+import { type Slide, type SlideCover, type SlideSource, type SlideStyle } from '../presenterBus';
 import { tr } from '../i18n';
 
 /** True when two slides show the same content (used to merge preview into the live monitor). */
@@ -10,24 +10,40 @@ export function sameContent(a: Slide, b: Slide): boolean {
 }
 
 /**
- * Exactly the same slide (text, state, style, template, reveal)? The background image —
- * a data URL of up to ~1.5 MB — is compared on its own: the same string instance (the
- * appearance setting) is equal in O(1), so re-projecting never serializes it.
+ * Exactly the same slide (text, state, style, template, reveal)? The images — data URLs of
+ * up to ~1.5 MB: the background, «Заставка»'s image (1.4.2) — are compared on their own: the
+ * same string instance (the appearance setting) is equal in O(1), so re-projecting never
+ * serializes them. So is the slide a QR slide or «Заставка» covers, which has its own.
  */
 export function sameSlide(a: Slide, b: Slide): boolean {
   if (a === b) return true;
   if ((a.style?.bgImage ?? null) !== (b.style?.bgImage ?? null)) return false;
+  if ((a.cover?.image ?? null) !== (b.cover?.image ?? null)) return false;
+  const [ra, rb] = [a.returnTo ?? null, b.returnTo ?? null];
+  if (ra !== rb && (!ra || !rb || !sameSlide(ra, rb))) return false;
   const rest = (s: Slide) =>
-    JSON.stringify(s.style ? { ...s, style: { ...s.style, bgImage: null } } : s);
+    JSON.stringify({
+      ...s,
+      style: s.style && { ...s.style, bgImage: null },
+      cover: s.cover && { ...s.cover, image: null },
+      returnTo: undefined,
+    });
   return rest(a) === rest(b);
 }
 
 /** What a speaker remote needs to know about a slide — compact, no styling or images. */
 export interface ScreenSummary {
   status: 'live' | 'blank' | 'black' | 'empty';
+  /** the control window's words; for an app-made slide see `kind` */
   reference: string;
   /** First line's text, capped — enough to recognise the slide on a phone. */
   text: string;
+  /**
+   * An app-made slide (1.4.2): the viewers' QR or «Заставка». The phone names it in its own
+   * language (`inPhoneWords`) — `reference` and `text` were the control window's, and a phone
+   * in English read «Заставка». They stay for a remote page of an older version.
+   */
+  kind?: 'qr' | 'cover';
   font?: string;
   /** where it comes from (0.6.1): a remote knows whether its own cursor is on screen */
   source?: SlideSource;
@@ -64,7 +80,85 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
         : (slide.lines[0]?.text ?? '').slice(0, 400),
     font: slide.style?.font,
     source: slide.source,
+    kind: slide.qr ? 'qr' : slide.cover ? 'cover' : undefined,
   };
+}
+
+/**
+ * A summary as the phone shows it (1.4.2): an app-made slide named in the phone's own
+ * language, anything else as it came.
+ */
+export function inPhoneWords(s: ScreenSummary | null): ScreenSummary | null {
+  if (!s?.kind) return s;
+  const name = s.kind === 'qr' ? tr('QR для глядачів') : tr('Заставка');
+  return { ...s, reference: name, text: name };
+}
+
+/**
+ * The slide under app-made ones — the viewers' QR, «Заставка» — what they cover (null: none
+ * known). Never deeper than lib/bus.ts lets a slide nest.
+ */
+function underneath(s: Slide | null | undefined, depth = 0): Slide | null {
+  if (!s || !(s.qr || s.cover)) return s ?? null;
+  return depth < 2 ? underneath(s.returnTo, depth + 1) : null;
+}
+
+/**
+ * «QR на екран» (0.6.16): the viewers' address as a big QR over what is on screen. It keeps
+ * that slide (`returnTo`, 1.4.2: on the slide itself — it was the covering window's own, so
+ * after «Взяти керування» or a reload the screen went empty); over the QR itself, what that
+ * covers. «Заставка» under it stays whole: taking the QR away brings the cover back.
+ */
+export function qrOver(now: Slide, url: string, style: SlideStyle, reference: string): Slide {
+  const returnTo = now.qr ? (now.returnTo ?? null) : now;
+  return { lines: [], reference, blank: false, visible: true, style, qr: url, returnTo };
+}
+
+/**
+ * «Заставка» (1.4.0): the operator's logo and text over what is on screen. It keeps the slide
+ * it covers as `qrOver` does — under the viewers' QR, the slide that one covers: L again gives
+ * back text, never an app-made slide.
+ */
+export function coverOver(
+  now: Slide,
+  cover: SlideCover,
+  style: SlideStyle,
+  reference: string,
+): Slide {
+  return {
+    lines: [],
+    reference,
+    blank: false,
+    visible: true,
+    style,
+    cover,
+    returnTo: underneath(now),
+  };
+}
+
+/**
+ * What taking the QR or «Заставка» away gives back: exactly the slide it covered, when that
+ * still shows something; null — empty the screen (it covered nothing, black, or the same kind).
+ */
+export function uncover(now: Slide): Slide | null {
+  const back = now.returnTo;
+  if (!back || !back.visible || back.forceBlack) return null;
+  if (now.qr ? back.qr : back.cover) return null;
+  return back;
+}
+
+/**
+ * A slide as the phones get it (the hub's follow-along relay): no background image — a data
+ * URL of up to ~1.5 MB, past the hub's 256 KB frame (server/src/live.ts `MAX_FRAME_BYTES`:
+ * the hub closes the socket) — and no «Заставка» image (1.4.0: an empty slide there). Nor
+ * the slide a cover or the QR slide covers (1.4.2): it is for the control windows, and
+ * carries its own background.
+ */
+export function forAudience(slide: Slide): Slide {
+  const s =
+    slide.cover || slide.returnTo ? { ...slide, cover: undefined, returnTo: undefined } : slide;
+  if (!s.style?.bgImage) return s;
+  return { ...s, style: { ...s.style, bgImage: null } };
 }
 
 /**

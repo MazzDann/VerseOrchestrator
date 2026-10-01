@@ -1,6 +1,19 @@
-import { describe, expect, it } from 'vitest';
-import { sameSlide, showsSomething, summarize, toggleBlack, toggleHidden } from './slide';
-import type { Slide } from '../presenterBus';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  coverOver,
+  forAudience,
+  inPhoneWords,
+  qrOver,
+  sameSlide,
+  showsSomething,
+  summarize,
+  toggleBlack,
+  toggleHidden,
+  uncover,
+} from './slide';
+import { DEFAULT_STYLE, type Slide } from '../presenterBus';
+import { createBus, type Wire } from './bus';
+import { useSettings } from '../settingsStore';
 
 const base: Slide = {
   lines: [{ translationAbbr: 'UKRK', text: 'Так бо полюбив Бог сьвіт', rtl: false }],
@@ -80,6 +93,7 @@ describe("the viewers' QR slide (0.6.16)", () => {
       status: 'live',
       reference: 'QR для глядачів',
       text: 'QR для глядачів',
+      kind: 'qr',
     });
     expect(summarize({ ...qr, blank: true }).status).toBe('blank');
   });
@@ -95,7 +109,7 @@ describe('«Заставка» (1.4.0)', () => {
   };
 
   it('counts as something on screen, and «Сховати текст» can hide it', () => {
-    expect(summarize(cover)).toMatchObject({ status: 'live', text: 'Заставка' });
+    expect(summarize(cover)).toMatchObject({ status: 'live', text: 'Заставка', kind: 'cover' });
     const hidden = toggleHidden(cover)!;
     expect(hidden.blank).toBe(true);
     expect(toggleHidden(hidden)).toEqual({ ...cover, blank: false });
@@ -119,6 +133,144 @@ describe('«Заставка» (1.4.0)', () => {
       sameSlide(cover, { ...cover, cover: { text: 'Недільне зібрання', image: 'data:x' } }),
     ).toBe(false);
     expect(sameSlide(cover, { ...cover, cover: { ...cover.cover! } })).toBe(true);
+  });
+});
+
+describe('a remote names «Заставка» and the QR in its own language (1.4.2)', () => {
+  afterEach(() => useSettings.setState({ language: 'uk' }));
+
+  it('the control window in Ukrainian, the phone in English', () => {
+    const verse = { ...base, visible: true };
+    const sent = (s: Slide) =>
+      JSON.parse(JSON.stringify(summarize(s))) as ReturnType<typeof summarize>;
+    const cover = sent(
+      coverOver(verse, { text: 'Недільне зібрання', image: null }, DEFAULT_STYLE, 'Заставка'),
+    );
+    const qr = sent(
+      qrOver(verse, 'http://192.168.0.2:4747/follow', DEFAULT_STYLE, 'QR для глядачів'),
+    );
+    const text = sent(verse);
+    useSettings.setState({ language: 'en' }); // the phone
+    expect(inPhoneWords(cover)).toMatchObject({
+      reference: 'Cover',
+      text: 'Cover',
+      status: 'live',
+    });
+    expect(inPhoneWords(qr)).toMatchObject({ reference: 'QR for viewers', text: 'QR for viewers' });
+    expect(inPhoneWords(text)).toBe(text); // the operator's text as it is
+    expect(inPhoneWords(null)).toBeNull();
+  });
+});
+
+describe('the QR and «Заставка» give back what they cover, from any control window (1.4.2)', () => {
+  const verse: Slide = {
+    ...base,
+    style: DEFAULT_STYLE,
+    source: {
+      kind: 'verses',
+      translationIds: [1],
+      bookNumber: 500,
+      chapter: 3,
+      verses: [16],
+      page: 0,
+      reveal: 1,
+    },
+  };
+  const logo = { text: 'Недільне зібрання', image: 'data:image/png;base64,iVBO' };
+  const coverOn = (s: Slide) => coverOver(s, logo, DEFAULT_STYLE, 'Заставка');
+  const qrOn = (s: Slide) => qrOver(s, 'http://192.168.0.2:4747/follow', DEFAULT_STYLE, 'QR');
+
+  it('L, L: exactly the covered slide; hidden or black over the cover changes nothing', () => {
+    const cover = coverOn(verse);
+    expect(cover).toMatchObject({ visible: true, lines: [], cover: logo, returnTo: verse });
+    expect(uncover(cover)).toBe(verse);
+    expect(uncover(toggleHidden(cover)!)).toBe(verse);
+    expect(uncover(toggleBlack(cover))).toBe(verse);
+  });
+
+  it('nothing to give back: an empty or black screen under it, or an older cover', () => {
+    const empty: Slide = { lines: [], reference: '', blank: false, visible: false };
+    expect(uncover(coverOn(empty))).toBeNull();
+    expect(uncover(coverOn(toggleBlack(verse)))).toBeNull();
+    expect(uncover({ ...coverOn(verse), returnTo: undefined })).toBeNull(); // made by 1.4.1
+  });
+
+  it('the QR over «Заставка» gives the cover back; «Заставка» over the QR, the text', () => {
+    const cover = coverOn(verse);
+    const qr = qrOn(cover);
+    expect(uncover(qr)).toBe(cover);
+    expect(uncover(uncover(qr)!)).toBe(verse);
+    expect(uncover(coverOn(qrOn(verse)))).toBe(verse);
+    expect(uncover(coverOn(qr))).toBe(verse); // never a cover under a cover
+    expect(uncover(qrOn(qrOn(verse)))).toBe(verse); // the QR again keeps what it covers
+  });
+
+  it('a window that takes over gives back what another one covered', async () => {
+    // A leads and covers Івана 3:16; B (standby) mirrors the bus and takes over. The covered
+    // slide used to live in a ref of A's own: B's L emptied the screen, and A, leading
+    // again, brought back its own stale slide.
+    const endpoints = new Set<(m: Wire) => void>();
+    const endpoint = () => {
+      let mine: ((m: Wire) => void) | null = null;
+      return {
+        post: (m: Wire) => {
+          for (const cb of endpoints) if (cb !== mine) queueMicrotask(() => cb(structuredClone(m)));
+        },
+        listen: (cb: (m: Wire) => void) => {
+          mine = cb;
+          endpoints.add(cb);
+          return () => endpoints.delete(cb);
+        },
+      };
+    };
+    const bg = `data:image/jpeg;base64,${'/9j/'.repeat(20_000)}`;
+    const shown: Slide = { ...verse, style: { ...DEFAULT_STYLE, bgImage: bg } };
+    const a = createBus(endpoint(), null);
+    const b = createBus(endpoint(), null);
+    let mirrored: Slide | null = null;
+    b.setPublishing(false);
+    b.subscribeSlide((s) => (mirrored = s));
+    a.publishSlide(shown);
+    a.publishSlide(coverOn(shown));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const back = uncover(mirrored!); // B's L
+    expect(back).toMatchObject({ reference: 'Ів 3:16', source: verse.source });
+    expect(back!.style?.bgImage).toBe(bg); // whole: the background came by reference
+    expect(sameSlide(back!, shown)).toBe(true);
+  });
+
+  it('the phones get neither images nor what is covered: the hub takes 256 KB a frame', () => {
+    // the hub closes a socket that sends more (server/src/live.ts `MAX_FRAME_BYTES`): with
+    // the covered slide and its photo background in the frame, every L over a photo did
+    const bg = `data:image/jpeg;base64,${'/9j/'.repeat(250_000)}`; // a photo: 1 M chars
+    const shown: Slide = { ...verse, style: { ...DEFAULT_STYLE, bgImage: bg } };
+    const image = `data:image/png;base64,${'iVBO'.repeat(100_000)}`;
+    const cover = coverOver(shown, { ...logo, image }, shown.style!, 'Заставка');
+    const hiddenQr = toggleHidden(qrOn(shown))!; // «Сховати текст» over the QR reaches them
+    for (const s of [shown, cover, hiddenQr, qrOn(cover)]) {
+      const sent = forAudience(s);
+      expect(sent.returnTo).toBeUndefined();
+      expect(sent.cover).toBeUndefined();
+      expect(sent.style?.bgImage ?? null).toBeNull();
+      expect(new TextEncoder().encode(JSON.stringify(sent)).length).toBeLessThan(2_000);
+    }
+    expect(forAudience(hiddenQr)).toMatchObject({ qr: 'http://192.168.0.2:4747/follow' });
+    expect(forAudience(shown).lines).toBe(shown.lines);
+    // the control windows' slide stays whole
+    expect(cover.returnTo?.style?.bgImage).toBe(bg);
+    expect(cover.cover?.image).toBe(image);
+  });
+
+  it('a slide compares with what it covers, the images by instance', () => {
+    const cover = coverOn(verse);
+    expect(sameSlide(cover, coverOn(verse))).toBe(true);
+    expect(sameSlide(cover, coverOn({ ...verse, reference: 'Ів 3:17' }))).toBe(false);
+    expect(sameSlide(cover, { ...cover, returnTo: null })).toBe(false);
+    const image = `data:image/png;base64,${'iVBO'.repeat(10_000)}`;
+    const big = coverOver(verse, { ...logo, image }, DEFAULT_STYLE, 'Заставка');
+    expect(sameSlide(big, { ...big, cover: { ...logo, image: `${image}` } })).toBe(true);
+    expect(sameSlide(big, { ...big, cover: { ...logo, image: `${image}A` } })).toBe(false);
   });
 });
 

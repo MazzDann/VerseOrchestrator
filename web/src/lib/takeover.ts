@@ -25,6 +25,13 @@ export type Takeover =
   | { kind: 'none' };
 
 export function planTakeover(screen: Slide): Takeover {
+  // the viewers' QR or «Заставка» over verses (1.4.2): stand on the verses it covers, but
+  // not live — the screen stays as it is until «Прибрати QR» / L gives them back, and the
+  // show goes on from there (a song under it: nothing to stand on, as before)
+  if ((screen.qr || screen.cover) && screen.returnTo) {
+    const under = planTakeover(screen.returnTo);
+    return under.kind === 'verses' ? { ...under, live: false, override: null } : { kind: 'none' };
+  }
   const src = screen.source;
   const showing = screen.visible && !screen.blank && !screen.forceBlack && screen.lines.length > 0;
   if (src?.kind === 'verses' && src.verses.length > 0 && !screen.forceBlack) {

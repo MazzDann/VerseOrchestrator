@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type * as Settings from './settingsStore';
+import type { Slide } from './presenterBus';
 
 /**
  * localStorage with a quota, as a browser has one: the whole origin's characters (keys and
@@ -81,5 +82,44 @@ describe('settings the browser refuses to store (1.4.1)', () => {
     store.useSettings.getState().setAppearance({ coverText: 'Недільне зібрання!' });
     expect(store.settingsSaved()).toBe(true);
     off();
+  });
+});
+
+describe('«Заставка» keeps no copy of the logo (1.4.2)', () => {
+  it('L on and off, then a larger background and the logo removed: the quota as without L', async () => {
+    // the review: the bus kept the logo once more (vo:asset-cover), for good — a background
+    // 1.4.1 took was then refused, and removing the logo didn't free that copy
+    vi.stubGlobal('BroadcastChannel', undefined); // this window's bus: storage only
+    const bus = await import('./presenterBus'); // after the stubs: the store's storage
+    const { coverOver } = await import('./lib/slide');
+    storage.data.clear();
+    const logo = `data:image/png;base64,${'iVBO'.repeat(100_000)}`; // the 1.4.1 cap: 400 000
+    expect(store.setAppearanceImage('bgImage', image(737_000))).toBe(true);
+    expect(store.setAppearanceImage('coverImage', logo)).toBe(true);
+    const { appearance } = store.useSettings.getState();
+    const style = { ...bus.DEFAULT_STYLE, bgImage: appearance.bgImage };
+    const verse: Slide = {
+      lines: [{ translationAbbr: 'UKRK', text: 'Так бо Бог полюбив світ', rtl: false }],
+      reference: 'Ів 3:16',
+      blank: false,
+      visible: true,
+      style,
+    };
+    const cover = { text: 'Недільне зібрання', image: appearance.coverImage };
+    const holders = () =>
+      [...storage.data].filter(([, v]) => v.includes('iVBOiVBO')).map(([k]) => k);
+
+    bus.publishSlide(verse);
+    bus.publishSlide(coverOver(verse, cover, style, 'Заставка')); // L
+    expect(holders()).toEqual(['vo:settings']);
+    // an output window opened now, no control window: the logo comes from the settings
+    expect(bus.readSlide().cover?.image).toBe(logo);
+    bus.publishSlide(verse); // L
+    expect(holders()).toEqual(['vo:settings']);
+
+    // a background as large as Налаштування вигляду keeps one (≤ 1.5 M chars): 1.4.1 took it
+    expect(store.setAppearanceImage('bgImage', image(1_100_000))).toBe(true);
+    store.useSettings.getState().setAppearance({ coverImage: null });
+    expect(holders()).toEqual([]);
   });
 });
