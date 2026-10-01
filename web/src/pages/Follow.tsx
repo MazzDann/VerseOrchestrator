@@ -205,6 +205,13 @@ export function Follow() {
               </p>
             )}
           </>
+        ) : slide?.picture && slide.visible && !slide.blank && !slide.forceBlack ? (
+          // a picture (1.5.0): its small copy — a phone needs no 4K file over the Wi-Fi
+          <img
+            src={slide.picture.small || slide.picture.src}
+            alt={slide.picture.name}
+            style={{ display: 'block', maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain' }}
+          />
         ) : paused ? (
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', maxWidth: 420 }}>
             <p style={{ margin: 0, fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 600 }}>

@@ -121,3 +121,47 @@ export async function fileToLogoDataUrl(file: File): Promise<string> {
     },
   });
 }
+
+/** A picture for the screen (1.5.0): its longer side at most 4K — larger only costs loading. */
+export const PICTURE_MAX_SIDE = 3840;
+/** …and its small copy for the phones and the thumbnails. */
+export const PICTURE_SMALL_SIDE = 1280;
+/** A file that is already a fine picture goes as it is (a GIF keeps its frames). */
+const PICTURE_AS_IS_BYTES = 15 * 1024 * 1024;
+const PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+
+/** …and for the phones: a file this small is its own small copy (a re-drawn PNG grew 3×). */
+const SMALL_AS_IS_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Read an image file for «Зображення» (1.5.0): the file for the screen (itself when it is a PNG,
+ * JPEG, WebP or GIF of at most 3840 px and 15 MB, else redrawn — PNG with transparency, JPEG
+ * without) and a small copy of at most 1280 px for the phones and the thumbnails (itself when
+ * it is that small already, else redrawn the same way). The server keeps both
+ * (server/src/images.ts).
+ */
+export async function fileToPicture(
+  file: File,
+): Promise<{ name: string; full: string; small: string; w: number; h: number }> {
+  const { dataUrl, img } = await readImage(file);
+  const [w0, h0] = [img.naturalWidth, img.naturalHeight];
+  const long = Math.max(w0, h0);
+  const known = PICTURE_TYPES.includes(file.type);
+  const fullAsIs = known && long <= PICTURE_MAX_SIDE && file.size <= PICTURE_AS_IS_BYTES;
+  const smallAsIs = known && long <= PICTURE_SMALL_SIDE && file.size <= SMALL_AS_IS_BYTES;
+  const fullCanvas = fullAsIs ? null : drawn(img, Math.min(long, PICTURE_MAX_SIDE));
+  const smallCanvas = smallAsIs ? null : drawn(img, Math.min(long, PICTURE_SMALL_SIDE));
+  if ((!fullAsIs && !fullCanvas) || (!smallAsIs && !smallCanvas))
+    throw new Error(tr('Не вдалося прочитати зображення'));
+  const probe = smallCanvas ?? fullCanvas;
+  const transparent = file.type !== 'image/jpeg' && (!probe || hasTransparency(probe));
+  const encode = (c: HTMLCanvasElement, q: number) =>
+    transparent ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', q);
+  return {
+    name: file.name,
+    full: fullCanvas ? encode(fullCanvas, 0.9) : dataUrl,
+    small: smallCanvas ? encode(smallCanvas, 0.85) : dataUrl,
+    w: fullCanvas ? fullCanvas.width : w0,
+    h: fullCanvas ? fullCanvas.height : h0,
+  };
+}

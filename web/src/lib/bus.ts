@@ -89,6 +89,9 @@ function slideAt(x: unknown, depth: number): x is Slide {
     (!s.template || Array.isArray((s.template as { objects: unknown }).objects)) &&
     obj(s.reveal) &&
     (!s.reveal || Array.isArray((s.reveal as { units: unknown }).units)) &&
+    // a picture (1.5.0): addresses, not images
+    obj(s.picture) &&
+    (!s.picture || typeof (s.picture as { src: unknown }).src === 'string') &&
     // what a QR slide or «Заставка» covers (1.4.2): brought back as it is, so a slide too
     (s.returnTo == null || (depth < MAX_RETURN_DEPTH && slideAt(s.returnTo, depth + 1)))
   );
