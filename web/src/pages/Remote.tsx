@@ -13,7 +13,7 @@ import {
   type SharedPlaylist,
 } from '../lib/commands';
 import { RemotePlaylist } from '../components/RemotePlaylist';
-import { type ScreenSummary } from '../lib/slide';
+import { inPhoneWords, type ScreenSummary } from '../lib/slide';
 import { formatReference } from '../lib/reference';
 import {
   chapterName,
@@ -29,7 +29,7 @@ import { RemotePicker } from '../components/RemotePicker';
 import { tr, trn, useLang } from '../i18n';
 
 const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
-  !!a && !!b && a.reference === b.reference && a.text === b.text;
+  !!a && !!b && a.kind === b.kind && a.reference === b.reference && a.text === b.text;
 
 const sameNums = (a: number[], b: number[]) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
@@ -122,10 +122,14 @@ export function Remote() {
   const [state, setState] = useState<State>(
     token ? { kind: 'connecting' } : { kind: 'denied', reason: '' },
   );
-  const [screen, setScreen] = useState<ScreenSummary | null>(null);
-  const [next, setNext] = useState<ScreenSummary | null>(null);
+  const [screenSent, setScreen] = useState<ScreenSummary | null>(null);
+  const [nextSent, setNext] = useState<ScreenSummary | null>(null);
   /** The control window's preview — what «На екран» puts on screen (0.6.0). */
-  const [preview, setPreview] = useState<ScreenSummary | null>(null);
+  const [previewSent, setPreview] = useState<ScreenSummary | null>(null);
+  // «Заставка» and the viewers' QR in this phone's language, not the operator's (1.4.2)
+  const screen = inPhoneWords(screenSent);
+  const next = inPhoneWords(nextSent);
+  const preview = inPhoneWords(previewSent);
   const [notice, setNotice] = useState<string | null>(null);
   const conn = useRef<LiveConnection | null>(null);
   const noticeTimer = useRef<number | undefined>();

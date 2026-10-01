@@ -56,6 +56,36 @@ describe('planTakeover', () => {
     expect(planTakeover(s)).toEqual({ kind: 'song', songId: 42, stanza: 2, override: s });
   });
 
+  it('«Заставка» or the QR over verses: stand on them, not live (1.4.2)', () => {
+    // L / «Прибрати QR» in this window then give them back, and «Далі» goes on from there
+    const covered = slide({ source: { ...verses, verses: [3, 4], page: 1, reveal: 2 } });
+    const cover: Slide = {
+      lines: [],
+      reference: 'Заставка',
+      blank: false,
+      visible: true,
+      cover: { text: '', image: null },
+      returnTo: covered,
+    };
+    expect(planTakeover(cover)).toEqual({
+      kind: 'verses',
+      translationIds: [3, 7],
+      bookNumber: 500,
+      chapter: 23,
+      verses: [3, 4],
+      page: 1,
+      reveal: 2,
+      live: false,
+      override: null,
+    });
+    const qr: Slide = { ...cover, cover: undefined, qr: 'http://x/follow', returnTo: cover };
+    expect(planTakeover(qr)).toMatchObject({ kind: 'verses', verses: [3, 4], live: false });
+    // a song under it, or nothing known: keep the selection, as before
+    const song = slide({ source: { kind: 'song', songId: 42, stanza: 2 } });
+    expect(planTakeover({ ...cover, returnTo: song })).toEqual({ kind: 'none' });
+    expect(planTakeover({ ...cover, returnTo: undefined })).toEqual({ kind: 'none' });
+  });
+
   it('free text, black, empty, older slides without a source: nothing to stand on', () => {
     expect(planTakeover(slide({ source: undefined }))).toEqual({ kind: 'none' });
     expect(planTakeover(slide({ forceBlack: true, lines: [] }))).toEqual({ kind: 'none' });
