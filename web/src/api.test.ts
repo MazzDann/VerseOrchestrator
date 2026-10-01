@@ -52,3 +52,53 @@ describe('the server settings carry the browser choice (2026-10-01)', () => {
     }
   });
 });
+
+describe('«Відкрити в {browser} зараз» (2026-10-01)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('asks the server, as the control window, to open this page’s origin', async () => {
+    const fetch = vi.fn(async () => Response.json({ ok: true, browser: 'Zen' }));
+    vi.stubGlobal('fetch', fetch);
+    expect(await api.openControlWindow('http://localhost:4747')).toEqual({
+      ok: true,
+      browser: 'Zen',
+    });
+    expect(fetch).toHaveBeenCalledWith('/api/control-window/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-VO-Control': '1' },
+      body: JSON.stringify({ origin: 'http://localhost:4747' }),
+    });
+  });
+
+  it('the browser gone: the server’s words, in the page’s language, and the status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(
+          {
+            error: 'Zen на цьому комп’ютері більше немає — виберіть інший браузер.',
+            key: '{browser} на цьому комп’ютері більше немає — виберіть інший браузер.',
+            vars: { browser: 'Zen' },
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    const err = await api.openControlWindow('http://localhost:4747').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiFailure);
+    expect(err).toMatchObject({
+      status: 404,
+      message: 'Zen на цьому комп’ютері більше немає — виберіть інший браузер.',
+    });
+  });
+
+  it('asks whether a handover token is still good', async () => {
+    const fetch = vi.fn(async () => Response.json({ valid: true }));
+    vi.stubGlobal('fetch', fetch);
+    expect(await api.checkHandover('tok')).toEqual({ valid: true });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/control-window/handover',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ token: 'tok' }) }),
+    );
+  });
+});

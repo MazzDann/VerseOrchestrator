@@ -185,6 +185,8 @@ describe('launcher', () => {
 
   it('opens the control window in the browser chosen in the settings (2026-10-01)', () => {
     const url = 'http://localhost:4747/';
+    // the chosen browser's address says which browser it is (markBrowser → web lib/handover.ts)
+    const at = (id: string) => `${url}?browser=${id}`;
     const launch = (browser: string, appWindow = false): LaunchSettings => ({ browser, appWindow });
     const brave: InstalledBrowser = {
       id: 'brave',
@@ -217,21 +219,21 @@ describe('launcher', () => {
     });
     // the chosen one: a page, or an app window by the setting or by --app (the shortcut)
     expect(browserLaunch('darwin', url, launch('brave'), false, here(brave))).toEqual({
-      cmd: ['open', ['-b', 'com.brave.Browser', url]],
+      cmd: ['open', ['-b', 'com.brave.Browser', at('brave')]],
       missing: null,
     });
     expect(browserLaunch('darwin', url, launch('brave', true), false, here(brave)).cmd).toEqual([
       brave.program,
-      [`--app=${url}`],
+      [`--app=${at('brave')}`],
     ]);
     expect(browserLaunch('darwin', url, launch('brave'), true, here(brave)).cmd).toEqual([
       brave.program,
-      [`--app=${url}`],
+      [`--app=${at('brave')}`],
     ]);
     // Zen has no app window: a page in Zen, whatever was asked — not Chrome
     expect(browserLaunch('darwin', url, launch('zen', true), true, here(zen)).cmd).toEqual([
       'open',
-      ['-b', 'app.zen-browser.zen', url],
+      ['-b', 'app.zen-browser.zen', at('zen')],
     ]);
     // gone since it was chosen: as before, and the name for the one line that says so
     const gone = browserLaunch('darwin', url, launch('zen'), false, here(), {}, none);
@@ -277,7 +279,7 @@ describe('launcher', () => {
     };
     expect(browserLaunch('win32', url, launch('edge', true), false, here(edge)).cmd).toEqual([
       edge.program,
-      [`--app=${url}`],
+      [`--app=${at('edge')}`],
     ]);
     expect(browserLaunch('win32', url, launch('edge'), false, here()).cmd).toEqual([
       'cmd',
@@ -293,7 +295,7 @@ describe('launcher', () => {
     const screen = { DISPLAY: ':0' };
     expect(
       browserLaunch('linux', url, launch('firefox'), false, here(firefox), screen).cmd,
-    ).toEqual(['/usr/bin/firefox', [url]]);
+    ).toEqual(['/usr/bin/firefox', [at('firefox')]]);
     // no screen: nothing to open it on, chosen or not
     expect(browserLaunch('linux', url, launch('firefox'), false, here(firefox), {}).cmd).toBeNull();
 
@@ -309,7 +311,7 @@ describe('launcher', () => {
       );
       expect(controlWindowLaunch(dataDir, 'darwin', url, false, here(brave)).cmd).toEqual([
         brave.program,
-        [`--app=${url}`],
+        [`--app=${at('brave')}`],
       ]);
       fs.writeFileSync(
         path.join(dataDir, 'settings.json'),
@@ -317,7 +319,7 @@ describe('launcher', () => {
       );
       expect(controlWindowLaunch(dataDir, 'darwin', url, false, here(brave)).cmd).toEqual([
         'open',
-        ['-b', 'com.brave.Browser', url],
+        ['-b', 'com.brave.Browser', at('brave')],
       ]);
     } finally {
       fs.rmSync(dataDir, { recursive: true, force: true });

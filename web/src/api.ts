@@ -548,6 +548,29 @@ export const api = {
   serverSettings: () => getJson('/api/server-settings', ServerSettingsSchema),
   /** The browsers on this computer, for «Відкривати вікно керування в…». */
   browsers: () => getJson('/api/browsers', BrowsersSchema),
+  /**
+   * «Відкрити в {browser} зараз»: the server opens this page's control window in the chosen
+   * browser, with a one-time token that puts it in charge (server/src/handover.ts).
+   */
+  openControlWindow: async (origin: string) => {
+    const res = await request('/api/control-window/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ origin }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ ok: z.literal(true), browser: z.string() }).parse(await res.json());
+  },
+  /** Is the token this control window was opened with still good (not used, not expired)? */
+  checkHandover: async (token: string) => {
+    const res = await request('/api/control-window/handover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ token }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ valid: z.boolean() }).parse(await res.json());
+  },
   update: () => getJson('/api/update', UpdateStateSchema),
   checkUpdate: async () => {
     const res = await request('/api/update/check', { method: 'POST', headers: CONTROL_HEADERS });

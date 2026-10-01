@@ -352,6 +352,22 @@ export function readLaunchSettings(dataDir: string): LaunchSettings {
 }
 
 /**
+ * The start file's address for the chosen browser, marked `?browser=<id>`: no secret, just which
+ * browser it opened the control window in. The page takes the mark out of its address and
+ * remembers it (web/src/lib/handover.ts), so «Відкрити в … зараз» isn't offered in the browser
+ * it would open — Zen and Firefox send one and the same User-Agent, Arc that of Chrome.
+ */
+export function markBrowser(url: string, id: string): string {
+  try {
+    const u = new URL(url);
+    u.searchParams.set('browser', id);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+/**
  * How to open `url` in `b`: as an app window when asked and it can (`--app`, given to the
  * program itself), else as a page — macOS `open -b <bundle id>`, elsewhere the program with the
  * address. Null on Linux without a screen to open it on, or when there is nothing to start.

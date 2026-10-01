@@ -45,8 +45,11 @@ function followAppVersion(version: string): void {
 }
 
 export function connectLive(opts: {
-  /** Sent on every (re)connect to claim a role: control / remote. Omit for a viewer. */
-  hello?: object;
+  /**
+   * Sent on every (re)connect to claim a role: control / remote. Omit for a viewer. A function is
+   * asked anew at each connect (a control window's one-time handover token goes once).
+   */
+  hello?: object | (() => object);
   onFrame?: (f: LiveFrame) => void;
   onMessage?: (f: HubFrame) => void;
   /** The socket went up or down — once per change, not on every failed retry (0.6.29). */
@@ -80,7 +83,8 @@ export function connectLive(opts: {
     }
     ws.onopen = () => {
       retry = 0;
-      if (opts.hello) ws?.send(JSON.stringify({ type: 'hello', ...opts.hello }));
+      const hello = typeof opts.hello === 'function' ? opts.hello() : opts.hello;
+      if (hello) ws?.send(JSON.stringify({ type: 'hello', ...hello }));
       report(true);
     };
     ws.onmessage = (e) => {

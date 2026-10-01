@@ -225,6 +225,19 @@ export const EN: Record<string, string> = {
   'У {browser} вікно керування відкривається звичайним вікном.':
     'In {browser} the control window opens as a regular window.',
   'Версія: {version}': 'Version: {version}',
+  // «Відкрити в … зараз» (web/src/components/BrowserSection.tsx, server/src/handover.ts)
+  'Відкрити в {browser} зараз': 'Open in {browser} now',
+  'Відкриваю вікно керування в {browser}…': 'Opening the control window in {browser}…',
+  'Вікна показу цього браузера лишаться тут — відкрийте показ знову в {browser}.':
+    "This browser's presentation windows stay here — open the presentation again in {browser}.",
+  'Перейти в {browser}': 'Switch to {browser}',
+  'Спершу виберіть браузер у «Відкривати вікно керування в…».':
+    'First choose the browser in “Open the control window in…”.',
+  '{browser} на цьому комп’ютері більше немає — виберіть інший браузер.':
+    '{browser} is no longer on this computer — choose another browser.',
+  'Неправильна адреса вікна керування': 'Wrong address of the control window',
+  'Не вдалося відкрити {browser}: {error}': "Couldn't open {browser}: {error}",
+  'Не вдалося відкрити {browser}.': "Couldn't open {browser}.",
   // «Вимкнути повністю» (web/src/components/ShutdownSection.tsx)
   'менше 1 МБ': 'under 1 MB',
   '≈ {mb} МБ': '≈ {mb} MB',
@@ -449,6 +462,8 @@ export const EN: Record<string, string> = {
   'Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси показ іде лише на вікна виводу цього браузера.':
     "Remotes and viewers' phones listen to the control window in another browser. From here the show reaches only this browser's output windows.",
   'Слухати тут': 'Listen here',
+  'Вікно керування перейшло в {browser}. Звідси показ іде лише на вікна виводу цього браузера.':
+    "The control window moved to {browser}. From here the show reaches only this browser's output windows.",
   'Оберіть книгу': 'Choose a book',
   'Що зараз на екрані показу': "What's on the presentation screen now",
   'Попередня сторінка': 'Previous page',

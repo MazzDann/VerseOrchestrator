@@ -184,6 +184,7 @@ import { setAppShellWidth } from '../lib/appShell';
 import { formatCombo, matchesCombo } from '../hotkeys';
 import { isFormField, scrollableAround } from '../lib/keyScroll';
 import { closeThisWindow } from '../lib/closeWindow';
+import { applyHandoverFrame, claimForHandover, controlHello, takeHandover } from '../lib/handover';
 import { docsUrl } from '../lib/docs';
 import { openFeedback } from '../lib/feedback';
 import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
@@ -382,7 +383,7 @@ export function Control() {
    * outputs, takes commands and holds the server's control socket; a second control window
    * is on standby — it mirrors what is on screen and can «Взяти керування».
    */
-  const { state: leaderState, takeOver } = useControlLeader();
+  const { state: leaderState, takeOver, claim } = useControlLeader();
   const isLeader = leaderState === 'leader';
   const leaderRef = useRef(isLeader);
   leaderRef.current = isLeader;
@@ -2231,6 +2232,22 @@ export function Control() {
    */
   const [hubActive, setHubActive] = useState(true);
   /**
+   * The browser a control window «Відкрити в … зараз» opened in took charge (the hub names it):
+   * this window says control went there.
+   */
+  const [hubMovedTo, setHubMovedTo] = useState<string | null>(null);
+  // Opened by «Відкрити в … зараз» (lib/handover.ts) while another control window of this browser
+  // leads here: take over from it — for a token the server still holds — so this window's hello
+  // carries the token and the hub puts it in charge.
+  useEffect(() => {
+    let current = true;
+    void claimForHandover(takeHandover(), api.checkHandover, () => (current ? claim() : undefined));
+    return () => {
+      current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  /**
    * The socket to the hub has been down for more than a blink (0.6.25). Then nobody can say
    * which window is in charge: the Mac test saw «Слухати тут» stay up (and do nothing) after
    * the server had stopped — the last word from the hub, never taken back.
@@ -2255,7 +2272,8 @@ export function Control() {
     if (serverAvailable !== true || !isLeader) return;
     let lostTimer: number | undefined;
     const c = connectLive({
-      hello: { role: 'control' },
+      // the first hello of a window «Відкрити в … зараз» opened carries its one-time token
+      hello: controlHello,
       // a restart of the server (≈1–2 s) shouldn't flash a warning; a real outage should
       onStatus: (open) => {
         window.clearTimeout(lostTimer);
@@ -2277,6 +2295,9 @@ export function Control() {
               c.send({ type: 'publish', slide: forAudience(liveSlideRef.current) });
           }
         }
+        // «Відкрити в … зараз»: control moved to another browser (`hub`), or this window was
+        // opened there and now knows which browser it is in (`handover`)
+        applyHandoverFrame(f, setHubMovedTo);
         if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
         if (f.type === 'shutdown') setAppOff(true);
         // `songs` is a permission, never a command (the server doesn't forward it)
@@ -2337,6 +2358,7 @@ export function Control() {
       controlConn.current = null;
       window.clearTimeout(lostTimer);
       setHubActive(true);
+      setHubMovedTo(null);
       setHubLost(false);
       c.stop();
     };
@@ -3258,9 +3280,14 @@ export function Control() {
                 }}
               >
                 <Text size="sm" style={{ flex: 1 }}>
-                  {tr(
-                    'Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси показ іде лише на вікна виводу цього браузера.',
-                  )}
+                  {hubMovedTo
+                    ? tr(
+                        'Вікно керування перейшло в {browser}. Звідси показ іде лише на вікна виводу цього браузера.',
+                        { browser: hubMovedTo },
+                      )
+                    : tr(
+                        'Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси показ іде лише на вікна виводу цього браузера.',
+                      )}
                 </Text>
                 <Button size="xs" variant="subtle" color="gray" onClick={closeThisWindow}>
                   {tr('Закрити це вікно')}
