@@ -56,6 +56,7 @@ import {
 } from '@vo/shared/songs-node';
 import { keyedError, N_, sameBundleName } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
+import { browserListing, detectBrowsers } from './browsers.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 
 const app = express();
@@ -282,6 +283,14 @@ app.put(
     setRemotePersistence(next.remotes.persist); // off → secrets.json no longer lists remotes
     res.json(next);
   }),
+);
+
+// «Відкривати вікно керування в…» (2026-10-01): the browsers on this computer — read from its
+// folders, nothing started (browsers.ts); the choice itself goes through /api/server-settings
+app.get(
+  '/api/browsers',
+  requireLocal,
+  wrap((_req, res) => res.json({ browsers: browserListing(detectBrowsers()) })),
 );
 
 // --- Updates (1.0.0): is there a newer release? The control window asks; nothing is installed.

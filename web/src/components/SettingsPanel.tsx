@@ -44,8 +44,9 @@ import { UpdateSection } from './UpdateSection';
 import { FeedbackSection } from './FeedbackSection';
 import { ShutdownSection } from './ShutdownSection';
 import { ShortcutSection } from './ShortcutSection';
+import { BrowserSection } from './BrowserSection';
 import { useEffectiveSource } from '../dataSourceStore';
-import { useServer, NEEDS_SERVER } from '../serverStore';
+import { useServer, NEEDS_SERVER, versionHeading } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
 import { tr, useLang } from '../i18n';
 import { formatCombo } from '../hotkeys';
@@ -61,7 +62,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const template = useSettings((s) => s.slideTemplate);
   const dataSource = useEffectiveSource();
   const serverAvailable = useServer((s) => s.available);
-  // a git checkout says it is one at the bottom: «dev 1.4.2.try7 (mac-test · 20dd850)»
+  // the version at the top (2026-10-01): a git checkout by its label, «dev 1.4.2.try7 (mac-test ·
+  // 20dd850)», so a test build is told from the release it grew from
   const devLabel = useServer((s) => s.devLabel);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
@@ -154,6 +156,12 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
 
   return (
     <Stack gap="sm" p="md">
+      {/* the /settings window shows it in its own header (pages/Settings.tsx) */}
+      {!inSettingsWindow && (
+        <Text size="xs" c="dimmed">
+          {versionHeading(devLabel, __APP_VERSION__)}
+        </Text>
+      )}
       {!inSettingsWindow && (
         <Button
           variant="default"
@@ -600,13 +608,11 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
           <UpdateSection />
           <FeedbackSection />
           <StandbySection active={openSections.includes('app')} />
+          <BrowserSection active={openSections.includes('app')} />
           <ShortcutSection />
           <ShutdownSection />
         </Section>
       </Accordion>
-      <Text size="xs" c="dimmed" ta="center">
-        VerseOrchestrator {devLabel ?? `v${__APP_VERSION__}`}
-      </Text>
     </Stack>
   );
 }

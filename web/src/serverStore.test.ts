@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { devLabelOf, probeServer, shownVersion, useServer } from './serverStore';
+import {
+  devLabelOf,
+  probeServer,
+  shownVersion,
+  useServer,
+  versionHeading,
+  versionText,
+} from './serverStore';
 
 const health = (body: object) => vi.fn(async () => Response.json(body));
 
@@ -56,5 +63,17 @@ describe('a dev copy says it is one (2026-10-01)', () => {
     // no git to ask: nothing to flatten; a release: its version
     expect(shownVersion('dev 1.4.2', '1.4.2')).toBe('dev 1.4.2');
     expect(shownVersion(null, '1.4.2')).toBe('1.4.2');
+  });
+
+  it('the top of the settings: a release by name and version, a checkout by its label', () => {
+    expect(versionHeading(null, '1.4.5')).toBe('VerseOrchestrator 1.4.5');
+    expect(versionHeading('dev 1.4.4.try3 (feat/x · abc1234)', '1.4.4')).toBe(
+      'dev 1.4.4.try3 (feat/x · abc1234)',
+    );
+    // «Версія …» under the browser choice: the number alone, or the label
+    expect(versionText(null, '1.4.5')).toBe('1.4.5');
+    expect(versionText('dev 1.4.4.try3 (feat/x · abc1234+)', '1.4.4')).toBe(
+      'dev 1.4.4.try3 (feat/x · abc1234+)',
+    );
   });
 });

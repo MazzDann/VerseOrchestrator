@@ -108,7 +108,7 @@ In a terminal, you can pass these options to any launcher (for example,
 | `--port N`     | Uses port `N` for this start instead of the one in the settings (4747 by default).                                       |
 | `--check`      | Reports Node.js, the dependencies, the library, the interface, and the port, and what a start would do. Changes nothing. |
 | `--off`        | Switches the app off completely: stops it and removes the autostart entry.                                               |
-| `--app`        | Opens the control window as a window of its own, without tabs or an address bar (Chrome or Edge).                        |
+| `--app`        | Opens the control window as a window of its own, without tabs or an address bar (Chromium-based).                        |
 | `--shortcut`   | Creates a desktop shortcut that starts the app with `--app`, then exits.                                                 |
 
 ## Modules and copyright
