@@ -4,6 +4,7 @@ import { SlideCanvas } from '../components/SlideCanvas';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
+import { outputKeyAction } from '../lib/outputKeys';
 import { tr, useLang } from '../i18n';
 
 /** Fullscreen needs a user gesture in this window — or one lent by the control window. */
@@ -30,24 +31,17 @@ export function Presenter() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'f' || e.key === 'F') {
+      const action = outputKeyAction(e);
+      if (!action) return;
+      if (action === 'fullscreen') {
         toggleFullscreen();
         return;
       }
-      // Forward show-navigation keys to the control window so a clicker/keyboard
-      // drives the selection even when this window holds focus on the 2nd monitor.
-      const cmd =
-        e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown'
-          ? 'next'
-          : e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp'
-            ? 'prev'
-            : e.key === '.'
-              ? 'black'
-              : null;
-      if (cmd) {
-        e.preventDefault();
-        sendCommand(cmd);
-      }
+      // Forward the show keys to the control window so a clicker/keyboard drives the show
+      // even when this window holds focus on the 2nd monitor (on a Mac it usually does: F or
+      // a click here is how it goes fullscreen) — «Заставка» (L) too since 1.4.1.
+      e.preventDefault();
+      sendCommand(action);
     };
     window.addEventListener('keydown', onKey);
     const t = setTimeout(() => setHint(false), 4500);
