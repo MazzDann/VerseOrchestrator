@@ -123,6 +123,7 @@ import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
 import { formatReference } from '../lib/reference';
+import { opensAtTop, type OpenPlace } from '../lib/bookPick';
 import { parseQuickRef, placeKey, quickKeydown, showStep } from '../lib/quickRef';
 import { QuickRefPill } from '../components/QuickRefPill';
 import {
@@ -207,6 +208,7 @@ export function Control() {
   const setTranslations = useStore((s) => s.setTranslations);
   const makePrimary = useStore((s) => s.makePrimary);
   const selectBook = useStore((s) => s.selectBook);
+  const openBook = useStore((s) => s.openBook);
   const selectChapter = useStore((s) => s.selectChapter);
   const setSelectedVerses = useStore((s) => s.setSelectedVerses);
   const toggleVerse = useStore((s) => s.toggleVerse);
@@ -629,6 +631,18 @@ export function Control() {
     enabled: primaryId != null && bookNumber != null,
   });
   const chapters = chaptersQuery.data ?? EMPTY_ARRAY;
+  /**
+   * The book list and the palette (the user's idea, 2026-10-01): a book picked opens its first
+   * chapter at once — a one-chapter book needed a click on its only number — and the open
+   * book keeps its chapter. Its chapter list, when already loaded, names the first chapter.
+   */
+  const pickBook = (bn: number) =>
+    openBook(
+      bn,
+      primaryId == null
+        ? undefined
+        : queryClient.getQueryData<number[]>(['chapters', primaryId, bn]),
+    );
 
   const verseQueries = useQueries({
     queries: selectedIds.map((id) => ({
@@ -646,6 +660,8 @@ export function Control() {
     () => (primaryId != null ? (versesByTranslation.get(primaryId) ?? []) : []),
     [primaryId, versesByTranslation],
   );
+  /** The open chapter's verses still on their way: the list says nothing about them yet. */
+  const versesLoading = bookNumber != null && chapter != null && !!verseQueries[0]?.isPending;
 
   const currentBook = books.find((b) => b.bookNumber === bookNumber) ?? null;
   const reference = useMemo(
@@ -1293,6 +1309,18 @@ export function Control() {
     }, 60);
     return () => window.clearTimeout(id);
   }, [scrollTarget, primaryVerses]);
+
+  // A chapter opened with no verse to bring into view (a book picked, a chapter clicked)
+  // starts at its top, not where the last one was scrolled to; a jump has its scroll target.
+  // Only another place does — «Зробити головним» keeps the scroll (lib/bookPick.ts opensAtTop).
+  const verseViewport = useRef<HTMLDivElement>(null);
+  const shownPlace = useRef<OpenPlace>({ bookNumber, chapter });
+  useEffect(() => {
+    const open = { bookNumber, chapter };
+    const top = opensAtTop(shownPlace.current, open, scrollTarget);
+    shownPlace.current = open;
+    if (top && verseViewport.current) verseViewport.current.scrollTop = 0;
+  }, [bookNumber, chapter, scrollTarget]);
 
   // Record what was opened into history.
   useEffect(() => {
@@ -3043,7 +3071,7 @@ export function Control() {
                 items={filteredBooks}
                 getKey={(b) => b.bookNumber}
                 isSelected={(b) => b.bookNumber === bookNumber}
-                onSelect={(b) => selectBook(b.bookNumber)}
+                onSelect={(b) => pickBook(b.bookNumber)}
                 renderRow={(b) => b.longName || b.shortName}
                 estimateSize={30}
                 empty={
@@ -3274,9 +3302,7 @@ export function Control() {
             />
             <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
               <Text fw={600} size="md" truncate>
-                {currentBook
-                  ? `${currentBook.longName} ${chapter ?? ''}`
-                  : tr('Оберіть книгу та розділ')}
+                {currentBook ? `${currentBook.longName} ${chapter ?? ''}` : tr('Оберіть книгу')}
               </Text>
               <Group gap={6} wrap="nowrap">
                 <Tooltip label={tr('Що зараз на екрані показу')}>
@@ -3351,7 +3377,7 @@ export function Control() {
             )}
             <Divider />
             <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-              <ScrollArea style={{ flex: 1 }} px="md" py="xs">
+              <ScrollArea style={{ flex: 1 }} px="md" py="xs" viewportRef={verseViewport}>
                 <Stack gap={2}>
                   {primaryVerses.map((v) => (
                     <div
@@ -3409,10 +3435,10 @@ export function Control() {
                   {primaryVerses.length === 0 &&
                     (libraryGap ? (
                       <NoLibrary gap={libraryGap} onOpenSettings={openAppSettings} />
-                    ) : (
+                    ) : versesLoading ? null : (
                       <Text c="dimmed" size="sm" p="sm">
                         {currentBook == null
-                          ? tr('Оберіть книгу ліворуч, потім розділ угорі.')
+                          ? tr('Оберіть книгу ліворуч — відкриється її перший розділ.')
                           : chapter == null
                             ? tr('Оберіть розділ угорі.')
                             : tr('У цьому розділі немає віршів у головному перекладі.')}
@@ -3560,7 +3586,7 @@ export function Control() {
         onClose={() => setPaletteOpen(false)}
         commands={paletteCommands}
         books={books}
-        onJumpBook={(bn) => selectBook(bn)}
+        onJumpBook={pickBook}
         onOpenSong={(id) => {
           openSong(id);
           setSongsOpen(true);
