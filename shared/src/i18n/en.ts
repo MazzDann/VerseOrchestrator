@@ -434,14 +434,15 @@ export const EN: Record<string, string> = {
   'Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси показ іде лише на вікна виводу цього браузера.':
     "Remotes and viewers' phones listen to the control window in another browser. From here the show reaches only this browser's output windows.",
   'Слухати тут': 'Listen here',
-  'Оберіть книгу та розділ': 'Choose a book and a chapter',
+  'Оберіть книгу': 'Choose a book',
   'Що зараз на екрані показу': "What's on the presentation screen now",
   'Попередня сторінка': 'Previous page',
   'Сторінка довгого уривка (← → або PageUp/PageDown)':
     'Page of a long passage (← → or PageUp/PageDown)',
   'Наступна сторінка': 'Next page',
   Розділи: 'Chapters',
-  'Оберіть книгу ліворуч, потім розділ угорі.': 'Choose a book on the left, then a chapter above.',
+  'Оберіть книгу ліворуч — відкриється її перший розділ.':
+    'Choose a book on the left — its first chapter opens.',
   'Оберіть розділ угорі.': 'Choose a chapter above.',
   'У цьому розділі немає віршів у головному перекладі.':
     'This chapter has no verses in the main translation.',
@@ -1327,6 +1328,18 @@ export const EN: Record<string, string> = {
     'The control window is open already — find it among the browser’s windows.',
   'Щоб відкрити ще одне, запустіть з --new-window.':
     'To open another one, start with --new-window.',
+  // the open control window brought forward on a Mac (AppleScript)
+  'macOS не дозволяє Терміналу керувати {browser}. Щоб дозволити, відкрийте Системні параметри → Приватність і безпека → Автоматизація → Термінал і ввімкніть {browser}.':
+    "macOS doesn't let Terminal control {browser}. To allow it, open System Settings → Privacy & Security → Automation → Terminal and turn on {browser}.",
+  'macOS не дозволяє програмі, у якій відкрито вікно запуску, керувати {browser}. Щоб дозволити, відкрийте Системні параметри → Приватність і безпека → Автоматизація, знайдіть цю програму й увімкніть під нею {browser}.':
+    "macOS doesn't let the app the start window runs in control {browser}. To allow it, open System Settings → Privacy & Security → Automation, find that app and turn on {browser} under it.",
+  'Якщо macOS питає дозволу керувати браузером, дозвольте й запустіть ще раз.':
+    'If macOS asks for permission to control the browser, allow it and start again.',
+  // … in Firefox or a browser built on it (`activate`, no permission): that browser comes forward
+  'Вікно керування відкрите у {browser} — показую {browser}.':
+    'The control window is open in {browser} — showing {browser}.',
+  '{browser} не дає файлу запуску вибрати своє вікно чи вкладку — для цього тримайте вікно керування в Chrome або Safari.':
+    "{browser} doesn't let the start file pick its window or tab — for that, keep the control window in Chrome or Safari.",
   'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window':
     'Unknown option “{arg}”. Available: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window',
   // 1.1.0 help

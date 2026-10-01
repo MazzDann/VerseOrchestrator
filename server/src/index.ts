@@ -17,7 +17,7 @@ import {
   notifyRemotesChanged,
   publishLive,
   viewerCount,
-  controlCount,
+  controlWindowsRoute,
 } from './live.js';
 import {
   createPairing,
@@ -293,8 +293,8 @@ const updates = createUpdateChecker({
 });
 
 // Is a control window open on this machine? The start file and the shortcut then open no
-// second one (1.1.0, launcher.ts).
-app.get('/api/control-windows', requireLocal, (_req, res) => res.json({ open: controlCount() }));
+// second one (1.1.0, launcher.ts) — on a Mac they bring forward the browser it is in.
+app.get('/api/control-windows', requireLocal, controlWindowsRoute);
 
 // Installing (1.0.0): only a copy in the release layout, whose app/ can be replaced
 const release = readLayout(repoRoot);
