@@ -1,4 +1,5 @@
 import { sanitizeLibrarySelection, type LibrarySelection } from '@vo/shared';
+import { DEFAULT_LAUNCH, sanitizeLaunch, type LaunchSettings } from './browsers.js';
 import { readJson, writeJson } from './jsonFile.js';
 
 /**
@@ -22,6 +23,11 @@ export interface ServerSettings {
   standby: { port: number; idleMinutes: number };
   /** «Перевіряти оновлення» (1.0.0): ask GitHub about new versions now and then. */
   updates: { check: boolean };
+  /**
+   * «Відкривати вікно керування в…» (2026-10-01): the browser the start file and the shortcut
+   * open the control window in, and whether as an app window (browsers.ts; the launcher reads it).
+   */
+  launch: LaunchSettings;
 }
 
 export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
@@ -29,6 +35,7 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   remotes: { persist: true },
   standby: { port: 4747, idleMinutes: 15 },
   updates: { check: true },
+  launch: DEFAULT_LAUNCH,
 };
 
 /** The app's own ports (web dev server, API / single-process app) — not for the waiter. */
@@ -54,6 +61,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     library?: unknown;
     standby?: { port?: unknown; idleMinutes?: unknown };
     updates?: { check?: unknown };
+    launch?: unknown;
   };
   const idle = Number(r.standby?.idleMinutes);
   const out: ServerSettings = {
@@ -77,6 +85,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
           ? r.updates.check
           : DEFAULT_SERVER_SETTINGS.updates.check,
     },
+    launch: sanitizeLaunch(r.launch),
   };
   const library = sanitizeLibrarySelection(r.library);
   if (library) out.library = library;
@@ -96,15 +105,21 @@ export function getServerSettings(): ServerSettings {
   return current;
 }
 
-/** Apply a patch to the server-owned keys (remotes, standby, updates). `library` is edited by the builder / by hand. */
+/** Apply a patch to the server-owned keys (remotes, standby, updates, launch). `library` is edited by the builder / by hand. */
 export function updateServerSettings(patch: unknown): ServerSettings {
-  const p = (patch ?? {}) as { remotes?: object; standby?: object; updates?: object };
+  const p = (patch ?? {}) as {
+    remotes?: object;
+    standby?: object;
+    updates?: object;
+    launch?: object;
+  };
   const base = getServerSettings();
   current = sanitizeServerSettings({
     ...base,
     remotes: { ...base.remotes, ...p.remotes },
     standby: { ...base.standby, ...p.standby },
     updates: { ...base.updates, ...p.updates },
+    launch: { ...base.launch, ...p.launch },
   });
   if (file) writeJson(file, current);
   return current;

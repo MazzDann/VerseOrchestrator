@@ -112,7 +112,7 @@ You pass options to the start file in a terminal, in the app's folder, for examp
 | `--port N`     | Starts on port `N` instead of the port from the settings (4747 by default) — this time only.      |
 | `--check`      | Checks Node.js, the parts, the library, the interface, and the port, and changes nothing.         |
 | `--off`        | Switches the app off completely, like **Switch off completely…**, except the browser's data.      |
-| `--app`        | Opens the control window as a window of its own, without tabs or an address bar (Chrome or Edge). |
+| `--app`        | Opens the control window as a window of its own, without tabs or an address bar (Chromium-based). |
 | `--shortcut`   | Creates a desktop shortcut that starts the app with `--app`, and exits.                           |
 | `--new-window` | Opens another control window even when one is open already.                                       |
 

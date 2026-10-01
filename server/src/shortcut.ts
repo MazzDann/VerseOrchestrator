@@ -227,18 +227,26 @@ export interface MacBrowser {
   id: string;
   /** its main process (pgrep) — and its name in System Settings → Automation */
   name: string;
-  /** whose scripting terms: Chrome's (Edge, Brave and Chromium share them), Arc's, Safari's */
+  /** whose scripting terms: Chrome's (Edge, Brave, Chromium, Vivaldi, Opera share them), Arc's, Safari's */
   terms: 'chromium' | 'arc' | 'safari';
-  /** the hub's name for it (its User-Agent): Arc and Brave pass for Chrome */
+  /** the hub's name for it (its User-Agent): Arc, Brave, Vivaldi and Opera pass for Chrome */
   family: Extract<ControlBrowser, 'chromium' | 'edge' | 'safari'>;
 }
 
-/** In the order they are asked: Chrome first, as for the app window (appBrowserCandidates). */
+/**
+ * In the order they are asked: Chrome first, as for the app window (appBrowserCandidates). Every
+ * browser offered an app window on a Mac (browsers.ts KNOWN_BROWSERS, the Chromium engine) is
+ * here, so a second start can find that window. Vivaldi and Opera (2026-10-01) are taken to
+ * speak Chrome's terms, untried on a Mac that has them: one that doesn't fails to compile (an
+ * error, no Apple Event sent, no prompt) and the start says where to look, as before.
+ */
 export const MAC_BROWSERS: readonly MacBrowser[] = [
   { id: 'com.google.Chrome', name: 'Google Chrome', terms: 'chromium', family: 'chromium' },
   { id: 'com.microsoft.edgemac', name: 'Microsoft Edge', terms: 'chromium', family: 'edge' },
   { id: 'com.brave.Browser', name: 'Brave Browser', terms: 'chromium', family: 'chromium' },
   { id: 'org.chromium.Chromium', name: 'Chromium', terms: 'chromium', family: 'chromium' },
+  { id: 'com.vivaldi.Vivaldi', name: 'Vivaldi', terms: 'chromium', family: 'chromium' },
+  { id: 'com.operasoftware.Opera', name: 'Opera', terms: 'chromium', family: 'chromium' },
   { id: 'company.thebrowser.Browser', name: 'Arc', terms: 'arc', family: 'chromium' },
   { id: 'com.apple.Safari', name: 'Safari', terms: 'safari', family: 'safari' },
 ];

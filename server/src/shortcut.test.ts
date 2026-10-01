@@ -269,12 +269,14 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
     }
   });
 
-  it('asks Chrome first, then Edge, Brave, Chromium, Arc, Safari', () => {
+  it('asks Chrome first, then Edge, Brave, Chromium, Vivaldi, Opera, Arc, Safari', () => {
     expect(MAC_BROWSERS.map((b) => b.id)).toEqual([
       'com.google.Chrome',
       'com.microsoft.edgemac',
       'com.brave.Browser',
       'org.chromium.Chromium',
+      'com.vivaldi.Vivaldi',
+      'com.operasoftware.Opera',
       'company.thebrowser.Browser',
       'com.apple.Safari',
     ]);
@@ -308,7 +310,14 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
   });
 
   it("speaks each browser's own terms", () => {
-    for (const name of ['Google Chrome', 'Microsoft Edge', 'Brave Browser', 'Chromium']) {
+    for (const name of [
+      'Google Chrome',
+      'Microsoft Edge',
+      'Brave Browser',
+      'Chromium',
+      'Vivaldi',
+      'Opera',
+    ]) {
       const script = macRaiseScript(browser(name));
       expect(script).toContain('set n to title of tab i of w');
       expect(script).toContain('set active tab index of w to hit');
@@ -341,7 +350,7 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
           '-l',
           '-U',
           '501',
-          '^(Google Chrome|Microsoft Edge|Brave Browser|Chromium|Arc|Safari)$',
+          '^(Google Chrome|Microsoft Edge|Brave Browser|Chromium|Vivaldi|Opera|Arc|Safari)$',
         ],
         timeout: 2000,
       },
@@ -456,11 +465,13 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
 
   it('asks only the browsers that can hold the window in charge', () => {
     const names = (bs: readonly { name: string }[]) => bs.map((b) => b.name);
-    // Chrome, Brave, Chromium and Arc send one User-Agent; Edge its own
+    // Chrome, Brave, Chromium, Vivaldi, Opera and Arc send one User-Agent; Edge its own
     expect(names(macBrowsersFor('chromium'))).toEqual([
       'Google Chrome',
       'Brave Browser',
       'Chromium',
+      'Vivaldi',
+      'Opera',
       'Arc',
     ]);
     expect(names(macBrowsersFor('edge'))).toEqual(['Microsoft Edge']);
@@ -483,7 +494,9 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
       'com.brave.Browser': { stdout: 'yes\n' },
     });
     expect(raiseControlWindow('darwin', chrome.run, 'chromium').browser).toBe('Brave Browser');
-    expect(chrome.calls[0].args.at(-1)).toBe('^(Google Chrome|Brave Browser|Chromium|Arc)$');
+    expect(chrome.calls[0].args.at(-1)).toBe(
+      '^(Google Chrome|Brave Browser|Chromium|Vivaldi|Opera|Arc)$',
+    );
     expect(chrome.calls.slice(1).map((c) => c.args[1])).toEqual([
       macRaiseScript(browser('Google Chrome')),
       macRaiseScript(browser('Brave Browser')),
@@ -501,7 +514,7 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
       const all = mac(['Safari', 'Google Chrome']);
       raiseControlWindow('darwin', all.run, unknown);
       expect(all.calls[0].args.at(-1)).toBe(
-        '^(Google Chrome|Microsoft Edge|Brave Browser|Chromium|Arc|Safari)$',
+        '^(Google Chrome|Microsoft Edge|Brave Browser|Chromium|Vivaldi|Opera|Arc|Safari)$',
       );
       expect(all.calls.slice(1).map((c) => c.args[1])).toEqual([
         macRaiseScript(browser('Google Chrome')),

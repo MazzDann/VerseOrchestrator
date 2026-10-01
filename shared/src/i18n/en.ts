@@ -207,9 +207,24 @@ export const EN: Record<string, string> = {
   'Ярлик створено: {file}': 'Shortcut created: {file}',
   'Ярлик не створено: {error}': 'Shortcut not created: {error}',
   'Ярлик на робочому столі': 'Desktop shortcut',
-  'Запускає застосунок і відкриває вікно керування окремим вікном — без вкладок і адресного рядка (Chrome або Edge).':
-    'Starts the app and opens the control window as its own window — no tabs, no address bar (Chrome or Edge).',
+  'Запускає застосунок і відкриває вікно керування окремим вікном — без вкладок і адресного рядка: у браузері, вибраному вище, якщо він на основі Chromium, а з «Браузер системи» — у Chrome чи Edge.':
+    'Starts the app and opens the control window as its own window — no tabs, no address bar: in the browser chosen above if it is built on Chromium; with “System browser”, in Chrome or Edge.',
   'Створити ярлик': 'Create shortcut',
+  // «Відкривати вікно керування в…» (web/src/components/BrowserSection.tsx, web/src/lib/launchBrowser.ts)
+  'Відкривати вікно керування в…': 'Open the control window in…',
+  'Так його відкривають файл запуску й ярлик — з наступного запуску.':
+    'The start file and the shortcut open it there — from the next start.',
+  'Браузер системи': 'System browser',
+  '{browser} (не знайдено)': '{browser} (not found)',
+  'Окремим вікном': 'As a separate window',
+  'Без вкладок і адресного рядка.': 'No tabs, no address bar.',
+  'Окремим вікном відкривають браузери на основі Chromium: Chrome, Edge, Brave, Arc, Opera, Vivaldi. Виберіть один із них угорі.':
+    'Browsers built on Chromium open it as a separate window: Chrome, Edge, Brave, Arc, Opera, Vivaldi. Choose one of them above.',
+  '{browser} на цьому комп’ютері не знайдено — файл запуску відкриє вікно керування, як із «Браузер системи».':
+    '{browser} was not found on this computer — the start file will open the control window as with “System browser”.',
+  'У {browser} вікно керування відкривається звичайним вікном.':
+    'In {browser} the control window opens as a regular window.',
+  'Версія: {version}': 'Version: {version}',
   // «Вимкнути повністю» (web/src/components/ShutdownSection.tsx)
   'менше 1 МБ': 'under 1 MB',
   '≈ {mb} МБ': '≈ {mb} MB',
@@ -973,9 +988,15 @@ export const EN: Record<string, string> = {
   'Поза папкою застосунку лишилися тільки дані браузера для {url}: копії\nналаштувань і кеш бібліотеки (самі налаштування — у data/). Щоб стерти й їх, запустіть застосунок і в\nНалаштування вигляду → Застосунок виберіть «Вимкнути повністю» з позначкою «стерти\nдані браузера» — або видаліть дані цього сайту в налаштуваннях браузера. Після цього\nпапку застосунку можна просто видалити.':
     "Outside the app folder only the browser's data for {url} is left: copies of the\nsettings and the library cache (the settings themselves are in data/). To erase them too, start the app and\nin Settings → App choose “Switch off completely” with “Also erase the browser's\ndata” checked — or delete this site's data in the browser settings. After that\nyou can simply delete the app folder.",
   'Ярлик на робочому столі: {file}': 'Desktop shortcut: {file}',
-  'Він запускає застосунок і відкриває вікно керування окремим вікном (Chrome або Edge).':
-    'It starts the app and opens the control window as its own window (Chrome or Edge).',
+  'Він запускає застосунок і відкриває вікно керування окремим вікном — у браузері на основі Chromium, вибраному в Налаштування вигляду → Застосунок, або в Chrome чи Edge.':
+    'It starts the app and opens the control window as its own window — in the Chromium-based browser chosen in Settings → App, or in Chrome or Edge.',
+  '{browser} на цьому комп’ютері не знайдено — відкриваю браузер системи (Налаштування вигляду → Застосунок).':
+    '{browser} was not found on this computer — opening the system browser (Settings → App).',
+  '{browser} на цьому комп’ютері не знайдено — відкриваю окремим вікном у Chrome або Edge (Налаштування вигляду → Застосунок).':
+    '{browser} was not found on this computer — opening a separate window in Chrome or Edge (Settings → App).',
   'Застосунок уже працює: {url}': 'The app is already running: {url}',
+  'Працює інша збірка: {label}. Щоб запустити цю, вимкніть застосунок («Вимкнути повністю…» або --off) і запустіть знову.':
+    'Another build is running: {label}. To run this one, switch the app off (“Switch off completely…” or --off) and start it again.',
   'Залежності на місці': 'Dependencies in place',
   'Залежності: не встановлено (npm ci)': 'Dependencies: not installed (npm ci)',
   'Залежності: встановлено для іншої системи (npm ci)':

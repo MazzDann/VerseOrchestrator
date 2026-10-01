@@ -303,11 +303,30 @@ const StandbySchema = z.object({
 });
 export type StandbyStatus = z.infer<typeof StandbySchema>;
 
+/** «Відкривати вікно керування в…» (server/src/browsers.ts): 'system' or a browser's id. */
+const LaunchSchema = z.object({ browser: z.string(), appWindow: z.boolean() });
+export type LaunchSettings = z.infer<typeof LaunchSchema>;
+export const DEFAULT_LAUNCH: LaunchSettings = { browser: 'system', appWindow: false };
+
 const ServerSettingsSchema = z.object({
   version: z.number(),
   remotes: z.object({ persist: z.boolean() }),
   updates: z.object({ check: z.boolean() }),
+  launch: LaunchSchema.catch(DEFAULT_LAUNCH),
 });
+
+/** The browsers the server knows, and which of them are on this computer (GET /api/browsers). */
+const BrowsersSchema = z.object({
+  browsers: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      installed: z.boolean(),
+      appWindow: z.boolean(),
+    }),
+  ),
+});
+export type BrowserListing = z.infer<typeof BrowsersSchema>['browsers'][number];
 
 /** Is there a newer version (1.0.0, server/src/updates.ts)? */
 const UpdateStateSchema = z.object({
@@ -527,6 +546,8 @@ export const api = {
   },
   /** Server options (data/settings.json) — not secrets. */
   serverSettings: () => getJson('/api/server-settings', ServerSettingsSchema),
+  /** The browsers on this computer, for «Відкривати вікно керування в…». */
+  browsers: () => getJson('/api/browsers', BrowsersSchema),
   update: () => getJson('/api/update', UpdateStateSchema),
   checkUpdate: async () => {
     const res = await request('/api/update/check', { method: 'POST', headers: CONTROL_HEADERS });
@@ -668,6 +689,7 @@ export const api = {
   updateServerSettings: async (patch: {
     remotes?: { persist?: boolean };
     updates?: { check?: boolean };
+    launch?: Partial<LaunchSettings>;
   }) => {
     const res = await request('/api/server-settings', {
       method: 'PUT',
