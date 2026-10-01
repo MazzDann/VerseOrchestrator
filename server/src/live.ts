@@ -12,6 +12,7 @@ import {
   type RemoteAction,
 } from './remote.js';
 import type { ControlBrowser } from './shortcut.js';
+import { handovers } from './handover.js';
 
 /**
  * Live hub: the in-memory "what's on screen now" state plus a WebSocket channel at
@@ -21,6 +22,8 @@ import type { ControlBrowser } from './shortcut.js';
  *
  * Every socket starts as a read-only VIEWER. It can upgrade with a hello:
  *   { type: 'hello', role: 'control' }        — only from this machine + same origin
+ *     (+ `handover: token` from a control window «Відкрити в … зараз» opened: it takes charge,
+ *     hears { type: 'handover', browser }, the others { type: 'hub', active: false, movedTo })
  *   { type: 'hello', role: 'remote', token }  — a paired speaker remote (remote.ts)
  * A remote may then send { type: 'command', cmd, id } for the commands its pairing allows;
  * the hub forwards them to the control socket(s) as { type: 'command', cmd, id, from } and
@@ -93,9 +96,19 @@ const meta = new WeakMap<WebSocket, Meta>();
  */
 let activeControl: WebSocket | null = null;
 
-function setActiveControl(ws: WebSocket | null): void {
+/**
+ * `movedTo`: a control window opened by «Відкрити в {browser} зараз» took charge (handover.ts) —
+ * the others say where control went.
+ */
+function setActiveControl(ws: WebSocket | null, movedTo?: string): void {
   activeControl = ws;
-  for (const c of sockets('control')) send(c, { type: 'hub', active: c === ws });
+  for (const c of sockets('control'))
+    send(
+      c,
+      c === ws || !movedTo
+        ? { type: 'hub', active: c === ws }
+        : { type: 'hub', active: false, movedTo },
+    );
 }
 const isActiveControl = (ws: WebSocket) => ws === activeControl;
 
@@ -254,7 +267,12 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     m.role = 'control';
     m.browser = browserOf(req.headers['user-agent']);
     send(ws, { type: 'welcome', role: 'control' });
-    if (!activeControl || activeControl.readyState !== WebSocket.OPEN) setActiveControl(ws);
+    // opened with a handover token (one use): this window is in charge at once
+    const moved = msg.handover === undefined ? null : handovers.consume(msg.handover);
+    if (moved) {
+      send(ws, { type: 'handover', browser: moved.id });
+      setActiveControl(ws, moved.name);
+    } else if (!activeControl || activeControl.readyState !== WebSocket.OPEN) setActiveControl(ws);
     else send(ws, { type: 'hub', active: false });
     notifyViewers(); // this socket stopped counting as a viewer; also primes the new control
     return;

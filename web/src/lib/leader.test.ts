@@ -7,7 +7,7 @@ import { createElection, type LeaderState, type Locks } from './leader';
  * (its request rejects with AbortError) and is granted at once; when the holder's callback
  * promise settles, the next queued request is granted.
  */
-function fakeLocks(): Locks {
+function fakeLocks(): Locks & { requests: string[] } {
   type Entry = {
     cb: () => Promise<void>;
     resolve: (v: unknown) => void;
@@ -26,8 +26,12 @@ function fakeLocks(): Locks {
       if (n) grant(n);
     });
   };
+  const requests: string[] = [];
   return {
+    requests,
+    query: async () => ({ held: holder ? [{ name: 'vo-control-leader' }] : [] }),
     request(_name, options, cb) {
+      requests.push(options.steal ? 'steal' : 'wait');
       return new Promise((resolve, reject) => {
         const e: Entry = { cb, resolve, reject };
         if (options.steal) {
@@ -103,6 +107,62 @@ describe('control window leader election', () => {
     first.stop();
     await tick();
     expect(b).toBe('leader'); // granted once from the queue, not twice
+    second.stop();
+  });
+
+  it('«Взяти керування» in the window that leads already changes nothing', async () => {
+    const locks = fakeLocks();
+    const states: LeaderState[] = [];
+    const only = createElection(locks, (s) => states.push(s));
+    await tick();
+    only.takeOver(); // e.g. a handover answered just as the window's own lock came
+    await tick();
+    expect(states).toEqual(['standby', 'leader']); // no leader → standby → leader flip
+    expect(locks.requests).toEqual(['wait']); // nothing stolen from itself
+    only.stop();
+  });
+
+  it('a handover claims the lock only from another window holding it', async () => {
+    // a fresh browser: nobody else holds it — the window's own request is enough
+    const fresh = fakeLocks();
+    const queued = fakeLocks();
+    let s: LeaderState = 'standby';
+    const alone = createElection(fresh, (x) => (s = x));
+    await alone.claim();
+    await tick();
+    expect(s).toBe('leader');
+    expect(fresh.requests).toEqual(['wait']);
+    alone.stop();
+    // another window of this browser leads: take over from it
+    let a: LeaderState = 'standby';
+    let b: LeaderState = 'standby';
+    const first = createElection(queued, (x) => (a = x));
+    await tick();
+    const second = createElection(queued, (x) => (b = x));
+    await tick();
+    await second.claim();
+    await tick();
+    expect([a, b]).toEqual(['standby', 'leader']);
+    expect(queued.requests).toEqual(['wait', 'wait', 'steal', 'wait']); // the first one queues again
+    second.stop();
+    await tick();
+    expect(a).toBe('leader');
+    first.stop();
+  });
+
+  it('a claim without Locks.query takes over as «Взяти керування» does', async () => {
+    const locks = fakeLocks();
+    const noQuery: Locks = { request: locks.request };
+    let a: LeaderState = 'standby';
+    let b: LeaderState = 'standby';
+    const first = createElection(noQuery, (x) => (a = x));
+    await tick();
+    const second = createElection(noQuery, (x) => (b = x));
+    await tick();
+    await second.claim();
+    await tick();
+    expect([a, b]).toEqual(['standby', 'leader']);
+    first.stop();
     second.stop();
   });
 

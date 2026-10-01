@@ -24,6 +24,7 @@ import {
   revokePairing,
   setPairingAllowed,
 } from './remote';
+import { handovers } from './handover';
 
 let server: Server;
 let base: string;
@@ -473,6 +474,43 @@ describe('speaker remote over the hub', () => {
     await bare.next('hub');
     expect(controlWindows()).toEqual({ open: 1, active: { browser: 'other' } });
     bare.ws.close();
+    await until(() => controlWindows().open === 0);
+  });
+
+  it('«Відкрити в … зараз»: a window with a good token takes charge, the others hear where', async () => {
+    await until(() => controlWindows().open === 0);
+    const old = client({ role: 'control' }, { ...origin(), 'user-agent': UA.safariMac });
+    expect(await old.next('hub')).toMatchObject({ active: true });
+    const token = handovers.issue({ id: 'zen', name: 'Zen' });
+    const zen = client(
+      { role: 'control', handover: token },
+      { ...origin(), 'user-agent': UA.firefoxMac },
+    );
+    expect(await zen.next('handover')).toEqual({ type: 'handover', browser: 'zen' });
+    expect(await zen.next('hub')).toEqual({ type: 'hub', active: true });
+    expect(await old.next('hub')).toEqual({ type: 'hub', active: false, movedTo: 'Zen' });
+    expect(controlWindows()).toEqual({ open: 2, active: { browser: 'firefox' } });
+    expect(handovers.peek(token)).toBeNull(); // used up
+    // the same token again (a reconnect, a copied address): an ordinary control window
+    const again = client({ role: 'control', handover: token }, origin());
+    expect(await again.next('hub')).toEqual({ type: 'hub', active: false });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(again.frames.some((f) => f.type === 'handover')).toBe(false);
+    // «Слухати тут» in the old one: an ordinary take-over, no word of a move
+    old.ws.send(JSON.stringify({ type: 'take-control' }));
+    expect(await old.next('hub')).toEqual({ type: 'hub', active: true });
+    expect(await zen.next('hub')).toEqual({ type: 'hub', active: false });
+    // a wrong token changes nothing either
+    const wrong = client({ role: 'control', handover: 'not-a-token-not-a-token' }, origin());
+    expect(await wrong.next('hub')).toEqual({ type: 'hub', active: false });
+    expect(controlWindows().active).toEqual({ browser: 'safari' });
+    // a good token on a socket without the page's origin: refused before it is looked at
+    const far = handovers.issue({ id: 'zen', name: 'Zen' });
+    const foreign = client({ role: 'control', handover: far }, { 'user-agent': UA.firefoxMac });
+    expect(await foreign.next('denied')).toMatchObject({ type: 'denied' });
+    expect(handovers.peek(far)).not.toBeNull();
+    handovers.revoke(far);
+    for (const c of [old, zen, again, wrong, foreign]) c.ws.close();
     await until(() => controlWindows().open === 0);
   });
 
