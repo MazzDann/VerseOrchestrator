@@ -70,6 +70,19 @@ describe('connectLive', () => {
     expect(FakeSocket.all).toHaveLength(2);
   });
 
+  it('a hello given as a function is asked at every connect (a handover token goes once)', async () => {
+    let n = 0;
+    connectLive({ hello: () => ({ role: 'control', ...(n++ === 0 ? { handover: 'tok' } : {}) }) });
+    FakeSocket.all[0].accept();
+    expect(FakeSocket.all[0].sent).toEqual([
+      JSON.stringify({ type: 'hello', role: 'control', handover: 'tok' }),
+    ]);
+    await refuse();
+    vi.advanceTimersByTime(500);
+    FakeSocket.all[1].accept();
+    expect(FakeSocket.all[1].sent).toEqual([JSON.stringify({ type: 'hello', role: 'control' })]);
+  });
+
   it('a stopped connection says nothing more (0.6.25)', async () => {
     const status: boolean[] = [];
     const c = connectLive({ hello: { role: 'control' }, onStatus: (open) => status.push(open) });

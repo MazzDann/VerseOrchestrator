@@ -144,6 +144,18 @@ Vivaldi, and Chromium. Firefox, Zen, and Safari open the control window as a reg
 so the switch is off there. A separate window has one tab, so a second start brings exactly
 that window forward more reliably.
 
+To move to the other browser at once, without waiting for the next start, click **Open in …
+now** under the switch — for example, **Open in Zen now**. The control window opens in the
+chosen browser (as a separate window if that is on) and takes charge: remotes and viewers'
+phones now listen to it. This window says **The control window moved to …** — close it with
+**Close this window** or leave it. Presentation and stage windows opened from this browser stay
+here, so if one is open, the app asks first: click **Switch to …** and open the presentation
+again in the new control window. The button isn't there when **System browser** is chosen, or
+in the chosen browser once the app itself has opened a control window there — by the start
+file, the shortcut, or this button. In a window you opened yourself by its address, the button
+may stay even in the chosen browser: browsers on one engine often introduce themselves the same
+way (Firefox, Zen, and LibreWolf, for one), and a second control window there does no harm.
+
 If the chosen browser is no longer on the computer, the start file opens the control window
 as with **System browser** — in the system browser, and from the shortcut in Chrome or Edge as
 a separate window — and says so in the start window. The choice is kept in
