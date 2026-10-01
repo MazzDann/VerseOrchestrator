@@ -975,6 +975,8 @@ export const EN: Record<string, string> = {
   'Він запускає застосунок і відкриває вікно керування окремим вікном (Chrome або Edge).':
     'It starts the app and opens the control window as its own window (Chrome or Edge).',
   'Застосунок уже працює: {url}': 'The app is already running: {url}',
+  'Працює інша збірка: {label}. Щоб запустити цю, вимкніть застосунок («Вимкнути повністю…» або --off) і запустіть знову.':
+    'Another build is running: {label}. To run this one, switch the app off (“Switch off completely…” or --off) and start it again.',
   'Залежності на місці': 'Dependencies in place',
   'Залежності: не встановлено (npm ci)': 'Dependencies: not installed (npm ci)',
   'Залежності: встановлено для іншої системи (npm ci)':

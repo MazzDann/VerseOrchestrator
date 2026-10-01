@@ -9,11 +9,14 @@ import { createStandby, waiterAt } from './standby';
 import {
   browserCommand,
   depsState,
+  headerLine,
+  healthAt,
   libraryState,
   NPM_CI,
   nodeVersionOk,
   parseArgs,
   phoneUrl,
+  runningNote,
   switchOff,
   writeDepsRecord,
 } from './launcher';
@@ -203,5 +206,59 @@ describe('launcher', () => {
       stillRunning: false,
       autostartRemoved: false,
     });
+  });
+
+  it('names the copy on its first line: the dev label in a checkout (2026-10-01)', () => {
+    const label = 'dev 1.4.2.try7 (mac-test · 20dd850)';
+    const plain = { check: false, off: false };
+    expect(headerLine(label, plain)).toBe(`VerseOrchestrator ${label}`);
+    expect(headerLine('1.4.2', plain)).toBe('VerseOrchestrator 1.4.2');
+    expect(headerLine(label, { check: true, off: false })).toBe(
+      `VerseOrchestrator ${label} — перевірка`,
+    );
+    expect(headerLine(label, { check: false, off: true })).toBe(
+      `VerseOrchestrator ${label} — вимкнення`,
+    );
+  });
+
+  it('says when the app already running is another build than these files', () => {
+    const here = 'dev 1.4.2.try7 (feat/x · abc1234)';
+    // the same build, or an app that did not answer: nothing to say
+    expect(runningNote(here, { ok: true, version: '1.4.2', label: here })).toBeNull();
+    expect(runningNote('1.4.2', { ok: true, version: '1.4.2', label: '1.4.2' })).toBeNull();
+    expect(runningNote(here, null)).toBeNull();
+    expect(runningNote(here, 'garbage')).toBeNull();
+    // started before a branch switch
+    const note = runningNote(here, {
+      ok: true,
+      version: '1.4.2',
+      label: 'dev 1.4.2.try5 (mac-test · 20dd850)',
+    });
+    expect(note).toContain('dev 1.4.2.try5 (mac-test · 20dd850)');
+    expect(note).toContain('--off');
+    // an app from before the label (a release folder): its version
+    expect(runningNote(here, { ok: true, version: '1.4.1' })).toContain('1.4.1');
+    expect(runningNote('1.4.2', { ok: true, version: '1.4.2' })).toBeNull();
+  });
+
+  it('asks the running app who it is', async () => {
+    const app = http.createServer((req, res) => {
+      if (req.url !== '/api/health') return void res.writeHead(404).end();
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, version: '1.4.2', label: 'dev 1.4.2 (main · d4961e3)' }));
+    });
+    await new Promise<void>((r) => app.listen(0, '127.0.0.1', () => r()));
+    const port = (app.address() as AddressInfo).port;
+    try {
+      expect(await healthAt(port)).toEqual({
+        ok: true,
+        version: '1.4.2',
+        label: 'dev 1.4.2 (main · d4961e3)',
+      });
+    } finally {
+      await new Promise<void>((r) => app.close(() => r()));
+    }
+    // nobody there any more
+    expect(await healthAt(port)).toBeNull();
   });
 });

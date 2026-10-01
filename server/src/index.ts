@@ -39,6 +39,7 @@ import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
 import { createUpdateChecker } from './updates.js';
 import { readLayout } from './layout.js';
+import { versionLabel } from './versionLabel.js';
 import { createInstaller, hasRollback } from './installer.js';
 import { precompressed } from './precompressed.js';
 import {
@@ -132,8 +133,11 @@ const requireLocalControl: express.RequestHandler = (req, res, next) => {
 const appVersion = (
   JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { version: string }
 ).version;
+// what the pages show: «dev 1.4.2.try7 (mac-test · 20dd850)» in a git checkout, the version in a
+// release (versionLabel.ts); what they and the swap compare stays `version`
+const appLabel = versionLabel(repoRoot, appVersion);
 // the version too: after an update the swap asks the new app who it is (swap.ts)
-app.get('/api/health', (_req, res) => res.json({ ok: true, version: appVersion }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, version: appVersion, label: appLabel }));
 
 /**
  * Audience "follow-along": the control window POSTs the current slide here; it's pushed

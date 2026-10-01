@@ -9,24 +9,46 @@ import { N_ } from '@vo/shared';
  */
 interface ServerState {
   available: boolean | null;
-  setAvailable: (v: boolean) => void;
+  /**
+   * What a copy run from a git checkout calls itself — «dev 1.4.2.try7 (mac-test · 20dd850)»
+   * (server/src/versionLabel.ts); null for a release, and until the server answers.
+   */
+  devLabel: string | null;
 }
 
-export const useServer = create<ServerState>()((set) => ({
+export const useServer = create<ServerState>()(() => ({
   available: null,
-  setAvailable: (available) => set({ available }),
+  devLabel: null,
 }));
+
+interface Health {
+  ok?: unknown;
+  version?: unknown;
+  label?: unknown;
+}
+
+/** The dev label in a health answer: a label other than the version (a release's is the version). */
+export const devLabelOf = (h: Health | null): string | null =>
+  typeof h?.label === 'string' && h.label !== h.version ? h.label : null;
+
+/**
+ * The version inside a sentence that brackets it («У вас остання версія ({current})»): the dev
+ * label's own bracket flattened, «dev 1.4.2.try7, mac-test · 20dd850»; a release's version as it is.
+ */
+export const shownVersion = (devLabel: string | null, version: string): string =>
+  devLabel ? devLabel.replace(/ \((.*)\)$/, ', $1') : version;
 
 /** One quick health check (≤1.5 s). */
 export async function probeServer(): Promise<boolean> {
-  let ok = false;
+  let health: Health | null = null;
   try {
     const res = await fetch('/api/health', { signal: AbortSignal.timeout(1500) });
-    ok = res.ok && ((await res.json().catch(() => null)) as { ok?: boolean } | null)?.ok === true;
+    if (res.ok) health = (await res.json().catch(() => null)) as Health | null;
   } catch {
-    ok = false;
+    health = null;
   }
-  useServer.getState().setAvailable(ok);
+  const ok = health?.ok === true;
+  useServer.setState(ok ? { available: true, devLabel: devLabelOf(health) } : { available: false });
   return ok;
 }
 
