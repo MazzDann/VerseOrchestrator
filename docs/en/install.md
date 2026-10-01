@@ -102,6 +102,13 @@ On the first start from the archive, the system may warn about a file from the i
   `start.command`, and confirm. Before macOS 15, it's enough to right-click the file and
   choose **Open**. After that the file opens with a normal double-click.
 
+When the app is running already and a control window is open, starting it again doesn't
+open a second control window: it switches to that one (on Windows; on macOS when it is in
+Chrome, Edge, Brave, Chromium, Arc or Safari) or says that it is open. The first time, macOS
+asks whether to let Terminal control the browser — click **Allow**. If the permission wasn't
+given, see [The start file doesn't switch to the control window on
+macOS](troubleshooting.md#the-start-file-doesnt-switch-to-the-control-window-on-macos).
+
 If the start window shows a message marked ✗ or !, see [Troubleshooting](troubleshooting.md).
 
 ## Choose the interface language

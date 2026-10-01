@@ -24,7 +24,7 @@ import { lanIps } from './access.ts';
 import { applyLayout } from './layout.ts';
 import { consoleLang, setLang, tr, trError } from './lang.ts';
 import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
-import { appWindowCommand, createShortcut, raiseControlWindow } from './shortcut.ts';
+import { alreadyOpenLines, appWindowCommand, createShortcut } from './shortcut.ts';
 import {
   appProcess,
   buildUi,
@@ -386,19 +386,15 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // Already running (autostart, a second launch): open it — there is nothing to prepare. A
-  // control window already open is shown instead of a second one (1.1.0, the operator's ask).
+  // control window already open is shown instead of a second one (1.1.0, the operator's ask;
+  // on a Mac too since the user's ask of 2026-10-01).
   const waiter = await waiterAt(port);
   if (waiter && !opts.check) {
     say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
     if (opts.browser && !opts.newWindow && (await controlWindowOpen(port, waiter.state))) {
-      say(
-        `  ${
-          raiseControlWindow()
-            ? tr('Вікно керування вже відкрите — перемикаю на нього.')
-            : tr('Вікно керування вже відкрите — знайдіть його серед вікон браузера.')
-        }`,
-      );
-      say(`  ${tr('Щоб відкрити ще одне, запустіть з --new-window.')}`);
+      // brought forward (on a Mac by AppleScript: the first time, macOS asks to let the start
+      // window's app — Terminal — control the browser), or where to find it
+      for (const line of alreadyOpenLines()) say(`  ${line}`);
     } else if (opts.browser) openBrowser(`${local}/`, opts.app);
     return 0;
   }

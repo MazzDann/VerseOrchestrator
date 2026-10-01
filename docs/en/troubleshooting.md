@@ -62,9 +62,28 @@ Open the control window's address from the start window in a browser, for exampl
 ### The start file opened no control window
 
 A control window is open already: the start file and the shortcut then switch to it (on
-Windows) or say that it is open, instead of opening a second one. Look for the window titled
-“VerseOrchestrator — control”. To open another control window anyway, start the app with
-`--new-window`.
+Windows and macOS) or say that it is open, instead of opening a second one. Look for the
+window titled “VerseOrchestrator — control”. To open another control window anyway, start
+the app with `--new-window`. If on macOS the window didn't come forward, see [the next
+section](#the-start-file-doesnt-switch-to-the-control-window-on-macos).
+
+### The start file doesn't switch to the control window on macOS
+
+The start file only says that the control window is open, and the window doesn't come
+forward. The reason is one of these:
+
+- The control window is open in a browser the start file can't control, for example
+  Firefox. The start file switches only to a window in Chrome, Edge, Brave, Chromium, Arc
+  or Safari. In other browsers, look for the window titled “VerseOrchestrator — control”
+  yourself.
+- The start window says “macOS doesn't let Terminal control …” or “macOS doesn't let the
+  app the start window runs in control …”: when macOS asked whether to let that app control
+  the browser, the permission wasn't given. Open **System Settings** → **Privacy &
+  Security** → **Automation**, under **Terminal** (or the app the start window runs in) turn
+  on the browser named in the message, and start the app again.
+- The start window says “If macOS asks for permission to control the browser, allow it and
+  start again”: the browser didn't answer within 30 seconds — most often because the macOS
+  request was left unanswered. Click **Allow** in it and start the app again.
 
 ## Presentation windows
 

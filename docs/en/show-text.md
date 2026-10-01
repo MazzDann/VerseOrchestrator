@@ -151,7 +151,9 @@ here, click **Take control**: nothing changes on screen, and the next actions co
 here. To go back to the window in charge, click **Close this window**.
 
 The shortcut and the start file don't open a second control window: if one is open
-already, they switch to it (on Windows) or say that it is open. To open another one
+already, they switch to it (on Windows; on macOS when it is in Chrome, Edge, Brave,
+Chromium, Arc or Safari) or say that it is open. On macOS, the first time, the system asks
+whether to let Terminal control the browser — click **Allow**. To open another window
 anyway, start the app with `--new-window`. The window that runs the show is called
 “VerseOrchestrator — control” in the browser.
 
