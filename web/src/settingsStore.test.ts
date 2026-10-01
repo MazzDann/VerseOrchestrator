@@ -47,3 +47,24 @@ describe('«Заставка» and presets (1.4.0)', () => {
     expect(s.getState().appearance).toMatchObject({ textColor: '#222222', coverText: 'Інше' });
   });
 });
+
+describe('the display panel below the centre (1.4.6)', () => {
+  it('a layout saved before it gets the default height', () => {
+    expect(store.clampLayout({ navWidth: 300, asideWidth: 640, recentHeight: 170 })).toEqual({
+      navWidth: 300,
+      asideWidth: 640,
+      recentHeight: 170,
+      bottomHeight: store.DEFAULT_LAYOUT.bottomHeight,
+    });
+  });
+
+  it('its height is kept within the limits', () => {
+    const [min, max] = store.LAYOUT_LIMITS.bottomHeight;
+    expect(store.clampLayout({ bottomHeight: 20 }).bottomHeight).toBe(min);
+    expect(store.clampLayout({ bottomHeight: 5000 }).bottomHeight).toBe(max);
+    expect(store.clampLayout({ bottomHeight: 333.4 }).bottomHeight).toBe(333);
+    expect(store.clampLayout({ bottomHeight: 'tall' }).bottomHeight).toBe(
+      store.DEFAULT_LAYOUT.bottomHeight,
+    );
+  });
+});

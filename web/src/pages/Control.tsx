@@ -181,6 +181,7 @@ import {
 import { useHeaderFold, type FoldZone } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { setAppShellWidth } from '../lib/appShell';
+import { SETTINGS_PANEL_KEY, bottomHeightAfter } from '../lib/panelBox';
 import { formatCombo, matchesCombo } from '../hotkeys';
 import { isFormField, scrollableAround } from '../lib/keyScroll';
 import { closeThisWindow } from '../lib/closeWindow';
@@ -262,6 +263,44 @@ export function Control() {
       if (recentBoxRef.current) recentBoxRef.current.style.height = '';
     },
     onReset: () => setLayout({ recentHeight: DEFAULT_LAYOUT.recentHeight }),
+  };
+  // The display panel below the centre (1.4.6): it had a fixed 340 px and no handle — in a
+  // short window it hid the verse list and its own «На екрані» monitor. Its height is the
+  // operator's (layout.bottomHeight) as far as the column has room: it gives way first, down
+  // to BOTTOM_PANEL_MIN, the verse list keeps BOTTOM_VERSES_MIN. A drag starts from what is
+  // shown and, once released, stores what is shown — unless that is a squeezed height the
+  // operator did not ask for (bottomHeightAfter).
+  const bottomBoxRef = useRef<HTMLDivElement>(null);
+  const bottomFrom = useRef<number | null>(null);
+  const bottomResize = {
+    onDrag: (d: number) => {
+      const el = bottomBoxRef.current;
+      if (!el) return;
+      bottomFrom.current ??= el.offsetHeight;
+      el.style.flexBasis = `${clampTo('bottomHeight', bottomFrom.current + d)}px`;
+    },
+    onCommit: (d: number) => {
+      const el = bottomBoxRef.current;
+      if (!el) return;
+      const from = bottomFrom.current ?? el.offsetHeight;
+      bottomFrom.current = null;
+      let shown = from;
+      if (d !== 0) {
+        el.style.flexBasis = `${clampTo('bottomHeight', from + d)}px`;
+        // what the column lets it have (a drag past its room would leave a dead stretch)
+        shown = clampTo('bottomHeight', el.offsetHeight);
+      }
+      // a squeezed height never replaces the operator's (a click, ↑ / ↓ with no room)
+      const next = bottomHeightAfter(layout.bottomHeight, from, shown, d);
+      // React re-renders `flex` only when the height changes: put back what it rendered
+      el.style.flexBasis = `${next}px`;
+      if (next !== layout.bottomHeight) setLayout({ bottomHeight: next });
+    },
+    onReset: () => {
+      if (bottomBoxRef.current)
+        bottomBoxRef.current.style.flexBasis = `${DEFAULT_LAYOUT.bottomHeight}px`;
+      setLayout({ bottomHeight: DEFAULT_LAYOUT.bottomHeight });
+    },
   };
   // The burgers in the header exist below AppShell's breakpoints: the navigation's below `sm`,
   // the preview panel's below `md`. Read at once, not in an effect: a first render with the
@@ -3166,7 +3205,7 @@ export function Control() {
                 )}
               </Group>
               <Box ref={recentBoxRef} style={{ height: layout.recentHeight }}>
-                <ScrollArea h="100%">
+                <ScrollArea h="100%" scrollbars="y" className="vo-scroll-rows">
                   <Tabs.Panel value="history">
                     <RefList
                       items={history}
@@ -3190,7 +3229,15 @@ export function Control() {
         </AppShell.Navbar>
 
         <AppShell.Main>
-          <Box style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)' }}>
+          {/* the header's height is in rem (AppShell): with a 20 px root font a fixed 56 px left
+              the column's last 14 px below the window */}
+          <Box
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: 'calc(100vh - var(--app-shell-header-height, 3.5rem))',
+            }}
+          >
             {!isLeader && (
               <Group
                 gap="sm"
@@ -3403,7 +3450,13 @@ export function Control() {
               </ScrollArea.Autosize>
             )}
             <Divider />
-            <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+            <div
+              style={{
+                display: 'flex',
+                flex: 1,
+                minHeight: panelPlacement === 'bottom' ? BOTTOM_VERSES_MIN : 0,
+              }}
+            >
               <ScrollArea style={{ flex: 1 }} px="md" py="xs" viewportRef={verseViewport}>
                 <Stack gap={2}>
                   {primaryVerses.map((v) => (
@@ -3483,10 +3536,24 @@ export function Control() {
               )}
             </div>
             {panelPlacement === 'bottom' && (
-              <>
-                <Divider />
-                <Box style={{ height: 340, minHeight: 0 }}>{renderStudyPanels(true)}</Box>
-              </>
+              <Box
+                ref={bottomBoxRef}
+                style={{
+                  position: 'relative',
+                  // it shrinks, not the chapters or an inline tool above (shrink is weighted)
+                  flex: `0 1000 ${layout.bottomHeight}px`,
+                  minHeight: BOTTOM_PANEL_MIN,
+                  borderTop: '1px solid var(--mantine-color-default-border)',
+                }}
+              >
+                <ResizeHandle
+                  axis="y"
+                  edge="top"
+                  label={tr('Висота панелі показу')}
+                  {...bottomResize}
+                />
+                {renderStudyPanels(true)}
+              </Box>
             )}
           </Box>
         </AppShell.Main>
@@ -3510,7 +3577,7 @@ export function Control() {
         opened={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         title={tr('Налаштування вигляду')}
-        storageKey="vo:settingsPanelPos"
+        storageKey={SETTINGS_PANEL_KEY}
         width={400}
         icon={<IconAdjustments size={16} />}
       >
@@ -3628,6 +3695,14 @@ export function Control() {
 const GAP = '…';
 /** The book list keeps about four rows however short the window (0.6.26). */
 const BOOKS_MIN_HEIGHT = 120;
+
+/**
+ * The display panel below the centre in a short column (1.4.6): it gives way down to 10rem
+ * (two fifths of a very short column) — its monitors shrink with it — while the verse list
+ * keeps 7.5rem, three or four verses.
+ */
+const BOTTOM_PANEL_MIN = 'min(10rem, 40%)';
+const BOTTOM_VERSES_MIN = '7.5rem';
 /**
  * How long the socket to the hub may be down before the operator is told (0.6.25), counted
  * from the drop (0.6.29: a failed retry no longer restarts it — with retries every 2 s it
