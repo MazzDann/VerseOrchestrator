@@ -8,7 +8,10 @@ import type { PresenterCommand, Slide, SlideLine } from '../presenterBus';
  * 1.4 MB `storage` event in EVERY app window) and cloned it over BroadcastChannel; the
  * «next» preview did the same on every selection change. Now:
  *   - ASSETS: a background travels once, as `{ t: 'asset', id, data }` (id = length +
- *     FNV-1a of the data); slides carry `asset:<id>` and receivers resolve it back.
+ *     FNV-1a of the data); slides carry `asset:<id>` and receivers resolve it back. So
+ *     does «Заставка»'s image (1.4.2: it went inline — over the channel and into the
+ *     stored slide — every time L put it on), and the images of the slide a QR slide or
+ *     «Заставка» covers (`returnTo`).
  *   - ONE ordered channel for everything (live, next, assets, commands, handshake);
  *     publishes are numbered (`epoch` = this control window's session, `seq`), so a
  *     receiver drops stale copies (e.g. handshake replies) per stream.
@@ -16,9 +19,10 @@ import type { PresenterCommand, Slide, SlideLine } from '../presenterBus';
  *     answers with its assets + current live + next. A receiver that still misses an
  *     asset asks for it (`need`).
  *   - COLD START: localStorage keeps the last live/next slide (small, with the asset
- *     reference) and the current asset (written only when the background changes), so
- *     an output window opened while the control window is closed still shows the last
- *     slide.
+ *     references) and the live slide's background (written only when it changes), so an
+ *     output window opened while the control window is closed still shows the last slide.
+ *     «Заставка»'s image is not copied (1.4.2): it is the logo the settings keep already
+ *     (`kept`), found there by its id.
  */
 
 export type Wire =
@@ -41,10 +45,16 @@ export interface BusStorage {
 
 export const KEY_LIVE = 'vo:slide';
 export const KEY_NEXT = 'vo:slide-next';
+/** The live slide's background, for cold start: `{ id, data }`. */
 export const KEY_ASSET = 'vo:asset';
 const ASSET_PREFIX = 'asset:';
-/** Receivers keep a few recent backgrounds (switching back and forth stays instant). */
+/** Receivers keep a few recent images (switching back and forth stays instant). */
 const KEEP_ASSETS = 4;
+/**
+ * How deep `returnTo` may nest: the QR over «Заставка» over a verse is 2 (lib/slide.ts never
+ * nests deeper); a deeper one, or a loop, is not a slide.
+ */
+const MAX_RETURN_DEPTH = 3;
 
 /** Content id of a data URL: its length + FNV-1a (32-bit) over every char code. */
 export function assetId(data: string): string {
@@ -60,6 +70,10 @@ export function assetId(data: string): string {
  * What a valid slide still can't draw, `SlideCanvas` catches.
  */
 export function isSlide(x: unknown): x is Slide {
+  return slideAt(x, 0);
+}
+
+function slideAt(x: unknown, depth: number): x is Slide {
   if (!x || typeof x !== 'object') return false;
   const s = x as Record<string, unknown>;
   const obj = (v: unknown) => v === undefined || v === null || typeof v === 'object';
@@ -74,18 +88,63 @@ export function isSlide(x: unknown): x is Slide {
     obj(s.template) &&
     (!s.template || Array.isArray((s.template as { objects: unknown }).objects)) &&
     obj(s.reveal) &&
-    (!s.reveal || Array.isArray((s.reveal as { units: unknown }).units))
+    (!s.reveal || Array.isArray((s.reveal as { units: unknown }).units)) &&
+    // what a QR slide or «Заставка» covers (1.4.2): brought back as it is, so a slide too
+    (s.returnTo == null || (depth < MAX_RETURN_DEPTH && slideAt(s.returnTo, depth + 1)))
   );
 }
 
 const isInline = (bg: string | null | undefined): bg is string =>
   !!bg && !bg.startsWith(ASSET_PREFIX) && bg.length > 256; // data URLs; short URLs stay inline
 
+/**
+ * The images a slide carries (1.4.2): its background, «Заставка»'s image, and those of the
+ * slide it covers (`returnTo`). Cold start stores the live slide's own background only: the
+ * cover's image is the settings' logo (`kept`), and the covered slide's background is the
+ * same one almost always (it is not on screen).
+ */
+type ImageSlot = 'bg' | 'cover';
+
+/** The slide with each image passed through `fn` — a copy only where one changed. */
+function mapImages(
+  slide: Slide,
+  fn: (image: string | null | undefined, slot: ImageSlot, top: boolean) => string | null,
+  top = true,
+): Slide {
+  let out = slide;
+  const bg = slide.style?.bgImage;
+  const bgTo = fn(bg, 'bg', top);
+  if (bgTo !== (bg ?? null)) out = { ...out, style: { ...out.style!, bgImage: bgTo } };
+  const image = slide.cover?.image;
+  const imageTo = fn(image, 'cover', top);
+  if (imageTo !== (image ?? null)) out = { ...out, cover: { ...out.cover!, image: imageTo } };
+  if (slide.returnTo) {
+    const back = mapImages(slide.returnTo, fn, false);
+    if (back !== slide.returnTo) out = { ...out, returnTo: back };
+  }
+  return out;
+}
+
+/** The asset ids a (wire) slide refers to, the covered slide's included. */
+function assetRefs(slide: Slide | null | undefined, into = new Set<string>()): Set<string> {
+  for (const ref of [slide?.style?.bgImage, slide?.cover?.image]) {
+    if (ref?.startsWith(ASSET_PREFIX)) into.add(ref.slice(ASSET_PREFIX.length));
+  }
+  if (slide?.returnTo) assetRefs(slide.returnTo, into);
+  return into;
+}
+
 export function createBus(
   channel: BusChannel | null,
   storage: BusStorage | null,
   /** a window sent something that isn't a slide (see `isSlide`), and this one listens */
   onInvalid: () => void = () => undefined,
+  /**
+   * Images the app stores anyway — the settings' logo (1.4.2). Cold start finds a slide's
+   * image among them by its id, so the bus keeps no copy: one more of the logo, for good,
+   * left a later background over Safari's quota.
+   */
+  kept: () => readonly (string | null | undefined)[] = () => [],
 ) {
   const epoch = Math.random().toString(36).slice(2, 10);
   let seq = 0;
@@ -93,8 +152,10 @@ export function createBus(
 
   // ---- publisher side (the control window)
   const published = new Map<string, string>(); // id → data, what we've announced
-  let lastData: string | null = null;
-  let lastId = '';
+  /** Ids of the images last hashed — by string instance, so the same setting is never rehashed. */
+  const hashed: { data: string; id: string }[] = [];
+  /** The background this window last stored for cold start (its id). */
+  let storedBg = '';
   let live: Slide | null | undefined; // undefined: this window never published
   let next: Slide | null | undefined;
   let liveSeq = 0;
@@ -109,21 +170,38 @@ export function createBus(
     }
   };
 
-  /** Replace an inline background with an asset reference; announce new assets once. */
-  function toWire(slide: Slide | null): Slide | null {
-    const bg = slide?.style?.bgImage;
-    if (!slide || !isInline(bg)) return slide;
-    // Same string as last time (the appearance setting) → no hashing at all.
-    const id = bg === lastData ? lastId : assetId(bg);
-    lastData = bg;
-    lastId = id;
-    if (!published.has(id)) {
-      published.set(id, bg);
+  function idOf(data: string): string {
+    // The same string as before (the appearance setting) → no hashing at all; `===` on
+    // another string compares lengths first, so a miss costs nothing either.
+    const hit = hashed.find((h) => h.data === data);
+    if (hit) return hit.id;
+    const id = assetId(data);
+    hashed.push({ data, id });
+    if (hashed.length > KEEP_ASSETS) hashed.shift();
+    return id;
+  }
+
+  /**
+   * Replace the inline images (lib `mapImages`) with asset references; each is announced
+   * once, and kept as the most recent (the background, in every slide, is never dropped for
+   * an image used once). `store`: the live stream — its own background goes to cold start,
+   * only when it changes.
+   */
+  function toWire(slide: Slide | null, store: boolean): Slide | null {
+    if (!slide) return slide;
+    return mapImages(slide, (image, slot, top) => {
+      if (!isInline(image)) return image ?? null;
+      const id = idOf(image);
+      if (published.has(id)) published.delete(id);
+      else channel?.post({ t: 'asset', id, data: image });
+      published.set(id, image);
       if (published.size > KEEP_ASSETS) published.delete(published.keys().next().value!);
-      channel?.post({ t: 'asset', id, data: bg });
-      save(KEY_ASSET, JSON.stringify({ id, data: bg })); // once per background change
-    }
-    return { ...slide, style: { ...slide.style!, bgImage: ASSET_PREFIX + id } };
+      if (store && top && slot === 'bg' && storedBg !== id) {
+        storedBg = id;
+        save(KEY_ASSET, JSON.stringify({ id, data: image })); // once per background change
+      }
+      return ASSET_PREFIX + id;
+    });
   }
 
   /** The last wire JSON per stream: an identical publish is dropped (no message, no write). */
@@ -136,8 +214,8 @@ export function createBus(
 
   function publish(t: 'live' | 'next', slide: Slide | null): void {
     if (!publishing) return;
-    const wire = toWire(slide);
-    const json = wire ? JSON.stringify(wire) : 'null'; // small: the background is a reference
+    const wire = toWire(slide, t === 'live');
+    const json = wire ? JSON.stringify(wire) : 'null'; // small: the images are references
     if (json === lastJson[t]) return;
     lastJson[t] = json;
     seq += 1;
@@ -156,13 +234,10 @@ export function createBus(
   function answerHello(): void {
     if (!publishing) return;
     if (live === undefined && next === undefined) return; // not a publisher
-    for (const s of [live, next]) {
-      const ref = s?.style?.bgImage;
-      if (ref?.startsWith(ASSET_PREFIX)) {
-        const id = ref.slice(ASSET_PREFIX.length);
-        const data = published.get(id);
-        if (data) channel?.post({ t: 'asset', id, data });
-      }
+    // each image once, though live and next share the background
+    for (const id of assetRefs(next, assetRefs(live))) {
+      const data = published.get(id);
+      if (data) channel?.post({ t: 'asset', id, data });
     }
     if (live !== undefined) channel?.post({ t: 'live', epoch, seq: liveSeq, slide: live });
     if (next !== undefined) channel?.post({ t: 'next', epoch, seq: nextSeq, slide: next });
@@ -178,14 +253,21 @@ export function createBus(
   let helloSent = false;
   const asked = new Set<string>();
 
+  /** An image for cold start: the stored background, or one the app keeps (`kept`). */
   function storedAsset(id: string): string | null {
     try {
       const raw = storage?.get(KEY_ASSET);
       const a = raw ? (JSON.parse(raw) as { id: string; data: string }) : null;
-      return a?.id === id ? a.data : null;
+      if (a?.id === id) return a.data;
     } catch {
-      return null;
+      /* unreadable: the kept images, or the publisher (`need`) */
     }
+    // the id starts with the length: only an image that long is hashed (by instance, once)
+    const length = id.slice(0, id.indexOf('-'));
+    for (const data of kept()) {
+      if (isInline(data) && data.length.toString(36) === length && idOf(data) === id) return data;
+    }
+    return null;
   }
 
   function remember(id: string, data: string) {
@@ -194,18 +276,20 @@ export function createBus(
     if (assets.size > KEEP_ASSETS) assets.delete(assets.keys().next().value!);
   }
 
-  /** Put the real background back into a wire slide (or none yet — then ask for it). */
+  /** Put the real images back into a wire slide (or none yet — then ask for them). */
   function resolve(slide: Slide | null): Slide | null {
-    const ref = slide?.style?.bgImage;
-    if (!slide || !ref?.startsWith(ASSET_PREFIX)) return slide;
-    const id = ref.slice(ASSET_PREFIX.length);
-    const data = assets.get(id) ?? storedAsset(id);
-    if (data) remember(id, data);
-    else if (!asked.has(id)) {
-      asked.add(id);
-      channel?.post({ t: 'need', id });
-    }
-    return { ...slide, style: { ...slide.style!, bgImage: data } };
+    if (!slide) return slide;
+    return mapImages(slide, (ref) => {
+      if (!ref?.startsWith(ASSET_PREFIX)) return ref ?? null;
+      const id = ref.slice(ASSET_PREFIX.length);
+      const data = assets.get(id) ?? storedAsset(id);
+      if (data) remember(id, data);
+      else if (!asked.has(id)) {
+        asked.add(id);
+        channel?.post({ t: 'need', id });
+      }
+      return data;
+    });
   }
 
   const fresh = (t: 'live' | 'next', epoch: string, s: number) => {
@@ -240,9 +324,8 @@ export function createBus(
       case 'asset': {
         remember(msg.id, msg.data);
         asked.delete(msg.id);
-        const ref = ASSET_PREFIX + msg.id;
-        if (curLive?.style?.bgImage === ref) for (const cb of liveSubs) cb(resolve(curLive)!);
-        if (curNext?.style?.bgImage === ref) for (const cb of nextSubs) cb(resolve(curNext));
+        if (assetRefs(curLive).has(msg.id)) for (const cb of liveSubs) cb(resolve(curLive)!);
+        if (assetRefs(curNext).has(msg.id)) for (const cb of nextSubs) cb(resolve(curNext));
         return;
       }
       case 'hello':
@@ -271,6 +354,28 @@ export function createBus(
     }
   }
 
+  /**
+   * Before «Повернути версію» (1.4.2): the stored live slide as an older version reads it.
+   * 1.4.1 resolves the background only: a cover's `asset:` image stayed a broken picture — in
+   * an output window's cold start and in what its control window projected again, until L
+   * twice. So the image goes back inline, as 1.4.1 stored it. The rest stays: `returnTo`
+   * means nothing to 1.4.1, and a version that knows it gives it back with L.
+   */
+  function storeForOlderVersion(): void {
+    let slide: unknown;
+    try {
+      const raw = storage?.get(KEY_LIVE);
+      slide = raw ? JSON.parse(raw) : null;
+    } catch {
+      return;
+    }
+    if (!isSlide(slide) || !slide.cover?.image?.startsWith(ASSET_PREFIX)) return;
+    const id = slide.cover.image.slice(ASSET_PREFIX.length);
+    // not found (the logo changed meanwhile): no picture rather than a broken one
+    const image = published.get(id) ?? assets.get(id) ?? storedAsset(id);
+    save(KEY_LIVE, JSON.stringify({ ...slide, cover: { ...slide.cover, image } }));
+  }
+
   /** First subscription of a receiver: ask the publisher for the current state. */
   function hello(): void {
     if (helloSent) return;
@@ -286,9 +391,12 @@ export function createBus(
       if (!on) {
         live = next = undefined;
         lastJson.live = lastJson.next = '';
+        // the leader stores its own background; leading again, store this window's anew
+        storedBg = '';
       }
     },
     publishNext: (slide: Slide | null) => publish('next', slide),
+    storeForOlderVersion,
     readSlide: (): Slide => read(KEY_LIVE) ?? EMPTY,
     readNext: (): Slide | null => read(KEY_NEXT),
     subscribeSlide(cb: (s: Slide) => void): () => void {
