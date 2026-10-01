@@ -2,6 +2,7 @@ import { N_ } from '@vo/shared';
 import { createBus, type BusChannel, type BusStorage, type Wire } from './lib/bus';
 import { reportSlideError } from './lib/slideErrors';
 import { tr } from './i18n';
+import { useSettings } from './settingsStore';
 
 /**
  * Slides and the transport between the control window and the output windows.
@@ -138,9 +139,19 @@ export interface Slide {
   qr?: string;
   /** «Заставка» (1.4.0): the operator's logo and a line of text, between items. */
   cover?: SlideCover;
+  /**
+   * The slide a QR slide or «Заставка» covers — what «Прибрати QR» / L bring back (1.4.2).
+   * It travels with the slide, so a control window that takes over, or reloads, can still
+   * give it back (it was kept in the covering window only: another one emptied the screen).
+   * Output windows ignore it; the phones never get it (lib/slide.ts `forAudience`).
+   */
+  returnTo?: Slide | null;
 }
 
-/** What «Заставка» shows (1.4.0): an image (a data URL) and/or text, on the slide's background. */
+/**
+ * What «Заставка» shows (1.4.0): an image (a data URL) and/or text, on the slide's background.
+ * The image crosses the window bus once, as an asset, like the background (1.4.2).
+ */
 export interface SlideCover {
   text: string;
   image: string | null;
@@ -273,10 +284,16 @@ const storage: BusStorage | null =
       }
     : null;
 
-// a slide from another window that this one can't read (0.13.0): kept off the screen, and
-// the control window hears about it like about a slide that failed to draw
-const bus = createBus(channel, storage, () =>
-  reportSlideError(tr('слайд із невідомою будовою — можливо, від вікна іншої версії застосунку')),
+const bus = createBus(
+  channel,
+  storage,
+  // a slide from another window that this one can't read (0.13.0): kept off the screen, and
+  // the control window hears about it like about a slide that failed to draw
+  () =>
+    reportSlideError(tr('слайд із невідомою будовою — можливо, від вікна іншої версії застосунку')),
+  // «Заставка»'s image for cold start (1.4.2): the logo the settings store already — every
+  // window reads them from localStorage as it opens (main.tsx)
+  () => [useSettings.getState().appearance.coverImage],
 );
 
 /** Project a slide: every output window shows it; the last one survives a reload. */
@@ -292,3 +309,5 @@ export const sendCommand = bus.sendCommand;
 export const subscribeCommand = bus.subscribeCommand;
 /** Leader / standby control window (lib/leader.ts): only the leader publishes. */
 export const setPublishing = bus.setPublishing;
+/** Before «Повернути версію» (1.4.2): the last slide as the older version can read it. */
+export const storeForOlderVersion = bus.storeForOlderVersion;
