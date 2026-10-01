@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 describe('plain Node entry points', () => {
   it('load without tsx', () => {
     const dir = path.dirname(fileURLToPath(import.meta.url));
-    const imports = ['launcher.ts', 'standby.ts', 'portable.ts', 'swap.ts']
+    const imports = ['launcher.ts', 'standby.ts', 'portable.ts', 'swap.ts', 'uiStamp.ts']
       .map((f) => `await import(${JSON.stringify(pathToFileURL(path.join(dir, f)).href)});`)
       .join('');
     const r = spawnSync(

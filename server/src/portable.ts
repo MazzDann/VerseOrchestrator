@@ -24,7 +24,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NPM_CI, writeDepsRecord } from './launcher.ts';
-import { buildUi, needsBuild, run } from './standby.ts';
+import { buildUi, run } from './standby.ts';
+import { needsBuild } from './uiStamp.ts';
 import { consoleLang, setLang, tr, type Lang } from './lang.ts';
 import { LAYOUT_MARKER, OS_NAME, RELEASE_MARKER } from './layout.ts';
 
@@ -33,17 +34,31 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 /** What to copy of the running Node, and where it goes in the copy (the layout Node ships in). */
 export type NodeCopy = { from: string; to: string }[];
 
+/** A folder's own files — not its folders or symlinks; none when there's no such folder. */
+const filesIn = (dir: string): string[] => {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isFile())
+      .map((d) => d.name);
+  } catch {
+    return [];
+  }
+};
+
 /**
  * Windows: node.exe with npm next to it (npm.cmd runs node_modules\npm with the node.exe beside
  * it). Elsewhere: bin/node + lib/node_modules/npm — found beside the node on PATH or beside the
- * real file it links to (official tarballs, nvm, Homebrew); bin/npm is written as a small script
- * (a symlink wouldn't survive a flash drive). A message instead when npm isn't found.
+ * real file it links to (official tarballs, as nodejs.org, fnm and nvm install them); bin/npm is
+ * written as a small script (a symlink wouldn't survive a flash drive). A message instead when
+ * npm isn't found, or when this Node can't live on its own (1.4.1).
  */
 export function nodeCopy(
   platform: NodeJS.Platform,
   execPath: string,
   realExecPath: string,
   exists: (p: string) => boolean = fs.existsSync,
+  files: (dir: string) => string[] = filesIn,
 ): NodeCopy | string {
   if (platform === 'win32') {
     const dir = path.win32.dirname(execPath);
@@ -55,6 +70,19 @@ export function nodeCopy(
     // Node's own licence goes with the binary (0.14.1: copies are published now)
     if (exists(path.win32.join(dir, 'LICENSE'))) files.push('LICENSE');
     return files.map((f) => ({ from: path.win32.join(dir, f), to: f }));
+  }
+  // Homebrew's Node (…/Cellar/node/…, node@24 too) is libnode plus Homebrew's libuv, OpenSSL,
+  // ICU…: copied alone it starts neither here nor on another computer — nor does any Node built
+  // with its libnode beside it. Only a real file counts: the link Homebrew puts in its prefix's
+  // lib/ (/usr/local/lib on an Intel Mac, where nodejs.org's installer puts its node too) is
+  // another Node's library
+  const lib = path.posix.join(path.posix.dirname(realExecPath), '..', 'lib');
+  const brew = /\/Cellar\/node(@[\d.]+)?\//.test(realExecPath);
+  if (brew || files(lib).some((f) => f.startsWith('libnode.'))) {
+    return tr(
+      '{node} — Node.js, що залежить від бібліотек поруч (так його встановлює Homebrew): у копії він не запуститься. Запустіть npm run portable з Node.js з nodejs.org (або встановленим через fnm чи nvm).',
+      { node: realExecPath },
+    );
   }
   const npm = [execPath, realExecPath]
     .map((p) => path.posix.join(path.posix.dirname(p), '..', 'lib', 'node_modules', 'npm'))
@@ -202,6 +230,12 @@ async function main(argv: string[]): Promise<number> {
   /** the app itself; the user's folders sit next to it (0.14.0) */
   const app = path.join(out, 'app');
   say(tr('Портативна копія {name}', { name }));
+  // the Node that goes into the copy — checked before anything is built (1.4.1)
+  const copy = nodeCopy(process.platform, process.execPath, fs.realpathSync(process.execPath));
+  if (typeof copy === 'string') {
+    say(`✗ ${copy}`);
+    return 1;
+  }
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(app, { recursive: true });
 
@@ -237,11 +271,6 @@ async function main(argv: string[]): Promise<number> {
   fs.cpSync(path.join(root, 'web', 'dist'), path.join(app, 'web', 'dist'), { recursive: true });
 
   // 3. This Node, with npm
-  const copy = nodeCopy(process.platform, process.execPath, fs.realpathSync(process.execPath));
-  if (typeof copy === 'string') {
-    say(`✗ ${copy}`);
-    return 1;
-  }
   for (const { from, to } of copy)
     fs.cpSync(from, path.join(app, 'node', to), { recursive: true, dereference: true });
   if (process.platform !== 'win32') {

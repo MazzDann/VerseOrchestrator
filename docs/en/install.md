@@ -223,6 +223,10 @@ To make a portable copy, run in the app's folder:
 npm run portable
 ```
 
+It needs Node.js from [nodejs.org](https://nodejs.org) or installed with fnm or nvm: that
+Node.js goes into the copy. Node.js from Homebrew depends on Homebrew's libraries, so its copy
+wouldn't start, and `npm run portable` refuses to make it.
+
 The copy appears in the `portable/` folder, in a subfolder named with the version, system,
 and processor, for example `VerseOrchestrator-VERSION-windows-x64`. The appearance settings
 and the running order go into it. To add the library too, run
