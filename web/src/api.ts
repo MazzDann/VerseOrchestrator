@@ -355,6 +355,8 @@ const UpdateStateSchema = z.object({
     .optional(),
   /** the version the last update left behind, to go back to (1.4.0) */
   previous: z.string().nullish(),
+  /** …and whether it has «Повернути версію» of its own (1.4.0 or later; 1.4.1) */
+  previousHasRollback: z.boolean().nullish(),
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 

@@ -141,7 +141,11 @@ into `app.next/` next to the running `app/`. «Перезапустити й о�
 swap renames `app/` → `app.previous/` and `app.next/` → `app/`, starts the new waiter on the
 same port, and asks `/api/health` for the new version. No answer in 90 s: the new app goes
 to `app.failed/` and the previous one comes back. `data/updates/result.json` says how it
-went. A portable copy keeps the app in `app/`
+went; the next start after it removes the helper's copies. «Повернути версію …» turns
+`app.previous/` into `app.next/` and runs the same swap (not while an update unpacks; a
+download under way stops); back to a version before 1.4.0, which has no such button, the
+swap leaves the newer app as `app.next/`, so that version's «Оновлення» offers it without a
+download. A portable copy keeps the app in `app/`
 with a marker, `.vo-portable`, that the launcher and the waiter turn into `VO_DATA_DIR` and
 `MODULES_DIR` pointing next to it (`server/src/layout.ts`), so a new version replaces `app/`
 alone.
