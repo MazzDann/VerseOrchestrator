@@ -412,10 +412,15 @@ export function songNumberTitle(key: string): { number: number | null; title: st
   return { number: m ? Number.parseInt(m[1], 10) : null, title: (m ? m[2] : key).trim() };
 }
 
-/** Is this a song file an import should read (not a folder, not an Office lock file `~$…`)? */
+/**
+ * Is this a song file an import should read — not a folder, not an Office lock file `~$…`,
+ * not a Mac's `._NAME.pptx` companion: a Mac puts one next to every file it writes to an exFAT
+ * or FAT drive (1.4.1), and that is no presentation. Other names that start with a period stay
+ * songs (`...Бо Ти є Бог.pptx` is a fine file name on Windows).
+ */
 export function isSongFile(fileName: string): boolean {
   const base = fileName.replace(/^.*[\\/]/, '');
-  return /\.pptx$/i.test(base) && !base.startsWith('~$');
+  return /\.pptx$/i.test(base) && !base.startsWith('~$') && !base.startsWith('._');
 }
 
 /**

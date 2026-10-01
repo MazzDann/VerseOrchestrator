@@ -121,6 +121,8 @@ export function SongBundles({
       });
     } catch (e) {
       setDeleted(null);
+      // the list as it is now: e.g. a rescan in another window made the folder's bundle again
+      refresh();
       fail(e);
     } finally {
       setBusy(false);

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { strToU8, zipSync } from 'fflate';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCHEMA_SQL } from '../library/schema.js';
 import {
   bundleFileName,
@@ -26,6 +26,7 @@ import {
   restoreBundle,
   snapshotBundle,
   trashBundle,
+  TRASH_DIR,
   undoImport,
   syncFolderBundle,
   readBundles,
@@ -269,6 +270,12 @@ describe('a .pptx song', () => {
     expect(isSongFile('a/b/1. X.PPTX')).toBe(true);
     expect(isSongFile('~$1. X.pptx')).toBe(false);
     expect(isSongFile('1. X.ppt')).toBe(false);
+    // a Mac's AppleDouble companion on an exFAT drive (1.4.1) — other names with a period first
+    // are songs: «...Бо Ти є Бог.pptx» is a fine file name on Windows
+    expect(isSongFile('a/._1. X.pptx')).toBe(false);
+    expect(isSongFile('._...X.pptx')).toBe(false);
+    expect(isSongFile('.1. X.pptx')).toBe(true);
+    expect(isSongFile('a/...Бо Ти є Бог.pptx')).toBe(true);
   });
 });
 
@@ -286,6 +293,13 @@ describe('song bundles', () => {
     expect(bundleFileName('ПС укр')).toBe('ПС-укр.vosongs');
     expect(bundleFileName('ПС укр', ['пс-укр.vosongs'])).toBe('ПС-укр-2.vosongs');
     expect(bundleFileName('***')).toBe('songs.vosongs');
+  });
+
+  it('file names: one taken in another Unicode form is taken (exFAT on a Mac, 1.4.1)', () => {
+    // a Mac hands the name back from an exFAT drive decomposed; «ї» then is two characters
+    const nfd = 'Мої-пісні.vosongs'.normalize('NFD');
+    expect(nfd).not.toBe('Мої-пісні.vosongs');
+    expect(bundleFileName('Мої пісні!', [nfd])).toBe('Мої-пісні-2.vosongs');
   });
 
   it('names: case and outer spaces make no second bundle', () => {
@@ -577,6 +591,136 @@ describe('song bundles on disk', () => {
     const made = importSongs(dir, { name: 'Нові' }, [song('9. Нова')]);
     expect(undoImport(dir, { file: made.bundle.file, created: true })).toBe(true);
     expect(listBundles(dir).map((b) => b.meta.name)).toEqual(['ПС']);
+  });
+
+  it('a bundle file named decomposed (exFAT on a Mac, a copy by hand) is never taken over (1.4.1)', () => {
+    const dir = path.join(tmp, 'songs');
+    const mine = importSongs(dir, { name: 'Мої пісні' }, [
+      song('1. Світло'),
+      song('2. Слава'),
+      song('3. Хвала'),
+    ]).bundle;
+    // its file spelled the way exFAT on a Mac hands it back: «ї» decomposed
+    const nfd = mine.file.normalize('NFD');
+    fs.renameSync(path.join(dir, mine.file), path.join(dir, 'moving.tmp'));
+    fs.renameSync(path.join(dir, 'moving.tmp'), path.join(dir, nfd));
+    expect(fs.readdirSync(dir)).toEqual([nfd]);
+    const young = importSongs(dir, { name: 'Молодіжні' }, [song('1. Світло')]).bundle;
+
+    // a new bundle whose name makes the same file name: a file of its own
+    const made = importSongs(dir, { name: 'Мої пісні!' }, [song('9. Нова')]);
+    expect(made.bundle.file).toBe('Мої-пісні-2.vosongs');
+    // a bundle renamed to such a name: likewise, the other one's file stays
+    expect(renameBundle(dir, young.meta.id, 'Мої-пісні')!.file).toBe('Мої-пісні-3.vosongs');
+    // renamed to its own name: its file stays as it is
+    expect(renameBundle(dir, mine.meta.id, 'Мої пісні')!.file).toBe(nfd);
+    const bundles = () =>
+      new Map(listBundles(dir).map((b) => [b.meta.id, [b.meta.name, b.count]] as const));
+    expect(bundles()).toEqual(
+      new Map([
+        [mine.meta.id, ['Мої пісні', 3]],
+        [young.meta.id, ['Мої-пісні', 1]],
+        [made.bundle.meta.id, ['Мої пісні!', 1]],
+      ]),
+    );
+    // «Скасувати» the import: only the bundle it made goes
+    expect(undoImport(dir, { file: made.bundle.file, created: true })).toBe(true);
+    expect(bundles()).toEqual(
+      new Map([
+        [mine.meta.id, ['Мої пісні', 3]],
+        [young.meta.id, ['Мої-пісні', 1]],
+      ]),
+    );
+  });
+
+  it('a case-only rename keeps the bundle in its own file (1.4.1)', () => {
+    const dir = path.join(tmp, 'songs');
+    const { bundle } = importSongs(dir, { name: 'Молодіжні' }, [song('1. Світло')]);
+    const renamed = renameBundle(dir, bundle.meta.id, 'МОЛОДІЖНІ')!;
+    expect(renamed.file).toBe('МОЛОДІЖНІ.vosongs');
+    expect(listBundles(dir).map((b) => [b.file, b.meta.name, b.count])).toEqual([
+      ['МОЛОДІЖНІ.vosongs', 'МОЛОДІЖНІ', 1],
+    ]);
+  });
+
+  it('«Скасувати» finds a deleted bundle back when the drive spells its name decomposed (1.4.1)', () => {
+    const dir = path.join(tmp, 'songs');
+    const { bundle } = importSongs(dir, { name: 'Українські' }, [
+      song('1. Світло'),
+      song('2. Слава'),
+    ]);
+    const gone = trashBundle(dir, bundle.meta.id)!;
+    // exFAT on a Mac: a name written composed comes back from the folder decomposed
+    const rename = fs.renameSync;
+    const exfat = vi
+      .spyOn(fs, 'renameSync')
+      .mockImplementation((from, to) =>
+        rename(
+          from,
+          path.join(path.dirname(String(to)), path.basename(String(to)).normalize('NFD')),
+        ),
+      );
+    try {
+      expect(restoreBundle(dir, gone.trashed)).toMatchObject({
+        meta: { id: bundle.meta.id, name: 'Українські' },
+        count: 2,
+      });
+    } finally {
+      exfat.mockRestore();
+    }
+    expect(fs.readdirSync(dir).filter((f) => f.endsWith('.vosongs'))).toEqual([
+      'Українські.vosongs'.normalize('NFD'),
+    ]);
+  });
+
+  it('a folder bundle renamed and deleted comes back only while its folder made no other (1.4.1)', () => {
+    const legacy = path.join(tmp, 'ПС укр 1-477');
+    fs.mkdirSync(legacy, { recursive: true });
+    fs.writeFileSync(path.join(legacy, '1. Боже Вічний.pptx'), pptx(['Боже Вічний']));
+    fs.writeFileSync(path.join(legacy, '2. Слава.pptx'), pptx(['Слава']));
+    const dir = path.join(tmp, 'data', 'songs');
+    const made = syncFolderBundle(dir, legacy)!;
+    renameBundle(dir, made.meta.id, 'Пісні хвали й подяки');
+    const gone = trashBundle(dir, made.meta.id)!;
+    // the next start, or «Пересканувати модулі»: the folder makes «ПС» anew
+    const again = syncFolderBundle(dir, legacy)!;
+    expect(again.meta).toMatchObject({ name: 'ПС', source: 'ПС укр 1-477' });
+    expect(restoreBundle(dir, gone.trashed)).toBeNull(); // its songs would be there twice
+    expect(listBundles(dir).map((b) => [b.meta.name, b.meta.source, b.count])).toEqual([
+      ['ПС', 'ПС укр 1-477', 2],
+    ]);
+    // the folder's new bundle deleted too: the old one comes back, its song ids with it
+    trashBundle(dir, again.meta.id);
+    expect(restoreBundle(dir, gone.trashed)).toMatchObject({
+      meta: { id: made.meta.id, name: 'Пісні хвали й подяки' },
+      count: 2,
+    });
+    // nor does a bundle come back next to a copy of itself under another name (one id twice)
+    const plain = importSongs(dir, { name: 'Молодіжні' }, [song('1. Світло')]).bundle;
+    const copy = trashBundle(dir, plain.meta.id)!;
+    const copyFile = path.join(dir, 'копія.vosongs');
+    fs.copyFileSync(path.join(dir, TRASH_DIR, copy.trashed), copyFile);
+    const db = new Database(copyFile);
+    writeBundleMeta(db, { ...plain.meta, name: 'Копія' });
+    db.close(); // an open handle keeps Windows from deleting the temp folder
+    expect(restoreBundle(dir, copy.trashed)).toBeNull();
+  });
+
+  it("a Mac's ._ companions and hidden folders on a flash drive are no songs, no bundles (1.4.1)", () => {
+    const legacy = path.join(tmp, 'ПС укр 1-477');
+    fs.mkdirSync(path.join(legacy, '.Trashes', '501'), { recursive: true });
+    fs.writeFileSync(path.join(legacy, '1. Боже Вічний.pptx'), pptx(['Боже Вічний']));
+    // what a Mac writes next to it on exFAT (AppleDouble: extended attributes, not a zip)
+    fs.writeFileSync(path.join(legacy, '._1. Боже Вічний.pptx'), Buffer.alloc(4096));
+    // a song deleted in the Finder, in the drive's trash
+    fs.writeFileSync(path.join(legacy, '.Trashes', '501', '7. Стара.pptx'), pptx(['Стара']));
+    // a song whose name starts with a period (made on Windows) is still a song
+    fs.writeFileSync(path.join(legacy, '...Бо Ти є Бог.pptx'), pptx(['Бо Ти є Бог']));
+    const dir = path.join(tmp, 'data', 'songs');
+    const made = syncFolderBundle(dir, legacy)!;
+    expect(made).toMatchObject({ count: 2, failed: [] });
+    fs.writeFileSync(path.join(dir, `._${made.file}`), Buffer.alloc(4096));
+    expect(listBundles(dir).map((b) => b.file)).toEqual([made.file]);
   });
 
   it('names for old folders', () => {

@@ -22,8 +22,10 @@ import {
   IconDatabaseImport,
   IconExternalLink,
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import {
   useSettings,
+  setAppearanceImage,
   FONT_OPTIONS,
   type TextAlign,
   type PadUnit,
@@ -31,7 +33,7 @@ import {
   type StrongSubline,
 } from '../settingsStore';
 import type { SlideTransition } from '../presenterBus';
-import { fileToDownscaledDataUrl } from '../lib/image';
+import { fileToDownscaledDataUrl, fileToLogoDataUrl } from '../lib/image';
 import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
@@ -80,6 +82,31 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
     } catch {
       /* storage unavailable — keep in memory */
     }
+  };
+
+  // A picked image (1.4.1): one the browser can't read — an iPhone's HEIC in Chrome, a renamed
+  // file — says so (it was dropped without a word); one the settings can't store is taken back
+  // at once, so every later change still saves (the notice: useSettingsSaveNotice).
+  const putImage = async (
+    field: 'coverImage' | 'bgImage',
+    file: File | null,
+    read: (f: File) => Promise<string>,
+  ) => {
+    if (!file) return;
+    let data: string;
+    try {
+      data = await read(file);
+    } catch {
+      notifications.show({
+        color: 'red',
+        title: tr('Не вдалося прочитати зображення'),
+        message: tr(
+          'Виберіть файл PNG, JPEG або WebP. Фото HEIC з iPhone спершу збережіть як JPEG',
+        ),
+      });
+      return;
+    }
+    setAppearanceImage(field, data);
   };
 
   // Re-run the builder, then refresh all queries so new translations/songs appear.
@@ -254,21 +281,17 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             size="sm"
           />
           <div>
-            <Text size="sm" fw={500} mb={4}>
+            <Text size="sm" fw={500} mb={2}>
               {tr('Логотип')}
+            </Text>
+            {/* it fills a share of the slide (1.4.1), so a small file comes out soft */}
+            <Text size="xs" c="dimmed" mb={6}>
+              {tr('PNG, JPEG або WebP; для чіткого показу — від 1600 пікселів по довшому боці.')}
             </Text>
             <Group gap="xs">
               <FileButton
                 accept="image/png,image/jpeg,image/webp"
-                onChange={async (f) => {
-                  if (!f) return;
-                  try {
-                    // PNG keeps a logo's transparency; 800 px is plenty for a logo
-                    set({ coverImage: await fileToDownscaledDataUrl(f, 800, 'image/png') });
-                  } catch {
-                    /* ignore unreadable image */
-                  }
-                }}
+                onChange={(f) => void putImage('coverImage', f, fileToLogoDataUrl)}
               >
                 {(props) => (
                   <Button
@@ -314,14 +337,9 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             <Group gap="xs">
               <FileButton
                 accept="image/png,image/jpeg,image/webp"
-                onChange={async (f) => {
-                  if (!f) return;
-                  try {
-                    set({ bgImage: await fileToDownscaledDataUrl(f) });
-                  } catch {
-                    /* ignore unreadable image */
-                  }
-                }}
+                onChange={(f) =>
+                  void putImage('bgImage', f, (file) => fileToDownscaledDataUrl(file))
+                }
               >
                 {(props) => (
                   <Button
