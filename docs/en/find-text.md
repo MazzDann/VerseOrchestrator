@@ -28,9 +28,10 @@ Ukrainian one below the other on the preview slide](../img/en/find-parallel.png)
 
 To go to a place in the Bible:
 
-1. In the book list, click the book. To find a book quickly, type part of its name in the
-   **Filter books…** field above the list.
-2. Above the verses, click the chapter number.
+1. In the book list, click the book — its first chapter opens. To find a book quickly, type
+   part of its name in the **Filter books…** field above the list. The open book, clicked
+   again, stays at its chapter.
+2. To go to another chapter, click its number above the verses.
 3. In the verse list, click the verse. To add more verses, click while holding Ctrl (on
    macOS, ⌘) or Shift.
 

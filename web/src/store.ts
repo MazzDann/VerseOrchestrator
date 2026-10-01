@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { chapterOnBookPick } from './lib/bookPick';
 
 interface AppState {
   /** Translations chosen for display; the first is the navigation "primary". */
@@ -14,7 +15,14 @@ interface AppState {
   primaryTranslationId(): number | null;
   setTranslations(ids: number[]): void;
   makePrimary(id: number): void;
+  /** Book only — the caller opens a chapter next (a jump, the running order, a takeover). */
   selectBook(bookNumber: number): void;
+  /**
+   * A book picked by the operator (the book list, the palette): it opens at a chapter at once
+   * (lib/bookPick.ts) — its first, or the one it is at when it is the open book, which then
+   * keeps its selection too. `chapters`: the book's chapter list, when already loaded.
+   */
+  openBook(bookNumber: number, chapters?: readonly number[]): void;
   selectChapter(chapter: number): void;
   setSelectedVerses(verses: number[]): void;
   toggleVerse(verse: number): void;
@@ -51,6 +59,12 @@ export const useStore = create<AppState>()(
 
       selectBook: (bookNumber) =>
         set({ bookNumber, chapter: null, selectedVerses: [], live: false }),
+      openBook: (bookNumber, chapters) =>
+        set((s) => {
+          const chapter = chapterOnBookPick(s, bookNumber, chapters);
+          if (s.bookNumber === bookNumber && s.chapter === chapter) return s;
+          return { bookNumber, chapter, selectedVerses: [], live: false };
+        }),
       selectChapter: (chapter) => set({ chapter, selectedVerses: [], live: false }),
       setSelectedVerses: (verses) => set({ selectedVerses: sortNums(verses) }),
       toggleVerse: (verse) =>

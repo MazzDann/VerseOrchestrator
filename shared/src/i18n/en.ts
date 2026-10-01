@@ -434,14 +434,15 @@ export const EN: Record<string, string> = {
   'Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси показ іде лише на вікна виводу цього браузера.':
     "Remotes and viewers' phones listen to the control window in another browser. From here the show reaches only this browser's output windows.",
   'Слухати тут': 'Listen here',
-  'Оберіть книгу та розділ': 'Choose a book and a chapter',
+  'Оберіть книгу': 'Choose a book',
   'Що зараз на екрані показу': "What's on the presentation screen now",
   'Попередня сторінка': 'Previous page',
   'Сторінка довгого уривка (← → або PageUp/PageDown)':
     'Page of a long passage (← → or PageUp/PageDown)',
   'Наступна сторінка': 'Next page',
   Розділи: 'Chapters',
-  'Оберіть книгу ліворуч, потім розділ угорі.': 'Choose a book on the left, then a chapter above.',
+  'Оберіть книгу ліворуч — відкриється її перший розділ.':
+    'Choose a book on the left — its first chapter opens.',
   'Оберіть розділ угорі.': 'Choose a chapter above.',
   'У цьому розділі немає віршів у головному перекладі.':
     'This chapter has no verses in the main translation.',

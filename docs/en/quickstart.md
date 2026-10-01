@@ -45,7 +45,8 @@ Keep the start window open while you work: the app stops with it.
 To choose a verse:
 
 1. On the left, in the **Translations** list, select a translation, for example **KJV**.
-2. Below the translations, choose a book, and above the verses, the chapter number.
+2. Below the translations, choose a book — its first chapter opens. Choose another chapter
+   above the verses.
 3. In the verse list, click the verse. To add more verses, click while holding Ctrl (on
    macOS, ⌘).
 
