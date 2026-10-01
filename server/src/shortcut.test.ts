@@ -9,8 +9,8 @@ import { setLang } from './lang';
  * No test here may run osascript, pgrep, lsof, open or PowerShell for real: AppleScript that
  * reaches a browser puts macOS's «“…” wants access to control “Google Chrome”» on the screen of
  * whoever runs the tests (a mutation check that dropped the fake runner did, 2026-10-01),
- * `open -a` brings an app forward there, and lsof reads that machine's connections. Such a test
- * fails here instead.
+ * `activate` or `open -a` brings an app forward there, and lsof reads that machine's
+ * connections. Such a test fails here instead.
  */
 vi.mock('node:child_process', async (importOriginal) => {
   const real = await importOriginal<{ spawnSync: typeof SpawnSync }>();
@@ -27,11 +27,14 @@ import {
   alreadyOpenLines,
   appleString,
   appWindowCommand,
+  bundleIdOf,
   CONTROL_TITLES,
   createShortcut,
   GECKO_ENGINE,
   geckoAppsConnectedTo,
   linuxDesktopEntry,
+  MAC_ACTIVATE_SCRIPT,
+  MAC_ACTIVATE_TIMEOUT_MS,
   MAC_BROWSERS,
   MAC_RAISE_TIMEOUT_MS,
   macBrowsersFor,
@@ -171,18 +174,36 @@ const CHROME_HELPER_PROC = [
   `${CHROME_FRAMEWORK}/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper`,
   `${CHROME_FRAMEWORK}/Google Chrome Framework`,
 ];
+const ZEN_APP = '/Applications/Zen.app';
+const DEV_EDITION_APP = '/Applications/Firefox Developer Edition.app';
+/** CFBundleIdentifier in each app's Info.plist (Firefox 156 and Zen read here, 2026-10-01). */
+const BUNDLE_IDS: Record<string, string> = {
+  [FIREFOX_APP]: 'org.mozilla.firefox',
+  [ZEN_APP]: 'app.zen-browser.zen',
+  [DEV_EDITION_APP]: 'org.mozilla.firefoxdeveloperedition',
+};
+const INFO_PLIST = '/Contents/Info.plist';
 /**
  * A Mac where these processes (pid → loaded files) hold a page of the app open at PORT: lsof's
  * connections (the waiter's own ends too, as pid 1; over IPv6 when said), lsof's files of the
- * pids asked, `open`'s answer by the app it is given.
+ * pids asked, plutil's bundle id of an app (BUNDLE_IDS; `plist` answers instead, by the app),
+ * osascript's answer to MAC_ACTIVATE_SCRIPT: «yes» for the id of a running app, else «no»
+ * (`activate` answers instead, by the id).
  */
 function gecko(
   procs: Record<number, string[]>,
-  answers: Record<string, Partial<RunResult>> = {},
+  answers: {
+    plist?: Record<string, Partial<RunResult>>;
+    activate?: Record<string, Partial<RunResult>>;
+  } = {},
   ipv6 = false,
 ) {
   const pids = Object.keys(procs);
   const at = (port: number) => (ipv6 ? `[::1]:${port}` : `127.0.0.1:${port}`);
+  const running = Object.values(procs)
+    .flat()
+    .filter((f) => f.endsWith(GECKO_ENGINE))
+    .map((f) => BUNDLE_IDS[f.slice(0, -GECKO_ENGINE.length)]);
   return fakeRunner((cmd, args) => {
     if (cmd === '/usr/sbin/lsof' && args.includes('-sTCP:ESTABLISHED')) {
       if (!pids.length) return { status: 1 };
@@ -198,10 +219,27 @@ function gecko(
       ]);
       return { stdout: out.join('\n') + '\n' };
     }
-    if (cmd === '/usr/bin/open') return answers[args[1]] ?? {};
+    if (cmd === '/usr/bin/plutil') {
+      const app = args.at(-1)!.slice(0, -INFO_PLIST.length);
+      const answer = answers.plist?.[app];
+      if (answer) return answer;
+      return BUNDLE_IDS[app]
+        ? { stdout: `${BUNDLE_IDS[app]}\n` }
+        : { status: 1, stderr: 'The file “Info.plist” couldn’t be opened.\n' };
+    }
+    if (cmd === '/usr/bin/osascript' && args[1] === MAC_ACTIVATE_SCRIPT) {
+      const id = args[2];
+      return answers.activate?.[id] ?? { stdout: running.includes(id) ? 'yes\n' : 'no\n' };
+    }
     throw new Error(`unexpected ${cmd}`);
   });
 }
+/** What the launcher runs to bring the Gecko app `app` forward. */
+const activateCall = (app: string) => ({
+  cmd: '/usr/bin/osascript',
+  args: ['-e', MAC_ACTIVATE_SCRIPT, BUNDLE_IDS[app]],
+  timeout: MAC_ACTIVATE_TIMEOUT_MS,
+});
 const denied = {
   status: 1,
   stderr: '24:31: execution error: Not authorized to send Apple events to Google Chrome. (-1743)\n',
@@ -216,15 +254,19 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
   it('runs nothing for real in these tests (checked with commands that reach no browser)', () => {
     expect(() => runningMacBrowsers()).toThrow('a test ran /usr/bin/pgrep');
     expect(() => raiseControlWindow('win32')).toThrow('a test ran powershell.exe');
-    // Firefox: lsof comes first and is refused, so `open` is never reached here (port 1: a
+    // Firefox: lsof comes first and is refused, so osascript is never reached here (port 1: a
     // mock that missed lsof would find nothing connected there) …
     expect(() => raiseControlWindow('darwin', undefined, 'firefox', 1)).toThrow(
       'a test ran /usr/sbin/lsof',
     );
-    // … and `open` itself is refused (by its name: this path doesn't exist, so a mock that
-    // missed it would only fail to start it)
-    const nowhere = path.join(os.tmpdir(), 'vo-no-such-dir', 'open');
-    expect(() => spawnSync(nowhere, ['-a', FIREFOX_APP])).toThrow(`a test ran ${nowhere}`);
+    // … and osascript and `open` themselves are refused (by their names: these paths don't
+    // exist, so a mock that missed them would only fail to start them)
+    for (const name of ['osascript', 'open']) {
+      const nowhere = path.join(os.tmpdir(), 'vo-no-such-dir', name);
+      expect(() => spawnSync(nowhere, ['-e', MAC_ACTIVATE_SCRIPT, 'org.mozilla.firefox'])).toThrow(
+        `a test ran ${nowhere}`,
+      );
+    }
   });
 
   it('asks Chrome first, then Edge, Brave, Chromium, Arc, Safari', () => {
@@ -468,7 +510,7 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
     }
   });
 
-  it('brings Firefox forward by LaunchServices: no AppleScript, no permission to ask', () => {
+  it('brings Firefox forward with `activate` alone: no permission to ask, no tab opened', () => {
     // the user's Mac (2026-10-01): the control window in Firefox, a Chrome tab on standby,
     // Zen running with no page of the app open
     const { run, calls } = gecko({ 9009: FIREFOX_PROC, 35473: CHROME_HELPER_PROC });
@@ -491,27 +533,72 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
         args: ['-nP', '-a', '-p', '9009,35473', '-d', 'txt', '-Fn'],
         timeout: 5000,
       },
-      // no pgrep, no osascript: nothing asks for a permission
-      { cmd: '/usr/bin/open', args: ['-a', FIREFOX_APP], timeout: 5000 },
+      // its bundle id, from its Info.plist
+      {
+        cmd: '/usr/bin/plutil',
+        args: ['-extract', 'CFBundleIdentifier', 'raw', '-o', '-', `${FIREFOX_APP}${INFO_PLIST}`],
+        timeout: 5000,
+      },
+      // no pgrep, no window script, no `open -a` (a running Firefox opened a new tab for it)
+      activateCall(FIREFOX_APP),
     ]);
+    expect(MAC_ACTIVATE_TIMEOUT_MS).toBe(5000); // no permission prompt to wait 30 s for
+  });
+
+  it('only activates, and only an app that runs', () => {
+    const lines = MAC_ACTIVATE_SCRIPT.split('\n').map((l) => l.trim());
+    // the app comes as osascript's argument: the text names none, so compiling it asks no app
+    // for its terms (no Apple Event before `activate`) and no id needs quoting
+    expect(lines[0]).toBe('on run argv');
+    expect(lines).toContain('set appId to item 1 of argv');
+    expect(MAC_ACTIVATE_SCRIPT).not.toMatch(/application (id )?"/);
+    // one `tell`, and all it says is `activate` — after the app is found running: a `tell`
+    // would start a browser that closed meanwhile
+    const tells = lines.filter((l) => /\btell\b/.test(l));
+    expect(tells).toEqual(['tell application id appId to activate']);
+    const check = lines.indexOf('if application id appId is running then');
+    expect(check).toBeGreaterThan(-1);
+    expect(check).toBeLessThan(lines.indexOf(tells[0]));
+    expect(lines.slice(check + 1, lines.indexOf('end if'))).toEqual([tells[0], 'return "yes"']);
+    expect(lines.at(-2)).toBe('return "no"');
+    // nothing the app could take as a request to open a window or a tab
+    expect(MAC_ACTIVATE_SCRIPT).not.toMatch(/\b(open|reopen|launch|make|do shell script)\b/);
+  });
+
+  it("reads a Gecko app's bundle id from its Info.plist", () => {
+    const read = (answer: Partial<RunResult>) =>
+      bundleIdOf(fakeRunner(() => answer).run, FIREFOX_APP);
+    expect(read({ stdout: 'org.mozilla.firefox\n' })).toBe('org.mozilla.firefox');
+    expect(read({ stdout: 'app.zen-browser.zen' })).toBe('app.zen-browser.zen');
+    // no Info.plist, no such key, plutil missing or slow, nothing printed
+    expect(read({ status: 1, stderr: 'couldn’t be opened\n' })).toBeNull();
+    expect(read({ status: null, error: enoent() })).toBeNull();
+    expect(read({ status: null, error: timedOut() })).toBeNull();
+    expect(read({ stdout: '\n' })).toBeNull();
+    expect(read({ status: 1, stdout: 'org.mozilla.firefox\n' })).toBeNull(); // failed, whatever it said
+    // not a bundle id: never handed on to osascript (an option, a second argument, quotes)
+    for (const junk of ['-e', 'org.mozilla.firefox x', 'a"b', 'org.mozilla.firefox\nx', '.x'])
+      expect(read({ stdout: `${junk}\n` })).toBeNull();
   });
 
   it('brings forward the Gecko browser that holds the app, not Firefox by name', () => {
-    // Zen (or LibreWolf) says «Firefox/» too: Zen comes forward, while Firefox runs beside it
+    // Zen (or LibreWolf) says «Firefox/» too: Zen comes forward, by its own id
     const zen = gecko({ 9008: ZEN_PROC, 35473: CHROME_HELPER_PROC });
     expect(raiseControlWindow('darwin', zen.run, 'firefox', PORT)).toMatchObject({
       raised: true,
       browser: 'Zen',
       appOnly: true,
     });
-    expect(zen.calls.at(-1)!.args).toEqual(['-a', '/Applications/Zen.app']);
-    // Developer Edition, with regular Firefox installed and closed: never `open -b` (that
-    // would start Firefox) — the very app that runs
+    expect(zen.calls.at(-1)).toEqual(activateCall(ZEN_APP));
+    // Developer Edition, with regular Firefox installed and closed: its own id, never
+    // org.mozilla.firefox (the `is running` check would leave that one closed, and it isn't
+    // the browser that holds the window)
     const dev = gecko({ 9100: DEV_EDITION_PROC });
     expect(raiseControlWindow('darwin', dev.run, 'firefox', PORT).browser).toBe(
       'Firefox Developer Edition',
     );
-    expect(dev.calls.at(-1)!.args).toEqual(['-a', '/Applications/Firefox Developer Edition.app']);
+    expect(dev.calls.at(-1)).toEqual(activateCall(DEV_EDITION_APP));
+    expect(dev.calls.at(-1)!.args).toContain('org.mozilla.firefoxdeveloperedition');
     // the connection in a helper process (a socket process), over IPv6, beside the main one:
     // still one app
     const helper = gecko({ 9009: FIREFOX_PROC, 9010: FIREFOX_SOCKET_PROC }, {}, true);
@@ -520,34 +607,46 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
   });
 
   it("brings nothing forward when it can't tell which Gecko browser holds the window", () => {
+    const nothing = { raised: false, denied: [], timedOut: false };
+    const ran = (calls: { cmd: string }[]) => calls.map((c) => c.cmd);
     // Firefox and Zen both have a page of the app open: which one is in charge is unknown
     const both = gecko({ 9009: FIREFOX_PROC, 9008: ZEN_PROC });
-    expect(raiseControlWindow('darwin', both.run, 'firefox', PORT)).toEqual({
-      raised: false,
-      denied: [],
-      timedOut: false,
-    });
-    expect(both.calls.map((c) => c.cmd)).not.toContain('/usr/bin/open');
+    expect(raiseControlWindow('darwin', both.run, 'firefox', PORT)).toEqual(nothing);
+    expect(ran(both.calls)).toEqual(['/usr/sbin/lsof', '/usr/sbin/lsof']);
     // none connected here (the window reached the app another way, or closed meanwhile): no
-    // second lsof, no `open` — a closed browser is never started
+    // second lsof, no osascript — a closed browser is never started
     const none = gecko({});
     expect(raiseControlWindow('darwin', none.run, 'firefox', PORT).raised).toBe(false);
-    expect(none.calls.map((c) => c.cmd)).toEqual(['/usr/sbin/lsof']);
+    expect(ran(none.calls)).toEqual(['/usr/sbin/lsof']);
     const chromeOnly = gecko({ 35473: CHROME_HELPER_PROC });
     expect(raiseControlWindow('darwin', chromeOnly.run, 'firefox', PORT).raised).toBe(false);
-    expect(chromeOnly.calls.map((c) => c.cmd)).toEqual(['/usr/sbin/lsof', '/usr/sbin/lsof']);
+    expect(ran(chromeOnly.calls)).toEqual(['/usr/sbin/lsof', '/usr/sbin/lsof']);
     // no port to look at: nothing runs
     const noPort = gecko({ 9009: FIREFOX_PROC });
     expect(raiseControlWindow('darwin', noPort.run, 'firefox').raised).toBe(false);
     expect(noPort.calls).toEqual([]);
-    // `open` failed or didn't start: where to look
-    const failed = gecko({ 9009: FIREFOX_PROC }, { [FIREFOX_APP]: { status: 1, stderr: 'x\n' } });
-    expect(raiseControlWindow('darwin', failed.run, 'firefox', PORT).raised).toBe(false);
-    const crashed = gecko(
+    // its bundle id can't be read: no osascript
+    const noPlist = gecko({ 9009: FIREFOX_PROC }, { plist: { [FIREFOX_APP]: { status: 1 } } });
+    expect(raiseControlWindow('darwin', noPlist.run, 'firefox', PORT)).toEqual(nothing);
+    expect(ran(noPlist.calls)).toEqual(['/usr/sbin/lsof', '/usr/sbin/lsof', '/usr/bin/plutil']);
+    // «no»: it closed between lsof and osascript (and stays closed)
+    const closed = gecko(
       { 9009: FIREFOX_PROC },
-      { [FIREFOX_APP]: { status: null, error: enoent() } },
+      { activate: { 'org.mozilla.firefox': { stdout: 'no\n' } } },
     );
-    expect(raiseControlWindow('darwin', crashed.run, 'firefox', PORT).raised).toBe(false);
+    expect(raiseControlWindow('darwin', closed.run, 'firefox', PORT)).toEqual(nothing);
+    // osascript failed, didn't start, or ran out of its 5 s: where to look, once
+    for (const answer of [
+      { status: 1, stderr: 'execution error: Firefox got an error. (-1708)\n' },
+      denied,
+      { status: 1, stdout: 'yes\n' },
+      { status: null, error: enoent() },
+      { status: null, error: timedOut() },
+    ]) {
+      const failed = gecko({ 9009: FIREFOX_PROC }, { activate: { 'org.mozilla.firefox': answer } });
+      expect(raiseControlWindow('darwin', failed.run, 'firefox', PORT)).toEqual(nothing);
+      expect(ran(failed.calls).filter((c) => c === '/usr/bin/osascript')).toHaveLength(1);
+    }
     // Windows and Linux don't care which browser: AppActivate finds any by its title
     const win = fakeRunner(() => ({ stdout: 'yes\r\n' }));
     expect(raiseControlWindow('win32', win.run, 'firefox', PORT).raised).toBe(true);
@@ -668,8 +767,10 @@ describe('the open control window brought forward on a Mac (AppleScript)', () =>
     expect(firefox.calls.map((c) => c.cmd)).toEqual([
       '/usr/sbin/lsof',
       '/usr/sbin/lsof',
-      '/usr/bin/open',
+      '/usr/bin/plutil',
+      '/usr/bin/osascript',
     ]);
+    expect(firefox.calls.at(-1)).toEqual(activateCall(FIREFOX_APP));
     // in Zen: Zen by its name
     expect(
       alreadyOpenLines('firefox', PORT, 'darwin', gecko({ 9008: ZEN_PROC }).run, terminal)[0],
