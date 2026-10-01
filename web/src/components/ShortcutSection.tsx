@@ -8,8 +8,9 @@ import { tr, useLang } from '../i18n';
 
 /**
  * «Ярлик на робочому столі» (0.7.5): starts the app and opens the control window as an app
- * window — no tabs, no address bar (Chrome or Edge; the default browser otherwise). The same as
- * `start --shortcut` (server/src/shortcut.ts).
+ * window — no tabs, no address bar: in the browser chosen above when it is built on Chromium
+ * (BrowserSection), with «Браузер системи» in Chrome or Edge (the default browser otherwise). The
+ * same as `start --shortcut` (server/src/shortcut.ts).
  */
 export function ShortcutSection() {
   const serverAvailable = useServer((s) => s.available);
@@ -42,7 +43,7 @@ export function ShortcutSection() {
       </Text>
       <Text size="xs" c="dimmed" mb={8}>
         {tr(
-          'Запускає застосунок і відкриває вікно керування окремим вікном — без вкладок і адресного рядка (Chrome або Edge).',
+          'Запускає застосунок і відкриває вікно керування окремим вікном — без вкладок і адресного рядка: у браузері, вибраному вище, якщо він на основі Chromium, а з «Браузер системи» — у Chrome чи Edge.',
         )}
       </Text>
       <Button

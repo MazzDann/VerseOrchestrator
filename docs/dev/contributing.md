@@ -68,6 +68,22 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
   last one: `PATCH` for fixes only, `MINOR` for new features, `MAJOR` for changes that
   older data or settings can't follow. Commits on a branch leave the version alone.
   Before 1.0.0 every commit on `main` was a release of its own, `0.MINOR.PATCH`.
+- **Dev copies.** A copy that runs from a git checkout — a clone or a worktree, not a
+  release's `app/` — names itself after git, so you can tell which build you are testing.
+  `dev 1.4.2.try7 (mac-test · 20dd850)` means 7 commits after the tag `v1.4.2`, on the
+  branch `mac-test`, at the commit `20dd850`. A `+` after the commit means uncommitted
+  changes to tracked files, and right on a tag there is no `.tryN`. The start file prints the
+  label on its first line, and the control window shows it at the top of **Налаштування
+  вигляду** (and of the `/settings` window), under **Відкривати вікно керування в…** and in
+  **Застосунок** → **Оновлення** (`server/src/versionLabel.ts`, `label` in `GET /api/health`).
+  A release shows `VerseOrchestrator X.Y.Z` there. When the app is already running, the start file asks it for its label
+  and says «Працює інша збірка: …» if it differs — for example, the app was started before
+  you switched branches. Then run `--off` and start again. Without git (or, on a Mac, with
+  only the `/usr/bin/git` stub and no developer tools) or without a release tag, the label is
+  `dev X.Y.Z` from `package.json`. Git is only read: `describe` and `status` write nothing to
+  `.git`. Releases and portable copies show the plain version and never call git. Whatever
+  compares versions — the update check, the UI stamp, the update swap — uses `version`, never
+  the label.
 - **Commit messages.** The subject is `Theme: summary`, for example
   `Hub: back within 2 s after an outage`. The body explains why, and gives the
   measurements.

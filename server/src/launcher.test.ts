@@ -1,21 +1,53 @@
+import type * as ChildProcess from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+
+/**
+ * The launcher opens browsers: no test here may (`open`, osascript, xdg-open, `cmd /c start` or a
+ * browser's program throw instead) — the commands are checked as data (browserLaunch).
+ */
+vi.mock('node:child_process', async (importOriginal) => {
+  const real = await importOriginal<typeof ChildProcess>();
+  const FORBIDDEN =
+    /^(open|osascript|xdg-open|cmd(\.exe)?|powershell(\.exe)?|google[ -]chrome(-stable)?|chrome(\.exe)?|chromium(-browser)?|msedge(\.exe)?|microsoft[ -]edge(-stable)?|firefox(\.exe)?|safari|zen(\.exe)?|brave([ -]browser)?(\.exe)?|arc|opera(\.exe)?|vivaldi(\.exe)?|librewolf(\.exe)?)$/i;
+  const wrap =
+    <F extends (...args: never[]) => unknown>(f: F) =>
+    (...args: Parameters<F>) => {
+      if (FORBIDDEN.test(String(args[0]).split(/[/\\]/).pop() ?? ''))
+        throw new Error(`a test ran ${String(args[0])}`);
+      return f(...args);
+    };
+  return {
+    ...real,
+    spawn: wrap(real.spawn),
+    spawnSync: wrap(real.spawnSync),
+    execFile: wrap(real.execFile),
+    execFileSync: wrap(real.execFileSync),
+  };
+});
 import { lanIps } from './access';
 import { createStandby, waiterAt } from './standby';
+import type { InstalledBrowser, LaunchSettings } from './browsers';
 import {
   browserCommand,
+  browserLaunch,
+  controlWindowLaunch,
   controlWindows,
   depsState,
+  headerLine,
+  healthAt,
   libraryState,
+  missingBrowserLine,
   NPM_CI,
   openControlWindowLines,
   nodeVersionOk,
   parseArgs,
   phoneUrl,
+  runningNote,
   switchOff,
   writeDepsRecord,
 } from './launcher';
@@ -151,6 +183,147 @@ describe('launcher', () => {
     expect(browserCommand('linux', url, {})).toBeNull(); // a server without a screen
   });
 
+  it('opens the control window in the browser chosen in the settings (2026-10-01)', () => {
+    const url = 'http://localhost:4747/';
+    const launch = (browser: string, appWindow = false): LaunchSettings => ({ browser, appWindow });
+    const brave: InstalledBrowser = {
+      id: 'brave',
+      name: 'Brave',
+      appWindow: true,
+      bundleId: 'com.brave.Browser',
+      program: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+    };
+    const zen: InstalledBrowser = {
+      id: 'zen',
+      name: 'Zen',
+      appWindow: false,
+      bundleId: 'app.zen-browser.zen',
+      program: null,
+    };
+    const here =
+      (...bs: InstalledBrowser[]) =>
+      (id: string) =>
+        bs.find((b) => b.id === id);
+    const nothingHere = () => {
+      throw new Error('nothing to look for with the system browser');
+    };
+    const none = () => false;
+    // «Браузер системи»: as before — nothing looked for
+    expect(
+      browserLaunch('darwin', url, launch('system', true), false, nothingHere, {}, none),
+    ).toEqual({
+      cmd: ['open', [url]],
+      missing: null,
+    });
+    // the chosen one: a page, or an app window by the setting or by --app (the shortcut)
+    expect(browserLaunch('darwin', url, launch('brave'), false, here(brave))).toEqual({
+      cmd: ['open', ['-b', 'com.brave.Browser', url]],
+      missing: null,
+    });
+    expect(browserLaunch('darwin', url, launch('brave', true), false, here(brave)).cmd).toEqual([
+      brave.program,
+      [`--app=${url}`],
+    ]);
+    expect(browserLaunch('darwin', url, launch('brave'), true, here(brave)).cmd).toEqual([
+      brave.program,
+      [`--app=${url}`],
+    ]);
+    // Zen has no app window: a page in Zen, whatever was asked — not Chrome
+    expect(browserLaunch('darwin', url, launch('zen', true), true, here(zen)).cmd).toEqual([
+      'open',
+      ['-b', 'app.zen-browser.zen', url],
+    ]);
+    // gone since it was chosen: as before, and the name for the one line that says so
+    const gone = browserLaunch('darwin', url, launch('zen'), false, here(), {}, none);
+    expect(gone).toEqual({ cmd: ['open', [url]], missing: 'Zen', instead: 'system' });
+    expect(missingBrowserLine(gone)).toBe(
+      'Zen на цьому комп’ютері не знайдено — відкриваю браузер системи (Налаштування вигляду → Застосунок).',
+    );
+    // … with --app as before too: Chrome or Edge as an app window when there — and the line
+    // says so, not «the system browser»
+    const chromeApp = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    const goneApp = browserLaunch(
+      'darwin',
+      url,
+      launch('zen'),
+      true,
+      here(),
+      {},
+      (p) => p === chromeApp,
+    );
+    expect(goneApp).toEqual({
+      cmd: [chromeApp, [`--app=${url}`]],
+      missing: 'Zen',
+      instead: 'app-window',
+    });
+    expect(missingBrowserLine(goneApp)).toBe(
+      'Zen на цьому комп’ютері не знайдено — відкриваю окремим вікном у Chrome або Edge (Налаштування вигляду → Застосунок).',
+    );
+    // --app with neither Chrome nor Edge: the system browser, and the line says that
+    expect(browserLaunch('darwin', url, launch('zen'), true, here(), {}, none).instead).toBe(
+      'system',
+    );
+    // here: no line
+    expect(
+      missingBrowserLine(browserLaunch('darwin', url, launch('brave'), false, here(brave))),
+    ).toBeNull();
+    // Windows and Linux: the program itself
+    const edge: InstalledBrowser = {
+      id: 'edge',
+      name: 'Microsoft Edge',
+      appWindow: true,
+      bundleId: null,
+      program: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    };
+    expect(browserLaunch('win32', url, launch('edge', true), false, here(edge)).cmd).toEqual([
+      edge.program,
+      [`--app=${url}`],
+    ]);
+    expect(browserLaunch('win32', url, launch('edge'), false, here()).cmd).toEqual([
+      'cmd',
+      ['/c', 'start', '', url],
+    ]);
+    const firefox: InstalledBrowser = {
+      id: 'firefox',
+      name: 'Firefox',
+      appWindow: false,
+      bundleId: null,
+      program: '/usr/bin/firefox',
+    };
+    const screen = { DISPLAY: ':0' };
+    expect(
+      browserLaunch('linux', url, launch('firefox'), false, here(firefox), screen).cmd,
+    ).toEqual(['/usr/bin/firefox', [url]]);
+    // no screen: nothing to open it on, chosen or not
+    expect(browserLaunch('linux', url, launch('firefox'), false, here(firefox), {}).cmd).toBeNull();
+
+    // the launcher's one step: settings.json → launch in the data folder, then the choice
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-launch-choice-'));
+    try {
+      expect(controlWindowLaunch(dataDir, 'darwin', url, false, nothingHere, {}, none).cmd).toEqual(
+        ['open', [url]],
+      );
+      fs.writeFileSync(
+        path.join(dataDir, 'settings.json'),
+        JSON.stringify({ port: 4747, launch: { browser: 'brave', appWindow: true } }),
+      );
+      expect(controlWindowLaunch(dataDir, 'darwin', url, false, here(brave)).cmd).toEqual([
+        brave.program,
+        [`--app=${url}`],
+      ]);
+      fs.writeFileSync(
+        path.join(dataDir, 'settings.json'),
+        JSON.stringify({ launch: { browser: 'brave', appWindow: false } }),
+      );
+      expect(controlWindowLaunch(dataDir, 'darwin', url, false, here(brave)).cmd).toEqual([
+        'open',
+        ['-b', 'com.brave.Browser', url],
+      ]);
+    } finally {
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('gives phones the Wi-Fi address, not a virtual adapter', () => {
     const nic = (address: string, internal = false) =>
       ({
@@ -205,6 +378,60 @@ describe('launcher', () => {
       stillRunning: false,
       autostartRemoved: false,
     });
+  });
+
+  it('names the copy on its first line: the dev label in a checkout (2026-10-01)', () => {
+    const label = 'dev 1.4.2.try7 (mac-test · 20dd850)';
+    const plain = { check: false, off: false };
+    expect(headerLine(label, plain)).toBe(`VerseOrchestrator ${label}`);
+    expect(headerLine('1.4.2', plain)).toBe('VerseOrchestrator 1.4.2');
+    expect(headerLine(label, { check: true, off: false })).toBe(
+      `VerseOrchestrator ${label} — перевірка`,
+    );
+    expect(headerLine(label, { check: false, off: true })).toBe(
+      `VerseOrchestrator ${label} — вимкнення`,
+    );
+  });
+
+  it('says when the app already running is another build than these files', () => {
+    const here = 'dev 1.4.2.try7 (feat/x · abc1234)';
+    // the same build, or an app that did not answer: nothing to say
+    expect(runningNote(here, { ok: true, version: '1.4.2', label: here })).toBeNull();
+    expect(runningNote('1.4.2', { ok: true, version: '1.4.2', label: '1.4.2' })).toBeNull();
+    expect(runningNote(here, null)).toBeNull();
+    expect(runningNote(here, 'garbage')).toBeNull();
+    // started before a branch switch
+    const note = runningNote(here, {
+      ok: true,
+      version: '1.4.2',
+      label: 'dev 1.4.2.try5 (mac-test · 20dd850)',
+    });
+    expect(note).toContain('dev 1.4.2.try5 (mac-test · 20dd850)');
+    expect(note).toContain('--off');
+    // an app from before the label (a release folder): its version
+    expect(runningNote(here, { ok: true, version: '1.4.1' })).toContain('1.4.1');
+    expect(runningNote('1.4.2', { ok: true, version: '1.4.2' })).toBeNull();
+  });
+
+  it('asks the running app who it is', async () => {
+    const app = http.createServer((req, res) => {
+      if (req.url !== '/api/health') return void res.writeHead(404).end();
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, version: '1.4.2', label: 'dev 1.4.2 (main · d4961e3)' }));
+    });
+    await new Promise<void>((r) => app.listen(0, '127.0.0.1', () => r()));
+    const port = (app.address() as AddressInfo).port;
+    try {
+      expect(await healthAt(port)).toEqual({
+        ok: true,
+        version: '1.4.2',
+        label: 'dev 1.4.2 (main · d4961e3)',
+      });
+    } finally {
+      await new Promise<void>((r) => app.close(() => r()));
+    }
+    // nobody there any more
+    expect(await healthAt(port)).toBeNull();
   });
 
   it('asks a running app which control windows are open and which browser is in charge', async () => {

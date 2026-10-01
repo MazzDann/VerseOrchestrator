@@ -25,6 +25,15 @@ import { applyLayout } from './layout.ts';
 import { consoleLang, setLang, tr, trError } from './lang.ts';
 import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
 import {
+  detectBrowsers,
+  knownBrowser,
+  openInCommand,
+  readLaunchSettings,
+  SYSTEM_BROWSER,
+  type InstalledBrowser,
+  type LaunchSettings,
+} from './browsers.ts';
+import {
   alreadyOpenLines,
   appWindowCommand,
   createShortcut,
@@ -42,6 +51,7 @@ import {
   waiterAt,
 } from './standby.ts';
 import { needsBuild } from './uiStamp.ts';
+import { versionLabel } from './versionLabel.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -232,6 +242,73 @@ export function browserCommand(
   return ['xdg-open', [url]];
 }
 
+/** What opens the control window, and the chosen browser's name when it is not here. */
+export interface BrowserLaunch {
+  cmd: [string, string[]] | null;
+  missing: string | null;
+  /** what opens instead of a missing one: Chrome or Edge as an app window (`--app`), else the system's browser */
+  instead?: 'app-window' | 'system';
+}
+
+/**
+ * How the launcher opens the control window: in the browser chosen in Налаштування вигляду →
+ * Застосунок (settings.json → launch), as an app window when asked — by the setting or `--app`
+ * (the desktop shortcut) — and the browser can; with «Браузер системи», or a chosen browser that
+ * is gone, as before: `--app` in Chrome or Edge when there, else the default browser. `find`
+ * looks for the chosen one only when there is one.
+ */
+export function browserLaunch(
+  platform: NodeJS.Platform,
+  url: string,
+  launch: LaunchSettings,
+  appFlag: boolean,
+  find: (id: string) => InstalledBrowser | undefined = (id) =>
+    detectBrowsers().find((b) => b.id === id),
+  env: NodeJS.ProcessEnv = process.env,
+  exists: (p: string) => boolean = fs.existsSync,
+): BrowserLaunch {
+  let missing: string | null = null;
+  if (launch.browser !== SYSTEM_BROWSER) {
+    const b = find(launch.browser);
+    if (b)
+      return { cmd: openInCommand(platform, b, url, appFlag || launch.appWindow, env), missing };
+    missing = knownBrowser(launch.browser)?.name ?? launch.browser;
+  }
+  const app = appFlag ? appWindowCommand(platform, url, exists, env) : null;
+  const cmd = app || browserCommand(platform, url, env);
+  return missing ? { cmd, missing, instead: app ? 'app-window' : 'system' } : { cmd, missing };
+}
+
+/**
+ * The launcher's choice as main() makes it: the settings read from the data folder
+ * (settings.json → launch), then browserLaunch — one step, so a test reaches both.
+ */
+export function controlWindowLaunch(
+  dataDir: string,
+  platform: NodeJS.Platform,
+  url: string,
+  appFlag: boolean,
+  find?: (id: string) => InstalledBrowser | undefined,
+  env?: NodeJS.ProcessEnv,
+  exists?: (p: string) => boolean,
+): BrowserLaunch {
+  return browserLaunch(platform, url, readLaunchSettings(dataDir), appFlag, find, env, exists);
+}
+
+/** The start window's line for a chosen browser that is gone; null when it is here. */
+export function missingBrowserLine(l: BrowserLaunch): string | null {
+  if (!l.missing) return null;
+  return l.instead === 'app-window'
+    ? tr(
+        '{browser} на цьому комп’ютері не знайдено — відкриваю окремим вікном у Chrome або Edge (Налаштування вигляду → Застосунок).',
+        { browser: l.missing },
+      )
+    : tr(
+        '{browser} на цьому комп’ютері не знайдено — відкриваю браузер системи (Налаштування вигляду → Застосунок).',
+        { browser: l.missing },
+      );
+}
+
 /** The page phones open, on the address they can most likely reach. */
 export const phoneUrl = (ips: string[], port: number): string | null =>
   ips[0] ? `http://${ips[0]}:${port}/follow` : null;
@@ -291,6 +368,41 @@ function sqliteLoads(): { ok: boolean; error: string } {
   return { ok: r.status === 0, error: error.trim().slice(0, 200) };
 }
 
+/** The console's first line: what these files are (versionLabel.ts) and what this start does. */
+export function headerLine(label: string, opts: Pick<LaunchOptions, 'check' | 'off'>): string {
+  const what = opts.check ? ` — ${tr('перевірка')}` : opts.off ? ` — ${tr('вимкнення')}` : '';
+  return `VerseOrchestrator ${label}${what}`;
+}
+
+/** What the app on this port says about itself (GET /api/health), or null. */
+export async function healthAt(port: number): Promise<unknown> {
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/health`, {
+      signal: AbortSignal.timeout(800),
+    });
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The app already running may be another build than these files: started before a branch was
+ * switched, or from another copy (a release folder). Then the console says which one runs — the
+ * header names these files. Null when it is this build, or the app did not say.
+ */
+export function runningNote(label: string, health: unknown): string | null {
+  const h = (health ?? {}) as { version?: unknown; label?: unknown };
+  // an app from before the label: its version is all it calls itself
+  const running =
+    typeof h.label === 'string' ? h.label : typeof h.version === 'string' ? h.version : null;
+  if (running === null || running === label) return null;
+  return tr(
+    'Працює інша збірка: {label}. Щоб запустити цю, вимкніть застосунок («Вимкнути повністю…» або --off) і запустіть знову.',
+    { label: running },
+  );
+}
+
 /**
  * The control windows connected to the app on `port` and the browser of the one in charge, or
  * null when it can't say. Asked only of a running app.
@@ -321,15 +433,25 @@ export async function openControlWindowLines(
   return open && open.open > 0 ? lines(open.active, port) : null;
 }
 
-function openBrowser(url: string, asApp = false): void {
-  // an app window if asked and Chrome/Edge is there, else the default browser
-  const cmd =
-    (asApp && appWindowCommand(process.platform, url)) || browserCommand(process.platform, url);
+function openBrowser(url: string, dataDir: string, asApp = false): void {
+  // the chosen browser (as an app window if asked and it can), else as before (browserLaunch)
+  const launch = controlWindowLaunch(dataDir, process.platform, url, asApp);
+  const { cmd } = launch;
+  const missing = missingBrowserLine(launch);
+  if (missing) say(`  ${missing}`);
   if (!cmd) {
     say(`  ${tr('Відкрийте в браузері: {url}', { url })}`);
     return;
   }
-  const child = spawn(cmd[0], cmd[1], { stdio: 'ignore', detached: true, windowsHide: true });
+  // Windows: `cmd /c start` hides its console. A browser started directly is a GUI program
+  // (no console to hide), and windowsHide would hand it SW_HIDE for its first window: Chromium
+  // shows itself anyway (0.7.5's --app had windowsHide), but Firefox, Zen and LibreWolf — now
+  // started directly when chosen — are not known to (2026-10-01; a Windows check is due)
+  const child = spawn(cmd[0], cmd[1], {
+    stdio: 'ignore',
+    detached: true,
+    windowsHide: cmd[0] === 'cmd',
+  });
   child.on('error', () => say(`  ${tr('Відкрийте в браузері: {url}', { url })}`));
   child.unref();
 }
@@ -359,12 +481,19 @@ async function main(argv: string[]): Promise<number> {
     log(m);
     say(`  ${new Date().toTimeString().slice(0, 8)} ${m}`);
   };
-  say(
-    `VerseOrchestrator ${version}${opts.check ? ` — ${tr('перевірка')}` : opts.off ? ` — ${tr('вимкнення')}` : ''}`,
-  );
+  // a git checkout says it is one: «dev 1.4.2.try7 (mac-test · 20dd850)» (versionLabel.ts)
+  const label = versionLabel(root, version);
+  say(headerLine(label, opts));
   const settings = readStandbySettings(dataDir);
   const port = opts.port ?? settings.port;
   const local = `http://localhost:${port}`;
+  // an app already there: the header named these files, so say when another build is serving
+  // (only a running app is asked — the question would wake a stopped one)
+  const alreadyRunning = async (state: string): Promise<void> => {
+    say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
+    const note = state === 'running' ? runningNote(label, await healthAt(port)) : null;
+    if (note) say(`  ${note}`);
+  };
 
   // --off: «Вимкнути повністю» from the console (0.7.2)
   if (opts.off) {
@@ -399,7 +528,7 @@ async function main(argv: string[]): Promise<number> {
       const files = createShortcut(root);
       say(`✓ ${tr('Ярлик на робочому столі: {file}', { file: files[0] })}`);
       say(
-        `  ${tr('Він запускає застосунок і відкриває вікно керування окремим вікном (Chrome або Edge).')}`,
+        `  ${tr('Він запускає застосунок і відкриває вікно керування окремим вікном — у браузері на основі Chromium, вибраному в Налаштування вигляду → Застосунок, або в Chrome чи Edge.')}`,
       );
       return 0;
     } catch (err) {
@@ -413,7 +542,7 @@ async function main(argv: string[]): Promise<number> {
   // on a Mac too since the user's ask of 2026-10-01).
   const waiter = await waiterAt(port);
   if (waiter && !opts.check) {
-    say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
+    await alreadyRunning(waiter.state);
     const lines =
       opts.browser && !opts.newWindow ? await openControlWindowLines(port, waiter.state) : null;
     if (lines) {
@@ -422,10 +551,9 @@ async function main(argv: string[]): Promise<number> {
       // Firefox or a browser built on it, the one connected at `port` comes forward), or where
       // to find it
       for (const line of lines) say(`  ${line}`);
-    } else if (opts.browser) openBrowser(`${local}/`, opts.app);
+    } else if (opts.browser) openBrowser(`${local}/`, dataDir, opts.app);
     return 0;
   }
-  const running = !!waiter;
 
   // 1. Dependencies (npm ci on a fresh copy — needs the internet once)
   const deps = depsState(root);
@@ -525,8 +653,8 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // 5. The address
-  if (running) {
-    say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
+  if (waiter) {
+    await alreadyRunning(waiter.state);
     return 0;
   }
   if (!(await portFree(port))) {
@@ -601,7 +729,7 @@ async function main(argv: string[]): Promise<number> {
     say(`✗ ${tr('Застосунок не запустився: {error}', { error: trError(err) })}`);
     return 1;
   }
-  if (opts.browser) openBrowser(`${local}/`, opts.app);
+  if (opts.browser) openBrowser(`${local}/`, dataDir, opts.app);
 
   const stop = () => {
     stopping = true;
