@@ -46,6 +46,7 @@ import {
   detectBrowsers,
   KNOWN_BROWSERS,
   macAppInfo,
+  markBrowser,
   openInCommand,
   readLaunchSettings,
   sanitizeLaunch,
@@ -349,6 +350,14 @@ describe('opening the control window in the chosen browser', () => {
       [url],
     ]);
     expect(openInCommand('linux', firefox, url, false, {})).toBeNull(); // no screen
+  });
+
+  it('marks the address with the browser it opens in — the page remembers which one it is', () => {
+    expect(markBrowser(url, 'zen')).toBe('http://localhost:4747/?browser=zen');
+    expect(markBrowser('http://localhost:4747/?a=1#x', 'arc')).toBe(
+      'http://localhost:4747/?a=1&browser=arc#x',
+    );
+    expect(markBrowser('not a url', 'zen')).toBe('not a url');
   });
 
   it('nothing here ever started a program', () => {

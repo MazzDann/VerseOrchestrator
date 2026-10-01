@@ -27,6 +27,7 @@ import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from '
 import {
   detectBrowsers,
   knownBrowser,
+  markBrowser,
   openInCommand,
   readLaunchSettings,
   SYSTEM_BROWSER,
@@ -270,8 +271,12 @@ export function browserLaunch(
   let missing: string | null = null;
   if (launch.browser !== SYSTEM_BROWSER) {
     const b = find(launch.browser);
+    // marked with the browser it opens in (markBrowser): the page then knows which one it is
     if (b)
-      return { cmd: openInCommand(platform, b, url, appFlag || launch.appWindow, env), missing };
+      return {
+        cmd: openInCommand(platform, b, markBrowser(url, b.id), appFlag || launch.appWindow, env),
+        missing,
+      };
     missing = knownBrowser(launch.browser)?.name ?? launch.browser;
   }
   const app = appFlag ? appWindowCommand(platform, url, exists, env) : null;

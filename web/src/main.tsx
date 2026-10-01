@@ -15,6 +15,7 @@ import { useSettings } from './settingsStore';
 import { usePlaylist } from './playlistStore';
 import { listenForForget } from './lib/browserData';
 import { PageGuard } from './components/PageGuard';
+import { takeHandover } from './lib/handover';
 
 // Each page is its own chunk (0.12.1): a phone on /follow loads the reader, not the control
 // window with its panels, the database engine and the benchmarks.
@@ -44,6 +45,9 @@ listenForForget();
 // Control window: the server, the settings sync, the browser library (lib/controlBoot.ts —
 // its own chunk, only for this page). Library reads wait for it (whenBooted).
 if (window.location.pathname === '/') {
+  // «Відкрити в … зараз» (lib/handover.ts): the one-time token — and the start file's browser
+  // mark — out of the address before anything (the router, a reload, a restored tab) reads it
+  takeHandover();
   setBoot(import('./lib/controlBoot').then((m) => m.bootControl()));
 }
 
