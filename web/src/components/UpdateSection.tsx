@@ -4,7 +4,7 @@ import { IconArrowBackUp, IconDownload, IconRefresh, IconReload } from '@tabler/
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type UpdateState } from '../api';
-import { useServer, NEEDS_SERVER } from '../serverStore';
+import { useServer, NEEDS_SERVER, shownVersion } from '../serverStore';
 import { fmtDateTime, tr, useLang } from '../i18n';
 import { useUpdateState, waitForRestart } from '../lib/updates';
 import { useOutputWindows } from '../lib/outputs';
@@ -22,6 +22,8 @@ const mb = (bytes: number) => String(Math.max(1, Math.round(bytes / 1048576)));
 export function UpdateSection() {
   useLang();
   const serverAvailable = useServer((s) => s.available);
+  // a git checkout: «у вас dev 1.4.2.try7, mac-test · 20dd850» rather than the release it grew from
+  const devLabel = useServer((s) => s.devLabel);
   const queryClient = useQueryClient();
   const state = useUpdateState();
   const outputs = useOutputWindows();
@@ -95,13 +97,13 @@ export function UpdateSection() {
   else if (state.available && state.latest)
     status = tr('Доступна версія {version} (у вас {current}).', {
       version: state.latest.version,
-      current: state.current,
+      current: shownVersion(devLabel, state.current),
     });
   else if (state.error) status = tr(state.error);
   else if (state.checkedAt === null) status = tr('Ще не перевіряли.');
   else
     status = tr('У вас остання версія ({current}). Перевірено {when}.', {
-      current: state.current,
+      current: shownVersion(devLabel, state.current),
       when: fmtDateTime(state.checkedAt),
     });
 

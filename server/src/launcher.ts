@@ -36,6 +36,7 @@ import {
   waiterAt,
 } from './standby.ts';
 import { needsBuild } from './uiStamp.ts';
+import { versionLabel } from './versionLabel.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -285,6 +286,41 @@ function sqliteLoads(): { ok: boolean; error: string } {
   return { ok: r.status === 0, error: error.trim().slice(0, 200) };
 }
 
+/** The console's first line: what these files are (versionLabel.ts) and what this start does. */
+export function headerLine(label: string, opts: Pick<LaunchOptions, 'check' | 'off'>): string {
+  const what = opts.check ? ` — ${tr('перевірка')}` : opts.off ? ` — ${tr('вимкнення')}` : '';
+  return `VerseOrchestrator ${label}${what}`;
+}
+
+/** What the app on this port says about itself (GET /api/health), or null. */
+export async function healthAt(port: number): Promise<unknown> {
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/health`, {
+      signal: AbortSignal.timeout(800),
+    });
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The app already running may be another build than these files: started before a branch was
+ * switched, or from another copy (a release folder). Then the console says which one runs — the
+ * header names these files. Null when it is this build, or the app did not say.
+ */
+export function runningNote(label: string, health: unknown): string | null {
+  const h = (health ?? {}) as { version?: unknown; label?: unknown };
+  // an app from before the label: its version is all it calls itself
+  const running =
+    typeof h.label === 'string' ? h.label : typeof h.version === 'string' ? h.version : null;
+  if (running === null || running === label) return null;
+  return tr(
+    'Працює інша збірка: {label}. Щоб запустити цю, вимкніть застосунок («Вимкнути повністю…» або --off) і запустіть знову.',
+    { label: running },
+  );
+}
+
 /** Is a control window connected to the app on `port`? Asked only of a running app. */
 async function controlWindowOpen(port: number, state: string): Promise<boolean> {
   if (state !== 'running') return false; // a stopped app has no window connected
@@ -336,12 +372,19 @@ async function main(argv: string[]): Promise<number> {
     log(m);
     say(`  ${new Date().toTimeString().slice(0, 8)} ${m}`);
   };
-  say(
-    `VerseOrchestrator ${version}${opts.check ? ` — ${tr('перевірка')}` : opts.off ? ` — ${tr('вимкнення')}` : ''}`,
-  );
+  // a git checkout says it is one: «dev 1.4.2.try7 (mac-test · 20dd850)» (versionLabel.ts)
+  const label = versionLabel(root, version);
+  say(headerLine(label, opts));
   const settings = readStandbySettings(dataDir);
   const port = opts.port ?? settings.port;
   const local = `http://localhost:${port}`;
+  // an app already there: the header named these files, so say when another build is serving
+  // (only a running app is asked — the question would wake a stopped one)
+  const alreadyRunning = async (state: string): Promise<void> => {
+    say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
+    const note = state === 'running' ? runningNote(label, await healthAt(port)) : null;
+    if (note) say(`  ${note}`);
+  };
 
   // --off: «Вимкнути повністю» from the console (0.7.2)
   if (opts.off) {
@@ -389,7 +432,7 @@ async function main(argv: string[]): Promise<number> {
   // control window already open is shown instead of a second one (1.1.0, the operator's ask).
   const waiter = await waiterAt(port);
   if (waiter && !opts.check) {
-    say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
+    await alreadyRunning(waiter.state);
     if (opts.browser && !opts.newWindow && (await controlWindowOpen(port, waiter.state))) {
       say(
         `  ${
@@ -402,7 +445,6 @@ async function main(argv: string[]): Promise<number> {
     } else if (opts.browser) openBrowser(`${local}/`, opts.app);
     return 0;
   }
-  const running = !!waiter;
 
   // 1. Dependencies (npm ci on a fresh copy — needs the internet once)
   const deps = depsState(root);
@@ -502,8 +544,8 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // 5. The address
-  if (running) {
-    say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
+  if (waiter) {
+    await alreadyRunning(waiter.state);
     return 0;
   }
   if (!(await portFree(port))) {

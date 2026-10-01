@@ -61,6 +61,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const template = useSettings((s) => s.slideTemplate);
   const dataSource = useEffectiveSource();
   const serverAvailable = useServer((s) => s.available);
+  // a git checkout says it is one at the bottom: «dev 1.4.2.try7 (mac-test · 20dd850)»
+  const devLabel = useServer((s) => s.devLabel);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
   const language = useLang();
@@ -603,7 +605,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
         </Section>
       </Accordion>
       <Text size="xs" c="dimmed" ta="center">
-        VerseOrchestrator v{__APP_VERSION__}
+        VerseOrchestrator {devLabel ?? `v${__APP_VERSION__}`}
       </Text>
     </Stack>
   );
