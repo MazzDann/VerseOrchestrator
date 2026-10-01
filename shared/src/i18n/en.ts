@@ -318,7 +318,10 @@ export const EN: Record<string, string> = {
   'Спершу виберіть книгу': 'Choose a book first',
   '{book}: розділу {n} немає': '{book}: there is no chapter {n}',
   '{place}: вірша {n} немає': '{place}: there is no verse {n}',
-  'Enter — перейти · Esc — скасувати': 'Enter — go · Esc — cancel',
+  'Enter — перейти · {show} — на екран · Esc — скасувати':
+    'Enter — go · {show} — to screen · Esc — cancel',
+  'Текст ще не завантажився — натисніть «На екран» ще раз':
+    'The text hasn’t loaded yet — press “To screen” again',
   'Спершу виберіть розділ': 'Choose a chapter first',
   'У цьому розділі немає віршів': 'This chapter has no verses',
   'Це остання сторінка': 'This is the last page',
@@ -547,6 +550,13 @@ export const EN: Record<string, string> = {
   'Заставка поки порожня — лише фон. Додайте логотип чи текст: Налаштування вигляду → Заставка':
     'The cover is empty for now — the background only. Add a logo or text: Settings → Cover',
   'Прибрати заставку': 'Remove the cover',
+  // 1.4.1: the logo and the settings' storage (SettingsPanel, lib/settingsSaveNotice.ts)
+  'PNG, JPEG або WebP; для чіткого показу — від 1600 пікселів по довшому боці.':
+    'PNG, JPEG, or WebP; for a sharp picture, 1600 pixels or more on the longer side.',
+  'Виберіть файл PNG, JPEG або WebP. Фото HEIC з iPhone спершу збережіть як JPEG':
+    "Choose a PNG, JPEG, or WebP file. Save an iPhone's HEIC photo as JPEG first",
+  'Не вдалося зберегти налаштування: у сховищі браузера бракує місця. Виберіть менше зображення або приберіть фон чи логотип (Налаштування вигляду)':
+    "Couldn't save the settings: the browser's storage is full. Choose a smaller image or remove the background or the logo (Settings)",
   Приспів: 'Chorus',
   'Приспів {n}': 'Chorus {n}',
   'До приспіву': 'To the chorus',

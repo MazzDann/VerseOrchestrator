@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createDispatcher, DEDUPE_MS, PRIORITY, type ShowCommand } from './commands';
+import { createDispatcher, DEDUPE_MS, PRIORITY, toggleOf, type ShowCommand } from './commands';
+import { outputKeyAction } from './outputKeys';
 
 const remote = { kind: 'remote' as const, name: 'Пульт' };
 
@@ -67,5 +68,34 @@ describe('show command dispatcher', () => {
     const d = createDispatcher();
     d.handle(() => Promise.reject(new Error('мережа')));
     expect(await d.dispatch('e', 'pick', remote)).toEqual({ ok: false, reason: 'мережа' });
+  });
+});
+
+describe('the switches a command flips (1.4.1)', () => {
+  it('names each: B hides the text, «.» blacks out, L puts «Заставка» on', () => {
+    expect(toggleOf('blank')).toBe('hide');
+    expect(toggleOf('black')).toBe('black');
+    expect(toggleOf('cover')).toBe('cover');
+    for (const cmd of ['next', 'prev', 'show', 'pick', 'queue'] as const) {
+      expect(toggleOf(cmd)).toBeNull();
+    }
+  });
+
+  it('L pressed in the presentation window reaches «Заставка», not «Чорний екран»', () => {
+    const key = (code: string) => {
+      const action = outputKeyAction({
+        key: '',
+        code,
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        repeat: false,
+      });
+      return action && action !== 'fullscreen' ? toggleOf(action) : null;
+    };
+    expect(key('KeyL')).toBe('cover');
+    expect(key('KeyB')).toBe('hide');
+    expect(key('Period')).toBe('black');
+    expect(key('ArrowRight')).toBeNull();
   });
 });

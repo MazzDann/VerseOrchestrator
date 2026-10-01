@@ -4,6 +4,7 @@ import { IconAdjustments } from '@tabler/icons-react';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { tr, useLang } from '../i18n';
 import { probeServer, useServer } from '../serverStore';
+import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 
 /**
  * Standalone settings window (`/settings`) — opened on a second monitor next to the
@@ -12,6 +13,8 @@ import { probeServer, useServer } from '../serverStore';
  */
 export function Settings() {
   useLang();
+  // a change the browser can't store says so here too (1.4.1)
+  useSettingsSaveNotice();
   // the control window finds out whether the server is there; this window must ask itself —
   // «Оновлення» and the other server-backed sections wait for the answer
   useEffect(() => {
