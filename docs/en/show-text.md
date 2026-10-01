@@ -150,12 +150,14 @@ it on screen.” In such a window you can search and prepare passages. To run th
 here, click **Take control**: nothing changes on screen, and the next actions come from
 here. To go back to the window in charge, click **Close this window**.
 
-The shortcut and the start file don't open a second control window: if one is open
-already, they switch to it (on Windows; on macOS when it is in Chrome, Edge, Brave,
-Chromium, Arc or Safari) or say that it is open. On macOS, the first time, the system asks
-whether to let Terminal control the browser — click **Allow**. To open another window
-anyway, start the app with `--new-window`. The window that runs the show is called
-“VerseOrchestrator — control” in the browser.
+The shortcut and the start file don't open a second control window: if one is open already,
+they switch to it (on Windows; on macOS when it is in Chrome, Edge, Brave, Chromium, Arc or
+Safari) or say that it is open. In those browsers on macOS, the first time, the system asks
+whether to let Terminal control the browser — click **Allow**. When on macOS the control
+window is open in Firefox or a browser built on it, such as Zen or LibreWolf, nothing is
+asked: they bring that browser forward, and you find the window or tab in it yourself. To
+open another window anyway, start the app with `--new-window`. The window that runs the show
+is called “VerseOrchestrator — control” in the browser.
 
 ## What's next
 

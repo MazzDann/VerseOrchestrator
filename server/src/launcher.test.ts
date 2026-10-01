@@ -8,9 +8,11 @@ import { lanIps } from './access';
 import { createStandby, waiterAt } from './standby';
 import {
   browserCommand,
+  controlWindows,
   depsState,
   libraryState,
   NPM_CI,
+  openControlWindowLines,
   nodeVersionOk,
   parseArgs,
   phoneUrl,
@@ -203,5 +205,63 @@ describe('launcher', () => {
       stillRunning: false,
       autostartRemoved: false,
     });
+  });
+
+  it('asks a running app which control windows are open and which browser is in charge', async () => {
+    let answer: (res: http.ServerResponse) => void = () => undefined;
+    const asked: string[] = [];
+    const app = http.createServer((req, res) => {
+      asked.push(req.url ?? '');
+      answer(res);
+    });
+    await new Promise<void>((r) => app.listen(0, '127.0.0.1', r));
+    const port = (app.address() as AddressInfo).port;
+    const json = (body: unknown) => (res: http.ServerResponse) => {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify(body));
+    };
+    try {
+      // the browser goes on to the Mac's decision (alreadyOpenLines)
+      answer = json({ open: 2, active: { browser: 'firefox' } });
+      expect(await controlWindows(port, 'running')).toEqual({ open: 2, active: 'firefox' });
+      expect(asked).toEqual(['/api/control-windows']);
+      // an app before this change says only how many: every browser is asked, as before
+      answer = json({ open: 1 });
+      expect(await controlWindows(port, 'running')).toEqual({ open: 1, active: null });
+      // an app before 1.1.0: the page instead of an answer, or nothing — open one as before
+      answer = (res) => res.end('<!doctype html>');
+      expect(await controlWindows(port, 'running')).toBeNull();
+      answer = (res) => {
+        res.statusCode = 404;
+        res.end();
+      };
+      expect(await controlWindows(port, 'running')).toBeNull();
+      // a stopped app has no window connected: nothing is asked
+      asked.length = 0;
+      expect(await controlWindows(port, 'waiting')).toBeNull();
+      expect(asked).toEqual([]);
+
+      // what the launcher says: the browser in charge and the port go on to the Mac's decision
+      const decided: unknown[][] = [];
+      const lines = (...args: unknown[]) => {
+        decided.push(args);
+        return ['shown'];
+      };
+      answer = json({ open: 2, active: { browser: 'firefox' } });
+      expect(await openControlWindowLines(port, 'running', lines)).toEqual(['shown']);
+      expect(decided).toEqual([['firefox', port]]);
+      answer = json({ open: 1 });
+      expect(await openControlWindowLines(port, 'running', lines)).toEqual(['shown']);
+      expect(decided.at(-1)).toEqual([null, port]);
+      // none open, or the app can't say: nothing said, the launcher opens one
+      decided.length = 0;
+      answer = json({ open: 0, active: null });
+      expect(await openControlWindowLines(port, 'running', lines)).toBeNull();
+      answer = (res) => res.end('<!doctype html>');
+      expect(await openControlWindowLines(port, 'running', lines)).toBeNull();
+      expect(decided).toEqual([]);
+    } finally {
+      await new Promise<void>((r) => app.close(() => r()));
+    }
   });
 });
