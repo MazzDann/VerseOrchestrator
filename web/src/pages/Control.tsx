@@ -42,6 +42,7 @@ import {
   IconLetterT,
   IconSquareFilled,
   IconPhoto,
+  IconLibraryPhoto,
   IconChevronLeft,
   IconChevronRight,
   IconAdjustments,
@@ -86,6 +87,7 @@ import {
   type SlideTemplate,
   type SlideReveal,
   type SlideSource,
+  type SlidePicture,
   type TextSpan,
 } from '../presenterBus';
 import {
@@ -160,6 +162,7 @@ import { useUpdateState } from '../lib/updates';
 import {
   coverOver,
   forAudience,
+  pictureSlide,
   qrOver,
   sameContent,
   sameSlide,
@@ -188,14 +191,22 @@ import { closeThisWindow } from '../lib/closeWindow';
 import { applyHandoverFrame, claimForHandover, controlHello, takeHandover } from '../lib/handover';
 import { docsUrl } from '../lib/docs';
 import { openFeedback } from '../lib/feedback';
-import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
+import {
+  usePlaylist,
+  type SeqImage,
+  type SeqItem,
+  type SeqPassage,
+  type SeqSong,
+} from '../playlistStore';
+import { ImagesPanel } from '../components/ImagesPanel';
+import { type ImageInfo } from '../api';
 
 const EMPTY_ARRAY: never[] = [];
 /** One «Екран очищено» notice at a time (0.13.2): a new clear replaces the last one. */
 const CLEARED_NOTICE = 'screen-cleared';
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
 
-type InlinePanel = 'search' | 'songs' | 'text';
+type InlinePanel = 'search' | 'songs' | 'text' | 'images';
 
 export function Control() {
   const lang = useLang();
@@ -360,9 +371,11 @@ export function Control() {
   const searchOpen = inlinePanel === 'search';
   const songsOpen = inlinePanel === 'songs';
   const textOpen = inlinePanel === 'text';
+  const imagesOpen = inlinePanel === 'images';
   const setSearchOpen = useMemo(() => inlineSetter('search'), [inlineSetter]);
   const setSongsOpen = useMemo(() => inlineSetter('songs'), [inlineSetter]);
   const setTextOpen = useMemo(() => inlineSetter('text'), [inlineSetter]);
+  const setImagesOpen = useMemo(() => inlineSetter('images'), [inlineSetter]);
   const [searchScope, setSearchScope] = useState<SearchScope>('current');
   const [asideMode, setAsideMode] = useState<AsideMode>('preview');
   const [sidebarTab, setSidebarTab] = useState<string | null>('history');
@@ -1142,6 +1155,41 @@ export function Control() {
     }
   };
 
+  // «Зображення» (1.5.0): a picture on screen, as a stanza is — the preview shows it too, and
+  // «Наживо» leaves it until the verses are navigated
+  const projectPicture = (picture: SlidePicture) => {
+    const slide = pictureSlide(picture, slideStyle);
+    pushLive(slide);
+    setPreviewOverride(slide);
+    setLive(true);
+    notifications.show({
+      message: tr('На екрані: {ref}', { ref: picture.name }),
+      color: 'live',
+      autoClose: 1500,
+    });
+  };
+  const addImageToPlaylist = (img: ImageInfo, fit: SlidePicture['fit']) => {
+    playlistAdd({
+      kind: 'image',
+      label: img.name,
+      imageId: img.id,
+      src: img.src,
+      small: img.small,
+      fit,
+    });
+    notifications.show({
+      message: tr('Зображення додано у показ'),
+      color: 'green',
+      autoClose: 1200,
+    });
+  };
+  const pictureOf = (it: SeqImage): SlidePicture => ({
+    src: it.src,
+    small: it.small,
+    name: it.label,
+    fit: it.fit,
+  });
+
   // --- Presentation sequence (playlist) ---------------------------------------
   // Project a saved passage: set the selection (so the list/preview follow) and
   // push the slide directly from freshly-fetched verses (don't wait on the
@@ -1236,6 +1284,7 @@ export function Control() {
     playlistSetCurrent(it.id);
     if (it.kind === 'passage') void activatePassage(it);
     else if (it.kind === 'text') projectText(it.body, it.title.trim());
+    else if (it.kind === 'image') projectPicture(pictureOf(it));
     else void activateSong(it);
   };
 
@@ -2095,6 +2144,7 @@ export function Control() {
   function playlistItemSlide(it: SeqItem, by: string): Promise<Slide> {
     const t = itemTarget(it);
     if (t) return buildRemote(t, by);
+    if (it.kind === 'image') return Promise.resolve(pictureSlide(pictureOf(it), slideStyle));
     const text = it.kind === 'text' ? it : null;
     return Promise.resolve({
       lines: [{ translationAbbr: '', text: text?.body ?? '', rtl: false }],
@@ -2420,7 +2470,9 @@ export function Control() {
             }
           : it.kind === 'song'
             ? { id: it.id, kind: 'song', label: it.label, songId: it.songId }
-            : { id: it.id, kind: 'text', label: it.label },
+            : it.kind === 'image'
+              ? { id: it.id, kind: 'image', label: it.label }
+              : { id: it.id, kind: 'text', label: it.label },
       ),
       currentId: playlistCurrentId,
     }),
@@ -2513,7 +2565,7 @@ export function Control() {
     liveSlide.visible &&
     !liveSlide.blank &&
     !liveSlide.forceBlack &&
-    (liveSlide.lines.length > 0 || !!liveSlide.qr || !!liveSlide.cover);
+    (liveSlide.lines.length > 0 || !!liveSlide.qr || !!liveSlide.cover || !!liveSlide.picture);
   const liveLabel = liveSlide.forceBlack
     ? tr('Чорний екран')
     : liveSlide.blank
@@ -2787,6 +2839,13 @@ export function Control() {
     active: textOpen,
     onClick: () => setTextOpen((o) => !o),
   };
+  const imagesTool: ToolProps = {
+    label: tr('Зображення'),
+    hint: tr('Картинки на екран і в послідовність показу'),
+    icon: <IconLibraryPhoto size={18} stroke={1.5} />,
+    active: imagesOpen,
+    onClick: () => setImagesOpen((o) => !o),
+  };
   const playlistTool: ToolProps = {
     label: tr('Послідовність показу'),
     hint: tr('Черга уривків, пісень і текстів; збережені програми'),
@@ -2877,7 +2936,7 @@ export function Control() {
     onClick: toggleAside,
   };
   const zoneTools: Record<FoldZone, ToolSection> = {
-    sources: { label: tr('Джерела'), tools: [songsTool, textTool, playlistTool] },
+    sources: { label: tr('Джерела'), tools: [songsTool, textTool, imagesTool, playlistTool] },
     windows: {
       label: tr('Вікна'),
       tools: [presenterTool, stageTool, outputsTool, viewersTool, remoteTool],
@@ -2971,6 +3030,7 @@ export function Control() {
                 <ToolZone label={tr('Джерела')}>
                   <ToolIcon {...songsTool} />
                   <ToolIcon {...textTool} />
+                  <ToolIcon {...imagesTool} />
                   <ToolIcon {...playlistTool} />
                 </ToolZone>
               )}
@@ -3373,6 +3433,15 @@ export function Control() {
               onClose={() => setTextOpen(false)}
               onProject={projectAnnouncement}
               onAddToPlaylist={addTextToPlaylist}
+            />
+            <ImagesPanel
+              open={imagesOpen}
+              onClose={() => setImagesOpen(false)}
+              onProject={projectPicture}
+              onAddToPlaylist={addImageToPlaylist}
+              onScreen={
+                liveSlide.visible && !liveSlide.blank ? (liveSlide.picture?.src ?? null) : null
+              }
             />
             <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
               <Text fw={600} size="md" truncate>

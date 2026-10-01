@@ -852,3 +852,71 @@ body[data-resizing='y'] {
   z-index: 250;
   text-align: center;
 }
+
+/* «Зображення» (1.5.0, components/ImagesPanel): a grid of thumbnails. A click puts the picture on
+   screen; its buttons show on hover / focus. The one on screen has the monitors' red ring. */
+.vo-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 6px;
+}
+.vo-image-tile {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--mantine-color-body);
+}
+.vo-image-tile[data-live='true'] {
+  border-color: var(--mantine-color-live-filled);
+  box-shadow: 0 0 0 1px var(--mantine-color-live-filled);
+}
+.vo-image-tile[data-deleted] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  aspect-ratio: 16 / 11;
+}
+.vo-image-pick {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: 0;
+  background: #000;
+  cursor: pointer;
+}
+.vo-image-pick img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.vo-image-pick:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: -2px;
+}
+.vo-image-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.vo-image-tile:hover .vo-image-actions,
+.vo-image-tile:focus-within .vo-image-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .vo-image-actions {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vo-image-actions {
+    transition: none;
+  }
+}

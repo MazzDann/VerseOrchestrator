@@ -5,6 +5,7 @@ import {
   type SlideStyle,
   type SlideReveal,
   type SlideCover,
+  type SlidePicture,
   DEFAULT_STYLE,
 } from '../presenterBus';
 import { useAutoFit } from '../useAutoFit';
@@ -175,6 +176,28 @@ function CoverContent({ cover, onImageLoad }: { cover: SlideCover; onImageLoad: 
   );
 }
 
+/**
+ * A picture on screen (1.5.0): the server's file over the whole slide. One that doesn't load
+ * (deleted meanwhile, the server gone) leaves the black of the slide, never a broken-image sign.
+ */
+function PictureContent({ picture }: { picture: SlidePicture }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (failed === picture.src) return null;
+  return (
+    <img
+      src={picture.src}
+      alt=""
+      onError={() => setFailed(picture.src)}
+      style={{
+        display: 'block',
+        width: '100%',
+        height: '100%',
+        objectFit: picture.fit === 'cover' ? 'cover' : 'contain',
+      }}
+    />
+  );
+}
+
 /** A 16:9 WYSIWYG preview box of the slide (identical look to the presenter). */
 export function SlidePreview({ slide, maxWidth }: { slide: Slide; maxWidth?: number }) {
   return (
@@ -288,14 +311,18 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   const style = slide.style ?? DEFAULT_STYLE;
   const transition = calm ? 'none' : style.transition;
   const show =
-    slide.visible && !slide.blank && (slide.lines.length > 0 || !!slide.qr || !!slide.cover);
+    slide.visible &&
+    !slide.blank &&
+    (slide.lines.length > 0 || !!slide.qr || !!slide.cover || !!slide.picture);
   const slideKey = !show
     ? 'blank'
-    : slide.qr
-      ? `qr|${slide.qr}`
-      : slide.cover
-        ? `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}`
-        : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
+    : slide.picture
+      ? `picture|${slide.picture.src}|${slide.picture.fit}`
+      : slide.qr
+        ? `qr|${slide.qr}`
+        : slide.cover
+          ? `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}`
+          : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
   // the viewers' QR in a corner (0.6.16) — over any slide but the QR slide itself
   const corner =
     style.qrCorner && !slide.qr ? (
@@ -340,6 +367,22 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   const scrim = style.bgImage ? (
     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} />
   ) : null;
+
+  // --- A picture («Зображення», 1.5.0): the whole slide, on black ---------------
+  if (slide.picture) {
+    return (
+      <div style={{ ...rootStyle, background: '#000' }}>
+        <SlideFade
+          slideKey={show ? slideKey : null}
+          mode={transition}
+          style={{ position: 'absolute', inset: 0 }}
+        >
+          <PictureContent picture={slide.picture} />
+        </SlideFade>
+        {corner}
+      </div>
+    );
+  }
 
   // --- Positioned template layout ---------------------------------------------
   const template = slide.qr || slide.cover ? null : slide.template;
