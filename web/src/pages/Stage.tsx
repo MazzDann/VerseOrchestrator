@@ -11,6 +11,8 @@ import { SlidePreview } from '../components/SlideCanvas';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
+import { outputKeyAction } from '../lib/outputKeys';
+import { showsSomething } from '../lib/slide';
 import { tr, useLang } from '../i18n';
 
 /** Two-digit clock parts. */
@@ -56,17 +58,21 @@ export function Stage() {
   useEffect(() => listenFullscreen(), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+      // by the physical key, as in the presentation window (1.4.1): F types «а» in Ukrainian
+      if (outputKeyAction(e) === 'fullscreen') toggleFullscreen();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // «Заставка» and the viewers' QR slide are on screen too, though they have no lines (1.4.1:
+  // the header read «Порожньо» over them, the dot grey); they carry their own reference
+  const onAir = showsSomething(slide);
   const liveLabel = slide.forceBlack
     ? tr('Чорний екран')
     : slide.blank
       ? tr('Текст сховано')
-      : slide.visible && slide.lines.length > 0
+      : onAir
         ? slide.reference || tr('На екрані')
         : tr('Порожньо');
 
@@ -103,14 +109,8 @@ export function Stage() {
               height: '1.5vmin',
               borderRadius: '50%',
               flexShrink: 0,
-              background:
-                slide.visible && !slide.blank && !slide.forceBlack && slide.lines.length > 0
-                  ? '#37b24d'
-                  : '#5c5f66',
-              boxShadow:
-                slide.visible && !slide.blank && !slide.forceBlack && slide.lines.length > 0
-                  ? '0 0 12px #37b24d'
-                  : 'none',
+              background: onAir ? '#37b24d' : '#5c5f66',
+              boxShadow: onAir ? '0 0 12px #37b24d' : 'none',
             }}
           />
           <span style={{ fontSize: '2.6vmin', fontWeight: 700, letterSpacing: 1 }}>

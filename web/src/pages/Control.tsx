@@ -117,6 +117,7 @@ import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
 import { useOutputWindows } from '../lib/outputs';
 import { useSlideErrorNotices } from '../lib/slideErrorNotices';
+import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
@@ -145,14 +146,23 @@ import {
   type RemoteSong,
   type RemoteTarget,
   type SharedPlaylist,
+  type ShowToggle,
   targetArgs,
+  toggleOf,
 } from '../lib/commands';
 import { useServer, NEEDS_SERVER, START_AGAIN } from '../serverStore';
 import { tr, useLang } from '../i18n';
 import { useDataSource, useEffectiveSource } from '../dataSourceStore';
 import { NoLibrary, type LibraryGap } from '../components/NoLibrary';
 import { useUpdateState } from '../lib/updates';
-import { sameContent, sameSlide, summarize, toggleBlack, toggleHidden } from '../lib/slide';
+import {
+  sameContent,
+  sameSlide,
+  showsSomething,
+  summarize,
+  toggleBlack,
+  toggleHidden,
+} from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { ResizeHandle } from '../components/ResizeHandle';
@@ -333,6 +343,8 @@ export function Control() {
   const outputWindows = useOutputWindows();
   // a slide that failed to draw here or in an output window → a red notice (0.13.0)
   useSlideErrorNotices();
+  // a settings change the browser couldn't store (its storage full of images) says so (1.4.1)
+  useSettingsSaveNotice();
   // an output window the browser kept out of fullscreen → how to do it by hand (1.2.1)
   useFullscreenRefusedNotices();
   // a newer version on GitHub: a dot on the settings button, no interruption (1.0.0)
@@ -1764,8 +1776,8 @@ export function Control() {
   // slide comes back on the second press (lib/slide.ts). Hiding: the text fades, the
   // background and the corner QR stay (B). Black: an instant cut, everything (.).
   const afterToggle = (s: Slide) => {
-    const showing = s.visible && !s.blank && !s.forceBlack && (s.lines.length > 0 || !!s.qr);
-    if (!showing) {
+    // «Заставка» counts (1.4.1): black or hidden over it and back used to read as nothing
+    if (!showsSomething(s)) {
       setLive(false);
       return;
     }
@@ -1896,8 +1908,16 @@ export function Control() {
           })
         : { ok: false, reason: tr('Не вибрано вірш') };
     }
-    if (cmd === 'blank') hideToggle();
-    else blackToggle();
+    // the switches: B, «.» and (1.4.1) L pressed in an output window, a remote's buttons —
+    // each by name (lib/commands.ts toggleOf), none by default
+    const toggle = toggleOf(cmd);
+    if (!toggle) return null;
+    const flip: Record<ShowToggle, () => void> = {
+      hide: hideToggle,
+      black: blackToggle,
+      cover: coverToggle,
+    };
+    flip[toggle]();
     return { ok: true };
   }, PRIORITY.verses);
 
