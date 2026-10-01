@@ -39,8 +39,8 @@ interface does; to switch the interface to English, see
 ## Installation and support
 
 - [Install and start](install.md): download, requirements, modules and songs, interface
-  language, shortcut, starting with the computer, choosing the browser, updates, portable
-  copy, switching everything off.
+  language, shortcut, starting with the computer, choosing the browser, updates, backup,
+  portable copy, switching everything off.
 - [Troubleshooting](troubleshooting.md): messages of the start window, the control window,
   and the phones, what to do about them, and how to send feedback.
 - [Reference](reference.md): hotkeys, the buttons at the top of the control window, start

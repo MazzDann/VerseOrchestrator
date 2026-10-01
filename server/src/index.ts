@@ -60,11 +60,21 @@ import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
 import { handoverRoutes, spawnBrowser } from './handover.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
+import {
+  BackupError,
+  backupName,
+  keepPending,
+  lastRestore,
+  makeBackup,
+  readBackup,
+  restorePending,
+  undoRestore,
+} from './backup.js';
 
 const app = express();
 const json = express.json({ limit: '1mb' });
 // the UI state (0.7.4) and a song import (0.10.1) are big: their own, larger limits
-const ownParser = new Set(['/api/ui-state', '/api/song-bundles/import']);
+const ownParser = new Set(['/api/ui-state', '/api/song-bundles/import', '/api/backup/check']);
 app.use((req, res, next) => (ownParser.has(req.path) ? next() : json(req, res, next)));
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -677,6 +687,79 @@ app.post(
       updated: done.updated,
       library,
     });
+  }),
+);
+
+// ── «Резервна копія» (1.5.0, backup.ts): one .zip of the operator's own things ───────────
+
+/** The operator's backup — local control only: it holds their programs, songs, pictures. */
+app.get('/api/backup', requireLocalControl, (_req, res) => {
+  const started = Date.now();
+  const now = new Date();
+  const buf = makeBackup(dataDir, appVersion, now);
+  console.log(`[server] backup: ${Math.round(buf.length / 1024)} KB in ${Date.now() - started} ms`);
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${backupName(now)}"`);
+  res.send(buf);
+});
+
+const backupRefusal = (e: unknown) =>
+  e instanceof BackupError
+    ? new ApiError(400, N_('Це не резервна копія VerseOrchestrator або файл пошкоджено'))
+    : e;
+
+/** A file to restore: read and kept, and what it holds said back — nothing changes yet. */
+app.post(
+  '/api/backup/check',
+  requireLocalControl,
+  express.raw({ type: () => true, limit: '1gb' }),
+  wrap(async (req, res) => {
+    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    try {
+      const { summary } = readBackup(buf);
+      keepPending(dataDir, buf);
+      res.json(summary);
+    } catch (e) {
+      throw backupRefusal(e);
+    }
+  }),
+);
+
+/** Restore the checked file; the state it replaces is kept for «Повернути як було». */
+app.post(
+  '/api/backup/restore',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    notDuringRebuild();
+    const started = Date.now();
+    let summary;
+    try {
+      summary = restorePending(dataDir, appVersion);
+    } catch (e) {
+      throw backupRefusal(e);
+    }
+    if (!summary) throw new ApiError(409, N_('Спершу виберіть файл копії ще раз'));
+    refreshSongs(bundlesDir(dataDir));
+    console.log(
+      `[server] backup: restored the one from ${summary.created} (${Date.now() - started} ms)`,
+    );
+    res.json(summary);
+  }),
+);
+
+app.get('/api/backup/state', requireLocal, (_req, res) => {
+  res.json({ lastRestore: lastRestore(dataDir) });
+});
+
+app.post(
+  '/api/backup/undo',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    notDuringRebuild();
+    if (!undoRestore(dataDir)) throw new ApiError(409, N_('Повертати вже нічого'));
+    refreshSongs(bundlesDir(dataDir));
+    console.log('[server] backup: back to the state before the last restore');
+    res.json({ ok: true });
   }),
 );
 
