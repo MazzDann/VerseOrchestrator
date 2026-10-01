@@ -66,6 +66,10 @@ To open the presentation window:
    all your screens. Allow it, and the presentation window opens on the second screen.
 2. To make the presentation window full screen, click in it or press F.
 
+In a narrow window, some of the buttons at the top move into the **More** menu (three dots
+at the right), where **Presentation window** is called **Open the presentation window**. See
+[Buttons at the top of the control window](reference.md#buttons-at-the-top-of-the-control-window).
+
 ## Show the verse
 
 To show the chosen verse, click **To screen** at the top or press F5 (on macOS, ⌘↩). The

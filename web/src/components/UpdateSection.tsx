@@ -8,6 +8,7 @@ import { useServer, NEEDS_SERVER } from '../serverStore';
 import { fmtDateTime, tr, useLang } from '../i18n';
 import { useUpdateState, waitForRestart } from '../lib/updates';
 import { useOutputWindows } from '../lib/outputs';
+import { storeForOlderVersion } from '../presenterBus';
 
 const mb = (bytes: number) => String(Math.max(1, Math.round(bytes / 1048576)));
 
@@ -65,7 +66,11 @@ export function UpdateSection() {
   // «Повернути попередню версію» (1.4.0): the same restart, into what the last update replaced
   const rollback = useMutation({
     mutationFn: api.rollbackUpdate,
-    onSuccess: afterRestart,
+    onSuccess: (to) => {
+      // «Заставка» on screen: its logo as that version reads it (1.4.2, lib/bus.ts)
+      storeForOlderVersion();
+      return afterRestart(to);
+    },
     onError: fail,
   });
   const restart = useMutation({

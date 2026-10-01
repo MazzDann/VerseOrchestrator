@@ -43,7 +43,8 @@ interface does; to switch the interface to English, see
   everything off.
 - [Troubleshooting](troubleshooting.md): messages of the start window, the control window,
   and the phones, what to do about them, and how to send feedback.
-- [Reference](reference.md): hotkeys, start options, the app's files, addresses, and ports.
+- [Reference](reference.md): hotkeys, the buttons at the top of the control window, start
+  options, the app's files, addresses, and ports.
 
 ## About the project
 

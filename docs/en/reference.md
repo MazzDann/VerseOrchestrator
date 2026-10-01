@@ -2,9 +2,9 @@
 
 [Українською](../reference.md) · English
 
-This page is a reference for the operator and whoever sets up the app: hotkeys, start
-options, the app's files, addresses, and ports. How to do a task is in the parts of the
-[documentation](README.md).
+This page is a reference for the operator and whoever sets up the app: hotkeys, the
+buttons at the top of the control window, start options, the app's files, addresses, and
+ports. How to do a task is in the parts of the [documentation](README.md).
 
 ## Hotkeys
 
@@ -61,6 +61,45 @@ F types «а», L types «д», and the period key types «ю». They are always
 
 In the **Stage** window, F makes the window full screen. The keys of a Bluetooth clicker on
 the speaker's phone are described in [Speaker remote](remote.md#what-the-speaker-sees).
+
+## Buttons at the top of the control window
+
+The buttons at the top of the control window are grouped from left to right:
+
+| Group                | Buttons                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| **Navigation**       | the navigation menu (in a narrow window), **Search**, the **Go to** field                         |
+| **Sources**          | **Songs**, **Custom text**, **Running order**                                                     |
+| **Windows**          | **Presentation window**, **Stage**, **Output windows**, **Viewers**, **Speaker remote**           |
+| **Output to screen** | **Live**, **To screen**, **Hide text**, **Black screen**, **Cover**                               |
+| **App**              | **Settings**, **Help**, **Light theme** or **Dark theme**, **Preview panel** (in a narrow window) |
+
+When the buttons don't all fit in the window, they make room one step at a time:
+
+1. The app's name hides.
+2. **Presentation window** and **Hide text** keep only their icons.
+3. The **Go to** field and the **Live** caption hide.
+4. The buttons of the **App** group, then **Windows**, then **Sources** move into the
+   **More** menu — the button with three dots at the top right.
+
+The **Output to screen** group, **Search**, and the navigation menu always stay in place.
+In the narrowest window, **To screen** keeps only its icon too.
+
+If the buttons still don't fit (a very large font in the browser and a small window), the
+**More** button moves in front of the **Output to screen** group so that it stays in view,
+and the row of buttons scrolls sideways. The buttons cut off at the right also work with
+their keys.
+
+In the **More** menu, the buttons keep their names, icons, and keys; an open panel has a
+check mark. **Presentation window** is called **Open the presentation window** there. The
+menu opens with a click, or with Enter or Space on the **More** button; choose an item with
+the arrow keys and Enter, and close the menu with Esc. While the menu is open, keys act only
+in it: the arrow keys don't move through the verses, and Esc doesn't take the slide off the
+screen.
+
+When the **Go to** field is hidden, type the numbers right in the control window, for
+example `3:16`, or type the reference in the command palette (Ctrl+K, on macOS ⌘K). See
+[Find a text](find-text.md).
 
 ## Start options
 

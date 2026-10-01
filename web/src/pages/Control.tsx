@@ -51,6 +51,7 @@ import {
   IconQrcode,
   IconDeviceMobile,
   IconAppWindow,
+  IconLayoutSidebarRight,
   IconPlugConnectedX,
   IconPower,
 } from '@tabler/icons-react';
@@ -156,15 +157,27 @@ import { useDataSource, useEffectiveSource } from '../dataSourceStore';
 import { NoLibrary, type LibraryGap } from '../components/NoLibrary';
 import { useUpdateState } from '../lib/updates';
 import {
+  coverOver,
+  forAudience,
+  qrOver,
   sameContent,
   sameSlide,
   showsSomething,
   summarize,
   toggleBlack,
   toggleHidden,
+  uncover,
 } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
-import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
+import {
+  ToolButton,
+  ToolIcon,
+  ToolMore,
+  ToolZone,
+  type ToolProps,
+  type ToolSection,
+} from '../components/Toolbar';
+import { useHeaderFold, type FoldZone } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { setAppShellWidth } from '../lib/appShell';
 import { formatCombo, matchesCombo } from '../hotkeys';
@@ -247,10 +260,23 @@ export function Control() {
     },
     onReset: () => setLayout({ recentHeight: DEFAULT_LAYOUT.recentHeight }),
   };
-  // Below ~1280px the text buttons in the header collapse to icons so the zones fit.
-  const wideHeader = useMediaQuery('(min-width: 80em)') ?? true;
-  // Below ~1120px also drop the title, the go-to field and the «Наживо» caption.
-  const midHeader = useMediaQuery('(min-width: 70em)') ?? true;
+  // The burgers in the header exist below AppShell's breakpoints: the navigation's below `sm`,
+  // the preview panel's below `md`. Read at once, not in an effect: a first render with the
+  // wrong value only made the header measure twice.
+  const navBreakpoint = useMediaQuery('(min-width: 48em)', true, {
+    getInitialValueInEffect: false,
+  });
+  const asideBreakpoint = useMediaQuery('(min-width: 62em)', true, {
+    getInitialValueInEffect: false,
+  });
+  const asideToggle = panelPlacement === 'aside' && !asideBreakpoint;
+  // The header gives way to a narrow window step by step (lib/headerFold.ts): the title, the
+  // buttons' text, the go-to field, then whole zones into «Ще» — measured, not breakpoints
+  // (80em / 70em left buttons past the window's edge, Mac check of 1.4.1). What else changes
+  // the widths — the language, a burger coming or going — makes it measure afresh.
+  const header = useHeaderFold(`${lang}|${panelPlacement}|${navBreakpoint}|${asideBreakpoint}`);
+  const fold = header.fold;
+  const folded = (zone: FoldZone) => fold.folded.includes(zone);
 
   const queryClient = useQueryClient();
   const playlistItems = usePlaylist((s) => s.items);
@@ -367,6 +393,13 @@ export function Control() {
       autoClose: 2500,
     });
   const [paletteOpen, setPaletteOpen] = useState(false);
+  /** «Ще» in the header (ToolMore): while open it owns the keyboard, like the palette. */
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreShown = moreOpen && fold.folded.length > 0;
+  // the window grew and «Ще» went away while open: it must not pop open when it comes back
+  useEffect(() => {
+    if (fold.folded.length === 0) setMoreOpen(false);
+  }, [fold.folded.length]);
   // The song + highlighted stanza in the Songs panel — lifted here so the playlist
   // can open a song and seed its stanza (and so forwarded clicker commands step it).
   const [songsPanelSongId, setSongsPanelSongId] = useState<number | null>(null);
@@ -528,7 +561,7 @@ export function Control() {
       const box = quickRef.current;
       const r = quickKeydown(box, e, {
         canStart: bookNumber != null,
-        blocked: isFormField(e.target) || paletteOpen,
+        blocked: isFormField(e.target) || paletteOpen || moreShown,
         project: useSettings.getState().keymap.project,
       });
       if (r.box !== box) setQuick(r.box);
@@ -536,7 +569,7 @@ export function Control() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [bookNumber, paletteOpen]);
+  }, [bookNumber, paletteOpen, moreShown]);
   // a click lets go of the typed numbers: ⌘ / Shift + click in the verse list, then Enter,
   // belongs to the verses clicked, not to a place typed a moment ago (review of the Mac fix)
   useEffect(() => {
@@ -844,7 +877,7 @@ export function Control() {
     // Only with a confirmed server: at startup (probe pending) the control socket's welcome
     // re-publishes anyway; without a server there is no audience relay at all.
     if (useServer.getState().available !== true) return;
-    const s = stripBg(slide);
+    const s = forAudience(slide);
     if (!controlConn.current?.send({ type: 'publish', slide: s })) void api.livePost(s);
   };
   const pauseAudience = () => {
@@ -1524,39 +1557,24 @@ export function Control() {
   // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
   // which would re-run that effect).
   // «QR на екран» (0.6.16): the viewers' QR as a slide; «Прибрати QR» brings back exactly
-  // the slide it covered (not the selection — the operator may have browsed meanwhile).
-  const qrReturn = useRef<Slide | null>(null);
+  // the slide it covered (not the selection — the operator may have browsed meanwhile). The
+  // slide carries what it covers (lib/slide.ts `qrOver`, 1.4.2), so any control window that
+  // leads now can give it back.
   const showQr = () => {
-    qrReturn.current = liveSlide.qr ? qrReturn.current : liveSlide;
-    const slide: Slide = {
-      lines: [],
-      reference: tr('QR для глядачів'),
-      blank: false,
-      visible: true,
-      style: slideStyle,
-      qr: followUrl,
-    };
+    const slide = qrOver(liveSlideRef.current, followUrl, slideStyle, tr('QR для глядачів'));
     pushLive(slide, { audience: false });
     setPreviewOverride(slide);
     setLive(true);
   };
   // «Заставка» (1.4.0): the logo and text from Налаштування вигляду → Заставка over whatever
-  // is on screen; again — exactly the slide it covered (as «QR на екран» does). The phones get
-  // it without the image: an empty slide, «· · ·».
-  const coverReturn = useRef<Slide | null>(null);
+  // is on screen; again — exactly the slide it covered (as «QR на екран» does, `coverOver`).
+  // The phones get it without the image: an empty slide, «· · ·».
   const coverToggle = () => {
     if (!leaderRef.current) return standbyNotice();
     const now = liveSlideRef.current;
     if (!now.cover) {
-      coverReturn.current = now.qr ? qrReturn.current : now;
-      const slide: Slide = {
-        lines: [],
-        reference: tr('Заставка'),
-        blank: false,
-        visible: true,
-        style: slideStyle,
-        cover: { text: appearance.coverText, image: appearance.coverImage },
-      };
+      const cover = { text: appearance.coverText, image: appearance.coverImage };
+      const slide = coverOver(now, cover, slideStyle, tr('Заставка'));
       pushLive(slide);
       setPreviewOverride(slide);
       setLive(true);
@@ -1571,10 +1589,8 @@ export function Control() {
       }
       return;
     }
-    const back = coverReturn.current;
-    coverReturn.current = null;
-    const showing = back && back.visible && !back.cover && !back.forceBlack;
-    if (!back || !showing) {
+    const back = uncover(now);
+    if (!back) {
       pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
       setLive(false);
       setPreviewOverride(null);
@@ -1584,10 +1600,8 @@ export function Control() {
     afterToggle(back);
   };
   const hideQr = () => {
-    const back = qrReturn.current;
-    qrReturn.current = null;
-    const showing = back && back.visible && !back.qr && !back.forceBlack;
-    if (!back || !showing) {
+    const back = uncover(liveSlideRef.current);
+    if (!back) {
       pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
       setLive(false);
       setPreviewOverride(null);
@@ -2232,7 +2246,7 @@ export function Control() {
             c.send(screenFrame());
             c.send({ type: 'playlist', playlist: sharedPlaylistRef.current });
             if (followAlongRef.current)
-              c.send({ type: 'publish', slide: stripBg(liveSlideRef.current) });
+              c.send({ type: 'publish', slide: forAudience(liveSlideRef.current) });
           }
         }
         if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
@@ -2667,6 +2681,138 @@ export function Control() {
     />
   );
 
+  // The header's foldable tools, each defined once: the toolbar draws them as buttons, «Ще» as
+  // menu items — the same names, icons, hotkeys and states (vo-design §2).
+  const rowGap = fold.tight ? 'xs' : 'sm';
+  const songsTool: ToolProps = {
+    label: tr('Пісні'),
+    hint: tr('Пошук пісень з .pptx і показ куплетів'),
+    icon: <IconMusic size={18} stroke={1.5} />,
+    active: songsOpen,
+    onClick: () => setSongsOpen((o) => !o),
+  };
+  const textTool: ToolProps = {
+    label: tr('Власний текст'),
+    hint: tr('Скласти й показати довільний текст'),
+    icon: <IconLetterT size={18} stroke={1.5} />,
+    active: textOpen,
+    onClick: () => setTextOpen((o) => !o),
+  };
+  const playlistTool: ToolProps = {
+    label: tr('Послідовність показу'),
+    hint: tr('Черга уривків, пісень і текстів; збережені програми'),
+    icon: <IconList size={18} stroke={1.5} />,
+    active: playlistOpen,
+    onClick: () => setPlaylistOpen((o) => !o),
+  };
+  const presenterTool: ToolProps = {
+    label: tr('Відкрити вікно показу'),
+    hint: tr('Вихідне вікно для другого монітора чи проєктора'),
+    icon: <IconScreenShare size={18} stroke={1.5} />,
+    onClick: () => void openPresenter(),
+  };
+  const stageTool: ToolProps = {
+    label: tr('Сцена'),
+    hint: tr('Монітор доповідача: зараз, далі, годинник'),
+    icon: <IconLayoutDashboard size={18} stroke={1.5} />,
+    onClick: () => void openStage(),
+  };
+  const outputsTool: ToolProps = {
+    label: outputWindows.length
+      ? tr('Вікна виводу: відкрито {n}', { n: outputWindows.length })
+      : tr('Вікна виводу'),
+    hint: tr('Екрани, відкриті вікна показу й сцени, розкладка'),
+    icon: <IconAppWindow size={18} stroke={1.5} />,
+    active: outputsOpen,
+    onClick: () => setOutputsOpen((o) => !o),
+  };
+  const viewersTool: ToolProps = {
+    label: followAlong
+      ? tr('Глядачі: трансляція увімкнена, на зв’язку {n}', { n: viewers })
+      : tr('Глядачі'),
+    hint:
+      serverAvailable === false
+        ? tr(NEEDS_SERVER)
+        : tr('QR, щоб глядачі стежили за текстом з телефона'),
+    icon: <IconQrcode size={18} stroke={1.5} />,
+    disabled: serverAvailable === false,
+    active: followOpen,
+    color: followAlong ? 'live' : undefined,
+    onClick: () => setFollowOpen((o) => !o),
+  };
+  const remoteTool: ToolProps = {
+    label: tr('Пульт доповідача'),
+    hint:
+      serverAvailable === false
+        ? tr(NEEDS_SERVER)
+        : tr('Телефон-пульт за QR: гортати показ без доступу до налаштувань'),
+    icon: <IconDeviceMobile size={18} stroke={1.5} />,
+    disabled: serverAvailable === false,
+    active: remoteOpen,
+    onClick: () => setRemoteOpen((o) => !o),
+  };
+  const settingsTool: ToolProps = {
+    label: tr('Налаштування вигляду'),
+    hint:
+      update?.available && update.latest
+        ? tr('Доступна версія {version} — див. «Застосунок» → «Оновлення»', {
+            version: update.latest.version,
+          })
+        : tr('Шрифт, кольори, шаблон слайда, пресети, клавіші'),
+    icon: <IconAdjustments size={18} stroke={1.5} />,
+    dot: !!update?.available,
+    active: settingsOpen,
+    onClick: () => setSettingsOpen((o) => !o),
+  };
+  const helpTool: ToolProps = {
+    label: tr('Довідка'),
+    hint: tr('Посібник користувача — відкривається на GitHub'),
+    icon: <IconHelp size={18} stroke={1.5} />,
+    onClick: () => window.open(docsUrl(lang), '_blank', 'noopener'),
+  };
+  const themeTool: ToolProps = {
+    label: colorScheme === 'dark' ? tr('Світла тема') : tr('Темна тема'),
+    icon:
+      colorScheme === 'dark' ? (
+        <IconSun size={18} stroke={1.5} />
+      ) : (
+        <IconMoonStars size={18} stroke={1.5} />
+      ),
+    onClick: () => toggleColorScheme(),
+  };
+  // the aside's toggle (a Burger in the bar below `md`) is an item of its own in «Ще»
+  const panelTool: ToolProps = {
+    label: tr('Панель показу'),
+    icon: <IconLayoutSidebarRight size={18} stroke={1.5} />,
+    active: asideOpened,
+    onClick: toggleAside,
+  };
+  const zoneTools: Record<FoldZone, ToolSection> = {
+    sources: { label: tr('Джерела'), tools: [songsTool, textTool, playlistTool] },
+    windows: {
+      label: tr('Вікна'),
+      tools: [presenterTool, stageTool, outputsTool, viewersTool, remoteTool],
+    },
+    app: {
+      label: tr('Застосунок'),
+      tools: [settingsTool, helpTool, themeTool, ...(asideToggle ? [panelTool] : [])],
+    },
+  };
+  const moreSections = fold.folded.map((zone) => zoneTools[zone]);
+  const moreButton = (
+    <ToolMore
+      label={tr('Ще')}
+      hint={tr('Кнопки, які не вмістилися у вікні')}
+      sections={moreSections}
+      opened={moreShown}
+      onChange={setMoreOpen}
+    />
+  );
+  // even the last step is too wide (a very large root font in a small window): what runs off
+  // the right edge must not be «Ще», the only way to the folded tools — it goes before the
+  // go-live zone, whose buttons have their hotkeys, and the row shows that it scrolls
+  const moreFirst = header.overflow && fold.folded.includes('app');
+
   return (
     <>
       <AppShell
@@ -2680,9 +2826,21 @@ export function Control() {
         padding={0}
       >
         <AppShell.Header>
-          {/* Zones, left → right: navigate · sources | windows · live output · app. */}
-          <Group h="100%" px="md" justify="space-between" wrap="nowrap" gap="sm">
-            <Group gap="sm" wrap="nowrap">
+          {/* Zones, left → right: navigate · sources | windows · live output · app. A narrow
+              window folds them step by step, zones into «Ще» (lib/headerFold.ts); the row
+              scrolls sideways only if even the last step doesn't fit (a huge root font), with
+              «Ще» moved before the go-live zone and a thin scrollbar. */}
+          <Group
+            ref={header.ref}
+            data-fold={header.step}
+            h="100%"
+            px={fold.tight ? 'xs' : 'md'}
+            justify="space-between"
+            wrap="nowrap"
+            gap={rowGap}
+            style={{ overflowX: 'auto', scrollbarWidth: header.overflow ? 'thin' : 'none' }}
+          >
+            <Group gap={rowGap} wrap="nowrap" style={{ flexShrink: 0 }}>
               <Burger
                 opened={navOpened}
                 onClick={toggleNav}
@@ -2690,12 +2848,13 @@ export function Control() {
                 size="sm"
                 aria-label={tr('Навігація')}
               />
-              {midHeader && (
+              {!fold.noTitle && (
                 <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
                   VerseOrchestrator
                 </Text>
               )}
-              <ToolZone label={tr('Навігація')}>
+              {/* a rule after the title or the burger, not at the window's edge */}
+              <ToolZone label={tr('Навігація')} divider={!fold.noTitle || !navBreakpoint}>
                 <ToolIcon
                   label={tr('Пошук')}
                   hint={tr('У поточному перекладі; {combo} — в усіх', {
@@ -2708,7 +2867,7 @@ export function Control() {
                 <TextInput
                   size="sm"
                   w={170}
-                  display={midHeader ? undefined : 'none'}
+                  display={fold.noGoTo ? 'none' : undefined}
                   placeholder={tr('Перейти: Ів 3:16')}
                   value={goToValue}
                   onChange={(e) => setGoToValue(e.currentTarget.value)}
@@ -2719,89 +2878,31 @@ export function Control() {
                   aria-label={tr('Перейти до посилання')}
                 />
               </ToolZone>
-              <ToolZone label={tr('Джерела')}>
-                <ToolIcon
-                  label={tr('Пісні')}
-                  hint={tr('Пошук пісень з .pptx і показ куплетів')}
-                  icon={<IconMusic size={18} stroke={1.5} />}
-                  active={songsOpen}
-                  onClick={() => setSongsOpen((o) => !o)}
-                />
-                <ToolIcon
-                  label={tr('Власний текст')}
-                  hint={tr('Скласти й показати довільний текст')}
-                  icon={<IconLetterT size={18} stroke={1.5} />}
-                  active={textOpen}
-                  onClick={() => setTextOpen((o) => !o)}
-                />
-                <ToolIcon
-                  label={tr('Послідовність показу')}
-                  hint={tr('Черга уривків, пісень і текстів; збережені програми')}
-                  icon={<IconList size={18} stroke={1.5} />}
-                  active={playlistOpen}
-                  onClick={() => setPlaylistOpen((o) => !o)}
-                />
-              </ToolZone>
+              {!folded('sources') && (
+                <ToolZone label={tr('Джерела')}>
+                  <ToolIcon {...songsTool} />
+                  <ToolIcon {...textTool} />
+                  <ToolIcon {...playlistTool} />
+                </ToolZone>
+              )}
             </Group>
 
-            <Group gap="sm" wrap="nowrap">
-              <ToolZone label={tr('Вікна')} divider={false}>
-                <ToolButton
-                  label={tr('Відкрити вікно показу')}
-                  hint={tr('Вихідне вікно для другого монітора чи проєктора')}
-                  text={tr('Вікно показу')}
-                  compact={!wideHeader}
-                  icon={<IconScreenShare size={18} stroke={1.5} />}
-                  onClick={() => void openPresenter()}
-                />
-                <ToolIcon
-                  label={tr('Сцена')}
-                  hint={tr('Монітор доповідача: зараз, далі, годинник')}
-                  icon={<IconLayoutDashboard size={18} stroke={1.5} />}
-                  onClick={() => void openStage()}
-                />
-                <ToolIcon
-                  label={
-                    outputWindows.length
-                      ? tr('Вікна виводу: відкрито {n}', { n: outputWindows.length })
-                      : tr('Вікна виводу')
-                  }
-                  hint={tr('Екрани, відкриті вікна показу й сцени, розкладка')}
-                  icon={<IconAppWindow size={18} stroke={1.5} />}
-                  active={outputsOpen}
-                  onClick={() => setOutputsOpen((o) => !o)}
-                />
-                <ToolIcon
-                  label={
-                    followAlong
-                      ? tr('Глядачі: трансляція увімкнена, на зв’язку {n}', { n: viewers })
-                      : tr('Глядачі')
-                  }
-                  hint={
-                    serverAvailable === false
-                      ? tr(NEEDS_SERVER)
-                      : tr('QR, щоб глядачі стежили за текстом з телефона')
-                  }
-                  icon={<IconQrcode size={18} stroke={1.5} />}
-                  disabled={serverAvailable === false}
-                  active={followOpen}
-                  color={followAlong ? 'live' : undefined}
-                  onClick={() => setFollowOpen((o) => !o)}
-                />
-                <ToolIcon
-                  label={tr('Пульт доповідача')}
-                  hint={
-                    serverAvailable === false
-                      ? tr(NEEDS_SERVER)
-                      : tr('Телефон-пульт за QR: гортати показ без доступу до налаштувань')
-                  }
-                  icon={<IconDeviceMobile size={18} stroke={1.5} />}
-                  disabled={serverAvailable === false}
-                  active={remoteOpen}
-                  onClick={() => setRemoteOpen((o) => !o)}
-                />
-              </ToolZone>
-              <ToolZone label={tr('Вихід на екран')}>
+            <Group gap={rowGap} wrap="nowrap" style={{ flexShrink: 0 }}>
+              {!folded('windows') && (
+                <ToolZone label={tr('Вікна')} divider={false}>
+                  <ToolButton
+                    {...presenterTool}
+                    text={tr('Вікно показу')}
+                    compact={fold.iconsOnly}
+                  />
+                  <ToolIcon {...stageTool} />
+                  <ToolIcon {...outputsTool} />
+                  <ToolIcon {...viewersTool} />
+                  <ToolIcon {...remoteTool} />
+                </ToolZone>
+              )}
+              {moreFirst && moreButton}
+              <ToolZone label={tr('Вихід на екран')} divider={!folded('windows') || moreFirst}>
                 <Tooltip
                   label={tr(
                     'Увімкнено: екран одразу повторює вибір. Вимкнено: лише прев’ю, показ кнопкою «На екран»',
@@ -2816,7 +2917,7 @@ export function Control() {
                     color="live"
                     checked={liveFollow}
                     onChange={(e) => setLiveFollow(e.currentTarget.checked)}
-                    label={midHeader ? tr('Наживо') : undefined}
+                    label={fold.noGoTo ? undefined : tr('Наживо')}
                     aria-label={tr('Наживо')}
                     styles={{ label: { paddingInlineStart: 6, whiteSpace: 'nowrap' } }}
                   />
@@ -2825,6 +2926,7 @@ export function Control() {
                   label={tr('На екран')}
                   hint={tr('Показати поточний вибір')}
                   text={tr('На екран')}
+                  compact={fold.projectIconOnly}
                   variant="filled"
                   color="live"
                   combo={keymap.project}
@@ -2840,8 +2942,9 @@ export function Control() {
                       : tr('Текст згасає, фон лишається; ще раз — той самий слайд назад')
                   }
                   text={textHidden ? tr('Показати текст') : tr('Сховати текст')}
-                  compact={!wideHeader}
+                  compact={fold.iconsOnly}
                   variant={textHidden ? 'filled' : 'default'}
+                  active={textHidden}
                   color={textHidden ? 'cue' : undefined}
                   combo={keymap.blank}
                   icon={<IconSquareOff size={18} stroke={1.5} />}
@@ -2876,47 +2979,30 @@ export function Control() {
                   onClick={coverToggle}
                 />
               </ToolZone>
-              <ToolZone label={tr('Застосунок')}>
-                <ToolIcon
-                  label={tr('Налаштування вигляду')}
-                  hint={
-                    update?.available && update.latest
-                      ? tr('Доступна версія {version} — див. «Застосунок» → «Оновлення»', {
-                          version: update.latest.version,
-                        })
-                      : tr('Шрифт, кольори, шаблон слайда, пресети, клавіші')
-                  }
-                  icon={<IconAdjustments size={18} stroke={1.5} />}
-                  dot={!!update?.available}
-                  active={settingsOpen}
-                  onClick={() => setSettingsOpen((o) => !o)}
-                />
-                <ToolIcon
-                  label={tr('Довідка')}
-                  hint={tr('Посібник користувача — відкривається на GitHub')}
-                  icon={<IconHelp size={18} stroke={1.5} />}
-                  onClick={() => window.open(docsUrl(lang), '_blank', 'noopener')}
-                />
-                <ToolIcon
-                  label={colorScheme === 'dark' ? tr('Світла тема') : tr('Темна тема')}
-                  icon={
-                    colorScheme === 'dark' ? (
-                      <IconSun size={18} stroke={1.5} />
-                    ) : (
-                      <IconMoonStars size={18} stroke={1.5} />
-                    )
-                  }
-                  onClick={() => toggleColorScheme()}
-                />
-              </ToolZone>
-              {panelPlacement === 'aside' && (
-                <Burger
-                  opened={asideOpened}
-                  onClick={toggleAside}
-                  hiddenFrom="md"
-                  size="sm"
-                  aria-label={tr('Панель показу')}
-                />
+              {folded('app') ? (
+                !moreFirst && (
+                  <>
+                    <Divider orientation="vertical" h={24} style={{ alignSelf: 'center' }} />
+                    {moreButton}
+                  </>
+                )
+              ) : (
+                <>
+                  <ToolZone label={tr('Застосунок')}>
+                    <ToolIcon {...settingsTool} />
+                    <ToolIcon {...helpTool} />
+                    <ToolIcon {...themeTool} />
+                  </ToolZone>
+                  {panelPlacement === 'aside' && (
+                    <Burger
+                      opened={asideOpened}
+                      onClick={toggleAside}
+                      hiddenFrom="md"
+                      size="sm"
+                      aria-label={tr('Панель показу')}
+                    />
+                  )}
+                </>
               )}
             </Group>
           </Group>
@@ -3177,7 +3263,7 @@ export function Control() {
               activeStanza={songsPanelStanza}
               onActiveStanzaChange={setSongsPanelStanza}
               onAddToPlaylist={addSongToPlaylist}
-              keysPaused={paletteOpen}
+              keysPaused={paletteOpen || moreShown}
               onSongEnd={songEnd}
             />
             <TextPanel
@@ -3483,14 +3569,6 @@ export function Control() {
       />
     </>
   );
-}
-
-/** Drop the (potentially large) background image before mirroring to the follow relay. */
-function stripBg(slide: Slide): Slide {
-  // «Заставка»'s image stays off the phones too (1.4.0): an empty slide there
-  const s = slide.cover ? { ...slide, cover: undefined } : slide;
-  if (!s.style?.bgImage) return s;
-  return { ...s, style: { ...s.style, bgImage: null } };
 }
 
 /** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */
