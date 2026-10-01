@@ -379,6 +379,18 @@ const UpdateStateSchema = z.object({
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
+/** What a backup holds (1.5.0, server/src/backup.ts `BackupSummary`). */
+const BackupSummarySchema = z.object({
+  app: z.string(),
+  created: z.string(),
+  settings: z.boolean(),
+  programs: z.number(),
+  items: z.number(),
+  bundles: z.array(z.string()),
+  pictures: z.number(),
+});
+export type BackupSummary = z.infer<typeof BackupSummarySchema>;
+
 export const api = {
   // --- Library reads: server or browser engine (see fromLibrary) ---
   translations: () =>
@@ -600,6 +612,41 @@ export const api = {
     const res = await request('/api/update/restart', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);
     return z.object({ from: z.string(), to: z.string() }).parse(await res.json());
+  },
+  /** «Резервна копія» (1.5.0): the backup .zip and the name the server gives it. */
+  downloadBackup: async () => {
+    const res = await request('/api/backup', { headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    const name =
+      /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ??
+      'VerseOrchestrator-backup.zip';
+    return { blob: await res.blob(), name };
+  },
+  /** Send a backup file to restore: the server reads it and says what it holds. */
+  checkBackup: async (file: File) => {
+    const res = await request('/api/backup/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/zip', ...CONTROL_HEADERS },
+      body: file,
+    });
+    if (!res.ok) throw await failure(res);
+    return BackupSummarySchema.parse(await res.json());
+  },
+  restoreBackup: async () => {
+    const res = await request('/api/backup/restore', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return BackupSummarySchema.parse(await res.json());
+  },
+  backupState: () =>
+    getJson(
+      '/api/backup/state',
+      z.object({
+        lastRestore: z.object({ created: z.string(), at: z.string(), undo: z.string() }).nullable(),
+      }),
+    ),
+  undoRestore: async () => {
+    const res = await request('/api/backup/undo', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
   },
   uiState: () => getJson('/api/ui-state', UiStateSchema),
   saveUiState: async (key: keyof UiState, value: string, at: number) => {
