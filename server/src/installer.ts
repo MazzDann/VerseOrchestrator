@@ -6,7 +6,8 @@ import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { N_ } from '@vo/shared';
 import { LAYOUT_MARKER } from './layout.js';
-import type { LatestRelease } from './updates.js';
+import type { SwapPlan, SwapResult } from './swap.js';
+import { compareVersions, type LatestRelease } from './updates.js';
 
 /**
  * Installing a newer release (1.0.0), for a copy in the release layout only (0.14.0).
@@ -44,6 +45,29 @@ export const NEXT_DIR = 'app.next';
 export const PREVIOUS_DIR = 'app.previous';
 /** in `<data>/updates/`: the release's files next to `app/`, for swap.ts */
 export const TOP_FILES_DIR = 'top';
+
+/** The first version with «Повернути попередню версію» of its own. */
+export const FIRST_ROLLBACK = '1.4.0';
+/** Can `version` go back to the version before it by itself? */
+export const hasRollback = (version: string): boolean =>
+  compareVersions(version, FIRST_ROLLBACK) >= 0;
+
+/** Downloading, checking, unpacking or restarting: no second download then. */
+const BUSY: readonly InstallPhase[] = ['download', 'verify', 'unpack', 'restarting'];
+/** How long a swap result is shown in «Оновлення». */
+const RESULT_SHOWN_MS = 24 * 60 * 60 * 1000;
+/**
+ * The longest the swap helper runs: 30 s for the old app to leave, renames retried for 10 s each,
+ * 90 s for the new version to answer, 15 s to stop it, the way back — under four minutes. A plan
+ * older than this with no result: the helper is gone (the computer went off halfway).
+ */
+const HELPER_MAX_MS = 10 * 60 * 1000;
+/**
+ * Windows may refuse a rename for a moment (a scanner, an indexer): tried again for about 5 s,
+ * as swap.ts does (the server waits meanwhile: it restarts next anyway).
+ */
+const RENAME_TRIES = 20;
+const RENAME_PAUSE_MS = 250;
 
 /** `<sha256>  <file>` lines → the hash of `file`, or null. */
 export function checksumFor(sums: string, file: string): string | null {
@@ -103,19 +127,46 @@ export interface InstallerOptions {
   dataDir: string;
   platform?: string;
   fetch?: typeof fetch;
+  /** runs the unpack command (tests: a rollback in the middle of it) */
+  exec?: (cmd: string, args: string[]) => Promise<void>;
 }
 
 export function createInstaller(o: InstallerOptions) {
   const doFetch = o.fetch ?? fetch;
   const platform = o.platform ?? process.platform;
+  const exec = o.exec ?? run;
   const updatesDir = path.join(o.dataDir, 'updates');
   let state: InstallState = { phase: 'idle', version: null, received: 0, total: 0, error: null };
+
+  /**
+   * A rollback or a restart moves on: a download still under way must not touch app.next or the
+   * state after it (1.4.1). It checks after each step it waits for; the unpack alone is refused
+   * (notNow).
+   */
+  let turn = 0;
+
+  /** A rename Windows may refuse for a moment, tried again; elsewhere one that fails fails for good. */
+  const renameSoon = (from: string, to: string): void => {
+    for (let i = 1; ; i++) {
+      try {
+        fs.renameSync(from, to);
+        return;
+      } catch (e) {
+        if (platform !== 'win32' || i >= RENAME_TRIES) throw e;
+        if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw e; // nothing there
+        // a synchronous pause: no download step runs in between (turn)
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, RENAME_PAUSE_MS);
+      }
+    }
+  };
 
   const fail = (error: string, vars?: Record<string, string>) => {
     state = { ...state, phase: 'error', error, vars };
   };
 
   async function download(latest: LatestRelease): Promise<void> {
+    const mine = turn;
+    const superseded = () => turn !== mine;
     const asset = latest.asset;
     if (!asset || !latest.sums) return fail(N_('Для цієї системи в релізі немає архіву'));
     state = {
@@ -153,22 +204,27 @@ export function createInstaller(o: InstallerOptions) {
         count,
         fs.createWriteStream(file),
       );
+      if (superseded()) return abandon(file);
       state.phase = 'verify';
       const sums = await (await doFetch(latest.sums, { redirect: 'follow' })).text();
       const want = checksumFor(sums, asset.name);
       const hash = createHash('sha256');
       await pipeline(fs.createReadStream(file), hash);
+      if (superseded()) return abandon(file);
       if (!want || hash.digest('hex') !== want)
         return fail(N_('Архів оновлення пошкоджено: контрольна сума не збігається'));
     } catch {
+      if (superseded()) return abandon(file);
       return fail(N_('Не вдалося завантажити оновлення: немає зв’язку з GitHub'));
     }
+    const unpacked = path.join(updatesDir, 'unpacked');
     try {
       state.phase = 'unpack';
-      const unpacked = path.join(updatesDir, 'unpacked');
       fs.mkdirSync(unpacked);
       const [cmd, args] = unpackCommand(platform, file, unpacked);
-      await run(cmd, args);
+      await exec(cmd, args);
+      // app.next may hold the version a rollback brings back now: leave it
+      if (superseded()) return abandon(file, unpacked);
       const found = findUnpackedApp(unpacked, latest.version);
       if ('error' in found) return fail(found.error);
       const next = path.join(o.top, NEXT_DIR);
@@ -184,15 +240,49 @@ export function createInstaller(o: InstallerOptions) {
       fs.rmSync(file, { force: true });
       state.phase = 'ready';
     } catch {
+      if (superseded()) return abandon(file, unpacked);
       fail(N_('Не вдалося розпакувати оновлення'));
     }
   }
 
+  /** A download overtaken by a rollback or a restart: only its own files go. */
+  function abandon(...files: string[]): void {
+    for (const f of files) fs.rmSync(f, { recursive: true, force: true });
+  }
+
+  const readUpdateFile = <T>(file: string): { data: T; mtime: number } | null => {
+    try {
+      const f = path.join(updatesDir, file);
+      return { data: JSON.parse(fs.readFileSync(f, 'utf8')) as T, mtime: fs.statSync(f).mtimeMs };
+    } catch {
+      return null;
+    }
+  };
+
+  /** Has the swap helper finished — or died long ago? What it holds can go then. */
+  const helperGone = (now: number): boolean => {
+    if (readUpdateFile<SwapResult>('result.json')) return true;
+    const plan = readUpdateFile<SwapPlan>('plan.json');
+    return !!plan && now - plan.mtime > HELPER_MAX_MS;
+  };
+
   return {
     state: (): InstallState => ({ ...state }),
+    /** Downloading, checking, unpacking or restarting: no second download. */
+    busy: (): boolean => BUSY.includes(state.phase),
+    /**
+     * Why a restart or a rollback can't start now (a dictionary key), or null (1.4.1). A download
+     * or its check gives way (turn): this app stops, and the download with it. The unpack runs
+     * the system's tar in the app's folder, and it outlives this app: Windows wouldn't let the
+     * swap rename app/ then.
+     */
+    notNow(): string | null {
+      if (state.phase === 'restarting') return N_('Застосунок уже перезапускається');
+      return state.phase === 'unpack' ? N_('Зачекайте, доки оновлення розпакується') : null;
+    },
     /** Start downloading (the answer comes at once; the page follows the phases). */
     start(latest: LatestRelease): boolean {
-      if (['download', 'verify', 'unpack', 'restarting'].includes(state.phase)) return false;
+      if (this.busy()) return false;
       void download(latest);
       return true;
     },
@@ -231,13 +321,125 @@ export function createInstaller(o: InstallerOptions) {
     prepareRollback(): string | null {
       const version = this.previousVersion();
       if (!version) return null;
-      fs.rmSync(path.join(o.top, NEXT_DIR), { recursive: true, force: true });
-      fs.renameSync(path.join(o.top, PREVIOUS_DIR), path.join(o.top, NEXT_DIR));
+      fs.rmSync(path.join(o.top, NEXT_DIR), {
+        recursive: true,
+        force: true,
+        // Node waits 100 ms longer each time: 4.5 s in all
+        ...(platform === 'win32' ? { maxRetries: 9, retryDelay: 100 } : {}),
+      });
+      renameSoon(path.join(o.top, PREVIOUS_DIR), path.join(o.top, NEXT_DIR));
+      // only now: a rename that fails leaves a download under way to carry on
+      turn++;
       state = { ...state, phase: 'idle', version: null };
       return version;
     },
+    /**
+     * Get the swap helper ready in `<data>/updates/` (swap.ts): its own copy of Node and of
+     * swap.ts — nothing in app/ may stay in use while app/ is renamed — and its plan. A rollback
+     * turns app.previous into app.next only after that (1.4.1). Anything that fails (a full
+     * disk, a folder Windows holds) leaves things as they were: the previous version where it
+     * was, the last swap's result, no copies. Returns what to run.
+     */
+    prepareSwap(p: {
+      /** this Node */
+      execPath: string;
+      /** swap.ts in the running app */
+      script: string;
+      kind: 'update' | 'rollback';
+      from: string;
+      to: string;
+      /** the running app and its waiter */
+      pids: number[];
+      port: number;
+    }): { node: string; script: string; plan: string } {
+      const back = p.kind === 'rollback';
+      if (back && this.previousVersion() !== p.to)
+        throw new Error(`no previous version ${p.to} to go back to`);
+      fs.mkdirSync(updatesDir, { recursive: true });
+      const node = path.join(updatesDir, path.basename(p.execPath));
+      // .mts: an ES module wherever the release sits (a package.json above it can't say otherwise)
+      const script = path.join(updatesDir, 'swap.mts');
+      const planFile = path.join(updatesDir, 'plan.json');
+      const plan: SwapPlan = {
+        top: o.top,
+        pids: p.pids,
+        port: p.port,
+        from: p.from,
+        to: p.to,
+        // a rollback keeps the start file as it is: the older release's isn't kept
+        ...(back ? {} : { topFiles: path.join(updatesDir, TOP_FILES_DIR) }),
+        result: path.join(updatesDir, 'result.json'),
+        log: path.join(updatesDir, 'swap.log'),
+        kind: p.kind,
+        // back to a version with no rollback of its own: this one stays as its app.next
+        ...(back && !hasRollback(p.to) ? { keepAsNext: true } : {}),
+      };
+      try {
+        fs.copyFileSync(p.execPath, node);
+        if (process.platform !== 'win32') fs.chmodSync(node, 0o755);
+        fs.copyFileSync(p.script, script);
+        fs.writeFileSync(planFile, JSON.stringify(plan));
+        if (back) this.prepareRollback();
+      } catch (e) {
+        for (const f of [node, script, planFile]) {
+          try {
+            fs.rmSync(f, { force: true });
+          } catch {
+            /* in use: the next download clears the folder */
+          }
+        }
+        throw e;
+      }
+      // the swap is on: the last one's result goes, so pages wait for this one's (a result
+      // that stays would only show until the helper writes its own)
+      try {
+        fs.rmSync(path.join(updatesDir, 'result.json'), { force: true });
+      } catch {
+        /* see above */
+      }
+      return { node, script, plan: planFile };
+    },
     markRestarting(): void {
+      turn++;
       state = { ...state, phase: 'restarting' };
+    },
+    /**
+     * How the last swap went (result.json) — for a day. Before the helper writes it (a few
+     * minutes at most, its plan naming this very version), this app answering is the answer:
+     * pages that load meanwhile say so too, with the time the swap began.
+     */
+    lastSwap(appVersion: string, now = Date.now()): SwapResult | null {
+      const done = readUpdateFile<SwapResult>('result.json');
+      if (done) return now - done.data.at < RESULT_SHOWN_MS ? done.data : null;
+      const plan = readUpdateFile<SwapPlan>('plan.json');
+      if (!plan || plan.data.to !== appVersion || now - plan.mtime > HELPER_MAX_MS) return null;
+      return {
+        ok: true,
+        from: plan.data.from,
+        to: plan.data.to,
+        at: Math.floor(plan.mtime),
+        ...(plan.data.kind ? { kind: plan.data.kind } : {}),
+      };
+    },
+    /**
+     * A swap — an update or a rollback — leaves the helper's copy of Node, its plan and the
+     * release's top files in `<data>/updates/`: they go once the helper has finished (its
+     * result.json, however old — 1.4.1) or is long gone; the result and the log stay. Returns
+     * what went.
+     */
+    tidy(now = Date.now()): string[] {
+      if (!helperGone(now)) return [];
+      const gone: string[] = [];
+      for (const f of fs.readdirSync(updatesDir)) {
+        if (f === 'result.json' || f === 'swap.log') continue;
+        try {
+          fs.rmSync(path.join(updatesDir, f), { recursive: true, force: true });
+          gone.push(f);
+        } catch {
+          /* still in use (Windows): next time */
+        }
+      }
+      return gone;
     },
     updatesDir,
   };

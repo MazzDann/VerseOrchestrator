@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { copyTopFiles, rollbackFolders, swapFolders } from './swap';
+import { copyTopFiles, previousAsNext, rollbackFolders, swapFolders } from './swap';
 
 const temps: string[] = [];
 afterEach(() => {
@@ -44,6 +44,14 @@ describe('the update swap (1.0.0)', () => {
     await rollbackFolders(top);
     expect(versionIn(top, 'app')).toBe('1.0.0');
     expect(versionIn(top, 'app.failed')).toBe('1.0.1');
+  });
+
+  it('after a rollback, the version left waits as app.next (1.4.1)', async () => {
+    const top = release({ app: '1.3.1', 'app.previous': '1.4.1' });
+    await previousAsNext(top);
+    expect(versionIn(top, 'app')).toBe('1.3.1');
+    expect(versionIn(top, 'app.next')).toBe('1.4.1');
+    expect(versionIn(top, 'app.previous')).toBeNull();
   });
 
   it('replaces the release’s top files, not its folders', () => {
