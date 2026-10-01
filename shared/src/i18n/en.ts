@@ -1332,7 +1332,7 @@ export const EN: Record<string, string> = {
     "macOS doesn't let the app the start window runs in control {browser}. To allow it, open System Settings → Privacy & Security → Automation, find that app and turn on {browser} under it.",
   'Якщо macOS питає дозволу керувати браузером, дозвольте й запустіть ще раз.':
     'If macOS asks for permission to control the browser, allow it and start again.',
-  // … in Firefox or a browser built on it (no AppleScript): that browser itself comes forward
+  // … in Firefox or a browser built on it (`activate`, no permission): that browser comes forward
   'Вікно керування відкрите у {browser} — показую {browser}.':
     'The control window is open in {browser} — showing {browser}.',
   '{browser} не дає файлу запуску вибрати своє вікно чи вкладку — для цього тримайте вікно керування в Chrome або Safari.':

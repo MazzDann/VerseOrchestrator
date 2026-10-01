@@ -259,8 +259,8 @@ const currentUid = () => process.getuid?.() ?? 0;
  * The engine (libxul) every Gecko app — Firefox, its Developer Edition and Nightly, Zen,
  * LibreWolf, Tor Browser… — loads from its bundle; no Chromium or WebKit browser has it. Their
  * User-Agents all say «Firefox/», and none has an AppleScript dictionary (`sdef` prints
- * nothing): nobody can ask them for a window or a tab. LaunchServices can still bring the
- * running app forward — no Automation permission needed.
+ * nothing): nobody can ask them for a window or a tab. AppleScript's `activate` can still bring
+ * the running app forward (MAC_ACTIVATE_SCRIPT) — no Automation permission needed.
  */
 export const GECKO_ENGINE = '/Contents/MacOS/XUL';
 
@@ -302,6 +302,45 @@ export function geckoAppsConnectedTo(
   }
   return [...apps];
 }
+
+/** A bundle id as Apple allows it (letters, digits, «.» and «-»), never one that starts an option. */
+const BUNDLE_ID = /^[A-Za-z0-9][A-Za-z0-9.-]*$/;
+
+/**
+ * The bundle id of the app at `app` (a bundle's path), from its Info.plist — by plutil: a file
+ * read, no Apple Events; a binary plist too. Null when there is none to read or it looks wrong.
+ */
+export function bundleIdOf(run: Runner, app: string): string | null {
+  const r = run(
+    '/usr/bin/plutil',
+    ['-extract', 'CFBundleIdentifier', 'raw', '-o', '-', `${app}/Contents/Info.plist`],
+    5000,
+  );
+  const id = r.stdout.trim();
+  return !r.error && r.status === 0 && BUNDLE_ID.test(id) ? id : null;
+}
+
+/**
+ * The AppleScript that brings the running app whose bundle id it is given (osascript's first
+ * argument) forward and prints «yes», or prints «no» when that app doesn't run — a `tell` would
+ * start it. Only `activate`: macOS lets it through without asking for the Automation
+ * permission, and it asks the app to open nothing — `open -a` made a running Firefox open a
+ * new tab (the user's test, 2026-10-01). The app comes as an argument, not in the text: nothing
+ * names an app when osascript compiles it, so no app is asked for its terms either.
+ */
+export const MAC_ACTIVATE_SCRIPT = [
+  'on run argv',
+  '  set appId to item 1 of argv',
+  '  if application id appId is running then',
+  '    tell application id appId to activate',
+  '    return "yes"',
+  '  end if',
+  '  return "no"',
+  'end run',
+].join('\n');
+
+/** `activate` answers at once and asks for no permission: no time to wait for a click. */
+export const MAC_ACTIVATE_TIMEOUT_MS = 5000;
 
 /** `s` as an AppleScript string literal. */
 export const appleString = (s: string): string => `"${s.replace(/[\\"]/g, '\\$&')}"`;
@@ -415,9 +454,9 @@ export const MAC_RAISE_TIMEOUT_MS = 30_000;
  * title begins with one of CONTROL_TITLES (a browser adds its own name after it). macOS: each
  * running browser that can hold it (`active`, the hub's word for the one in charge; every
  * browser when not known) in turn, by AppleScript (macRaiseScript), until one has it — or,
- * when it is in Firefox or a browser built on it, that browser itself, by LaunchServices: the
- * one Gecko app with a page of the app open at `port` (the launcher's), when there is just one.
- * Elsewhere nothing.
+ * when it is in Firefox or a browser built on it, that browser itself, by `activate` alone
+ * (MAC_ACTIVATE_SCRIPT): the one Gecko app with a page of the app open at `port` (the
+ * launcher's), when there is just one. Elsewhere nothing.
  */
 export function raiseControlWindow(
   platform: NodeJS.Platform = process.platform,
@@ -443,11 +482,14 @@ export function raiseControlWindow(
   if (platform !== 'darwin') return result;
   if (active === 'firefox') {
     // the Gecko app with a page of the app open, not Firefox by name: Zen or LibreWolf say
-    // «Firefox/» too, and `open -b` would start a Firefox that isn't running
+    // «Firefox/» too — each has its own bundle id, and so do Developer Edition and Nightly
     const apps = port ? geckoAppsConnectedTo(run, port) : [];
     if (apps.length !== 1) return result; // none, or two of them: which one holds it is unknown
-    const r = run('/usr/bin/open', ['-a', apps[0]], 5000);
-    return r.error || r.status !== 0
+    const id = bundleIdOf(run, apps[0]);
+    if (!id) return result;
+    const r = run('/usr/bin/osascript', ['-e', MAC_ACTIVATE_SCRIPT, id], MAC_ACTIVATE_TIMEOUT_MS);
+    // «no»: it closed since lsof saw it; an error or no answer: where to look, as before
+    return osascriptFailure(r) || r.stdout.trim() !== 'yes'
       ? result
       : { ...result, raised: true, browser: path.posix.basename(apps[0], '.app'), appOnly: true };
   }
