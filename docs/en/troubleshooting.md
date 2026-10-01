@@ -145,6 +145,13 @@ browser's output windows. To make the remotes and phones follow this window, cli
 browser closes this way only a window the shortcut or the start file opened; close a tab
 yourself (Ctrl+W, on macOS ⌘W).
 
+### “The control window moved to …”
+
+You clicked **Open in … now** (Settings → App): the control window opened in the other browser
+and runs the show from there — remotes and viewers' phones listen to it. This window is no
+longer needed: **Close this window**. This browser's presentation windows keep working until
+you close them. To bring control back here, click **Listen here**.
+
 ### “No connection to the app's server”
 
 The control window lost the connection to the app: remotes and viewers' phones can't hear
