@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
+import { onlyChapter, stepBackFromVerses, stepOverChapters } from '../lib/bookPick';
 import type { RemoteTarget } from '../lib/commands';
 import { tr, useLang } from '../i18n';
 
@@ -73,6 +74,8 @@ export function RemotePicker({
     queryFn: () => api.chapters(primary!, book!),
     enabled: primary != null && book != null && (step === 'chapters' || step === 'verses'),
   });
+  /** the open book's only chapter, when it has just one */
+  const single = onlyChapter(chapters.data);
   const verses = useQuery({
     queryKey: ['verses', primary, book, chapter],
     queryFn: () => api.verses(primary!, book!, chapter!),
@@ -108,15 +111,33 @@ export function RemotePicker({
     [translations.data, q],
   );
 
-  const go = (s: Step) => {
+  /** the step was reached with «←»: a one-chapter book's grid then leads on to the books */
+  const cameBack = useRef(false);
+  const go = (s: Step, back = false) => {
+    cameBack.current = back;
     setFilter('');
     setStep(s);
   };
+  // A book with one chapter goes straight to its verses (the user's idea, 2026-10-01): its
+  // grid held a single number to tap. Before the paint, so that number never flashes; «←»
+  // from its verses goes back to the books — also when its chapter list arrives only after
+  // the tap (lib/bookPick.ts stepOverChapters). Books with more chapters keep the grid — on a
+  // phone it is the way to a chapter.
+  useLayoutEffect(() => {
+    if (step !== 'chapters') return;
+    const next = stepOverChapters(single, cameBack.current);
+    if (next === 'verses' && single != null) {
+      if (single !== chapter) setVerse(null);
+      setChapter(single);
+    }
+    if (next) go(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, single]);
   const back = () => {
-    if (step === 'verses') go('chapters');
-    else if (step === 'chapters') go('books');
-    else if (step === 'stanzas') go('songs');
-    else if (step === 'translations') go(book == null ? 'books' : 'verses');
+    if (step === 'verses') go(stepBackFromVerses(single), true);
+    else if (step === 'chapters') go('books', true);
+    else if (step === 'stanzas') go('songs', true);
+    else if (step === 'translations') go(book == null ? 'books' : 'verses', true);
     else onClose();
   };
   const toggleTranslation = (id: number) =>
