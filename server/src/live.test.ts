@@ -5,6 +5,9 @@ import WebSocket from 'ws';
 import {
   announceShutdown,
   attachLiveHub,
+  browserOf,
+  controlWindows,
+  controlWindowsRoute,
   dropRemote,
   getLive,
   notifyAllowed,
@@ -28,7 +31,10 @@ let base: string;
 const open: WebSocket[] = [];
 
 beforeAll(async () => {
-  server = createServer();
+  // the launcher's question (index.ts serves it the same way)
+  server = createServer((req, res) =>
+    req.url === '/api/control-windows' ? controlWindowsRoute(req, res) : res.writeHead(404).end(),
+  );
   attachLiveHub(server);
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   base = `ws://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -51,6 +57,36 @@ function viewer(path = WS_PATH) {
     });
   ws.on('message', (d) => frames.push(JSON.parse(String(d))));
   return { ws, frames, next };
+}
+
+/** Real User-Agents (2026): what each browser sends with its socket's upgrade request. */
+const UA = {
+  chromeMac:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36',
+  edgeMac:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0',
+  // Brave and Arc send Chrome's own
+  braveMac:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36',
+  arcMac:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+  firefoxMac:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:156.0) Gecko/20100101 Firefox/156.0',
+  firefox140Win: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0',
+  safariMac:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6 Safari/605.1.15',
+  safariIos:
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1',
+  chromeWin:
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36',
+};
+
+/** Wait until `ok()` holds (a closed socket leaves the server a moment later). */
+async function until(ok: () => boolean, ms = 2000): Promise<void> {
+  for (const end = Date.now() + ms; !ok(); ) {
+    if (Date.now() > end) throw new Error('timed out waiting');
+    await new Promise((r) => setTimeout(r, 10));
+  }
 }
 
 describe('live hub', () => {
@@ -406,6 +442,40 @@ describe('speaker remote over the hub', () => {
     remote.ws.close();
   });
 
+  it('tells the launcher the browser of the control window in charge', async () => {
+    // the sockets of the tests above close on the server's side a moment later
+    await until(() => controlWindows().open === 0);
+    expect(controlWindows()).toEqual({ open: 0, active: null });
+    const firefox = client({ role: 'control' }, { ...origin(), 'user-agent': UA.firefoxMac });
+    expect(await firefox.next('hub')).toMatchObject({ active: true });
+    expect(controlWindows()).toEqual({ open: 1, active: { browser: 'firefox' } });
+    // the user's test (2026-10-01): Firefox first, then a Chrome tab on standby
+    const chrome = client({ role: 'control' }, { ...origin(), 'user-agent': UA.chromeMac });
+    expect(await chrome.next('hub')).toMatchObject({ active: false });
+    expect(controlWindows()).toEqual({ open: 2, active: { browser: 'firefox' } });
+    // … as GET /api/control-windows answers the launcher
+    const asked = await fetch(`${base.replace('ws:', 'http:')}/api/control-windows`);
+    expect(asked.headers.get('content-type')).toMatch(/^application\/json/);
+    expect(await asked.json()).toEqual({ open: 2, active: { browser: 'firefox' } });
+    chrome.ws.send(JSON.stringify({ type: 'take-control' }));
+    expect(await chrome.next('hub')).toMatchObject({ active: true });
+    expect(await firefox.next('hub')).toMatchObject({ active: false });
+    expect(controlWindows()).toEqual({ open: 2, active: { browser: 'chromium' } });
+    // the one in charge closes: the other takes over, and the answer follows
+    chrome.ws.close();
+    expect(await firefox.next('hub')).toMatchObject({ active: true });
+    expect(controlWindows()).toEqual({ open: 1, active: { browser: 'firefox' } });
+    firefox.ws.close();
+    await until(() => controlWindows().open === 0);
+    expect(controlWindows()).toEqual({ open: 0, active: null });
+    // no User-Agent at all (a script, not a browser): the launcher asks every browser
+    const bare = client({ role: 'control' }, origin());
+    await bare.next('hub');
+    expect(controlWindows()).toEqual({ open: 1, active: { browser: 'other' } });
+    bare.ws.close();
+    await until(() => controlWindows().open === 0);
+  });
+
   it('the running order goes to remotes allowed «Послідовність»; items and queue need it', async () => {
     const withList = createPairing('Зі списком', [...DEFAULT_ALLOWED, 'show', 'playlist']);
     const without = createPairing('Без списку', [...DEFAULT_ALLOWED, 'show', 'pick']);
@@ -466,6 +536,22 @@ describe('speaker remote over the hub', () => {
     expect(await remote.next('revoked')).toMatchObject({ type: 'revoked' });
     expect(await closed).toBe(4001);
     expect(findByToken(p.token)).toBeNull();
+  });
+});
+
+describe('the browser of a control socket (the launcher brings it forward on a Mac)', () => {
+  it('tells browsers apart by their User-Agent', () => {
+    expect(browserOf(UA.chromeMac)).toBe('chromium');
+    expect(browserOf(UA.braveMac)).toBe('chromium');
+    expect(browserOf(UA.arcMac)).toBe('chromium');
+    expect(browserOf(UA.chromeWin)).toBe('chromium');
+    expect(browserOf(UA.edgeMac)).toBe('edge'); // Chrome's words + «Edg/»
+    expect(browserOf(UA.firefoxMac)).toBe('firefox');
+    expect(browserOf(UA.firefox140Win)).toBe('firefox');
+    expect(browserOf(UA.safariMac)).toBe('safari'); // «Safari/» without «Chrome/»
+    expect(browserOf(UA.safariIos)).toBe('safari');
+    for (const other of [undefined, '', 'curl/8.7.1', 'node'])
+      expect(browserOf(other)).toBe('other');
   });
 });
 

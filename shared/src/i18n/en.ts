@@ -1325,6 +1325,18 @@ export const EN: Record<string, string> = {
     'The control window is open already — find it among the browser’s windows.',
   'Щоб відкрити ще одне, запустіть з --new-window.':
     'To open another one, start with --new-window.',
+  // the open control window brought forward on a Mac (AppleScript)
+  'macOS не дозволяє Терміналу керувати {browser}. Щоб дозволити, відкрийте Системні параметри → Приватність і безпека → Автоматизація → Термінал і ввімкніть {browser}.':
+    "macOS doesn't let Terminal control {browser}. To allow it, open System Settings → Privacy & Security → Automation → Terminal and turn on {browser}.",
+  'macOS не дозволяє програмі, у якій відкрито вікно запуску, керувати {browser}. Щоб дозволити, відкрийте Системні параметри → Приватність і безпека → Автоматизація, знайдіть цю програму й увімкніть під нею {browser}.':
+    "macOS doesn't let the app the start window runs in control {browser}. To allow it, open System Settings → Privacy & Security → Automation, find that app and turn on {browser} under it.",
+  'Якщо macOS питає дозволу керувати браузером, дозвольте й запустіть ще раз.':
+    'If macOS asks for permission to control the browser, allow it and start again.',
+  // … in Firefox or a browser built on it (`activate`, no permission): that browser comes forward
+  'Вікно керування відкрите у {browser} — показую {browser}.':
+    'The control window is open in {browser} — showing {browser}.',
+  '{browser} не дає файлу запуску вибрати своє вікно чи вкладку — для цього тримайте вікно керування в Chrome або Safari.':
+    "{browser} doesn't let the start file pick its window or tab — for that, keep the control window in Chrome or Safari.",
   'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window':
     'Unknown option “{arg}”. Available: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window',
   // 1.1.0 help
