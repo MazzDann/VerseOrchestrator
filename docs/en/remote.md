@@ -77,7 +77,8 @@ Each permission is turned on separately for each remote:
 
 With the **Choosing verses** or **Songs** permission, the speaker finds what they need on
 the phone: they tap **Choose a verse…** (or **Choose a song…**), choose a translation, a
-book, a chapter, and a verse, or a song and a stanza, and then tap **To preview**. With the
+book, a chapter, and a verse, or a song and a stanza, and then tap **To preview**. A book
+with one chapter, such as 3 John, needs no chapter choice: its verses open at once. With the
 **To screen** permission they can tap **To screen** straight away, and with the
 **Running order** permission, **+ To the running order**.
 
