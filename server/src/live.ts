@@ -1,4 +1,4 @@
-import type { IncomingMessage, Server } from 'node:http';
+import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { isLocalRequest } from './access.js';
 import { N_ } from '@vo/shared';
@@ -11,6 +11,7 @@ import {
   touchPairing,
   type RemoteAction,
 } from './remote.js';
+import type { ControlBrowser } from './shortcut.js';
 
 /**
  * Live hub: the in-memory "what's on screen now" state plus a WebSocket channel at
@@ -40,8 +41,24 @@ interface Meta {
   role: Role;
   alive: boolean;
   pairingId?: string;
+  /** A control socket's browser, from its User-Agent: the launcher brings that one forward. */
+  browser?: ControlBrowser;
   /** Command timestamps in the last second, for rate limiting. */
   recent: number[];
+}
+
+/**
+ * Which browser a User-Agent comes from, as far as bringing its window forward on a Mac goes.
+ * Chrome, Brave, Arc and Chromium send one and the same; Edge adds «Edg/»; Safari is «Safari/»
+ * without «Chrome/» (every Chromium says «Safari/» too); Firefox says «Firefox/».
+ */
+export function browserOf(userAgent: string | undefined): ControlBrowser {
+  const ua = userAgent ?? '';
+  if (/\b(Firefox|FxiOS)\//.test(ua)) return 'firefox';
+  if (/\b(Edg|EdgA|EdgiOS)\//.test(ua)) return 'edge';
+  if (/\b(Chrome|Chromium|CriOS)\//.test(ua)) return 'chromium';
+  if (/\bSafari\//.test(ua)) return 'safari';
+  return 'other';
 }
 
 let liveState: unknown = null;
@@ -129,8 +146,25 @@ export function announceShutdown(): void {
 }
 
 /** Control windows connected right now (1.1.0: the launcher opens no second one). */
-export function controlCount(): number {
+function controlCount(): number {
   return sockets('control').length;
+}
+
+/**
+ * GET /api/control-windows: how many control windows are connected, and the browser of the one
+ * in charge — on a Mac the launcher asks only that browser for it (Firefox: brings Firefox
+ * forward), so no other browser's permission prompt comes up.
+ */
+export function controlWindows(): { open: number; active: { browser: ControlBrowser } | null } {
+  const inCharge = activeControl?.readyState === WebSocket.OPEN ? activeControl : null;
+  const browser = inCharge ? meta.get(inCharge)?.browser : undefined;
+  return { open: controlCount(), active: browser ? { browser } : null };
+}
+
+/** GET /api/control-windows (index.ts, local requests only): controlWindows() as JSON. */
+export function controlWindowsRoute(_req: IncomingMessage, res: ServerResponse): void {
+  res.setHeader('content-type', 'application/json; charset=utf-8');
+  res.end(JSON.stringify(controlWindows()));
 }
 
 /** Audience sockets (not the control window, not remotes). */
@@ -218,6 +252,7 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
       return;
     }
     m.role = 'control';
+    m.browser = browserOf(req.headers['user-agent']);
     send(ws, { type: 'welcome', role: 'control' });
     if (!activeControl || activeControl.readyState !== WebSocket.OPEN) setActiveControl(ws);
     else send(ws, { type: 'hub', active: false });

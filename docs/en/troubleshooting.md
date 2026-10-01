@@ -62,9 +62,34 @@ Open the control window's address from the start window in a browser, for exampl
 ### The start file opened no control window
 
 A control window is open already: the start file and the shortcut then switch to it (on
-Windows) or say that it is open, instead of opening a second one. Look for the window titled
-“VerseOrchestrator — control”. To open another control window anyway, start the app with
-`--new-window`.
+Windows and macOS) or say that it is open, instead of opening a second one. Look for the
+window titled “VerseOrchestrator — control”. To open another control window anyway, start
+the app with `--new-window`. If on macOS the window didn't come forward, see [the next
+section](#the-start-file-doesnt-switch-to-the-control-window-on-macos).
+
+### The start file doesn't switch to the control window on macOS
+
+The start file says that the control window is open, but that window doesn't come forward.
+The reason is one of these:
+
+- The control window is open in Firefox or a browser built on it, such as Zen or LibreWolf:
+  the start window says “The control window is open in Firefox — showing Firefox.” (with that
+  browser's name). That browser comes forward, but the start file can't pick a window or tab
+  in it: if the control window is behind another of its windows, in another tab or minimized
+  to the Dock, find it yourself. If the app is open in two such browsers, the start file
+  can't tell which one has the control window and brings neither forward. For the start file
+  to switch to the control window itself, open it in Chrome, Edge, Brave, Chromium, Arc or
+  Safari.
+- The control window is open in another browser the start file can't control. Look for the
+  window titled “VerseOrchestrator — control” yourself.
+- The start window says “macOS doesn't let Terminal control …” or “macOS doesn't let the
+  app the start window runs in control …”: when macOS asked whether to let that app control
+  the browser, the permission wasn't given. Open **System Settings** → **Privacy &
+  Security** → **Automation**, under **Terminal** (or the app the start window runs in) turn
+  on the browser named in the message, and start the app again.
+- The start window says “If macOS asks for permission to control the browser, allow it and
+  start again”: the browser didn't answer within 30 seconds — most often because the macOS
+  request was left unanswered. Click **Allow** in it and start the app again.
 
 ## Presentation windows
 
