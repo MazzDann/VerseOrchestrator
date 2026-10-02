@@ -11,6 +11,7 @@ import {
   type ReaderPrefs,
 } from '../lib/readerPrefs';
 import { tr, useLang } from '../i18n';
+import { formatRemaining, useRemaining } from '../lib/countdown';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -95,6 +96,9 @@ export function Follow() {
 
   const showText =
     slide && slide.visible && !slide.blank && !slide.forceBlack && slide.lines.length > 0;
+  // «Відлік» (1.5.0): the phones count to the same end as the screen (by their own clock)
+  const onScreen = !!slide && slide.visible && !slide.blank && !slide.forceBlack;
+  const left = useRemaining(onScreen ? slide?.countdown?.until : null);
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
   const text = readerTextStyle(reader, font);
 
@@ -213,6 +217,24 @@ export function Follow() {
               </p>
             )}
           </>
+        ) : left > 0 && slide?.countdown ? (
+          <div style={{ fontFamily: 'Inter, system-ui, sans-serif', lineHeight: 1.15 }}>
+            {slide.countdown.caption && (
+              <p style={{ margin: 0, opacity: 0.75, fontSize: 'clamp(18px, 5.5vw, 28px)' }}>
+                {slide.countdown.caption}
+              </p>
+            )}
+            <p
+              style={{
+                margin: 0,
+                fontSize: 'clamp(48px, 18vw, 120px)',
+                fontWeight: 600,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {formatRemaining(left)}
+            </p>
+          </div>
         ) : slide?.picture &&
           pictureSrc !== failedPicture &&
           slide.visible &&

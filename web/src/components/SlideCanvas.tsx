@@ -1,13 +1,15 @@
-import { Component, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Component, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   type Slide,
   type SlideLine,
   type SlideStyle,
   type SlideReveal,
   type SlideCover,
+  type SlideCountdown,
   type SlidePicture,
   DEFAULT_STYLE,
 } from '../presenterBus';
+import { formatRemaining, useRemaining } from '../lib/countdown';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 import { SlideFade } from './SlideFade';
@@ -135,9 +137,24 @@ function RevealLines({
  * instead of running off the slide. A small file grows at most twice (`LOGO_PX_PER_CQW`). The
  * logo loading after the fit ran asks for a refit.
  */
-function CoverContent({ cover, onImageLoad }: { cover: SlideCover; onImageLoad: () => void }) {
+function CoverContent({
+  cover,
+  countdown,
+  onImageLoad,
+}: {
+  cover: SlideCover;
+  countdown?: SlideCountdown | null;
+  onImageLoad: () => void;
+}) {
   // the file's width in pixels, known once it has loaded: how far it may grow
   const [pixels, setPixels] = useState(0);
+  const left = useRemaining(countdown?.until);
+  const counting = left > 0;
+  // the time coming or going changes the content's height: fit it again (the slide's key
+  // changes when a countdown starts or goes, not when one ends on screen)
+  const refit = useRef(onImageLoad);
+  refit.current = onImageLoad;
+  useEffect(() => refit.current(), [counting]);
   return (
     <div
       style={{
@@ -166,12 +183,49 @@ function CoverContent({ cover, onImageLoad }: { cover: SlideCover; onImageLoad: 
             // 50 / 70 cqh at the full size (the fit's whole pixels put 1em a little under
             // 7 cqh: the em bound alone came out up to 5 % smaller in a small preview); less
             // as the fit shrinks the text
-            maxHeight: cover.text ? 'min(50cqh, 7.5em)' : 'min(70cqh, 10.5em)',
+            // a running countdown («Відлік», 1.5.0) takes room under it
+            maxHeight: counting
+              ? cover.text
+                ? 'min(32cqh, 4.8em)'
+                : 'min(42cqh, 6.3em)'
+              : cover.text
+                ? 'min(50cqh, 7.5em)'
+                : 'min(70cqh, 10.5em)',
             objectFit: 'contain',
           }}
         />
       )}
       {cover.text && <div style={{ lineHeight: 1.25, whiteSpace: 'pre-line' }}>{cover.text}</div>}
+      {counting && countdown && <CountdownLines caption={countdown.caption} left={left} />}
+    </div>
+  );
+}
+
+/**
+ * «Відлік» (1.5.0): the words over a big time left; equal-width digits, so the line holds still
+ * as it counts. Past the end both go and «Заставка» stays (`CoverContent`).
+ */
+function CountdownLines({ caption, left }: { caption: string; left: number }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        lineHeight: 1.1,
+      }}
+    >
+      {caption && <div style={{ fontSize: '0.8em', opacity: 0.85 }}>{caption}</div>}
+      <div
+        style={{
+          fontSize: '2.4em',
+          fontWeight: 600,
+          fontVariantNumeric: 'tabular-nums',
+          letterSpacing: '0.02em',
+        }}
+      >
+        {formatRemaining(left)}
+      </div>
     </div>
   );
 }
@@ -321,7 +375,8 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
       : slide.qr
         ? `qr|${slide.qr}`
         : slide.cover
-          ? `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}`
+          ? // a countdown starting or going fades like a new slide; «+1 хв» only changes the time
+            `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}|${slide.countdown ? slide.countdown.caption : '-'}`
           : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
   // the viewers' QR in a corner (0.6.16) — over any slide but the QR slide itself
   const corner =
@@ -537,7 +592,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
           {slide.qr ? (
             <QrCard url={slide.qr} variant="full" look={style.qrStyle} />
           ) : slide.cover ? (
-            <CoverContent cover={slide.cover} onImageLoad={refit} />
+            <CoverContent cover={slide.cover} countdown={slide.countdown} onImageLoad={refit} />
           ) : slide.reveal ? (
             <RevealLines reveal={slide.reveal} style={style} calm={calm} />
           ) : (
