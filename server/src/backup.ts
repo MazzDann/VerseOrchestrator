@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { readJson, writeJson } from './jsonFile.js';
 import { unzip, zip, type ZipEntry } from './zip.js';
@@ -12,7 +13,9 @@ import { unzip, zip, type ZipEntry } from './zip.js';
  * which modules to build (data/settings.json).
  *
  * Restoring keeps the state it replaces as a backup of its own first (data/backups/), so
- * «Повернути як було» can bring it back; going back keeps the state it replaces too.
+ * «Повернути як було» can bring it back; going back keeps the state it replaces too. Files are
+ * read and written with fs/promises and the zip is (de)compressed on the thread pool: the hub —
+ * phones, remotes, the output windows' commands — keeps going meanwhile (review of #47).
  */
 
 export const BACKUP_FORMAT = 'verse-orchestrator-backup';
@@ -27,10 +30,14 @@ const LAST = 'last-restore.json';
 /** the states restores and their undos replaced, kept per kind (and by hand) */
 const KEEP = 5;
 /**
- * The largest backup there is (1 GB of files): a restore reads the whole file into memory, so
- * one larger is refused when it is made — not found out at the restore (review of #47).
+ * The largest backup the operator can take away (1 GB of files): a restore reads the whole file
+ * into memory, so one larger is refused when it is made — not found out at the restore. The
+ * copies kept in data/backups/ before a restore or an undo have no such limit: they never
+ * travel, and a full picture library must not block a restore (review of #47).
  */
 export const MAX_BACKUP_BYTES = 1024 ** 3;
+/** what the local copies may unpack to (a Buffer's own limit is about 4 GB) */
+const LOCAL_MAX_BYTES = 4 * 1024 ** 3 - 1;
 /** «Повернути як було» is for right after a restore: a day later it is no longer offered. */
 const UNDO_FOR_MS = 24 * 60 * 60 * 1000;
 
@@ -58,28 +65,38 @@ export interface BackupSummary {
   pictures: number;
 }
 
-/** Why a file can't be restored, or a backup can't be made (keys of the server's messages). */
+/**
+ * Why a file can't be restored, or a backup can't be made: 'too big' (over 1 GB), anything
+ * else — not a backup of this app, or damaged.
+ */
 export class BackupError extends Error {}
 
 /** Names a backup holds: never a dot file — macOS leaves `._NAME` companions on a flash drive. */
 const own = (name: string) => !name.startsWith('.') && !name.endsWith('.tmp');
 
-const filesIn = (dir: string, keep: (name: string) => boolean) => {
+async function filesIn(dir: string, keep: (name: string) => boolean): Promise<string[]> {
   try {
-    return fs
-      .readdirSync(dir, { withFileTypes: true })
+    return (await fsp.readdir(dir, { withFileTypes: true }))
       .filter((e) => e.isFile() && keep(e.name))
       .map((e) => e.name)
       .sort();
   } catch {
     return [];
   }
-};
+}
 
 const bundleFile = (n: string) => own(n) && n.endsWith(BUNDLE_EXT);
 
-/** What goes into a backup of `dataDir`, the manifest first. Too big: BackupError('too big'). */
-export function collect(dataDir: string, app: string, now = new Date()): ZipEntry[] {
+/**
+ * What goes into a backup of `dataDir`, the manifest first. With `cap` (a backup the operator
+ * takes away), more than 1 GB of files is BackupError('too big').
+ */
+export async function collect(
+  dataDir: string,
+  app: string,
+  now = new Date(),
+  cap = true,
+): Promise<ZipEntry[]> {
   const manifest: BackupManifest = {
     format: BACKUP_FORMAT,
     version: 1,
@@ -90,22 +107,33 @@ export function collect(dataDir: string, app: string, now = new Date()): ZipEntr
   const ui = path.join(dataDir, UI_FILE);
   if (fs.existsSync(ui)) files.push([UI_FILE, ui]);
   const songs = path.join(dataDir, SONGS);
-  for (const f of filesIn(songs, bundleFile)) files.push([`${SONGS}/${f}`, path.join(songs, f)]);
+  for (const f of await filesIn(songs, bundleFile))
+    files.push([`${SONGS}/${f}`, path.join(songs, f)]);
   const images = path.join(dataDir, IMAGES);
-  for (const f of filesIn(images, own)) files.push([`${IMAGES}/${f}`, path.join(images, f)]);
-  const total = files.reduce((n, [, p]) => n + fs.statSync(p).size, 0);
-  if (total > MAX_BACKUP_BYTES) throw new BackupError('too big');
-  return [
+  for (const f of await filesIn(images, own)) files.push([`${IMAGES}/${f}`, path.join(images, f)]);
+  if (cap) {
+    let total = 0;
+    for (const [, p] of files) total += (await fsp.stat(p)).size;
+    if (total > MAX_BACKUP_BYTES) throw new BackupError('too big');
+  }
+  const out: ZipEntry[] = [
     { name: MANIFEST, data: Buffer.from(JSON.stringify(manifest, null, 2) + '\n') },
-    ...files.map(([name, p]) => ({ name, data: fs.readFileSync(p) })),
   ];
+  for (const [name, p] of files) out.push({ name, data: await fsp.readFile(p) });
+  return out;
 }
 
 /** A picture's file is compressed already: stored as it is (deflate would only cost time). */
 const compressed = (name: string) => name.startsWith(`${IMAGES}/`) && !name.endsWith('.json');
 
-export const makeBackup = (dataDir: string, app: string, now = new Date()) =>
-  zip(collect(dataDir, app, now), now, compressed);
+export async function makeBackup(
+  dataDir: string,
+  app: string,
+  now = new Date(),
+  cap = true,
+): Promise<Buffer> {
+  return zip(await collect(dataDir, app, now, cap), now, compressed);
+}
 
 /** Only these names are restored: never a path out of data/, never another file of it. */
 const ALLOWED = [
@@ -119,13 +147,17 @@ const allowed = (name: string) =>
 
 const count = (v: unknown) => (Array.isArray(v) ? v.length : 0);
 
-/** Read a backup file: its entries and what it holds. Refuses anything else. */
+/**
+ * Read a backup file: its entries and what it holds. Refuses anything else. `maxBytes`: what it
+ * may unpack to — a backup brought in, or a local copy (data/backups/), which has no 1 GB cap.
+ */
 export async function readBackup(
   buf: Buffer,
+  maxBytes = MAX_BACKUP_BYTES + 16 * 1024 * 1024,
 ): Promise<{ entries: ZipEntry[]; summary: BackupSummary }> {
   let entries: ZipEntry[];
   try {
-    entries = await unzip(buf, MAX_BACKUP_BYTES + 16 * 1024 * 1024);
+    entries = await unzip(buf, maxBytes);
   } catch {
     throw new BackupError('not a zip');
   }
@@ -182,19 +214,30 @@ export async function readBackup(
 }
 
 /** Write a file atomically (temp + rename), its folder made. */
-function put(file: string, data: Buffer) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
+async function put(file: string, data: Buffer): Promise<void> {
+  await fsp.mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, data);
-  fs.renameSync(tmp, file);
+  await fsp.writeFile(tmp, data);
+  await fsp.rename(tmp, file);
 }
 
 /**
- * Make `dataDir` hold what the backup holds: the UI state (saved now, so every browser takes it
- * as the newest at its next start — web/src/lib/uiState.ts), the song bundles and the pictures
- * in place of the current ones. What the backup lacks stays as it is only for the UI state.
+ * Make `dataDir` hold what the backup holds: the song bundles and the pictures in place of the
+ * current ones, then the UI state — last, and stamped with the time it is written, so a change
+ * a window sent while the files went in is older than it (review of #47); every browser takes
+ * it as the newest at its next start (web/src/lib/uiState.ts). What the backup lacks stays as
+ * it is only for the UI state. Returns the time the UI state was stamped with.
  */
-export function applyBackup(dataDir: string, entries: ZipEntry[], now = new Date()): void {
+export async function applyBackup(dataDir: string, entries: ZipEntry[]): Promise<number> {
+  const songs = path.join(dataDir, SONGS);
+  for (const f of await filesIn(songs, bundleFile)) await fsp.rm(path.join(songs, f));
+  const images = path.join(dataDir, IMAGES);
+  for (const f of await filesIn(images, own)) await fsp.rm(path.join(images, f));
+  for (const e of entries) {
+    if (e.name.startsWith(`${SONGS}/`) || e.name.startsWith(`${IMAGES}/`))
+      await put(path.join(dataDir, ...e.name.split('/')), e.data);
+  }
+  const at = Date.now();
   const ui = entries.find((e) => e.name === UI_FILE);
   if (ui) {
     const state = JSON.parse(ui.data.toString('utf8')) as Record<
@@ -203,25 +246,17 @@ export function applyBackup(dataDir: string, entries: ZipEntry[], now = new Date
     >;
     const fresh: Record<string, { value: string; at: number }> = {};
     for (const [key, entry] of Object.entries(state))
-      if (entry && typeof entry.value === 'string')
-        fresh[key] = { value: entry.value, at: now.getTime() };
+      if (entry && typeof entry.value === 'string') fresh[key] = { value: entry.value, at };
     writeJson(path.join(dataDir, UI_FILE), fresh);
   }
-  const songs = path.join(dataDir, SONGS);
-  for (const f of filesIn(songs, bundleFile)) fs.rmSync(path.join(songs, f));
-  const images = path.join(dataDir, IMAGES);
-  for (const f of filesIn(images, own)) fs.rmSync(path.join(images, f));
-  for (const e of entries) {
-    if (e.name.startsWith(`${SONGS}/`) || e.name.startsWith(`${IMAGES}/`))
-      put(path.join(dataDir, ...e.name.split('/')), e.data);
-  }
+  return at;
 }
 
 export const backupsDir = (dataDir: string) => path.join(dataDir, BACKUPS);
 
 /** A file sent to restore, kept until it is restored or another one comes. */
-export function keepPending(dataDir: string, buf: Buffer): void {
-  put(path.join(backupsDir(dataDir), PENDING), buf);
+export async function keepPending(dataDir: string, buf: Buffer): Promise<void> {
+  await put(path.join(backupsDir(dataDir), PENDING), buf);
 }
 
 export interface LastRestore {
@@ -253,10 +288,10 @@ async function keepBefore(
 ): Promise<string> {
   const dir = backupsDir(dataDir);
   const name = `before-${kind}-${stamp(now)}.zip`;
-  put(path.join(dir, name), await makeBackup(dataDir, app, now));
-  const kept = filesIn(dir, (n) => n.startsWith(`before-${kind}-`));
+  await put(path.join(dir, name), await makeBackup(dataDir, app, now, false));
+  const kept = await filesIn(dir, (n) => n.startsWith(`before-${kind}-`));
   for (const old of kept.slice(0, Math.max(0, kept.length - KEEP)))
-    fs.rmSync(path.join(dir, old), { force: true });
+    await fsp.rm(path.join(dir, old), { force: true });
   return name;
 }
 
@@ -273,11 +308,11 @@ export async function restorePending(
   const dir = backupsDir(dataDir);
   const pending = path.join(dir, PENDING);
   if (!fs.existsSync(pending)) return null;
-  const { entries, summary } = await readBackup(fs.readFileSync(pending));
+  const { entries, summary } = await readBackup(await fsp.readFile(pending));
   const undo = await keepBefore(dataDir, 'restore', app, now);
   writeJson(path.join(dir, LAST), { created: summary.created, at: now.toISOString(), undo });
-  applyBackup(dataDir, entries, now);
-  fs.rmSync(pending, { force: true });
+  await applyBackup(dataDir, entries);
+  await fsp.rm(pending, { force: true });
   return summary;
 }
 
@@ -293,10 +328,13 @@ export async function undoRestore(
 ): Promise<boolean> {
   const last = lastRestore(dataDir, now.getTime());
   if (!last) return false;
-  const { entries } = await readBackup(fs.readFileSync(path.join(backupsDir(dataDir), last.undo)));
+  const { entries } = await readBackup(
+    await fsp.readFile(path.join(backupsDir(dataDir), last.undo)),
+    LOCAL_MAX_BYTES,
+  );
   await keepBefore(dataDir, 'undo', app, now);
-  applyBackup(dataDir, entries, now);
-  fs.rmSync(path.join(backupsDir(dataDir), LAST), { force: true });
+  await applyBackup(dataDir, entries);
+  await fsp.rm(path.join(backupsDir(dataDir), LAST), { force: true });
   return true;
 }
 

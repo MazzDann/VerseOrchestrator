@@ -2377,7 +2377,16 @@ export function Control() {
           // a backup restored or undone (1.5.0), maybe from another window: its state, now
           void takeServerUiState().then((ok) => {
             if (!ok) return;
-            void queryClient.invalidateQueries({ queryKey: ['backup-state'] });
+            // the restore replaced the song bundles and the pictures as well
+            for (const key of [
+              'backup-state',
+              'songs',
+              'song',
+              'song-bundles',
+              'song-bundle-files',
+              'images',
+            ])
+              void queryClient.invalidateQueries({ queryKey: [key] });
             notifications.show({
               message: tr('Налаштування й програми замінено з резервної копії.'),
               color: 'gray',

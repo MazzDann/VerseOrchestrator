@@ -16,6 +16,8 @@ export interface ZipEntry {
 }
 
 const deflateRaw = promisify(zlib.deflateRaw);
+/** a turn of the event loop between entries: the hub's frames get through (review of #47) */
+const breathe = () => new Promise<void>((r) => setImmediate(r));
 const inflateRaw = promisify(zlib.inflateRaw);
 
 const LOCAL = 0x04034b50;
@@ -48,6 +50,7 @@ export async function zip(
   for (const e of entries) {
     const name = Buffer.from(e.name, 'utf8');
     const deflated = stored(e.name) ? null : await deflateRaw(e.data, { level: 6 });
+    if (!deflated) await breathe();
     const store = !deflated || deflated.length >= e.data.length;
     const body = store ? e.data : deflated;
     const crc = zlib.crc32(e.data);
@@ -131,6 +134,7 @@ export async function unzip(buf: Buffer, maxBytes = 2 * 1024 ** 3): Promise<ZipE
     if (body.length !== packed) throw new ZipError('damaged');
     total += size;
     if (total > maxBytes) throw new ZipError('too big');
+    await breathe();
     let data: Buffer;
     try {
       if (method === 0) data = Buffer.from(body);

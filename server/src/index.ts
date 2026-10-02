@@ -703,29 +703,33 @@ app.get(
     const now = new Date();
     let buf: Buffer;
     try {
+      // one that could never be restored is not made (review of #47)
       buf = await makeBackup(dataDir, appVersion, now);
     } catch (e) {
-      // one that could never be restored is not made (review of #47)
-      if (e instanceof BackupError)
-        throw new ApiError(
-          413,
-          N_('Копія завелика: понад 1 ГБ. Приберіть частину зображень і збережіть ще раз.'),
-        );
-      throw e;
+      throw backupRefusal(e);
     }
     console.log(
       `[server] backup: ${Math.round(buf.length / 1024)} KB in ${Date.now() - started} ms`,
     );
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${backupName(now)}"`);
-    res.send(buf);
+    res.setHeader('Content-Length', buf.length);
+    // not res.send: it hashes the whole body for an ETag — a 200 MB backup stalled the hub
+    // for a third of a second (review of #47)
+    res.end(buf);
   }),
 );
 
+/** A backup refused in words: too big, or not one of this app / damaged (review of #47). */
 const backupRefusal = (e: unknown) =>
-  e instanceof BackupError
-    ? new ApiError(400, N_('Це не резервна копія VerseOrchestrator або файл пошкоджено'))
-    : e;
+  !(e instanceof BackupError)
+    ? e
+    : e.message === 'too big'
+      ? new ApiError(
+          413,
+          N_('Копія завелика: понад 1 ГБ. Приберіть частину зображень і збережіть ще раз.'),
+        )
+      : new ApiError(400, N_('Це не резервна копія VerseOrchestrator або файл пошкоджено'));
 
 /** A file to restore: read and kept, and what it holds said back — nothing changes yet. */
 app.post(
@@ -737,7 +741,7 @@ app.post(
     const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
     try {
       const { summary } = await readBackup(buf);
-      keepPending(dataDir, buf);
+      await keepPending(dataDir, buf);
       res.json(summary);
     } catch (e) {
       throw backupRefusal(e);
@@ -762,10 +766,11 @@ app.post(
     // the import's «Скасувати» doesn't reach across a restore: it would overwrite or delete a
     // restored bundle (review of #47)
     lastImport = null;
-    refreshSongs(bundlesDir(dataDir));
     // every control window takes the restored settings now — one still open would else send
-    // its old ones back with its next change (review of #47)
+    // its old ones back with its next change; told before the library is refreshed, which
+    // takes a while (review of #47)
     notifyUiStateRestored();
+    refreshSongs(bundlesDir(dataDir));
     console.log(
       `[server] backup: restored the one from ${summary.created} (${Date.now() - started} ms)`,
     );
@@ -782,11 +787,16 @@ app.post(
   requireLocalControl,
   wrap(async (_req, res) => {
     notDuringRebuild();
-    if (!(await undoRestore(dataDir, appVersion)))
-      throw new ApiError(409, N_('Повертати вже нічого'));
+    let undone: boolean;
+    try {
+      undone = await undoRestore(dataDir, appVersion);
+    } catch (e) {
+      throw backupRefusal(e);
+    }
+    if (!undone) throw new ApiError(409, N_('Повертати вже нічого'));
     lastImport = null;
-    refreshSongs(bundlesDir(dataDir));
     notifyUiStateRestored();
+    refreshSongs(bundlesDir(dataDir));
     console.log('[server] backup: back to the state before the last restore');
     res.json({ ok: true });
   }),
