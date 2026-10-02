@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   encodeLogo,
+  isHeic,
   LOGO_MAX_CHARS,
   LOGO_MAX_SIDE,
   LOGO_MIN_SIDE,
@@ -24,6 +25,35 @@ function fakeEncoder(perPixel: { png: number; jpeg: number }) {
 }
 
 const original = (chars: number) => `data:image/png;base64,${'A'.repeat(chars)}`;
+
+/** An `ftyp` box: its size, the major brand, a minor version, the compatible brands. */
+function ftyp(major: string, ...compatible: string[]): Uint8Array {
+  const size = 16 + 4 * compatible.length;
+  const b = new Uint8Array(size + 8);
+  new DataView(b.buffer).setUint32(0, size);
+  const put = (at: number, s: string) => [...s].forEach((c, i) => (b[at + i] = c.charCodeAt(0)));
+  put(4, 'ftyp');
+  put(8, major);
+  compatible.forEach((c, i) => put(16 + 4 * i, c));
+  put(size + 4, 'meta'); // the next box
+  return b;
+}
+
+describe('an iPhone photo the browser can’t open is told apart (1.7.0)', () => {
+  it('knows HEIC/HEIF by its brands, not AVIF', () => {
+    expect(isHeic(ftyp('heic', 'mif1', 'heic'))).toBe(true);
+    expect(isHeic(ftyp('mif1', 'heic'))).toBe(true);
+    expect(isHeic(ftyp('heix'))).toBe(true);
+    expect(isHeic(ftyp('mif1'))).toBe(true);
+    // AVIF is HEIF's container too, but the browser reads it
+    expect(isHeic(ftyp('avif', 'mif1', 'miaf'))).toBe(false);
+    expect(isHeic(ftyp('mif1', 'avif'))).toBe(false);
+    // other ISO files: a video, and not a box at all
+    expect(isHeic(ftyp('isom', 'mp41'))).toBe(false);
+    expect(isHeic(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe(false);
+    expect(isHeic(new Uint8Array(0))).toBe(false);
+  });
+});
 
 describe('how a logo is stored (1.4.1)', () => {
   it('keeps a file that already fits as it is', () => {
