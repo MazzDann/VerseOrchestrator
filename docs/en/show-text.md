@@ -107,7 +107,9 @@ To show a countdown:
    **until…** and type the time in the **Until what time** field.
 3. Optional: in the **Words over the time** field, change the words over the time. Without
    them, the screen says “Starting in”.
-4. Click the button with the words and the time, for example **Show: Starting in 5:00**. If
+4. Optional: in the **After zero** row, choose what the time does when it is up. See the list
+   below.
+5. Click the button with the words and the time, for example **Show: Starting in 5:00**. If
    you chose **until…**, the button is **Show the countdown**.
 
 While the countdown is on screen, the **Countdown** icon is highlighted and its tooltip shows
@@ -116,9 +118,18 @@ the time left. To change the countdown, click the icon again:
 - **−1 min** and **+1 min** move its end by a minute.
 - **Remove the countdown** brings back what was on screen before it, as the L key does.
 - **Keep the cover without the time** removes only the time.
+- **After zero** changes what the time does when it is up, for the countdown on screen too.
 
-When the time is up, it leaves the screen and the cover stays. The control window says
-“The countdown has ended”. If that time has already passed today, the countdown runs to it
+The **After zero** switch says what the time does past zero:
+
+- **Overtime** — the time counts on: −0:01, −0:02 … so everyone sees how late the start
+  is. This is the usual choice.
+- **Stop at 0:00** — the screen keeps showing 0:00.
+- **Hide time** — the time leaves the screen, and the cover stays.
+
+When the countdown reaches zero, the control window says so.
+
+If the time chosen with **until…** has already passed today, the countdown runs to it
 tomorrow, but only when it is at most 12 hours away: at 23:50 you can choose 00:10.
 Otherwise the field says “This time has already passed” and the countdown doesn't start.
 
