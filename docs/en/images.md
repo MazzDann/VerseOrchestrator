@@ -53,5 +53,9 @@ To delete an image, point at its thumbnail and click the trash icon **Delete the
 its place, “Deleted: …” appears with a **Cancel** button that brings the image back. You can
 cancel until you delete another image or close the panel.
 
+If the image is on screen, in the running order, or in a saved program, the app asks first and
+says where. Click **Delete** to delete it anyway, or **Cancel** to keep it. An image on screen
+leaves the screen with it.
+
 The last twenty deleted images stay in the `data/images/.trash/` folder. A running-order item
-whose image was deleted shows a black slide.
+whose image was deleted is marked “Image deleted: …” and shows a black slide.
