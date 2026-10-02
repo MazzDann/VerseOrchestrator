@@ -379,12 +379,30 @@ const UpdateStateSchema = z.object({
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
+/** Where a copy of the repository stands against its upstream (upd2, 1.6.1, server/src/gitSync.ts). */
+const GitSyncSchema = z.object({
+  branch: z.string().nullable(),
+  upstream: z.string().nullable(),
+  ahead: z.number(),
+  behind: z.number(),
+  clean: z.boolean(),
+  midway: z.boolean(),
+  fetchedAt: z.number().nullable(),
+  /** dictionary keys: the last fetch/pull failed; a pull would need the operator */
+  error: z.string().nullable(),
+  detail: z.string().nullable(),
+  why: z.string().nullable(),
+});
+export type GitSync = z.infer<typeof GitSyncSchema>;
+
 /** A copy of the repository: has its code changed under it (upd2, 1.6.0, server/src/codeChange.ts)? */
 const CodeStateSchema = z.object({
   changed: z.boolean(),
   from: z.string(),
   to: z.string(),
   restarting: z.boolean(),
+  /** missing from a server of 1.6.0 */
+  git: GitSyncSchema.optional(),
 });
 export type CodeState = z.infer<typeof CodeStateSchema>;
 
@@ -610,10 +628,11 @@ export const api = {
     return z.object({ valid: z.boolean() }).parse(await res.json());
   },
   update: () => getJson('/api/update', UpdateStateSchema),
+  /** «Перевірити зараз»: the releases — and, for a copy of the repository, its upstream (1.6.1). */
   checkUpdate: async () => {
     const res = await request('/api/update/check', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);
-    return UpdateStateSchema.parse(await res.json());
+    return UpdateStateSchema.extend({ git: GitSyncSchema.optional() }).parse(await res.json());
   },
   /** Download, check and unpack the newer version next to this one; the page follows the phases. */
   downloadUpdate: async () => {
@@ -638,6 +657,14 @@ export const api = {
    * can't restart itself — not started by the start file (`npm run dev`), or git didn't answer.
    */
   codeState: () => getJson('/api/update/code', CodeStateSchema.nullable()),
+  /** «Отримати оновлення» (1.6.1): fetch and fast-forward; how many commits came, and the new state. */
+  pullUpdates: async () => {
+    const res = await request('/api/update/pull', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({ pulled: z.number(), code: CodeStateSchema.nullable() })
+      .parse(await res.json());
+  },
   /** A copy of the repository starts again with its new code; the app goes away for a while. */
   relaunch: async () => {
     const res = await request('/api/update/relaunch', { method: 'POST', headers: CONTROL_HEADERS });
