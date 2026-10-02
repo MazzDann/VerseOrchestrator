@@ -12,8 +12,8 @@ import { unzip, zip, type ZipEntry } from './zip.js';
  * the speaker remotes' pairings (secrets), and this machine's own settings — port, browser,
  * which modules to build (data/settings.json).
  *
- * Restoring keeps the state it replaces as a backup of its own first (data/backups/), so
- * «Повернути як було» can bring it back; going back keeps the state it replaces too. Files are
+ * Restoring first moves the state it replaces into a folder of its own (data/backups/), so
+ * «Повернути як було» can move it back; going back keeps the state it replaces too. Files are
  * read and written with fs/promises and the zip is (de)compressed on the thread pool: the hub —
  * phones, remotes, the output windows' commands — keeps going meanwhile (review of #47).
  */
@@ -32,12 +32,10 @@ const KEEP = 5;
 /**
  * The largest backup the operator can take away (1 GB of files): a restore reads the whole file
  * into memory, so one larger is refused when it is made — not found out at the restore. The
- * copies kept in data/backups/ before a restore or an undo have no such limit: they never
- * travel, and a full picture library must not block a restore (review of #47).
+ * states kept in data/backups/ before a restore or an undo have no such limit: their files are
+ * moved there, not packed (review of #47).
  */
 export const MAX_BACKUP_BYTES = 1024 ** 3;
-/** what the local copies may unpack to (a Buffer's own limit is about 4 GB) */
-const LOCAL_MAX_BYTES = 4 * 1024 ** 3 - 1;
 /** «Повернути як було» is for right after a restore: a day later it is no longer offered. */
 const UNDO_FOR_MS = 24 * 60 * 60 * 1000;
 
@@ -87,16 +85,8 @@ async function filesIn(dir: string, keep: (name: string) => boolean): Promise<st
 
 const bundleFile = (n: string) => own(n) && n.endsWith(BUNDLE_EXT);
 
-/**
- * What goes into a backup of `dataDir`, the manifest first. With `cap` (a backup the operator
- * takes away), more than 1 GB of files is BackupError('too big').
- */
-export async function collect(
-  dataDir: string,
-  app: string,
-  now = new Date(),
-  cap = true,
-): Promise<ZipEntry[]> {
+/** What goes into a backup of `dataDir`, the manifest first; over 1 GB is BackupError('too big'). */
+export async function collect(dataDir: string, app: string, now = new Date()): Promise<ZipEntry[]> {
   const manifest: BackupManifest = {
     format: BACKUP_FORMAT,
     version: 1,
@@ -111,11 +101,9 @@ export async function collect(
     files.push([`${SONGS}/${f}`, path.join(songs, f)]);
   const images = path.join(dataDir, IMAGES);
   for (const f of await filesIn(images, own)) files.push([`${IMAGES}/${f}`, path.join(images, f)]);
-  if (cap) {
-    let total = 0;
-    for (const [, p] of files) total += (await fsp.stat(p)).size;
-    if (total > MAX_BACKUP_BYTES) throw new BackupError('too big');
-  }
+  let total = 0;
+  for (const [, p] of files) total += (await fsp.stat(p)).size;
+  if (total > MAX_BACKUP_BYTES) throw new BackupError('too big');
   const out: ZipEntry[] = [
     { name: MANIFEST, data: Buffer.from(JSON.stringify(manifest, null, 2) + '\n') },
   ];
@@ -126,13 +114,8 @@ export async function collect(
 /** A picture's file is compressed already: stored as it is (deflate would only cost time). */
 const compressed = (name: string) => name.startsWith(`${IMAGES}/`) && !name.endsWith('.json');
 
-export async function makeBackup(
-  dataDir: string,
-  app: string,
-  now = new Date(),
-  cap = true,
-): Promise<Buffer> {
-  return zip(await collect(dataDir, app, now, cap), now, compressed);
+export async function makeBackup(dataDir: string, app: string, now = new Date()): Promise<Buffer> {
+  return zip(await collect(dataDir, app, now), now, compressed);
 }
 
 /** Only these names are restored: never a path out of data/, never another file of it. */
@@ -147,17 +130,13 @@ const allowed = (name: string) =>
 
 const count = (v: unknown) => (Array.isArray(v) ? v.length : 0);
 
-/**
- * Read a backup file: its entries and what it holds. Refuses anything else. `maxBytes`: what it
- * may unpack to — a backup brought in, or a local copy (data/backups/), which has no 1 GB cap.
- */
+/** Read a backup file: its entries and what it holds. Refuses anything else. */
 export async function readBackup(
   buf: Buffer,
-  maxBytes = MAX_BACKUP_BYTES + 16 * 1024 * 1024,
 ): Promise<{ entries: ZipEntry[]; summary: BackupSummary }> {
   let entries: ZipEntry[];
   try {
-    entries = await unzip(buf, maxBytes);
+    entries = await unzip(buf, MAX_BACKUP_BYTES + 16 * 1024 * 1024);
   } catch {
     throw new BackupError('not a zip');
   }
@@ -237,18 +216,17 @@ export async function applyBackup(dataDir: string, entries: ZipEntry[]): Promise
     if (e.name.startsWith(`${SONGS}/`) || e.name.startsWith(`${IMAGES}/`))
       await put(path.join(dataDir, ...e.name.split('/')), e.data);
   }
-  const at = Date.now();
   const ui = entries.find((e) => e.name === UI_FILE);
-  if (ui) {
-    const state = JSON.parse(ui.data.toString('utf8')) as Record<
-      string,
-      { value: string; at: number }
-    >;
-    const fresh: Record<string, { value: string; at: number }> = {};
-    for (const [key, entry] of Object.entries(state))
-      if (entry && typeof entry.value === 'string') fresh[key] = { value: entry.value, at };
-    writeJson(path.join(dataDir, UI_FILE), fresh);
-  }
+  return ui ? writeUiState(dataDir, JSON.parse(ui.data.toString('utf8'))) : Date.now();
+}
+
+/** The UI state written, stamped with the time it is written; returns that time. */
+function writeUiState(dataDir: string, state: Record<string, { value?: unknown }>): number {
+  const at = Date.now();
+  const fresh: Record<string, { value: string; at: number }> = {};
+  for (const [key, entry] of Object.entries(state))
+    if (entry && typeof entry.value === 'string') fresh[key] = { value: entry.value, at };
+  writeJson(path.join(dataDir, UI_FILE), fresh);
   return at;
 }
 
@@ -268,36 +246,84 @@ export interface LastRestore {
   undo: string;
 }
 
-/** The last restore while «Повернути як було» is offered: a day, and while its file is there. */
+/** The last restore while «Повернути як було» is offered: a day, and while its folder is there. */
 export function lastRestore(dataDir: string, now = Date.now()): LastRestore | null {
   const last = readJson<LastRestore | null>(path.join(backupsDir(dataDir), LAST), null);
-  if (!last || typeof last.undo !== 'string' || !/^before-[\w.-]+\.zip$/.test(last.undo))
+  if (!last || typeof last.undo !== 'string' || !/^before-restore-[\w-]+$/.test(last.undo))
     return null;
   if (!(now - Date.parse(last.at) < UNDO_FOR_MS)) return null;
-  return fs.existsSync(path.join(backupsDir(dataDir), last.undo)) ? last : null;
+  try {
+    return fs.statSync(path.join(backupsDir(dataDir), last.undo)).isDirectory() ? last : null;
+  } catch {
+    return null;
+  }
 }
 
 const stamp = (now: Date) => now.toISOString().replace(/[:.]/g, '-');
 
-/** Keep the state about to be replaced as `before-<kind>-<stamp>.zip`; the oldest of a kind go. */
-async function keepBefore(
-  dataDir: string,
-  kind: 'restore' | 'undo',
-  app: string,
-  now: Date,
-): Promise<string> {
-  const dir = backupsDir(dataDir);
-  const name = `before-${kind}-${stamp(now)}.zip`;
-  await put(path.join(dir, name), await makeBackup(dataDir, app, now, false));
-  const kept = await filesIn(dir, (n) => n.startsWith(`before-${kind}-`));
-  for (const old of kept.slice(0, Math.max(0, kept.length - KEEP)))
-    await fsp.rm(path.join(dir, old), { force: true });
-  return name;
+/** Move a file, its folder made; across drives (data/ linked elsewhere) by copying. */
+async function move(from: string, to: string): Promise<void> {
+  await fsp.mkdir(path.dirname(to), { recursive: true });
+  try {
+    await fsp.rename(from, to);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e;
+    await fsp.copyFile(from, to);
+    await fsp.rm(from);
+  }
+}
+
+/** Move the song bundles and the pictures of one data folder (or kept state) into another. */
+async function moveState(from: string, to: string): Promise<void> {
+  const names = [
+    ...(await filesIn(path.join(from, SONGS), bundleFile)).map((f) => [SONGS, f]),
+    ...(await filesIn(path.join(from, IMAGES), own)).map((f) => [IMAGES, f]),
+  ];
+  for (const [sub, f] of names) await move(path.join(from, sub, f), path.join(to, sub, f));
 }
 
 /**
- * Restore the pending file: first the current state as a backup of its own (the way back) and
- * the note that offers it — written before anything changes, so a restore that fails midway
+ * A folder for the state about to be replaced, `data/backups/before-<kind>-<stamp>/`, the UI
+ * state copied in (a backup without one leaves it as it is); the oldest of a kind go. The song
+ * bundles and the pictures are moved in next (moveState), not packed into a zip: no copy in
+ * memory and no size limit — a local zip over 2 GB could not even be read back (review of #47).
+ */
+async function keepFolder(dataDir: string, kind: 'restore' | 'undo', now: Date): Promise<string> {
+  const dir = backupsDir(dataDir);
+  const name = `before-${kind}-${stamp(now)}`;
+  await fsp.mkdir(path.join(dir, name), { recursive: true });
+  const ui = path.join(dataDir, UI_FILE);
+  if (fs.existsSync(ui)) await fsp.copyFile(ui, path.join(dir, name, UI_FILE));
+  const kept = (await fsp.readdir(dir, { withFileTypes: true }))
+    .filter((e) => e.isDirectory() && e.name.startsWith(`before-${kind}-`))
+    .map((e) => e.name)
+    .sort();
+  for (const old of kept.slice(0, Math.max(0, kept.length - KEEP)))
+    await fsp.rm(path.join(dir, old), { recursive: true, force: true });
+  return name;
+}
+
+/** Backup work running or waiting (made, checked, restored, undone). */
+let queue: Promise<unknown> = Promise.resolve();
+let queued = 0;
+
+/**
+ * Backup work after the work before it: a save during a restore, or two restores from two
+ * windows, read or wrote a half-replaced data/ (review of #47). The routes run it through this.
+ */
+export function oneAtATime<T>(work: () => Promise<T>): Promise<T> {
+  queued++;
+  const run = queue.then(work).finally(() => queued--);
+  queue = run.catch(() => undefined);
+  return run;
+}
+
+/** Backup work is running or waiting: changes to the songs and the pictures wait (index.ts). */
+export const backupBusy = () => queued > 0;
+
+/**
+ * Restore the pending file: first the current state moved into a folder of its own (the way
+ * back), the note that offers it written before anything moves — a restore that fails midway
  * still offers «Повернути як було» (review of #47) — then the file's. Null: nothing pending.
  */
 export async function restorePending(
@@ -309,32 +335,32 @@ export async function restorePending(
   const pending = path.join(dir, PENDING);
   if (!fs.existsSync(pending)) return null;
   const { entries, summary } = await readBackup(await fsp.readFile(pending));
-  const undo = await keepBefore(dataDir, 'restore', app, now);
+  const undo = await keepFolder(dataDir, 'restore', now);
   writeJson(path.join(dir, LAST), { created: summary.created, at: now.toISOString(), undo });
+  await moveState(dataDir, path.join(dir, undo));
   await applyBackup(dataDir, entries);
   await fsp.rm(pending, { force: true });
   return summary;
 }
 
 /**
- * «Повернути як було»: the state the last restore replaced. What is there now — the restored
- * state and whatever was changed since — is kept first (data/backups/before-undo-…), so going
- * back loses nothing either (review of #47). False: nothing to go back to.
+ * «Повернути як було»: the state the last restore replaced, moved back. What is there now — the
+ * restored state and whatever was changed since — is moved out first (data/backups/before-undo-…),
+ * so going back loses nothing either (review of #47). The UI state goes in last, stamped as the
+ * newest. False: nothing to go back to.
  */
-export async function undoRestore(
-  dataDir: string,
-  app: string,
-  now = new Date(),
-): Promise<boolean> {
+export async function undoRestore(dataDir: string, now = new Date()): Promise<boolean> {
   const last = lastRestore(dataDir, now.getTime());
   if (!last) return false;
-  const { entries } = await readBackup(
-    await fsp.readFile(path.join(backupsDir(dataDir), last.undo)),
-    LOCAL_MAX_BYTES,
-  );
-  await keepBefore(dataDir, 'undo', app, now);
-  await applyBackup(dataDir, entries);
-  await fsp.rm(path.join(backupsDir(dataDir), LAST), { force: true });
+  const dir = backupsDir(dataDir);
+  const from = path.join(dir, last.undo);
+  const kept = await keepFolder(dataDir, 'undo', now);
+  await moveState(dataDir, path.join(dir, kept));
+  await moveState(from, dataDir);
+  const ui = readJson<Record<string, { value?: unknown }> | null>(path.join(from, UI_FILE), null);
+  if (ui && typeof ui === 'object') writeUiState(dataDir, ui);
+  await fsp.rm(path.join(dir, LAST), { force: true });
+  await fsp.rm(from, { recursive: true, force: true });
   return true;
 }
 

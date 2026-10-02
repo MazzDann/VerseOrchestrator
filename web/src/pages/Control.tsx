@@ -2384,6 +2384,7 @@ export function Control() {
               'song',
               'song-bundles',
               'song-bundle-files',
+              'palette-songs',
               'images',
             ])
               void queryClient.invalidateQueries({ queryKey: [key] });

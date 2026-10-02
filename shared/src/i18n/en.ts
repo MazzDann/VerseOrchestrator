@@ -374,6 +374,8 @@ export const EN: Record<string, string> = {
     'Settings and programs were replaced from a backup.',
   'Копія завелика: понад 1 ГБ. Приберіть частину зображень і збережіть ще раз.':
     'The backup is too large: over 1 GB. Remove some images and save again.',
+  'Зачекайте, доки збережеться чи відновиться резервна копія, і спробуйте ще раз':
+    'Wait until the backup is saved or restored, then try again',
   '«{query}» — не місце в книзі. Введіть вірш або розділ:вірш, як-от 3:16':
     '“{query}” is not a place in the book. Type a verse, or chapter:verse, like 3:16',
   'Спершу виберіть книгу': 'Choose a book first',
