@@ -72,6 +72,7 @@ import {
   oneAtATime,
   readBackup,
   restorePending,
+  startChange,
   undoRestore,
 } from './backup.js';
 
@@ -651,19 +652,24 @@ app.get(
 );
 
 /**
- * While a backup is made, checked or restored (backup.ts oneAtATime), the song bundles and the
- * pictures stay as they are: a change meanwhile would be half-kept in the copy or lost under the
- * restored state (review of #47). Registered before every route that changes them.
+ * A change to the song bundles or the pictures waits while a backup is made, checked or
+ * restored, and backup work waits for it — the whole request, its body included (backup.ts
+ * startChange): a change meanwhile was half-kept in the copy or lost under the restored state
+ * (review of #47). Registered before every route that changes them.
  */
 app.use(['/api/song-bundles', '/api/images'], (req, res, next) => {
-  if (req.method === 'GET' || req.method === 'HEAD' || !backupBusy()) return next();
-  res
-    .status(409)
-    .json(
-      keyedError(
-        N_('Зачекайте, доки збережеться чи відновиться резервна копія, і спробуйте ще раз'),
-      ),
-    );
+  if (req.method === 'GET' || req.method === 'HEAD') return next();
+  let end: (() => void) | null = null;
+  let closed = false;
+  res.on('close', () => {
+    closed = true;
+    end?.();
+  });
+  void startChange().then((done) => {
+    if (closed) return done(); // the page went away while it waited
+    end = done;
+    next();
+  });
 });
 
 /**
@@ -738,6 +744,19 @@ app.get(
   }),
 );
 
+/**
+ * Files a restore or its undo could not move — held by another program: everything went back
+ * where it was (backup.ts moveState), said in words (review of #47).
+ */
+const movesFailed = (e: unknown, key: string) => {
+  if (e instanceof BackupError || e instanceof ApiError) return e;
+  const { code, path: file, message } = e as NodeJS.ErrnoException;
+  // «EBUSY: ПС.vosongs», not two full paths
+  return new ApiError(500, key, {
+    error: code && file ? `${code}: ${path.basename(file)}` : message,
+  });
+};
+
 /** A backup refused in words: too big, or not one of this app / damaged (review of #47). */
 const backupRefusal = (e: unknown) =>
   !(e instanceof BackupError)
@@ -779,9 +798,19 @@ app.post(
     const started = Date.now();
     let summary;
     try {
-      summary = await oneAtATime(() => restorePending(dataDir, appVersion));
+      summary = await oneAtATime(async () => {
+        notDuringRebuild(); // one may have started while this waited
+        return restorePending(dataDir, appVersion);
+      });
     } catch (e) {
-      throw backupRefusal(e);
+      throw backupRefusal(
+        movesFailed(
+          e,
+          N_(
+            'Не вдалося відновити: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.',
+          ),
+        ),
+      );
     }
     if (!summary) throw new ApiError(409, N_('Спершу виберіть файл копії ще раз'));
     // the import's «Скасувати» doesn't reach across a restore: it would overwrite or delete a
@@ -810,9 +839,19 @@ app.post(
     notDuringRebuild();
     let undone: boolean;
     try {
-      undone = await oneAtATime(() => undoRestore(dataDir));
+      undone = await oneAtATime(async () => {
+        notDuringRebuild();
+        return undoRestore(dataDir);
+      });
     } catch (e) {
-      throw backupRefusal(e);
+      throw backupRefusal(
+        movesFailed(
+          e,
+          N_(
+            'Не вдалося повернути: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.',
+          ),
+        ),
+      );
     }
     if (!undone) throw new ApiError(409, N_('Повертати вже нічого'));
     lastImport = null;
@@ -1017,6 +1056,17 @@ app.get(
 app.post('/api/rebuild', requireLocalControl, (_req, res) => {
   if (rebuilding) {
     res.status(409).json({ error: N_('Перебудова вже триває') });
+    return;
+  }
+  // the builder reads and writes data/songs: not under a backup's feet (review of #47)
+  if (backupBusy()) {
+    res
+      .status(409)
+      .json(
+        keyedError(
+          N_('Зачекайте, доки збережеться чи відновиться резервна копія, і спробуйте ще раз'),
+        ),
+      );
     return;
   }
   rebuilding = true;

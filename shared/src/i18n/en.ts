@@ -376,6 +376,10 @@ export const EN: Record<string, string> = {
     'The backup is too large: over 1 GB. Remove some images and save again.',
   'Зачекайте, доки збережеться чи відновиться резервна копія, і спробуйте ще раз':
     'Wait until the backup is saved or restored, then try again',
+  'Не вдалося відновити: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.':
+    "Couldn't restore: {error}. Close the programs that hold files in data/ and try again.",
+  'Не вдалося повернути: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.':
+    "Couldn't go back: {error}. Close the programs that hold files in data/ and try again.",
   '«{query}» — не місце в книзі. Введіть вірш або розділ:вірш, як-от 3:16':
     '“{query}” is not a place in the book. Type a verse, or chapter:verse, like 3:16',
   'Спершу виберіть книгу': 'Choose a book first',
