@@ -11,7 +11,14 @@ import {
   type ReaderPrefs,
 } from '../lib/readerPrefs';
 import { tr, useLang } from '../i18n';
-import { formatTimer, hubOffset, timerColor, useCountdown } from '../lib/countdown';
+import {
+  formatTimer,
+  hubOffset,
+  lookOf,
+  TIMER_FONT_CSS,
+  timerColor,
+  useCountdown,
+} from '../lib/countdown';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -115,6 +122,7 @@ export function Follow() {
   // past zero (1.8.0): on into −0:01 …, 0:00, or the time goes; paused (1.8.1) it stands
   // still — as the screen does
   const { left, counting: timing } = useCountdown(onScreen ? slide?.countdown : null, offset);
+  const phoneLook = lookOf(slide?.countdown);
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
   const text = readerTextStyle(reader, font);
 
@@ -234,9 +242,24 @@ export function Follow() {
             )}
           </>
         ) : timing && slide?.countdown ? (
-          <div style={{ fontFamily: 'Inter, system-ui, sans-serif', lineHeight: 1.15 }}>
-            {slide.countdown.caption && (
-              <p style={{ margin: 0, opacity: 0.75, fontSize: 'clamp(18px, 5.5vw, 28px)' }}>
+          <div
+            style={{
+              fontFamily: 'Inter, system-ui, sans-serif',
+              lineHeight: 1.15,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {/* the screen's words, above or below or none (1.8.3) */}
+            {phoneLook.captionAt !== 'none' && slide.countdown.caption && (
+              <p
+                style={{
+                  margin: 0,
+                  opacity: 0.75,
+                  fontSize: 'clamp(18px, 5.5vw, 28px)',
+                  order: phoneLook.captionAt === 'below' ? 1 : 0,
+                }}
+              >
                 {slide.countdown.caption}
               </p>
             )}
@@ -250,11 +273,13 @@ export function Follow() {
                   fontSize: 'clamp(48px, 18vw, 120px)',
                   fontWeight: 600,
                   fontVariantNumeric: 'tabular-nums',
+                  // a monospaced screen font here too; the size is the phone's own (1.8.3)
+                  fontFamily: phoneLook.font === 'mono' ? TIMER_FONT_CSS.mono : undefined,
                   '--vo-timer-color': timerColor(slide.countdown, left),
                 } as CSSProperties
               }
             >
-              {formatTimer(left)}
+              {formatTimer(left, phoneLook.format)}
             </p>
           </div>
         ) : slide?.picture &&

@@ -691,7 +691,7 @@ export const EN: Record<string, string> = {
   '{n} хв': '{n} min',
   'до…': 'until…',
   'До котрої години': 'Until what time',
-  'Напис над часом': 'Words over the time',
+  'Напис біля часу': 'Words with the time',
   'Показати: {caption} {time}': 'Show: {caption} {time}',
   'Показати відлік': 'Show the countdown',
   'Логотип і текст над часом — із розділу «Заставка» в налаштуваннях вигляду.':
@@ -712,7 +712,23 @@ export const EN: Record<string, string> = {
   // 1.8.2: the time's colours (Налаштування вигляду → Відлік)
   'попередження за {n} хв': 'a warning {n} min before',
   'колір після нуля': 'a color past zero',
-  'без кольорів': 'no colors',
+  'звичайний вигляд': 'the usual look',
+  // 1.8.3: the time's look
+  'свій вигляд часу': 'a custom time look',
+  'Розмір часу': 'Time size',
+  Менший: 'Smaller',
+  Звичайний: 'Normal',
+  Більший: 'Larger',
+  Найбільший: 'Largest',
+  'Шрифт часу': 'Time font',
+  'Як у тексті': 'As the text',
+  Моноширинний: 'Monospaced',
+  'Як писати час': 'Time format',
+  '5 хв, секунди — в останню хвилину': '5 min, seconds in the last minute',
+  Напис: 'Words',
+  'Над часом': 'Above the time',
+  'Під часом': 'Below the time',
+  'Без напису': 'No words',
   'Час відліку на екрані, у «Сцені» й на телефонах змінює колір перед кінцем і після нуля.':
     'The countdown time on screen, in Stage, and on the phones changes color before the end and past zero.',
   Попередження: 'Warning',

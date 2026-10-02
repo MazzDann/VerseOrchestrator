@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { tr } from '../i18n';
 
 /**
  * «Відлік» (1.5.0): «Починаємо за 4:59» under «Заставка» before a show. The slide carries the
@@ -43,17 +44,75 @@ export function timerColor(c: TimerColors | null | undefined, left: number): str
   return warn > 0 && c.warnColor && left <= warn ? c.warnColor : undefined;
 }
 
-/** The colours a new countdown takes from the settings (Налаштування вигляду → Відлік). */
-export function timerColors(a: {
+/** The time's size, against the words over it (1.8.3); «Звичайний» is the 1.5.0 size. */
+export type TimerSize = 'sm' | 'md' | 'lg' | 'xl';
+export const TIMER_SIZES: readonly TimerSize[] = ['sm', 'md', 'lg', 'xl'];
+export const TIMER_SIZE_EM: Record<TimerSize, number> = { sm: 1.8, md: 2.4, lg: 3.2, xl: 4 };
+/** The time's font (1.8.3): the slide's text font (as before), a plain one, or monospaced. */
+export type TimerFont = 'text' | 'sans' | 'mono';
+export const TIMER_FONTS: readonly TimerFont[] = ['text', 'sans', 'mono'];
+export const TIMER_FONT_CSS: Record<TimerFont, string | undefined> = {
+  text: undefined,
+  sans: 'Inter, system-ui, sans-serif',
+  mono: 'ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace',
+};
+/** How the time is written (1.8.3): «4:59», «04:59», or «5 хв» until the last minute. */
+export type TimerFormat = 'clock' | 'padded' | 'minutes';
+export const TIMER_FORMATS: readonly TimerFormat[] = ['clock', 'padded', 'minutes'];
+/** Where the words go (1.8.3): over the time (as before), under it, or none. */
+export type CaptionAt = 'above' | 'below' | 'none';
+export const CAPTION_AT: readonly CaptionAt[] = ['above', 'below', 'none'];
+
+/**
+ * How the time looks on the slide (1.8.2 colours, 1.8.3 the rest), carried by the countdown so
+ * «Показ», «Сцена» and the phones draw it alike. Missing — the 1.5.0 look.
+ */
+export interface TimerLook extends TimerColors {
+  size?: TimerSize;
+  font?: TimerFont;
+  format?: TimerFormat;
+  captionAt?: CaptionAt;
+}
+
+/** The look a new countdown takes from the settings (Налаштування вигляду → Відлік). */
+export function timerLook(a: {
   countdownWarnMinutes: number;
   countdownWarnColor: string;
   countdownOverOn: boolean;
   countdownOverColor: string;
-}): Required<TimerColors> {
+  countdownSize: TimerSize;
+  countdownFont: TimerFont;
+  countdownFormat: TimerFormat;
+  countdownCaptionAt: CaptionAt;
+}): Required<TimerLook> {
   return {
     warnBefore: Math.max(0, a.countdownWarnMinutes) * 60000,
     warnColor: a.countdownWarnColor,
     overColor: a.countdownOverOn ? a.countdownOverColor : '',
+    size: a.countdownSize,
+    font: a.countdownFont,
+    format: a.countdownFormat,
+    captionAt: a.countdownCaptionAt,
+  };
+}
+
+/** Has the countdown already this look? (Only the look's own fields count.) */
+export function hasLook(c: TimerLook, look: Required<TimerLook>): boolean {
+  return (Object.keys(look) as (keyof TimerLook)[]).every((k) => c[k] === look[k]);
+}
+
+/** A look read off a slide: what an older or a stray value lacks falls back to the 1.5.0 look. */
+export function lookOf(c: TimerLook | null | undefined): {
+  size: TimerSize;
+  font: TimerFont;
+  format: TimerFormat;
+  captionAt: CaptionAt;
+} {
+  return {
+    size: TIMER_SIZES.includes(c?.size as TimerSize) ? c!.size! : 'md',
+    font: TIMER_FONTS.includes(c?.font as TimerFont) ? c!.font! : 'text',
+    format: TIMER_FORMATS.includes(c?.format as TimerFormat) ? c!.format! : 'clock',
+    captionAt: CAPTION_AT.includes(c?.captionAt as CaptionAt) ? c!.captionAt! : 'above',
   };
 }
 
@@ -78,13 +137,13 @@ export function formatRemaining(ms: number): string {
   return clock(Math.ceil(Math.max(0, ms) / 1000));
 }
 
-/** Whole seconds as a clock shows them: «4:59», «12:00», «1:05:09». */
-function clock(total: number): string {
+/** Whole seconds as a clock shows them: «4:59», «12:00», «1:05:09»; `pad`: «04:59» (1.8.3). */
+function clock(total: number, pad = false): string {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
   const ss = String(s).padStart(2, '0');
-  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+  return h > 0 || pad ? `${h > 0 ? `${h}:` : ''}${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
 /**
@@ -92,10 +151,13 @@ function clock(total: number): string {
  * then a whole second of «0:00»; then the time past it, «−0:01», «−1:05» (a real minus sign).
  * `left` is signed: ms to the end, negative past it.
  */
-export function formatTimer(left: number): string {
-  if (left > 0) return formatRemaining(left);
+export function formatTimer(left: number, format: TimerFormat = 'clock'): string {
+  // «5 хв» (1.8.3): whole minutes, rounded up, while more than one is left; then the clock
+  if (format === 'minutes' && left > 60000) return tr('{n} хв', { n: Math.ceil(left / 60000) });
+  const pad = format === 'padded';
+  if (left > 0) return clock(Math.ceil(left / 1000), pad);
   const past = Math.floor(-left / 1000);
-  return past === 0 ? '0:00' : `−${clock(past)}`;
+  return past === 0 ? (pad ? '00:00' : '0:00') : `−${clock(past, pad)}`;
 }
 
 /** The end of a countdown `ms` long from `now` (whole seconds, 1 s to 12 h; 1.8.1). */

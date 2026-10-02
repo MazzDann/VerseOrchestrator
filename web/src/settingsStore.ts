@@ -9,7 +9,15 @@ import {
 import { DEFAULT_KEYMAP, sanitizeKeymap, type Keymap, type HotkeyActionId } from './hotkeys';
 import { isLang, N_, pickLang, type Lang } from '@vo/shared';
 import { tr } from './i18n';
-import { WARN_MINUTES, type AfterZero } from './lib/countdown';
+import {
+  lookOf,
+  WARN_MINUTES,
+  type AfterZero,
+  type CaptionAt,
+  type TimerFont,
+  type TimerFormat,
+  type TimerSize,
+} from './lib/countdown';
 
 export type TextAlign = 'left' | 'center' | 'right';
 export type PadUnit = 'px' | '%';
@@ -63,6 +71,11 @@ export interface Appearance {
   countdownWarnColor: string;
   countdownOverOn: boolean;
   countdownOverColor: string;
+  /** The time's look (1.8.3): its size, font, how it is written, and where the words go. */
+  countdownSize: TimerSize;
+  countdownFont: TimerFont;
+  countdownFormat: TimerFormat;
+  countdownCaptionAt: CaptionAt;
 }
 
 export interface RefItem {
@@ -276,6 +289,10 @@ export const DEFAULT_APPEARANCE: Appearance = {
   countdownWarnColor: '#ffb020',
   countdownOverOn: true,
   countdownOverColor: '#ff5a5a',
+  countdownSize: 'md',
+  countdownFont: 'text',
+  countdownFormat: 'clock',
+  countdownCaptionAt: 'above',
 };
 
 /**
@@ -349,6 +366,10 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     countdownWarnColor: strOr(m.countdownWarnColor, DEFAULT_APPEARANCE.countdownWarnColor),
     countdownOverOn: !!m.countdownOverOn,
     countdownOverColor: strOr(m.countdownOverColor, DEFAULT_APPEARANCE.countdownOverColor),
+    countdownSize: lookOf({ size: m.countdownSize }).size,
+    countdownFont: lookOf({ font: m.countdownFont }).font,
+    countdownFormat: lookOf({ format: m.countdownFormat }).format,
+    countdownCaptionAt: lookOf({ captionAt: m.countdownCaptionAt }).captionAt,
     // the cover is the operator's content, not a look: a preset carries neither (1.4.0)
     ...ownContent(DEFAULT_APPEARANCE),
   };

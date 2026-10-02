@@ -9,7 +9,14 @@ import {
   type SlidePicture,
   DEFAULT_STYLE,
 } from '../presenterBus';
-import { formatTimer, timerColor, useCountdown } from '../lib/countdown';
+import {
+  formatTimer,
+  lookOf,
+  TIMER_FONT_CSS,
+  TIMER_SIZE_EM,
+  timerColor,
+  useCountdown,
+} from '../lib/countdown';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 import { SlideFade } from './SlideFade';
@@ -151,11 +158,16 @@ function CoverContent({
   // past zero (1.8.0) the time counts on (−0:01 …) or stays at 0:00 — or goes, as before;
   // paused (1.8.1) it stands still
   const { left, counting } = useCountdown(countdown);
+  const look = lookOf(countdown);
+  const shown = counting ? formatTimer(left, look.format).length : 0;
   // the time coming or going changes the content's height: fit it again (the slide's key
   // changes when a countdown starts or goes, not when one ends on screen)
   const refit = useRef(onImageLoad);
   refit.current = onImageLoad;
-  useEffect(() => refit.current(), [counting]);
+  useEffect(
+    () => refit.current(),
+    [counting, look.size, look.font, look.format, look.captionAt, shown],
+  );
   return (
     <div
       style={{
@@ -197,13 +209,7 @@ function CoverContent({
         />
       )}
       {cover.text && <div style={{ lineHeight: 1.25, whiteSpace: 'pre-line' }}>{cover.text}</div>}
-      {counting && countdown && (
-        <CountdownLines
-          caption={countdown.caption}
-          left={left}
-          color={timerColor(countdown, left)}
-        />
-      )}
+      {counting && countdown && <CountdownLines countdown={countdown} left={left} />}
     </div>
   );
 }
@@ -212,17 +218,15 @@ function CoverContent({
  * «Відлік» (1.5.0): the words over a big time left; equal-width digits, so the line holds still
  * as it counts. Past the end (1.8.0, «Після нуля») the time counts on as −0:01 …, stays at 0:00,
  * or both go and «Заставка» stays (`CoverContent`). The time alone takes the warning colour
- * before the end and the other one past it (1.8.2); the words keep the slide's.
+ * before the end and the other one past it (1.8.2); the words keep the slide's. Its size, font,
+ * how it is written and where the words go come with the countdown too (1.8.3, `lookOf`).
  */
-function CountdownLines({
-  caption,
-  left,
-  color,
-}: {
-  caption: string;
-  left: number;
-  color?: string;
-}) {
+function CountdownLines({ countdown, left }: { countdown: SlideCountdown; left: number }) {
+  // its look (1.8.3): size, font, how the time is written, where the words go
+  const look = lookOf(countdown);
+  const words = look.captionAt !== 'none' && countdown.caption && (
+    <div style={{ fontSize: '0.8em', opacity: 0.85 }}>{countdown.caption}</div>
+  );
   return (
     <div
       style={{
@@ -232,18 +236,20 @@ function CountdownLines({
         lineHeight: 1.1,
       }}
     >
-      {caption && <div style={{ fontSize: '0.8em', opacity: 0.85 }}>{caption}</div>}
+      {look.captionAt === 'above' && words}
       <div
         style={{
-          fontSize: '2.4em',
+          fontSize: `${TIMER_SIZE_EM[look.size]}em`,
+          fontFamily: TIMER_FONT_CSS[look.font],
           fontWeight: 600,
           fontVariantNumeric: 'tabular-nums',
           letterSpacing: '0.02em',
-          color,
+          color: timerColor(countdown, left),
         }}
       >
-        {formatTimer(left)}
+        {formatTimer(left, look.format)}
       </div>
+      {look.captionAt === 'below' && words}
     </div>
   );
 }

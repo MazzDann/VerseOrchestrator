@@ -337,7 +337,7 @@ export function CountdownTool({
             )}
             <TextInput
               size="xs"
-              label={tr('Напис над часом')}
+              label={tr('Напис біля часу')}
               placeholder={tr('Починаємо за')}
               value={saved.countdownCaption}
               onChange={(e) => setAppearance({ countdownCaption: e.currentTarget.value })}

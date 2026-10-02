@@ -96,7 +96,7 @@ The browser keeps the logo and the background image in its storage, and that sto
 (5 MB in Safari). If it runs out of room, the message **Couldn't save the settings** appears
 and the image stays as it was: choose a smaller file or remove the background or the logo.
 
-## Set up the countdown colors
+## Set up the countdown's look
 
 The time of a [countdown](show-text.md#show-a-countdown-before-the-start) can change color:
 before the end, as a warning, and at zero and past it. The color changes on every screen, in
@@ -111,8 +111,20 @@ In the **Countdown** section:
 - **Another color past zero** — at zero and past it the time takes another color, so everyone
   sees the time is up. On by default, with a red **Color past zero**.
 
-A countdown on screen takes the new colors at once. Presets keep these colors with the rest of
-the look.
+The same section sets the look of the time:
+
+- **Time size** — **Smaller**, **Normal**, **Larger**, or **Largest**. The larger the time, the
+  smaller the cover's logo and text: everything still fits on the slide.
+- **Time font** — **As the text** (the slide's font), **Inter (sans serif)**, or
+  **Monospaced**.
+- **Time format** — 4:59, 04:59, or “5 min”: whole minutes, with seconds only in the last
+  minute.
+- **Words** — **Above the time**, **Below the time**, or **No words**. The words themselves are
+  set in the **Words with the time** field when you start a countdown.
+
+The viewers' phones write the time the same way and put the words in the same place, but keep
+their own size, made for the phone's screen. A countdown on screen takes the new look at once.
+Presets keep this look with the rest.
 
 ## Place the slide's elements
 
