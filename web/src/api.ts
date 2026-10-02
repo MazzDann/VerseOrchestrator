@@ -346,6 +346,11 @@ const UpdateStateSchema = z.object({
     })
     .nullable(),
   available: z.boolean(),
+  /**
+   * an older version chosen over the newest release (1.6.3): no reminder of what it skipped —
+   * «Поточний реліз» is the way back
+   */
+  pinned: z.boolean().optional(),
   error: z.string().nullable(),
   /** installing (server/src/installer.ts) — only a copy from a release archive */
   installer: z

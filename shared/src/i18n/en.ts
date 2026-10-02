@@ -1420,6 +1420,11 @@ export const EN: Record<string, string> = {
   'Інша версія…': 'Another version…',
   'Завантажити версію {version} ({mb} МБ)': 'Download version {version} ({mb} MB)',
   'Перезапустити з версією {version}': 'Restart with version {version}',
+  'Ви вибрали версію {current}; поточний реліз — {version}. Перевірено {when}.':
+    'You chose version {current}; the current release is {version}. Checked {when}.',
+  'Ви вибрали версію {current}; поточний реліз — {version}.':
+    'You chose version {current}; the current release is {version}.',
+  'Поточний реліз {version} ({mb} МБ)': 'Current release {version} ({mb} MB)',
   'Старіша версія не знає того, що з’явилося пізніше: частину налаштувань вона може скинути до типових. Перш ніж перейти, збережіть резервну копію.':
     'An older version doesn’t know what came later: it may reset some settings to their defaults. Save a backup before you switch.',
   'У версії {version} ще немає «Повернути версію»: з неї можна лише оновитися до найновішої версії, потрібен інтернет.':

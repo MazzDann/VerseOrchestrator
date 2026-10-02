@@ -158,7 +158,23 @@ export function UpdateSection() {
     status = tr('Перезапускаю застосунок з версією {version}…', { version: restarting });
   else if (serverAvailable === false) status = tr(NEEDS_SERVER);
   else if (!state) status = tr('Перевіряю…');
-  else if (state.available && state.latest)
+  // an older version chosen over the newest (1.6.3): said plainly, no reminder
+  else if (state.available && state.latest && state.pinned) {
+    const vars = { current: state.current, version: state.latest.version };
+    // a check that failed: no time it was checked, and why
+    status =
+      state.error || state.checkedAt === null
+        ? [
+            tr('Ви вибрали версію {current}; поточний реліз — {version}.', vars),
+            state.error && tr(state.error),
+          ]
+            .filter(Boolean)
+            .join(' ')
+        : tr('Ви вибрали версію {current}; поточний реліз — {version}. Перевірено {when}.', {
+            ...vars,
+            when: fmtDateTime(state.checkedAt),
+          });
+  } else if (state.available && state.latest)
     status = tr('Доступна версія {version} (у вас {current}).', {
       version: state.latest.version,
       current: shownVersion(devLabel, state.current),
@@ -182,7 +198,11 @@ export function UpdateSection() {
       <Text size="sm" fw={500} mb={2}>
         {tr('Оновлення')}
       </Text>
-      <Text size="xs" c={state?.available || restarting ? undefined : 'dimmed'} mb={4}>
+      <Text
+        size="xs"
+        c={(state?.available && !state.pinned) || restarting ? undefined : 'dimmed'}
+        mb={4}
+      >
         {status}
       </Text>
       {!restarting && state?.lastUpdate && <LastUpdate last={state.lastUpdate} />}
@@ -522,10 +542,15 @@ function Install({
     (phase === 'ready' || phase === 'restarting') && inst?.version ? inst.version : null;
   // the dropdown shows the version picked; else the one waiting, the one whose download failed
   // (to try again), or the newest when it is newer than this one; else nothing yet
+  // a version chosen over the newest (1.6.3): nothing picked for you — «Поточний реліз» is there
   const target =
     pick ??
     ready ??
-    (phase === 'error' && inst?.version ? inst.version : state.available ? newest : null);
+    (phase === 'error' && inst?.version
+      ? inst.version
+      : state.available && !state.pinned
+        ? newest
+        : null);
   const chosen = versions.find((v) => v.version === target) ?? null;
   if (phase === 'download' || phase === 'verify' || phase === 'unpack') {
     const total = inst?.total || chosen?.size || state.latest?.asset?.size || 0;
@@ -564,6 +589,11 @@ function Install({
   }));
   const size = chosen?.size ?? state.latest?.asset?.size ?? 0;
   const restart = !!ready && target === ready;
+  // «Поточний реліз» (1.6.3, the user's ask): back to the newest from a version chosen over it
+  const current =
+    !target && state.pinned && state.available && newest && newest !== state.current
+      ? (versions.find((v) => v.version === newest) ?? null)
+      : null;
   return (
     <div>
       {phase === 'error' && inst?.error && (
@@ -606,6 +636,20 @@ function Install({
             {older
               ? tr('Перезапустити з версією {version}', { version: ready })
               : tr('Перезапустити й оновити')}
+          </Button>
+        ) : current ? (
+          <Button
+            size="xs"
+            variant="light"
+            leftSection={<IconDownload size={14} />}
+            loading={downloading}
+            disabled={!current.installable}
+            onClick={() => onDownload(current.version)}
+          >
+            {tr('Поточний реліз {version} ({mb} МБ)', {
+              version: current.version,
+              mb: mb(current.size),
+            })}
           </Button>
         ) : (
           // a version other than this one is picked (or the newest is newer)
