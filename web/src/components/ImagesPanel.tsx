@@ -50,18 +50,22 @@ const asPicture = (img: ImageInfo, fit: Fit): SlidePicture => ({
  * `fileToPicture`) and the server keeps them in data/images/. A click on a picture puts it on
  * screen, as a click on a stanza does; its buttons add it to the running order or delete it —
  * the deleted one says «Видалено: …» with «Скасувати» in its place. «Вписати» shows the whole
- * picture with bands of black, «Заповнити» fills the slide and cuts the edges.
+ * picture with bands of black, «Заповнити» fills the slide and cuts the edges — the picture on
+ * screen too, at once (1.7.1, the user's call).
  */
 export function ImagesPanel({
   open,
   onClose,
   onProject,
+  onRefit,
   onAddToPlaylist,
   onScreen,
 }: {
   open: boolean;
   onClose: () => void;
   onProject: (picture: SlidePicture) => void;
+  /** the switch moved: the picture on screen takes it too */
+  onRefit: (fit: Fit) => void;
   onAddToPlaylist: (img: ImageInfo, fit: Fit) => void;
   /** the address of the picture on screen now, if one is */
   onScreen: string | null;
@@ -82,6 +86,7 @@ export function ImagesPanel({
     } catch {
       /* a per-viewer convenience: not kept is fine */
     }
+    onRefit(f);
   };
   const [adding, setAdding] = useState<{ done: number; of: number } | null>(null);
   const [failed, setFailed] = useState<string[]>([]);

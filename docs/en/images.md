@@ -35,8 +35,8 @@ The switch at the top of the panel says how an image takes the slide:
 - **Fit** — the whole image shows, and the empty bands at its sides are black.
 - **Fill** — the image takes the whole slide, and the edges that don't fit are cut off.
 
-The switch applies to the image you show or add to the running order after it. The viewers'
-phones show the small copy of the image.
+The switch applies at once to the image on screen, and to the one you show or add to the
+running order after it. The viewers' phones show the small copy of the image.
 
 To take an image off the screen, use the same actions as for text: see
 [Take the text off the screen](show-text.md#take-the-text-off-the-screen).
