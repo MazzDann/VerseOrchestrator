@@ -12,7 +12,9 @@ import {
   shiftUntil,
   showsTime,
   timerColor,
-  timerColors,
+  timerLook,
+  hasLook,
+  lookOf,
   togglePause,
   untilAt,
   untilFor,
@@ -219,8 +221,66 @@ describe('the colours of the time (1.8.2)', () => {
       countdownWarnColor: '#ffd43b',
       countdownOverOn: false,
       countdownOverColor: '#e03131',
+      countdownSize: 'lg' as const,
+      countdownFont: 'mono' as const,
+      countdownFormat: 'padded' as const,
+      countdownCaptionAt: 'below' as const,
     };
-    expect(timerColors(a)).toEqual({ warnBefore: 120_000, warnColor: '#ffd43b', overColor: '' });
-    expect(timerColors({ ...a, countdownOverOn: true }).overColor).toBe('#e03131');
+    expect(timerLook(a)).toEqual({
+      warnBefore: 120_000,
+      warnColor: '#ffd43b',
+      overColor: '',
+      size: 'lg',
+      font: 'mono',
+      format: 'padded',
+      captionAt: 'below',
+    });
+    expect(timerLook({ ...a, countdownOverOn: true }).overColor).toBe('#e03131');
+  });
+});
+
+describe('the look of the time (1.8.3)', () => {
+  it('writes the time three ways', () => {
+    expect(formatTimer(299_001, 'clock')).toBe('5:00');
+    expect(formatTimer(299_001, 'padded')).toBe('05:00');
+    expect(formatTimer(9_000, 'padded')).toBe('00:09');
+    expect(formatTimer(0, 'padded')).toBe('00:00');
+    expect(formatTimer(-3_000, 'padded')).toBe('−00:03');
+    expect(formatTimer(3_909_000, 'padded')).toBe('1:05:09');
+    // whole minutes, rounded up, while more than one is left; then the clock
+    expect(formatTimer(25 * 60_000, 'minutes')).toBe('25 хв');
+    expect(formatTimer(4 * 60_000 + 1, 'minutes')).toBe('5 хв');
+    expect(formatTimer(60_001, 'minutes')).toBe('2 хв');
+    expect(formatTimer(60_000, 'minutes')).toBe('1:00');
+    expect(formatTimer(-61_000, 'minutes')).toBe('−1:01');
+  });
+
+  it('reads a look off a slide, the 1.5.0 one where it says nothing', () => {
+    expect(lookOf(null)).toEqual({ size: 'md', font: 'text', format: 'clock', captionAt: 'above' });
+    expect(lookOf({ size: 'xl', font: 'mono', format: 'minutes', captionAt: 'none' })).toEqual({
+      size: 'xl',
+      font: 'mono',
+      format: 'minutes',
+      captionAt: 'none',
+    });
+    expect(lookOf({ size: 'huge', font: 3 } as never)).toEqual(lookOf(null));
+  });
+
+  it('knows a countdown that already has the look', () => {
+    const look = {
+      warnBefore: 60_000,
+      warnColor: '#ffb020',
+      overColor: '#ff5a5a',
+      size: 'md' as const,
+      font: 'text' as const,
+      format: 'clock' as const,
+      captionAt: 'above' as const,
+    };
+    expect(hasLook({ ...look }, look)).toBe(true);
+    expect(hasLook({ ...look, size: 'lg' }, look)).toBe(false);
+    // from 1.8.2: colours, no look yet
+    expect(hasLook({ warnBefore: 60_000, warnColor: '#ffb020', overColor: '#ff5a5a' }, look)).toBe(
+      false,
+    );
   });
 });
