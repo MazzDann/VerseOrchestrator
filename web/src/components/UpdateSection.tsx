@@ -3,10 +3,10 @@ import { Anchor, Button, Group, Popover, Progress, Switch, Text } from '@mantine
 import { IconArrowBackUp, IconDownload, IconRefresh, IconReload } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { api, type UpdateState } from '../api';
+import { api, type CodeState, type UpdateState } from '../api';
 import { useServer, NEEDS_SERVER, shownVersion } from '../serverStore';
 import { fmtDateTime, tr, useLang } from '../i18n';
-import { useUpdateState, waitForRestart } from '../lib/updates';
+import { useCodeState, useUpdateState, waitForRelaunch, waitForRestart } from '../lib/updates';
 import { useOutputWindows } from '../lib/outputs';
 import { storeForOlderVersion } from '../presenterBus';
 
@@ -26,6 +26,8 @@ export function UpdateSection() {
   const devLabel = useServer((s) => s.devLabel);
   const queryClient = useQueryClient();
   const state = useUpdateState();
+  // a copy of the repository whose code changed under it (upd2, 1.6.0)
+  const code = useCodeState();
   const outputs = useOutputWindows();
   const [restarting, setRestarting] = useState<string | null>(null);
   const settings = useQuery({
@@ -80,6 +82,24 @@ export function UpdateSection() {
     onSuccess: afterRestart,
     onError: fail,
   });
+  // «Перезапустити» (1.6.0): the launcher starts again with the new code; this page waits for it
+  const relaunch = useMutation({
+    mutationFn: api.relaunch,
+    onSuccess: async ({ boot }) => {
+      setRestarting('code');
+      if (await waitForRelaunch(boot)) window.location.reload();
+      else {
+        setRestarting(null);
+        notifications.show({
+          message: tr(
+            'Застосунок не відповідає після перезапуску. Запустіть його файлом запуску; що сталося — у data/standby.log.',
+          ),
+          color: 'red',
+        });
+      }
+    },
+    onError: fail,
+  });
   const toggle = useMutation({
     mutationFn: (on: boolean) => api.updateServerSettings({ updates: { check: on } }),
     onSuccess: (s) => {
@@ -90,7 +110,8 @@ export function UpdateSection() {
   const enabled = settings.data?.updates.check ?? true;
 
   let status: string;
-  if (restarting)
+  if (restarting === 'code') status = tr('Перезапускаю застосунок з новим кодом…');
+  else if (restarting)
     status = tr('Перезапускаю застосунок з версією {version}…', { version: restarting });
   else if (serverAvailable === false) status = tr(NEEDS_SERVER);
   else if (!state) status = tr('Перевіряю…');
@@ -122,8 +143,22 @@ export function UpdateSection() {
             {tr('Що нового')}
           </Anchor>
           {state.install === 'source' &&
-            ` · ${tr('Щоб оновити копію репозиторію, виконайте git pull і запустіть застосунок.')}`}
+            ` · ${
+              code
+                ? tr(
+                    'Щоб оновити копію репозиторію, виконайте git pull — застосунок запропонує перезапуститися.',
+                  )
+                : tr('Щоб оновити копію репозиторію, виконайте git pull і запустіть застосунок.')
+            }`}
         </Text>
+      )}
+      {!restarting && code?.changed && (
+        <CodeChanged
+          code={code}
+          outputsOpen={outputs.length}
+          pending={relaunch.isPending || code.restarting}
+          onRelaunch={() => relaunch.mutate()}
+        />
       )}
       {!restarting && state?.available && state.install === 'release' && (
         <Install
@@ -294,6 +329,46 @@ function Rollback({
           </Text>
         )
       )}
+    </div>
+  );
+}
+
+/**
+ * upd2 (1.6.0): a copy of the repository whose code changed under it (`git pull`, another branch)
+ * starts again on request — the launcher does what the start file does, in the background.
+ */
+function CodeChanged({
+  code,
+  outputsOpen,
+  pending,
+  onRelaunch,
+}: {
+  code: CodeState;
+  outputsOpen: number;
+  pending: boolean;
+  onRelaunch: () => void;
+}) {
+  return (
+    <div>
+      <Text size="xs" mb={4}>
+        {tr('Код застосунку змінився: {from} → {to}.', { from: code.from, to: code.to })}
+      </Text>
+      <Button
+        size="xs"
+        leftSection={<IconReload size={14} />}
+        loading={pending}
+        disabled={outputsOpen > 0}
+        onClick={onRelaunch}
+      >
+        {tr('Перезапустити')}
+      </Button>
+      <Text size="xs" c="dimmed" mt={4} mb={4}>
+        {outputsOpen > 0
+          ? tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')
+          : tr(
+              'Застосунок перебудує інтерфейс і запуститься знову у фоні — вікно запуску закриється. Сторінка оновиться сама.',
+            )}
+      </Text>
     </div>
   );
 }

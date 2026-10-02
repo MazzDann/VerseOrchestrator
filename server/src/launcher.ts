@@ -697,6 +697,8 @@ async function main(argv: string[]): Promise<number> {
           );
         else if (why === 'update')
           say(tr('Застосунок оновлюється: нова версія запуститься сама, у фоні.'));
+        else if (why === 'restart')
+          say(tr('Застосунок перезапускається з новим кодом: він запуститься сам, у фоні.'));
         else if (!stopping)
           say(tr('«Запуск за адресою» вимкнено в налаштуваннях — застосунок зупинено.'));
         process.exit(0);

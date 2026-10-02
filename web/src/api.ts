@@ -379,6 +379,15 @@ const UpdateStateSchema = z.object({
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
+/** A copy of the repository: has its code changed under it (upd2, 1.6.0, server/src/codeChange.ts)? */
+const CodeStateSchema = z.object({
+  changed: z.boolean(),
+  from: z.string(),
+  to: z.string(),
+  restarting: z.boolean(),
+});
+export type CodeState = z.infer<typeof CodeStateSchema>;
+
 /** A picture as the server lists it (1.5.0, server/src/images.ts `imageEntry`). */
 const ImageSchema = z.object({
   id: z.string(),
@@ -623,6 +632,17 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return z.object({ from: z.string(), to: z.string() }).parse(await res.json());
+  },
+  /**
+   * null: a release copy (it updates by «Завантажити оновлення»), or a copy of the repository that
+   * can't restart itself — not started by the start file (`npm run dev`), or git didn't answer.
+   */
+  codeState: () => getJson('/api/update/code', CodeStateSchema.nullable()),
+  /** A copy of the repository starts again with its new code; the app goes away for a while. */
+  relaunch: async () => {
+    const res = await request('/api/update/relaunch', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return z.object({ from: z.string(), boot: z.string() }).parse(await res.json());
   },
   /** Restart into the downloaded version; the app goes away for a while. */
   restartForUpdate: async () => {
