@@ -9,7 +9,7 @@ import {
   type SlidePicture,
   DEFAULT_STYLE,
 } from '../presenterBus';
-import { afterZeroOf, formatTimer, useRemaining } from '../lib/countdown';
+import { formatTimer, useCountdown } from '../lib/countdown';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 import { SlideFade } from './SlideFade';
@@ -148,11 +148,9 @@ function CoverContent({
 }) {
   // the file's width in pixels, known once it has loaded: how far it may grow
   const [pixels, setPixels] = useState(0);
-  // past zero (1.8.0) the time counts on (−0:01 …) or stays at 0:00 — or goes, as before
-  const afterZero = afterZeroOf(countdown);
-  // only «У мінус» keeps the clock going past the end: «Стоп на 0:00» holds it there
-  const left = useRemaining(countdown?.until, afterZero === 'overtime');
-  const counting = !!countdown && (left > 0 || afterZero !== 'hide');
+  // past zero (1.8.0) the time counts on (−0:01 …) or stays at 0:00 — or goes, as before;
+  // paused (1.8.1) it stands still
+  const { left, counting } = useCountdown(countdown);
   // the time coming or going changes the content's height: fit it again (the slide's key
   // changes when a countdown starts or goes, not when one ends on screen)
   const refit = useRef(onImageLoad);

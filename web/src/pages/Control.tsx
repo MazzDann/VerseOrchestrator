@@ -93,7 +93,17 @@ import {
   type TextSpan,
 } from '../presenterBus';
 import { CountdownTool } from '../components/CountdownTool';
-import { afterZeroOf, shiftUntil, untilIn, type AfterZero } from '../lib/countdown';
+import {
+  afterZeroOf,
+  formatRemaining,
+  isPaused,
+  savedLength,
+  shiftCountdown,
+  showsTime,
+  togglePause,
+  untilFor,
+  type AfterZero,
+} from '../lib/countdown';
 import {
   NO_LIBRARY,
   mainText,
@@ -1781,16 +1791,46 @@ export function Control() {
     // meanwhile stays there for «На екран» and the stage display (review of #45)
     setPreviewOverride((p) => (p?.cover ? slide : p));
   };
+  /** A new countdown of what «Відлік» last chose: the palette's line and the key (1.8.1). */
+  const countdownStartSaved = () =>
+    countdownStart({
+      until: untilFor(savedLength(appearance.countdownMinutes), Date.now()),
+      caption: appearance.countdownCaption.trim() || tr('Починаємо за'),
+      afterZero: appearance.countdownAfterZero,
+    });
   const countdownShift = (minutes: number) => {
+    const c = liveSlideRef.current.countdown;
+    if (c) countdownChange(shiftCountdown(c, minutes, Date.now()));
+  };
+  // going on from zero or past it (1.8.1): that zero was said already — the end notice keeps quiet
+  const quietEnd = useRef<number | null>(null);
+  /** «Пауза» / «Продовжити» (1.8.1): the time on screen stands still, then goes on from there. */
+  const countdownPause = () => {
     const c = liveSlideRef.current.countdown;
     if (!c) return;
     const now = Date.now();
-    const overtime = afterZeroOf(c) === 'overtime';
-    // held at 0:00, the end long gone: «+1 хв» gives a minute from now (review of 1.8.0)
-    countdownChange({
-      ...c,
-      until: shiftUntil(overtime ? c.until : Math.max(c.until, now), minutes, now, overtime),
-    });
+    const next = togglePause(c, now);
+    if (!isPaused(next) && next.until <= now) quietEnd.current = next.until;
+    countdownChange(next);
+    return next;
+  };
+  /**
+   * The key «Відлік: пауза / далі» (1.8.1, T): the countdown on screen stops or goes on; with
+   * none showing its time, a new one starts.
+   */
+  const countdownKey = () => {
+    if (!leaderRef.current) return standbyNotice();
+    const s = liveSlideRef.current;
+    if (s.cover && !s.forceBlack && s.countdown && showsTime(s.countdown, Date.now())) {
+      const next = countdownPause();
+      notifications.show({
+        message: next && isPaused(next) ? tr('Відлік: пауза') : tr('Відлік іде далі'),
+        color: 'gray',
+        autoClose: 1500,
+      });
+      return;
+    }
+    countdownStartSaved();
   };
   /** «Після нуля» (1.8.0) for the countdown on screen: its time, the end and the cover stay. */
   const countdownAfterZero = (afterZero: AfterZero) => {
@@ -2030,6 +2070,7 @@ export function Control() {
   };
   useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
   useHotkeys(keymap.cover, () => coverToggle(), [keymap.cover, versePreview, appearance]);
+  useHotkeys(keymap.countdown, () => countdownKey(), [keymap.countdown, appearance, slideStyle]);
 
   /** Take back «Очистити» (0.13.2): exactly the slide it removed, as the toggles do. */
   const restoreCleared = () => {
@@ -2657,14 +2698,16 @@ export function Control() {
   const coverOn = !!liveSlide.cover && !liveSlide.forceBlack;
   // «Відлік» (1.5.0) on screen comes to its end: said once here, as «Після нуля» has it (1.8.0)
   // (also when «−1 хв» brings it to now; not for one that ended long before this window took over)
-  const countdownEnd = coverOn ? liveSlide.countdown?.until : undefined;
+  // (paused, 1.8.1: no end until it goes on)
+  const countdownEnd =
+    coverOn && !isPaused(liveSlide.countdown) ? liveSlide.countdown?.until : undefined;
   const countdownAfter = useRef(afterZeroOf(liveSlide.countdown));
   countdownAfter.current = afterZeroOf(liveSlide.countdown);
   useEffect(() => {
     if (countdownEnd == null || !isLeader) return;
     const t = window.setTimeout(
       () => {
-        if (Date.now() - countdownEnd > 5000) return;
+        if (Date.now() - countdownEnd > 5000 || quietEnd.current === countdownEnd) return;
         notifications.show({
           message:
             countdownAfter.current === 'overtime'
@@ -2720,15 +2763,12 @@ export function Control() {
     },
     {
       id: 'countdown',
-      label: tr('Відлік: {n} хв', { n: appearance.countdownMinutes || 5 }),
+      label: tr('Відлік: {time}', {
+        time: formatRemaining(savedLength(appearance.countdownMinutes)),
+      }),
       keywords: 'countdown timer vidlik',
       icon: <IconHourglassHigh size={16} />,
-      run: () =>
-        countdownStart({
-          until: untilIn(appearance.countdownMinutes || 5, Date.now()),
-          caption: appearance.countdownCaption.trim() || tr('Починаємо за'),
-          afterZero: appearance.countdownAfterZero,
-        }),
+      run: countdownStartSaved,
     },
     { id: 'clear', label: tr('Прибрати з екрана'), keywords: 'clear ochystyty', run: clearScreen },
     {
@@ -3264,8 +3304,10 @@ export function Control() {
                 <CountdownTool
                   running={coverOn ? (liveSlide.countdown ?? null) : null}
                   disabled={!isLeader}
+                  combo={keymap.countdown}
                   onStart={countdownStart}
                   onShift={countdownShift}
+                  onPause={() => (leaderRef.current ? countdownPause() : standbyNotice())}
                   onAfterZero={countdownAfterZero}
                   onKeepCover={() => countdownChange(null)}
                   onRemove={() => (leaderRef.current ? takeCoverOff() : standbyNotice())}
