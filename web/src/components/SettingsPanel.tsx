@@ -34,6 +34,7 @@ import {
 } from '../settingsStore';
 import type { SlideTransition } from '../presenterBus';
 import { fileToDownscaledDataUrl, fileToLogoDataUrl } from '../lib/image';
+import { WARN_MINUTES } from '../lib/countdown';
 import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
@@ -327,6 +328,58 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               )}
             </Group>
           </div>
+        </Section>
+
+        {/* «Відлік» (1.8.2): the time's colours — a warning before the end, another past it */}
+        <Section
+          value="countdown"
+          title={tr('Відлік')}
+          summary={
+            summary(
+              a.countdownWarnMinutes > 0 &&
+                tr('попередження за {n} хв', { n: a.countdownWarnMinutes }),
+              a.countdownOverOn && tr('колір після нуля'),
+            ) || tr('без кольорів')
+          }
+        >
+          <Text size="xs" c="dimmed">
+            {tr(
+              'Час відліку на екрані, у «Сцені» й на телефонах змінює колір перед кінцем і після нуля.',
+            )}
+          </Text>
+          <Select
+            label={tr('Попередження')}
+            data={WARN_MINUTES.map((n) => ({
+              value: String(n),
+              label: n === 0 ? tr('Без попередження') : tr('За {n} хв до кінця', { n }),
+            }))}
+            value={String(a.countdownWarnMinutes)}
+            onChange={(v) => v != null && set({ countdownWarnMinutes: Number(v) })}
+            allowDeselect={false}
+          />
+          {a.countdownWarnMinutes > 0 && (
+            <ColorInput
+              label={tr('Колір попередження')}
+              value={a.countdownWarnColor}
+              onChange={(v) => set({ countdownWarnColor: v })}
+              format="hex"
+              swatches={['#ffb020', '#ffd43b', '#ff922b', '#ffffff']}
+            />
+          )}
+          <Switch
+            label={tr('Інший колір після нуля')}
+            checked={a.countdownOverOn}
+            onChange={(e) => set({ countdownOverOn: e.currentTarget.checked })}
+          />
+          {a.countdownOverOn && (
+            <ColorInput
+              label={tr('Колір після нуля')}
+              value={a.countdownOverColor}
+              onChange={(v) => set({ countdownOverColor: v })}
+              format="hex"
+              swatches={['#ff5a5a', '#e03131', '#ff922b', '#ffffff']}
+            />
+          )}
         </Section>
 
         <Section

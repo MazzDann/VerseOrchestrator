@@ -21,6 +21,42 @@ export const afterZeroOf = (c: object | null | undefined): AfterZero => {
   return isAfterZero(v) ? v : 'hide';
 };
 
+/**
+ * The time's colours (1.8.2, the user's «Кольори й попередження»): a warning colour from
+ * `warnBefore` ms before the end, another at zero and past it. Missing, 0 or '' — the slide's
+ * text colour, as before.
+ */
+export interface TimerColors {
+  warnBefore?: number;
+  warnColor?: string;
+  overColor?: string;
+}
+
+/** The warnings offered, in minutes before the end (0 — none). */
+export const WARN_MINUTES = [0, 1, 2, 3, 5, 10] as const;
+
+/** The colour of the time `left` ms before the end (0 or less: at zero or past it). */
+export function timerColor(c: TimerColors | null | undefined, left: number): string | undefined {
+  if (!c) return undefined;
+  if (left <= 0) return c.overColor || undefined;
+  const warn = Number(c.warnBefore);
+  return warn > 0 && c.warnColor && left <= warn ? c.warnColor : undefined;
+}
+
+/** The colours a new countdown takes from the settings (Налаштування вигляду → Відлік). */
+export function timerColors(a: {
+  countdownWarnMinutes: number;
+  countdownWarnColor: string;
+  countdownOverOn: boolean;
+  countdownOverColor: string;
+}): Required<TimerColors> {
+  return {
+    warnBefore: Math.max(0, a.countdownWarnMinutes) * 60000,
+    warnColor: a.countdownWarnColor,
+    overColor: a.countdownOverOn ? a.countdownOverColor : '',
+  };
+}
+
 /** Minutes offered as one click; any other length is typed (1.8.1), or «до» a time of day. */
 export const COUNTDOWN_MINUTES = [1, 3, 5, 10, 15, 30] as const;
 

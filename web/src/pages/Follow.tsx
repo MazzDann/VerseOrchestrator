@@ -11,7 +11,7 @@ import {
   type ReaderPrefs,
 } from '../lib/readerPrefs';
 import { tr, useLang } from '../i18n';
-import { formatTimer, hubOffset, useCountdown } from '../lib/countdown';
+import { formatTimer, hubOffset, timerColor, useCountdown } from '../lib/countdown';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -246,6 +246,8 @@ export function Follow() {
                 fontSize: 'clamp(48px, 18vw, 120px)',
                 fontWeight: 600,
                 fontVariantNumeric: 'tabular-nums',
+                // the screen's warning and past-zero colours (1.8.2)
+                color: timerColor(slide.countdown, left),
               }}
             >
               {formatTimer(left)}
