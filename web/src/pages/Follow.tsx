@@ -11,7 +11,7 @@ import {
   type ReaderPrefs,
 } from '../lib/readerPrefs';
 import { tr, useLang } from '../i18n';
-import { formatRemaining, useRemaining } from '../lib/countdown';
+import { formatRemaining, hubOffset, useRemaining } from '../lib/countdown';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -42,9 +42,14 @@ export function Follow() {
       return next;
     });
 
+  // how far the computer's clock is ahead of this phone's (1.7.3): «Відлік» counts by it
+  const [offset, setOffset] = useState(0);
+
   useEffect(() => {
     let alive = true;
     let socketUp = false;
+    // the hub's time: asked on every connect and every few minutes (clocks drift)
+    const askClock = () => conn.send({ type: 'clock', t: Date.now() });
     const apply = (v: number, next: unknown, isPaused?: boolean) => {
       if (v === version.current) return;
       version.current = v;
@@ -55,7 +60,7 @@ export function Follow() {
       setFailedPicture(null);
     };
     // Primary: pushed frames over the live WebSocket (instant).
-    const { stop } = connectLive({
+    const conn = connectLive({
       onFrame: (f) => {
         if (!alive) return;
         setConnected(true);
@@ -67,17 +72,24 @@ export function Follow() {
           setOff(true);
           setConnected(false);
         }
+        if (alive && f.type === 'clock' && typeof f.t === 'number' && typeof f.now === 'number')
+          setOffset(hubOffset(f.t, f.now, Date.now()));
       },
       onStatus: (open) => {
         socketUp = open;
+        if (open) askClock();
       },
     });
+    const { stop } = conn;
+    const clockId = window.setInterval(() => socketUp && askClock(), 5 * 60_000);
     // Fallback: poll only while the socket is down (proxy/firewall without WS support).
     const poll = async () => {
       if (socketUp) return;
       try {
+        const sent = Date.now();
         const r = await api.live();
         if (!alive) return;
+        if (r.now !== undefined) setOffset(hubOffset(sent, r.now, Date.now()));
         setConnected(true);
         setOff(false);
         apply(r.version, r.slide, r.paused);
@@ -91,14 +103,17 @@ export function Follow() {
       alive = false;
       stop();
       window.clearInterval(id);
+      window.clearInterval(clockId);
     };
   }, []);
 
   const showText =
     slide && slide.visible && !slide.blank && !slide.forceBlack && slide.lines.length > 0;
-  // «Відлік» (1.5.0): the phones count to the same end as the screen (by their own clock)
+  // «Відлік» (1.5.0): the phones count to the same end as the screen — by the computer's clock
+  // (1.7.3): the end, set by that clock, moved onto this phone's
   const onScreen = !!slide && slide.visible && !slide.blank && !slide.forceBlack;
-  const left = useRemaining(onScreen ? slide?.countdown?.until : null);
+  const until = onScreen ? slide?.countdown?.until : undefined;
+  const left = useRemaining(until == null ? null : Math.round(until - offset));
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
   const text = readerTextStyle(reader, font);
 

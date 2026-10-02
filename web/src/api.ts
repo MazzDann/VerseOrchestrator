@@ -571,7 +571,13 @@ export const api = {
   live: () =>
     getJson(
       '/api/live',
-      z.object({ version: z.number(), slide: z.any().nullable(), paused: z.boolean().optional() }),
+      z.object({
+        version: z.number(),
+        slide: z.any().nullable(),
+        paused: z.boolean().optional(),
+        // the hub's clock (1.7.3)
+        now: z.number().optional(),
+      }),
     ),
   /** Follow-along switched off: phones show «paused» instead of the last slide. */
   livePause: async (): Promise<void> => {

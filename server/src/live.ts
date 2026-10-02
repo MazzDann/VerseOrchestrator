@@ -34,6 +34,10 @@ import { handovers } from './handover.js';
  * the output changes; the hub relays it to remotes only (never to audience viewers), and
  * sends control sockets { type: 'viewers', count } whenever the audience count changes.
  *
+ * Any socket may ask the hub's time (1.7.3): { type: 'clock', t } with its own clock — the hub
+ * answers { type: 'clock', t, now } (once a second at most), so phones count «Відлік» by the
+ * computer's clock, not their own.
+ *
  * Server → client frames: app · slide · welcome · denied · ack · revoked · remotes (control
  * only: "the remote list/online state changed, refetch"). `app` comes first on every socket:
  * { type: 'app', version, build? } — a page of another version (the app was updated under it), or
@@ -49,6 +53,8 @@ interface Meta {
   browser?: ControlBrowser;
   /** Command timestamps in the last second, for rate limiting. */
   recent: number[];
+  /** When this socket last asked the hub's time (1.7.3). */
+  lastClock?: number;
 }
 
 /**
@@ -481,7 +487,14 @@ export function attachLiveHub(server: Server, appVersion?: string, appBuild?: st
         return;
       }
       if (msg?.type === 'hello') onHello(ws, m, req, msg);
-      else if (msg?.type === 'command') onCommand(ws, m, msg);
+      else if (msg?.type === 'clock' && typeof msg.t === 'number') {
+        // the computer's time, for a phone's countdown (1.7.3) — once a second at most
+        const now = Date.now();
+        if (m.lastClock === undefined || now - m.lastClock >= 1000) {
+          m.lastClock = now;
+          send(ws, { type: 'clock', t: msg.t, now });
+        }
+      } else if (msg?.type === 'command') onCommand(ws, m, msg);
       else if (msg?.type === 'result' && m.role === 'control') onResult(msg);
       else if (msg?.type === 'take-control' && m.role === 'control') setActiveControl(ws);
       // what drives remotes and phones comes from the control window in charge only
