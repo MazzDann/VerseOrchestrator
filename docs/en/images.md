@@ -22,7 +22,9 @@ Thumbnails appear in the panel, newest first. The app keeps each image in the
 `data/images/` folder as two copies: one for the screen, at most 3840 pixels on its longer
 side, and a small one, up to 1280 pixels, for the viewers' phones and the thumbnails. A
 smaller file stays as it was. An animated GIF of up to 40 MB stays as it is too and moves on
-screen; a larger one becomes its first frame, still. Save an iPhone's HEIC photo as JPEG
+screen; a larger one becomes its first frame, still. For the phones, Chrome and Edge turn a
+GIF bigger than the small copy into a smaller moving one (up to 720 pixels and 4 MB); from
+other browsers, the phones get its first frame, still. Save an iPhone's HEIC photo as JPEG
 first: browsers can't open such photos, and the app says so.
 
 ## Show an image
