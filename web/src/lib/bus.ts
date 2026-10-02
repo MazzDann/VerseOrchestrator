@@ -92,6 +92,9 @@ function slideAt(x: unknown, depth: number): x is Slide {
     // «Відлік» (1.5.0): an end in ms — anything else would show NaN:NaN
     obj(s.countdown) &&
     (!s.countdown || Number.isFinite((s.countdown as { until: unknown }).until)) &&
+    // a speaker's timer (1.8.4): the same
+    obj(s.stageTimer) &&
+    (!s.stageTimer || Number.isFinite((s.stageTimer as { until: unknown }).until)) &&
     // a picture (1.5.0): addresses, not images
     obj(s.picture) &&
     (!s.picture || typeof (s.picture as { src: unknown }).src === 'string') &&
