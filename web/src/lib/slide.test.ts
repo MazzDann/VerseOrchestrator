@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  countdownOver,
   coverOver,
   forAudience,
+  pictureSlide,
   inPhoneWords,
   qrOver,
   sameSlide,
@@ -133,6 +135,101 @@ describe('«Заставка» (1.4.0)', () => {
       sameSlide(cover, { ...cover, cover: { text: 'Недільне зібрання', image: 'data:x' } }),
     ).toBe(false);
     expect(sameSlide(cover, { ...cover, cover: { ...cover.cover! } })).toBe(true);
+  });
+});
+
+describe('«Відлік» (1.5.0)', () => {
+  const verse: Slide = { ...base, style: DEFAULT_STYLE };
+  const logo = { text: 'Недільне зібрання', image: 'data:image/png;base64,AAAA' };
+  const at = { until: 1_790_000_000_000, caption: 'Починаємо за' };
+
+  it('is «Заставка» with the time under it, and gives back what it covers', () => {
+    const c = countdownOver(verse, logo, at, DEFAULT_STYLE, 'Відлік');
+    expect(c).toMatchObject({ cover: logo, countdown: at, visible: true, lines: [] });
+    expect(showsSomething(c)).toBe(true);
+    expect(uncover(c)).toBe(verse);
+    expect(summarize(c)).toMatchObject({ status: 'live', text: 'Відлік', kind: 'countdown' });
+  });
+
+  it('over a cover or another countdown covers what those cover: one L brings the text back', () => {
+    const cover = coverOver(verse, logo, DEFAULT_STYLE, 'Заставка');
+    const first = countdownOver(cover, logo, at, DEFAULT_STYLE, 'Відлік');
+    expect(first.returnTo).toBe(verse);
+    const again = countdownOver(
+      first,
+      logo,
+      { ...at, until: at.until + 60000 },
+      DEFAULT_STYLE,
+      'Відлік',
+    );
+    expect(again.returnTo).toBe(verse);
+  });
+
+  it('reaches the phones without the logo, the time kept', () => {
+    const c = countdownOver(verse, logo, at, DEFAULT_STYLE, 'Відлік');
+    const phone = forAudience(c);
+    expect(phone.cover).toBeUndefined();
+    expect(phone.returnTo).toBeUndefined();
+    expect(phone.countdown).toEqual(at);
+  });
+
+  it('a new end or other words is a new slide; the same countdown is not', () => {
+    const c = countdownOver(verse, logo, at, DEFAULT_STYLE, 'Відлік');
+    expect(sameSlide(c, { ...c, countdown: { ...at } })).toBe(true);
+    expect(sameSlide(c, { ...c, countdown: { ...at, until: at.until + 60000 } })).toBe(false);
+    expect(sameSlide(c, { ...c, countdown: null })).toBe(false);
+  });
+
+  it('a phone in English names it in English', () => {
+    const sent = JSON.parse(
+      JSON.stringify(summarize(countdownOver(verse, logo, at, DEFAULT_STYLE, 'Відлік'))),
+    ) as ReturnType<typeof summarize>;
+    useSettings.setState({ language: 'en' });
+    try {
+      expect(inPhoneWords(sent)).toMatchObject({ reference: 'Countdown', text: 'Countdown' });
+    } finally {
+      useSettings.setState({ language: 'uk' });
+    }
+  });
+});
+
+describe('«Зображення» (1.5.0)', () => {
+  const picture = {
+    src: '/api/images/file/a.png',
+    small: '/api/images/file/a.small.jpg',
+    name: 'Оголошення',
+    fit: 'contain' as const,
+  };
+
+  it('is something on screen, named by its file, for a remote in any language', () => {
+    const p = pictureSlide(picture, DEFAULT_STYLE);
+    expect(p).toMatchObject({ lines: [], reference: 'Оголошення', visible: true, picture });
+    expect(showsSomething(p)).toBe(true);
+    expect(showsSomething(toggleHidden(p)!)).toBe(false);
+    const sent = summarize(p);
+    expect(sent).toMatchObject({ status: 'live', text: 'Оголошення', kind: 'picture' });
+    useSettings.setState({ language: 'en' });
+    try {
+      expect(inPhoneWords(sent)).toBe(sent); // the operator's file name, not the app's words
+    } finally {
+      useSettings.setState({ language: 'uk' });
+    }
+  });
+
+  it('reaches the phones by address; another picture or fit is a new slide', () => {
+    const p = pictureSlide(picture, DEFAULT_STYLE);
+    expect(forAudience(p).picture).toEqual(picture);
+    expect(sameSlide(p, pictureSlide({ ...picture }, DEFAULT_STYLE))).toBe(true);
+    expect(sameSlide(p, pictureSlide({ ...picture, fit: 'cover' }, DEFAULT_STYLE))).toBe(false);
+    expect(
+      sameSlide(p, pictureSlide({ ...picture, src: '/api/images/file/b.png' }, DEFAULT_STYLE)),
+    ).toBe(false);
+  });
+
+  it('a cover over a picture gives the picture back', () => {
+    const p = pictureSlide(picture, DEFAULT_STYLE);
+    const c = coverOver(p, { text: 'x', image: null }, DEFAULT_STYLE, 'Заставка');
+    expect(uncover(c)).toBe(p);
   });
 });
 

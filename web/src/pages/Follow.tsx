@@ -11,6 +11,7 @@ import {
   type ReaderPrefs,
 } from '../lib/readerPrefs';
 import { tr, useLang } from '../i18n';
+import { formatRemaining, useRemaining } from '../lib/countdown';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -29,6 +30,11 @@ export function Follow() {
   // how THIS phone likes to read (0.6.17): kept in its own browser, nothing is sent
   const [reader, setReader] = useState<ReaderPrefs>(loadReader);
   const [readerOpen, setReaderOpen] = useState(false);
+  // a picture whose file didn't load (deleted, or a backup's restore moving it): the dots, never
+  // a broken-image sign — as on the output windows (SlideCanvas PictureContent); cleared by the
+  // next slide
+  const [failedPicture, setFailedPicture] = useState<string | null>(null);
+  const pictureSrc = slide?.picture ? slide.picture.small || slide.picture.src : '';
   const setPrefs = (patch: Partial<ReaderPrefs>) =>
     setReader((cur) => {
       const next = { ...cur, ...patch };
@@ -44,6 +50,9 @@ export function Follow() {
       version.current = v;
       setSlide((next as Slide | null) ?? null);
       setPaused(isPaused === true);
+      // each new slide tries its picture again: a file that failed once (the Wi-Fi, a restore
+      // moving it) may be there now — as the output windows do
+      setFailedPicture(null);
     };
     // Primary: pushed frames over the live WebSocket (instant).
     const { stop } = connectLive({
@@ -87,6 +96,9 @@ export function Follow() {
 
   const showText =
     slide && slide.visible && !slide.blank && !slide.forceBlack && slide.lines.length > 0;
+  // «Відлік» (1.5.0): the phones count to the same end as the screen (by their own clock)
+  const onScreen = !!slide && slide.visible && !slide.blank && !slide.forceBlack;
+  const left = useRemaining(onScreen ? slide?.countdown?.until : null);
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
   const text = readerTextStyle(reader, font);
 
@@ -205,6 +217,36 @@ export function Follow() {
               </p>
             )}
           </>
+        ) : left > 0 && slide?.countdown ? (
+          <div style={{ fontFamily: 'Inter, system-ui, sans-serif', lineHeight: 1.15 }}>
+            {slide.countdown.caption && (
+              <p style={{ margin: 0, opacity: 0.75, fontSize: 'clamp(18px, 5.5vw, 28px)' }}>
+                {slide.countdown.caption}
+              </p>
+            )}
+            <p
+              style={{
+                margin: 0,
+                fontSize: 'clamp(48px, 18vw, 120px)',
+                fontWeight: 600,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {formatRemaining(left)}
+            </p>
+          </div>
+        ) : slide?.picture &&
+          pictureSrc !== failedPicture &&
+          slide.visible &&
+          !slide.blank &&
+          !slide.forceBlack ? (
+          // a picture (1.5.0): its small copy — a phone needs no 4K file over the Wi-Fi
+          <img
+            src={pictureSrc}
+            alt={slide.picture.name}
+            onError={() => setFailedPicture(pictureSrc)}
+            style={{ display: 'block', maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain' }}
+          />
         ) : paused ? (
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', maxWidth: 420 }}>
             <p style={{ margin: 0, fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 600 }}>
