@@ -1,5 +1,6 @@
 import { N_ } from '@vo/shared';
 import { createBus, type BusChannel, type BusStorage, type Wire } from './lib/bus';
+import type { AfterZero } from './lib/countdown';
 import { reportSlideError } from './lib/slideErrors';
 import { tr } from './i18n';
 import { useSettings } from './settingsStore';
@@ -183,11 +184,14 @@ export interface SlideCover {
 /**
  * A countdown on screen (1.5.0, lib/countdown.ts): when it ends (ms since the epoch — every
  * window counts to the same moment, whenever it joins) and the words over the time. Past its
- * end the time and the words go; «Заставка» stays.
+ * end it does what `afterZero` says (1.8.0): counts on, holds 0:00, or the time and the words go
+ * and «Заставка» stays.
  */
 export interface SlideCountdown {
   until: number;
   caption: string;
+  /** what the time does at zero (1.8.0, lib/countdown.ts); none: it goes, as before */
+  afterZero?: AfterZero;
 }
 
 /**

@@ -1,14 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActionIcon, Button, Group, Popover, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import {
+  ActionIcon,
+  Button,
+  Group,
+  Popover,
+  SegmentedControl,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core';
 import { IconHourglassHigh } from '@tabler/icons-react';
 import { type SlideCountdown } from '../presenterBus';
 import { useSettings } from '../settingsStore';
 import {
+  afterZeroOf,
   COUNTDOWN_MINUTES,
   formatRemaining,
+  formatTimer,
+  isAfterZero,
   untilAt,
   untilIn,
   useRemaining,
+  type AfterZero,
 } from '../lib/countdown';
 import { tr, useLang } from '../i18n';
 
@@ -17,13 +31,16 @@ import { tr, useLang } from '../i18n';
  * text before a show. Off screen it offers minutes (or «до» a time of day) and the words over
  * the time; on screen — the time left, ±1 minute, and two ways off: back to what it covered,
  * or «Заставка» without the time. The keys typed here stay here: Esc closes this, it never
- * clears the screen, and L / B / digits don't reach the page's hotkeys.
+ * clears the screen, and L / B / digits don't reach the page's hotkeys. «Після нуля» (1.8.0):
+ * the time counts on past zero as −0:01 …, stays at 0:00, or goes — for the next countdown and
+ * the one on screen.
  */
 export function CountdownTool({
   running,
   disabled,
   onStart,
   onShift,
+  onAfterZero,
   onKeepCover,
   onRemove,
   onOpenChange,
@@ -33,6 +50,8 @@ export function CountdownTool({
   disabled: boolean;
   onStart: (countdown: SlideCountdown) => void;
   onShift: (minutes: number) => void;
+  /** «Після нуля» changed while a countdown is on screen: it takes it too */
+  onAfterZero: (afterZero: AfterZero) => void;
   onKeepCover: () => void;
   onRemove: () => void;
   /**
@@ -45,8 +64,14 @@ export function CountdownTool({
   const [opened, setOpened] = useState(false);
   const saved = useSettings((s) => s.appearance);
   const setAppearance = useSettings((s) => s.setAppearance);
-  const left = useRemaining(running?.until);
-  const counting = !!running && left > 0;
+  // the one on screen goes by its own «Після нуля»; the next one by the setting
+  const runningAfterZero = afterZeroOf(running);
+  const afterZero: AfterZero = isAfterZero(saved.countdownAfterZero)
+    ? saved.countdownAfterZero
+    : 'overtime';
+  const left = useRemaining(running?.until, runningAfterZero === 'overtime');
+  // on screen with its time: before zero, and after it unless the time goes there
+  const counting = !!running && (left > 0 || runningAfterZero !== 'hide');
   const [mode, setMode] = useState<'in' | 'at'>('in');
   const [minutes, setMinutes] = useState(() =>
     Math.min(720, Math.max(1, Math.round(saved.countdownMinutes || 5))),
@@ -89,13 +114,41 @@ export function CountdownTool({
     const until = mode === 'in' ? untilIn(minutes, Date.now()) : untilAt(at, Date.now());
     if (until == null) return;
     if (mode === 'in') setAppearance({ countdownMinutes: minutes });
-    onStart({ until, caption });
+    onStart({ until, caption, afterZero });
     setOpened(false);
   };
+  const setAfterZero = (v: string) => {
+    if (!isAfterZero(v)) return;
+    setAppearance({ countdownAfterZero: v });
+    // the one on screen takes it only while its time shows: a finished «Прибрати час» one
+    // stays finished (the start form's switch is for the next countdown)
+    if (running && counting) onAfterZero(v);
+  };
+  // «Після нуля»: three short choices that fit the popover, the same in both views
+  const afterZeroControl = (
+    <div>
+      <Text size="xs" fw={500} mb={4}>
+        {tr('Після нуля')}
+      </Text>
+      <SegmentedControl
+        size="xs"
+        fullWidth
+        value={running && counting ? runningAfterZero : afterZero}
+        onChange={setAfterZero}
+        disabled={disabled}
+        aria-label={tr('Після нуля')}
+        data={[
+          { value: 'overtime', label: tr('У мінус') },
+          { value: 'stop', label: tr('Стоп на 0:00') },
+          { value: 'hide', label: tr('Прибрати час') },
+        ]}
+      />
+    </div>
+  );
 
   // the tooltip says the time left; the button's accessible name stays put — a name that
   // changed every second had a screen reader read the clock aloud (review of #45)
-  const label = counting ? tr('Відлік: {time}', { time: formatRemaining(left) }) : tr('Відлік');
+  const label = counting ? tr('Відлік: {time}', { time: formatTimer(left) }) : tr('Відлік');
   return (
     <Popover
       opened={opened}
@@ -156,11 +209,21 @@ export function CountdownTool({
                 {tr('Відлік на екрані')}
               </Text>
               <Text size="xl" fw={600} style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {formatRemaining(left)}
+                {formatTimer(left)}
               </Text>
             </Group>
+            {left <= 0 && runningAfterZero === 'overtime' && (
+              <Text size="xs" c="dimmed">
+                {tr('Час вийшов: іде перевищення.')}
+              </Text>
+            )}
             <Group gap="xs" grow>
-              <Button size="xs" variant="default" disabled={disabled} onClick={() => onShift(-1)}>
+              <Button
+                size="xs"
+                variant="default"
+                disabled={disabled || (left <= 0 && runningAfterZero !== 'overtime')}
+                onClick={() => onShift(-1)}
+              >
                 {tr('−1 хв')}
               </Button>
               <Button size="xs" variant="default" disabled={disabled} onClick={() => onShift(1)}>
@@ -173,6 +236,7 @@ export function CountdownTool({
             <Button size="xs" variant="default" fullWidth disabled={disabled} onClick={onKeepCover}>
               {tr('Лишити заставку без часу')}
             </Button>
+            {afterZeroControl}
           </Stack>
         ) : (
           <Stack gap="xs">
@@ -235,6 +299,7 @@ export function CountdownTool({
                 if (e.key === 'Enter' && startable) start();
               }}
             />
+            {afterZeroControl}
             <Button
               size="xs"
               color="live"
