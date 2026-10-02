@@ -577,6 +577,8 @@ export const EN: Record<string, string> = {
   'Початок книги. Натисніть «Назад» ще раз — {place}':
     'Start of the book. Press “Back” again — {place}',
   'Це перший вірш перекладу': 'This is the translation’s first verse',
+  'Це фото HEIC (так знімає iPhone), і браузер його не відкриває: збережіть його як JPEG і додайте ще раз':
+    'This is a HEIC photo (iPhones take them), and the browser can’t open it: save it as JPEG and add it again',
   'Не вдалося прочитати зображення': "Couldn't read the image",
   'сервер недоступний. Перевірте вікно, де запущено застосунок (start.cmd, start.sh або npm run dev)':
     "the server can't be reached. Check the window where the app runs (start.cmd, start.sh, or npm run dev)",
