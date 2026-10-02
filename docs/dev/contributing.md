@@ -86,8 +86,13 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
   which starts the launcher again in the background (`--after PID`: it waits for the old
   waiter to end, then does what the start file does) and reloads the page. Without git (or, on a Mac, with
   only the `/usr/bin/git` stub and no developer tools) or without a release tag, the label is
-  `dev X.Y.Z` from `package.json`. Git is only read: `describe` and `status` write nothing to
-  `.git`. Releases and portable copies show the plain version and never call git. Whatever
+  `dev X.Y.Z` from `package.json`. The label only reads git: `describe` and `status` write nothing to `.git`. A dev copy
+  started by the start file does more since 1.6.1 (`server/src/gitSync.ts`): with
+  `updates.check` on it fetches its upstream (`git fetch --quiet`) 15 s after the start and
+  then every 12 h, and on **Перевірити зараз**; on **Отримати оновлення** (`POST
+  /api/update/pull`) it fast-forwards (`git merge --ff-only @{upstream}`) — never on a dirty
+  tree, a detached HEAD, a branch with no upstream, a merge or rebase under way, or a diverged
+  branch. Releases and portable copies show the plain version and never call git. Whatever
   compares versions — the update check, the UI stamp, the update swap — uses `version`, never
   the label.
 - **Commit messages.** The subject is `Theme: summary`, for example
