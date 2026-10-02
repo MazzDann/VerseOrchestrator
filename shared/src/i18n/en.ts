@@ -351,6 +351,16 @@ export const EN: Record<string, string> = {
   'Додати…': 'Add…',
   'Додаю {n} з {of}…': 'Adding {n} of {of}…',
   'Не вдалося додати:': "Couldn't add:",
+  'Видалити «{name}»?': 'Delete “{name}”?',
+  'Воно зараз на екрані: застосунок прибере його з екрана.':
+    'It is on screen now: the app takes it off the screen.',
+  'Воно є в послідовності показу: {n} пункт.|Воно є в послідовності показу: {n} пункти.|Воно є в послідовності показу: {n} пунктів.':
+    'It is in the running order: {n} item.|It is in the running order: {n} items.',
+  'Воно є в програмах: {names}.': 'It is in the programs: {names}.',
+  'Ці пункти лишаться з позначкою «Зображення видалено».':
+    'Those items stay, marked “Image deleted”.',
+  'Зображення видалено: {name}': 'Image deleted: {name}',
+  Видалити: 'Delete',
   'Додано {n} зображення|Додано {n} зображення|Додано {n} зображень':
     'Added {n} image|Added {n} images',
   'Зображень ще немає. Натисніть «Додати…» і виберіть файли PNG, JPEG, WebP чи GIF.':
@@ -567,6 +577,8 @@ export const EN: Record<string, string> = {
   'Початок книги. Натисніть «Назад» ще раз — {place}':
     'Start of the book. Press “Back” again — {place}',
   'Це перший вірш перекладу': 'This is the translation’s first verse',
+  'Це фото HEIC (так знімає iPhone), і браузер його не відкриває: збережіть його як JPEG і додайте ще раз':
+    'This is a HEIC photo (iPhones take them), and the browser can’t open it: save it as JPEG and add it again',
   'Не вдалося прочитати зображення': "Couldn't read the image",
   'сервер недоступний. Перевірте вікно, де запущено застосунок (start.cmd, start.sh або npm run dev)':
     "the server can't be reached. Check the window where the app runs (start.cmd, start.sh, or npm run dev)",

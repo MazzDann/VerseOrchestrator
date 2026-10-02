@@ -23,7 +23,7 @@ Thumbnails appear in the panel, newest first. The app keeps each image in the
 side, and a small one, up to 1280 pixels, for the viewers' phones and the thumbnails. A
 smaller file stays as it was. An animated GIF of up to 40 MB stays as it is too and moves on
 screen; a larger one becomes its first frame, still. Save an iPhone's HEIC photo as JPEG
-first.
+first: browsers can't open such photos, and the app says so.
 
 ## Show an image
 
@@ -35,8 +35,8 @@ The switch at the top of the panel says how an image takes the slide:
 - **Fit** — the whole image shows, and the empty bands at its sides are black.
 - **Fill** — the image takes the whole slide, and the edges that don't fit are cut off.
 
-The switch applies to the image you show or add to the running order after it. The viewers'
-phones show the small copy of the image.
+The switch applies at once to the image on screen, and to the one you show or add to the
+running order after it. The viewers' phones show the small copy of the image.
 
 To take an image off the screen, use the same actions as for text: see
 [Take the text off the screen](show-text.md#take-the-text-off-the-screen).
@@ -53,5 +53,9 @@ To delete an image, point at its thumbnail and click the trash icon **Delete the
 its place, “Deleted: …” appears with a **Cancel** button that brings the image back. You can
 cancel until you delete another image or close the panel.
 
+If the image is on screen, in the running order, or in a saved program, the app asks first and
+says where. Click **Delete** to delete it anyway, or **Cancel** to keep it. An image on screen
+leaves the screen with it.
+
 The last twenty deleted images stay in the `data/images/.trash/` folder. A running-order item
-whose image was deleted shows a black slide.
+whose image was deleted is marked “Image deleted: …” and shows a black slide.
