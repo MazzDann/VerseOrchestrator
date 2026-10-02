@@ -1,5 +1,33 @@
 import { tr } from '../i18n';
 
+/** HEIF's brands — an iPhone's photos are `heic` — and AVIF's, which browsers do read. */
+const HEIF_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs']);
+const AVIF_BRANDS = new Set(['avif', 'avis']);
+
+/**
+ * An HEIC/HEIF photo by its first bytes (1.7.0): an `ftyp` box whose brands — the major one and
+ * the compatible ones — are HEIF's (`mif1` alone is either; AVIF's make it AVIF).
+ */
+export function isHeic(b: Uint8Array): boolean {
+  const text = (at: number) => String.fromCharCode(...b.subarray(at, at + 4));
+  if (b.length < 12 || text(4) !== 'ftyp') return false;
+  const size = Math.min(b.length, ((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]) >>> 0);
+  const brands = [text(8)];
+  for (let at = 16; at + 4 <= size; at += 4) brands.push(text(at));
+  if (brands.some((x) => AVIF_BRANDS.has(x))) return false;
+  return brands.some((x) => HEIF_BRANDS.has(x)) || ['mif1', 'msf1'].includes(brands[0]);
+}
+
+/** A file the browser couldn't decode: is it an iPhone's HEIC photo (its type, name or bytes)? */
+async function heicFile(file: File): Promise<boolean> {
+  if (/^image\/hei[cf]/.test(file.type) || /\.(heic|heif|hif)$/i.test(file.name)) return true;
+  try {
+    return isHeic(new Uint8Array(await file.slice(0, 64).arrayBuffer()));
+  } catch {
+    return false;
+  }
+}
+
 /** Read an image file: its data URL and the decoded image (rejects when the browser can't). */
 async function readImage(file: File): Promise<{ dataUrl: string; img: HTMLImageElement }> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -8,11 +36,23 @@ async function readImage(file: File): Promise<{ dataUrl: string; img: HTMLImageE
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
-  // Chrome decodes no HEIC (an iPhone photo); a renamed or broken file fails the same way
+  // Chrome decodes no HEIC (an iPhone photo): that one is said in words (1.7.0); a renamed or
+  // broken file fails as before
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error(tr('Не вдалося прочитати зображення')));
+    el.onerror = () =>
+      void heicFile(file).then((heic) =>
+        reject(
+          new Error(
+            heic
+              ? tr(
+                  'Це фото HEIC (так знімає iPhone), і браузер його не відкриває: збережіть його як JPEG і додайте ще раз',
+                )
+              : tr('Не вдалося прочитати зображення'),
+          ),
+        ),
+      );
     el.src = dataUrl;
   });
   return { dataUrl, img };
