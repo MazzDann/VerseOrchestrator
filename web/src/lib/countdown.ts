@@ -8,6 +8,19 @@ import { useEffect, useState } from 'react';
  * its network time allows.
  */
 
+/**
+ * What the time does at zero (1.8.0, «Після нуля»): counts on past it as −0:01, −0:02 … (the
+ * user's ask), stays at 0:00, or goes — and «Заставка» stays, as in 1.5.0–1.7.x.
+ */
+export type AfterZero = 'overtime' | 'stop' | 'hide';
+export const AFTER_ZERO: readonly AfterZero[] = ['overtime', 'stop', 'hide'];
+export const isAfterZero = (v: unknown): v is AfterZero => AFTER_ZERO.includes(v as AfterZero);
+/** A countdown from before 1.8.0 says nothing: its time went at zero. */
+export const afterZeroOf = (c: object | null | undefined): AfterZero => {
+  const v = (c as { afterZero?: unknown } | null | undefined)?.afterZero;
+  return isAfterZero(v) ? v : 'hide';
+};
+
 /** Minutes offered as one click; anything else goes through «до» a time of day. */
 export const COUNTDOWN_MINUTES = [1, 3, 5, 10, 15, 30] as const;
 
@@ -26,12 +39,27 @@ export function remainingMs(until: number, now: number): number {
  * «5:00» right after the start and «0:01» in its last second — never «0:00» while it runs.
  */
 export function formatRemaining(ms: number): string {
-  const total = Math.ceil(Math.max(0, ms) / 1000);
+  return clock(Math.ceil(Math.max(0, ms) / 1000));
+}
+
+/** Whole seconds as a clock shows them: «4:59», «12:00», «1:05:09». */
+function clock(total: number): string {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
   const ss = String(s).padStart(2, '0');
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+
+/**
+ * The time of a countdown that may run past its end (1.8.0): before it, as `formatRemaining`;
+ * then a whole second of «0:00»; then the time past it, «−0:01», «−1:05» (a real minus sign).
+ * `left` is signed: ms to the end, negative past it.
+ */
+export function formatTimer(left: number): string {
+  if (left > 0) return formatRemaining(left);
+  const past = Math.floor(-left / 1000);
+  return past === 0 ? '0:00' : `−${clock(past)}`;
 }
 
 /** The end of a countdown of `minutes` from `now` (whole minutes, 1 to 12 h). */
@@ -66,8 +94,11 @@ export function untilAt(hhmm: string, now: number): number | null {
  * the cap never pulls an end below where it already is (a later time today can be over 24 h
  * away on the 25-hour day the clocks go back; review of #45).
  */
-export function shiftUntil(until: number, minutes: number, now: number): number {
-  return Math.min(Math.max(now + DAY_MS, until), Math.max(now, until + minutes * 60000));
+export function shiftUntil(until: number, minutes: number, now: number, past = false): number {
+  const shifted = until + minutes * 60000;
+  // counting past zero (1.8.0), the end may stay behind now: «+1 хв» takes a minute off the
+  // time past it, «−1 хв» adds one
+  return Math.min(Math.max(now + DAY_MS, until), past ? shifted : Math.max(now, shifted));
 }
 
 /**
@@ -82,28 +113,30 @@ export function hubOffset(sent: number, hubNow: number, received: number): numbe
 
 /**
  * The time left until `until`, re-read four times a second while it runs; it stops ticking
- * once the countdown has ended (0), and with no countdown (null) it costs nothing.
+ * once the countdown has ended (0), and with no countdown (null) it costs nothing. With `past`
+ * (1.8.0) it keeps ticking past the end and the time is signed: negative past it.
  */
-export function useRemaining(until: number | null | undefined): number {
+export function useRemaining(until: number | null | undefined, past = false): number {
   // the reading is kept with the end it was taken for: a new end is read afresh at once, not
   // shown for a frame against the old reading (a restarted countdown flashed a wrong time)
-  const [tick, setTick] = useState(() => ({ until, now: Date.now() }));
+  const [tick, setTick] = useState(() => ({ until, past, now: Date.now() }));
   useEffect(() => {
     if (until == null) {
       // no countdown (hidden, black): the reading is dropped, so the same end coming back is
       // read afresh — not shown for a frame against the time it went away (review of #45)
-      setTick((t) => (t.until == null ? t : { until: null, now: 0 }));
+      setTick((t) => (t.until == null ? t : { until: null, past, now: 0 }));
       return;
     }
     const read = () => {
       const t = Date.now();
-      setTick({ until, now: t });
-      if (t >= until) window.clearInterval(id);
+      setTick({ until, past, now: t });
+      if (t >= until && !past) window.clearInterval(id);
     };
     const id = window.setInterval(read, 250);
     read();
     return () => window.clearInterval(id);
-  }, [until]);
+  }, [until, past]);
   if (until == null) return 0;
-  return remainingMs(until, tick.until === until ? tick.now : Date.now());
+  const now = tick.until === until && tick.past === past ? tick.now : Date.now();
+  return past ? until - now : remainingMs(until, now);
 }

@@ -676,6 +676,15 @@ export const EN: Record<string, string> = {
   '+1 хв': '+1 min',
   'Лишити заставку без часу': 'Keep the cover without the time',
   'Прибрати відлік': 'Remove the countdown',
+  'Після нуля': 'After zero',
+  'У мінус': 'Overtime',
+  'Стоп на 0:00': 'Stop at 0:00',
+  'Прибрати час': 'Hide time',
+  'Час вийшов: іде перевищення.': 'Time is up: counting overtime.',
+  'Відлік дійшов до нуля: далі йде перевищення.':
+    'The countdown reached zero: now counting overtime.',
+  'Відлік дійшов до 0:00: час лишається на екрані.':
+    'The countdown reached 0:00: the time stays on screen.',
   'Відлік скінчився: заставка лишається на екрані.':
     'The countdown has ended: the cover stays on screen.',
   Скільки: 'How long',
