@@ -1,6 +1,7 @@
 import { sanitizeLibrarySelection, type LibrarySelection } from '@vo/shared';
 import { DEFAULT_LAUNCH, sanitizeLaunch, type LaunchSettings } from './browsers.js';
 import { readJson, writeJson } from './jsonFile.js';
+import { parseVersion, type Pin } from './updates.js';
 
 /**
  * Server options — NOT secrets. Lives in `<data>/settings.json` (git-ignored), editable
@@ -21,8 +22,11 @@ export interface ServerSettings {
   library?: LibrarySelection;
   /** The standby waiter (standby.ts reads this key too): its address and idle stop. */
   standby: { port: number; idleMinutes: number };
-  /** «Перевіряти оновлення» (1.0.0): ask GitHub about new versions now and then. */
-  updates: { check: boolean };
+  /**
+   * «Перевіряти оновлення» (1.0.0): ask GitHub about new versions now and then. `pin` (1.6.3): an
+   * older version chosen over the newest release — «Оновлення» keeps quiet about it (updates.ts).
+   */
+  updates: { check: boolean; pin?: Pin };
   /**
    * «Відкривати вікно керування в…» (2026-10-01): the browser the start file and the shortcut
    * open the control window in, and whether as an app window (browsers.ts; the launcher reads it).
@@ -60,7 +64,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     remotes?: { persist?: unknown };
     library?: unknown;
     standby?: { port?: unknown; idleMinutes?: unknown };
-    updates?: { check?: unknown };
+    updates?: { check?: unknown; pin?: { version?: unknown; skip?: unknown } | null };
     launch?: unknown;
   };
   const idle = Number(r.standby?.idleMinutes);
@@ -87,6 +91,15 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     },
     launch: sanitizeLaunch(r.launch),
   };
+  // two versions or none (null clears it)
+  const pin = r.updates?.pin;
+  if (
+    typeof pin?.version === 'string' &&
+    typeof pin.skip === 'string' &&
+    parseVersion(pin.version) &&
+    parseVersion(pin.skip)
+  )
+    out.updates.pin = { version: pin.version, skip: pin.skip };
   const library = sanitizeLibrarySelection(r.library);
   if (library) out.library = library;
   return out;

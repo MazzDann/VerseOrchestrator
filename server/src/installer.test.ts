@@ -183,6 +183,14 @@ describe('installing an update (1.0.0)', () => {
       'ЯК ЗАПУСТИТИ.txt',
     ]);
     expect(fs.readdirSync(updates).sort()).toEqual([NEXT_RECORD, TOP_FILES_DIR]);
+    // the newest known when the download began, for the pin (1.6.3): none given here
+    expect(inst.chosenOver('1.0.1')).toBeNull();
+    fs.writeFileSync(
+      path.join(updates, NEXT_RECORD),
+      JSON.stringify({ version: '1.0.1', by: '1.0.0', newest: '1.0.3' }),
+    );
+    expect(inst.chosenOver('1.0.1')).toBe('1.0.3');
+    expect(inst.chosenOver('1.0.2')).toBeNull();
     // this version put it there: a restart of it offers it again, whether or not it is the newest
     // (1.6.2); the same folder after an update by hand (another version running) only if newest
     expect(inst.waiting(null)).toBe('1.0.1');
@@ -600,6 +608,14 @@ describe('going back, and what a swap leaves behind (1.4.1)', () => {
     expect(Math.abs(first!.at - began)).toBeLessThan(1000);
     expect(inst.lastSwap('1.4.0', now + 2000)!.at).toBe(first!.at);
     expect(inst.lastSwap('1.3.0', now)).toBeNull(); // the plan names another version
+    // the pin the swap decides comes with it (1.6.3): this version takes it on once it answers
+    const plan = JSON.parse(fs.readFileSync(path.join(dir, 'plan.json'), 'utf8'));
+    fs.writeFileSync(
+      path.join(dir, 'plan.json'),
+      JSON.stringify({ ...plan, pin: { version: '1.4.0', skip: '1.5.0' } }),
+    );
+    fs.utimesSync(path.join(dir, 'plan.json'), began / 1000, began / 1000);
+    expect(inst.lastSwap('1.4.0', now)?.pin).toEqual({ version: '1.4.0', skip: '1.5.0' });
     // the helper is still at work: nothing of its goes
     expect(inst.tidy(now)).toEqual([]);
     // a plan with no result for too long: the helper is gone (the computer went off halfway)
@@ -703,10 +719,13 @@ setTimeout(() => process.exit(0), 30_000);
       to: '1.3.1',
       pids: [],
       port: await freePort(),
+      pin: { version: '1.3.1', skip: '1.4.1' },
     });
     const plan = JSON.parse(fs.readFileSync(files.plan, 'utf8')) as SwapPlan;
     const result = await runSwap(plan, 20_000);
     expect(result).toMatchObject({ ok: true, from: '1.4.1', to: '1.3.1', kind: 'rollback' });
+    // the plan's pin goes on in the result (1.6.3): the version swapped in takes it on
+    expect(result.pin).toEqual({ version: '1.3.1', skip: '1.4.1' });
     expect(versionIn(top, 'app')).toBe('1.3.1');
     expect(versionIn(top, NEXT_DIR)).toBe('1.4.1');
     expect(fs.existsSync(path.join(top, PREVIOUS_DIR))).toBe(false);
