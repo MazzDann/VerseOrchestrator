@@ -244,6 +244,7 @@ function CountdownLines({ countdown, left }: { countdown: SlideCountdown; left: 
           fontWeight: 600,
           fontVariantNumeric: 'tabular-nums',
           letterSpacing: '0.02em',
+          whiteSpace: 'nowrap', // «125 хв» stays one line (review of 1.8.3)
           color: timerColor(countdown, left),
         }}
       >
