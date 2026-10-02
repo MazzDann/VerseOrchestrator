@@ -693,7 +693,9 @@ app.post(
 
 // ── Pictures on screen (1.5.0, images.ts): kept in data/images/, served by address ────────
 
-app.get('/api/images', (_req, res) => {
+// the list is the operator's (this machine): a phone gets a picture's address with the slide,
+// and the files' names are random ids — not a gallery for the hall to browse (review of #46)
+app.get('/api/images', requireLocal, (_req, res) => {
   res.json(listImages(imagesDir(dataDir)).map(imageEntry));
 });
 
@@ -712,8 +714,9 @@ app.get('/api/images/file/:file', (req, res) => {
   const ext = file.slice(file.lastIndexOf('.') + 1) as ImageExt;
   res.setHeader('Content-Type', CONTENT_TYPE[ext]);
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  // a picture's file never changes: a new picture gets a new id
-  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  // a picture's file never changes, but it can be deleted: the browser asks again each time
+  // (a 304 while it is there), so a deleted one leaves the slide black (review of #46)
+  res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(dir, file));
 });
 

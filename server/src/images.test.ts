@@ -7,6 +7,7 @@ import {
   cleanName,
   fromDataUrl,
   imageEntry,
+  isStoredImage,
   isImageFile,
   listImages,
   restoreImage,
@@ -138,5 +139,31 @@ describe('pictures on screen (1.5.0)', () => {
     }
     const metas = fs.readdirSync(path.join(dir, '.trash')).filter((f) => f.endsWith('.json'));
     expect(metas.length).toBe(20);
+  });
+
+  it('trusts no id or extension read from a file: a crafted index or trash note reaches nothing outside', () => {
+    // review of #46: a backup's index.json is restored as it is, and the names are built from it
+    const dir = tmp();
+    const real = addImage(dir, {
+      name: 'a',
+      full: url(PNG),
+      small: url(PNG),
+      w: 1,
+      h: 1,
+    }) as StoredImage;
+    const outside = path.join(dir, '..', 'settings.json');
+    fs.writeFileSync(outside, '{"keep":true}');
+    const evil = { ...real, id: '../settings', ext: 'json', smallExt: 'json' };
+    fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ images: [evil, real] }));
+    expect(listImages(dir).map((i) => i.id)).toEqual([real.id]);
+    expect(trashImage(dir, '../settings')).toBeNull();
+    expect(fs.readFileSync(outside, 'utf8')).toBe('{"keep":true}');
+    // a trash note that names a file outside
+    fs.mkdirSync(path.join(dir, '.trash'), { recursive: true });
+    const stamp = `1-${real.id}`;
+    fs.writeFileSync(path.join(dir, '.trash', `${stamp}.json`), JSON.stringify(evil));
+    expect(restoreImage(dir, stamp)).toBeNull();
+    expect(isStoredImage(real)).toBe(true);
+    expect(isStoredImage({ ...real, ext: 'svg' })).toBe(false);
   });
 });

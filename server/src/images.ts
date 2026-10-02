@@ -81,9 +81,33 @@ const smallOf = (img: Pick<StoredImage, 'id' | 'smallExt'>) => `${img.id}.small.
 const FILE_NAME = /^[0-9a-f-]{36}(\.small)?\.(jpg|png|webp|gif)$/;
 export const isImageFile = (name: string) => FILE_NAME.test(name);
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const EXTS: readonly string[] = ['jpg', 'png', 'webp', 'gif'];
+
+/**
+ * A stored picture as read from a file — index.json or a trash note — only when its id and
+ * extensions are ones this module writes: the names are built from them, so an id like
+ * «../../settings» (a crafted index.json, say from a restored backup) would reach files
+ * outside data/images (review of #46).
+ */
+export function isStoredImage(x: unknown): x is StoredImage {
+  const i = x as Partial<StoredImage> | null;
+  return (
+    !!i &&
+    typeof i.id === 'string' &&
+    UUID.test(i.id) &&
+    typeof i.ext === 'string' &&
+    EXTS.includes(i.ext) &&
+    typeof i.smallExt === 'string' &&
+    EXTS.includes(i.smallExt) &&
+    typeof i.name === 'string' &&
+    typeof i.added === 'string'
+  );
+}
+
 function readIndex(dir: string): StoredImage[] {
   const raw = readJson<{ images?: unknown }>(path.join(dir, INDEX), { images: [] });
-  return Array.isArray(raw.images) ? (raw.images as StoredImage[]) : [];
+  return Array.isArray(raw.images) ? raw.images.filter(isStoredImage) : [];
 }
 const writeIndex = (dir: string, images: StoredImage[]) =>
   writeJson(path.join(dir, INDEX), { images });
@@ -91,7 +115,7 @@ const writeIndex = (dir: string, images: StoredImage[]) =>
 /** The pictures whose files are there, newest first. */
 export function listImages(dir: string): StoredImage[] {
   return readIndex(dir)
-    .filter((i) => i && typeof i.id === 'string' && fs.existsSync(path.join(dir, fileOf(i))))
+    .filter((i) => fs.existsSync(path.join(dir, fileOf(i))))
     .sort((a, b) => b.added.localeCompare(a.added));
 }
 
@@ -180,8 +204,9 @@ export function trashImage(
 export function restoreImage(dir: string, trashed: string): StoredImage | null {
   if (!/^\d+-[0-9a-f-]{36}$/.test(trashed)) return null;
   const trash = path.join(dir, TRASH);
-  const meta = readJson<StoredImage | null>(path.join(trash, `${trashed}.json`), null);
-  if (!meta || !fs.existsSync(path.join(trash, `${trashed}.${meta.ext}`))) return null;
+  const meta = readJson<unknown>(path.join(trash, `${trashed}.json`), null);
+  if (!isStoredImage(meta) || !fs.existsSync(path.join(trash, `${trashed}.${meta.ext}`)))
+    return null;
   fs.renameSync(path.join(trash, `${trashed}.${meta.ext}`), path.join(dir, fileOf(meta)));
   const small = path.join(trash, `${trashed}.small.${meta.smallExt}`);
   if (fs.existsSync(small)) fs.renameSync(small, path.join(dir, smallOf(meta)));
