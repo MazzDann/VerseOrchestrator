@@ -287,6 +287,8 @@ export interface LastRestore {
   at: string;
   /** the state it replaced, in data/backups/ */
   undo: string;
+  /** how many songs and pictures were moved there: a folder holding another number offers nothing */
+  files?: number;
 }
 
 /** The last restore while «Повернути як було» is offered: a day, and while its folder is there. */
@@ -295,11 +297,30 @@ export function lastRestore(dataDir: string, now = Date.now()): LastRestore | nu
   if (!last || typeof last.undo !== 'string' || !/^before-restore-[\w-]+$/.test(last.undo))
     return null;
   if (!(now - Date.parse(last.at) < UNDO_FOR_MS)) return null;
+  const folder = path.join(backupsDir(dataDir), last.undo);
   try {
-    return fs.statSync(path.join(backupsDir(dataDir), last.undo)).isDirectory() ? last : null;
+    if (!fs.statSync(folder).isDirectory()) return null;
   } catch {
     return null;
   }
+  // a folder emptied by a rollback whose note stayed: going «back» would only move the current
+  // songs and pictures out (review of #47)
+  if (typeof last.files === 'number' && countState(folder) !== last.files) return null;
+  return last;
+}
+
+/** How many songs and pictures a kept folder holds (as stateFiles counts them). */
+function countState(folder: string): number {
+  const count = (sub: string, keep: (name: string) => boolean) => {
+    try {
+      return fs
+        .readdirSync(path.join(folder, sub), { withFileTypes: true })
+        .filter((e) => e.isFile() && keep(e.name)).length;
+    } catch {
+      return 0;
+    }
+  };
+  return count(SONGS, bundleFile) + count(IMAGES, own);
 }
 
 const stamp = (now: Date) => now.toISOString().replace(/[:.]/g, '-');
@@ -344,7 +365,7 @@ async function stateFiles(dir: string): Promise<[string, string][]> {
  * state half moved was neither the old one nor the new one, and the way back lost files
  * (review of #47).
  */
-async function moveState(from: string, to: string): Promise<void> {
+async function moveState(from: string, to: string): Promise<number> {
   const moved: [string, string][] = [];
   try {
     for (const [sub, f] of await stateFiles(from)) {
@@ -357,6 +378,7 @@ async function moveState(from: string, to: string): Promise<void> {
     for (const [a, b] of moved.reverse()) await move(b, a).catch(() => undefined);
     throw e;
   }
+  return moved.length;
 }
 
 /**
@@ -470,17 +492,23 @@ export async function restorePending(
   if (id !== undefined && readText(path.join(dir, PENDING_ID)) !== id) return null;
   const { entries, summary } = await readBackup(await fsp.readFile(pending));
   const kept = await keepFolder(dataDir, 'restore', now);
+  let files: number;
   try {
-    await moveState(dataDir, kept);
+    files = await moveState(dataDir, kept);
   } catch (e) {
-    await dropFolder(kept);
+    await dropFolder(kept).catch(() => undefined);
     throw e;
   }
   const last = path.join(dir, LAST);
   // an earlier restore's note, put back when this one changes nothing (review of #47)
   const earlier = fs.existsSync(last) ? await fsp.readFile(last) : null;
   try {
-    writeJson(last, { created: summary.created, at: now.toISOString(), undo: path.basename(kept) });
+    writeJson(last, {
+      created: summary.created,
+      at: now.toISOString(),
+      undo: path.basename(kept),
+      files,
+    });
     await applyBackup(dataDir, entries);
   } catch (e) {
     try {
@@ -491,16 +519,30 @@ export async function restorePending(
     } catch {
       throw e; // the note stays: «Повернути як було» brings the kept state back
     }
-    await dropFolder(kept);
-    if (earlier) await put(last, earlier);
-    else await fsp.rm(last, { force: true });
+    // the note first: an emptied folder must not stay offered (its count no longer matches,
+    // lastRestore, should this fail too); the folder best effort; the real cause reported
+    await (earlier ? put(last, earlier) : fsp.rm(last, { force: true })).catch(() => undefined);
+    await dropFolder(kept).catch(() => undefined);
     throw e;
   }
-  applied?.();
+  tell(applied);
   for (const f of [pending, path.join(dir, PENDING_ID)])
     await fsp.rm(f, { force: true }).catch(() => undefined);
   await prune(dataDir, 'restore', path.basename(kept));
   return summary;
+}
+
+/**
+ * The state is in place: the caller is told (the windows, the library's songs). Its error fails
+ * nothing — the restore stands, and a «try again» would restore it a second time and point the
+ * way back at the restored state (review of #47).
+ */
+function tell(applied?: () => void) {
+  try {
+    applied?.();
+  } catch (e) {
+    console.warn(`[server] backup: after the restore: ${(e as Error).message}`);
+  }
 }
 
 const readText = (file: string) => {
@@ -531,14 +573,14 @@ export async function undoRestore(
   try {
     await moveState(dataDir, kept);
   } catch (e) {
-    await dropFolder(kept);
+    await dropFolder(kept).catch(() => undefined);
     throw e;
   }
   try {
     await moveState(from, dataDir);
   } catch (e) {
     await moveState(kept, dataDir).catch(() => undefined);
-    await dropFolder(kept);
+    await dropFolder(kept).catch(() => undefined);
     throw e;
   }
   // the way back is spent: an error after this point must not offer it again — a retry would
@@ -546,7 +588,7 @@ export async function undoRestore(
   await fsp.rm(path.join(dir, LAST), { force: true });
   const ui = readJson<Record<string, { value?: unknown }> | null>(path.join(from, UI_FILE), null);
   if (ui && typeof ui === 'object') writeUiState(dataDir, ui);
-  applied?.();
+  tell(applied);
   await fsp.rm(from, { recursive: true, force: true }).catch(() => undefined);
   await prune(dataDir, 'undo', path.basename(kept));
   return true;
