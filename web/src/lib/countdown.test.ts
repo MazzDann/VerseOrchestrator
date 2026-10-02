@@ -11,6 +11,8 @@ import {
   shiftCountdown,
   shiftUntil,
   showsTime,
+  timerColor,
+  timerColors,
   togglePause,
   untilAt,
   untilFor,
@@ -188,5 +190,37 @@ describe('pause (1.8.1)', () => {
     expect(showsTime({ ...c, afterZero: 'stop' as const }, at(11, 0))).toBe(true);
     expect(showsTime({ ...c, pausedLeft: 5000 }, at(11, 0))).toBe(true);
     expect(showsTime({ ...c, pausedLeft: 0 }, at(9, 0))).toBe(false);
+  });
+});
+
+describe('the colours of the time (1.8.2)', () => {
+  const c = { warnBefore: 60_000, warnColor: '#ffb020', overColor: '#ff5a5a' };
+
+  it('warns before the end and colours zero and past it', () => {
+    expect(timerColor(c, 61_000)).toBeUndefined();
+    expect(timerColor(c, 60_000)).toBe('#ffb020');
+    expect(timerColor(c, 1)).toBe('#ffb020');
+    expect(timerColor(c, 0)).toBe('#ff5a5a');
+    expect(timerColor(c, -5000)).toBe('#ff5a5a');
+  });
+
+  it('keeps the text colour where nothing is set', () => {
+    expect(timerColor(null, 0)).toBeUndefined();
+    expect(timerColor({}, 10)).toBeUndefined();
+    expect(timerColor({ ...c, warnBefore: 0 }, 10)).toBeUndefined();
+    expect(timerColor({ ...c, overColor: '' }, -10)).toBeUndefined();
+    // a countdown from before 1.8.2
+    expect(timerColor({ until: 1, caption: '' } as never, -10)).toBeUndefined();
+  });
+
+  it('takes them from the settings', () => {
+    const a = {
+      countdownWarnMinutes: 2,
+      countdownWarnColor: '#ffd43b',
+      countdownOverOn: false,
+      countdownOverColor: '#e03131',
+    };
+    expect(timerColors(a)).toEqual({ warnBefore: 120_000, warnColor: '#ffd43b', overColor: '' });
+    expect(timerColors({ ...a, countdownOverOn: true }).overColor).toBe('#e03131');
   });
 });

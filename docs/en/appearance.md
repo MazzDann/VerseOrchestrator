@@ -96,6 +96,24 @@ The browser keeps the logo and the background image in its storage, and that sto
 (5 MB in Safari). If it runs out of room, the message **Couldn't save the settings** appears
 and the image stays as it was: choose a smaller file or remove the background or the logo.
 
+## Set up the countdown colors
+
+The time of a [countdown](show-text.md#show-a-countdown-before-the-start) can change color:
+before the end, as a warning, and at zero and past it. The color changes on every screen, in
+the **Stage** window, and on the viewers' phones; the words over the time keep the text color.
+
+In the **Countdown** section:
+
+- **Warning** — how many minutes before the end the time changes color: 1, 2, 3, 5, or 10
+  minutes. The usual choice is 1 minute. **No warning** keeps the time in the text color until
+  zero.
+- **Warning color** — the color of the time before the end. Orange by default.
+- **Another color past zero** — at zero and past it the time takes another color, so everyone
+  sees the time is up. On by default, with a red **Color past zero**.
+
+A countdown on screen takes the new colors at once. Presets keep these colors with the rest of
+the look.
+
 ## Place the slide's elements
 
 In the **Slide layout** section, in the **Template** field, choose how the slide's elements

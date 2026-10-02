@@ -1,6 +1,6 @@
 import { N_ } from '@vo/shared';
 import { createBus, type BusChannel, type BusStorage, type Wire } from './lib/bus';
-import type { AfterZero } from './lib/countdown';
+import type { AfterZero, TimerColors } from './lib/countdown';
 import { reportSlideError } from './lib/slideErrors';
 import { tr } from './i18n';
 import { useSettings } from './settingsStore';
@@ -185,9 +185,9 @@ export interface SlideCover {
  * A countdown on screen (1.5.0, lib/countdown.ts): when it ends (ms since the epoch — every
  * window counts to the same moment, whenever it joins) and the words over the time. Past its
  * end it does what `afterZero` says (1.8.0): counts on, holds 0:00, or the time and the words go
- * and «Заставка» stays.
+ * and «Заставка» stays. Its colours (1.8.2, `TimerColors`): a warning before the end, another past it.
  */
-export interface SlideCountdown {
+export interface SlideCountdown extends TimerColors {
   until: number;
   caption: string;
   /** what the time does at zero (1.8.0, lib/countdown.ts); none: it goes, as before */
