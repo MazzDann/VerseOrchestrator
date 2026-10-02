@@ -1179,6 +1179,16 @@ export function Control() {
       autoClose: 1500,
     });
   };
+  // «Вписати / Заповнити» (1.7.1, the user's call): the picture on screen takes the switch at once
+  // — quietly, it is the same picture. Only its fit changes: a black screen stays black (the
+  // picture under it waits with the new fit); the preview follows when it shows that picture too
+  const refitPicture = (fit: SlidePicture['fit']) => {
+    const now = liveSlideRef.current;
+    if (!now.picture || now.picture.fit === fit) return;
+    pushLive({ ...now, picture: { ...now.picture, fit } });
+    if (previewOverride?.picture?.src === now.picture.src)
+      setPreviewOverride({ ...previewOverride, picture: { ...previewOverride.picture, fit } });
+  };
   const addImageToPlaylist = (img: ImageInfo, fit: SlidePicture['fit']) => {
     playlistAdd({
       kind: 'image',
@@ -3534,6 +3544,7 @@ export function Control() {
               open={imagesOpen}
               onClose={() => setImagesOpen(false)}
               onProject={projectPicture}
+              onRefit={refitPicture}
               onAddToPlaylist={addImageToPlaylist}
               onScreen={
                 liveSlide.visible && !liveSlide.blank ? (liveSlide.picture?.src ?? null) : null
