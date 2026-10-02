@@ -9,7 +9,7 @@ import {
   type SlidePicture,
   DEFAULT_STYLE,
 } from '../presenterBus';
-import { formatRemaining, useRemaining } from '../lib/countdown';
+import { afterZeroOf, formatTimer, useRemaining } from '../lib/countdown';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 import { SlideFade } from './SlideFade';
@@ -148,8 +148,11 @@ function CoverContent({
 }) {
   // the file's width in pixels, known once it has loaded: how far it may grow
   const [pixels, setPixels] = useState(0);
-  const left = useRemaining(countdown?.until);
-  const counting = left > 0;
+  // past zero (1.8.0) the time counts on (−0:01 …) or stays at 0:00 — or goes, as before
+  const afterZero = afterZeroOf(countdown);
+  // only «У мінус» keeps the clock going past the end: «Стоп на 0:00» holds it there
+  const left = useRemaining(countdown?.until, afterZero === 'overtime');
+  const counting = !!countdown && (left > 0 || afterZero !== 'hide');
   // the time coming or going changes the content's height: fit it again (the slide's key
   // changes when a countdown starts or goes, not when one ends on screen)
   const refit = useRef(onImageLoad);
@@ -203,7 +206,8 @@ function CoverContent({
 
 /**
  * «Відлік» (1.5.0): the words over a big time left; equal-width digits, so the line holds still
- * as it counts. Past the end both go and «Заставка» stays (`CoverContent`).
+ * as it counts. Past the end (1.8.0, «Після нуля») the time counts on as −0:01 …, stays at 0:00,
+ * or both go and «Заставка» stays (`CoverContent`).
  */
 function CountdownLines({ caption, left }: { caption: string; left: number }) {
   return (
@@ -224,7 +228,7 @@ function CountdownLines({ caption, left }: { caption: string; left: number }) {
           letterSpacing: '0.02em',
         }}
       >
-        {formatRemaining(left)}
+        {formatTimer(left)}
       </div>
     </div>
   );

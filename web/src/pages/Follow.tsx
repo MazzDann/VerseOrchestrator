@@ -11,7 +11,7 @@ import {
   type ReaderPrefs,
 } from '../lib/readerPrefs';
 import { tr, useLang } from '../i18n';
-import { formatRemaining, hubOffset, useRemaining } from '../lib/countdown';
+import { afterZeroOf, formatTimer, hubOffset, useRemaining } from '../lib/countdown';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -113,7 +113,13 @@ export function Follow() {
   // (1.7.3): the end, set by that clock, moved onto this phone's
   const onScreen = !!slide && slide.visible && !slide.blank && !slide.forceBlack;
   const until = onScreen ? slide?.countdown?.until : undefined;
-  const left = useRemaining(until == null ? null : Math.round(until - offset));
+  // past zero (1.8.0): on into −0:01 …, 0:00, or the time goes — as the screen does
+  const afterZero = afterZeroOf(slide?.countdown);
+  const left = useRemaining(
+    until == null ? null : Math.round(until - offset),
+    afterZero === 'overtime',
+  );
+  const timing = until != null && (left > 0 || afterZero !== 'hide');
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
   const text = readerTextStyle(reader, font);
 
@@ -232,7 +238,7 @@ export function Follow() {
               </p>
             )}
           </>
-        ) : left > 0 && slide?.countdown ? (
+        ) : timing && slide?.countdown ? (
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', lineHeight: 1.15 }}>
             {slide.countdown.caption && (
               <p style={{ margin: 0, opacity: 0.75, fontSize: 'clamp(18px, 5.5vw, 28px)' }}>
@@ -247,7 +253,7 @@ export function Follow() {
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
-              {formatRemaining(left)}
+              {formatTimer(left)}
             </p>
           </div>
         ) : slide?.picture &&

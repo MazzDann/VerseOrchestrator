@@ -9,6 +9,7 @@ import {
 import { DEFAULT_KEYMAP, sanitizeKeymap, type Keymap, type HotkeyActionId } from './hotkeys';
 import { isLang, N_, pickLang, type Lang } from '@vo/shared';
 import { tr } from './i18n';
+import type { AfterZero } from './lib/countdown';
 
 export type TextAlign = 'left' | 'center' | 'right';
 export type PadUnit = 'px' | '%';
@@ -51,6 +52,8 @@ export interface Appearance {
   countdownCaption: string;
   /** …and the minutes it last ran for, offered first next time */
   countdownMinutes: number;
+  /** …and what its time does at zero (1.8.0): on into −0:01 by default, the user's ask */
+  countdownAfterZero: AfterZero;
 }
 
 export interface RefItem {
@@ -259,6 +262,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   coverImage: null,
   countdownCaption: '',
   countdownMinutes: 5,
+  countdownAfterZero: 'overtime',
 };
 
 /**
@@ -270,6 +274,7 @@ const ownContent = (a: Appearance) => ({
   coverImage: a.coverImage,
   countdownCaption: a.countdownCaption,
   countdownMinutes: a.countdownMinutes,
+  countdownAfterZero: a.countdownAfterZero,
 });
 
 export const FONT_OPTIONS = [

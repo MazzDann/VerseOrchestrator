@@ -1,7 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { formatRemaining, hubOffset, remainingMs, shiftUntil, untilAt, untilIn } from './countdown';
+import {
+  afterZeroOf,
+  formatRemaining,
+  formatTimer,
+  hubOffset,
+  remainingMs,
+  shiftUntil,
+  untilAt,
+  untilIn,
+} from './countdown';
 
 const at = (h: number, m: number, s = 0) => new Date(2026, 9, 1, h, m, s).getTime();
+
+describe('past zero (1.8.0)', () => {
+  it('counts on as −0:01 … after a whole second of 0:00', () => {
+    expect(formatTimer(61_000)).toBe('1:01');
+    expect(formatTimer(1)).toBe('0:01');
+    expect(formatTimer(0)).toBe('0:00');
+    expect(formatTimer(-999)).toBe('0:00');
+    expect(formatTimer(-1000)).toBe('−0:01');
+    expect(formatTimer(-65_500)).toBe('−1:05');
+    expect(formatTimer(-3_661_000)).toBe('−1:01:01');
+  });
+
+  it('a countdown from before says nothing: its time goes, as it did', () => {
+    const before = { until: 1, caption: 'Починаємо за' };
+    expect(afterZeroOf(before)).toBe('hide');
+    expect(afterZeroOf({ afterZero: 'overtime' })).toBe('overtime');
+    expect(afterZeroOf({ afterZero: 'nonsense' })).toBe('hide');
+    expect(afterZeroOf(null)).toBe('hide');
+  });
+
+  it('±1 хв in the overtime moves the end behind now too', () => {
+    // two minutes past: +1 takes one off, −1 adds one — never pulled back to now
+    expect(shiftUntil(at(9, 58), 1, at(10, 0), true)).toBe(at(9, 59));
+    expect(shiftUntil(at(9, 58), -1, at(10, 0), true)).toBe(at(9, 57));
+    // the same without overtime: the end is now at least
+    expect(shiftUntil(at(9, 58), 1, at(10, 0))).toBe(at(10, 0));
+  });
+});
 
 describe('a phone counts by the computer’s clock (1.7.3)', () => {
   it('takes the hub’s answer as halfway along the round trip', () => {
