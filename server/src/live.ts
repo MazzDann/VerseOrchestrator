@@ -195,6 +195,14 @@ export function isRemoteOnline(pairingId: string): boolean {
   return sockets('remote').some((c) => meta.get(c)?.pairingId === pairingId);
 }
 
+/**
+ * A backup was restored or undone (1.5.0): every control window takes data/'s UI state now,
+ * dropping what it had not sent yet (web/src/lib/uiState.ts takeServerUiState).
+ */
+export function notifyUiStateRestored(): void {
+  for (const c of sockets('control')) send(c, { type: 'ui-state' });
+}
+
 /** Tell control windows to refetch the remote list (pairing added/removed/connected). */
 export function notifyRemotesChanged(): void {
   for (const c of sockets('control')) send(c, { type: 'remotes' });

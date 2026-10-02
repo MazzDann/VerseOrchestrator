@@ -364,6 +364,45 @@ export const EN: Record<string, string> = {
   'Зображення завелике — до 40 МБ': 'The image is too large — up to 40 MB',
   'Зображення не знайдено — відкрийте список ще раз': 'Image not found — open the list again',
   'Зображення вже не повернути': 'The image can no longer be brought back',
+  // «Резервна копія» (1.5.0)
+  'Резервна копія': 'Backup',
+  'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення. Модулі, бібліотека й пульти в нього не входять.':
+    "One .zip file: the slide look, presets, hotkeys, bookmarks and history, the running order and programs, songs, and images. Modules, the library, and remotes aren't in it.",
+  'Зберегти копію': 'Save a backup',
+  'Копію збережено: {name}': 'Backup saved: {name}',
+  'Відновити з копії…': 'Restore from a backup…',
+  'Відновити з копії': 'Restore from a backup',
+  'Копія від {when}, версії {app}:': 'A backup of {when}, version {app}:',
+  'вигляд, клавіші, закладки й історія': 'the look, hotkeys, bookmarks, and history',
+  '{n} програма|{n} програми|{n} програм': '{n} program|{n} programs',
+  '{n} пункт у послідовності|{n} пункти в послідовності|{n} пунктів у послідовності':
+    '{n} item in the running order|{n} items in the running order',
+  'пісні: {bundles}': 'songs: {bundles}',
+  'пісень немає': 'no songs',
+  '{n} зображення|{n} зображення|{n} зображень': '{n} image|{n} images',
+  'Вони замінять поточні. Поточні збережуться окремо — їх можна буде повернути тут само.':
+    'They replace the current ones. The current ones are kept apart — you can bring them back right here.',
+  Відновити: 'Restore',
+  'Відновлено. Вікно перезавантажується…': 'Restored. The window reloads…',
+  'Відновлено {at} з копії від {when}.': 'Restored on {at} from a backup of {when}.',
+  'Повернути як було': 'Go back to how it was',
+  'Повернуто як було. Вікно перезавантажується…': 'Back to how it was. The window reloads…',
+  'Це не резервна копія VerseOrchestrator або файл пошкоджено':
+    'This is not a VerseOrchestrator backup, or the file is damaged',
+  'Спершу виберіть файл копії ще раз': 'Choose the backup file again first',
+  'Повертати вже нічого': 'There is nothing to go back to',
+  'Повернеться стан до відновлення. Те, що змінено після нього, буде замінено, але збережеться окремо в папці data/backups/.':
+    'The state before the restore comes back. What was changed after it is replaced, but kept apart in the data/backups/ folder.',
+  'Налаштування й програми замінено з резервної копії.':
+    'Settings and programs were replaced from a backup.',
+  'Копія завелика: понад 1 ГБ. Приберіть частину зображень і збережіть ще раз.':
+    'The backup is too large: over 1 GB. Remove some images and save again.',
+  'Зачекайте, доки збережеться чи відновиться резервна копія, і спробуйте ще раз':
+    'Wait until the backup is saved or restored, then try again',
+  'Не вдалося відновити: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.':
+    "Couldn't restore: {error}. Close the programs that hold files in data/ and try again.",
+  'Не вдалося повернути: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.':
+    "Couldn't go back: {error}. Close the programs that hold files in data/ and try again.",
   '«{query}» — не місце в книзі. Введіть вірш або розділ:вірш, як-от 3:16':
     '“{query}” is not a place in the book. Type a verse, or chapter:verse, like 3:16',
   'Спершу виберіть книгу': 'Choose a book first',

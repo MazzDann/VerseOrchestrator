@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { ApiError, closeDb, library, libraryInfo, libraryPath } from './db.js';
 import { isOwnAddress, lanIps } from './access.js';
-import { requireLocal, requireLocalControl } from './guards.js';
+import { isLocalControl, requireLocal, requireLocalControl } from './guards.js';
 import {
   announceShutdown,
   attachLiveHub,
@@ -16,6 +16,7 @@ import {
   isRemoteOnline,
   notifyAllowed,
   notifyRemotesChanged,
+  notifyUiStateRestored,
   publishLive,
   viewerCount,
   controlWindowsRoute,
@@ -71,11 +72,30 @@ import {
   trashImage,
   type ImageExt,
 } from './images.js';
+import {
+  BackupError,
+  backupBusy,
+  backupName,
+  MAX_BACKUP_BYTES,
+  keepPending,
+  lastRestore,
+  makeBackup,
+  oneAtATime,
+  readBackup,
+  restorePending,
+  startChange,
+  undoRestore,
+} from './backup.js';
 
 const app = express();
 const json = express.json({ limit: '1mb' });
 // the UI state (0.7.4) and a song import (0.10.1) are big: their own, larger limits
-const ownParser = new Set(['/api/ui-state', '/api/song-bundles/import', '/api/images']);
+const ownParser = new Set([
+  '/api/ui-state',
+  '/api/song-bundles/import',
+  '/api/images',
+  '/api/backup/check',
+]);
 app.use((req, res, next) => (ownParser.has(req.path) ? next() : json(req, res, next)));
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -648,6 +668,29 @@ app.get(
 );
 
 /**
+ * A change to the song bundles or the pictures waits while a backup is made, checked or
+ * restored, and backup work waits for it — the whole request, its body included (backup.ts
+ * startChange): a change meanwhile was half-kept in the copy or lost under the restored state
+ * (review of #47). Registered before every route that changes them.
+ */
+app.use(['/api/song-bundles', '/api/images'], (req, res, next) => {
+  // only what may change something waits and holds the backups: a request the routes refuse
+  // anyway (403) holds nothing — an unanswered one from the hall held them for minutes
+  if (req.method === 'GET' || req.method === 'HEAD' || !isLocalControl(req)) return next();
+  let end: (() => void) | null = null;
+  let closed = false;
+  res.on('close', () => {
+    closed = true;
+    end?.();
+  });
+  void startChange().then((done) => {
+    if (closed) return done(); // the page went away while it waited
+    end = done;
+    next();
+  });
+});
+
+/**
  * Import songs the browser read from .pptx files (0.10.1) into a bundle — an existing one
  * (`target.id`) or a new one (`target.name`) — then bring the library's songs up to date.
  */
@@ -758,6 +801,155 @@ app.post(
     const back = trashed ? restoreImage(imagesDir(dataDir), trashed) : null;
     if (!back) throw new ApiError(409, N_('Зображення вже не повернути'));
     res.json(imageEntry(back));
+  }),
+);
+
+// ── «Резервна копія» (1.5.0, backup.ts): one .zip of the operator's own things ───────────
+
+/** The operator's backup — local control only: it holds their programs, songs, pictures. */
+app.get(
+  '/api/backup',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    const started = Date.now();
+    const now = new Date();
+    let buf: Buffer;
+    try {
+      // one that could never be restored is not made (review of #47)
+      buf = await oneAtATime(() => makeBackup(dataDir, appVersion, now));
+    } catch (e) {
+      throw backupRefusal(e);
+    }
+    console.log(
+      `[server] backup: ${Math.round(buf.length / 1024)} KB in ${Date.now() - started} ms`,
+    );
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${backupName(now)}"`);
+    res.setHeader('Content-Length', buf.length);
+    // not res.send: it hashes the whole body for an ETag — a 200 MB backup stalled the hub
+    // for a third of a second (review of #47)
+    res.end(buf);
+  }),
+);
+
+/**
+ * A restore or its undo that failed — a file held by another program: what moved went back
+ * (backup.ts, all or nothing), said in words (review of #47).
+ */
+const movesFailed = (e: unknown, key: string) => {
+  if (e instanceof BackupError || e instanceof ApiError) return e;
+  const { code, path: file, message } = e as NodeJS.ErrnoException;
+  // «EBUSY: ПС.vosongs», not two full paths
+  return new ApiError(500, key, {
+    error: code && file ? `${code}: ${path.basename(file)}` : message,
+  });
+};
+
+/**
+ * A restore or its undo has put its state in place (backup.ts calls it before its cleanup): the
+ * import's «Скасувати» no longer reaches across it — it would overwrite or delete a restored
+ * bundle; every control window takes the restored settings at once — one still open would else
+ * send its old ones back with its next change; and the library's songs follow, in the same
+ * turn, so a window that asks for them gets the restored ones (review of #47).
+ */
+const restored = () => {
+  lastImport = null;
+  notifyUiStateRestored();
+  refreshSongs(bundlesDir(dataDir));
+};
+
+/** A backup refused in words: too big, or not one of this app / damaged (review of #47). */
+const backupRefusal = (e: unknown) =>
+  !(e instanceof BackupError)
+    ? e
+    : e.message === 'too big'
+      ? new ApiError(
+          413,
+          N_('Копія завелика: понад 1 ГБ. Приберіть частину зображень і збережіть ще раз.'),
+        )
+      : new ApiError(400, N_('Це не резервна копія VerseOrchestrator або файл пошкоджено'));
+
+/** A file to restore: read and kept, and what it holds said back — nothing changes yet. */
+app.post(
+  '/api/backup/check',
+  requireLocalControl,
+  // a backup is at most 1 GB of files (backup.ts), its zip a little more
+  express.raw({ type: () => true, limit: MAX_BACKUP_BYTES + 16 * 1024 * 1024 }),
+  wrap(async (req, res) => {
+    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    try {
+      const summary = await oneAtATime(async () => {
+        const { summary } = await readBackup(buf);
+        return { ...summary, id: await keepPending(dataDir, buf) };
+      });
+      res.json(summary);
+    } catch (e) {
+      throw backupRefusal(e);
+    }
+  }),
+);
+
+/** Restore the checked file; the state it replaces is kept for «Повернути як було». */
+app.post(
+  '/api/backup/restore',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const started = Date.now();
+    // the file the page's card shows (review of #47)
+    const id = typeof req.body?.id === 'string' ? req.body.id : '';
+    let summary;
+    try {
+      summary = await oneAtATime(async () => {
+        notDuringRebuild(); // one may have started while this waited
+        return restorePending(dataDir, appVersion, new Date(), { id, applied: restored });
+      });
+    } catch (e) {
+      throw backupRefusal(
+        movesFailed(
+          e,
+          N_(
+            'Не вдалося відновити: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.',
+          ),
+        ),
+      );
+    }
+    if (!summary) throw new ApiError(409, N_('Спершу виберіть файл копії ще раз'));
+    console.log(
+      `[server] backup: restored the one from ${summary.created} (${Date.now() - started} ms)`,
+    );
+    res.json(summary);
+  }),
+);
+
+app.get('/api/backup/state', requireLocal, (_req, res) => {
+  res.json({ lastRestore: lastRestore(dataDir) });
+});
+
+app.post(
+  '/api/backup/undo',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    notDuringRebuild();
+    let undone: boolean;
+    try {
+      undone = await oneAtATime(async () => {
+        notDuringRebuild();
+        return undoRestore(dataDir, new Date(), restored);
+      });
+    } catch (e) {
+      throw backupRefusal(
+        movesFailed(
+          e,
+          N_(
+            'Не вдалося повернути: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.',
+          ),
+        ),
+      );
+    }
+    if (!undone) throw new ApiError(409, N_('Повертати вже нічого'));
+    console.log('[server] backup: back to the state before the last restore');
+    res.json({ ok: true });
   }),
 );
 
@@ -955,6 +1147,17 @@ app.get(
 app.post('/api/rebuild', requireLocalControl, (_req, res) => {
   if (rebuilding) {
     res.status(409).json({ error: N_('Перебудова вже триває') });
+    return;
+  }
+  // the builder reads and writes data/songs: not under a backup's feet (review of #47)
+  if (backupBusy()) {
+    res
+      .status(409)
+      .json(
+        keyedError(
+          N_('Зачекайте, доки збережеться чи відновиться резервна копія, і спробуйте ще раз'),
+        ),
+      );
     return;
   }
   rebuilding = true;

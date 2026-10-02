@@ -2,6 +2,10 @@ import type express from 'express';
 import { N_ } from '@vo/shared';
 import { isLocalRequest } from './access.js';
 
+/** A request the control window on this machine sent (requireLocalControl lets it through). */
+export const isLocalControl = (req: express.Request) =>
+  req.get('x-vo-control') === '1' && isLocalRequest(req);
+
 /**
  * Guard for routes that change state. Only the operator's machine may write; phones on
  * the LAN are read-only viewers. The custom header forces a CORS preflight (which this
@@ -10,7 +14,7 @@ import { isLocalRequest } from './access.js';
  * remote paired via QR) would extend this check with a token rather than open the LAN.
  */
 export const requireLocalControl: express.RequestHandler = (req, res, next) => {
-  if (req.get('x-vo-control') !== '1' || !isLocalRequest(req)) {
+  if (!isLocalControl(req)) {
     res.status(403).json({ error: N_('Керування доступне лише з цього комп’ютера') });
     return;
   }

@@ -143,10 +143,6 @@ export function createStandby(o: StandbyOptions) {
 
   function proxy(req: http.IncomingMessage, res: http.ServerResponse, a: RunningApp): void {
     inflight++;
-    res.once('close', () => {
-      inflight--;
-      touch();
-    });
     const up = http.request(
       {
         host: '127.0.0.1',
@@ -165,6 +161,13 @@ export function createStandby(o: StandbyOptions) {
       res.end(
         tr('Застосунок не відповідає', undefined, requestLang(req.headers['accept-language'])),
       );
+    });
+    res.once('close', () => {
+      inflight--;
+      touch();
+      // the page went away before its answer: the app hears it now, not at its own timeout
+      // minutes later — a half-sent upload held the backups meanwhile (review of #47)
+      if (!res.writableFinished) up.destroy();
     });
     req.pipe(up);
   }
