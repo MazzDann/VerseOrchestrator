@@ -6,6 +6,7 @@ import {
   createUpdateChecker,
   parseVersion,
   pickLatest,
+  pickReleases,
 } from './updates';
 
 /** GitHub's release list, as much of it as the checker reads. */
@@ -60,6 +61,25 @@ describe('update check (1.0.0)', () => {
     // a release without this system's archive: known, but not installable by the app
     expect(pickLatest(LIST, 'stable', 'VerseOrchestrator-linux-arm64.tar.gz')?.asset).toBeNull();
     expect(pickLatest({ message: 'rate limited' }, 'stable', asset)).toBeNull();
+  });
+
+  it('lists every release of the channel, newest first, each once — the dropdown (1.6.2)', () => {
+    const asset = 'VerseOrchestrator-windows-x64.zip';
+    const list = [
+      release('v1.5.0', { prerelease: false }),
+      release('v1.6.1', { prerelease: false }),
+      release('v1.6.0', { prerelease: false }),
+      release('v1.6.1', { prerelease: false, html_url: 'twice' }), // the same tag again
+      release('v1.7.0', { draft: true }),
+      release('v1.3.1', { prerelease: false, assets: [] }), // no archive for this system
+      ...LIST,
+    ];
+    const all = pickReleases(list, 'stable', asset);
+    expect(all.map((r) => r.version)).toEqual(['1.6.1', '1.6.0', '1.5.0', '1.3.1', '1.0.0']);
+    expect(all[0].url).not.toBe('twice');
+    expect(all.find((r) => r.version === '1.3.1')).toMatchObject({ asset: null, sums: null });
+    expect(pickLatest(list, 'stable', asset)?.version).toBe('1.6.1');
+    expect(pickReleases({ message: 'rate limited' }, 'stable', asset)).toEqual([]);
   });
 
   const checker = (o: { current: string; enabled?: boolean; reply?: unknown; fail?: boolean }) => {

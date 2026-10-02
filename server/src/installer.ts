@@ -43,8 +43,16 @@ export interface InstallState {
 
 export const NEXT_DIR = 'app.next';
 export const PREVIOUS_DIR = 'app.previous';
-/** in `<data>/updates/`: the release's files next to `app/`, for swap.ts */
+/**
+ * in `<data>/updates/`: the release's files next to `app/`, for swap.ts — under the version's
+ * name (1.6.2), so they wait as long as that version waits in `app.next/`
+ */
 export const TOP_FILES_DIR = 'top';
+/**
+ * in `<data>/updates/`: the version this app put in `app.next/` and which version of the app did
+ * (1.6.2) — what a restart of the same app may offer again
+ */
+export const NEXT_RECORD = 'next.json';
 
 /** The first version with «Повернути попередню версію» of its own. */
 export const FIRST_ROLLBACK = '1.4.0';
@@ -129,6 +137,8 @@ export interface InstallerOptions {
   fetch?: typeof fetch;
   /** runs the unpack command (tests: a rollback in the middle of it) */
   exec?: (cmd: string, args: string[]) => Promise<void>;
+  /** the running version: what it puts in app.next, it offers again after a restart (1.6.2) */
+  current?: string;
 }
 
 export function createInstaller(o: InstallerOptions) {
@@ -164,18 +174,32 @@ export function createInstaller(o: InstallerOptions) {
     state = { ...state, phase: 'error', error, vars };
   };
 
+  /** This app put `version` in app.next (1.6.2): a restart of the same app offers it again. */
+  const recordNext = (version: string): void => {
+    try {
+      fs.mkdirSync(updatesDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(updatesDir, NEXT_RECORD),
+        JSON.stringify({ version, by: o.current ?? '' }),
+      );
+    } catch {
+      /* without it, only the newest release is offered again */
+    }
+  };
+
   async function download(latest: LatestRelease): Promise<void> {
     const mine = turn;
     const superseded = () => turn !== mine;
     const asset = latest.asset;
-    if (!asset || !latest.sums) return fail(N_('Для цієї системи в релізі немає архіву'));
     state = {
       phase: 'download',
       version: latest.version,
       received: 0,
-      total: asset.size,
+      total: asset?.size ?? 0,
       error: null,
     };
+    // the version stays in the state: the page offers to try it again (1.6.2)
+    if (!asset || !latest.sums) return fail(N_('Для цієї системи в релізі немає архіву'));
     fs.rmSync(updatesDir, { recursive: true, force: true });
     fs.mkdirSync(updatesDir, { recursive: true });
     // room for the archive, the unpacked copy and app.next: about four times the archive
@@ -230,9 +254,10 @@ export function createInstaller(o: InstallerOptions) {
       const next = path.join(o.top, NEXT_DIR);
       fs.rmSync(next, { recursive: true, force: true });
       fs.renameSync(found.app, next); // same disk: data/ is next to app/
+      recordNext(latest.version);
       // the start file and the notes: swap.ts puts them next to app/ once the new version runs
-      const topFiles = path.join(updatesDir, TOP_FILES_DIR);
-      fs.mkdirSync(topFiles);
+      const topFiles = path.join(updatesDir, TOP_FILES_DIR, latest.version);
+      fs.mkdirSync(topFiles, { recursive: true });
       const release = path.dirname(found.app);
       for (const e of fs.readdirSync(release, { withFileTypes: true }))
         if (e.isFile()) fs.renameSync(path.join(release, e.name), path.join(topFiles, e.name));
@@ -286,7 +311,20 @@ export function createInstaller(o: InstallerOptions) {
       void download(latest);
       return true;
     },
-    /** A version already unpacked by an earlier run of this app is ready too. */
+    /**
+     * What app.next holds to restart with (1.6.2): a release copy this very version of the app
+     * put there — a download, a rollback whose swap didn't finish — or else the newest release.
+     * A leftover isn't offered: one from before an update by hand, or the copy a rollback to a
+     * version before 1.4.0 left (keepAsNext) once that version is replaced by hand.
+     */
+    waiting(newest: string | null): string | null {
+      const version = this.readyVersion();
+      if (!version || !fs.existsSync(path.join(o.top, NEXT_DIR, LAYOUT_MARKER))) return null;
+      if (version === newest) return version;
+      const record = readUpdateFile<{ version?: string; by?: string }>(NEXT_RECORD)?.data;
+      return !!o.current && record?.version === version && record.by === o.current ? version : null;
+    },
+    /** The version app.next holds, whoever put it there (see waiting()). */
     readyVersion(): string | null {
       try {
         const pkg = JSON.parse(
@@ -328,6 +366,8 @@ export function createInstaller(o: InstallerOptions) {
         ...(platform === 'win32' ? { maxRetries: 9, retryDelay: 100 } : {}),
       });
       renameSoon(path.join(o.top, PREVIOUS_DIR), path.join(o.top, NEXT_DIR));
+      // a swap that doesn't finish leaves it there: offered again as the version to restart with
+      recordNext(version);
       // only now: a rename that fails leaves a download under way to carry on
       turn++;
       state = { ...state, phase: 'idle', version: null };
@@ -360,19 +400,25 @@ export function createInstaller(o: InstallerOptions) {
       // .mts: an ES module wherever the release sits (a package.json above it can't say otherwise)
       const script = path.join(updatesDir, 'swap.mts');
       const planFile = path.join(updatesDir, 'plan.json');
+      const topFiles = path.join(updatesDir, TOP_FILES_DIR, p.to);
       const plan: SwapPlan = {
         top: o.top,
         pids: p.pids,
         port: p.port,
         from: p.from,
         to: p.to,
-        // a rollback keeps the start file as it is: the older release's isn't kept
-        ...(back ? {} : { topFiles: path.join(updatesDir, TOP_FILES_DIR) }),
+        // a rollback keeps the start file as it is: the older release's isn't kept (nor is it
+        // for a version that waits in app.next after a rollback)
+        ...(back || !fs.existsSync(topFiles) ? {} : { topFiles }),
         result: path.join(updatesDir, 'result.json'),
         log: path.join(updatesDir, 'swap.log'),
-        kind: p.kind,
-        // back to a version with no rollback of its own: this one stays as its app.next
-        ...(back && !hasRollback(p.to) ? { keepAsNext: true } : {}),
+        // an older version picked in the dropdown (1.6.2) is worded as a way back: the version it
+        // lands on says «Повернуто версію …» (every version from 1.4.0 knows that kind), not
+        // «Оновлено з … до …». The swap stays an update: the top files, app.previous replaced
+        kind: back || compareVersions(p.to, p.from) < 0 ? 'rollback' : 'update',
+        // to a version with no rollback of its own — back, or picked in the dropdown (1.6.2):
+        // this one stays as its app.next
+        ...(!hasRollback(p.to) ? { keepAsNext: true } : {}),
       };
       try {
         fs.copyFileSync(p.execPath, node);
@@ -424,14 +470,21 @@ export function createInstaller(o: InstallerOptions) {
     /**
      * A swap — an update or a rollback — leaves the helper's copy of Node, its plan and the
      * release's top files in `<data>/updates/`: they go once the helper has finished (its
-     * result.json, however old — 1.4.1) or is long gone; the result and the log stay. Returns
-     * what went.
+     * result.json, however old — 1.4.1) or is long gone; the result and the log stay, and so do
+     * the top files of a version still in app.next (1.6.2). Returns what went.
      */
     tidy(now = Date.now()): string[] {
       if (!helperGone(now)) return [];
       const gone: string[] = [];
+      // a swap that failed leaves the version in app.next: its top files and its record wait
+      // with it (1.6.2)
+      const waiting = this.readyVersion();
+      const record = readUpdateFile<{ version?: string }>(NEXT_RECORD)?.data;
       for (const f of fs.readdirSync(updatesDir)) {
         if (f === 'result.json' || f === 'swap.log') continue;
+        if (f === TOP_FILES_DIR && waiting && fs.existsSync(path.join(updatesDir, f, waiting)))
+          continue;
+        if (f === NEXT_RECORD && waiting && record?.version === waiting) continue;
         try {
           fs.rmSync(path.join(updatesDir, f), { recursive: true, force: true });
           gone.push(f);
