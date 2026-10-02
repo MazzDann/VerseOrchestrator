@@ -100,6 +100,7 @@ import {
   savedLength,
   shiftCountdown,
   showsTime,
+  timerColors,
   togglePause,
   untilFor,
   type AfterZero,
@@ -1773,7 +1774,9 @@ export function Control() {
   const countdownStart = (countdown: SlideCountdown) => {
     if (!leaderRef.current) return standbyNotice();
     const cover = { text: appearance.coverText, image: appearance.coverImage };
-    const slide = countdownOver(liveSlideRef.current, cover, countdown, slideStyle, tr('Відлік'));
+    // the time's colours from the settings (1.8.2)
+    const timed = { ...countdown, ...timerColors(appearance) };
+    const slide = countdownOver(liveSlideRef.current, cover, timed, slideStyle, tr('Відлік'));
     pushLive(slide);
     setPreviewOverride(slide);
     setLive(true);
@@ -1833,6 +1836,23 @@ export function Control() {
     }
     countdownStartSaved();
   };
+  // The time's colours changed (1.8.2, Налаштування вигляду → Відлік, maybe from the settings
+  // window): the countdown on screen takes them at once — its time and its end stay
+  const colors = timerColors(appearance);
+  const colorsKey = JSON.stringify(colors);
+  useEffect(() => {
+    const s = liveSlideRef.current;
+    const c = s.countdown;
+    if (!leaderRef.current || !s.cover || !c) return;
+    if (
+      c.warnBefore === colors.warnBefore &&
+      c.warnColor === colors.warnColor &&
+      c.overColor === colors.overColor
+    )
+      return;
+    countdownChange({ ...c, ...colors });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colorsKey]);
   /** «Після нуля» (1.8.0) for the countdown on screen: its time, the end and the cover stay. */
   const countdownAfterZero = (afterZero: AfterZero) => {
     const c = liveSlideRef.current.countdown;

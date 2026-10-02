@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { api } from '../api';
 import { type Slide } from '../presenterBus';
 import { connectLive } from '../lib/liveSocket';
@@ -11,7 +11,7 @@ import {
   type ReaderPrefs,
 } from '../lib/readerPrefs';
 import { tr, useLang } from '../i18n';
-import { formatTimer, hubOffset, useCountdown } from '../lib/countdown';
+import { formatTimer, hubOffset, timerColor, useCountdown } from '../lib/countdown';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -241,12 +241,18 @@ export function Follow() {
               </p>
             )}
             <p
-              style={{
-                margin: 0,
-                fontSize: 'clamp(48px, 18vw, 120px)',
-                fontWeight: 600,
-                fontVariantNumeric: 'tabular-nums',
-              }}
+              // the screen's warning and past-zero colours (1.8.2), made readable on a phone in
+              // light mode (styles.css .vo-follow-timer; review of 1.8.2)
+              className={timerColor(slide.countdown, left) ? 'vo-follow-timer' : undefined}
+              style={
+                {
+                  margin: 0,
+                  fontSize: 'clamp(48px, 18vw, 120px)',
+                  fontWeight: 600,
+                  fontVariantNumeric: 'tabular-nums',
+                  '--vo-timer-color': timerColor(slide.countdown, left),
+                } as CSSProperties
+              }
             >
               {formatTimer(left)}
             </p>

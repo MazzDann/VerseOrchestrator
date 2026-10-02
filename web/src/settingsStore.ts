@@ -9,7 +9,7 @@ import {
 import { DEFAULT_KEYMAP, sanitizeKeymap, type Keymap, type HotkeyActionId } from './hotkeys';
 import { isLang, N_, pickLang, type Lang } from '@vo/shared';
 import { tr } from './i18n';
-import type { AfterZero } from './lib/countdown';
+import { WARN_MINUTES, type AfterZero } from './lib/countdown';
 
 export type TextAlign = 'left' | 'center' | 'right';
 export type PadUnit = 'px' | '%';
@@ -54,6 +54,15 @@ export interface Appearance {
   countdownMinutes: number;
   /** …and what its time does at zero (1.8.0): on into −0:01 by default, the user's ask */
   countdownAfterZero: AfterZero;
+  /**
+   * The time's colours (1.8.2, Налаштування вигляду → Відлік): a warning so many minutes before
+   * the end (0 — none) and its colour; another colour at zero and past it, when on. A look — a
+   * preset carries them.
+   */
+  countdownWarnMinutes: number;
+  countdownWarnColor: string;
+  countdownOverOn: boolean;
+  countdownOverColor: string;
 }
 
 export interface RefItem {
@@ -263,6 +272,10 @@ export const DEFAULT_APPEARANCE: Appearance = {
   countdownCaption: '',
   countdownMinutes: 5,
   countdownAfterZero: 'overtime',
+  countdownWarnMinutes: 1,
+  countdownWarnColor: '#ffb020',
+  countdownOverOn: true,
+  countdownOverColor: '#ff5a5a',
 };
 
 /**
@@ -330,6 +343,12 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     revealSpotlight: !!m.revealSpotlight,
     revealPlaceholders: !!m.revealPlaceholders,
     transition: TRANSITIONS.includes(m.transition) ? m.transition : DEFAULT_APPEARANCE.transition,
+    countdownWarnMinutes: (WARN_MINUTES as readonly number[]).includes(m.countdownWarnMinutes)
+      ? m.countdownWarnMinutes
+      : DEFAULT_APPEARANCE.countdownWarnMinutes,
+    countdownWarnColor: strOr(m.countdownWarnColor, DEFAULT_APPEARANCE.countdownWarnColor),
+    countdownOverOn: !!m.countdownOverOn,
+    countdownOverColor: strOr(m.countdownOverColor, DEFAULT_APPEARANCE.countdownOverColor),
     // the cover is the operator's content, not a look: a preset carries neither (1.4.0)
     ...ownContent(DEFAULT_APPEARANCE),
   };
