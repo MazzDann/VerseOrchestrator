@@ -4,9 +4,12 @@ import {
   channelFor,
   compareVersions,
   createUpdateChecker,
+  isQuiet,
   parseVersion,
   pickLatest,
   pickReleases,
+  pinFor,
+  pinForSwap,
 } from './updates';
 
 /** GitHub's release list, as much of it as the checker reads. */
@@ -80,6 +83,43 @@ describe('update check (1.0.0)', () => {
     expect(all.find((r) => r.version === '1.3.1')).toMatchObject({ asset: null, sums: null });
     expect(pickLatest(list, 'stable', asset)?.version).toBe('1.6.1');
     expect(pickReleases({ message: 'rate limited' }, 'stable', asset)).toEqual([]);
+  });
+
+  it('an older version chosen over the newest keeps quiet about it — until a newer one (1.6.3)', () => {
+    // the dropdown or «Повернути версію» to 1.6.3 while 1.7.0 is the newest: a pin
+    expect(pinFor('1.6.3', '1.7.0')).toEqual({ version: '1.6.3', skip: '1.7.0' });
+    // the newest itself («Поточний реліз», an update), or the newest unknown: none
+    expect(pinFor('1.7.0', '1.7.0')).toBeNull();
+    expect(pinFor('1.6.3', null)).toBeNull();
+    const pin = pinFor('1.6.3', '1.7.0')!;
+    expect(isQuiet(pin, '1.6.3', '1.7.0')).toBe(true);
+    // a release newer than the one skipped is news again
+    expect(isQuiet(pin, '1.6.3', '1.7.1')).toBe(false);
+    // another version runs (the swap failed, or an update by hand): the pin isn't its own
+    expect(isQuiet(pin, '1.6.1', '1.7.0')).toBe(false);
+    expect(isQuiet(undefined, '1.6.3', '1.7.0')).toBe(false);
+    expect(isQuiet(pin, '1.6.3', null)).toBe(false);
+  });
+
+  it('a swap pins what the operator chose over — not a release out since (1.6.3)', () => {
+    const swap = (kind: 'update' | 'rollback', from: string, to: string, known: string | null) =>
+      pinForSwap({ kind, from, to, known });
+    // an update to the newest: none — also when 1.7.1 came out between the download and the
+    // restart (known is the newest when the download began)
+    expect(swap('update', '1.6.3', '1.7.0', '1.7.0')).toBeNull();
+    // an older or a newer-but-not-newest version picked in the list: chosen over the newest then
+    expect(swap('update', '1.6.1', '1.6.0', '1.7.0')).toEqual({ version: '1.6.0', skip: '1.7.0' });
+    expect(swap('update', '1.6.1', '1.6.3', '1.7.0')).toEqual({ version: '1.6.3', skip: '1.7.0' });
+    // what a rollback that didn't finish left in app.next (no newest recorded): over the one left
+    expect(swap('update', '1.7.0', '1.6.3', null)).toEqual({ version: '1.6.3', skip: '1.7.0' });
+    // «Повернути версію» down: over the newest known, or offline over the one left
+    expect(swap('rollback', '1.7.0', '1.6.3', '1.7.1')).toEqual({
+      version: '1.6.3',
+      skip: '1.7.1',
+    });
+    expect(swap('rollback', '1.7.0', '1.6.3', null)).toEqual({ version: '1.6.3', skip: '1.7.0' });
+    // …and up, undoing a step down: nothing chosen over anything
+    expect(swap('rollback', '1.6.3', '1.7.0', '1.7.1')).toBeNull();
   });
 
   const checker = (o: { current: string; enabled?: boolean; reply?: unknown; fail?: boolean }) => {

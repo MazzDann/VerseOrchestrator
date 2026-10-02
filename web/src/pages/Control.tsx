@@ -2983,17 +2983,19 @@ export function Control() {
     active: remoteOpen,
     onClick: () => setRemoteOpen((o) => !o),
   };
+  // a newer version to remind of — not one an older version was chosen over (1.6.3)
+  const newer = update?.available && !update.pinned ? (update.latest?.version ?? null) : null;
   const settingsTool: ToolProps = {
     label: tr('Налаштування вигляду'),
     hint: code?.changed
       ? tr('Код застосунку змінився — див. «Застосунок» → «Оновлення»')
-      : update?.available && update.latest
+      : newer
         ? tr('Доступна версія {version} — див. «Застосунок» → «Оновлення»', {
-            version: update.latest.version,
+            version: newer,
           })
         : tr('Шрифт, кольори, шаблон слайда, пресети, клавіші'),
     icon: <IconAdjustments size={18} stroke={1.5} />,
-    dot: !!update?.available || !!code?.changed,
+    dot: !!newer || !!code?.changed,
     active: settingsOpen,
     onClick: () => setSettingsOpen((o) => !o),
   };

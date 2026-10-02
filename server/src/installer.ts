@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream/promises';
 import { N_ } from '@vo/shared';
 import { LAYOUT_MARKER } from './layout.js';
 import type { SwapPlan, SwapResult } from './swap.js';
-import { compareVersions, type LatestRelease } from './updates.js';
+import { compareVersions, type LatestRelease, type Pin } from './updates.js';
 
 /**
  * Installing a newer release (1.0.0), for a copy in the release layout only (0.14.0).
@@ -174,20 +174,24 @@ export function createInstaller(o: InstallerOptions) {
     state = { ...state, phase: 'error', error, vars };
   };
 
-  /** This app put `version` in app.next (1.6.2): a restart of the same app offers it again. */
-  const recordNext = (version: string): void => {
+  /**
+   * This app put `version` in app.next (1.6.2): a restart of the same app offers it again. With
+   * it, the newest release known when it was chosen (1.6.3, the pin: a release out since then
+   * wasn't passed over).
+   */
+  const recordNext = (version: string, newest: string | null): void => {
     try {
       fs.mkdirSync(updatesDir, { recursive: true });
       fs.writeFileSync(
         path.join(updatesDir, NEXT_RECORD),
-        JSON.stringify({ version, by: o.current ?? '' }),
+        JSON.stringify({ version, by: o.current ?? '', newest }),
       );
     } catch {
       /* without it, only the newest release is offered again */
     }
   };
 
-  async function download(latest: LatestRelease): Promise<void> {
+  async function download(latest: LatestRelease, newest: string | null): Promise<void> {
     const mine = turn;
     const superseded = () => turn !== mine;
     const asset = latest.asset;
@@ -254,7 +258,7 @@ export function createInstaller(o: InstallerOptions) {
       const next = path.join(o.top, NEXT_DIR);
       fs.rmSync(next, { recursive: true, force: true });
       fs.renameSync(found.app, next); // same disk: data/ is next to app/
-      recordNext(latest.version);
+      recordNext(latest.version, newest);
       // the start file and the notes: swap.ts puts them next to app/ once the new version runs
       const topFiles = path.join(updatesDir, TOP_FILES_DIR, latest.version);
       fs.mkdirSync(topFiles, { recursive: true });
@@ -306,9 +310,9 @@ export function createInstaller(o: InstallerOptions) {
       return state.phase === 'unpack' ? N_('Зачекайте, доки оновлення розпакується') : null;
     },
     /** Start downloading (the answer comes at once; the page follows the phases). */
-    start(latest: LatestRelease): boolean {
+    start(latest: LatestRelease, newest: string | null = null): boolean {
       if (this.busy()) return false;
-      void download(latest);
+      void download(latest, newest);
       return true;
     },
     /**
@@ -323,6 +327,13 @@ export function createInstaller(o: InstallerOptions) {
       if (version === newest) return version;
       const record = readUpdateFile<{ version?: string; by?: string }>(NEXT_RECORD)?.data;
       return !!o.current && record?.version === version && record.by === o.current ? version : null;
+    },
+    /** The newest release known when `version` was put in app.next (1.6.3), or null. */
+    chosenOver(version: string): string | null {
+      const record = readUpdateFile<{ version?: string; newest?: unknown }>(NEXT_RECORD)?.data;
+      return record?.version === version && typeof record.newest === 'string'
+        ? record.newest
+        : null;
     },
     /** The version app.next holds, whoever put it there (see waiting()). */
     readyVersion(): string | null {
@@ -367,7 +378,7 @@ export function createInstaller(o: InstallerOptions) {
       });
       renameSoon(path.join(o.top, PREVIOUS_DIR), path.join(o.top, NEXT_DIR));
       // a swap that doesn't finish leaves it there: offered again as the version to restart with
-      recordNext(version);
+      recordNext(version, null);
       // only now: a rename that fails leaves a download under way to carry on
       turn++;
       state = { ...state, phase: 'idle', version: null };
@@ -391,6 +402,8 @@ export function createInstaller(o: InstallerOptions) {
       /** the running app and its waiter */
       pids: number[];
       port: number;
+      /** what the swap pins (1.6.3): it takes effect once the version swapped in runs */
+      pin?: Pin | null;
     }): { node: string; script: string; plan: string } {
       const back = p.kind === 'rollback';
       if (back && this.previousVersion() !== p.to)
@@ -419,6 +432,7 @@ export function createInstaller(o: InstallerOptions) {
         // to a version with no rollback of its own — back, or picked in the dropdown (1.6.2):
         // this one stays as its app.next
         ...(!hasRollback(p.to) ? { keepAsNext: true } : {}),
+        ...(p.pin !== undefined ? { pin: p.pin } : {}),
       };
       try {
         fs.copyFileSync(p.execPath, node);
@@ -465,6 +479,7 @@ export function createInstaller(o: InstallerOptions) {
         to: plan.data.to,
         at: Math.floor(plan.mtime),
         ...(plan.data.kind ? { kind: plan.data.kind } : {}),
+        ...(plan.data.pin !== undefined ? { pin: plan.data.pin } : {}),
       };
     },
     /**
