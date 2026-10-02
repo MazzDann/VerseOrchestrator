@@ -33,7 +33,7 @@ import { tr, useLang } from '../i18n';
 const chordsOf = (combo?: string) => (combo ?? '').split(',').filter(Boolean);
 
 /** Tooltip body: the action name, an optional hint line, and the current hotkey(s). */
-function Tip({ label, hint, combo }: { label: string; hint?: string; combo?: string }) {
+export function Tip({ label, hint, combo }: { label: string; hint?: string; combo?: string }) {
   const chords = chordsOf(combo);
   return (
     <Stack gap={2}>

@@ -22,6 +22,7 @@ These are the control window's standard keys. You can change them in **Settings*
 | **Hide text**                        | B                 |                        |
 | **Black screen**                     | . (period)        |                        |
 | **Cover** — logo and text            | L                 |                        |
+| **Countdown: pause / resume**        | T                 |                        |
 | **Clear** — take the slide off       | Esc               |                        |
 | **Bring back to the screen**         | Ctrl+Z            | ⌘Z                     |
 | **Search (current)**                 | F3, Ctrl+F        | ⌘F                     |

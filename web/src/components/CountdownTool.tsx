@@ -10,20 +10,22 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { IconHourglassHigh } from '@tabler/icons-react';
+import { IconHourglassHigh, IconPlayerPause, IconPlayerPlay } from '@tabler/icons-react';
 import { type SlideCountdown } from '../presenterBus';
 import { useSettings } from '../settingsStore';
 import {
-  afterZeroOf,
   COUNTDOWN_MINUTES,
   formatRemaining,
   formatTimer,
   isAfterZero,
+  parseDuration,
+  savedLength,
   untilAt,
-  untilIn,
-  useRemaining,
+  untilFor,
+  useCountdown,
   type AfterZero,
 } from '../lib/countdown';
+import { Tip } from './Toolbar';
 import { tr, useLang } from '../i18n';
 
 /**
@@ -33,13 +35,16 @@ import { tr, useLang } from '../i18n';
  * or «Заставка» without the time. The keys typed here stay here: Esc closes this, it never
  * clears the screen, and L / B / digits don't reach the page's hotkeys. «Після нуля» (1.8.0):
  * the time counts on past zero as −0:01 …, stays at 0:00, or goes — for the next countdown and
- * the one on screen.
+ * the one on screen. Any length typed as «7:30», «Пауза» / «Продовжити» and a key of its own
+ * (1.8.1).
  */
 export function CountdownTool({
   running,
   disabled,
+  combo,
   onStart,
   onShift,
+  onPause,
   onAfterZero,
   onKeepCover,
   onRemove,
@@ -48,8 +53,12 @@ export function CountdownTool({
   /** the countdown on screen now (a «Заставка» slide's), if any */
   running: SlideCountdown | null;
   disabled: boolean;
+  /** the current key of «Відлік: пауза / далі» (keymap.countdown), shown in the tooltip */
+  combo?: string;
   onStart: (countdown: SlideCountdown) => void;
   onShift: (minutes: number) => void;
+  /** «Пауза» / «Продовжити» for the countdown on screen */
+  onPause: () => void;
   /** «Після нуля» changed while a countdown is on screen: it takes it too */
   onAfterZero: (afterZero: AfterZero) => void;
   onKeepCover: () => void;
@@ -64,18 +73,16 @@ export function CountdownTool({
   const [opened, setOpened] = useState(false);
   const saved = useSettings((s) => s.appearance);
   const setAppearance = useSettings((s) => s.setAppearance);
-  // the one on screen goes by its own «Після нуля»; the next one by the setting
-  const runningAfterZero = afterZeroOf(running);
+  // the one on screen goes by its own «Після нуля»; the next one by the setting. On screen
+  // with its time: before zero, and after it unless the time goes there
+  const { left, counting, paused, afterZero: runningAfterZero } = useCountdown(running);
   const afterZero: AfterZero = isAfterZero(saved.countdownAfterZero)
     ? saved.countdownAfterZero
     : 'overtime';
-  const left = useRemaining(running?.until, runningAfterZero === 'overtime');
-  // on screen with its time: before zero, and after it unless the time goes there
-  const counting = !!running && (left > 0 || runningAfterZero !== 'hide');
   const [mode, setMode] = useState<'in' | 'at'>('in');
-  const [minutes, setMinutes] = useState(() =>
-    Math.min(720, Math.max(1, Math.round(saved.countdownMinutes || 5))),
-  );
+  // the length as typed (1.8.1): «7», «7:30», «1:05:00»; the chips write it too
+  const [length, setLength] = useState(() => formatRemaining(savedLength(saved.countdownMinutes)));
+  const lengthMs = parseDuration(length);
   const [at, setAt] = useState('');
   const caption = saved.countdownCaption.trim() || tr('Починаємо за');
   const box = useRef<HTMLDivElement>(null);
@@ -109,11 +116,18 @@ export function CountdownTool({
   // «до» a time: checked as it is typed; nothing to start until it is a time still ahead today
   const atUntil = mode === 'at' && at ? untilAt(at, Date.now()) : null;
   const atError = mode === 'at' && at && atUntil == null ? tr('Цей час уже минув') : null;
-  const startable = !disabled && (mode === 'in' || atUntil != null);
+  const lengthError =
+    mode === 'in' && lengthMs == null ? tr('Від 0:01 до 12:00:00, наприклад 7 або 7:30') : null;
+  const startable = !disabled && (mode === 'in' ? lengthMs != null : atUntil != null);
   const start = () => {
-    const until = mode === 'in' ? untilIn(minutes, Date.now()) : untilAt(at, Date.now());
+    const until =
+      mode === 'in'
+        ? lengthMs == null
+          ? null
+          : untilFor(lengthMs, Date.now())
+        : untilAt(at, Date.now());
     if (until == null) return;
-    if (mode === 'in') setAppearance({ countdownMinutes: minutes });
+    if (mode === 'in') setAppearance({ countdownMinutes: lengthMs! / 60000 });
     onStart({ until, caption, afterZero });
     setOpened(false);
   };
@@ -148,7 +162,11 @@ export function CountdownTool({
 
   // the tooltip says the time left; the button's accessible name stays put — a name that
   // changed every second had a screen reader read the clock aloud (review of #45)
-  const label = counting ? tr('Відлік: {time}', { time: formatTimer(left) }) : tr('Відлік');
+  const label = !counting
+    ? tr('Відлік')
+    : paused
+      ? tr('Відлік: {time}, пауза', { time: formatTimer(left) })
+      : tr('Відлік: {time}', { time: formatTimer(left) });
   return (
     <Popover
       opened={opened}
@@ -163,14 +181,11 @@ export function CountdownTool({
       <Popover.Target>
         <Tooltip
           label={
-            <Stack gap={2}>
-              <Text size="xs" fw={500}>
-                {label}
-              </Text>
-              <Text size="xs" c="dimmed" maw={240}>
-                {tr('«Заставка» з часом до початку: «Починаємо за 5:00»')}
-              </Text>
-            </Stack>
+            <Tip
+              label={label}
+              hint={tr('«Заставка» з часом до початку: «Починаємо за 5:00»')}
+              combo={combo}
+            />
           }
           withArrow
           openDelay={250}
@@ -212,11 +227,29 @@ export function CountdownTool({
                 {formatTimer(left)}
               </Text>
             </Group>
-            {left <= 0 && runningAfterZero === 'overtime' && (
+            {paused ? (
               <Text size="xs" c="dimmed">
-                {tr('Час вийшов: іде перевищення.')}
+                {tr('На паузі: час на екрані стоїть.')}
               </Text>
+            ) : (
+              left <= 0 &&
+              runningAfterZero === 'overtime' && (
+                <Text size="xs" c="dimmed">
+                  {tr('Час вийшов: іде перевищення.')}
+                </Text>
+              )
             )}
+            <Button
+              size="xs"
+              variant={paused ? 'filled' : 'default'}
+              color="brand"
+              fullWidth
+              disabled={disabled}
+              leftSection={paused ? <IconPlayerPlay size={14} /> : <IconPlayerPause size={14} />}
+              onClick={onPause}
+            >
+              {paused ? tr('Продовжити') : tr('Пауза')}
+            </Button>
             <Group gap="xs" grow>
               <Button
                 size="xs"
@@ -255,11 +288,11 @@ export function CountdownTool({
                     key={m}
                     type="button"
                     className="vo-chip"
-                    data-selected={mode === 'in' && minutes === m}
-                    aria-pressed={mode === 'in' && minutes === m}
+                    data-selected={mode === 'in' && lengthMs === m * 60000}
+                    aria-pressed={mode === 'in' && lengthMs === m * 60000}
                     onClick={() => {
                       setMode('in');
-                      setMinutes(m);
+                      setLength(formatRemaining(m * 60000));
                     }}
                   >
                     {tr('{n} хв', { n: m })}
@@ -276,6 +309,19 @@ export function CountdownTool({
                 </button>
               </Group>
             </div>
+            {mode === 'in' && (
+              <TextInput
+                size="xs"
+                label={tr('Тривалість')}
+                description={tr('Хвилини або хв:сс')}
+                value={length}
+                error={lengthError}
+                onChange={(e) => setLength(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && startable) start();
+                }}
+              />
+            )}
             {mode === 'at' && (
               <TextInput
                 size="xs"
@@ -307,11 +353,8 @@ export function CountdownTool({
               disabled={!startable}
               onClick={start}
             >
-              {mode === 'in'
-                ? tr('Показати: {caption} {time}', {
-                    caption,
-                    time: formatRemaining(minutes * 60000),
-                  })
+              {mode === 'in' && lengthMs != null
+                ? tr('Показати: {caption} {time}', { caption, time: formatRemaining(lengthMs) })
                 : tr('Показати відлік')}
             </Button>
             <Text size="xs" c="dimmed">
