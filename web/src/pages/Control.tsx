@@ -1189,6 +1189,23 @@ export function Control() {
     if (previewOverride?.picture?.src === now.picture.src)
       setPreviewOverride({ ...previewOverride, picture: { ...previewOverride.picture, fit } });
   };
+  // a picture deleted in «Зображення» (1.7.2) leaves the screen with it — nothing shown points at a
+  // file that is gone (a black screen stays black; «Заставка» over it gives back nothing)
+  const pictureDeleted = (src: string) => {
+    const now = liveSlideRef.current;
+    if (now.picture?.src === src) {
+      pushLive(
+        now.forceBlack
+          ? { lines: [], reference: '', blank: false, visible: true, forceBlack: true }
+          : { lines: [], reference: '', blank: false, visible: false },
+      );
+      if (!now.forceBlack) setLive(false);
+      clearedRef.current = null;
+    } else if (now.returnTo?.picture?.src === src) pushLive({ ...now, returnTo: undefined });
+    // what Esc took away can't come back as a picture that is gone
+    if (clearedRef.current?.picture?.src === src) clearedRef.current = null;
+    if (previewOverride?.picture?.src === src) setPreviewOverride(null);
+  };
   const addImageToPlaylist = (img: ImageInfo, fit: SlidePicture['fit']) => {
     playlistAdd({
       kind: 'image',
@@ -3546,6 +3563,7 @@ export function Control() {
               onProject={projectPicture}
               onRefit={refitPicture}
               onAddToPlaylist={addImageToPlaylist}
+              onDeleted={pictureDeleted}
               onScreen={
                 liveSlide.visible && !liveSlide.blank ? (liveSlide.picture?.src ?? null) : null
               }
