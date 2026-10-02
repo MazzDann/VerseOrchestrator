@@ -12,10 +12,10 @@
  *     start that one, and say why (`result.json`, which the app shows in «Оновлення»).
  *
  * «Повернути попередню версію» (1.4.0) goes the same way: the server turns `app.previous`
- * into `app.next` first, and the plan says `kind: 'rollback'`. Back to a version before 1.4.0,
- * which has no such button (`keepAsNext`, 1.4.1), the version left becomes that one's
- * `app.next` once it answers: its «Оновлення» then offers it again with no download, as long as
- * it is GitHub's latest.
+ * into `app.next` first, and the plan says `kind: 'rollback'`. To a version before 1.4.0,
+ * which has no such button (`keepAsNext`, 1.4.1) — back, or picked in the dropdown (1.6.2) — the
+ * version left becomes that one's `app.next` once it answers: its «Оновлення» then offers it
+ * again with no download, as long as it is GitHub's latest.
  *
  * The new version runs in the background, as with «Запуск за адресою» (the console window of
  * the start file has closed with the old version).
@@ -44,11 +44,14 @@ export interface SwapPlan {
   /** where to write how it went */
   result: string;
   log: string;
-  /** a new version, or back to the one before (1.4.0) — the app words its result by it */
+  /**
+   * a new version, or back to the one before (1.4.0) — the app words its result by it; an older
+   * version picked in the dropdown comes as 'rollback' too (1.6.2)
+   */
   kind?: 'update' | 'rollback';
   /**
-   * a rollback to a version that can't go back itself (before 1.4.0): the version left stays
-   * as `app.next`, ready for that one's «Перезапустити й оновити» (1.4.1)
+   * to a version that can't go back itself (before 1.4.0): the version left stays as
+   * `app.next`, ready for that one's «Перезапустити й оновити» (1.4.1)
    */
   keepAsNext?: boolean;
 }

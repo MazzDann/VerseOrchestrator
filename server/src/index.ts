@@ -336,7 +336,9 @@ app.get('/api/control-windows', requireLocal, controlWindowsRoute);
 // Installing (1.0.0): only a copy in the release layout, whose app/ can be replaced
 const release = readLayout(repoRoot);
 const releaseTop = release ? path.dirname(repoRoot) : null;
-const installer = releaseTop ? createInstaller({ top: releaseTop, dataDir }) : null;
+const installer = releaseTop
+  ? createInstaller({ top: releaseTop, dataDir, current: appVersion })
+  : null;
 
 // a swap — an update or a rollback — leaves the helper's copy of Node, its plan and the
 // release's top files behind: they go at the next start once the helper has finished (the app
@@ -346,12 +348,27 @@ installer?.tidy();
 async function updateAnswer(force: boolean) {
   const s = await updates.check(force);
   let install = installer?.state() ?? null;
-  // downloaded by an earlier run and not installed yet: ready all the same
-  if (install?.phase === 'idle' && s.latest && installer?.readyVersion() === s.latest.version)
-    install = { ...install, phase: 'ready', version: s.latest.version };
+  // downloaded by an earlier run and not installed yet — the newest, or another one this version
+  // downloaded (1.6.2): ready all the same
+  const ready = installer?.waiting(s.latest?.version ?? null) ?? null;
+  if (install?.phase === 'idle' && ready && ready !== appVersion)
+    install = { ...install, phase: 'ready', version: ready };
   const previous = installer?.previousVersion() ?? null;
+  const { releases, ...rest } = s;
   return {
-    ...s,
+    ...rest,
+    // the dropdown (1.6.2): what each release would be here — its size, whether it can be
+    // installed on this system, whether it can come back by itself (1.4.0 or later)
+    versions: installer
+      ? releases.map((r) => ({
+          version: r.version,
+          url: r.url,
+          publishedAt: r.publishedAt,
+          size: r.asset?.size ?? 0,
+          installable: !!r.asset && !!r.sums,
+          selfReturn: hasRollback(r.version),
+        }))
+      : [],
     installer: install,
     lastUpdate: installer?.lastSwap(appVersion) ?? null,
     // what the last update left behind, to go back to (1.4.0)
@@ -391,12 +408,21 @@ app.post(
 app.post(
   '/api/update/download',
   requireLocalControl,
-  wrap(async (_req, res) => {
+  wrap(async (req, res) => {
     const s = updates.state();
     if (!installer)
       throw new ApiError(409, N_('Оновлювати сам уміє лише застосунок з архіву релізу'));
-    if (!s.available || !s.latest) throw new ApiError(409, N_('Новішої версії немає'));
-    installer.start(s.latest);
+    // the version picked in the dropdown (1.6.2), newer or older; none: the newest
+    const wanted = typeof req.body?.version === 'string' ? req.body.version : null;
+    if (!wanted && (!s.available || !s.latest)) throw new ApiError(409, N_('Новішої версії немає'));
+    const release = wanted ? s.releases.find((r) => r.version === wanted) : s.latest;
+    if (!release)
+      throw new ApiError(
+        409,
+        N_('Такої версії немає серед релізів — натисніть «Перевірити зараз»'),
+      );
+    if (release.version === appVersion) throw new ApiError(409, N_('Ця версія вже встановлена'));
+    installer.start(release);
     res.status(202).json(await updateAnswer(false));
   }),
 );
@@ -442,10 +468,10 @@ app.post(
   '/api/update/restart',
   requireLocalControl,
   wrap(async (_req, res) => {
-    const s = updates.state();
     if (installer) refuseIfNotNow(installer);
-    const version = installer?.readyVersion();
-    if (!installer || !version || !s.latest || version !== s.latest.version)
+    // the version downloaded — the newest, or one picked in the dropdown, older too (1.6.2)
+    const version = installer?.waiting(updates.state().latest?.version ?? null);
+    if (!installer || !version || version === appVersion)
       throw new ApiError(409, N_('Оновлення ще не завантажено'));
     startSwap(installer, version, 'update', res);
   }),
