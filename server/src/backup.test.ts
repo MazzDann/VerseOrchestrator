@@ -459,6 +459,50 @@ describe('«Резервна копія» (1.5.0)', () => {
     expect(backupBusy()).toBe(false);
   });
 
+  it('an error after the state is in place fails nothing (review of #47)', async () => {
+    const to = dataDir('b');
+    await keepPending(to, await makeBackup(dataDir('a'), '1.5.0'));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const fail = () => {
+      throw new Error('SQLITE_BUSY');
+    };
+    const at = new Date();
+    expect((await restorePending(to, '1.5.0', at, { applied: fail }))?.bundles).toEqual(['ПС-a']);
+    expect(fs.readdirSync(path.join(to, 'backups')).some((f) => f.startsWith('pending'))).toBe(
+      false,
+    );
+    const was = lastRestore(to, at.getTime())!.undo;
+    expect(await undoRestore(to, at, fail)).toBe(true);
+    expect(state(to).songs).toEqual(['ПС-b.vosongs']);
+    expect(fs.existsSync(path.join(to, 'backups', was))).toBe(false);
+  });
+
+  it('a rollback whose kept folder cannot go reports the real cause and offers no way back', async () => {
+    const to = dataDir('b');
+    await keepPending(to, await makeBackup(dataDir('a'), '1.5.0'));
+    fs.mkdirSync(path.join(to, 'images', 'a.png')); // the backup's picture can't go in
+    const rm = fsp.rm.bind(fsp);
+    vi.spyOn(fsp, 'rm').mockImplementation(async (p, o) => {
+      if (/before-restore-[^/\\]+$/.test(String(p)))
+        throw Object.assign(new Error('EBUSY: the kept folder'), { code: 'EBUSY' });
+      return rm(p, o);
+    });
+    const at = new Date();
+    await expect(restorePending(to, '1.5.0', at)).rejects.not.toThrow('the kept folder');
+    expect(state(to).songs).toEqual(['ПС-b.vosongs']);
+    expect(lastRestore(to, at.getTime())).toBeNull();
+  });
+
+  it('a note whose folder no longer holds what was moved there offers nothing', async () => {
+    const to = dataDir('b');
+    await keepPending(to, await makeBackup(dataDir('a'), '1.5.0'));
+    const at = new Date();
+    await restorePending(to, '1.5.0', at);
+    const was = path.join(to, 'backups', lastRestore(to, at.getTime())!.undo);
+    fs.rmSync(path.join(was, 'songs'), { recursive: true });
+    expect(lastRestore(to, at.getTime())).toBeNull();
+  });
+
   it('names the file by its date and time', () => {
     expect(backupName(new Date(2026, 9, 1, 14, 5))).toBe(
       'VerseOrchestrator-backup-2026-10-01-1405.zip',
