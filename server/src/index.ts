@@ -759,6 +759,19 @@ const movesFailed = (e: unknown, key: string) => {
   });
 };
 
+/**
+ * A restore or its undo has put its state in place (backup.ts calls it before its cleanup): the
+ * import's «Скасувати» no longer reaches across it — it would overwrite or delete a restored
+ * bundle; every control window takes the restored settings at once — one still open would else
+ * send its old ones back with its next change; and the library's songs follow, in the same
+ * turn, so a window that asks for them gets the restored ones (review of #47).
+ */
+const restored = () => {
+  lastImport = null;
+  notifyUiStateRestored();
+  refreshSongs(bundlesDir(dataDir));
+};
+
 /** A backup refused in words: too big, or not one of this app / damaged (review of #47). */
 const backupRefusal = (e: unknown) =>
   !(e instanceof BackupError)
@@ -781,8 +794,7 @@ app.post(
     try {
       const summary = await oneAtATime(async () => {
         const { summary } = await readBackup(buf);
-        await keepPending(dataDir, buf);
-        return summary;
+        return { ...summary, id: await keepPending(dataDir, buf) };
       });
       res.json(summary);
     } catch (e) {
@@ -795,14 +807,16 @@ app.post(
 app.post(
   '/api/backup/restore',
   requireLocalControl,
-  wrap(async (_req, res) => {
+  wrap(async (req, res) => {
     notDuringRebuild();
     const started = Date.now();
+    // the file the page's card shows (review of #47)
+    const id = typeof req.body?.id === 'string' ? req.body.id : '';
     let summary;
     try {
       summary = await oneAtATime(async () => {
         notDuringRebuild(); // one may have started while this waited
-        return restorePending(dataDir, appVersion);
+        return restorePending(dataDir, appVersion, new Date(), { id, applied: restored });
       });
     } catch (e) {
       throw backupRefusal(
@@ -815,14 +829,6 @@ app.post(
       );
     }
     if (!summary) throw new ApiError(409, N_('Спершу виберіть файл копії ще раз'));
-    // the import's «Скасувати» doesn't reach across a restore: it would overwrite or delete a
-    // restored bundle (review of #47)
-    lastImport = null;
-    // every control window takes the restored settings now — one still open would else send
-    // its old ones back with its next change; told before the library is refreshed, which
-    // takes a while (review of #47)
-    notifyUiStateRestored();
-    refreshSongs(bundlesDir(dataDir));
     console.log(
       `[server] backup: restored the one from ${summary.created} (${Date.now() - started} ms)`,
     );
@@ -843,7 +849,7 @@ app.post(
     try {
       undone = await oneAtATime(async () => {
         notDuringRebuild();
-        return undoRestore(dataDir);
+        return undoRestore(dataDir, new Date(), restored);
       });
     } catch (e) {
       throw backupRefusal(
@@ -856,9 +862,6 @@ app.post(
       );
     }
     if (!undone) throw new ApiError(409, N_('Повертати вже нічого'));
-    lastImport = null;
-    notifyUiStateRestored();
-    refreshSongs(bundlesDir(dataDir));
     console.log('[server] backup: back to the state before the last restore');
     res.json({ ok: true });
   }),

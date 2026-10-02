@@ -388,6 +388,8 @@ const BackupSummarySchema = z.object({
   items: z.number(),
   bundles: z.array(z.string()),
   pictures: z.number(),
+  /** the checked file's id: the restore names it */
+  id: z.string().optional(),
 });
 export type BackupSummary = z.infer<typeof BackupSummarySchema>;
 
@@ -632,8 +634,13 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return BackupSummarySchema.parse(await res.json());
   },
-  restoreBackup: async () => {
-    const res = await request('/api/backup/restore', { method: 'POST', headers: CONTROL_HEADERS });
+  /** Restore the checked file `id` (checkBackup); another one checked since is refused. */
+  restoreBackup: async (id: string) => {
+    const res = await request('/api/backup/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ id }),
+    });
     if (!res.ok) throw await failure(res);
     return BackupSummarySchema.parse(await res.json());
   },

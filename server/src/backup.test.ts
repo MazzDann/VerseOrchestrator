@@ -152,8 +152,6 @@ describe('«Резервна копія» (1.5.0)', () => {
       'settings.json',
       '../x.vosongs',
       'songs/../../x.vosongs',
-      'songs/._x.vosongs',
-      'images/.trash',
       'library.db',
       'images/sub/x.png',
     ])
@@ -161,6 +159,52 @@ describe('«Резервна копія» (1.5.0)', () => {
         readBackup(await zip([manifest, { name: evil, data: Buffer.from('x') }])),
       ).rejects.toThrow(BackupError);
     expect((await readBackup(await zip([manifest]))).summary.bundles).toEqual([]);
+    // a dot file is dropped, never written: a Mac's ._ companions don't spoil a backup
+    const { entries } = await readBackup(
+      await zip([
+        manifest,
+        { name: 'songs/._x.vosongs', data: Buffer.from('x') },
+        { name: 'images/.trash', data: Buffer.from('x') },
+      ]),
+    );
+    expect(entries.map((e) => e.name)).toEqual(['manifest.json']);
+  });
+
+  it('takes a backup that Safari unpacked and Finder compressed again (review of #47)', async () => {
+    const made = await unzip(await makeBackup(dataDir('a'), '1.5.0'));
+    const top = 'VerseOrchestrator-backup-2026-10-01-1405/';
+    const again = await zip([
+      ...made.map((e) => ({ name: top + e.name, data: e.data })),
+      { name: `__MACOSX/${top}._manifest.json`, data: Buffer.from('AppleDouble') },
+      { name: `${top}.DS_Store`, data: Buffer.from('finder') },
+    ]);
+    const { entries, summary } = await readBackup(again);
+    expect(entries.map((e) => e.name)).toEqual(made.map((e) => e.name));
+    expect(summary.bundles).toEqual(['ПС-a']);
+    // only one top folder is taken off, and only when the manifest is in it
+    await expect(
+      readBackup(await zip(made.map((e) => ({ name: `a/b/${e.name}`, data: e.data })))),
+    ).rejects.toThrow(BackupError);
+  });
+
+  it('restores the checked file its card shows, not one checked since (review of #47)', async () => {
+    const to = dataDir('b');
+    const first = await keepPending(to, await makeBackup(dataDir('a'), '1.5.0'));
+    const second = await keepPending(to, await makeBackup(dataDir('c'), '1.5.0'));
+    expect(first).not.toBe(second);
+    expect(await restorePending(to, '1.5.0', new Date(), { id: first })).toBeNull();
+    expect(state(to).songs).toEqual(['ПС-b.vosongs']);
+    // the windows are told once the state is in place, before the cleanup
+    const seen: string[] = [];
+    const summary = await restorePending(to, '1.5.0', new Date(), {
+      id: second,
+      applied: () => seen.push(`${tags(to)} ${state(to).songs.join()}`),
+    });
+    expect(summary?.bundles).toEqual(['ПС-c']);
+    expect(seen).toEqual(['c ПС-c.vosongs']);
+    expect(fs.readdirSync(path.join(to, 'backups')).filter((f) => f.startsWith('pending'))).toEqual(
+      [],
+    );
   });
 
   it('restores: the backup state in place of the current one, the UI state as the newest', async () => {
@@ -278,7 +322,7 @@ describe('«Резервна копія» (1.5.0)', () => {
     expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
     expect(tags(to)).toBe('b');
     expect(lastRestore(to, at.getTime())).toBeNull();
-    expect(fs.readdirSync(path.join(to, 'backups'))).toEqual(['pending.zip']);
+    expect(fs.readdirSync(path.join(to, 'backups'))).toEqual(['pending.id', 'pending.zip']);
     // the file is still there to try again
     expect(await restorePending(to, '1.5.0', at)).not.toBeNull();
     expect(state(to).songs).toEqual(['ПС-a.vosongs']);
@@ -355,7 +399,7 @@ describe('«Резервна копія» (1.5.0)', () => {
     expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
     expect(tags(to)).toBe('b');
     expect(lastRestore(to, at.getTime())).toBeNull();
-    expect(fs.readdirSync(path.join(to, 'backups'))).toEqual(['pending.zip']);
+    expect(fs.readdirSync(path.join(to, 'backups'))).toEqual(['pending.id', 'pending.zip']);
     // the file is still there to try again
     vi.restoreAllMocks();
     expect((await restorePending(to, '1.5.0', at))!.bundles).toEqual(['ПС-a']);

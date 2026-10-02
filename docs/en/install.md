@@ -271,7 +271,8 @@ browser, and the choice of modules.
 To save a backup, in the control window open **Settings** → **App**, and in the **Backup**
 section click **Save a backup**. The browser downloads a file such as
 `VerseOrchestrator-backup-2026-10-01-1405.zip`. Keep it outside the app's folder, for
-example on a flash drive.
+example on a flash drive. Safari on a Mac may unpack the downloaded file into a folder: then
+compress that folder in Finder (**Compress**), and the app takes that file too.
 
 To restore a backup on this or another computer:
 

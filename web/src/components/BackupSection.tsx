@@ -181,7 +181,10 @@ export function BackupSection() {
                   size="xs"
                   loading={busy}
                   onClick={() =>
-                    void reloadAfter(api.restoreBackup, tr('Відновлено. Вікно перезавантажується…'))
+                    void reloadAfter(
+                      () => api.restoreBackup(pending.id ?? ''),
+                      tr('Відновлено. Вікно перезавантажується…'),
+                    )
                   }
                 >
                   {tr('Відновити')}

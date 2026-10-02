@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -26,6 +27,8 @@ const IMAGES = 'images';
 const BUNDLE_EXT = '.vosongs'; // @vo/shared songs/bundle.ts
 export const BACKUPS = 'backups';
 const PENDING = 'pending.zip';
+/** which checked file pending.zip is: the page restores the one its card shows */
+const PENDING_ID = 'pending.id';
 const LAST = 'last-restore.json';
 /** the states restores and their undos replaced, kept per kind (and by hand) */
 const KEEP = 5;
@@ -130,13 +133,30 @@ const allowed = (name: string) =>
 
 const count = (v: unknown) => (Array.isArray(v) ? v.length : 0);
 
+/**
+ * A backup as it was made, from one an archiver made again: Safari on a Mac unpacks a
+ * downloaded .zip, and Finder's «Стиснути» puts the folder's name before every entry and adds
+ * __MACOSX/._* and .DS_Store. Those are dropped — never written — and the one top folder taken
+ * off (review of #47).
+ */
+function asMade(entries: ZipEntry[]): ZipEntry[] {
+  const kept = entries.filter(
+    (e) => !e.name.startsWith('__MACOSX/') && !(e.name.split('/').pop() ?? '').startsWith('.'),
+  );
+  if (kept.some((e) => e.name === MANIFEST)) return kept;
+  const top = kept.find((e) => e.name.endsWith(`/${MANIFEST}`))?.name.slice(0, -MANIFEST.length);
+  if (!top || top.slice(0, -1).includes('/') || !kept.every((e) => e.name.startsWith(top)))
+    return kept;
+  return kept.map((e) => ({ ...e, name: e.name.slice(top.length) }));
+}
+
 /** Read a backup file: its entries and what it holds. Refuses anything else. */
 export async function readBackup(
   buf: Buffer,
 ): Promise<{ entries: ZipEntry[]; summary: BackupSummary }> {
   let entries: ZipEntry[];
   try {
-    entries = await unzip(buf, MAX_BACKUP_BYTES + 16 * 1024 * 1024);
+    entries = asMade(await unzip(buf, MAX_BACKUP_BYTES + 16 * 1024 * 1024));
   } catch {
     throw new BackupError('not a zip');
   }
@@ -237,9 +257,27 @@ function writeUiState(dataDir: string, state: Record<string, { value?: unknown }
 
 export const backupsDir = (dataDir: string) => path.join(dataDir, BACKUPS);
 
-/** A file sent to restore, kept until it is restored or another one comes. */
-export async function keepPending(dataDir: string, buf: Buffer): Promise<void> {
+/**
+ * A file sent to restore, kept until it is restored or another one comes; returns its id — the
+ * restore names it, so a file another window checked since is never restored in its place
+ * (review of #47).
+ */
+export async function keepPending(dataDir: string, buf: Buffer): Promise<string> {
+  const id = crypto.randomUUID();
   await put(path.join(backupsDir(dataDir), PENDING), buf);
+  await put(path.join(backupsDir(dataDir), PENDING_ID), Buffer.from(id));
+  return id;
+}
+
+/** What a restore is told besides the time. */
+export interface RestoreOptions {
+  /** the checked file's id (keepPending): another one pending means nothing is restored */
+  id?: string;
+  /**
+   * Called right after the UI state is written, before the slow cleanup: the windows must take
+   * the restored state before any of them sends its old one back (review of #47).
+   */
+  applied?: () => void;
 }
 
 export interface LastRestore {
@@ -424,10 +462,12 @@ export async function restorePending(
   dataDir: string,
   app: string,
   now = new Date(),
+  { id, applied }: RestoreOptions = {},
 ): Promise<BackupSummary | null> {
   const dir = backupsDir(dataDir);
   const pending = path.join(dir, PENDING);
   if (!fs.existsSync(pending)) return null;
+  if (id !== undefined && readText(path.join(dir, PENDING_ID)) !== id) return null;
   const { entries, summary } = await readBackup(await fsp.readFile(pending));
   const kept = await keepFolder(dataDir, 'restore', now);
   try {
@@ -456,10 +496,20 @@ export async function restorePending(
     else await fsp.rm(last, { force: true });
     throw e;
   }
-  await fsp.rm(pending, { force: true });
+  applied?.();
+  for (const f of [pending, path.join(dir, PENDING_ID)])
+    await fsp.rm(f, { force: true }).catch(() => undefined);
   await prune(dataDir, 'restore', path.basename(kept));
   return summary;
 }
+
+const readText = (file: string) => {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+};
 
 /**
  * «Повернути як було»: the state the last restore replaced, moved back. What is there now — the
@@ -468,7 +518,11 @@ export async function restorePending(
  * where it was, and the way back stays offered. The UI state goes in last, stamped as the
  * newest. False: nothing to go back to.
  */
-export async function undoRestore(dataDir: string, now = new Date()): Promise<boolean> {
+export async function undoRestore(
+  dataDir: string,
+  now = new Date(),
+  applied?: () => void,
+): Promise<boolean> {
   const last = lastRestore(dataDir, now.getTime());
   if (!last) return false;
   const dir = backupsDir(dataDir);
@@ -492,6 +546,7 @@ export async function undoRestore(dataDir: string, now = new Date()): Promise<bo
   await fsp.rm(path.join(dir, LAST), { force: true });
   const ui = readJson<Record<string, { value?: unknown }> | null>(path.join(from, UI_FILE), null);
   if (ui && typeof ui === 'object') writeUiState(dataDir, ui);
+  applied?.();
   await fsp.rm(from, { recursive: true, force: true }).catch(() => undefined);
   await prune(dataDir, 'undo', path.basename(kept));
   return true;
