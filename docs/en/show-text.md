@@ -129,7 +129,8 @@ The **After zero** switch says what the time does past zero:
 - **Stop at 0:00** — the screen keeps showing 0:00.
 - **Hide time** — the time leaves the screen, and the cover stays.
 
-When the countdown reaches zero, the control window says so.
+When the countdown reaches zero, the control window says so. Before the end and past zero the
+time changes color: see [Set up the countdown colors](appearance.md#set-up-the-countdown-colors).
 
 The T key pauses and resumes the countdown on screen. With no countdown on screen, T shows a
 new one of the length you chose last.

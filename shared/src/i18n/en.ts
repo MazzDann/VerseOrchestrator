@@ -709,6 +709,18 @@ export const EN: Record<string, string> = {
     'Pauses or resumes the countdown on screen; with none, starts one of the length last chosen in Countdown',
   'Відлік: пауза': 'Countdown paused',
   'Відлік іде далі': 'Countdown resumed',
+  // 1.8.2: the time's colours (Налаштування вигляду → Відлік)
+  'попередження за {n} хв': 'a warning {n} min before',
+  'колір після нуля': 'a color past zero',
+  'без кольорів': 'no colors',
+  'Час відліку на екрані, у «Сцені» й на телефонах змінює колір перед кінцем і після нуля.':
+    'The countdown time on screen, in Stage, and on the phones changes color before the end and past zero.',
+  Попередження: 'Warning',
+  'Без попередження': 'No warning',
+  'За {n} хв до кінця': '{n} min before the end',
+  'Колір попередження': 'Warning color',
+  'Інший колір після нуля': 'Another color past zero',
+  'Колір після нуля': 'Color past zero',
   // 1.4.1: the logo and the settings' storage (SettingsPanel, lib/settingsSaveNotice.ts)
   'PNG, JPEG або WebP; для чіткого показу — від 1600 пікселів по довшому боці.':
     'PNG, JPEG, or WebP; for a sharp picture, 1600 pixels or more on the longer side.',

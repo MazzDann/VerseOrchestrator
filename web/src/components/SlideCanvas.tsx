@@ -9,7 +9,7 @@ import {
   type SlidePicture,
   DEFAULT_STYLE,
 } from '../presenterBus';
-import { formatTimer, useCountdown } from '../lib/countdown';
+import { formatTimer, timerColor, useCountdown } from '../lib/countdown';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 import { SlideFade } from './SlideFade';
@@ -197,7 +197,13 @@ function CoverContent({
         />
       )}
       {cover.text && <div style={{ lineHeight: 1.25, whiteSpace: 'pre-line' }}>{cover.text}</div>}
-      {counting && countdown && <CountdownLines caption={countdown.caption} left={left} />}
+      {counting && countdown && (
+        <CountdownLines
+          caption={countdown.caption}
+          left={left}
+          color={timerColor(countdown, left)}
+        />
+      )}
     </div>
   );
 }
@@ -205,9 +211,18 @@ function CoverContent({
 /**
  * «Відлік» (1.5.0): the words over a big time left; equal-width digits, so the line holds still
  * as it counts. Past the end (1.8.0, «Після нуля») the time counts on as −0:01 …, stays at 0:00,
- * or both go and «Заставка» stays (`CoverContent`).
+ * or both go and «Заставка» stays (`CoverContent`). The time alone takes the warning colour
+ * before the end and the other one past it (1.8.2); the words keep the slide's.
  */
-function CountdownLines({ caption, left }: { caption: string; left: number }) {
+function CountdownLines({
+  caption,
+  left,
+  color,
+}: {
+  caption: string;
+  left: number;
+  color?: string;
+}) {
   return (
     <div
       style={{
@@ -224,6 +239,7 @@ function CountdownLines({ caption, left }: { caption: string; left: number }) {
           fontWeight: 600,
           fontVariantNumeric: 'tabular-nums',
           letterSpacing: '0.02em',
+          color,
         }}
       >
         {formatTimer(left)}
