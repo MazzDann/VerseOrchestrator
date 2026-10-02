@@ -729,6 +729,20 @@ export const EN: Record<string, string> = {
   'Над часом': 'Above the time',
   'Під часом': 'Below the time',
   'Без напису': 'No words',
+  // 1.8.4: a speaker's timer on «Сцена»
+  'Таймер доповідача': 'Speaker timer',
+  'Таймер доповідача: {time}': 'Speaker timer: {time}',
+  'Таймер доповідача: {time}, пауза': 'Speaker timer: {time}, paused',
+  'Час для доповідача — лише у вікні «Сцена»': 'Time for the speaker — in the Stage window only',
+  'Таймер на «Сцені»': 'Timer on Stage',
+  'На паузі: час на «Сцені» стоїть.': 'Paused: the time on Stage stands still.',
+  'Прибрати таймер': 'Remove the timer',
+  'Час бачить лише доповідач у вікні «Сцена»; глядачі його не бачать.':
+    'Only the speaker sees the time, in the Stage window; the audience doesn’t.',
+  'Запустити на «Сцені»: {time}': 'Start on Stage: {time}',
+  'Запустити на «Сцені»': 'Start on Stage',
+  'Розмір і напис — лише для відліку на екрані; таймер доповідача бере кольори, шрифт і запис часу.':
+    'Size and words are for the countdown on screen only; the speaker timer takes the colors, font, and format.',
   'Час відліку на екрані, у «Сцені» й на телефонах змінює колір перед кінцем і після нуля.':
     'The countdown time on screen, in Stage, and on the phones changes color before the end and past zero.',
   Попередження: 'Warning',
@@ -935,6 +949,8 @@ export const EN: Record<string, string> = {
   ЗАРАЗ: 'NOW',
   ДАЛІ: 'NEXT',
   '— кінець / немає наступного —': '— end / nothing next —',
+  ТАЙМЕР: 'TIMER',
+  ПАУЗА: 'PAUSED',
   'Основний екран': 'Primary screen',
   'Екран {n}': 'Screen {n}',
   'Цей екран': 'This screen',

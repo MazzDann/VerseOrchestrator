@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatTimer, lookOf, TIMER_FONT_CSS, timerColor, useCountdown } from '../lib/countdown';
 import {
   type Slide,
   EMPTY_SLIDE,
@@ -32,13 +33,18 @@ const toggleFullscreen = toggleOwnFullscreen;
 /**
  * Stage display — a confidence monitor for the operator/speaker: the slide that
  * is live now (large), what advancing once would project (next), and a clock.
- * Read-only mirror of the live/next channels; never publishes.
+ * Read-only mirror of the live/next channels; never publishes. A speaker's timer (1.8.4,
+ * «Таймер доповідача») comes with the slide and shows only here, under «ДАЛІ».
  */
 export function Stage() {
   useLang();
   const [slide, setSlide] = useState<Slide>(EMPTY_SLIDE);
   const [next, setNext] = useState<Slide | null>(null);
   const clock = useClock();
+  // the speaker's timer (1.8.4): counts, holds or goes past zero, pauses — as «Відлік» does
+  const timer = slide.stageTimer ?? null;
+  const { left, counting: timing, paused } = useCountdown(timer);
+  const timerLook = lookOf(timer);
   // Tell the control window this output exists (its «Вікна виводу» list).
   const identify = useAnnounceOutput('stage');
 
@@ -210,6 +216,28 @@ export function Stage() {
               </div>
             )}
           </div>
+          {timing && timer && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6vmin' }}>
+              <div style={{ fontSize: '2vmin', fontWeight: 600, opacity: 0.55, letterSpacing: 2 }}>
+                {tr('ТАЙМЕР')}
+                {paused ? ` · ${tr('ПАУЗА')}` : ''}
+              </div>
+              <div
+                style={{
+                  fontSize: '13vmin',
+                  lineHeight: 1,
+                  fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums',
+                  whiteSpace: 'nowrap',
+                  fontFamily: TIMER_FONT_CSS[timerLook.font],
+                  color: timerColor(timer, left),
+                  opacity: paused ? 0.7 : 1,
+                }}
+              >
+                {formatTimer(left, timerLook.format)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <IdentifyOverlay label={identify} />

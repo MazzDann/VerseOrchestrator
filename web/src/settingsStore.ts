@@ -71,6 +71,9 @@ export interface Appearance {
   countdownWarnColor: string;
   countdownOverOn: boolean;
   countdownOverColor: string;
+  /** «Таймер доповідача» (1.8.4): the length it last ran for (whole seconds) and its «Після нуля» */
+  stageTimerMinutes: number;
+  stageTimerAfterZero: AfterZero;
   /** The time's look (1.8.3): its size, font, how it is written, and where the words go. */
   countdownSize: TimerSize;
   countdownFont: TimerFont;
@@ -289,6 +292,8 @@ export const DEFAULT_APPEARANCE: Appearance = {
   countdownWarnColor: '#ffb020',
   countdownOverOn: true,
   countdownOverColor: '#ff5a5a',
+  stageTimerMinutes: 15,
+  stageTimerAfterZero: 'overtime',
   countdownSize: 'md',
   countdownFont: 'text',
   countdownFormat: 'clock',
@@ -305,6 +310,8 @@ const ownContent = (a: Appearance) => ({
   countdownCaption: a.countdownCaption,
   countdownMinutes: a.countdownMinutes,
   countdownAfterZero: a.countdownAfterZero,
+  stageTimerMinutes: a.stageTimerMinutes,
+  stageTimerAfterZero: a.stageTimerAfterZero,
 });
 
 export const FONT_OPTIONS = [

@@ -262,6 +262,10 @@ describe('window bus v2', () => {
     expect(isSlide({ ...slide('x'), countdown: { until: 1, caption: 'x' } })).toBe(true);
     expect(isSlide({ ...slide('x'), countdown: null })).toBe(true);
     expect(isSlide({ ...slide('x'), countdown: { until: 'soon', caption: 'x' } })).toBe(false);
+    // a speaker's timer (1.8.4)
+    expect(isSlide({ ...slide('x'), stageTimer: { until: 1 } })).toBe(true);
+    expect(isSlide({ ...slide('x'), stageTimer: null })).toBe(true);
+    expect(isSlide({ ...slide('x'), stageTimer: { until: 'x' } })).toBe(false);
     // a picture (1.5.0): an address
     expect(
       isSlide({
