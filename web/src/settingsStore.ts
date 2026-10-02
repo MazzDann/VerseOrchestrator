@@ -47,6 +47,10 @@ export interface Appearance {
   /** «Заставка» (1.4.0): its line of text and its image (a data URL, PNG keeps transparency). */
   coverText: string;
   coverImage: string | null;
+  /** «Відлік» (1.5.0): the words over the time ('' — «Починаємо за» in the window's language) */
+  countdownCaption: string;
+  /** …and the minutes it last ran for, offered first next time */
+  countdownMinutes: number;
 }
 
 export interface RefItem {
@@ -253,7 +257,20 @@ export const DEFAULT_APPEARANCE: Appearance = {
   transition: 'smooth',
   coverText: '',
   coverImage: null,
+  countdownCaption: '',
+  countdownMinutes: 5,
 };
+
+/**
+ * The operator's own content in the appearance — «Заставка» and «Відлік» (1.4.0, 1.5.0): not a
+ * look, so a preset neither carries nor replaces it.
+ */
+const ownContent = (a: Appearance) => ({
+  coverText: a.coverText,
+  coverImage: a.coverImage,
+  countdownCaption: a.countdownCaption,
+  countdownMinutes: a.countdownMinutes,
+});
 
 export const FONT_OPTIONS = [
   { value: '"Lora", Georgia, "Times New Roman", serif', label: N_('Lora (сериф)') },
@@ -309,8 +326,7 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     revealPlaceholders: !!m.revealPlaceholders,
     transition: TRANSITIONS.includes(m.transition) ? m.transition : DEFAULT_APPEARANCE.transition,
     // the cover is the operator's content, not a look: a preset carries neither (1.4.0)
-    coverText: '',
-    coverImage: null,
+    ...ownContent(DEFAULT_APPEARANCE),
   };
 }
 
@@ -479,7 +495,7 @@ export const useSettings = create<SettingsState>()(
           // many can be saved/exported without blowing the localStorage quota.
           const preset: AppearancePreset = {
             name: n,
-            appearance: { ...s.appearance, bgImage: null, coverText: '', coverImage: null },
+            appearance: { ...s.appearance, bgImage: null, ...ownContent(DEFAULT_APPEARANCE) },
             template: s.slideTemplate,
           };
           return { presets: [preset, ...s.presets.filter((p) => p.name !== n)].slice(0, 100) };
@@ -495,8 +511,7 @@ export const useSettings = create<SettingsState>()(
               ...p.appearance,
               bgImage: s.appearance.bgImage,
               transition: s.appearance.transition,
-              coverText: s.appearance.coverText,
-              coverImage: s.appearance.coverImage,
+              ...ownContent(s.appearance),
             },
             slideTemplate: p.template ?? null,
           };
@@ -509,8 +524,7 @@ export const useSettings = create<SettingsState>()(
             bgImage: s.appearance.bgImage,
             // how slides change is the operator's choice, not part of a look (0.6.7)
             transition: s.appearance.transition,
-            coverText: s.appearance.coverText,
-            coverImage: s.appearance.coverImage,
+            ...ownContent(s.appearance),
           },
           slideTemplate: preset.template ?? null,
         })),
@@ -524,8 +538,7 @@ export const useSettings = create<SettingsState>()(
             bgImage: s.appearance.bgImage,
             // how slides change is the operator's choice, not part of a look (0.6.7)
             transition: s.appearance.transition,
-            coverText: s.appearance.coverText,
-            coverImage: s.appearance.coverImage,
+            ...ownContent(s.appearance),
           },
           slideTemplate: preset.template ?? null,
         }));

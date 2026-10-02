@@ -613,6 +613,30 @@ export const EN: Record<string, string> = {
   'Заставка поки порожня — лише фон. Додайте логотип чи текст: Налаштування вигляду → Заставка':
     'The cover is empty for now — the background only. Add a logo or text: Settings → Cover',
   'Прибрати заставку': 'Remove the cover',
+  // «Відлік» (1.5.0)
+  Відлік: 'Countdown',
+  'Починаємо за': 'Starting in',
+  'Цей час уже минув': 'This time has already passed',
+  'Відлік: {time}': 'Countdown: {time}',
+  '«Заставка» з часом до початку: «Починаємо за 5:00»':
+    'The cover with the time to the start: “Starting in 5:00”',
+  'Відлік на екрані': 'Countdown on screen',
+  '−1 хв': '−1 min',
+  '+1 хв': '+1 min',
+  'Лишити заставку без часу': 'Keep the cover without the time',
+  'Прибрати відлік': 'Remove the countdown',
+  'Відлік скінчився: заставка лишається на екрані.':
+    'The countdown has ended: the cover stays on screen.',
+  Скільки: 'How long',
+  '{n} хв': '{n} min',
+  'до…': 'until…',
+  'До котрої години': 'Until what time',
+  'Напис над часом': 'Words over the time',
+  'Показати: {caption} {time}': 'Show: {caption} {time}',
+  'Показати відлік': 'Show the countdown',
+  'Логотип і текст над часом — із розділу «Заставка» в налаштуваннях вигляду.':
+    'The logo and text over the time come from the “Cover” section of the settings.',
+  'Відлік: {n} хв': 'Countdown: {n} min',
   // 1.4.1: the logo and the settings' storage (SettingsPanel, lib/settingsSaveNotice.ts)
   'PNG, JPEG або WebP; для чіткого показу — від 1600 пікселів по довшому боці.':
     'PNG, JPEG, or WebP; for a sharp picture, 1600 pixels or more on the longer side.',
