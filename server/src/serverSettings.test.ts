@@ -16,6 +16,27 @@ describe('the browser choice in settings.json (2026-10-01)', () => {
     for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
   });
 
+  it('keeps a pin of two versions, drops anything else (1.6.3)', () => {
+    expect(sanitizeServerSettings({}).updates).toEqual({ check: true });
+    expect(
+      sanitizeServerSettings({
+        updates: { check: false, pin: { version: '1.6.3', skip: '1.7.0' } },
+      }).updates,
+    ).toEqual({ check: false, pin: { version: '1.6.3', skip: '1.7.0' } });
+    for (const pin of [null, { version: '1.6.3' }, { version: 'latest', skip: '1.7.0' }, 'x'])
+      expect(sanitizeServerSettings({ updates: { pin } }).updates.pin).toBeUndefined();
+  });
+
+  it('a pin set and cleared through a change keeps the switch', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-settings-'));
+    dirs.push(dir);
+    initServerSettings(path.join(dir, 'settings.json'));
+    updateServerSettings({ updates: { check: false } });
+    const pinned = updateServerSettings({ updates: { pin: { version: '1.6.3', skip: '1.7.0' } } });
+    expect(pinned.updates).toEqual({ check: false, pin: { version: '1.6.3', skip: '1.7.0' } });
+    expect(updateServerSettings({ updates: { pin: null } }).updates).toEqual({ check: false });
+  });
+
   it('defaults to the system browser, as before', () => {
     expect(sanitizeServerSettings({}).launch).toEqual({ browser: 'system', appWindow: false });
     expect(

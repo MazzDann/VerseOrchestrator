@@ -54,6 +54,11 @@ export interface SwapPlan {
    * `app.next`, ready for that one's «Перезапустити й оновити» (1.4.1)
    */
   keepAsNext?: boolean;
+  /**
+   * the pin this swap decides (1.6.3, updates.ts pinForSwap; null: none) — it takes effect in
+   * the version swapped in, once the swap went well (the result carries it there)
+   */
+  pin?: { version: string; skip: string } | null;
 }
 
 export interface SwapResult {
@@ -64,6 +69,8 @@ export interface SwapResult {
   /** a dictionary key when not ok */
   error?: string;
   kind?: 'update' | 'rollback';
+  /** the plan's pin (1.6.3) */
+  pin?: { version: string; skip: string } | null;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -208,6 +215,7 @@ export async function runSwap(plan: SwapPlan, waitMs = 90_000): Promise<SwapResu
       to: plan.to,
       at: Date.now(),
       ...(plan.kind ? { kind: plan.kind } : {}),
+      ...(plan.pin !== undefined ? { pin: plan.pin } : {}),
     };
     fs.writeFileSync(plan.result, JSON.stringify(result));
     log(`done: ${JSON.stringify(result)}`);

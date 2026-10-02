@@ -268,6 +268,13 @@ To come back to the version you switched from, click **Go back to version …**.
 needs the internet. If the newest is the one you switched from, it doesn't need downloading
 again.
 
+While a version you chose over the newest runs, the app doesn't remind you of updates: the
+**Settings** button has no dot, and **Updates** says "You chose version …". The same goes
+after **Go back to version …** when it leads to an older version. A release newer than the
+newest at that time brings the reminder back. To return to the newest stable version, click **Current release …**, then
+**Restart and update**. Versions from 1.6.3 behave this way; older ones always remind you of
+the newest.
+
 ### Update by hand
 
 Versions before 1.0.0 can't update themselves. To update such a version, or if the update

@@ -40,7 +40,7 @@ import {
 import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
-import { createUpdateChecker } from './updates.js';
+import { createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
 import { readLayout } from './layout.js';
 import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
@@ -345,8 +345,21 @@ const installer = releaseTop
 // the swap starts runs before the helper writes its result, so what it holds stays till then)
 installer?.tidy();
 
+/**
+ * The pin a swap to this version decided (1.6.3) takes effect once that swap went well — this
+ * version answers — so a swap that fails keeps the pin the version before had.
+ */
+function adoptPin(last: { ok: boolean; to: string; pin?: Pin | null } | null) {
+  if (!last?.ok || last.to !== appVersion || last.pin === undefined) return;
+  const now = getServerSettings().updates.pin ?? null;
+  if (JSON.stringify(now) !== JSON.stringify(last.pin))
+    updateServerSettings({ updates: { pin: last.pin } });
+}
+
 async function updateAnswer(force: boolean) {
   const s = await updates.check(force);
+  const lastUpdate = installer?.lastSwap(appVersion) ?? null;
+  adoptPin(lastUpdate);
   let install = installer?.state() ?? null;
   // downloaded by an earlier run and not installed yet — the newest, or another one this version
   // downloaded (1.6.2): ready all the same
@@ -370,7 +383,11 @@ async function updateAnswer(force: boolean) {
         }))
       : [],
     installer: install,
-    lastUpdate: installer?.lastSwap(appVersion) ?? null,
+    // a version chosen over the newest release (1.6.3): no reminders about what it skipped
+    pinned:
+      !!installer &&
+      isQuiet(getServerSettings().updates.pin, appVersion, s.latest?.version ?? null),
+    lastUpdate,
     // what the last update left behind, to go back to (1.4.0)
     previous,
     // …and whether it can come back here by itself (1.4.0 or later) or only by an update (1.4.1)
@@ -422,7 +439,8 @@ app.post(
         N_('Такої версії немає серед релізів — натисніть «Перевірити зараз»'),
       );
     if (release.version === appVersion) throw new ApiError(409, N_('Ця версія вже встановлена'));
-    installer.start(release);
+    // the newest now: what a pick of another version is chosen over (1.6.3)
+    installer.start(release, s.latest?.version ?? null);
     res.status(202).json(await updateAnswer(false));
   }),
 );
@@ -439,6 +457,14 @@ function startSwap(
 ) {
   const waiterPid = process.env.VO_STANDBY === '1' ? process.ppid : null;
   const port = Number(process.env.VO_STANDBY_PORT) || getServerSettings().standby.port;
+  // an older version chosen on purpose (1.6.3) keeps quiet about what it was chosen over: for a
+  // download, the newest when it began; for «Повернути версію», the newest known now
+  const pin = pinForSwap({
+    kind,
+    from: appVersion,
+    to: version,
+    known: kind === 'update' ? inst.chosenOver(version) : (updates.state().latest?.version ?? null),
+  });
   // the helper runs outside app/, with a copy of this Node: nothing in app/ may stay in use
   const helper = inst.prepareSwap({
     execPath: process.execPath,
@@ -448,6 +474,7 @@ function startSwap(
     to: version,
     pids: waiterPid ? [process.pid, waiterPid] : [process.pid],
     port,
+    pin,
   });
   spawn(helper.node, ['--disable-warning=ExperimentalWarning', helper.script, helper.plan], {
     cwd: inst.updatesDir,

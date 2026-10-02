@@ -70,6 +70,42 @@ export function compareVersions(a: string, b: string): number {
 export const channelFor = (current: string): Channel =>
   (parseVersion(current)?.[0] ?? 0) >= 1 ? 'stable' : 'preview';
 
+/**
+ * An older version the operator chose over the newest release (1.6.3, «Поточний»): `version`
+ * runs on purpose, so «Оновлення» keeps quiet about the releases up to `skip` — the newest one
+ * when it was chosen. A release newer than that is news again.
+ */
+export interface Pin {
+  version: string;
+  skip: string;
+}
+
+/** `to` chosen over `newest`: a pin when it is older; anything else isn't one. */
+export function pinFor(to: string, newest: string | null): Pin | null {
+  return newest && compareVersions(to, newest) < 0 ? { version: to, skip: newest } : null;
+}
+
+/**
+ * The pin a swap from `from` to `to` leaves (1.6.3). `to` is chosen over the newest release
+ * the operator knew of when choosing it (`known`: for a download, the newest when it began — a
+ * release out since then wasn't passed over) and over `from` when it is older. «Повернути
+ * версію» that steps up, undoing a step down, chooses nothing over anything.
+ */
+export function pinForSwap(o: {
+  kind: 'update' | 'rollback';
+  from: string;
+  to: string;
+  known: string | null;
+}): Pin | null {
+  if (o.kind === 'rollback' && compareVersions(o.to, o.from) > 0) return null;
+  return pinFor(o.to, o.known && compareVersions(o.known, o.from) > 0 ? o.known : o.from);
+}
+
+/** Does the pin keep `current` quiet — nothing out newer than what it skipped? */
+export function isQuiet(pin: Pin | undefined, current: string, newest: string | null): boolean {
+  return !!pin && !!newest && pin.version === current && compareVersions(newest, pin.skip) <= 0;
+}
+
 interface GitHubRelease {
   tag_name?: unknown;
   html_url?: unknown;
