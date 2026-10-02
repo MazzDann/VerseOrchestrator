@@ -100,7 +100,8 @@ import {
   savedLength,
   shiftCountdown,
   showsTime,
-  timerColors,
+  hasLook,
+  timerLook,
   togglePause,
   untilFor,
   type AfterZero,
@@ -1774,8 +1775,8 @@ export function Control() {
   const countdownStart = (countdown: SlideCountdown) => {
     if (!leaderRef.current) return standbyNotice();
     const cover = { text: appearance.coverText, image: appearance.coverImage };
-    // the time's colours from the settings (1.8.2)
-    const timed = { ...countdown, ...timerColors(appearance) };
+    // the time's look from the settings (1.8.2 colours, 1.8.3 the rest)
+    const timed = { ...countdown, ...timerLook(appearance) };
     const slide = countdownOver(liveSlideRef.current, cover, timed, slideStyle, tr('Відлік'));
     pushLive(slide);
     setPreviewOverride(slide);
@@ -1836,23 +1837,18 @@ export function Control() {
     }
     countdownStartSaved();
   };
-  // The time's colours changed (1.8.2, Налаштування вигляду → Відлік, maybe from the settings
-  // window): the countdown on screen takes them at once — its time and its end stay
-  const colors = timerColors(appearance);
-  const colorsKey = JSON.stringify(colors);
+  // The time's look changed (1.8.2 colours, 1.8.3 size, font, format, words; Налаштування
+  // вигляду → Відлік, maybe from the settings window): the countdown on screen takes it at once —
+  // its time and its end stay
+  const look = timerLook(appearance);
+  const lookKey = JSON.stringify(look);
   useEffect(() => {
     const s = liveSlideRef.current;
     const c = s.countdown;
-    if (!leaderRef.current || !s.cover || !c) return;
-    if (
-      c.warnBefore === colors.warnBefore &&
-      c.warnColor === colors.warnColor &&
-      c.overColor === colors.overColor
-    )
-      return;
-    countdownChange({ ...c, ...colors });
+    if (!leaderRef.current || !s.cover || !c || hasLook(c, look)) return;
+    countdownChange({ ...c, ...look });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [colorsKey]);
+  }, [lookKey]);
   /** «Після нуля» (1.8.0) for the countdown on screen: its time, the end and the cover stay. */
   const countdownAfterZero = (afterZero: AfterZero) => {
     const c = liveSlideRef.current.countdown;

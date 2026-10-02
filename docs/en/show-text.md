@@ -106,7 +106,7 @@ To show a countdown:
 2. In the **How long** row, choose the minutes, or type your own in the **Length** field: 7 is
    seven minutes, 7:30 is seven minutes thirty seconds, 1:05:00 is an hour and five minutes. To
    count to a time of day, choose **until…** and type the time in the **Until what time** field.
-3. Optional: in the **Words over the time** field, change the words over the time. Without
+3. Optional: in the **Words with the time** field, change the words over the time. Without
    them, the screen says “Starting in”.
 4. Optional: in the **After zero** row, choose what the time does when it is up. See the list
    below.
@@ -130,7 +130,8 @@ The **After zero** switch says what the time does past zero:
 - **Hide time** — the time leaves the screen, and the cover stays.
 
 When the countdown reaches zero, the control window says so. Before the end and past zero the
-time changes color: see [Set up the countdown colors](appearance.md#set-up-the-countdown-colors).
+time changes color, and you can choose its size, font, and format: see
+[Set up the countdown's look](appearance.md#set-up-the-countdowns-look).
 
 The T key pauses and resumes the countdown on screen. With no countdown on screen, T shows a
 new one of the length you chose last.

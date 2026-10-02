@@ -34,7 +34,13 @@ import {
 } from '../settingsStore';
 import type { SlideTransition } from '../presenterBus';
 import { fileToDownscaledDataUrl, fileToLogoDataUrl } from '../lib/image';
-import { WARN_MINUTES } from '../lib/countdown';
+import {
+  WARN_MINUTES,
+  type CaptionAt,
+  type TimerFont,
+  type TimerFormat,
+  type TimerSize,
+} from '../lib/countdown';
 import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
@@ -339,7 +345,12 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               a.countdownWarnMinutes > 0 &&
                 tr('попередження за {n} хв', { n: a.countdownWarnMinutes }),
               a.countdownOverOn && tr('колір після нуля'),
-            ) || tr('без кольорів')
+              (a.countdownSize !== 'md' ||
+                a.countdownFont !== 'text' ||
+                a.countdownFormat !== 'clock' ||
+                a.countdownCaptionAt !== 'above') &&
+                tr('свій вигляд часу'),
+            ) || tr('звичайний вигляд')
           }
         >
           <Text size="xs" c="dimmed">
@@ -380,6 +391,56 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               swatches={['#ff5a5a', '#e03131', '#ff922b', '#ffffff']}
             />
           )}
+          {/* the time's look (1.8.3) */}
+          <Select
+            label={tr('Розмір часу')}
+            data={[
+              { value: 'sm', label: tr('Менший') },
+              { value: 'md', label: tr('Звичайний') },
+              { value: 'lg', label: tr('Більший') },
+              { value: 'xl', label: tr('Найбільший') },
+            ]}
+            value={a.countdownSize}
+            onChange={(v) => v && set({ countdownSize: v as TimerSize })}
+            allowDeselect={false}
+          />
+          <Select
+            label={tr('Шрифт часу')}
+            data={[
+              { value: 'text', label: tr('Як у тексті') },
+              { value: 'sans', label: tr('Inter (без зарубок)') },
+              { value: 'mono', label: tr('Моноширинний') },
+            ]}
+            value={a.countdownFont}
+            onChange={(v) => v && set({ countdownFont: v as TimerFont })}
+            allowDeselect={false}
+          />
+          <Select
+            label={tr('Як писати час')}
+            data={[
+              { value: 'clock', label: '4:59' },
+              { value: 'padded', label: '04:59' },
+              { value: 'minutes', label: tr('5 хв, секунди — в останню хвилину') },
+            ]}
+            value={a.countdownFormat}
+            onChange={(v) => v && set({ countdownFormat: v as TimerFormat })}
+            allowDeselect={false}
+          />
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              {tr('Напис')}
+            </Text>
+            <SegmentedControl
+              fullWidth
+              value={a.countdownCaptionAt}
+              onChange={(v) => set({ countdownCaptionAt: v as CaptionAt })}
+              data={[
+                { label: tr('Над часом'), value: 'above' },
+                { label: tr('Під часом'), value: 'below' },
+                { label: tr('Без напису'), value: 'none' },
+              ]}
+            />
+          </div>
         </Section>
 
         <Section
