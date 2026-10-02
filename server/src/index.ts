@@ -44,6 +44,7 @@ import { createUpdateChecker } from './updates.js';
 import { readLayout } from './layout.js';
 import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
+import { createGitSync } from './gitSync.js';
 import { STAMP_FILE } from './uiStamp.js';
 import { createInstaller, hasRollback } from './installer.js';
 import { precompressed } from './precompressed.js';
@@ -375,7 +376,16 @@ app.get(
 app.post(
   '/api/update/check',
   requireLocalControl,
-  wrap(async (_req, res) => res.json(await updateAnswer(true))),
+  wrap(async (_req, res) => {
+    // a copy of the repository looks at its upstream too (1.6.1) — waited for 15 s at most: a slow
+    // network keeps the fetch going, the page asks for the code state again anyway
+    const fetching = gitSync?.fetch();
+    const answer = await updateAnswer(true);
+    const git = fetching
+      ? await Promise.race([fetching, new Promise<null>((r) => setTimeout(() => r(null), 15_000))])
+      : null;
+    res.json(git ? { ...answer, git } : answer);
+  }),
 );
 
 app.post(
@@ -467,11 +477,46 @@ const codeWatch = startCommit
   ? createCodeWatch({ root: repoRoot, label: appLabel, commit: startCommit })
   : null;
 let relaunching = false;
+// …and gets its updates from its upstream: «Отримати оновлення» (1.6.1, gitSync.ts)
+const gitSync = codeWatch ? createGitSync({ root: repoRoot }) : null;
+
+const codeAnswer = (fresh = false) =>
+  codeWatch && gitSync
+    ? { ...codeWatch.state(fresh), restarting: relaunching, git: gitSync.state(fresh) }
+    : null;
 
 // null: a release copy (it updates through «Завантажити оновлення»), or no watch (above)
 app.get('/api/update/code', requireLocal, (_req, res) => {
-  res.json(codeWatch ? { ...codeWatch.state(), restarting: relaunching } : null);
+  res.json(codeAnswer());
 });
+
+/**
+ * «Отримати оновлення» (1.6.1): fetch the branch's upstream and fast-forward to it — only when
+ * git needs no answer (a clean tree, nothing diverged); then «Перезапустити» applies it.
+ */
+app.post(
+  '/api/update/pull',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    if (!gitSync)
+      throw new ApiError(
+        409,
+        N_(
+          'Отримувати оновлення сам уміє лише застосунок з копії репозиторію, запущений файлом запуску',
+        ),
+      );
+    if (relaunching) throw new ApiError(409, N_('Застосунок уже перезапускається'));
+    let pulled: number;
+    try {
+      ({ pulled } = await gitSync.pull());
+    } catch (e) {
+      const { message, vars } = e as Error & { vars?: Record<string, string> };
+      throw new ApiError(409, message, vars);
+    }
+    console.log(`[server] update: ${pulled} new commit(s) from the upstream`);
+    res.json({ pulled, code: codeAnswer(true) });
+  }),
+);
 
 /**
  * Starts the launcher once our waiter has ended (1.6.0). Run from this code's memory (`node -e`),
@@ -559,8 +604,13 @@ app.post(
 // the first look a little after the start, then twice a day (check() skips a fresh answer);
 // never from the tests
 if (!process.env.VITEST) {
-  setTimeout(() => void updates.check(), 15_000).unref();
-  setInterval(() => void updates.check(), 60 * 60 * 1000).unref();
+  // …and a copy of the repository fetches its upstream as often, with the switch on (1.6.1)
+  const look = () => {
+    void updates.check();
+    if (gitSync && getServerSettings().updates.check) void gitSync.fetch(true);
+  };
+  setTimeout(look, 15_000).unref();
+  setInterval(look, 60 * 60 * 1000).unref();
 }
 
 // --- Standby waiter (0.5.2): «Запускати застосунок за адресою» in the control window.

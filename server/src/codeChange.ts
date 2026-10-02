@@ -54,8 +54,9 @@ export function createCodeWatch(o: CodeWatchOptions) {
   let at = -Infinity;
   let last: CodeState = { changed: false, from: o.label, to: o.label };
   return {
-    state(): CodeState {
-      if (now() - at < (o.freshMs ?? 5000)) return last;
+    /** `fresh`: ask git now (after a pull), not the answer of a few seconds ago */
+    state(fresh = false): CodeState {
+      if (!fresh && now() - at < (o.freshMs ?? 5000)) return last;
       at = now();
       const commit = headCommit(o.root, run);
       const changed = !!o.commit && !!commit && commit !== o.commit;

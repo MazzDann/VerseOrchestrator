@@ -3,9 +3,9 @@ import { Anchor, Button, Group, Popover, Progress, Switch, Text } from '@mantine
 import { IconArrowBackUp, IconDownload, IconRefresh, IconReload } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { api, type CodeState, type UpdateState } from '../api';
+import { api, type CodeState, type GitSync, type UpdateState } from '../api';
 import { useServer, NEEDS_SERVER, shownVersion } from '../serverStore';
-import { fmtDateTime, tr, useLang } from '../i18n';
+import { fmtDateTime, tr, trn, useLang } from '../i18n';
 import { useCodeState, useUpdateState, waitForRelaunch, waitForRestart } from '../lib/updates';
 import { useOutputWindows } from '../lib/outputs';
 import { storeForOlderVersion } from '../presenterBus';
@@ -38,9 +38,22 @@ export function UpdateSection() {
   const fail = (e: unknown) => notifications.show({ message: (e as Error).message, color: 'red' });
   const check = useMutation({
     mutationFn: api.checkUpdate,
-    onSuccess: (s) => {
+    onSuccess: ({ git, ...s }) => {
       queryClient.setQueryData(['update'], s);
-      if (!s.available && !s.error)
+      // a copy of the repository looked at its upstream too (1.6.1)
+      void queryClient.invalidateQueries({ queryKey: ['update-code'] });
+      // new commits upstream are news too: never «the latest» above «N new changes»
+      if (git && git.behind > 0 && git.upstream)
+        notifications.show({
+          message: trn(
+            git.behind,
+            'Гілка {branch}: на {upstream} є {n} нова зміна|Гілка {branch}: на {upstream} є {n} нові зміни|Гілка {branch}: на {upstream} є {n} нових змін',
+            { branch: git.branch ?? '', upstream: git.upstream },
+          ),
+          color: 'green',
+          autoClose: 3000,
+        });
+      else if (!s.available && !s.error && !git?.error)
         notifications.show({
           message: tr('У вас остання версія'),
           color: 'green',
@@ -100,6 +113,25 @@ export function UpdateSection() {
     },
     onError: fail,
   });
+  // «Отримати оновлення» (1.6.1): git pull from the app; then «Перезапустити»
+  const pull = useMutation({
+    mutationFn: api.pullUpdates,
+    onSuccess: ({ pulled, code: next }) => {
+      if (next) queryClient.setQueryData(['update-code'], next);
+      notifications.show({
+        message:
+          pulled > 0
+            ? `${trn(pulled, 'Отримано {n} зміну|Отримано {n} зміни|Отримано {n} змін')}. ${tr('Перезапустіть застосунок, щоб вони запрацювали.')}`
+            : tr('Нових змін немає.'),
+        color: 'green',
+        autoClose: pulled > 0 ? 4000 : 2000,
+      });
+    },
+    onError: (e) => {
+      fail(e);
+      void queryClient.invalidateQueries({ queryKey: ['update-code'] });
+    },
+  });
   const toggle = useMutation({
     mutationFn: (on: boolean) => api.updateServerSettings({ updates: { check: on } }),
     onSuccess: (s) => {
@@ -122,6 +154,12 @@ export function UpdateSection() {
     });
   else if (state.error) status = tr(state.error);
   else if (state.checkedAt === null) status = tr('Ще не перевіряли.');
+  // a copy of the repository: about releases only — its branch has a line of its own (1.6.1)
+  else if (state.install === 'source' && code?.git?.upstream)
+    status = tr('Нових релізів немає ({current}). Перевірено {when}.', {
+      current: shownVersion(devLabel, state.current),
+      when: fmtDateTime(state.checkedAt),
+    });
   else
     status = tr('У вас остання версія ({current}). Перевірено {when}.', {
       current: shownVersion(devLabel, state.current),
@@ -143,14 +181,12 @@ export function UpdateSection() {
             {tr('Що нового')}
           </Anchor>
           {state.install === 'source' &&
-            ` · ${
-              code
-                ? tr(
-                    'Щоб оновити копію репозиторію, виконайте git pull — застосунок запропонує перезапуститися.',
-                  )
-                : tr('Щоб оновити копію репозиторію, виконайте git pull і запустіть застосунок.')
-            }`}
+            !code?.git?.upstream &&
+            ` · ${tr('Щоб оновити копію репозиторію, виконайте git pull і запустіть застосунок.')}`}
         </Text>
+      )}
+      {!restarting && code?.git && (
+        <GitSyncLine git={code.git} pending={pull.isPending} onPull={() => pull.mutate()} />
       )}
       {!restarting && code?.changed && (
         <CodeChanged
@@ -329,6 +365,70 @@ function Rollback({
           </Text>
         )
       )}
+    </div>
+  );
+}
+
+/**
+ * upd2 (1.6.1): where a copy of the repository stands against its upstream (as of the last
+ * fetch — «Перевірити зараз», or twice a day) and «Отримати оновлення» when it is behind and git
+ * can go on by itself; otherwise why not, in words.
+ */
+function GitSyncLine({
+  git,
+  pending,
+  onPull,
+}: {
+  git: GitSync;
+  pending: boolean;
+  onPull: () => void;
+}) {
+  const vars = { branch: git.branch ?? '', upstream: git.upstream ?? '' };
+  // no branch, or no upstream (a local branch; one deleted after its merge): why, and nothing else
+  if (!git.branch || !git.upstream)
+    return git.why ? (
+      <Text size="xs" c="dimmed" mb={4}>
+        {tr(git.why, vars)}.
+      </Text>
+    ) : null;
+  // before our own fetch the upstream may be known already (GitHub Desktop fetches by itself):
+  // say it when something is there, keep quiet otherwise
+  if (git.fetchedAt === null && !git.error && git.behind === 0) return null;
+  return (
+    <div>
+      {git.error ? (
+        <Text size="xs" c="red" mb={4}>
+          {tr(git.error)}
+          {git.detail ? `: ${git.detail}` : '.'}
+        </Text>
+      ) : (
+        <Text size="xs" mb={4}>
+          {git.behind > 0
+            ? trn(
+                git.behind,
+                'Гілка {branch}: на {upstream} є {n} нова зміна|Гілка {branch}: на {upstream} є {n} нові зміни|Гілка {branch}: на {upstream} є {n} нових змін',
+                vars,
+              )
+            : tr('Гілка {branch}: нових змін на {upstream} немає.', vars)}
+        </Text>
+      )}
+      {git.behind > 0 &&
+        (git.why ? (
+          <Text size="xs" c="dimmed" mb={4}>
+            {tr(git.why, vars)}.
+          </Text>
+        ) : (
+          <Button
+            size="xs"
+            variant="light"
+            leftSection={<IconDownload size={14} />}
+            loading={pending}
+            onClick={onPull}
+            mb={4}
+          >
+            {tr('Отримати оновлення')}
+          </Button>
+        ))}
     </div>
   );
 }

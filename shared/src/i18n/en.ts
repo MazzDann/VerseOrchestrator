@@ -1379,8 +1379,6 @@ export const EN: Record<string, string> = {
     'You have the latest version ({current}). Checked {when}.',
   Оновлення: 'Updates',
   'Що нового': 'What’s new',
-  'Щоб оновити копію репозиторію, виконайте git pull — застосунок запропонує перезапуститися.':
-    'To update a clone of the repository, run git pull — the app offers to restart.',
   'Щоб оновити копію репозиторію, виконайте git pull і запустіть застосунок.':
     'To update a clone of the repository, run git pull and start the app.',
   // upd2 (1.6.0)
@@ -1393,6 +1391,38 @@ export const EN: Record<string, string> = {
     "The app doesn't answer after the restart. Start it with the start file; what happened is in data/standby.log.",
   'Код застосунку змінився — див. «Застосунок» → «Оновлення»':
     "The app's code has changed — see “App” → “Updates”",
+  // upd2 (1.6.1)
+  'Копію відкрито не на гілці — отримайте оновлення вручну':
+    'The copy is not on a branch — get the updates by hand',
+  'Гілка {branch} не стежить за віддаленою — отримайте оновлення вручну':
+    "The branch {branch} doesn't track a remote one — get the updates by hand",
+  'Git саме зливає чи перебазовує — завершіть це вручну':
+    'Git is in the middle of a merge or rebase — finish it by hand',
+  'Є незбережені зміни у файлах — отримайте оновлення вручну (git pull)':
+    'There are uncommitted changes in the files — get the updates by hand (git pull)',
+  'Гілка {branch} розійшлася з {upstream} — злийте зміни вручну':
+    'The branch {branch} has diverged from {upstream} — merge the changes by hand',
+  'Не вдалося отримати зміни з віддаленого репозиторію':
+    "Couldn't fetch the changes from the remote repository",
+  'Не вдалося отримати оновлення': "Couldn't get the updates",
+  'Git не відповів вчасно — перевірте мережу й спробуйте ще раз':
+    "Git didn't answer in time — check the network and try again",
+  'Інша програма git саме працює з цією копією — спробуйте за хвилину':
+    'Another git program is working with this copy — try again in a minute',
+  'Нові файли з віддаленої гілки збігаються з вашими неврахованими — приберіть їх або отримайте оновлення вручну':
+    'New files from the remote branch clash with your untracked ones — move them away or get the updates by hand',
+  'Нових релізів немає ({current}). Перевірено {when}.':
+    'No new releases ({current}). Checked {when}.',
+  'Гілка {branch}: на {upstream} є {n} нова зміна|Гілка {branch}: на {upstream} є {n} нові зміни|Гілка {branch}: на {upstream} є {n} нових змін':
+    'Branch {branch}: {upstream} has {n} new change|Branch {branch}: {upstream} has {n} new changes',
+  'Гілка {branch}: нових змін на {upstream} немає.':
+    'Branch {branch}: no new changes on {upstream}.',
+  'Отримати оновлення': 'Get the updates',
+  'Отримано {n} зміну|Отримано {n} зміни|Отримано {n} змін': 'Got {n} change|Got {n} changes',
+  'Перезапустіть застосунок, щоб вони запрацювали.': 'Restart the app for them to take effect.',
+  'Нових змін немає.': 'No new changes.',
+  'Отримувати оновлення сам уміє лише застосунок з копії репозиторію, запущений файлом запуску':
+    'Only an app run from a clone of the repository with the start file can get the updates itself',
   'Перезапускати сам уміє лише застосунок з копії репозиторію, запущений файлом запуску':
     'Only an app run from a clone of the repository with the start file can restart itself',
   'Застосунок перезапускається з новим кодом: він запуститься сам, у фоні.':
