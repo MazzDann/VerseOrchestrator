@@ -30,14 +30,21 @@ export const RETRY_CAP_MS = 2000;
 
 /**
  * The hub speaks for another version: the app was updated under this page (1.0.0), so load
- * the new one — phones and a second control window follow without anyone reloading them.
- * Once per version: should the reload bring the same old page back (a cache), stay.
+ * the new one — phones and a second control window follow without anyone reloading them. Or for
+ * another build of the same version (1.6.0): a copy of the repository restarted with new code —
+ * the build is the UI stamp (server/src/uiStamp.ts) the served web/dist and this page were made
+ * from; an app the waiter didn't start (`npm run dev`) sends none. Once per version and build:
+ * should the reload bring the same old page back (a cache), stay.
  */
-function followAppVersion(version: string): void {
-  if (typeof __APP_VERSION__ === 'undefined' || version === __APP_VERSION__) return;
+function followAppVersion(version: string, build?: string): void {
+  if (typeof __APP_VERSION__ === 'undefined') return;
+  const ownBuild = typeof __APP_BUILD__ === 'undefined' ? '' : __APP_BUILD__;
+  const otherBuild = !!build && !!ownBuild && build !== ownBuild;
+  if (version === __APP_VERSION__ && !otherBuild) return;
+  const key = build ? `${version}|${build}` : version;
   try {
-    if (sessionStorage.getItem('vo-reloaded-for') === version) return;
-    sessionStorage.setItem('vo-reloaded-for', version);
+    if (sessionStorage.getItem('vo-reloaded-for') === key) return;
+    sessionStorage.setItem('vo-reloaded-for', key);
   } catch {
     return; // no storage: no way to tell a loop from a reload
   }
@@ -95,7 +102,8 @@ export function connectLive(opts: {
         return; // ignore malformed frames
       }
       if (!f || typeof f.type !== 'string') return;
-      if (f.type === 'app' && typeof f.version === 'string') followAppVersion(f.version);
+      if (f.type === 'app' && typeof f.version === 'string')
+        followAppVersion(f.version, typeof f.build === 'string' ? f.build : undefined);
       if (f.type === 'slide' && typeof f.version === 'number')
         opts.onFrame?.(f as unknown as LiveFrame);
       opts.onMessage?.(f);

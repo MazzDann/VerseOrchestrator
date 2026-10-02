@@ -162,7 +162,7 @@ import { useServer, NEEDS_SERVER, START_AGAIN } from '../serverStore';
 import { tr, useLang } from '../i18n';
 import { useDataSource, useEffectiveSource } from '../dataSourceStore';
 import { NoLibrary, type LibraryGap } from '../components/NoLibrary';
-import { useUpdateState } from '../lib/updates';
+import { useCodeState, useUpdateState } from '../lib/updates';
 import {
   countdownOver,
   coverOver,
@@ -437,6 +437,8 @@ export function Control() {
   useFullscreenRefusedNotices();
   // a newer version on GitHub: a dot on the settings button, no interruption (1.0.0)
   const update = useUpdateState();
+  // …or a copy of the repository whose code changed under it: «Перезапустити» (upd2, 1.6.0)
+  const code = useCodeState();
   /**
    * One control window in charge (0.4.4, lib/leader.ts): only the leader publishes to the
    * outputs, takes commands and holds the server's control socket; a second control window
@@ -2983,14 +2985,15 @@ export function Control() {
   };
   const settingsTool: ToolProps = {
     label: tr('Налаштування вигляду'),
-    hint:
-      update?.available && update.latest
+    hint: code?.changed
+      ? tr('Код застосунку змінився — див. «Застосунок» → «Оновлення»')
+      : update?.available && update.latest
         ? tr('Доступна версія {version} — див. «Застосунок» → «Оновлення»', {
             version: update.latest.version,
           })
         : tr('Шрифт, кольори, шаблон слайда, пресети, клавіші'),
     icon: <IconAdjustments size={18} stroke={1.5} />,
-    dot: !!update?.available,
+    dot: !!update?.available || !!code?.changed,
     active: settingsOpen,
     onClick: () => setSettingsOpen((o) => !o),
   };

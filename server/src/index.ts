@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
@@ -41,7 +42,9 @@ import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
 import { createUpdateChecker } from './updates.js';
 import { readLayout } from './layout.js';
-import { versionLabel } from './versionLabel.js';
+import { isDevCopy, versionLabel } from './versionLabel.js';
+import { createCodeWatch, headCommit } from './codeChange.js';
+import { STAMP_FILE } from './uiStamp.js';
 import { createInstaller, hasRollback } from './installer.js';
 import { precompressed } from './precompressed.js';
 import {
@@ -156,7 +159,11 @@ const appVersion = (
 // release (versionLabel.ts); what they and the swap compare stays `version`
 const appLabel = versionLabel(repoRoot, appVersion);
 // the version too: after an update the swap asks the new app who it is (swap.ts)
-app.get('/api/health', (_req, res) => res.json({ ok: true, version: appVersion, label: appLabel }));
+// a new one at each start: a page waiting for a restart knows the new server (1.6.0)
+const boot = randomUUID().slice(0, 8);
+app.get('/api/health', (_req, res) =>
+  res.json({ ok: true, version: appVersion, label: appLabel, boot }),
+);
 
 /**
  * Audience "follow-along": the control window POSTs the current slide here; it's pushed
@@ -449,6 +456,106 @@ app.post(
   }),
 );
 
+// --- upd2 (1.6.0): a copy of the repository notices that its code changed under it (codeChange.ts)
+
+// started by the launcher or the waiter (VO_STANDBY): the waiter is our parent process
+const underWaiter = process.env.VO_STANDBY === '1';
+// only where a restart can apply new code: a copy of the repository the waiter started (not
+// `npm run dev`, which runs the working tree already), where git told the commit
+const startCommit = underWaiter && isDevCopy(repoRoot) ? headCommit(repoRoot) : null;
+const codeWatch = startCommit
+  ? createCodeWatch({ root: repoRoot, label: appLabel, commit: startCommit })
+  : null;
+let relaunching = false;
+
+// null: a release copy (it updates through «Завантажити оновлення»), or no watch (above)
+app.get('/api/update/code', requireLocal, (_req, res) => {
+  res.json(codeWatch ? { ...codeWatch.state(), restarting: relaunching } : null);
+});
+
+/**
+ * Starts the launcher once our waiter has ended (1.6.0). Run from this code's memory (`node -e`),
+ * not from a file: after a checkout the files on disk may be another branch's, which may know
+ * nothing of this — so the launcher gets only what every launcher since 0.7.0 takes
+ * (`--no-browser --port N`), and its output goes to data/standby.log: one that fails says why.
+ * Arguments: the waiter's pid, the launcher, the port, the log, the folder.
+ */
+const RELAUNCH_HELPER = `
+const fs = require('node:fs');
+const { spawn } = require('node:child_process');
+const [pid, launcher, port, log, cwd] = process.argv.slice(1);
+const alive = (p) => { try { process.kill(p, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+const say = (m) => { try { fs.appendFileSync(log, new Date().toISOString() + ' [restart] ' + m + '\\n'); } catch {} };
+const end = Date.now() + 30000;
+const go = () => {
+  if (alive(Number(pid))) {
+    if (Date.now() < end) return void setTimeout(go, 200);
+    return say('the old waiter did not stop in 30 s: not restarted');
+  }
+  say('starting the launcher with the new code');
+  const out = fs.openSync(log, 'a');
+  spawn(process.execPath, ['--disable-warning=ExperimentalWarning', launcher, '--no-browser', '--port', port], {
+    cwd, detached: true, stdio: ['ignore', out, out], windowsHide: true,
+  }).unref();
+};
+go();
+`;
+
+/**
+ * «Перезапустити»: the launcher starts again in the background — once our waiter has ended it
+ * does what the start file does (npm ci if the packages changed, the UI build, the library) and
+ * serves the same port; the page reloads itself once a new server answers (`boot`). A second
+ * click, from another window, waits for the same restart.
+ */
+app.post(
+  '/api/update/relaunch',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    if (!codeWatch)
+      throw new ApiError(
+        409,
+        N_('Перезапускати сам уміє лише застосунок з копії репозиторію, запущений файлом запуску'),
+      );
+    if (relaunching) {
+      res.json({ ok: true, from: appLabel, boot });
+      return;
+    }
+    relaunching = true;
+    const waiterPid = process.ppid;
+    const port = Number(process.env.VO_STANDBY_PORT) || getServerSettings().standby.port;
+    // the launcher's own environment: not this app's port, host and waiter marks — and this
+    // Node's folder first on the PATH: a waiter started by launchd (a Mac's autostart) has a
+    // PATH without npm, which the launcher needs for npm ci and the UI build
+    const env = { ...process.env };
+    for (const k of ['PORT', 'HOST', 'VO_STANDBY', 'VO_STANDBY_PORT', 'VO_STANDBY_LISTEN'])
+      delete env[k];
+    const pathKey = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
+    env[pathKey] = [path.dirname(process.execPath), env[pathKey]]
+      .filter(Boolean)
+      .join(path.delimiter);
+    spawn(
+      process.execPath,
+      [
+        '-e',
+        RELAUNCH_HELPER,
+        String(waiterPid),
+        path.join(repoRoot, 'server', 'src', 'launcher.ts'),
+        String(port),
+        path.join(dataDir, 'standby.log'),
+        repoRoot,
+      ],
+      { cwd: repoRoot, env, detached: true, stdio: 'ignore', windowsHide: true },
+    ).unref();
+    console.log(`[server] restart with new code: ${appLabel} → ${codeWatch.state().to}`);
+    res.json({ ok: true, from: appLabel, boot });
+    // after the answer: our waiter stops us and itself; the helper waits for it
+    setTimeout(() => {
+      void tellWaiter(port, 'restart');
+      setTimeout(() => process.exit(0), 3000);
+    }, 300);
+  }),
+);
+
 // the first look a little after the start, then twice a day (check() skips a fresh answer);
 // never from the tests
 if (!process.env.VITEST) {
@@ -463,7 +570,7 @@ const autostart = currentEntry(repoRoot);
 
 function tellWaiter(
   port: number,
-  action: 'retire' | 'resume' | 'relaunch' | 'shutdown' | 'update',
+  action: 'retire' | 'resume' | 'relaunch' | 'shutdown' | 'update' | 'restart',
 ): Promise<unknown> {
   return fetch(`http://127.0.0.1:${port}/__standby/${action}`, {
     method: 'POST',
@@ -1207,6 +1314,15 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
  * Registered after the API, so an unknown /api path still gets a JSON-less 404.
  */
 const webDist = process.env.VO_WEB_DIST ?? path.join(repoRoot, 'web', 'dist');
+
+/** The UI stamp of a built web/dist (uiStamp.ts), or undefined when it has none. */
+function builtUi(dist: string): string | undefined {
+  try {
+    return fs.readFileSync(path.join(dist, STAMP_FILE), 'utf8').trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
 if (fs.existsSync(path.join(webDist, 'index.html'))) {
   // hashed bundles never change; everything else revalidates
   const cacheControl = (file: string) =>
@@ -1235,6 +1351,8 @@ const server = app.listen(PORT, HOST, () => {
   // Started by the standby waiter (standby.ts, PORT=0 → any free port): tell it where.
   process.send?.({ type: 'ready', port });
 });
-attachLiveHub(server, appVersion);
+// pages follow a restart with new code by the UI build they were made from (1.6.0): told only by
+// an app the waiter started — under `npm run dev` Vite serves the pages, not web/dist
+attachLiveHub(server, appVersion, underWaiter ? builtUi(webDist) : undefined);
 // …and go with it: a waiter killed outright must not leave the app on a stray port.
 if (process.send) process.on('disconnect', () => process.exit(0));

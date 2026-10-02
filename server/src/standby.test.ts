@@ -201,6 +201,19 @@ describe('standby waiter', () => {
     expect(events).toEqual(['relaunched']);
   });
 
+  it('«Перезапустити» with new code: stops the app and closes, saying why (1.6.0)', async () => {
+    const { app, url, events } = await waiter();
+    await fetch(url('/api/x')); // app running
+    const r = await fetch(url('/__standby/restart'), {
+      method: 'POST',
+      headers: { [CONTROL_HEADER]: '1' },
+    });
+    expect(await r.json()).toEqual({ shuttingDown: true });
+    await sleep(150);
+    expect(app.stopped).toBe(1);
+    expect(events).toEqual(['closed:restart']);
+  });
+
   it('«Вимкнути повністю»: stops the app and closes at once, even under an open page (0.7.1)', async () => {
     const { app, port, url, events } = await waiter();
     const ws = new WebSocket(`ws://127.0.0.1:${port}/api/ws`); // an open control window
