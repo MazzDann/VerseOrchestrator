@@ -105,10 +105,13 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
      `npm install --package-lock-only`.
   2. Commit with the subject `X.Y.Z — Theme: summary`, where the summary says what the
      release brings, and merge it through a pull request like any change.
-  3. On the updated `main`, tag the merge commit and push the tag:
+  3. On the updated `main`, tag the merge commit and push the tag. The tag message's first
+     line is the release commit's subject; its body, in Markdown, says what the release
+     brings — in Ukrainian, then in English — and goes on the release page as written
+     (`--cleanup=whitespace` keeps lines that start with `#`, such as Markdown headings):
 
      ```bash
-     git tag -a vX.Y.Z -m "X.Y.Z — Theme: summary"
+     git tag -a vX.Y.Z --cleanup=whitespace -F tag-message.md
      git push origin vX.Y.Z
      ```
 
@@ -128,7 +131,8 @@ run fails and says why:
    `VerseOrchestrator-macos-arm64.zip`, and `VerseOrchestrator-linux-x64.tar.gz`. The names
    carry no version, so `…/releases/latest/download/<file>` stays the same link.
 3. A GitHub release for the tag gets the archives, `SHA256SUMS.txt`, and notes from
-   `.github/scripts/release-notes.mjs`. Versions `0.x` come out as pre-releases.
+   `.github/scripts/release-notes.mjs`: the tag message's first line in bold, its body, then
+   how to download, start, and update. Versions `0.x` come out as pre-releases.
 
 To try the packages without a release — for example, a pull request's branch — run the
 workflow by hand: **Actions** → **CI** → **Run workflow**, and pick the branch; the archives
