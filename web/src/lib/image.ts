@@ -129,6 +129,8 @@ export const PICTURE_SMALL_SIDE = 1280;
 /** A file that is already a fine picture goes as it is (a GIF keeps its frames). */
 const PICTURE_AS_IS_BYTES = 15 * 1024 * 1024;
 const PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+/** …and a GIF keeps its frames up to the server's own limit (server/src/images.ts). */
+const GIF_AS_IS_BYTES = 40 * 1024 * 1024;
 
 /** …and for the phones: a file this small is its own small copy (a re-drawn PNG grew 3×). */
 const SMALL_AS_IS_BYTES = 2 * 1024 * 1024;
@@ -147,10 +149,10 @@ export async function fileToPicture(
   const [w0, h0] = [img.naturalWidth, img.naturalHeight];
   const long = Math.max(w0, h0);
   const known = PICTURE_TYPES.includes(file.type);
-  // a GIF as it is, whatever its size (the server takes up to 40 MB): redrawn, an animation
-  // would be its first frame (review of #46)
+  // a GIF as it is up to what the server takes (40 MB): redrawn, an animation would be its first
+  // frame (review of #46); a larger one still goes — as that still frame, not refused
   const fullAsIs =
-    file.type === 'image/gif' ||
+    (file.type === 'image/gif' && file.size <= GIF_AS_IS_BYTES) ||
     (known && long <= PICTURE_MAX_SIDE && file.size <= PICTURE_AS_IS_BYTES);
   const smallAsIs = known && long <= PICTURE_SMALL_SIDE && file.size <= SMALL_AS_IS_BYTES;
   const fullCanvas = fullAsIs ? null : drawn(img, Math.min(long, PICTURE_MAX_SIDE));
