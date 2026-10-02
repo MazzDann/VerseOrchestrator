@@ -118,8 +118,6 @@ describe('countdown', () => {
     expect(untilAt('00:10', at(23, 50))).toBe(new Date(2026, 9, 2, 0, 10).getTime());
     // later today, however far: an evening service set in the morning (review of #45)
     expect(untilAt('22:00', at(9, 0))).toBe(at(22, 0));
-    // later today, however far: an evening service set in the morning (review of #45)
-    expect(untilAt('22:00', at(9, 0))).toBe(at(22, 0));
     // already past today: no countdown to tomorrow's 10:00
     expect(untilAt('10:00', at(10, 1))).toBeNull();
     expect(untilAt('10:00', at(10, 0))).toBeNull();
@@ -174,6 +172,9 @@ describe('pause (1.8.1)', () => {
     expect(shiftCountdown(p, 1, at(12, 0)).until).toBe(c.until);
     const o = { ...p, afterZero: 'overtime' as const };
     expect(shiftCountdown(o, -1, at(12, 0)).pausedLeft).toBe(-30_000);
+    // paused below zero, then «Стоп на 0:00»: it shows 0:00, so «+1 хв» gives 1:00
+    const held = { ...c, afterZero: 'stop' as const, pausedLeft: -20_000 };
+    expect(shiftCountdown(held, 1, at(12, 0)).pausedLeft).toBe(60_000);
     // running: the end moves, as in 1.8.0
     expect(shiftCountdown(c, 1, at(9, 55)).until).toBe(at(10, 1));
     expect(shiftCountdown({ ...c, afterZero: 'stop' as const }, 1, at(10, 5)).until).toBe(

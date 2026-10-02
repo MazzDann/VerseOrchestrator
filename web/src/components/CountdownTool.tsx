@@ -316,7 +316,6 @@ export function CountdownTool({
                 description={tr('Хвилини або хв:сс')}
                 value={length}
                 error={lengthError}
-                inputMode="numeric"
                 onChange={(e) => setLength(e.currentTarget.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && startable) start();
