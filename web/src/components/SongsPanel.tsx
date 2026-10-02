@@ -39,6 +39,7 @@ import { tr, useLang } from '../i18n';
 import { formatCombo, matchesCombo } from '../hotkeys';
 import { isFormField, isResizeKey } from '../lib/keyScroll';
 import { useSettings } from '../settingsStore';
+import { SONG_KEYS } from '../lib/songKeys';
 
 interface Props {
   open: boolean;
@@ -517,7 +518,7 @@ export function SongsPanel({
                   setUndoing(true);
                   try {
                     await api.undoSongImport();
-                    for (const key of ['songs', 'song', 'song-bundles', 'song-bundle-files']) {
+                    for (const key of SONG_KEYS) {
                       void queryClient.invalidateQueries({ queryKey: [key] });
                     }
                     setBundle('');

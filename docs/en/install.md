@@ -260,6 +260,38 @@ with the button failed:
 To update a clone of the repository, get the new changes (`git pull`) and start the app: it
 installs the new parts and rebuilds the interface by itself.
 
+## Save a backup
+
+A backup is one `.zip` file of what you set up and gathered in the app: the slide look,
+presets, hotkeys, bookmarks and history, the running order and saved programs, song bundles,
+and images. Modules and the library aren't in it: their large files are in the `modules/`
+folder. Neither are the speaker remotes or this computer's start settings: the port, the
+browser, and the choice of modules.
+
+To save a backup, in the control window open **Settings** → **App**, and in the **Backup**
+section click **Save a backup**. The browser downloads a file such as
+`VerseOrchestrator-backup-2026-10-01-1405.zip`. Keep it outside the app's folder, for
+example on a flash drive. Safari on a Mac may unpack the downloaded file into a folder: then
+compress that folder in Finder (**Compress**), and the app takes that file too.
+
+To restore a backup on this or another computer:
+
+1. In the same section, click **Restore from a backup…** and choose the backup file.
+2. Check what it holds: the app shows the backup's date, the number of programs and
+   running-order items, the song bundles, and the number of images. Nothing changes until you
+   click **Restore**.
+3. Click **Restore**. The control window reloads with the restored state.
+
+Other open control windows take the restored settings at once. While a backup is saved or
+restored, changes to songs and images wait until it ends.
+
+The app moves the state the backup replaced into a folder of its own in `data/backups/`: the
+song and image files stay there as they were. For a day after the restore you can bring it
+back: click **Go back to how it was** in the **Backup** section and confirm with
+**Bring back**. What was changed after the restore is kept in `data/backups/` too.
+
+A backup can be up to 1 GB. If the images take more, the app says so and makes no backup.
+
 ## Make a portable copy
 
 A portable copy is a folder with the app and Node.js inside. You run it on another computer

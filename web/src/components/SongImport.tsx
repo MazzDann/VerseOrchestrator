@@ -7,6 +7,7 @@ import { isSongFile, parsePptx, sameBundleName, type BundleSong } from '@vo/shar
 import { api } from '../api';
 import { useEffectiveSource } from '../dataSourceStore';
 import { tr, trn, useLang } from '../i18n';
+import { SONG_KEYS } from '../lib/songKeys';
 
 /** The Select value for «a new bundle». */
 const NEW = '__new__';
@@ -118,7 +119,7 @@ export function SongImport({
         target === NEW ? { name: trimmed } : { id: target },
         found.songs,
       );
-      for (const key of ['songs', 'song', 'song-bundles', 'song-bundle-files']) {
+      for (const key of SONG_KEYS) {
         void queryClient.invalidateQueries({ queryKey: [key] });
       }
       // the panel says what came in, with «Скасувати» (1.4.0)
