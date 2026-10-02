@@ -106,6 +106,7 @@ import {
   togglePause,
   untilFor,
   type AfterZero,
+  freshStageTimer,
   type StageTimer,
 } from '../lib/countdown';
 import {
@@ -498,7 +499,7 @@ export function Control() {
   const [liveSlide, setLiveSlide] = useState<Slide>(() => readSlide());
   // «Таймер доповідача» (1.8.4): the leader sets it and every slide it pushes carries it
   // (`pushLive`); a window that waits follows the leader's, so taking over keeps it running
-  const stageTimerRef = useRef<StageTimer | null>(liveSlide.stageTimer ?? null);
+  const stageTimerRef = useRef<StageTimer | null>(freshStageTimer(liveSlide.stageTimer));
   if (!isLeader) stageTimerRef.current = liveSlide.stageTimer ?? null;
   /**
    * The speaker's own preview (0.6.2): the passage a remote picked last, as a slide — the
@@ -1856,7 +1857,7 @@ export function Control() {
   const lookKey = JSON.stringify(look);
   useEffect(() => {
     if (!leaderRef.current) return;
-    // the speaker's timer takes the colours and the format too (1.8.4)
+    // the speaker's timer takes the colours, the font and the format too (1.8.4)
     const t = stageTimerRef.current;
     const timerChanged = !!t && !hasLook(t, look);
     if (t && timerChanged) stageTimerRef.current = { ...t, ...look };
@@ -1864,17 +1865,20 @@ export function Control() {
     const c = s.countdown;
     // one push carries both: the countdown's change takes the timer along
     if (s.cover && c && !hasLook(c, look)) countdownChange({ ...c, ...look });
-    else if (timerChanged) pushLive({ ...s });
+    else if (timerChanged) pushTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookKey]);
   /**
    * «Таймер доповідача» (1.8.4): a new state of the speaker's timer goes out with the slide on
-   * screen now — the same slide, so «Показ» and the phones don't change.
+   * screen now — the one pushed last (the render's copy may be a push behind; review of 1.8.4) —
+   * and never to the phones: they have nothing new, and over the QR slide they would go blank.
    */
+  const pushTimer = () =>
+    pushLive({ ...(lastPushed.current ?? liveSlideRef.current) }, { audience: false });
   const stageTimerSet = (timer: StageTimer | null) => {
     if (!leaderRef.current) return standbyNotice();
     stageTimerRef.current = timer;
-    pushLive({ ...liveSlideRef.current });
+    pushTimer();
   };
   const stageTimerStart = (ms: number, afterZero: AfterZero) =>
     stageTimerSet({ until: untilFor(ms, Date.now()), afterZero, ...timerLook(appearance) });

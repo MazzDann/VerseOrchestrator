@@ -123,7 +123,9 @@ The same section sets the look of the time:
   set in the **Words with the time** field when you start a countdown.
 
 The viewers' phones write the time the same way and put the words in the same place, but keep
-their own size, made for the phone's screen. A countdown on screen takes the new look at once.
+their own size, made for the phone's screen. The
+[speaker timer](show-text.md#give-the-speaker-a-timer) takes its colors, font, and format from
+here; size and words are for the countdown on screen only. A countdown on screen takes the new look at once.
 Presets keep this look with the rest.
 
 ## Place the slide's elements
