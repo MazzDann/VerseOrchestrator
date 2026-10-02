@@ -88,7 +88,7 @@ describe('zip (1.5.0)', () => {
 describe('«Резервна копія» (1.5.0)', () => {
   it('holds the UI state, the song bundles and the pictures — not the library, secrets, settings or dot files', async () => {
     const d = dataDir('a');
-    const names = collect(d, '1.5.0').map((e) => e.name);
+    const names = (await collect(d, '1.5.0')).map((e) => e.name);
     expect(names).toEqual([
       'manifest.json',
       'ui-state.json',
@@ -138,10 +138,16 @@ describe('«Резервна копія» (1.5.0)', () => {
   it('restores: the backup state in place of the current one, the UI state as the newest', async () => {
     const from = dataDir('a');
     const to = dataDir('b');
-    applyBackup(to, (await readBackup(await makeBackup(from, '1.5.0'))).entries, new Date(5000));
+    const before = Date.now();
+    const stamped = await applyBackup(
+      to,
+      (await readBackup(await makeBackup(from, '1.5.0'))).entries,
+    );
     const ui = JSON.parse(fs.readFileSync(path.join(to, 'ui-state.json'), 'utf8'));
     expect(tags(to)).toBe('a');
-    expect(ui['vo:settings'].at).toBe(5000);
+    // stamped when written, after the files: newer than anything sent meanwhile
+    expect(ui['vo:settings'].at).toBe(stamped);
+    expect(stamped).toBeGreaterThanOrEqual(before);
     expect(fs.readdirSync(path.join(to, 'songs')).sort()).toEqual([
       '._ПС-b.vosongs',
       '.trash',
@@ -161,7 +167,7 @@ describe('«Резервна копія» (1.5.0)', () => {
     const from = dataDir('a');
     const to = dataDir('b');
     expect(await restorePending(to, '1.5.0')).toBeNull();
-    keepPending(to, await makeBackup(from, '1.5.0', new Date('2026-09-01T00:00:00Z')));
+    await keepPending(to, await makeBackup(from, '1.5.0', new Date('2026-09-01T00:00:00Z')));
     const at = new Date('2026-10-01T12:00:00Z');
     const summary = (await restorePending(to, '1.5.0', at))!;
     expect(summary.created).toBe('2026-09-01T00:00:00.000Z');
@@ -189,7 +195,7 @@ describe('«Резервна копія» (1.5.0)', () => {
   it('a restore that fails midway still offers the way back', async () => {
     const from = dataDir('a');
     const to = dataDir('b');
-    keepPending(to, await makeBackup(from, '1.5.0'));
+    await keepPending(to, await makeBackup(from, '1.5.0'));
     // a folder where the backup's picture must go: writing it fails after the songs went in
     fs.mkdirSync(path.join(to, 'images', 'a.png'));
     const at = new Date();

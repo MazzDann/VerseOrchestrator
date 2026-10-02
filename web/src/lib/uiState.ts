@@ -66,6 +66,9 @@ const writeAt = (at: Partial<Record<Key, number>>) => {
   }
 };
 
+/** takeServerUiState calls under way: no change is sent meanwhile. */
+let taking = 0;
+
 /** The running sync's memory (the control window's; null elsewhere and before it starts). */
 let running: {
   sent: Partial<Record<Key, string>>;
@@ -81,10 +84,15 @@ let running: {
  * this browser follow through `storage` events (main.tsx). False: no server to ask.
  */
 export async function takeServerUiState(): Promise<boolean> {
+  // what was waiting to be sent is dropped at once, and nothing is sent until data/'s state is
+  // taken: a change sent meanwhile would replace the restored one (review of #47)
+  if (running) for (const key of KEYS) window.clearTimeout(running.timers[key]);
+  taking++;
   let remote: UiState;
   try {
     remote = await api.uiState();
   } catch {
+    taking--;
     return false;
   }
   const at = running?.at ?? readAt();
@@ -104,6 +112,7 @@ export async function takeServerUiState(): Promise<boolean> {
     await STORES[key].persist.rehydrate();
   }
   writeAt(at);
+  taking--;
   return true;
 }
 
@@ -158,8 +167,9 @@ export async function startUiStateSync(): Promise<void> {
       window.clearTimeout(timers[key]);
       timers[key] = window.setTimeout(() => {
         const value = get(key);
-        // nothing to send: unchanged, or the browser data was just cleared (0.7.1)
-        if (value === null || value === sent[key]) return;
+        // nothing to send: unchanged, or the browser data was just cleared (0.7.1), or a
+        // restored state is being taken (its rehydrate fires this too)
+        if (taking > 0 || value === null || value === sent[key]) return;
         // a change here, newer than data/ — remembered even if the server is away now, so the
         // next start sends it
         const when = Date.now();
