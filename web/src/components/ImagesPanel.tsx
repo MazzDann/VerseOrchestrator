@@ -5,6 +5,7 @@ import {
   FileButton,
   Group,
   Paper,
+  Popover,
   ScrollArea,
   SegmentedControl,
   Text,
@@ -23,6 +24,7 @@ import {
 import { api, type ImageInfo } from '../api';
 import { fileToPicture } from '../lib/image';
 import { type SlidePicture } from '../presenterBus';
+import { usePlaylist, type SeqItem } from '../playlistStore';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { tr, trn, useLang } from '../i18n';
 
@@ -51,7 +53,8 @@ const asPicture = (img: ImageInfo, fit: Fit): SlidePicture => ({
  * screen, as a click on a stanza does; its buttons add it to the running order or delete it —
  * the deleted one says «Видалено: …» with «Скасувати» in its place. «Вписати» shows the whole
  * picture with bands of black, «Заповнити» fills the slide and cuts the edges — the picture on
- * screen too, at once (1.7.1, the user's call).
+ * screen too, at once (1.7.1, the user's call). A picture in use — on screen, in the running order
+ * or a saved program — is deleted only after a question that says where (1.7.2).
  */
 export function ImagesPanel({
   open,
@@ -59,6 +62,7 @@ export function ImagesPanel({
   onProject,
   onRefit,
   onAddToPlaylist,
+  onDeleted,
   onScreen,
 }: {
   open: boolean;
@@ -66,6 +70,8 @@ export function ImagesPanel({
   onProject: (picture: SlidePicture) => void;
   /** the switch moved: the picture on screen takes it too */
   onRefit: (fit: Fit) => void;
+  /** a picture was deleted (1.7.2): off the screen with it, if it is there */
+  onDeleted: (src: string) => void;
   onAddToPlaylist: (img: ImageInfo, fit: Fit) => void;
   /** the address of the picture on screen now, if one is */
   onScreen: string | null;
@@ -89,6 +95,20 @@ export function ImagesPanel({
     onRefit(f);
   };
   const [adding, setAdding] = useState<{ done: number; of: number } | null>(null);
+  // the picture whose deletion asks first (1.7.2)
+  const [asking, setAsking] = useState<string | null>(null);
+  const order = usePlaylist((s) => s.items);
+  const programs = usePlaylist((s) => s.saved);
+  /** Where a picture is in use: on screen, in the running order (items), in saved programs. */
+  const usageOf = (img: ImageInfo) => {
+    const uses = (list: SeqItem[]) =>
+      list.filter((it) => it.kind === 'image' && it.imageId === img.id).length;
+    return {
+      screen: img.src === onScreen,
+      order: uses(order),
+      programs: programs.filter((p) => uses(p.items) > 0).map((p) => p.name),
+    };
+  };
   const [failed, setFailed] = useState<string[]>([]);
   const [deleted, setDeleted] = useState<{ trashed: string; name: string; at: number } | null>(
     null,
@@ -136,6 +156,7 @@ export function ImagesPanel({
   const remove = async (img: ImageInfo, at: number) => {
     try {
       const r = await api.deleteImage(img.id);
+      onDeleted(img.src);
       setDeleted({ ...r, at });
       refresh();
     } catch (e) {
@@ -154,45 +175,102 @@ export function ImagesPanel({
   };
 
   const list = images.data ?? [];
-  const tiles = list.map((img, i) => (
-    <div key={img.id} className="vo-image-tile" data-live={img.src === onScreen || undefined}>
-      <button
-        type="button"
-        className="vo-image-pick"
-        onClick={() => onProject(asPicture(img, fit))}
-        title={img.name}
-        aria-label={tr('Показати «{name}»', { name: img.name })}
-      >
-        <img src={img.small} alt="" loading="lazy" />
-      </button>
-      <Text size="xs" truncate title={img.name} px={4} py={2}>
-        {img.name}
-      </Text>
-      <Group gap={2} className="vo-image-actions" wrap="nowrap">
-        <Tooltip label={tr('Додати в послідовність показу')} withArrow>
-          <ActionIcon
-            size="sm"
-            variant="default"
-            onClick={() => onAddToPlaylist(img, fit)}
-            aria-label={tr('Додати «{name}» в послідовність показу', { name: img.name })}
+  const tiles = list.map((img, i) => {
+    const use = usageOf(img);
+    const inUse = use.screen || use.order > 0 || use.programs.length > 0;
+    return (
+      <div key={img.id} className="vo-image-tile" data-live={img.src === onScreen || undefined}>
+        <button
+          type="button"
+          className="vo-image-pick"
+          onClick={() => onProject(asPicture(img, fit))}
+          title={img.name}
+          aria-label={tr('Показати «{name}»', { name: img.name })}
+        >
+          <img src={img.small} alt="" loading="lazy" />
+        </button>
+        <Text size="xs" truncate title={img.name} px={4} py={2}>
+          {img.name}
+        </Text>
+        <Group gap={2} className="vo-image-actions" wrap="nowrap">
+          <Tooltip label={tr('Додати в послідовність показу')} withArrow>
+            <ActionIcon
+              size="sm"
+              variant="default"
+              onClick={() => onAddToPlaylist(img, fit)}
+              aria-label={tr('Додати «{name}» в послідовність показу', { name: img.name })}
+            >
+              <IconPlaylistAdd size={14} />
+            </ActionIcon>
+          </Tooltip>
+          <Popover
+            opened={asking === img.id}
+            onChange={(o) => !o && setAsking(null)}
+            position="bottom-end"
+            withArrow
+            shadow="md"
           >
-            <IconPlaylistAdd size={14} />
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label={tr('Видалити зображення')} withArrow>
-          <ActionIcon
-            size="sm"
-            variant="default"
-            color="red"
-            onClick={() => void remove(img, i)}
-            aria-label={tr('Видалити «{name}»', { name: img.name })}
-          >
-            <IconTrash size={14} />
-          </ActionIcon>
-        </Tooltip>
-      </Group>
-    </div>
-  ));
+            <Popover.Target>
+              <Tooltip label={tr('Видалити зображення')} withArrow>
+                <ActionIcon
+                  size="sm"
+                  variant="default"
+                  color="red"
+                  onClick={() => (inUse ? setAsking(img.id) : void remove(img, i))}
+                  aria-label={tr('Видалити «{name}»', { name: img.name })}
+                >
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Tooltip>
+            </Popover.Target>
+            <Popover.Dropdown maw={280}>
+              <Text size="xs" fw={500} mb={4}>
+                {tr('Видалити «{name}»?', { name: img.name })}
+              </Text>
+              {use.screen && (
+                <Text size="xs" c="dimmed">
+                  {tr('Воно зараз на екрані: застосунок прибере його з екрана.')}
+                </Text>
+              )}
+              {use.order > 0 && (
+                <Text size="xs" c="dimmed">
+                  {trn(
+                    use.order,
+                    'Воно є в послідовності показу: {n} пункт.|Воно є в послідовності показу: {n} пункти.|Воно є в послідовності показу: {n} пунктів.',
+                  )}
+                </Text>
+              )}
+              {use.programs.length > 0 && (
+                <Text size="xs" c="dimmed">
+                  {tr('Воно є в програмах: {names}.', { names: use.programs.join(', ') })}
+                </Text>
+              )}
+              {(use.order > 0 || use.programs.length > 0) && (
+                <Text size="xs" c="dimmed">
+                  {tr('Ці пункти лишаться з позначкою «Зображення видалено».')}
+                </Text>
+              )}
+              <Group gap="xs" justify="flex-end" mt="xs">
+                <Button size="xs" variant="default" onClick={() => setAsking(null)}>
+                  {tr('Скасувати')}
+                </Button>
+                <Button
+                  size="xs"
+                  color="red"
+                  onClick={() => {
+                    setAsking(null);
+                    void remove(img, i);
+                  }}
+                >
+                  {tr('Видалити')}
+                </Button>
+              </Group>
+            </Popover.Dropdown>
+          </Popover>
+        </Group>
+      </div>
+    );
+  });
   if (deleted)
     tiles.splice(
       Math.min(deleted.at, tiles.length),
