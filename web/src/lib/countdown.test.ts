@@ -48,6 +48,10 @@ describe('countdown', () => {
     expect(shiftUntil(at(10, 0), -1, at(9, 55))).toBe(at(9, 59));
     expect(shiftUntil(at(9, 55, 30), -1, at(9, 55))).toBe(at(9, 55));
     expect(shiftUntil(at(22, 0), 1, at(9, 0))).toBe(at(22, 1));
+    // past the day cap already (a 25-hour day): +1 keeps the end, -1 takes a minute off
+    const far = at(9, 0) + 24 * 3600_000 + 15 * 60_000;
+    expect(shiftUntil(far, 1, at(9, 0))).toBe(far);
+    expect(shiftUntil(far, -1, at(9, 0))).toBe(far - 60_000);
     expect(shiftUntil(new Date(2026, 9, 2, 8, 59).getTime(), 5, at(9, 0))).toBe(
       new Date(2026, 9, 2, 9, 0).getTime(),
     );
