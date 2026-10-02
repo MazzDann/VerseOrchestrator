@@ -140,6 +140,12 @@ export interface Slide {
   /** «Заставка» (1.4.0): the operator's logo and a line of text, between items. */
   cover?: SlideCover;
   /**
+   * «Відлік» (1.5.0): «Починаємо за 4:59» under «Заставка». A field of the slide, not of the
+   * cover: the phones get it (`forAudience` drops the cover with its image), and pages of an
+   * older version simply don't show it.
+   */
+  countdown?: SlideCountdown | null;
+  /**
    * The slide a QR slide or «Заставка» covers — what «Прибрати QR» / L bring back (1.4.2).
    * It travels with the slide, so a control window that takes over, or reloads, can still
    * give it back (it was kept in the covering window only: another one emptied the screen).
@@ -155,6 +161,16 @@ export interface Slide {
 export interface SlideCover {
   text: string;
   image: string | null;
+}
+
+/**
+ * A countdown on screen (1.5.0, lib/countdown.ts): when it ends (ms since the epoch — every
+ * window counts to the same moment, whenever it joins) and the words over the time. Past its
+ * end the time and the words go; «Заставка» stays.
+ */
+export interface SlideCountdown {
+  until: number;
+  caption: string;
 }
 
 /**

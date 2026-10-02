@@ -258,6 +258,10 @@ describe('window bus v2', () => {
     expect(isSlide({ ...slide('x'), reference: 3 })).toBe(false);
     expect(isSlide({ ...slide('x'), template: { objects: 'quote' } })).toBe(false);
     expect(isSlide({ ...slide('x'), reveal: { count: 1 } })).toBe(false);
+    // «Відлік» (1.5.0): an end that is a number, or none
+    expect(isSlide({ ...slide('x'), countdown: { until: 1, caption: 'x' } })).toBe(true);
+    expect(isSlide({ ...slide('x'), countdown: null })).toBe(true);
+    expect(isSlide({ ...slide('x'), countdown: { until: 'soon', caption: 'x' } })).toBe(false);
   });
 
   it('«Заставка»: its image crosses once as an asset, as the background does (1.4.2)', async () => {
