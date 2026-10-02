@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { ApiError, closeDb, library, libraryInfo, libraryPath } from './db.js';
 import { isOwnAddress, lanIps } from './access.js';
-import { requireLocal, requireLocalControl } from './guards.js';
+import { isLocalControl, requireLocal, requireLocalControl } from './guards.js';
 import {
   announceShutdown,
   attachLiveHub,
@@ -658,7 +658,9 @@ app.get(
  * (review of #47). Registered before every route that changes them.
  */
 app.use(['/api/song-bundles', '/api/images'], (req, res, next) => {
-  if (req.method === 'GET' || req.method === 'HEAD') return next();
+  // only what may change something waits and holds the backups: a request the routes refuse
+  // anyway (403) holds nothing — an unanswered one from the hall held them for minutes
+  if (req.method === 'GET' || req.method === 'HEAD' || !isLocalControl(req)) return next();
   let end: (() => void) | null = null;
   let closed = false;
   res.on('close', () => {
@@ -745,8 +747,8 @@ app.get(
 );
 
 /**
- * Files a restore or its undo could not move — held by another program: everything went back
- * where it was (backup.ts moveState), said in words (review of #47).
+ * A restore or its undo that failed — a file held by another program: what moved went back
+ * (backup.ts, all or nothing), said in words (review of #47).
  */
 const movesFailed = (e: unknown, key: string) => {
   if (e instanceof BackupError || e instanceof ApiError) return e;
