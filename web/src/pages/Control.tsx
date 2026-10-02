@@ -1816,12 +1816,13 @@ export function Control() {
   };
   /**
    * The key «Відлік: пауза / далі» (1.8.1, T): the countdown on screen stops or goes on; with
-   * none showing its time, a new one starts.
+   * none showing its time, a new one starts. Under «Чорний екран» it pauses the countdown there
+   * and the screen stays black — never a new one over it (review of 1.8.1).
    */
   const countdownKey = () => {
     if (!leaderRef.current) return standbyNotice();
     const s = liveSlideRef.current;
-    if (s.cover && !s.forceBlack && s.countdown && showsTime(s.countdown, Date.now())) {
+    if (s.cover && s.countdown && showsTime(s.countdown, Date.now())) {
       const next = countdownPause();
       notifications.show({
         message: next && isPaused(next) ? tr('Відлік: пауза') : tr('Відлік іде далі'),

@@ -50,7 +50,7 @@ export interface Appearance {
   coverImage: string | null;
   /** «Відлік» (1.5.0): the words over the time ('' — «Починаємо за» in the window's language) */
   countdownCaption: string;
-  /** …and the minutes it last ran for, offered first next time */
+  /** …and the minutes it last ran for, offered first next time (whole seconds since 1.8.1: 7.5 = 7:30) */
   countdownMinutes: number;
   /** …and what its time does at zero (1.8.0): on into −0:01 by default, the user's ask */
   countdownAfterZero: AfterZero;

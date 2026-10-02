@@ -163,7 +163,10 @@ export function togglePause<C extends Timed>(c: C, now: number): C {
 export function shiftCountdown<C extends Timed>(c: C, minutes: number, now: number): C {
   const overtime = afterZeroOf(c) === 'overtime';
   if (isPaused(c)) {
-    const left = c.pausedLeft! + minutes * 60000;
+    // from the time it shows: paused below zero, then switched off «У мінус», it holds 0:00
+    // and «+1 хв» gives 1:00 (review of 1.8.1)
+    const held = overtime ? c.pausedLeft! : Math.max(0, c.pausedLeft!);
+    const left = held + minutes * 60000;
     return { ...c, pausedLeft: Math.min(DAY_MS, overtime ? left : Math.max(0, left)) };
   }
   // held at 0:00, the end long gone: «+1 хв» gives a minute from now (review of 1.8.0)
