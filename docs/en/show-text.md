@@ -98,7 +98,7 @@ cleared” notification. You can bring the slide back until something else goes 
 
 A countdown is the cover with the time to the start under its logo and text, for example
 “Starting in 4:59”. The time counts down on every screen, in the **Stage** window, and on the
-viewers' phones.
+viewers' phones, all by the computer's clock: a phone whose clock is off shows the same time.
 
 To show a countdown:
 

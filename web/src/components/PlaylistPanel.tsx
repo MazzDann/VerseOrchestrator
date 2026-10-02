@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Stack,
   Group,
@@ -31,7 +32,9 @@ import {
   IconFolderOpen,
   IconArrowBackUp,
 } from '@tabler/icons-react';
+import { api } from '../api';
 import { type SeqItem, type SavedProgram } from '../playlistStore';
+import { useServer } from '../serverStore';
 import { tr, trn, useLang } from '../i18n';
 
 interface Props {
@@ -96,6 +99,15 @@ export function PlaylistPanel({
   onUndoLoad,
 }: Props) {
   useLang();
+  const serverAvailable = useServer((s) => s.available);
+  // a picture deleted in «Зображення» (1.7.2): its item says so — once the list is known
+  const pictures = useQuery({
+    queryKey: ['images'],
+    queryFn: api.images,
+    enabled: serverAvailable !== false && items.some((it) => it.kind === 'image'),
+  });
+  const known = pictures.data ? new Set(pictures.data.map((p) => p.id)) : null;
+  const gone = (it: SeqItem) => it.kind === 'image' && !!known && !known.has(it.imageId);
   const [programsOpen, setProgramsOpen] = useState(false);
   const [name, setName] = useState('');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -387,8 +399,13 @@ export function PlaylistPanel({
                 <ThemeIcon size="sm" variant="light" color={KIND_COLOR[it.kind]}>
                   <Icon size={14} />
                 </ThemeIcon>
-                <Text size="sm" style={{ flex: 1, minWidth: 0 }} truncate>
-                  {it.label}
+                <Text
+                  size="sm"
+                  c={gone(it) ? 'dimmed' : undefined}
+                  style={{ flex: 1, minWidth: 0 }}
+                  truncate
+                >
+                  {gone(it) ? tr('Зображення видалено: {name}', { name: it.label }) : it.label}
                 </Text>
                 <Group gap={0} wrap="nowrap">
                   <ActionIcon

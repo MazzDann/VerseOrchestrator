@@ -351,6 +351,16 @@ export const EN: Record<string, string> = {
   'Додати…': 'Add…',
   'Додаю {n} з {of}…': 'Adding {n} of {of}…',
   'Не вдалося додати:': "Couldn't add:",
+  'Видалити «{name}»?': 'Delete “{name}”?',
+  'Воно зараз на екрані: застосунок прибере його з екрана.':
+    'It is on screen now: the app takes it off the screen.',
+  'Воно є в послідовності показу: {n} пункт.|Воно є в послідовності показу: {n} пункти.|Воно є в послідовності показу: {n} пунктів.':
+    'It is in the running order: {n} item.|It is in the running order: {n} items.',
+  'Воно є в програмах: {names}.': 'It is in the programs: {names}.',
+  'Ці пункти лишаться з позначкою «Зображення видалено».':
+    'Those items stay, marked “Image deleted”.',
+  'Зображення видалено: {name}': 'Image deleted: {name}',
+  Видалити: 'Delete',
   'Додано {n} зображення|Додано {n} зображення|Додано {n} зображень':
     'Added {n} image|Added {n} images',
   'Зображень ще немає. Натисніть «Додати…» і виберіть файли PNG, JPEG, WebP чи GIF.':

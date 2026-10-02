@@ -1,6 +1,6 @@
 {
   "name": "@vo/shared",
-  "version": "1.6.3",
+  "version": "1.7.3",
   "private": true,
   "type": "module",
   "exports": {

@@ -188,7 +188,8 @@ app.post(
 
 app.get(
   '/api/live',
-  wrap((_req, res) => res.json(getLive())),
+  // `now`: the hub's clock, for a phone that polls (1.7.3)
+  wrap((_req, res) => res.json({ ...getLive(), now: Date.now() })),
 );
 
 /** «Ярлик на робочому столі» (0.7.5, Налаштування вигляду → Застосунок): shortcut.ts. */

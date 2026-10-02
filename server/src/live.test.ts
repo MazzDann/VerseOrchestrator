@@ -117,6 +117,28 @@ describe('live hub', () => {
     b.ws.close();
   });
 
+  it('tells any socket its clock — once a second at most (1.7.3)', async () => {
+    const v = viewer();
+    await v.next(); // the slide
+    const t = Date.now() - 60_000; // a phone a minute behind
+    const answer = new Promise<Record<string, unknown>>((resolve) =>
+      v.ws.on('message', (d) => {
+        const f = JSON.parse(String(d));
+        if (f.type === 'clock') resolve(f);
+      }),
+    );
+    v.ws.send(JSON.stringify({ type: 'clock', t }));
+    const f = await answer;
+    expect(f.t).toBe(t);
+    expect(Math.abs((f.now as number) - Date.now())).toBeLessThan(1000);
+    // asked again at once: no answer (a socket can't flood the hub)
+    v.ws.send(JSON.stringify({ type: 'clock', t }));
+    v.ws.send(JSON.stringify({ type: 'clock', t: 'not a time' }));
+    await new Promise((r) => setTimeout(r, 200));
+    expect(v.frames.filter((x) => x.type === 'clock')).toHaveLength(1);
+    v.ws.close();
+  });
+
   it('refuses upgrades on other paths', async () => {
     const ws = new WebSocket(base + '/api/other');
     const outcome = await new Promise<string>((resolve) => {
