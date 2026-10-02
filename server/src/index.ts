@@ -62,6 +62,17 @@ import { browserListing, detectBrowsers } from './browsers.js';
 import { handoverRoutes, spawnBrowser } from './handover.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 import {
+  addImage,
+  CONTENT_TYPE,
+  imageEntry,
+  imagesDir,
+  isImageFile,
+  listImages,
+  restoreImage,
+  trashImage,
+  type ImageExt,
+} from './images.js';
+import {
   BackupError,
   backupBusy,
   backupName,
@@ -79,7 +90,12 @@ import {
 const app = express();
 const json = express.json({ limit: '1mb' });
 // the UI state (0.7.4) and a song import (0.10.1) are big: their own, larger limits
-const ownParser = new Set(['/api/ui-state', '/api/song-bundles/import', '/api/backup/check']);
+const ownParser = new Set([
+  '/api/ui-state',
+  '/api/song-bundles/import',
+  '/api/images',
+  '/api/backup/check',
+]);
 app.use((req, res, next) => (ownParser.has(req.path) ? next() : json(req, res, next)));
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -715,6 +731,76 @@ app.post(
       updated: done.updated,
       library,
     });
+  }),
+);
+
+// ── Pictures on screen (1.5.0, images.ts): kept in data/images/, served by address ────────
+
+// the list is the operator's (this machine): a phone gets a picture's address with the slide,
+// and the files' names are random ids — not a gallery for the hall to browse (review of #46)
+app.get('/api/images', requireLocal, (_req, res) => {
+  res.json(listImages(imagesDir(dataDir)).map(imageEntry));
+});
+
+/**
+ * A picture's file. Read by every page — the output windows, the stage display and the phones
+ * (through the waiter) — so not local-only; only names images.ts writes, served as the type its
+ * first bytes said, never sniffed by the browser into anything else.
+ */
+app.get('/api/images/file/:file', (req, res) => {
+  const file = String(req.params.file);
+  const dir = imagesDir(dataDir);
+  if (!isImageFile(file) || !fs.existsSync(path.join(dir, file))) {
+    res.status(404).end();
+    return;
+  }
+  const ext = file.slice(file.lastIndexOf('.') + 1) as ImageExt;
+  res.setHeader('Content-Type', CONTENT_TYPE[ext]);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  // a picture's file never changes, but it can be deleted: the browser asks again each time
+  // (a 304 while it is there), so a deleted one leaves the slide black (review of #46)
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(dir, file));
+});
+
+app.post(
+  '/api/images',
+  requireLocalControl,
+  express.json({ limit: '64mb' }),
+  wrap(async (req, res) => {
+    const started = Date.now();
+    const done = addImage(imagesDir(dataDir), req.body ?? {});
+    if ('refused' in done) {
+      if (done.refused === 'type')
+        throw new ApiError(400, N_('Це не зображення PNG, JPEG, WebP чи GIF'));
+      if (done.refused === 'size') throw new ApiError(413, N_('Зображення завелике — до 40 МБ'));
+      throw new ApiError(400, N_('Не вдалося прочитати зображення'));
+    }
+    console.log(
+      `[server] images: «${done.name}» ${done.w}×${done.h}, ${Math.round(done.size / 1024)} KB (${Date.now() - started} ms)`,
+    );
+    res.status(201).json(imageEntry(done));
+  }),
+);
+
+app.delete(
+  '/api/images/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const gone = trashImage(imagesDir(dataDir), String(req.params.id));
+    if (!gone) throw new ApiError(404, N_('Зображення не знайдено — відкрийте список ще раз'));
+    res.json({ trashed: gone.trashed, name: gone.image.name });
+  }),
+);
+
+app.post(
+  '/api/images/restore',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const trashed = typeof req.body?.trashed === 'string' ? req.body.trashed : '';
+    const back = trashed ? restoreImage(imagesDir(dataDir), trashed) : null;
+    if (!back) throw new ApiError(409, N_('Зображення вже не повернути'));
+    res.json(imageEntry(back));
   }),
 );
 

@@ -1,12 +1,15 @@
-import { Component, useState, type CSSProperties, type ReactNode } from 'react';
+import { Component, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   type Slide,
   type SlideLine,
   type SlideStyle,
   type SlideReveal,
   type SlideCover,
+  type SlideCountdown,
+  type SlidePicture,
   DEFAULT_STYLE,
 } from '../presenterBus';
+import { formatRemaining, useRemaining } from '../lib/countdown';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 import { SlideFade } from './SlideFade';
@@ -134,9 +137,24 @@ function RevealLines({
  * instead of running off the slide. A small file grows at most twice (`LOGO_PX_PER_CQW`). The
  * logo loading after the fit ran asks for a refit.
  */
-function CoverContent({ cover, onImageLoad }: { cover: SlideCover; onImageLoad: () => void }) {
+function CoverContent({
+  cover,
+  countdown,
+  onImageLoad,
+}: {
+  cover: SlideCover;
+  countdown?: SlideCountdown | null;
+  onImageLoad: () => void;
+}) {
   // the file's width in pixels, known once it has loaded: how far it may grow
   const [pixels, setPixels] = useState(0);
+  const left = useRemaining(countdown?.until);
+  const counting = left > 0;
+  // the time coming or going changes the content's height: fit it again (the slide's key
+  // changes when a countdown starts or goes, not when one ends on screen)
+  const refit = useRef(onImageLoad);
+  refit.current = onImageLoad;
+  useEffect(() => refit.current(), [counting]);
   return (
     <div
       style={{
@@ -165,13 +183,72 @@ function CoverContent({ cover, onImageLoad }: { cover: SlideCover; onImageLoad: 
             // 50 / 70 cqh at the full size (the fit's whole pixels put 1em a little under
             // 7 cqh: the em bound alone came out up to 5 % smaller in a small preview); less
             // as the fit shrinks the text
-            maxHeight: cover.text ? 'min(50cqh, 7.5em)' : 'min(70cqh, 10.5em)',
+            // a running countdown («Відлік», 1.5.0) takes room under it
+            maxHeight: counting
+              ? cover.text
+                ? 'min(32cqh, 4.8em)'
+                : 'min(42cqh, 6.3em)'
+              : cover.text
+                ? 'min(50cqh, 7.5em)'
+                : 'min(70cqh, 10.5em)',
             objectFit: 'contain',
           }}
         />
       )}
       {cover.text && <div style={{ lineHeight: 1.25, whiteSpace: 'pre-line' }}>{cover.text}</div>}
+      {counting && countdown && <CountdownLines caption={countdown.caption} left={left} />}
     </div>
+  );
+}
+
+/**
+ * «Відлік» (1.5.0): the words over a big time left; equal-width digits, so the line holds still
+ * as it counts. Past the end both go and «Заставка» stays (`CoverContent`).
+ */
+function CountdownLines({ caption, left }: { caption: string; left: number }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        lineHeight: 1.1,
+      }}
+    >
+      {caption && <div style={{ fontSize: '0.8em', opacity: 0.85 }}>{caption}</div>}
+      <div
+        style={{
+          fontSize: '2.4em',
+          fontWeight: 600,
+          fontVariantNumeric: 'tabular-nums',
+          letterSpacing: '0.02em',
+        }}
+      >
+        {formatRemaining(left)}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A picture on screen (1.5.0): the server's file over the whole slide. One that doesn't load
+ * (deleted meanwhile, the server gone) leaves the black of the slide, never a broken-image sign.
+ */
+function PictureContent({ picture }: { picture: SlidePicture }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (failed === picture.src) return null;
+  return (
+    <img
+      src={picture.src}
+      alt=""
+      onError={() => setFailed(picture.src)}
+      style={{
+        display: 'block',
+        width: '100%',
+        height: '100%',
+        objectFit: picture.fit === 'cover' ? 'cover' : 'contain',
+      }}
+    />
   );
 }
 
@@ -288,14 +365,19 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   const style = slide.style ?? DEFAULT_STYLE;
   const transition = calm ? 'none' : style.transition;
   const show =
-    slide.visible && !slide.blank && (slide.lines.length > 0 || !!slide.qr || !!slide.cover);
+    slide.visible &&
+    !slide.blank &&
+    (slide.lines.length > 0 || !!slide.qr || !!slide.cover || !!slide.picture);
   const slideKey = !show
     ? 'blank'
-    : slide.qr
-      ? `qr|${slide.qr}`
-      : slide.cover
-        ? `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}`
-        : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
+    : slide.picture
+      ? `picture|${slide.picture.src}|${slide.picture.fit}`
+      : slide.qr
+        ? `qr|${slide.qr}`
+        : slide.cover
+          ? // a countdown starting or going fades like a new slide; «+1 хв» only changes the time
+            `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}|${slide.countdown ? slide.countdown.caption : '-'}`
+          : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
   // the viewers' QR in a corner (0.6.16) — over any slide but the QR slide itself
   const corner =
     style.qrCorner && !slide.qr ? (
@@ -316,6 +398,12 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
     240,
     maxCqh,
   );
+  // A picture is drawn in the layout of the last text slide: the text layer leaving for it keeps
+  // its place and fades out — a layout switch unmounted it at once (review of #46: a faithful
+  // song's stanza or a «Макет» preset cut to the picture)
+  const ownTemplate = slide.qr || slide.cover || slide.picture ? null : (slide.template ?? null);
+  const lastTemplate = useRef(ownTemplate);
+  if (!slide.picture) lastTemplate.current = ownTemplate;
 
   // Pure-black override: paint solid black over everything, ignoring the
   // background image/colour (the operator's "force black" key/button).
@@ -341,14 +429,30 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} />
   ) : null;
 
+  // A picture («Зображення», 1.5.0): its own layer over the whole slide, on black, under the
+  // text layer — text and picture fade into each other like any two slides (review of #46:
+  // a picture had its own root, so switching cut instead of fading)
+  const picture = show ? (slide.picture ?? null) : null;
+  const textKey = picture ? null : show ? slideKey : null;
+  const pictureLayer = (
+    <SlideFade
+      slideKey={picture ? slideKey : null}
+      mode={transition}
+      style={{ position: 'absolute', inset: 0, background: '#000' }}
+    >
+      {picture && <PictureContent picture={picture} />}
+    </SlideFade>
+  );
+
   // --- Positioned template layout ---------------------------------------------
-  const template = slide.qr || slide.cover ? null : slide.template;
+  const template = slide.picture ? lastTemplate.current : ownTemplate;
   if (template) {
     return (
       <div style={rootStyle}>
         {scrim}
+        {pictureLayer}
         <SlideFade
-          slideKey={show ? slideKey : null}
+          slideKey={textKey}
           mode={transition}
           style={{
             position: 'absolute',
@@ -452,6 +556,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   return (
     <div style={rootStyle}>
       {scrim}
+      {pictureLayer}
       <div
         ref={containerRef}
         style={{
@@ -466,7 +571,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
         }}
       >
         <SlideFade
-          slideKey={show ? slideKey : null}
+          slideKey={textKey}
           mode={transition}
           layerRef={contentRef}
           style={{
@@ -487,7 +592,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
           {slide.qr ? (
             <QrCard url={slide.qr} variant="full" look={style.qrStyle} />
           ) : slide.cover ? (
-            <CoverContent cover={slide.cover} onImageLoad={refit} />
+            <CoverContent cover={slide.cover} countdown={slide.countdown} onImageLoad={refit} />
           ) : slide.reveal ? (
             <RevealLines reveal={slide.reveal} style={style} calm={calm} />
           ) : (

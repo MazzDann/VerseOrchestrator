@@ -341,6 +341,29 @@ export const EN: Record<string, string> = {
   'Додано у показ: {item}': 'Added to the running order: {item}',
   Пісня: 'Song',
   'Текст додано у показ': 'Text added to the running order',
+  // «Зображення» (1.5.0)
+  Зображення: 'Images',
+  'Картинки на екран і в послідовність показу': 'Pictures on screen and in the running order',
+  'Зображення додано у показ': 'Image added to the running order',
+  Вписати: 'Fit',
+  Заповнити: 'Fill',
+  'Як зображення займає слайд': 'How the image takes the slide',
+  'Додати…': 'Add…',
+  'Додаю {n} з {of}…': 'Adding {n} of {of}…',
+  'Не вдалося додати:': "Couldn't add:",
+  'Додано {n} зображення|Додано {n} зображення|Додано {n} зображень':
+    'Added {n} image|Added {n} images',
+  'Зображень ще немає. Натисніть «Додати…» і виберіть файли PNG, JPEG, WebP чи GIF.':
+    'No images yet. Click “Add…” and choose PNG, JPEG, WebP, or GIF files.',
+  'Показати «{name}»': 'Show “{name}”',
+  'Додати в послідовність показу': 'Add to the running order',
+  'Додати «{name}» в послідовність показу': 'Add “{name}” to the running order',
+  'Видалити зображення': 'Delete the image',
+  'Видалити «{name}»': 'Delete “{name}”',
+  'Це не зображення PNG, JPEG, WebP чи GIF': 'This is not a PNG, JPEG, WebP, or GIF image',
+  'Зображення завелике — до 40 МБ': 'The image is too large — up to 40 MB',
+  'Зображення не знайдено — відкрийте список ще раз': 'Image not found — open the list again',
+  'Зображення вже не повернути': 'The image can no longer be brought back',
   // «Резервна копія» (1.5.0)
   'Резервна копія': 'Backup',
   'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення. Модулі, бібліотека й пульти в нього не входять.':
@@ -629,6 +652,30 @@ export const EN: Record<string, string> = {
   'Заставка поки порожня — лише фон. Додайте логотип чи текст: Налаштування вигляду → Заставка':
     'The cover is empty for now — the background only. Add a logo or text: Settings → Cover',
   'Прибрати заставку': 'Remove the cover',
+  // «Відлік» (1.5.0)
+  Відлік: 'Countdown',
+  'Починаємо за': 'Starting in',
+  'Цей час уже минув': 'This time has already passed',
+  'Відлік: {time}': 'Countdown: {time}',
+  '«Заставка» з часом до початку: «Починаємо за 5:00»':
+    'The cover with the time to the start: “Starting in 5:00”',
+  'Відлік на екрані': 'Countdown on screen',
+  '−1 хв': '−1 min',
+  '+1 хв': '+1 min',
+  'Лишити заставку без часу': 'Keep the cover without the time',
+  'Прибрати відлік': 'Remove the countdown',
+  'Відлік скінчився: заставка лишається на екрані.':
+    'The countdown has ended: the cover stays on screen.',
+  Скільки: 'How long',
+  '{n} хв': '{n} min',
+  'до…': 'until…',
+  'До котрої години': 'Until what time',
+  'Напис над часом': 'Words over the time',
+  'Показати: {caption} {time}': 'Show: {caption} {time}',
+  'Показати відлік': 'Show the countdown',
+  'Логотип і текст над часом — із розділу «Заставка» в налаштуваннях вигляду.':
+    'The logo and text over the time come from the “Cover” section of the settings.',
+  'Відлік: {n} хв': 'Countdown: {n} min',
   // 1.4.1: the logo and the settings' storage (SettingsPanel, lib/settingsSaveNotice.ts)
   'PNG, JPEG або WebP; для чіткого показу — від 1600 пікселів по довшому боці.':
     'PNG, JPEG, or WebP; for a sharp picture, 1600 pixels or more on the longer side.',

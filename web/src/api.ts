@@ -379,6 +379,21 @@ const UpdateStateSchema = z.object({
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
+/** A picture as the server lists it (1.5.0, server/src/images.ts `imageEntry`). */
+const ImageSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  w: z.number(),
+  h: z.number(),
+  size: z.number(),
+  added: z.string(),
+  /** the file for the screen */
+  src: z.string(),
+  /** the small one, for the phones and the thumbnails */
+  small: z.string(),
+});
+export type ImageInfo = z.infer<typeof ImageSchema>;
+
 /** What a backup holds (1.5.0, server/src/backup.ts `BackupSummary`). */
 const BackupSummarySchema = z.object({
   app: z.string(),
@@ -676,6 +691,42 @@ export const api = {
     return StandbySchema.parse(await res.json());
   },
   /** The song bundle files, with the ids an import names its target by (0.10.1). */
+  /** Pictures on screen (1.5.0): what the server keeps in data/images/, newest first. */
+  images: () => getJson('/api/images', z.array(ImageSchema)),
+  /** Keep a picture the browser prepared (lib/image.ts `fileToPicture`). */
+  addImage: async (picture: {
+    name: string;
+    full: string;
+    small: string;
+    w: number;
+    h: number;
+  }) => {
+    const res = await request('/api/images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify(picture),
+    });
+    if (!res.ok) throw await failure(res);
+    return ImageSchema.parse(await res.json());
+  },
+  /** Delete a picture: it waits aside for «Скасувати» (`restoreImage`). */
+  deleteImage: async (id: string) => {
+    const res = await request(`/api/images/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ trashed: z.string(), name: z.string() }).parse(await res.json());
+  },
+  restoreImage: async (trashed: string) => {
+    const res = await request('/api/images/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ trashed }),
+    });
+    if (!res.ok) throw await failure(res);
+    return ImageSchema.parse(await res.json());
+  },
   songBundleFiles: () =>
     getJson(
       '/api/song-bundles/files',

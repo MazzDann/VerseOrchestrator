@@ -18,6 +18,7 @@ import {
   IconBook,
   IconMusic,
   IconLetterT,
+  IconLibraryPhoto,
   IconChevronUp,
   IconChevronDown,
   IconTrash,
@@ -62,10 +63,11 @@ const KIND_ICON = {
   passage: IconBook,
   song: IconMusic,
   text: IconLetterT,
+  image: IconLibraryPhoto,
 } as const;
 
 // Kinds are told apart by their icon; colour stays reserved for live/cue state.
-const KIND_COLOR = { passage: 'gray', song: 'gray', text: 'gray' } as const;
+const KIND_COLOR = { passage: 'gray', song: 'gray', text: 'gray', image: 'gray' } as const;
 
 /**
  * The running order: an ordered list of passages / songs / free texts. Click a row

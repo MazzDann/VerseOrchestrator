@@ -42,6 +42,8 @@ import {
   IconLetterT,
   IconSquareFilled,
   IconPhoto,
+  IconHourglassHigh,
+  IconLibraryPhoto,
   IconChevronLeft,
   IconChevronRight,
   IconAdjustments,
@@ -86,8 +88,12 @@ import {
   type SlideTemplate,
   type SlideReveal,
   type SlideSource,
+  type SlideCountdown,
+  type SlidePicture,
   type TextSpan,
 } from '../presenterBus';
+import { CountdownTool } from '../components/CountdownTool';
+import { shiftUntil, untilIn } from '../lib/countdown';
 import {
   NO_LIBRARY,
   mainText,
@@ -158,8 +164,10 @@ import { useDataSource, useEffectiveSource } from '../dataSourceStore';
 import { NoLibrary, type LibraryGap } from '../components/NoLibrary';
 import { useUpdateState } from '../lib/updates';
 import {
+  countdownOver,
   coverOver,
   forAudience,
+  pictureSlide,
   qrOver,
   sameContent,
   sameSlide,
@@ -190,14 +198,22 @@ import { closeThisWindow } from '../lib/closeWindow';
 import { applyHandoverFrame, claimForHandover, controlHello, takeHandover } from '../lib/handover';
 import { docsUrl } from '../lib/docs';
 import { openFeedback } from '../lib/feedback';
-import { usePlaylist, type SeqItem, type SeqPassage, type SeqSong } from '../playlistStore';
+import {
+  usePlaylist,
+  type SeqImage,
+  type SeqItem,
+  type SeqPassage,
+  type SeqSong,
+} from '../playlistStore';
+import { ImagesPanel } from '../components/ImagesPanel';
+import { type ImageInfo } from '../api';
 
 const EMPTY_ARRAY: never[] = [];
 /** One «Екран очищено» notice at a time (0.13.2): a new clear replaces the last one. */
 const CLEARED_NOTICE = 'screen-cleared';
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
 
-type InlinePanel = 'search' | 'songs' | 'text';
+type InlinePanel = 'search' | 'songs' | 'text' | 'images';
 
 export function Control() {
   const lang = useLang();
@@ -362,9 +378,11 @@ export function Control() {
   const searchOpen = inlinePanel === 'search';
   const songsOpen = inlinePanel === 'songs';
   const textOpen = inlinePanel === 'text';
+  const imagesOpen = inlinePanel === 'images';
   const setSearchOpen = useMemo(() => inlineSetter('search'), [inlineSetter]);
   const setSongsOpen = useMemo(() => inlineSetter('songs'), [inlineSetter]);
   const setTextOpen = useMemo(() => inlineSetter('text'), [inlineSetter]);
+  const setImagesOpen = useMemo(() => inlineSetter('images'), [inlineSetter]);
   const [searchScope, setSearchScope] = useState<SearchScope>('current');
   const [asideMode, setAsideMode] = useState<AsideMode>('preview');
   const [sidebarTab, setSidebarTab] = useState<string | null>('history');
@@ -596,6 +614,8 @@ export function Control() {
   // the «.» / «,» keys separate on any layout (Ukrainian: «ю» / «б»); ⌘↩ / Ctrl+Enter or «На
   // екран» goes there and shows it — they projected the old selection; a click lets go.
   const [quick, setQuick] = useState<string | null>(null);
+  /** «Відлік» open (1.5.0): its fields and buttons own the keys, as the palette's do */
+  const [countdownOpen, setCountdownOpen] = useState(false);
   const quickRef = useRef<string | null>(null);
   quickRef.current = quick;
   const quickJumpRef = useRef(quickJump);
@@ -605,7 +625,7 @@ export function Control() {
       const box = quickRef.current;
       const r = quickKeydown(box, e, {
         canStart: bookNumber != null,
-        blocked: isFormField(e.target) || paletteOpen || moreShown,
+        blocked: isFormField(e.target) || paletteOpen || moreShown || countdownOpen,
         project: useSettings.getState().keymap.project,
       });
       if (r.box !== box) setQuick(r.box);
@@ -613,7 +633,7 @@ export function Control() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [bookNumber, paletteOpen, moreShown]);
+  }, [bookNumber, paletteOpen, moreShown, countdownOpen]);
   // a click lets go of the typed numbers: ⌘ / Shift + click in the verse list, then Enter,
   // belongs to the verses clicked, not to a place typed a moment ago (review of the Mac fix)
   useEffect(() => {
@@ -1144,6 +1164,41 @@ export function Control() {
     }
   };
 
+  // «Зображення» (1.5.0): a picture on screen, as a stanza is — the preview shows it too, and
+  // «Наживо» leaves it until the verses are navigated
+  const projectPicture = (picture: SlidePicture) => {
+    const slide = pictureSlide(picture, slideStyle);
+    pushLive(slide);
+    setPreviewOverride(slide);
+    setLive(true);
+    notifications.show({
+      message: tr('На екрані: {ref}', { ref: picture.name }),
+      color: 'live',
+      autoClose: 1500,
+    });
+  };
+  const addImageToPlaylist = (img: ImageInfo, fit: SlidePicture['fit']) => {
+    playlistAdd({
+      kind: 'image',
+      label: img.name,
+      imageId: img.id,
+      src: img.src,
+      small: img.small,
+      fit,
+    });
+    notifications.show({
+      message: tr('Зображення додано у показ'),
+      color: 'green',
+      autoClose: 1200,
+    });
+  };
+  const pictureOf = (it: SeqImage): SlidePicture => ({
+    src: it.src,
+    small: it.small,
+    name: it.label,
+    fit: it.fit,
+  });
+
   // --- Presentation sequence (playlist) ---------------------------------------
   // Project a saved passage: set the selection (so the list/preview follow) and
   // push the slide directly from freshly-fetched verses (don't wait on the
@@ -1238,6 +1293,7 @@ export function Control() {
     playlistSetCurrent(it.id);
     if (it.kind === 'passage') void activatePassage(it);
     else if (it.kind === 'text') projectText(it.body, it.title.trim());
+    else if (it.kind === 'image') projectPicture(pictureOf(it));
     else void activateSong(it);
   };
 
@@ -1659,7 +1715,11 @@ export function Control() {
       }
       return;
     }
-    const back = uncover(now);
+    takeCoverOff();
+  };
+  /** «Заставка» (with «Відлік» too) off: exactly the slide it covered, or an empty screen. */
+  const takeCoverOff = () => {
+    const back = uncover(liveSlideRef.current);
     if (!back) {
       pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
       setLive(false);
@@ -1668,6 +1728,33 @@ export function Control() {
     }
     pushLive(back);
     afterToggle(back);
+  };
+  // «Відлік» (1.5.0, components/CountdownTool): «Заставка» with the time left under it, over
+  // whatever is on screen; L or «Прибрати відлік» gives that back, as from «Заставка».
+  const countdownStart = (countdown: SlideCountdown) => {
+    if (!leaderRef.current) return standbyNotice();
+    const cover = { text: appearance.coverText, image: appearance.coverImage };
+    const slide = countdownOver(liveSlideRef.current, cover, countdown, slideStyle, tr('Відлік'));
+    pushLive(slide);
+    setPreviewOverride(slide);
+    setLive(true);
+  };
+  /** The same countdown with a new end: what it covers and the cover stay. */
+  const countdownChange = (countdown: SlideCountdown | null) => {
+    if (!leaderRef.current) return standbyNotice();
+    const now = liveSlideRef.current;
+    if (!now.cover || !now.countdown) return;
+    const slide: Slide = countdown
+      ? { ...now, countdown }
+      : { ...now, countdown: null, reference: tr('Заставка') };
+    pushLive(slide);
+    // the preview follows only while it shows the cover: a passage the operator got ready
+    // meanwhile stays there for «На екран» and the stage display (review of #45)
+    setPreviewOverride((p) => (p?.cover ? slide : p));
+  };
+  const countdownShift = (minutes: number) => {
+    const c = liveSlideRef.current.countdown;
+    if (c) countdownChange({ ...c, until: shiftUntil(c.until, minutes, Date.now()) });
   };
   const hideQr = () => {
     const back = uncover(liveSlideRef.current);
@@ -2097,6 +2184,7 @@ export function Control() {
   function playlistItemSlide(it: SeqItem, by: string): Promise<Slide> {
     const t = itemTarget(it);
     if (t) return buildRemote(t, by);
+    if (it.kind === 'image') return Promise.resolve(pictureSlide(pictureOf(it), slideStyle));
     const text = it.kind === 'text' ? it : null;
     return Promise.resolve({
       lines: [{ translationAbbr: '', text: text?.body ?? '', rtl: false }],
@@ -2435,7 +2523,9 @@ export function Control() {
             }
           : it.kind === 'song'
             ? { id: it.id, kind: 'song', label: it.label, songId: it.songId }
-            : { id: it.id, kind: 'text', label: it.label },
+            : it.kind === 'image'
+              ? { id: it.id, kind: 'image', label: it.label }
+              : { id: it.id, kind: 'text', label: it.label },
       ),
       currentId: playlistCurrentId,
     }),
@@ -2524,11 +2614,29 @@ export function Control() {
   const textHidden = liveSlide.blank && !liveSlide.forceBlack;
   const blackOn = !!liveSlide.forceBlack;
   const coverOn = !!liveSlide.cover && !liveSlide.forceBlack;
+  // «Відлік» (1.5.0) on screen comes to its end: said once here; «Заставка» stays on screen
+  // (also when «−1 хв» brings it to now; not for one that ended long before this window took over)
+  const countdownEnd = coverOn ? liveSlide.countdown?.until : undefined;
+  useEffect(() => {
+    if (countdownEnd == null || !isLeader) return;
+    const t = window.setTimeout(
+      () => {
+        if (Date.now() - countdownEnd > 5000) return;
+        notifications.show({
+          message: tr('Відлік скінчився: заставка лишається на екрані.'),
+          color: 'gray',
+          autoClose: 5000,
+        });
+      },
+      Math.max(0, countdownEnd - Date.now()),
+    );
+    return () => window.clearTimeout(t);
+  }, [countdownEnd, isLeader]);
   const liveActive =
     liveSlide.visible &&
     !liveSlide.blank &&
     !liveSlide.forceBlack &&
-    (liveSlide.lines.length > 0 || !!liveSlide.qr || !!liveSlide.cover);
+    (liveSlide.lines.length > 0 || !!liveSlide.qr || !!liveSlide.cover || !!liveSlide.picture);
   const liveLabel = liveSlide.forceBlack
     ? tr('Чорний екран')
     : liveSlide.blank
@@ -2561,6 +2669,17 @@ export function Control() {
       keywords: 'black chornyi',
       icon: <IconSquareFilled size={16} />,
       run: blackToggle,
+    },
+    {
+      id: 'countdown',
+      label: tr('Відлік: {n} хв', { n: appearance.countdownMinutes || 5 }),
+      keywords: 'countdown timer vidlik',
+      icon: <IconHourglassHigh size={16} />,
+      run: () =>
+        countdownStart({
+          until: untilIn(appearance.countdownMinutes || 5, Date.now()),
+          caption: appearance.countdownCaption.trim() || tr('Починаємо за'),
+        }),
     },
     { id: 'clear', label: tr('Прибрати з екрана'), keywords: 'clear ochystyty', run: clearScreen },
     {
@@ -2802,6 +2921,13 @@ export function Control() {
     active: textOpen,
     onClick: () => setTextOpen((o) => !o),
   };
+  const imagesTool: ToolProps = {
+    label: tr('Зображення'),
+    hint: tr('Картинки на екран і в послідовність показу'),
+    icon: <IconLibraryPhoto size={18} stroke={1.5} />,
+    active: imagesOpen,
+    onClick: () => setImagesOpen((o) => !o),
+  };
   const playlistTool: ToolProps = {
     label: tr('Послідовність показу'),
     hint: tr('Черга уривків, пісень і текстів; збережені програми'),
@@ -2892,7 +3018,7 @@ export function Control() {
     onClick: toggleAside,
   };
   const zoneTools: Record<FoldZone, ToolSection> = {
-    sources: { label: tr('Джерела'), tools: [songsTool, textTool, playlistTool] },
+    sources: { label: tr('Джерела'), tools: [songsTool, textTool, imagesTool, playlistTool] },
     windows: {
       label: tr('Вікна'),
       tools: [presenterTool, stageTool, outputsTool, viewersTool, remoteTool],
@@ -2986,6 +3112,7 @@ export function Control() {
                 <ToolZone label={tr('Джерела')}>
                   <ToolIcon {...songsTool} />
                   <ToolIcon {...textTool} />
+                  <ToolIcon {...imagesTool} />
                   <ToolIcon {...playlistTool} />
                 </ToolZone>
               )}
@@ -3081,6 +3208,15 @@ export function Control() {
                   active={coverOn}
                   disabled={!isLeader}
                   onClick={coverToggle}
+                />
+                <CountdownTool
+                  running={coverOn ? (liveSlide.countdown ?? null) : null}
+                  disabled={!isLeader}
+                  onStart={countdownStart}
+                  onShift={countdownShift}
+                  onKeepCover={() => countdownChange(null)}
+                  onRemove={() => (leaderRef.current ? takeCoverOff() : standbyNotice())}
+                  onOpenChange={setCountdownOpen}
                 />
               </ToolZone>
               {folded('app') ? (
@@ -3380,7 +3516,7 @@ export function Control() {
               activeStanza={songsPanelStanza}
               onActiveStanzaChange={setSongsPanelStanza}
               onAddToPlaylist={addSongToPlaylist}
-              keysPaused={paletteOpen || moreShown}
+              keysPaused={paletteOpen || moreShown || countdownOpen}
               onSongEnd={songEnd}
             />
             <TextPanel
@@ -3388,6 +3524,15 @@ export function Control() {
               onClose={() => setTextOpen(false)}
               onProject={projectAnnouncement}
               onAddToPlaylist={addTextToPlaylist}
+            />
+            <ImagesPanel
+              open={imagesOpen}
+              onClose={() => setImagesOpen(false)}
+              onProject={projectPicture}
+              onAddToPlaylist={addImageToPlaylist}
+              onScreen={
+                liveSlide.visible && !liveSlide.blank ? (liveSlide.picture?.src ?? null) : null
+              }
             />
             <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
               <Text fw={600} size="md" truncate>
