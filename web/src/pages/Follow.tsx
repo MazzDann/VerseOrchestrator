@@ -30,7 +30,8 @@ export function Follow() {
   const [reader, setReader] = useState<ReaderPrefs>(loadReader);
   const [readerOpen, setReaderOpen] = useState(false);
   // a picture whose file didn't load (deleted, or a backup's restore moving it): the dots, never
-  // a broken-image sign — as on the output windows (SlideCanvas PictureContent)
+  // a broken-image sign — as on the output windows (SlideCanvas PictureContent); cleared by the
+  // next slide
   const [failedPicture, setFailedPicture] = useState<string | null>(null);
   const pictureSrc = slide?.picture ? slide.picture.small || slide.picture.src : '';
   const setPrefs = (patch: Partial<ReaderPrefs>) =>
@@ -48,6 +49,9 @@ export function Follow() {
       version.current = v;
       setSlide((next as Slide | null) ?? null);
       setPaused(isPaused === true);
+      // each new slide tries its picture again: a file that failed once (the Wi-Fi, a restore
+      // moving it) may be there now — as the output windows do
+      setFailedPicture(null);
     };
     // Primary: pushed frames over the live WebSocket (instant).
     const { stop } = connectLive({
