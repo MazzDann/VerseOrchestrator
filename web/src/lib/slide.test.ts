@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  countdownOver,
   coverOver,
   forAudience,
   inPhoneWords,
@@ -133,6 +134,61 @@ describe('«Заставка» (1.4.0)', () => {
       sameSlide(cover, { ...cover, cover: { text: 'Недільне зібрання', image: 'data:x' } }),
     ).toBe(false);
     expect(sameSlide(cover, { ...cover, cover: { ...cover.cover! } })).toBe(true);
+  });
+});
+
+describe('«Відлік» (1.5.0)', () => {
+  const verse: Slide = { ...base, style: DEFAULT_STYLE };
+  const logo = { text: 'Недільне зібрання', image: 'data:image/png;base64,AAAA' };
+  const at = { until: 1_790_000_000_000, caption: 'Починаємо за' };
+
+  it('is «Заставка» with the time under it, and gives back what it covers', () => {
+    const c = countdownOver(verse, logo, at, DEFAULT_STYLE, 'Відлік');
+    expect(c).toMatchObject({ cover: logo, countdown: at, visible: true, lines: [] });
+    expect(showsSomething(c)).toBe(true);
+    expect(uncover(c)).toBe(verse);
+    expect(summarize(c)).toMatchObject({ status: 'live', text: 'Відлік', kind: 'countdown' });
+  });
+
+  it('over a cover or another countdown covers what those cover: one L brings the text back', () => {
+    const cover = coverOver(verse, logo, DEFAULT_STYLE, 'Заставка');
+    const first = countdownOver(cover, logo, at, DEFAULT_STYLE, 'Відлік');
+    expect(first.returnTo).toBe(verse);
+    const again = countdownOver(
+      first,
+      logo,
+      { ...at, until: at.until + 60000 },
+      DEFAULT_STYLE,
+      'Відлік',
+    );
+    expect(again.returnTo).toBe(verse);
+  });
+
+  it('reaches the phones without the logo, the time kept', () => {
+    const c = countdownOver(verse, logo, at, DEFAULT_STYLE, 'Відлік');
+    const phone = forAudience(c);
+    expect(phone.cover).toBeUndefined();
+    expect(phone.returnTo).toBeUndefined();
+    expect(phone.countdown).toEqual(at);
+  });
+
+  it('a new end or other words is a new slide; the same countdown is not', () => {
+    const c = countdownOver(verse, logo, at, DEFAULT_STYLE, 'Відлік');
+    expect(sameSlide(c, { ...c, countdown: { ...at } })).toBe(true);
+    expect(sameSlide(c, { ...c, countdown: { ...at, until: at.until + 60000 } })).toBe(false);
+    expect(sameSlide(c, { ...c, countdown: null })).toBe(false);
+  });
+
+  it('a phone in English names it in English', () => {
+    const sent = JSON.parse(
+      JSON.stringify(summarize(countdownOver(verse, logo, at, DEFAULT_STYLE, 'Відлік'))),
+    ) as ReturnType<typeof summarize>;
+    useSettings.setState({ language: 'en' });
+    try {
+      expect(inPhoneWords(sent)).toMatchObject({ reference: 'Countdown', text: 'Countdown' });
+    } finally {
+      useSettings.setState({ language: 'uk' });
+    }
   });
 });
 

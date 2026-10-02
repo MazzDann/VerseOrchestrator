@@ -1,4 +1,10 @@
-import { type Slide, type SlideCover, type SlideSource, type SlideStyle } from '../presenterBus';
+import {
+  type Slide,
+  type SlideCountdown,
+  type SlideCover,
+  type SlideSource,
+  type SlideStyle,
+} from '../presenterBus';
 import { tr } from '../i18n';
 
 /** True when two slides show the same content (used to merge preview into the live monitor). */
@@ -42,8 +48,9 @@ export interface ScreenSummary {
    * An app-made slide (1.4.2): the viewers' QR or «Заставка». The phone names it in its own
    * language (`inPhoneWords`) — `reference` and `text` were the control window's, and a phone
    * in English read «Заставка». They stay for a remote page of an older version.
+   * `countdown` (1.5.0): «Заставка» with «Відлік» (an older page names it «Заставка»).
    */
-  kind?: 'qr' | 'cover';
+  kind?: 'qr' | 'cover' | 'countdown';
   font?: string;
   /** where it comes from (0.6.1): a remote knows whether its own cursor is on screen */
   source?: SlideSource;
@@ -75,12 +82,14 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
     reference: slide.reference ?? '',
     text: slide.qr
       ? tr('QR для глядачів')
-      : slide.cover
-        ? tr('Заставка')
-        : (slide.lines[0]?.text ?? '').slice(0, 400),
+      : slide.cover && slide.countdown
+        ? tr('Відлік')
+        : slide.cover
+          ? tr('Заставка')
+          : (slide.lines[0]?.text ?? '').slice(0, 400),
     font: slide.style?.font,
     source: slide.source,
-    kind: slide.qr ? 'qr' : slide.cover ? 'cover' : undefined,
+    kind: slide.qr ? 'qr' : slide.cover ? (slide.countdown ? 'countdown' : 'cover') : undefined,
   };
 }
 
@@ -90,7 +99,12 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
  */
 export function inPhoneWords(s: ScreenSummary | null): ScreenSummary | null {
   if (!s?.kind) return s;
-  const name = s.kind === 'qr' ? tr('QR для глядачів') : tr('Заставка');
+  const name =
+    s.kind === 'qr'
+      ? tr('QR для глядачів')
+      : s.kind === 'countdown'
+        ? tr('Відлік')
+        : tr('Заставка');
   return { ...s, reference: name, text: name };
 }
 
@@ -137,6 +151,21 @@ export function coverOver(
 }
 
 /**
+ * «Відлік» (1.5.0): «Заставка» with a countdown under it, over what is on screen — what it
+ * covers comes back as from «Заставка» (L, or «Прибрати відлік»). Over a cover or a running
+ * countdown it covers what those cover: a new countdown replaces the old one.
+ */
+export function countdownOver(
+  now: Slide,
+  cover: SlideCover,
+  countdown: SlideCountdown,
+  style: SlideStyle,
+  reference: string,
+): Slide {
+  return { ...coverOver(now, cover, style, reference), countdown };
+}
+
+/**
  * What taking the QR or «Заставка» away gives back: exactly the slide it covered, when that
  * still shows something; null — empty the screen (it covered nothing, black, or the same kind).
  */
@@ -152,7 +181,7 @@ export function uncover(now: Slide): Slide | null {
  * URL of up to ~1.5 MB, past the hub's 256 KB frame (server/src/live.ts `MAX_FRAME_BYTES`:
  * the hub closes the socket) — and no «Заставка» image (1.4.0: an empty slide there). Nor
  * the slide a cover or the QR slide covers (1.4.2): it is for the control windows, and
- * carries its own background.
+ * carries its own background. A countdown («Відлік», 1.5.0) stays: the phones show it.
  */
 export function forAudience(slide: Slide): Slide {
   const s =
