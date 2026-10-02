@@ -107,7 +107,8 @@ To show a countdown:
    **until…** and type the time in the **Until what time** field.
 3. Optional: in the **Words over the time** field, change the words over the time. Without
    them, the screen says “Starting in”.
-4. Click the **Show** button.
+4. Click the button with the words and the time, for example **Show: Starting in 5:00**. If
+   you chose **until…**, the button is **Show the countdown**.
 
 While the countdown is on screen, the **Countdown** icon is highlighted and its tooltip shows
 the time left. To change the countdown, click the icon again:
@@ -117,8 +118,9 @@ the time left. To change the countdown, click the icon again:
 - **Keep the cover without the time** removes only the time.
 
 When the time is up, it leaves the screen and the cover stays. The control window says
-“The countdown has ended”. A countdown to a time that has already passed today doesn't
-start.
+“The countdown has ended”. If that time has already passed today, the countdown runs to it
+tomorrow, but only when it is at most 12 hours away: at 23:50 you can choose 00:10.
+Otherwise the field says “This time has already passed” and the countdown doesn't start.
 
 ## Open output windows
 
@@ -196,6 +198,6 @@ is called “VerseOrchestrator — control” in the browser.
 ## What's next
 
 - [Songs and custom text](songs-and-text.md): songs from `.pptx`, announcements.
-- [Running order](running-order.md): a program of passages, songs, and texts.
+- [Running order](running-order.md): a program of passages, songs, texts, and images.
 - [Slide appearance](appearance.md): font, colors, background, template, presets.
 - [VerseOrchestrator documentation](README.md): the contents of all parts.
