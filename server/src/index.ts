@@ -63,11 +63,13 @@ import { handoverRoutes, spawnBrowser } from './handover.js';
 import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 import {
   BackupError,
+  backupBusy,
   backupName,
   MAX_BACKUP_BYTES,
   keepPending,
   lastRestore,
   makeBackup,
+  oneAtATime,
   readBackup,
   restorePending,
   undoRestore,
@@ -649,6 +651,22 @@ app.get(
 );
 
 /**
+ * While a backup is made, checked or restored (backup.ts oneAtATime), the song bundles and the
+ * pictures stay as they are: a change meanwhile would be half-kept in the copy or lost under the
+ * restored state (review of #47). Registered before every route that changes them.
+ */
+app.use(['/api/song-bundles', '/api/images'], (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || !backupBusy()) return next();
+  res
+    .status(409)
+    .json(
+      keyedError(
+        N_('Зачекайте, доки збережеться чи відновиться резервна копія, і спробуйте ще раз'),
+      ),
+    );
+});
+
+/**
  * Import songs the browser read from .pptx files (0.10.1) into a bundle — an existing one
  * (`target.id`) or a new one (`target.name`) — then bring the library's songs up to date.
  */
@@ -704,7 +722,7 @@ app.get(
     let buf: Buffer;
     try {
       // one that could never be restored is not made (review of #47)
-      buf = await makeBackup(dataDir, appVersion, now);
+      buf = await oneAtATime(() => makeBackup(dataDir, appVersion, now));
     } catch (e) {
       throw backupRefusal(e);
     }
@@ -740,8 +758,11 @@ app.post(
   wrap(async (req, res) => {
     const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
     try {
-      const { summary } = await readBackup(buf);
-      await keepPending(dataDir, buf);
+      const summary = await oneAtATime(async () => {
+        const { summary } = await readBackup(buf);
+        await keepPending(dataDir, buf);
+        return summary;
+      });
       res.json(summary);
     } catch (e) {
       throw backupRefusal(e);
@@ -758,7 +779,7 @@ app.post(
     const started = Date.now();
     let summary;
     try {
-      summary = await restorePending(dataDir, appVersion);
+      summary = await oneAtATime(() => restorePending(dataDir, appVersion));
     } catch (e) {
       throw backupRefusal(e);
     }
@@ -789,7 +810,7 @@ app.post(
     notDuringRebuild();
     let undone: boolean;
     try {
-      undone = await undoRestore(dataDir, appVersion);
+      undone = await oneAtATime(() => undoRestore(dataDir));
     } catch (e) {
       throw backupRefusal(e);
     }

@@ -5,12 +5,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { unzip, zip } from './zip';
 import {
   applyBackup,
+  backupBusy,
   backupName,
   BackupError,
   collect,
   keepPending,
   lastRestore,
   makeBackup,
+  oneAtATime,
   readBackup,
   restorePending,
   undoRestore,
@@ -172,24 +174,70 @@ describe('«Резервна копія» (1.5.0)', () => {
     const summary = (await restorePending(to, '1.5.0', at))!;
     expect(summary.created).toBe('2026-09-01T00:00:00.000Z');
     expect(fs.existsSync(path.join(to, 'songs', 'ПС-a.vosongs'))).toBe(true);
-    expect(lastRestore(to, at.getTime())).toMatchObject({ created: '2026-09-01T00:00:00.000Z' });
+    const last = lastRestore(to, at.getTime())!;
+    expect(last).toMatchObject({ created: '2026-09-01T00:00:00.000Z' });
+    // the replaced files moved into a folder of their own — no zip, no size limit; the
+    // UI state copied (review of #47)
+    const was = path.join(to, 'backups', last.undo);
+    expect(fs.readdirSync(path.join(was, 'songs'))).toEqual(['ПС-b.vosongs']);
+    expect(fs.readdirSync(path.join(was, 'images')).sort()).toEqual(['b.png', 'index.json']);
+    expect(fs.existsSync(path.join(was, 'ui-state.json'))).toBe(true);
+    expect(fs.readdirSync(path.join(to, 'images')).sort()).toEqual([
+      '.trash',
+      'a.png',
+      'index.json',
+    ]);
     // offered for a day only
     expect(lastRestore(to, at.getTime() + 25 * 3600_000)).toBeNull();
     // a change after the restore…
     fs.writeFileSync(path.join(to, 'songs', 'Нові.vosongs'), 'made after the restore');
-    expect(await undoRestore(to, '1.5.0', new Date(at.getTime() + 60_000))).toBe(true);
+    expect(await undoRestore(to, new Date(at.getTime() + 60_000))).toBe(true);
     expect(
       fs.readdirSync(path.join(to, 'songs')).filter((f) => /^[^.].*\.vosongs$/.test(f)),
     ).toEqual(['ПС-b.vosongs']);
     expect(tags(to)).toBe('b');
+    // stamped as the newest when it went back in
+    const ui = JSON.parse(fs.readFileSync(path.join(to, 'ui-state.json'), 'utf8'));
+    expect(ui['vo:settings'].at).toBeGreaterThan(1000);
+    expect(fs.readdirSync(path.join(to, 'images')).sort()).toEqual([
+      '.trash',
+      'b.png',
+      'index.json',
+    ]);
+    expect(fs.existsSync(was)).toBe(false);
     expect(lastRestore(to, at.getTime())).toBeNull();
-    expect(await undoRestore(to, '1.5.0')).toBe(false);
+    expect(await undoRestore(to)).toBe(false);
     // …is kept in the state going back replaced
     const kept = fs
       .readdirSync(path.join(to, 'backups'))
       .find((f) => f.startsWith('before-undo-'))!;
-    const inside = (await readBackup(fs.readFileSync(path.join(to, 'backups', kept)))).summary;
-    expect(inside.bundles).toEqual(['Нові', 'ПС-a']);
+    expect(fs.readdirSync(path.join(to, 'backups', kept, 'songs'))).toEqual([
+      'Нові.vosongs',
+      'ПС-a.vosongs',
+    ]);
+  });
+
+  it('runs backup work one at a time, in order; busy until the last is done', async () => {
+    const order: string[] = [];
+    const slow = oneAtATime(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+      order.push('restore');
+    });
+    const failing = oneAtATime(async () => {
+      order.push('undo');
+      throw new Error('x');
+    });
+    const save = oneAtATime(async () => {
+      order.push('save');
+      return 7;
+    });
+    expect(backupBusy()).toBe(true);
+    await slow;
+    await expect(failing).rejects.toThrow('x');
+    expect(await save).toBe(7);
+    // one that failed doesn't stop the next
+    expect(order).toEqual(['restore', 'undo', 'save']);
+    expect(backupBusy()).toBe(false);
   });
 
   it('a restore that fails midway still offers the way back', async () => {
@@ -202,7 +250,7 @@ describe('«Резервна копія» (1.5.0)', () => {
     await expect(restorePending(to, '1.5.0', at)).rejects.toThrow();
     expect(lastRestore(to, at.getTime())).not.toBeNull();
     fs.rmSync(path.join(to, 'images', 'a.png'), { recursive: true });
-    expect(await undoRestore(to, '1.5.0', at)).toBe(true);
+    expect(await undoRestore(to, at)).toBe(true);
     expect(tags(to)).toBe('b');
     expect(fs.existsSync(path.join(to, 'songs', 'ПС-b.vosongs'))).toBe(true);
   });

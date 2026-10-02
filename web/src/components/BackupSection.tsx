@@ -123,6 +123,7 @@ export function BackupSection() {
               variant="light"
               leftSection={<IconArchive size={14} />}
               loading={saving}
+              disabled={busy}
               onClick={() => void save()}
             >
               {tr('Зберегти копію')}
@@ -210,6 +211,7 @@ export function BackupSection() {
                     size="compact-xs"
                     variant="light"
                     leftSection={<IconArrowBackUp size={14} />}
+                    disabled={busy}
                     onClick={() => setConfirmUndo(true)}
                   >
                     {tr('Повернути як було')}

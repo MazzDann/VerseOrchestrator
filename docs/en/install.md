@@ -281,12 +281,13 @@ To restore a backup on this or another computer:
    click **Restore**.
 3. Click **Restore**. The control window reloads with the restored state.
 
-Other open control windows take the restored settings at once.
+Other open control windows take the restored settings at once. While a backup is saved or
+restored, songs and images don't change: the app asks you to wait.
 
-The app keeps the state the backup replaced in the `data/backups/` folder. For a day after the
-restore you can bring it back: click **Go back to how it was** in the **Backup** section and
-confirm with **Bring back**. What was changed after the restore is kept in `data/backups/`
-too.
+The app moves the state the backup replaced into a folder of its own in `data/backups/`: the
+song and image files stay there as they were. For a day after the restore you can bring it
+back: click **Go back to how it was** in the **Backup** section and confirm with
+**Bring back**. What was changed after the restore is kept in `data/backups/` too.
 
 A backup can be up to 1 GB. If the images take more, the app says so and makes no backup.
 
