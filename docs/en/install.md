@@ -257,9 +257,19 @@ with the button failed:
 
 ### Update a clone of the repository
 
-To update a clone of the repository, get the new changes (`git pull`). An app started with
-the start file notices the new code within a minute: a dot appears on the **Settings** icon,
-and **Settings** → **App** → **Updates** shows a **Restart** button. Click it: the app
+A clone of the repository started with the start file checks for new changes by itself and
+gets them when you ask:
+
+1. In **Settings** → **App** → **Updates**, click **Check now**. The app asks the remote
+   repository and says how many new changes are on the branch yours tracks (for example,
+   `origin/main`). With **Check for updates** on, it also asks by itself twice a day.
+2. Click **Get the updates**. The app gets the changes (`git pull`) only when that needs no
+   decision from you: no uncommitted changes in the files, and the branch hasn't diverged from
+   the remote one. Otherwise it says why — then get the changes by hand.
+
+Once the code has changed — after **Get the updates**, a `git pull` by hand, or a switch to
+another branch — the app notices within a minute: a dot appears on the **Settings** icon, and
+**Updates** shows a **Restart** button. Click it: the app
 installs the new parts, rebuilds the interface, and starts again in the background, and the
 page reloads by itself. The start window closes meanwhile. While output windows are open,
 the button is unavailable.
