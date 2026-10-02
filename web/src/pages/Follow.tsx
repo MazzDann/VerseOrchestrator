@@ -29,6 +29,10 @@ export function Follow() {
   // how THIS phone likes to read (0.6.17): kept in its own browser, nothing is sent
   const [reader, setReader] = useState<ReaderPrefs>(loadReader);
   const [readerOpen, setReaderOpen] = useState(false);
+  // a picture whose file didn't load (deleted, or a backup's restore moving it): the dots, never
+  // a broken-image sign — as on the output windows (SlideCanvas PictureContent)
+  const [failedPicture, setFailedPicture] = useState<string | null>(null);
+  const pictureSrc = slide?.picture ? slide.picture.small || slide.picture.src : '';
   const setPrefs = (patch: Partial<ReaderPrefs>) =>
     setReader((cur) => {
       const next = { ...cur, ...patch };
@@ -205,11 +209,16 @@ export function Follow() {
               </p>
             )}
           </>
-        ) : slide?.picture && slide.visible && !slide.blank && !slide.forceBlack ? (
+        ) : slide?.picture &&
+          pictureSrc !== failedPicture &&
+          slide.visible &&
+          !slide.blank &&
+          !slide.forceBlack ? (
           // a picture (1.5.0): its small copy — a phone needs no 4K file over the Wi-Fi
           <img
-            src={slide.picture.small || slide.picture.src}
+            src={pictureSrc}
             alt={slide.picture.name}
+            onError={() => setFailedPicture(pictureSrc)}
             style={{ display: 'block', maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain' }}
           />
         ) : paused ? (
