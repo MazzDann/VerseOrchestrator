@@ -178,10 +178,17 @@ export function StageTimerTool({
                 {formatTimer(left)}
               </Text>
             </Group>
-            {paused && (
+            {paused ? (
               <Text size="xs" c="dimmed">
                 {tr('На паузі: час на «Сцені» стоїть.')}
               </Text>
+            ) : (
+              left <= 0 &&
+              runningAfterZero === 'overtime' && (
+                <Text size="xs" c="dimmed">
+                  {tr('Час вийшов: іде перевищення.')}
+                </Text>
+              )
             )}
             <Button
               size="xs"

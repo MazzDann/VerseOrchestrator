@@ -77,12 +77,12 @@ screen back to the selection too.
 
 To take the text away for a while, use one of these actions:
 
-| Action           | Key | What the viewers see                |
-| ---------------- | --- | ----------------------------------- |
-| **Hide text**    | B   | the slide's background without text |
-| **Black screen** | .   | a completely black screen           |
+| Action           | Key | What the viewers see                 |
+| ---------------- | --- | ------------------------------------ |
+| **Hide text**    | B   | the slide's background without text  |
+| **Black screen** | .   | a completely black screen            |
 | **Cover**        | L   | your logo and text on the background |
-| Clear            | Esc | an empty screen; the preview stays  |
+| Clear            | Esc | an empty screen; the preview stays   |
 
 **Hide text**, **Black screen**, and **Cover** are toggles: press again, and what was on
 screen comes back. The cover — a logo and a line of text between the items of a show — is
@@ -152,12 +152,12 @@ To start the timer:
 2. Choose the minutes, or type your own in the **Length** field: 7, 7:30, or 1:05:00.
 3. Optional: in the **After zero** row, choose what the time does when it is up, as for the
    countdown.
-4. Click **Start on Stage**.
+4. Click the button with the time, for example **Start on Stage: 15:00**.
 
 While the timer runs, its icon is highlighted. To change the timer, click the icon again: it has
 **Pause** / **Resume**, **−1 min** and **+1 min**, **Remove the timer**, and **After zero**. The
-timer takes its colors and format from the **Countdown** section of the appearance settings —
-see [Set up the countdown's look](appearance.md#set-up-the-countdowns-look).
+timer takes its colors, font, and format from the **Countdown** section of the appearance
+settings and keeps its own size — see [Set up the countdown's look](appearance.md#set-up-the-countdowns-look).
 
 ## Open output windows
 

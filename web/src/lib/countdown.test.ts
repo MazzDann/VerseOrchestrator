@@ -11,6 +11,7 @@ import {
   shiftCountdown,
   shiftUntil,
   showsTime,
+  freshStageTimer,
   timerColor,
   timerLook,
   hasLook,
@@ -282,5 +283,18 @@ describe('the look of the time (1.8.3)', () => {
     expect(hasLook({ warnBefore: 60_000, warnColor: '#ffb020', overColor: '#ff5a5a' }, look)).toBe(
       false,
     );
+  });
+});
+
+describe('a speaker’s timer kept in the browser (1.8.4)', () => {
+  const now = Date.UTC(2026, 9, 2, 12);
+  it('comes back the same day, not from another', () => {
+    expect(freshStageTimer(null, now)).toBeNull();
+    expect(freshStageTimer({ until: now + 60_000 }, now)).toEqual({ until: now + 60_000 });
+    expect(freshStageTimer({ until: now - 11 * 3600_000 }, now)).not.toBeNull();
+    expect(freshStageTimer({ until: now - 13 * 3600_000 }, now)).toBeNull();
+    // paused, its end means nothing: it waits as it is
+    const paused = { until: now - 7 * 24 * 3600_000, pausedLeft: 60_000 };
+    expect(freshStageTimer(paused, now)).toBe(paused);
   });
 });

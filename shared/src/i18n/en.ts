@@ -726,6 +726,9 @@ export const EN: Record<string, string> = {
   'Як писати час': 'Time format',
   '5 хв, секунди — в останню хвилину': '5 min, seconds in the last minute',
   Напис: 'Words',
+  'Над часом': 'Above the time',
+  'Під часом': 'Below the time',
+  'Без напису': 'No words',
   // 1.8.4: a speaker's timer on «Сцена»
   'Таймер доповідача': 'Speaker timer',
   'Таймер доповідача: {time}': 'Speaker timer: {time}',
@@ -738,9 +741,8 @@ export const EN: Record<string, string> = {
     'Only the speaker sees the time, in the Stage window; the audience doesn’t.',
   'Запустити на «Сцені»: {time}': 'Start on Stage: {time}',
   'Запустити на «Сцені»': 'Start on Stage',
-  'Над часом': 'Above the time',
-  'Під часом': 'Below the time',
-  'Без напису': 'No words',
+  'Розмір і напис — лише для відліку на екрані; таймер доповідача бере кольори, шрифт і запис часу.':
+    'Size and words are for the countdown on screen only; the speaker timer takes the colors, font, and format.',
   'Час відліку на екрані, у «Сцені» й на телефонах змінює колір перед кінцем і після нуля.':
     'The countdown time on screen, in Stage, and on the phones changes color before the end and past zero.',
   Попередження: 'Warning',
