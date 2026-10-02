@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { formatRemaining, remainingMs, shiftUntil, untilAt, untilIn } from './countdown';
+import { formatRemaining, hubOffset, remainingMs, shiftUntil, untilAt, untilIn } from './countdown';
 
 const at = (h: number, m: number, s = 0) => new Date(2026, 9, 1, h, m, s).getTime();
+
+describe('a phone counts by the computer’s clock (1.7.3)', () => {
+  it('takes the hub’s answer as halfway along the round trip', () => {
+    // a phone 90 s behind the computer, 40 ms there and back
+    const phone = 1_000_000;
+    expect(hubOffset(phone, phone + 90_000 + 20, phone + 40)).toBe(90_000);
+    // a phone ahead: a negative offset
+    expect(hubOffset(phone, phone - 5_000 + 10, phone + 20)).toBe(-5_000);
+    // the end the computer set, moved onto the phone's clock, leaves the same time to go
+    const end = phone + 90_000 + 300_000; // five minutes from the computer's now
+    expect(remainingMs(end - 90_000, phone)).toBe(300_000);
+  });
+});
 
 describe('countdown', () => {
   it('shows the time left rounded up, never 0:00 while it runs', () => {
