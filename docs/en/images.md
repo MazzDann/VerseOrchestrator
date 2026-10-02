@@ -21,8 +21,9 @@ To add images:
 Thumbnails appear in the panel, newest first. The app keeps each image in the
 `data/images/` folder as two copies: one for the screen, at most 3840 pixels on its longer
 side, and a small one, up to 1280 pixels, for the viewers' phones and the thumbnails. A
-smaller file stays as it was, and an animated GIF moves on screen. Save an iPhone's HEIC
-photo as JPEG first.
+smaller file stays as it was. An animated GIF of up to 40 MB stays as it is too and moves on
+screen; a larger one becomes its first frame, still. Save an iPhone's HEIC photo as JPEG
+first.
 
 ## Show an image
 

@@ -1,4 +1,4 @@
-import { Component, useState, type CSSProperties, type ReactNode } from 'react';
+import { Component, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   type Slide,
   type SlideLine,
@@ -343,6 +343,12 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
     240,
     maxCqh,
   );
+  // A picture is drawn in the layout of the last text slide: the text layer leaving for it keeps
+  // its place and fades out — a layout switch unmounted it at once (review of #46: a faithful
+  // song's stanza or a «Макет» preset cut to the picture)
+  const ownTemplate = slide.qr || slide.cover || slide.picture ? null : (slide.template ?? null);
+  const lastTemplate = useRef(ownTemplate);
+  if (!slide.picture) lastTemplate.current = ownTemplate;
 
   // Pure-black override: paint solid black over everything, ignoring the
   // background image/colour (the operator's "force black" key/button).
@@ -384,7 +390,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   );
 
   // --- Positioned template layout ---------------------------------------------
-  const template = slide.qr || slide.cover || slide.picture ? null : slide.template;
+  const template = slide.picture ? lastTemplate.current : ownTemplate;
   if (template) {
     return (
       <div style={rootStyle}>
