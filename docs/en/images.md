@@ -7,8 +7,8 @@ and add an image to the running order. To show a logo between the items of a sho
 [Set up the cover](appearance.md#set-up-the-cover).
 
 The app keeps the images, so they work while the app is running (`start.cmd`,
-`start.command`, or `./start.sh`). When the data source is **In the browser**, the images panel
-says the app's server is needed.
+`start.command`, or `./start.sh`). If the app's server isn't running (“in the browser” without
+the server), the images panel says the app's server is needed.
 
 ## Add images
 

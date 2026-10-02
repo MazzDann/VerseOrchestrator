@@ -125,6 +125,8 @@ Everything the app remembers is in its folder:
 | `modules/`           | MyBible modules (`*.SQLite3`) the library is built from                                             |
 | `songs/`             | songs in presentations (`*.pptx`) that the app moves into a bundle                                  |
 | `data/songs/`        | song bundles (`*.vosongs`)                                                                          |
+| `data/images/`       | images to show: two files for each and `index.json`; in `.trash/`, the last twenty deleted          |
+| `data/backups/`      | the state that restoring a backup or **Go back to how it was** replaced                             |
 | `data/library.db`    | the library: translations, dictionaries, commentaries, songs, and the search index                  |
 | `data/ui-state.json` | appearance settings, presets, hotkeys, the running order, and programs                              |
 | `data/settings.json` | server options: the port and the waiting time (`standby`), remotes (`remotes`), modules (`library`) |
