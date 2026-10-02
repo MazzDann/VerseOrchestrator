@@ -696,7 +696,19 @@ export const EN: Record<string, string> = {
   'Показати відлік': 'Show the countdown',
   'Логотип і текст над часом — із розділу «Заставка» в налаштуваннях вигляду.':
     'The logo and text over the time come from the “Cover” section of the settings.',
-  'Відлік: {n} хв': 'Countdown: {n} min',
+  // 1.8.1: any length, a pause, a key of its own
+  Тривалість: 'Length',
+  'Хвилини або хв:сс': 'Minutes or min:sec',
+  'Від 0:01 до 12:00:00, наприклад 7 або 7:30': 'From 0:01 to 12:00:00, for example 7 or 7:30',
+  Пауза: 'Pause',
+  Продовжити: 'Resume',
+  'На паузі: час на екрані стоїть.': 'Paused: the time on screen stands still.',
+  'Відлік: {time}, пауза': 'Countdown: {time}, paused',
+  'Відлік: пауза / далі': 'Countdown: pause / resume',
+  'Відлік на екрані — пауза або далі; без нього — новий, на час, вибраний у «Відлік»':
+    'Pauses or resumes the countdown on screen; with none, starts one of the length last chosen in Countdown',
+  'Відлік: пауза': 'Countdown paused',
+  'Відлік іде далі': 'Countdown resumed',
   // 1.4.1: the logo and the settings' storage (SettingsPanel, lib/settingsSaveNotice.ts)
   'PNG, JPEG або WebP; для чіткого показу — від 1600 пікселів по довшому боці.':
     'PNG, JPEG, or WebP; for a sharp picture, 1600 pixels or more on the longer side.',

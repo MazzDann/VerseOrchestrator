@@ -21,7 +21,7 @@ export const afterZeroOf = (c: object | null | undefined): AfterZero => {
   return isAfterZero(v) ? v : 'hide';
 };
 
-/** Minutes offered as one click; anything else goes through «до» a time of day. */
+/** Minutes offered as one click; any other length is typed (1.8.1), or «до» a time of day. */
 export const COUNTDOWN_MINUTES = [1, 3, 5, 10, 15, 30] as const;
 
 /** The longest countdown of minutes (12 h); and how far past midnight «до» a time reaches. */
@@ -62,10 +62,30 @@ export function formatTimer(left: number): string {
   return past === 0 ? '0:00' : `−${clock(past)}`;
 }
 
-/** The end of a countdown of `minutes` from `now` (whole minutes, 1 to 12 h). */
-export function untilIn(minutes: number, now: number): number {
-  const m = Math.min(MAX_MS / 60000, Math.max(1, Math.round(minutes)));
-  return now + m * 60000;
+/** The end of a countdown `ms` long from `now` (whole seconds, 1 s to 12 h; 1.8.1). */
+export function untilFor(ms: number, now: number): number {
+  const s = Math.round((Number.isFinite(ms) ? ms : 0) / 1000);
+  return now + Math.min(MAX_MS / 1000, Math.max(1, s)) * 1000;
+}
+
+/**
+ * A length typed for a countdown (1.8.1): «7» minutes, «7:30» minutes and seconds, «1:05:00»
+ * hours, minutes and seconds — 1 s to 12 h. Null: not a length.
+ */
+export function parseDuration(text: string): number | null {
+  const m = /^(\d{1,3})(?::(\d{1,2}))?(?::(\d{1,2}))?$/.exec(text.trim());
+  if (!m) return null;
+  const [a, b, c] = [m[1], m[2], m[3]].map((p) => (p == null ? null : Number(p)));
+  if ((b ?? 0) > 59 || (c ?? 0) > 59) return null;
+  const s = c != null ? a! * 3600 + b! * 60 + c : b != null ? a! * 60 + b : a! * 60;
+  const ms = s * 1000;
+  return ms >= 1000 && ms <= MAX_MS ? ms : null;
+}
+
+/** The saved length of the next countdown (`countdownMinutes`, whole seconds since 1.8.1). */
+export function savedLength(minutes: number | undefined): number {
+  const ms = Math.round((Number.isFinite(minutes) && minutes! > 0 ? minutes! : 5) * 60) * 1000;
+  return Math.min(MAX_MS, Math.max(1000, ms));
 }
 
 /**
@@ -99,6 +119,59 @@ export function shiftUntil(until: number, minutes: number, now: number, past = f
   // counting past zero (1.8.0), the end may stay behind now: «+1 хв» takes a minute off the
   // time past it, «−1 хв» adds one
   return Math.min(Math.max(now + DAY_MS, until), past ? shifted : Math.max(now, shifted));
+}
+
+/** What a pause and «±1 хв» need of a countdown (the slide's `SlideCountdown`). */
+export interface Timed {
+  until: number;
+  afterZero?: AfterZero;
+  /**
+   * Paused (1.8.1): the time left when it stopped (signed past zero for «У мінус»); `until`
+   * means nothing meanwhile. Every window shows this time still until it goes on.
+   */
+  pausedLeft?: number;
+}
+
+/** Paused, with a time to show? */
+export const isPaused = (c: Timed | null | undefined): boolean =>
+  typeof c?.pausedLeft === 'number' && Number.isFinite(c.pausedLeft);
+
+/** Does a countdown show its time at `now` — not past zero with «Прибрати час»? */
+export function showsTime(c: Timed, now: number): boolean {
+  if (afterZeroOf(c) !== 'hide') return true;
+  return isPaused(c) ? c.pausedLeft! > 0 : c.until > now;
+}
+
+/**
+ * «Пауза» / «Продовжити» (1.8.1): paused, the countdown keeps the time it had left; going on,
+ * it ends that much from now. Past zero only «У мінус» keeps a minus.
+ */
+export function togglePause<C extends Timed>(c: C, now: number): C {
+  const overtime = afterZeroOf(c) === 'overtime';
+  if (isPaused(c)) {
+    const { pausedLeft, ...rest } = c;
+    const left = overtime ? pausedLeft! : Math.max(0, pausedLeft!);
+    return { ...rest, until: now + left } as C;
+  }
+  return { ...c, pausedLeft: overtime ? c.until - now : remainingMs(c.until, now) };
+}
+
+/**
+ * «+1 хв» / «−1 хв» (1.8.0; paused, 1.8.1). Running, the end moves (`shiftUntil`); paused, the
+ * time it holds — never below 0:00 unless «У мінус», never past a day.
+ */
+export function shiftCountdown<C extends Timed>(c: C, minutes: number, now: number): C {
+  const overtime = afterZeroOf(c) === 'overtime';
+  if (isPaused(c)) {
+    // from the time it shows: paused below zero, then switched off «У мінус», it holds 0:00
+    // and «+1 хв» gives 1:00 (review of 1.8.1)
+    const held = overtime ? c.pausedLeft! : Math.max(0, c.pausedLeft!);
+    const left = held + minutes * 60000;
+    return { ...c, pausedLeft: Math.min(DAY_MS, overtime ? left : Math.max(0, left)) };
+  }
+  // held at 0:00, the end long gone: «+1 хв» gives a minute from now (review of 1.8.0)
+  const from = overtime ? c.until : Math.max(c.until, now);
+  return { ...c, until: shiftUntil(from, minutes, now, overtime) };
 }
 
 /**
@@ -139,4 +212,22 @@ export function useRemaining(until: number | null | undefined, past = false): nu
   if (until == null) return 0;
   const now = tick.until === until && tick.past === past ? tick.now : Date.now();
   return past ? until - now : remainingMs(until, now);
+}
+
+/**
+ * A countdown as a window shows it (1.8.0–1.8.1): the time left — signed past zero for «У
+ * мінус», still while paused — and whether its time is shown at all (not past zero for
+ * «Прибрати час»). `offset`: how far the clock that set `until` is ahead of this one (a phone,
+ * 1.7.3).
+ */
+export function useCountdown(
+  c: Timed | null | undefined,
+  offset = 0,
+): { left: number; counting: boolean; paused: boolean; afterZero: AfterZero } {
+  const afterZero = afterZeroOf(c);
+  const overtime = afterZero === 'overtime';
+  const paused = isPaused(c);
+  const ticking = useRemaining(c && !paused ? Math.round(c.until - offset) : null, overtime);
+  const left = paused ? (overtime ? c!.pausedLeft! : Math.max(0, c!.pausedLeft!)) : ticking;
+  return { left, counting: !!c && (left > 0 || afterZero !== 'hide'), paused, afterZero };
 }

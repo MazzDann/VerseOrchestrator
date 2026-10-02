@@ -192,6 +192,8 @@ export interface SlideCountdown {
   caption: string;
   /** what the time does at zero (1.8.0, lib/countdown.ts); none: it goes, as before */
   afterZero?: AfterZero;
+  /** paused (1.8.1): the time left when it stopped — every window shows it still */
+  pausedLeft?: number;
 }
 
 /**

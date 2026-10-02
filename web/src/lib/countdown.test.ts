@@ -4,10 +4,17 @@ import {
   formatRemaining,
   formatTimer,
   hubOffset,
+  isPaused,
+  parseDuration,
   remainingMs,
+  savedLength,
+  shiftCountdown,
   shiftUntil,
+  showsTime,
+  togglePause,
   untilAt,
-  untilIn,
+  untilFor,
+  type Timed,
 } from './countdown';
 
 const at = (h: number, m: number, s = 0) => new Date(2026, 9, 1, h, m, s).getTime();
@@ -70,19 +77,45 @@ describe('countdown', () => {
     expect(remainingMs(at(10, 0), at(10, 1))).toBe(0);
   });
 
-  it('starts whole minutes, 1 to 12 hours', () => {
-    expect(untilIn(5, at(9, 0))).toBe(at(9, 5));
-    expect(untilIn(0, at(9, 0))).toBe(at(9, 1));
-    expect(untilIn(2.6, at(9, 0))).toBe(at(9, 3));
-    expect(untilIn(10000, at(9, 0))).toBe(at(21, 0));
+  it('starts whole seconds, 1 s to 12 hours (1.8.1)', () => {
+    expect(untilFor(5 * 60000, at(9, 0))).toBe(at(9, 5));
+    expect(untilFor(450_000, at(9, 0))).toBe(at(9, 7, 30));
+    expect(untilFor(0, at(9, 0))).toBe(at(9, 0, 1));
+    expect(untilFor(1499, at(9, 0))).toBe(at(9, 0, 1));
+    expect(untilFor(10000 * 60000, at(9, 0))).toBe(at(21, 0));
+    expect(untilFor(NaN, at(9, 0))).toBe(at(9, 0, 1));
+  });
+
+  it('reads a typed length: minutes, min:sec, h:mm:ss (1.8.1)', () => {
+    expect(parseDuration('7')).toBe(7 * 60000);
+    expect(parseDuration(' 7:30 ')).toBe(450_000);
+    expect(parseDuration('0:45')).toBe(45_000);
+    expect(parseDuration('1:05:00')).toBe(65 * 60000);
+    expect(parseDuration('90')).toBe(90 * 60000);
+    expect(parseDuration('12:00:00')).toBe(12 * 3600_000);
+    expect(parseDuration('12:00:01')).toBeNull();
+    expect(parseDuration('721')).toBeNull();
+    expect(parseDuration('0')).toBeNull();
+    expect(parseDuration('0:00')).toBeNull();
+    expect(parseDuration('7:60')).toBeNull();
+    expect(parseDuration('7.5')).toBeNull();
+    expect(parseDuration('')).toBeNull();
+    expect(parseDuration('сім')).toBeNull();
+  });
+
+  it('keeps the next length in minutes, whole seconds (1.8.1)', () => {
+    expect(savedLength(5)).toBe(300_000);
+    expect(savedLength(7.5)).toBe(450_000);
+    expect(savedLength(450_000 / 60000)).toBe(450_000);
+    expect(savedLength(undefined)).toBe(300_000);
+    expect(savedLength(0)).toBe(300_000);
+    expect(savedLength(10000)).toBe(12 * 3600_000);
   });
 
   it('counts to a time of day: today, or tomorrow just past midnight', () => {
     expect(untilAt('10:00', at(9, 52))).toBe(at(10, 0));
     expect(untilAt(' 9:05 ', at(9, 0))).toBe(at(9, 5));
     expect(untilAt('00:10', at(23, 50))).toBe(new Date(2026, 9, 2, 0, 10).getTime());
-    // later today, however far: an evening service set in the morning (review of #45)
-    expect(untilAt('22:00', at(9, 0))).toBe(at(22, 0));
     // later today, however far: an evening service set in the morning (review of #45)
     expect(untilAt('22:00', at(9, 0))).toBe(at(22, 0));
     // already past today: no countdown to tomorrow's 10:00
@@ -105,5 +138,55 @@ describe('countdown', () => {
     expect(shiftUntil(new Date(2026, 9, 2, 8, 59).getTime(), 5, at(9, 0))).toBe(
       new Date(2026, 9, 2, 9, 0).getTime(),
     );
+  });
+});
+
+describe('pause (1.8.1)', () => {
+  const c: Timed & { caption: string } = { until: at(10, 0), caption: 'Починаємо за' };
+
+  it('keeps the time left and goes on from there', () => {
+    const p = togglePause({ ...c, afterZero: 'overtime' as const }, at(9, 55));
+    expect(isPaused(p)).toBe(true);
+    expect(p.pausedLeft).toBe(300_000);
+    expect(p.caption).toBe('Починаємо за');
+    const r = togglePause(p, at(9, 58));
+    expect(isPaused(r)).toBe(false);
+    expect('pausedLeft' in r).toBe(false);
+    expect(r.until).toBe(at(10, 3));
+  });
+
+  it('past zero keeps the minus only for «У мінус»', () => {
+    expect(togglePause({ ...c, afterZero: 'overtime' as const }, at(10, 0, 20)).pausedLeft).toBe(
+      -20_000,
+    );
+    expect(togglePause({ ...c, afterZero: 'stop' as const }, at(10, 0, 20)).pausedLeft).toBe(0);
+    // switched to «Стоп на 0:00» while paused below zero: it goes on from 0:00
+    const r = togglePause({ ...c, afterZero: 'stop' as const, pausedLeft: -20_000 }, at(11, 0));
+    expect(r.until).toBe(at(11, 0));
+  });
+
+  it('«±1 хв» while paused moves the time it holds', () => {
+    const p = { ...c, afterZero: 'stop' as const, pausedLeft: 30_000 };
+    expect(shiftCountdown(p, 1, at(12, 0)).pausedLeft).toBe(90_000);
+    expect(shiftCountdown(p, -1, at(12, 0)).pausedLeft).toBe(0);
+    expect(shiftCountdown(p, 1, at(12, 0)).until).toBe(c.until);
+    const o = { ...p, afterZero: 'overtime' as const };
+    expect(shiftCountdown(o, -1, at(12, 0)).pausedLeft).toBe(-30_000);
+    // paused below zero, then «Стоп на 0:00»: it shows 0:00, so «+1 хв» gives 1:00
+    const held = { ...c, afterZero: 'stop' as const, pausedLeft: -20_000 };
+    expect(shiftCountdown(held, 1, at(12, 0)).pausedLeft).toBe(60_000);
+    // running: the end moves, as in 1.8.0
+    expect(shiftCountdown(c, 1, at(9, 55)).until).toBe(at(10, 1));
+    expect(shiftCountdown({ ...c, afterZero: 'stop' as const }, 1, at(10, 5)).until).toBe(
+      at(10, 6),
+    );
+  });
+
+  it('says whether the time shows', () => {
+    expect(showsTime(c, at(9, 59))).toBe(true);
+    expect(showsTime(c, at(10, 0))).toBe(false);
+    expect(showsTime({ ...c, afterZero: 'stop' as const }, at(11, 0))).toBe(true);
+    expect(showsTime({ ...c, pausedLeft: 5000 }, at(11, 0))).toBe(true);
+    expect(showsTime({ ...c, pausedLeft: 0 }, at(9, 0))).toBe(false);
   });
 });

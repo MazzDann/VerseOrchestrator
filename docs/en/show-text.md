@@ -103,8 +103,9 @@ viewers' phones, all by the computer's clock: a phone whose clock is off shows t
 To show a countdown:
 
 1. At the top of the control window, to the right of **Cover**, click the **Countdown** icon.
-2. In the **How long** row, choose the minutes. To count to a time of day, choose
-   **until…** and type the time in the **Until what time** field.
+2. In the **How long** row, choose the minutes, or type your own in the **Length** field: 7 is
+   seven minutes, 7:30 is seven minutes thirty seconds, 1:05:00 is an hour and five minutes. To
+   count to a time of day, choose **until…** and type the time in the **Until what time** field.
 3. Optional: in the **Words over the time** field, change the words over the time. Without
    them, the screen says “Starting in”.
 4. Optional: in the **After zero** row, choose what the time does when it is up. See the list
@@ -115,6 +116,7 @@ To show a countdown:
 While the countdown is on screen, the **Countdown** icon is highlighted and its tooltip shows
 the time left. To change the countdown, click the icon again:
 
+- **Pause** stops the time on every screen and phone, and **Resume** lets it go on from there.
 - **−1 min** and **+1 min** move its end by a minute.
 - **Remove the countdown** brings back what was on screen before it, as the L key does.
 - **Keep the cover without the time** removes only the time.
@@ -128,6 +130,9 @@ The **After zero** switch says what the time does past zero:
 - **Hide time** — the time leaves the screen, and the cover stays.
 
 When the countdown reaches zero, the control window says so.
+
+The T key pauses and resumes the countdown on screen. With no countdown on screen, T shows a
+new one of the length you chose last.
 
 If the time chosen with **until…** has already passed today, the countdown runs to it
 tomorrow, but only when it is at most 12 hours away: at 23:50 you can choose 00:10.
