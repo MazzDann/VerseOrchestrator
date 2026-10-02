@@ -2,7 +2,8 @@
 
 [Українською](../running-order.md) · English
 
-The running order is a list of passages, songs, and texts in the order you will show them.
+The running order is a list of passages, songs, texts, and images in the order you will
+show them.
 This page is for the operator who prepares a show beforehand: how to build a running order,
 show it item by item, and save it as a program for next time. How to show a single verse
 without a running order is in [Show a text](show-text.md).
@@ -19,6 +20,8 @@ To add an item to the running order:
   **Plain text**.
 - Custom text: in the **Text to screen** panel, type the text and click
   **To the running order**.
+- An image: in the **Images** panel, point at a thumbnail and click the
+  **Add to the running order** icon. The item remembers **Fit** or **Fill**.
 
 New items go to the end of the running order.
 
@@ -28,7 +31,7 @@ How to open a song or custom text is in [Songs and custom text](songs-and-text.m
 
 To open the running order, click the **Running order** icon at the top. A panel with the
 list opens. The icon at the start of a row shows the kind of item: a book — a passage, a
-note — a song, the letter T — custom text.
+note — a song, the letter T — custom text, a photo — an image.
 
 ![The Running order panel with three items: John, Romans, and “Announcement”; at the top,
 the Next button](../img/en/running-order.png)
