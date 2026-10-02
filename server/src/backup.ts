@@ -437,6 +437,8 @@ export async function restorePending(
     throw e;
   }
   const last = path.join(dir, LAST);
+  // an earlier restore's note, put back when this one changes nothing (review of #47)
+  const earlier = fs.existsSync(last) ? await fsp.readFile(last) : null;
   try {
     writeJson(last, { created: summary.created, at: now.toISOString(), undo: path.basename(kept) });
     await applyBackup(dataDir, entries);
@@ -449,8 +451,9 @@ export async function restorePending(
     } catch {
       throw e; // the note stays: «Повернути як було» brings the kept state back
     }
-    await fsp.rm(last, { force: true });
     await dropFolder(kept);
+    if (earlier) await put(last, earlier);
+    else await fsp.rm(last, { force: true });
     throw e;
   }
   await fsp.rm(pending, { force: true });

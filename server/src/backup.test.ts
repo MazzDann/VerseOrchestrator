@@ -284,6 +284,24 @@ describe('«Резервна копія» (1.5.0)', () => {
     expect(state(to).songs).toEqual(['ПС-a.vosongs']);
   });
 
+  it('a restore that changes nothing keeps the way back of the one before it', async () => {
+    const to = dataDir('b');
+    await keepPending(to, await makeBackup(dataDir('a'), '1.5.0'));
+    const first = new Date('2026-10-01T10:00:00Z');
+    await restorePending(to, '1.5.0', first);
+    const was = lastRestore(to, first.getTime())!.undo;
+    // the next one fails while its files go in
+    await keepPending(to, await makeBackup(dataDir('c'), '1.5.0'));
+    fs.mkdirSync(path.join(to, 'images', 'c.png'));
+    const second = new Date('2026-10-01T10:05:00Z');
+    await expect(restorePending(to, '1.5.0', second)).rejects.toThrow();
+    fs.rmSync(path.join(to, 'images', 'c.png'), { recursive: true });
+    expect(state(to).songs).toEqual(['ПС-a.vosongs']);
+    expect(lastRestore(to, second.getTime())?.undo).toBe(was);
+    expect(await undoRestore(to, second)).toBe(true);
+    expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
+  });
+
   it('five kept states stay, the new one always among them — even with the clock behind', async () => {
     const from = dataDir('a');
     const to = dataDir('b');
