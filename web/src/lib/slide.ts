@@ -201,11 +201,14 @@ export function uncover(now: Slide): Slide | null {
  * URL of up to ~1.5 MB, past the hub's 256 KB frame (server/src/live.ts `MAX_FRAME_BYTES`:
  * the hub closes the socket) — and no «Заставка» image (1.4.0: an empty slide there). Nor
  * the slide a cover or the QR slide covers (1.4.2): it is for the control windows, and
- * carries its own background. A countdown («Відлік», 1.5.0) stays: the phones show it.
+ * carries its own background. A countdown («Відлік», 1.5.0) stays: the phones show it. A
+ * speaker's timer (1.8.4) is for «Сцена» only.
  */
 export function forAudience(slide: Slide): Slide {
   const s =
-    slide.cover || slide.returnTo ? { ...slide, cover: undefined, returnTo: undefined } : slide;
+    slide.cover || slide.returnTo || slide.stageTimer
+      ? { ...slide, cover: undefined, returnTo: undefined, stageTimer: undefined }
+      : slide;
   if (!s.style?.bgImage) return s;
   return { ...s, style: { ...s.style, bgImage: null } };
 }

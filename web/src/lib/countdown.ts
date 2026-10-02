@@ -96,6 +96,18 @@ export function timerLook(a: {
   };
 }
 
+/**
+ * A speaker's timer (1.8.4, «Таймер доповідача»): shown on «Сцена» only — not on «Показ», not on
+ * the phones. It counts like «Відлік» (pause, «±1 хв», «Після нуля») and takes the time's colours
+ * and format from Налаштування вигляду → Відлік. It rides on every slide the control window
+ * pushes (`Slide.stageTimer`), so a «Сцена» that opens late or another control window that takes
+ * over has it at once.
+ */
+export interface StageTimer extends Timed, TimerLook {}
+
+/** The lengths offered for a speaker's timer, in minutes; any other is typed. */
+export const STAGE_MINUTES = [5, 10, 15, 20, 30, 45] as const;
+
 /** Has the countdown already this look? (Only the look's own fields count.) */
 export function hasLook(c: TimerLook, look: Required<TimerLook>): boolean {
   return (Object.keys(look) as (keyof TimerLook)[]).every((k) => c[k] === look[k]);

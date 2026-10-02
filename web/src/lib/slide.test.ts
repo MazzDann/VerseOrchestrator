@@ -173,6 +173,18 @@ describe('«Відлік» (1.5.0)', () => {
     expect(phone.countdown).toEqual(at);
   });
 
+  it('a speaker’s timer is for «Сцена»: never on the phones, a change is a new slide (1.8.4)', () => {
+    const timer = { until: at.until, afterZero: 'overtime' as const };
+    const withTimer = { ...verse, stageTimer: timer };
+    expect(forAudience(withTimer).stageTimer).toBeUndefined();
+    expect(forAudience(withTimer).lines).toEqual(verse.lines);
+    expect(sameSlide(withTimer, { ...verse, stageTimer: { ...timer } })).toBe(true);
+    expect(sameSlide(withTimer, { ...verse, stageTimer: { ...timer, pausedLeft: 5000 } })).toBe(
+      false,
+    );
+    expect(sameSlide(withTimer, verse)).toBe(false);
+  });
+
   it('a new end or other words is a new slide; the same countdown is not', () => {
     const c = countdownOver(verse, logo, at, DEFAULT_STYLE, 'Відлік');
     expect(sameSlide(c, { ...c, countdown: { ...at } })).toBe(true);
