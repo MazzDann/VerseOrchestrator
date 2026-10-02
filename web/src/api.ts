@@ -376,6 +376,22 @@ const UpdateStateSchema = z.object({
   previous: z.string().nullish(),
   /** …and whether it has «Повернути версію» of its own (1.4.0 or later; 1.4.1) */
   previousHasRollback: z.boolean().nullish(),
+  /** every release of the channel, newest first: the dropdown (1.6.2) — a release copy only */
+  versions: z
+    .array(
+      z.object({
+        version: z.string(),
+        url: z.string(),
+        publishedAt: z.string(),
+        /** the archive for this system, bytes (0: none) */
+        size: z.number(),
+        /** it has an archive for this system and a checksum file */
+        installable: z.boolean(),
+        /** it has «Повернути версію» of its own (1.4.0 or later) */
+        selfReturn: z.boolean(),
+      }),
+    )
+    .optional(),
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 
@@ -634,11 +650,15 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return UpdateStateSchema.extend({ git: GitSyncSchema.optional() }).parse(await res.json());
   },
-  /** Download, check and unpack the newer version next to this one; the page follows the phases. */
-  downloadUpdate: async () => {
+  /**
+   * Download, check and unpack a version next to this one — the newest, or the one picked in the
+   * dropdown, older too (1.6.2); the page follows the phases.
+   */
+  downloadUpdate: async (version?: string) => {
     const res = await request('/api/update/download', {
       method: 'POST',
-      headers: CONTROL_HEADERS,
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify(version ? { version } : {}),
     });
     if (!res.ok) throw await failure(res);
     return UpdateStateSchema.parse(await res.json());

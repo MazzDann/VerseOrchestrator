@@ -46,6 +46,8 @@ export interface UpdateState {
   enabled: boolean;
   checkedAt: number | null;
   latest: LatestRelease | null;
+  /** every release of this channel, newest first — any of them can be installed (1.6.2) */
+  releases: LatestRelease[];
   available: boolean;
   /** a dictionary key: the last check failed */
   error: string | null;
@@ -77,24 +79,27 @@ interface GitHubRelease {
   assets?: { name?: unknown; browser_download_url?: unknown; size?: unknown }[];
 }
 
-/** The newest release this channel takes, from GitHub's list (anything malformed is skipped). */
-export function pickLatest(
+/**
+ * Every release this channel takes, from GitHub's list, newest first, each version once
+ * (anything malformed is skipped) — the dropdown of «Оновлення» (1.6.2).
+ */
+export function pickReleases(
   releases: unknown,
   channel: Channel,
   assetName: string,
-): LatestRelease | null {
-  if (!Array.isArray(releases)) return null;
-  let best: LatestRelease | null = null;
+): LatestRelease[] {
+  if (!Array.isArray(releases)) return [];
+  const found = new Map<string, LatestRelease>();
   for (const r of releases as GitHubRelease[]) {
     if (!r || r.draft === true || typeof r.tag_name !== 'string') continue;
     if (!parseVersion(r.tag_name)) continue;
     const prerelease = r.prerelease === true;
     if (prerelease && channel === 'stable') continue;
     const version = r.tag_name.replace(/^v/, '');
-    if (best && compareVersions(version, best.version) <= 0) continue;
+    if (found.has(version)) continue;
     const a = (r.assets ?? []).find((x) => x?.name === assetName);
     const sums = (r.assets ?? []).find((x) => x?.name === 'SHA256SUMS.txt');
-    best = {
+    found.set(version, {
       version,
       url: typeof r.html_url === 'string' ? r.html_url : '',
       publishedAt: typeof r.published_at === 'string' ? r.published_at : '',
@@ -104,9 +109,18 @@ export function pickLatest(
           ? { name: assetName, url: a.browser_download_url, size: Number(a.size) || 0 }
           : null,
       sums: typeof sums?.browser_download_url === 'string' ? sums.browser_download_url : null,
-    };
+    });
   }
-  return best;
+  return [...found.values()].sort((x, y) => compareVersions(y.version, x.version));
+}
+
+/** The newest release this channel takes (pickReleases' first). */
+export function pickLatest(
+  releases: unknown,
+  channel: Channel,
+  assetName: string,
+): LatestRelease | null {
+  return pickReleases(releases, channel, assetName)[0] ?? null;
 }
 
 export interface CheckerOptions {
@@ -128,6 +142,7 @@ export function createUpdateChecker(o: CheckerOptions) {
   const channel = channelFor(o.current);
   let checkedAt: number | null = null;
   let latest: LatestRelease | null = null;
+  let releases: LatestRelease[] = [];
   let error: string | null = null;
   let inflight: Promise<void> | null = null;
 
@@ -138,6 +153,7 @@ export function createUpdateChecker(o: CheckerOptions) {
     enabled: o.isEnabled(),
     checkedAt,
     latest,
+    releases,
     available: !!latest && compareVersions(latest.version, o.current) > 0,
     error,
   });
@@ -152,7 +168,8 @@ export function createUpdateChecker(o: CheckerOptions) {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      latest = pickLatest(await res.json(), channel, assetName);
+      releases = pickReleases(await res.json(), channel, assetName);
+      latest = releases[0] ?? null;
       error = null;
     } catch {
       // offline, GitHub down or rate-limited: say so, keep what the last answer said

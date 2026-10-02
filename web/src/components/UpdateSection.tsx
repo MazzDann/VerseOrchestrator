@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { Anchor, Button, Group, Popover, Progress, Switch, Text } from '@mantine/core';
+import { Anchor, Button, Group, Popover, Progress, Select, Switch, Text } from '@mantine/core';
 import { IconArrowBackUp, IconDownload, IconRefresh, IconReload } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type CodeState, type GitSync, type UpdateState } from '../api';
 import { useServer, NEEDS_SERVER, shownVersion } from '../serverStore';
 import { fmtDateTime, tr, trn, useLang } from '../i18n';
-import { useCodeState, useUpdateState, waitForRelaunch, waitForRestart } from '../lib/updates';
+import {
+  compareVersions,
+  useCodeState,
+  useUpdateState,
+  waitForRelaunch,
+  waitForRestart,
+} from '../lib/updates';
 import { useOutputWindows } from '../lib/outputs';
 import { storeForOlderVersion } from '../presenterBus';
 
@@ -63,7 +69,7 @@ export function UpdateSection() {
     onError: fail,
   });
   const download = useMutation({
-    mutationFn: api.downloadUpdate,
+    mutationFn: (version?: string) => api.downloadUpdate(version),
     onSuccess: (s) => queryClient.setQueryData(['update'], s),
     onError: fail,
   });
@@ -92,7 +98,12 @@ export function UpdateSection() {
   });
   const restart = useMutation({
     mutationFn: api.restartForUpdate,
-    onSuccess: afterRestart,
+    onSuccess: (r) => {
+      // an older version picked in the dropdown (1.6.2): «Заставка» as that version reads it,
+      // as before «Повернути версію»
+      if (state && compareVersions(r.to, state.current) < 0) storeForOlderVersion();
+      return afterRestart(r);
+    },
     onError: fail,
   });
   // «Перезапустити» (1.6.0): the launcher starts again with the new code; this page waits for it
@@ -196,16 +207,20 @@ export function UpdateSection() {
           onRelaunch={() => relaunch.mutate()}
         />
       )}
-      {!restarting && state?.available && state.install === 'release' && (
-        <Install
-          state={state}
-          outputsOpen={outputs.length}
-          downloading={download.isPending}
-          onDownload={() => download.mutate()}
-          restartPending={restart.isPending}
-          onRestart={() => restart.mutate()}
-        />
-      )}
+      {!restarting &&
+        state?.install === 'release' &&
+        (state.available ||
+          (state.versions?.length ?? 0) > 1 ||
+          (state.installer?.phase ?? 'idle') !== 'idle') && (
+          <Install
+            state={state}
+            outputsOpen={outputs.length}
+            downloading={download.isPending}
+            onDownload={(version) => download.mutate(version)}
+            restartPending={restart.isPending}
+            onRestart={() => restart.mutate()}
+          />
+        )}
       {!restarting && state?.install === 'release' && state.previous && (
         <Rollback
           version={state.previous}
@@ -252,7 +267,10 @@ export function UpdateSection() {
   );
 }
 
-/** How the last update went: once, for a day. */
+/**
+ * How the last update went: once, for a day. An older version picked in the dropdown comes as a
+ * way back (1.6.2, installer.prepareSwap): the older version it lands on words it so too.
+ */
 function LastUpdate({ last }: { last: NonNullable<UpdateState['lastUpdate']> }) {
   const vars = { from: last.from, to: last.to, when: fmtDateTime(last.at) };
   const back = last.kind === 'rollback';
@@ -473,7 +491,12 @@ function CodeChanged({
   );
 }
 
-/** Download → check → unpack → «Перезапустити й оновити». */
+/**
+ * Download → check → unpack → «Перезапустити й оновити». Since 1.6.2 any release of the channel,
+ * picked in a dropdown — newer or older (big projects let you stay on a version): an older one is
+ * said to be older, and one before 1.4.0 can't come back by itself. A version already downloaded
+ * can still give way to another one picked (its download replaces it).
+ */
 function Install({
   state,
   outputsOpen,
@@ -485,21 +508,27 @@ function Install({
   state: UpdateState;
   outputsOpen: number;
   downloading: boolean;
-  onDownload: () => void;
+  onDownload: (version?: string) => void;
   restartPending: boolean;
   onRestart: () => void;
 }) {
-  const asset = state.latest?.asset;
+  const versions = state.versions ?? [];
+  const newest = versions[0]?.version ?? state.latest?.version ?? null;
+  const [pick, setPick] = useState<string | null>(null);
   const inst = state.installer;
   const phase = inst?.phase ?? 'idle';
-  if (!asset)
-    return (
-      <Text size="xs" c="dimmed" mb={4}>
-        {tr('Для цієї системи в релізі немає архіву: завантажте застосунок зі сторінки релізу.')}
-      </Text>
-    );
+  // the version waiting in app.next: downloaded now or by an earlier run
+  const ready =
+    (phase === 'ready' || phase === 'restarting') && inst?.version ? inst.version : null;
+  // the dropdown shows the version picked; else the one waiting, the one whose download failed
+  // (to try again), or the newest when it is newer than this one; else nothing yet
+  const target =
+    pick ??
+    ready ??
+    (phase === 'error' && inst?.version ? inst.version : state.available ? newest : null);
+  const chosen = versions.find((v) => v.version === target) ?? null;
   if (phase === 'download' || phase === 'verify' || phase === 'unpack') {
-    const total = inst?.total || asset.size;
+    const total = inst?.total || chosen?.size || state.latest?.asset?.size || 0;
     const label =
       phase === 'download'
         ? tr('Завантажую: {got} з {total} МБ', { got: mb(inst?.received ?? 0), total: mb(total) })
@@ -521,31 +550,20 @@ function Install({
       </div>
     );
   }
-  if (phase === 'ready' || phase === 'restarting')
-    return (
-      <div>
-        <Text size="xs" mb={4}>
-          {tr(
-            'Версію {version} завантажено. Перезапустіть застосунок, щоб перейти на неї: це займе до хвилини.',
-            { version: inst?.version ?? '' },
-          )}
-        </Text>
-        <Button
-          size="xs"
-          leftSection={<IconReload size={14} />}
-          loading={restartPending || phase === 'restarting'}
-          disabled={outputsOpen > 0}
-          onClick={onRestart}
-        >
-          {tr('Перезапустити й оновити')}
-        </Button>
-        {outputsOpen > 0 && (
-          <Text size="xs" c="dimmed" mt={4}>
-            {tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')}
-          </Text>
-        )}
-      </div>
-    );
+  const older = !!target && compareVersions(target, state.current) < 0;
+  const options = versions.map((v) => ({
+    value: v.version,
+    label:
+      v.version === state.current
+        ? tr('{version} · встановлена', { version: v.version })
+        : v.version === newest
+          ? tr('{version} · найновіша', { version: v.version })
+          : v.version,
+    // the one installed is there to show where you are, not to be picked
+    disabled: v.version === state.current,
+  }));
+  const size = chosen?.size ?? state.latest?.asset?.size ?? 0;
+  const restart = !!ready && target === ready;
   return (
     <div>
       {phase === 'error' && inst?.error && (
@@ -553,17 +571,85 @@ function Install({
           {tr(inst.error, inst.vars)}
         </Text>
       )}
-      <Button
-        size="xs"
-        variant="light"
-        leftSection={<IconDownload size={14} />}
-        loading={downloading}
-        onClick={onDownload}
-      >
-        {phase === 'error'
-          ? tr('Спробувати ще раз')
-          : tr('Завантажити оновлення ({mb} МБ)', { mb: mb(asset.size) })}
-      </Button>
+      {ready && (
+        <Text size="xs" mb={4}>
+          {tr(
+            'Версію {version} завантажено. Перезапустіть застосунок, щоб перейти на неї: це займе до хвилини.',
+            { version: ready },
+          )}
+        </Text>
+      )}
+      {/* wraps: a long button goes under the dropdown rather than lose its end */}
+      <Group gap="xs" mb={4}>
+        {options.length > 1 && (
+          <Select
+            size="xs"
+            w={150}
+            aria-label={tr('Версія')}
+            placeholder={tr('Інша версія…')}
+            data={options}
+            value={target}
+            onChange={setPick}
+            allowDeselect={false}
+            disabled={phase === 'restarting'}
+            comboboxProps={{ withinPortal: true }}
+          />
+        )}
+        {restart ? (
+          <Button
+            size="xs"
+            leftSection={<IconReload size={14} />}
+            loading={restartPending || phase === 'restarting'}
+            disabled={outputsOpen > 0}
+            onClick={onRestart}
+          >
+            {older
+              ? tr('Перезапустити з версією {version}', { version: ready })
+              : tr('Перезапустити й оновити')}
+          </Button>
+        ) : (
+          // a version other than this one is picked (or the newest is newer)
+          target &&
+          target !== state.current && (
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<IconDownload size={14} />}
+              loading={downloading}
+              disabled={!!chosen && !chosen.installable}
+              onClick={() => onDownload(target)}
+            >
+              {phase === 'error' && inst?.version === target
+                ? tr('Спробувати ще раз')
+                : target !== newest || older
+                  ? tr('Завантажити версію {version} ({mb} МБ)', { version: target, mb: mb(size) })
+                  : tr('Завантажити оновлення ({mb} МБ)', { mb: mb(size) })}
+            </Button>
+          )
+        )}
+      </Group>
+      {restart && outputsOpen > 0 && (
+        <Text size="xs" c="dimmed" mb={4}>
+          {tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')}
+        </Text>
+      )}
+      {chosen && !chosen.installable && (
+        <Text size="xs" c="dimmed" mb={4}>
+          {tr('Для цієї системи в релізі немає архіву: завантажте застосунок зі сторінки релізу.')}
+        </Text>
+      )}
+      {older && (
+        <Text size="xs" c="dimmed" mb={4}>
+          {tr(
+            'Старіша версія не знає того, що з’явилося пізніше: частину налаштувань вона може скинути до типових. Перш ніж перейти, збережіть резервну копію.',
+          )}
+          {/* not among the releases listed (none listed offline): nothing said of the way back */}
+          {chosen &&
+            (chosen.selfReturn
+              ? ` ${tr('Повернутися на {current} можна буде тут само.', { current: state.current })}`
+              : ` ${tr('У версії {version} ще немає «Повернути версію»: з неї можна лише оновитися до найновішої версії, потрібен інтернет.', { version: chosen.version })}`)}
+        </Text>
+      )}
     </div>
   );
 }

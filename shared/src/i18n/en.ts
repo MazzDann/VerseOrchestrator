@@ -1413,6 +1413,21 @@ export const EN: Record<string, string> = {
     'New files from the remote branch clash with your untracked ones — move them away or get the updates by hand',
   'Нових релізів немає ({current}). Перевірено {when}.':
     'No new releases ({current}). Checked {when}.',
+  // upd2 (1.6.2)
+  Версія: 'Version',
+  '{version} · встановлена': '{version} · installed',
+  '{version} · найновіша': '{version} · newest',
+  'Інша версія…': 'Another version…',
+  'Завантажити версію {version} ({mb} МБ)': 'Download version {version} ({mb} MB)',
+  'Перезапустити з версією {version}': 'Restart with version {version}',
+  'Старіша версія не знає того, що з’явилося пізніше: частину налаштувань вона може скинути до типових. Перш ніж перейти, збережіть резервну копію.':
+    'An older version doesn’t know what came later: it may reset some settings to their defaults. Save a backup before you switch.',
+  'У версії {version} ще немає «Повернути версію»: з неї можна лише оновитися до найновішої версії, потрібен інтернет.':
+    'Version {version} has no “Go back to version” yet: from it you can only update to the newest version, which needs the internet.',
+  'Повернутися на {current} можна буде тут само.': 'You can come back to {current} right here.',
+  'Такої версії немає серед релізів — натисніть «Перевірити зараз»':
+    'There is no such version among the releases — click “Check now”',
+  'Ця версія вже встановлена': 'This version is installed already',
   'Гілка {branch}: на {upstream} є {n} нова зміна|Гілка {branch}: на {upstream} є {n} нові зміни|Гілка {branch}: на {upstream} є {n} нових змін':
     'Branch {branch}: {upstream} has {n} new change|Branch {branch}: {upstream} has {n} new changes',
   'Гілка {branch}: нових змін на {upstream} немає.':
