@@ -599,6 +599,8 @@ export function Control() {
   // the «.» / «,» keys separate on any layout (Ukrainian: «ю» / «б»); ⌘↩ / Ctrl+Enter or «На
   // екран» goes there and shows it — they projected the old selection; a click lets go.
   const [quick, setQuick] = useState<string | null>(null);
+  /** «Відлік» open (1.5.0): its fields and buttons own the keys, as the palette's do */
+  const [countdownOpen, setCountdownOpen] = useState(false);
   const quickRef = useRef<string | null>(null);
   quickRef.current = quick;
   const quickJumpRef = useRef(quickJump);
@@ -608,7 +610,7 @@ export function Control() {
       const box = quickRef.current;
       const r = quickKeydown(box, e, {
         canStart: bookNumber != null,
-        blocked: isFormField(e.target) || paletteOpen || moreShown,
+        blocked: isFormField(e.target) || paletteOpen || moreShown || countdownOpen,
         project: useSettings.getState().keymap.project,
       });
       if (r.box !== box) setQuick(r.box);
@@ -616,7 +618,7 @@ export function Control() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [bookNumber, paletteOpen, moreShown]);
+  }, [bookNumber, paletteOpen, moreShown, countdownOpen]);
   // a click lets go of the typed numbers: ⌘ / Shift + click in the verse list, then Enter,
   // belongs to the verses clicked, not to a place typed a moment ago (review of the Mac fix)
   useEffect(() => {
@@ -1688,13 +1690,16 @@ export function Control() {
   };
   /** The same countdown with a new end: what it covers and the cover stay. */
   const countdownChange = (countdown: SlideCountdown | null) => {
+    if (!leaderRef.current) return standbyNotice();
     const now = liveSlideRef.current;
     if (!now.cover || !now.countdown) return;
     const slide: Slide = countdown
       ? { ...now, countdown }
       : { ...now, countdown: null, reference: tr('Заставка') };
     pushLive(slide);
-    setPreviewOverride(slide);
+    // the preview follows only while it shows the cover: a passage the operator got ready
+    // meanwhile stays there for «На екран» and the stage display (review of #45)
+    setPreviewOverride((p) => (p?.cover ? slide : p));
   };
   const countdownShift = (minutes: number) => {
     const c = liveSlideRef.current.countdown;
@@ -3135,7 +3140,8 @@ export function Control() {
                   onStart={countdownStart}
                   onShift={countdownShift}
                   onKeepCover={() => countdownChange(null)}
-                  onRemove={takeCoverOff}
+                  onRemove={() => (leaderRef.current ? takeCoverOff() : standbyNotice())}
+                  onOpenChange={setCountdownOpen}
                 />
               </ToolZone>
               {folded('app') ? (
@@ -3435,7 +3441,7 @@ export function Control() {
               activeStanza={songsPanelStanza}
               onActiveStanzaChange={setSongsPanelStanza}
               onAddToPlaylist={addSongToPlaylist}
-              keysPaused={paletteOpen || moreShown}
+              keysPaused={paletteOpen || moreShown || countdownOpen}
               onSongEnd={songEnd}
             />
             <TextPanel

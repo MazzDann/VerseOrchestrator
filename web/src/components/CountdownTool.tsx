@@ -26,6 +26,7 @@ export function CountdownTool({
   onShift,
   onKeepCover,
   onRemove,
+  onOpenChange,
 }: {
   /** the countdown on screen now (a «Заставка» slide's), if any */
   running: SlideCountdown | null;
@@ -34,6 +35,11 @@ export function CountdownTool({
   onShift: (minutes: number) => void;
   onKeepCover: () => void;
   onRemove: () => void;
+  /**
+   * The popover opened or closed: the page pauses its own capture-phase keys meanwhile — the
+   * songs' arrows (they put a stanza on screen) and the quick «3:16» digits (review of #45).
+   */
+  onOpenChange?: (open: boolean) => void;
 }) {
   useLang();
   const [opened, setOpened] = useState(false);
@@ -48,6 +54,11 @@ export function CountdownTool({
   const [at, setAt] = useState('');
   const caption = saved.countdownCaption.trim() || tr('Починаємо за');
   const box = useRef<HTMLDivElement>(null);
+  const openChange = useRef(onOpenChange);
+  openChange.current = onOpenChange;
+  useEffect(() => openChange.current?.(opened), [opened]);
+  // gone with the header (another layout): the page's keys must not stay paused
+  useEffect(() => () => openChange.current?.(false), []);
 
   // Esc closes this wherever the focus is — never the page's «Прибрати з екрана» (it caught an
   // Esc once the button under the focus had gone: the countdown ended with this open)
@@ -82,6 +93,8 @@ export function CountdownTool({
     setOpened(false);
   };
 
+  // the tooltip says the time left; the button's accessible name stays put — a name that
+  // changed every second had a screen reader read the clock aloud (review of #45)
   const label = counting ? tr('Відлік: {time}', { time: formatRemaining(left) }) : tr('Відлік');
   return (
     <Popover
@@ -118,7 +131,7 @@ export function CountdownTool({
             w={24}
             miw={24}
             onClick={() => setOpened((o) => !o)}
-            aria-label={label}
+            aria-label={tr('Відлік')}
             aria-pressed={counting}
             aria-haspopup="dialog"
             aria-expanded={opened}
@@ -147,17 +160,17 @@ export function CountdownTool({
               </Text>
             </Group>
             <Group gap="xs" grow>
-              <Button size="xs" variant="default" onClick={() => onShift(-1)}>
+              <Button size="xs" variant="default" disabled={disabled} onClick={() => onShift(-1)}>
                 {tr('−1 хв')}
               </Button>
-              <Button size="xs" variant="default" onClick={() => onShift(1)}>
+              <Button size="xs" variant="default" disabled={disabled} onClick={() => onShift(1)}>
                 {tr('+1 хв')}
               </Button>
             </Group>
-            <Button size="xs" variant="light" fullWidth onClick={onRemove}>
+            <Button size="xs" variant="light" fullWidth disabled={disabled} onClick={onRemove}>
               {tr('Прибрати відлік')}
             </Button>
-            <Button size="xs" variant="default" fullWidth onClick={onKeepCover}>
+            <Button size="xs" variant="default" fullWidth disabled={disabled} onClick={onKeepCover}>
               {tr('Лишити заставку без часу')}
             </Button>
           </Stack>

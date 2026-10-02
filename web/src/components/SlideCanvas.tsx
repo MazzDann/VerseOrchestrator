@@ -1,4 +1,4 @@
-import { Component, useState, type CSSProperties, type ReactNode } from 'react';
+import { Component, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   type Slide,
   type SlideLine,
@@ -149,6 +149,11 @@ function CoverContent({
   const [pixels, setPixels] = useState(0);
   const left = useRemaining(countdown?.until);
   const counting = left > 0;
+  // the time coming or going changes the content's height: fit it again (the slide's key
+  // changes when a countdown starts or goes, not when one ends on screen)
+  const refit = useRef(onImageLoad);
+  refit.current = onImageLoad;
+  useEffect(() => refit.current(), [counting]);
   return (
     <div
       style={{

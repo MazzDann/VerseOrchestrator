@@ -31,6 +31,10 @@ describe('countdown', () => {
     expect(untilAt('10:00', at(9, 52))).toBe(at(10, 0));
     expect(untilAt(' 9:05 ', at(9, 0))).toBe(at(9, 5));
     expect(untilAt('00:10', at(23, 50))).toBe(new Date(2026, 9, 2, 0, 10).getTime());
+    // later today, however far: an evening service set in the morning (review of #45)
+    expect(untilAt('22:00', at(9, 0))).toBe(at(22, 0));
+    // later today, however far: an evening service set in the morning (review of #45)
+    expect(untilAt('22:00', at(9, 0))).toBe(at(22, 0));
     // already past today: no countdown to tomorrow's 10:00
     expect(untilAt('10:00', at(10, 1))).toBeNull();
     expect(untilAt('10:00', at(10, 0))).toBeNull();
@@ -43,6 +47,9 @@ describe('countdown', () => {
     expect(shiftUntil(at(10, 0), 1, at(9, 55))).toBe(at(10, 1));
     expect(shiftUntil(at(10, 0), -1, at(9, 55))).toBe(at(9, 59));
     expect(shiftUntil(at(9, 55, 30), -1, at(9, 55))).toBe(at(9, 55));
-    expect(shiftUntil(at(20, 59), 5, at(9, 0))).toBe(at(21, 0));
+    expect(shiftUntil(at(22, 0), 1, at(9, 0))).toBe(at(22, 1));
+    expect(shiftUntil(new Date(2026, 9, 2, 8, 59).getTime(), 5, at(9, 0))).toBe(
+      new Date(2026, 9, 2, 9, 0).getTime(),
+    );
   });
 });

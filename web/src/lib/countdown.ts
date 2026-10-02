@@ -11,8 +11,10 @@ import { useEffect, useState } from 'react';
 /** Minutes offered as one click; anything else goes through «до» a time of day. */
 export const COUNTDOWN_MINUTES = [1, 3, 5, 10, 15, 30] as const;
 
-/** The longest countdown it starts (12 h): past that, a time of day was meant for tomorrow. */
+/** The longest countdown of minutes (12 h); and how far past midnight «до» a time reaches. */
 const MAX_MS = 12 * 60 * 60 * 1000;
+/** The furthest end a countdown ever has (a later time today, then ±1 хв). */
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Milliseconds left until `until` (0 once it has passed). */
 export function remainingMs(until: number, now: number): number {
@@ -39,8 +41,9 @@ export function untilIn(minutes: number, now: number): number {
 }
 
 /**
- * The end of a countdown «до HH:MM» — the next time the clock shows it, at most 12 h away
- * (23:50 → 00:10 is tomorrow). Null: not a time, or a time that has already passed today.
+ * The end of a countdown «до HH:MM»: later today, however far (09:00 → 22:00); a time already
+ * gone today is tomorrow's only within 12 h (23:50 → 00:10). Null: not a time, or a time that
+ * has already passed today.
  */
 export function untilAt(hhmm: string, now: number): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
@@ -49,19 +52,18 @@ export function untilAt(hhmm: string, now: number): number | null {
   if (h > 23 || min > 59) return null;
   const at = new Date(now);
   at.setHours(h, min, 0, 0);
-  let t = at.getTime();
-  if (t <= now) {
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(h, min, 0, 0);
-    t = tomorrow.getTime();
-  }
+  const today = at.getTime();
+  if (today > now) return today;
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(h, min, 0, 0);
+  const t = tomorrow.getTime();
   return t - now <= MAX_MS ? t : null;
 }
 
-/** «+1 хв» / «−1 хв» on a running countdown: never before now, never past 12 h from now. */
+/** «+1 хв» / «−1 хв» on a running countdown: never before now, never past a day from now. */
 export function shiftUntil(until: number, minutes: number, now: number): number {
-  return Math.min(now + MAX_MS, Math.max(now, until + minutes * 60000));
+  return Math.min(now + DAY_MS, Math.max(now, until + minutes * 60000));
 }
 
 /**
@@ -69,17 +71,20 @@ export function shiftUntil(until: number, minutes: number, now: number): number 
  * once the countdown has ended (0), and with no countdown (null) it costs nothing.
  */
 export function useRemaining(until: number | null | undefined): number {
-  const [now, setNow] = useState(() => Date.now());
+  // the reading is kept with the end it was taken for: a new end is read afresh at once, not
+  // shown for a frame against the old reading (a restarted countdown flashed a wrong time)
+  const [tick, setTick] = useState(() => ({ until, now: Date.now() }));
   useEffect(() => {
     if (until == null) return;
-    const tick = () => {
+    const read = () => {
       const t = Date.now();
-      setNow(t);
+      setTick({ until, now: t });
       if (t >= until) window.clearInterval(id);
     };
-    const id = window.setInterval(tick, 250);
-    tick();
+    const id = window.setInterval(read, 250);
+    read();
     return () => window.clearInterval(id);
   }, [until]);
-  return until == null ? 0 : remainingMs(until, now);
+  if (until == null) return 0;
+  return remainingMs(until, tick.until === until ? tick.now : Date.now());
 }
