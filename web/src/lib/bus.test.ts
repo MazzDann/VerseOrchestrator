@@ -262,6 +262,14 @@ describe('window bus v2', () => {
     expect(isSlide({ ...slide('x'), countdown: { until: 1, caption: 'x' } })).toBe(true);
     expect(isSlide({ ...slide('x'), countdown: null })).toBe(true);
     expect(isSlide({ ...slide('x'), countdown: { until: 'soon', caption: 'x' } })).toBe(false);
+    // a picture (1.5.0): an address
+    expect(
+      isSlide({
+        ...slide('x'),
+        picture: { src: '/api/images/file/a.png', small: '', name: 'a', fit: 'contain' },
+      }),
+    ).toBe(true);
+    expect(isSlide({ ...slide('x'), picture: { src: 7 } })).toBe(false);
   });
 
   it('«Заставка»: its image crosses once as an asset, as the background does (1.4.2)', async () => {

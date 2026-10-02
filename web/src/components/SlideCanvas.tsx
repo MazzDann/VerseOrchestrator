@@ -6,6 +6,7 @@ import {
   type SlideReveal,
   type SlideCover,
   type SlideCountdown,
+  type SlidePicture,
   DEFAULT_STYLE,
 } from '../presenterBus';
 import { formatRemaining, useRemaining } from '../lib/countdown';
@@ -229,6 +230,28 @@ function CountdownLines({ caption, left }: { caption: string; left: number }) {
   );
 }
 
+/**
+ * A picture on screen (1.5.0): the server's file over the whole slide. One that doesn't load
+ * (deleted meanwhile, the server gone) leaves the black of the slide, never a broken-image sign.
+ */
+function PictureContent({ picture }: { picture: SlidePicture }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (failed === picture.src) return null;
+  return (
+    <img
+      src={picture.src}
+      alt=""
+      onError={() => setFailed(picture.src)}
+      style={{
+        display: 'block',
+        width: '100%',
+        height: '100%',
+        objectFit: picture.fit === 'cover' ? 'cover' : 'contain',
+      }}
+    />
+  );
+}
+
 /** A 16:9 WYSIWYG preview box of the slide (identical look to the presenter). */
 export function SlidePreview({ slide, maxWidth }: { slide: Slide; maxWidth?: number }) {
   return (
@@ -342,15 +365,19 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   const style = slide.style ?? DEFAULT_STYLE;
   const transition = calm ? 'none' : style.transition;
   const show =
-    slide.visible && !slide.blank && (slide.lines.length > 0 || !!slide.qr || !!slide.cover);
+    slide.visible &&
+    !slide.blank &&
+    (slide.lines.length > 0 || !!slide.qr || !!slide.cover || !!slide.picture);
   const slideKey = !show
     ? 'blank'
-    : slide.qr
-      ? `qr|${slide.qr}`
-      : slide.cover
-        ? // a countdown starting or going fades like a new slide; «+1 хв» only changes the time
-          `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}|${slide.countdown ? slide.countdown.caption : '-'}`
-        : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
+    : slide.picture
+      ? `picture|${slide.picture.src}|${slide.picture.fit}`
+      : slide.qr
+        ? `qr|${slide.qr}`
+        : slide.cover
+          ? // a countdown starting or going fades like a new slide; «+1 хв» only changes the time
+            `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}|${slide.countdown ? slide.countdown.caption : '-'}`
+          : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
   // the viewers' QR in a corner (0.6.16) — over any slide but the QR slide itself
   const corner =
     style.qrCorner && !slide.qr ? (
@@ -371,6 +398,12 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
     240,
     maxCqh,
   );
+  // A picture is drawn in the layout of the last text slide: the text layer leaving for it keeps
+  // its place and fades out — a layout switch unmounted it at once (review of #46: a faithful
+  // song's stanza or a «Макет» preset cut to the picture)
+  const ownTemplate = slide.qr || slide.cover || slide.picture ? null : (slide.template ?? null);
+  const lastTemplate = useRef(ownTemplate);
+  if (!slide.picture) lastTemplate.current = ownTemplate;
 
   // Pure-black override: paint solid black over everything, ignoring the
   // background image/colour (the operator's "force black" key/button).
@@ -396,14 +429,30 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} />
   ) : null;
 
+  // A picture («Зображення», 1.5.0): its own layer over the whole slide, on black, under the
+  // text layer — text and picture fade into each other like any two slides (review of #46:
+  // a picture had its own root, so switching cut instead of fading)
+  const picture = show ? (slide.picture ?? null) : null;
+  const textKey = picture ? null : show ? slideKey : null;
+  const pictureLayer = (
+    <SlideFade
+      slideKey={picture ? slideKey : null}
+      mode={transition}
+      style={{ position: 'absolute', inset: 0, background: '#000' }}
+    >
+      {picture && <PictureContent picture={picture} />}
+    </SlideFade>
+  );
+
   // --- Positioned template layout ---------------------------------------------
-  const template = slide.qr || slide.cover ? null : slide.template;
+  const template = slide.picture ? lastTemplate.current : ownTemplate;
   if (template) {
     return (
       <div style={rootStyle}>
         {scrim}
+        {pictureLayer}
         <SlideFade
-          slideKey={show ? slideKey : null}
+          slideKey={textKey}
           mode={transition}
           style={{
             position: 'absolute',
@@ -507,6 +556,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   return (
     <div style={rootStyle}>
       {scrim}
+      {pictureLayer}
       <div
         ref={containerRef}
         style={{
@@ -521,7 +571,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
         }}
       >
         <SlideFade
-          slideKey={show ? slideKey : null}
+          slideKey={textKey}
           mode={transition}
           layerRef={contentRef}
           style={{

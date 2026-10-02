@@ -36,9 +36,27 @@ export interface SeqText {
   body: string;
 }
 
-export type SeqItem = SeqPassage | SeqSong | SeqText;
+/**
+ * A picture (1.5.0): the server's files by address (server/src/images.ts) and how it fills the
+ * slide. A deleted picture leaves its item a black slide; «Скасувати» brings the same id back.
+ */
+export interface SeqImage {
+  kind: 'image';
+  id: string;
+  label: string; // the picture's name
+  imageId: string;
+  src: string;
+  small: string;
+  fit: 'contain' | 'cover';
+}
+
+export type SeqItem = SeqPassage | SeqSong | SeqText | SeqImage;
 /** An item to add — same shape minus the store-assigned id. */
-export type NewSeqItem = Omit<SeqPassage, 'id'> | Omit<SeqSong, 'id'> | Omit<SeqText, 'id'>;
+export type NewSeqItem =
+  | Omit<SeqPassage, 'id'>
+  | Omit<SeqSong, 'id'>
+  | Omit<SeqText, 'id'>
+  | Omit<SeqImage, 'id'>;
 
 function newId(): string {
   try {

@@ -2,6 +2,7 @@ import {
   type Slide,
   type SlideCountdown,
   type SlideCover,
+  type SlidePicture,
   type SlideSource,
   type SlideStyle,
 } from '../presenterBus';
@@ -50,14 +51,14 @@ export interface ScreenSummary {
    * in English read «Заставка». They stay for a remote page of an older version.
    * `countdown` (1.5.0): «Заставка» with «Відлік» (an older page names it «Заставка»).
    */
-  kind?: 'qr' | 'cover' | 'countdown';
+  kind?: 'qr' | 'cover' | 'countdown' | 'picture';
   font?: string;
   /** where it comes from (0.6.1): a remote knows whether its own cursor is on screen */
   source?: SlideSource;
 }
 
-/** Anything to show — text, the viewers' QR slide or «Заставка» (a cover has no lines). */
-const hasContent = (s: Slide) => s.lines.length > 0 || !!s.qr || !!s.cover;
+/** Anything to show — text, the viewers' QR slide, «Заставка» or a picture (no lines there). */
+const hasContent = (s: Slide) => s.lines.length > 0 || !!s.qr || !!s.cover || !!s.picture;
 
 /**
  * Do the viewers see the slide now — something to show, neither hidden nor black? The
@@ -86,10 +87,20 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
         ? tr('Відлік')
         : slide.cover
           ? tr('Заставка')
-          : (slide.lines[0]?.text ?? '').slice(0, 400),
+          : slide.picture
+            ? slide.picture.name
+            : (slide.lines[0]?.text ?? '').slice(0, 400),
     font: slide.style?.font,
     source: slide.source,
-    kind: slide.qr ? 'qr' : slide.cover ? (slide.countdown ? 'countdown' : 'cover') : undefined,
+    kind: slide.qr
+      ? 'qr'
+      : slide.cover
+        ? slide.countdown
+          ? 'countdown'
+          : 'cover'
+        : slide.picture
+          ? 'picture'
+          : undefined,
   };
 }
 
@@ -98,7 +109,8 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
  * language, anything else as it came.
  */
 export function inPhoneWords(s: ScreenSummary | null): ScreenSummary | null {
-  if (!s?.kind) return s;
+  // a picture (1.5.0) is named by its file: the operator's words, not the app's
+  if (!s?.kind || s.kind === 'picture') return s;
   const name =
     s.kind === 'qr'
       ? tr('QR для глядачів')
@@ -163,6 +175,14 @@ export function countdownOver(
   reference: string,
 ): Slide {
   return { ...coverOver(now, cover, style, reference), countdown };
+}
+
+/**
+ * A picture on screen («Зображення», 1.5.0): on the slide's style, named by its file — the
+ * monitors and the remotes say that name.
+ */
+export function pictureSlide(picture: SlidePicture, style: SlideStyle): Slide {
+  return { lines: [], reference: picture.name, blank: false, visible: true, style, picture };
 }
 
 /**
