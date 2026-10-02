@@ -11,7 +11,7 @@ import {
   type ReaderPrefs,
 } from '../lib/readerPrefs';
 import { tr, useLang } from '../i18n';
-import { afterZeroOf, formatTimer, hubOffset, useRemaining } from '../lib/countdown';
+import { formatTimer, hubOffset, useCountdown } from '../lib/countdown';
 
 /**
  * Audience follow-along: a read-only, mobile-friendly view of the live slide, pushed
@@ -112,14 +112,9 @@ export function Follow() {
   // «Відлік» (1.5.0): the phones count to the same end as the screen — by the computer's clock
   // (1.7.3): the end, set by that clock, moved onto this phone's
   const onScreen = !!slide && slide.visible && !slide.blank && !slide.forceBlack;
-  const until = onScreen ? slide?.countdown?.until : undefined;
-  // past zero (1.8.0): on into −0:01 …, 0:00, or the time goes — as the screen does
-  const afterZero = afterZeroOf(slide?.countdown);
-  const left = useRemaining(
-    until == null ? null : Math.round(until - offset),
-    afterZero === 'overtime',
-  );
-  const timing = until != null && (left > 0 || afterZero !== 'hide');
+  // past zero (1.8.0): on into −0:01 …, 0:00, or the time goes; paused (1.8.1) it stands
+  // still — as the screen does
+  const { left, counting: timing } = useCountdown(onScreen ? slide?.countdown : null, offset);
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
   const text = readerTextStyle(reader, font);
 

@@ -137,6 +137,15 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
     expect(matchesCombo(evt('д', 'KeyL'), 'l')).toBe(true); // «д» on a Ukrainian layout
   });
 
+  it('«Відлік: пауза / далі» on T everywhere, clashing with nothing (1.8.1)', () => {
+    for (const mac of [false, true]) {
+      expect(defaultKeymap(mac).countdown).toBe('t');
+      expect(conflictsForAction(defaultKeymap(mac), 'countdown')).toEqual([]);
+    }
+    expect(sanitizeKeymap({ blank: 'b' }, false).countdown).toBe('t');
+    expect(matchesCombo(evt('е', 'KeyT'), 't')).toBe(true); // «е» on a Ukrainian layout
+  });
+
   it('«До приспіву» on C everywhere, clashing with nothing (1.3.0)', () => {
     for (const mac of [false, true]) {
       expect(defaultKeymap(mac).chorus).toBe('c');

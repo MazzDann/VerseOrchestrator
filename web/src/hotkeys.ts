@@ -31,6 +31,7 @@ export type HotkeyActionId =
   | 'blank'
   | 'black'
   | 'cover'
+  | 'countdown'
   | 'clear'
   | 'restore'
   | 'searchCurrent'
@@ -116,6 +117,14 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     label: N_('Заставка'),
     hint: N_('Логотип і текст між елементами; ще раз — те, що було'),
     default: 'l',
+  },
+  // 1.8.1 (the user's ask: a timer with its own key): the countdown on screen stops and goes
+  // on; with none, a new one of the length last chosen in «Відлік»
+  {
+    id: 'countdown',
+    label: N_('Відлік: пауза / далі'),
+    hint: N_('Відлік на екрані — пауза або далі; без нього — новий, на час, вибраний у «Відлік»'),
+    default: 't',
   },
   {
     id: 'clear',
