@@ -64,10 +64,12 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
   fix — and open a pull request to `main`. Merge it once the checks pass. A merge commit
   keeps the branch's commits, with their measurements, in the history.
 - **Versions.** `MAJOR.MINOR.PATCH`, starting with `1.0.0`, the first regular release.
-  The version changes only when a release is made, once for everything merged since the
-  last one: `PATCH` for fixes only, `MINOR` for new features, `MAJOR` for changes that
-  older data or settings can't follow. Commits on a branch leave the version alone.
-  Before 1.0.0 every commit on `main` was a release of its own, `0.MINOR.PATCH`.
+  Work goes by themes: a theme is a `MINOR` line (`1.6.x`), and each feature, or group of
+  features, that doesn't depend on the others is a release of its own in that line —
+  `1.6.0`, `1.6.1`, `1.6.2` — and so is a fix. `MAJOR` is for changes that older data or
+  settings can't follow. The version changes only when a release is made; commits on a
+  branch leave it alone. Releases 1.0.0–1.5.0 used `PATCH` for fixes only and `MINOR` for
+  features; before 1.0.0 every commit on `main` was a release of its own, `0.MINOR.PATCH`.
 - **Dev copies.** A copy that runs from a git checkout — a clone or a worktree, not a
   release's `app/` — names itself after git, so you can tell which build you are testing.
   `dev 1.4.2.try7 (mac-test · 20dd850)` means 7 commits after the tag `v1.4.2`, on the
@@ -78,7 +80,11 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
   **Застосунок** → **Оновлення** (`server/src/versionLabel.ts`, `label` in `GET /api/health`).
   A release shows `VerseOrchestrator X.Y.Z` there. When the app is already running, the start file asks it for its label
   and says «Працює інша збірка: …» if it differs — for example, the app was started before
-  you switched branches. Then run `--off` and start again. Without git (or, on a Mac, with
+  you switched branches. Then run `--off` and start again. A dev copy started by the start
+  file also notices new code by itself (1.6.0, `server/src/codeChange.ts`): once the
+  checked-out commit is not the one it started with, **Оновлення** offers **Перезапустити**,
+  which starts the launcher again in the background (`--after PID`: it waits for the old
+  waiter to end, then does what the start file does) and reloads the page. Without git (or, on a Mac, with
   only the `/usr/bin/git` stub and no developer tools) or without a release tag, the label is
   `dev X.Y.Z` from `package.json`. Git is only read: `describe` and `status` write nothing to
   `.git`. Releases and portable copies show the plain version and never call git. Whatever

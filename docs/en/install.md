@@ -257,8 +257,16 @@ with the button failed:
 
 ### Update a clone of the repository
 
-To update a clone of the repository, get the new changes (`git pull`) and start the app: it
-installs the new parts and rebuilds the interface by itself.
+To update a clone of the repository, get the new changes (`git pull`). An app started with
+the start file notices the new code within a minute: a dot appears on the **Settings** icon,
+and **Settings** → **App** → **Updates** shows a **Restart** button. Click it: the app
+installs the new parts, rebuilds the interface, and starts again in the background, and the
+page reloads by itself. The start window closes meanwhile. While output windows are open,
+the button is unavailable.
+
+After the restart the app runs in the background, as with **Start on open**. To stop it,
+click **Switch off completely** in **Settings** → **App**. You can also do without the
+button: stop the app and run the start file again.
 
 ## Save a backup
 

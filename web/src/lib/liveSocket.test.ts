@@ -157,4 +157,28 @@ describe('connectLive', () => {
     expect(reload).toHaveBeenCalledTimes(1);
     live.stop();
   });
+
+  it('a copy of the repository restarted with new code: reloads into the new build, once (1.6.0)', () => {
+    const reload = vi.fn();
+    const store = new Map<string, string>();
+    vi.stubGlobal('__APP_VERSION__', '1.5.0');
+    vi.stubGlobal('__APP_BUILD__', '1.5.0+aaa');
+    vi.stubGlobal('location', { protocol: 'http:', host: 'localhost:4747', reload });
+    vi.stubGlobal('sessionStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => store.set(k, v),
+    });
+    const live = connectLive({});
+    const ws = FakeSocket.all.at(-1)!;
+    ws.accept();
+    const frame = (f: object) => ws.onmessage?.({ data: JSON.stringify(f) });
+    frame({ type: 'app', version: '1.5.0', build: '1.5.0+aaa' });
+    frame({ type: 'app', version: '1.5.0' }); // a server that sends no build (npm run dev)
+    expect(reload).not.toHaveBeenCalled();
+    frame({ type: 'app', version: '1.5.0', build: '1.5.0+bbb' });
+    expect(reload).toHaveBeenCalledTimes(1);
+    frame({ type: 'app', version: '1.5.0', build: '1.5.0+bbb' }); // the same old page came back
+    expect(reload).toHaveBeenCalledTimes(1);
+    live.stop();
+  });
 });
