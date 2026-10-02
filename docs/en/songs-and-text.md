@@ -171,6 +171,6 @@ To remove a text from the list, click the trash icon **Remove from the list**.
 
 ## What's next
 
-- [Running order](running-order.md): a program of passages, songs, and texts.
+- [Running order](running-order.md): a program of passages, songs, texts, and images.
 - [Slide appearance](appearance.md): font, colors, background, template, presets.
 - [VerseOrchestrator documentation](README.md): the contents of all parts.
