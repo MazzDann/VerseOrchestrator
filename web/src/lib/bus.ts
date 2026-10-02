@@ -92,6 +92,9 @@ function slideAt(x: unknown, depth: number): x is Slide {
     // «Відлік» (1.5.0): an end in ms — anything else would show NaN:NaN
     obj(s.countdown) &&
     (!s.countdown || Number.isFinite((s.countdown as { until: unknown }).until)) &&
+    // a picture (1.5.0): addresses, not images
+    obj(s.picture) &&
+    (!s.picture || typeof (s.picture as { src: unknown }).src === 'string') &&
     // what a QR slide or «Заставка» covers (1.4.2): brought back as it is, so a slide too
     (s.returnTo == null || (depth < MAX_RETURN_DEPTH && slideAt(s.returnTo, depth + 1)))
   );

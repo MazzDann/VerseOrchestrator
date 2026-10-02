@@ -146,6 +146,11 @@ export interface Slide {
    */
   countdown?: SlideCountdown | null;
   /**
+   * A picture on screen («Зображення», 1.5.0): the server's file, by address — every window and
+   * the phones load it themselves (a slide never carries the image).
+   */
+  picture?: SlidePicture | null;
+  /**
    * The slide a QR slide or «Заставка» covers — what «Прибрати QR» / L bring back (1.4.2).
    * It travels with the slide, so a control window that takes over, or reloads, can still
    * give it back (it was kept in the covering window only: another one emptied the screen).
@@ -158,6 +163,18 @@ export interface Slide {
  * What «Заставка» shows (1.4.0): an image (a data URL) and/or text, on the slide's background.
  * The image crosses the window bus once, as an asset, like the background (1.4.2).
  */
+/**
+ * A picture on screen (1.5.0, server/src/images.ts): the file for the screen, its small copy
+ * (the phones), its name (the monitors and the remotes say it), and how it fills the slide:
+ * whole, with bands of black (`contain`), or all of the slide, cut at the edges (`cover`).
+ */
+export interface SlidePicture {
+  src: string;
+  small: string;
+  name: string;
+  fit: 'contain' | 'cover';
+}
+
 export interface SlideCover {
   text: string;
   image: string | null;

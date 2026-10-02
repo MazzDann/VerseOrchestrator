@@ -82,7 +82,9 @@ export interface CommandArgs {
 export type PlaylistEntry =
   | ({ id: string; kind: 'passage'; label: string } & RemotePassage)
   | { id: string; kind: 'song'; label: string; songId: number }
-  | { id: string; kind: 'text'; label: string };
+  | { id: string; kind: 'text'; label: string }
+  /** a picture (1.5.0): shown from the control window, as a free text is */
+  | { id: string; kind: 'image'; label: string };
 
 export interface SharedPlaylist {
   items: PlaylistEntry[];

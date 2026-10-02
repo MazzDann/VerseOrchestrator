@@ -3,6 +3,7 @@ import {
   countdownOver,
   coverOver,
   forAudience,
+  pictureSlide,
   inPhoneWords,
   qrOver,
   sameSlide,
@@ -189,6 +190,46 @@ describe('«Відлік» (1.5.0)', () => {
     } finally {
       useSettings.setState({ language: 'uk' });
     }
+  });
+});
+
+describe('«Зображення» (1.5.0)', () => {
+  const picture = {
+    src: '/api/images/file/a.png',
+    small: '/api/images/file/a.small.jpg',
+    name: 'Оголошення',
+    fit: 'contain' as const,
+  };
+
+  it('is something on screen, named by its file, for a remote in any language', () => {
+    const p = pictureSlide(picture, DEFAULT_STYLE);
+    expect(p).toMatchObject({ lines: [], reference: 'Оголошення', visible: true, picture });
+    expect(showsSomething(p)).toBe(true);
+    expect(showsSomething(toggleHidden(p)!)).toBe(false);
+    const sent = summarize(p);
+    expect(sent).toMatchObject({ status: 'live', text: 'Оголошення', kind: 'picture' });
+    useSettings.setState({ language: 'en' });
+    try {
+      expect(inPhoneWords(sent)).toBe(sent); // the operator's file name, not the app's words
+    } finally {
+      useSettings.setState({ language: 'uk' });
+    }
+  });
+
+  it('reaches the phones by address; another picture or fit is a new slide', () => {
+    const p = pictureSlide(picture, DEFAULT_STYLE);
+    expect(forAudience(p).picture).toEqual(picture);
+    expect(sameSlide(p, pictureSlide({ ...picture }, DEFAULT_STYLE))).toBe(true);
+    expect(sameSlide(p, pictureSlide({ ...picture, fit: 'cover' }, DEFAULT_STYLE))).toBe(false);
+    expect(
+      sameSlide(p, pictureSlide({ ...picture, src: '/api/images/file/b.png' }, DEFAULT_STYLE)),
+    ).toBe(false);
+  });
+
+  it('a cover over a picture gives the picture back', () => {
+    const p = pictureSlide(picture, DEFAULT_STYLE);
+    const c = coverOver(p, { text: 'x', image: null }, DEFAULT_STYLE, 'Заставка');
+    expect(uncover(c)).toBe(p);
   });
 });
 
