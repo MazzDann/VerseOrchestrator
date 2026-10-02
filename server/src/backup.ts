@@ -197,7 +197,12 @@ async function put(file: string, data: Buffer): Promise<void> {
   await fsp.mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   await fsp.writeFile(tmp, data);
-  await fsp.rename(tmp, file);
+  try {
+    await fsp.rename(tmp, file);
+  } catch (e) {
+    await fsp.rm(tmp, { force: true }); // nothing half-written left behind
+    throw e;
+  }
 }
 
 /**
@@ -336,15 +341,24 @@ async function dropFolder(folder: string): Promise<void> {
     await fsp.rm(folder, { recursive: true, force: true });
 }
 
-/** The oldest kept folders of a kind go: five stay. */
-async function prune(dataDir: string, kind: 'restore' | 'undo'): Promise<void> {
-  const dir = backupsDir(dataDir);
-  const kept = (await fsp.readdir(dir, { withFileTypes: true }))
-    .filter((e) => e.isDirectory() && e.name.startsWith(`before-${kind}-`))
-    .map((e) => e.name)
-    .sort();
-  for (const old of kept.slice(0, Math.max(0, kept.length - KEEP)))
-    await fsp.rm(path.join(dir, old), { recursive: true, force: true });
+/**
+ * The oldest kept folders of a kind go: five stay, the one just made (`keep`) always among them
+ * — names sort by the clock, and a clock behind the older names must not make it «the oldest».
+ * Done last and best effort: a folder that can't go now goes next time, and the operation it
+ * follows has succeeded already (review of #47).
+ */
+async function prune(dataDir: string, kind: 'restore' | 'undo', keep: string): Promise<void> {
+  try {
+    const dir = backupsDir(dataDir);
+    const others = (await fsp.readdir(dir, { withFileTypes: true }))
+      .filter((e) => e.isDirectory() && e.name.startsWith(`before-${kind}-`) && e.name !== keep)
+      .map((e) => e.name)
+      .sort();
+    for (const old of others.slice(0, Math.max(0, others.length - (KEEP - 1))))
+      await fsp.rm(path.join(dir, old), { recursive: true, force: true });
+  } catch (e) {
+    console.warn(`[server] backup: an old kept state stays for now: ${(e as Error).message}`);
+  }
 }
 
 /** Backup work running or waiting (made, checked, restored, undone). */
@@ -401,10 +415,10 @@ export async function startChange(): Promise<() => void> {
 }
 
 /**
- * Restore the pending file: first the current state moved into a folder of its own (the way
- * back) — all of it or, failing that, none — and the note that offers it, then the file's: a
- * restore that fails after the move still offers «Повернути як було» (review of #47). Null:
- * nothing pending.
+ * Restore the pending file: the current state moved into a folder of its own (the way back) and
+ * the note that offers it, then the file's. All of it or nothing: a failure on the way puts the
+ * current state back — only when even that fails does the note stay, offering «Повернути як
+ * було» (review of #47). Null: nothing pending.
  */
 export async function restorePending(
   dataDir: string,
@@ -422,14 +436,25 @@ export async function restorePending(
     await dropFolder(kept);
     throw e;
   }
-  writeJson(path.join(dir, LAST), {
-    created: summary.created,
-    at: now.toISOString(),
-    undo: path.basename(kept),
-  });
-  await prune(dataDir, 'restore');
-  await applyBackup(dataDir, entries);
+  const last = path.join(dir, LAST);
+  try {
+    writeJson(last, { created: summary.created, at: now.toISOString(), undo: path.basename(kept) });
+    await applyBackup(dataDir, entries);
+  } catch (e) {
+    try {
+      // what of the backup went in goes (it is still in the file), what was there comes back
+      for (const [sub, f] of await stateFiles(dataDir))
+        await fsp.rm(path.join(dataDir, sub, f), { force: true });
+      await moveState(kept, dataDir);
+    } catch {
+      throw e; // the note stays: «Повернути як було» brings the kept state back
+    }
+    await fsp.rm(last, { force: true });
+    await dropFolder(kept);
+    throw e;
+  }
   await fsp.rm(pending, { force: true });
+  await prune(dataDir, 'restore', path.basename(kept));
   return summary;
 }
 
@@ -459,11 +484,13 @@ export async function undoRestore(dataDir: string, now = new Date()): Promise<bo
     await dropFolder(kept);
     throw e;
   }
-  await prune(dataDir, 'undo');
+  // the way back is spent: an error after this point must not offer it again — a retry would
+  // move what just came back out (review of #47)
+  await fsp.rm(path.join(dir, LAST), { force: true });
   const ui = readJson<Record<string, { value?: unknown }> | null>(path.join(from, UI_FILE), null);
   if (ui && typeof ui === 'object') writeUiState(dataDir, ui);
-  await fsp.rm(path.join(dir, LAST), { force: true });
-  await fsp.rm(from, { recursive: true, force: true });
+  await fsp.rm(from, { recursive: true, force: true }).catch(() => undefined);
+  await prune(dataDir, 'undo', path.basename(kept));
   return true;
 }
 

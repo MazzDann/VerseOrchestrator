@@ -1,4 +1,5 @@
 import http from 'node:http';
+import net from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
@@ -104,6 +105,35 @@ describe('standby waiter', () => {
     const r = await fetch(url('/api/health'));
     expect(await r.json()).toMatchObject({ path: '/api/health' });
     expect(app.started).toBe(1);
+  });
+
+  it('passes on a page that goes away mid-upload: the app hears it at once (review of #47)', async () => {
+    let heard = '';
+    const server = http.createServer((req, res) => {
+      req.resume();
+      req.on('end', () => res.end('ok'));
+      req.on('close', () => {
+        if (!req.complete) heard = 'gone';
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const { port } = await waiter({
+      startApp: async () => ({
+        port: (server.address() as AddressInfo).port,
+        onExit: () => undefined,
+        stop: () => new Promise<void>((r) => server.close(() => r())),
+      }),
+    });
+    // half a body, then the page is gone
+    const page = net.connect(port, '127.0.0.1');
+    page.write(
+      'POST /api/images HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 100000\r\n\r\n{"a":',
+    );
+    for (let i = 0; i < 40 && !server.listening; i++) await sleep(10);
+    await sleep(200);
+    page.destroy();
+    for (let i = 0; i < 100 && !heard; i++) await sleep(10);
+    expect(heard).toBe('gone');
   });
 
   it('keeps a forged X-Forwarded-For from winning: the real address goes last', async () => {

@@ -266,7 +266,7 @@ describe('«Резервна копія» (1.5.0)', () => {
     expect(backupBusy()).toBe(false);
   });
 
-  it('a restore that fails midway still offers the way back', async () => {
+  it('a restore that fails while the backup goes in changes nothing (review of #47)', async () => {
     const from = dataDir('a');
     const to = dataDir('b');
     await keepPending(to, await makeBackup(from, '1.5.0'));
@@ -274,11 +274,56 @@ describe('«Резервна копія» (1.5.0)', () => {
     fs.mkdirSync(path.join(to, 'images', 'a.png'));
     const at = new Date();
     await expect(restorePending(to, '1.5.0', at)).rejects.toThrow();
-    expect(lastRestore(to, at.getTime())).not.toBeNull();
     fs.rmSync(path.join(to, 'images', 'a.png'), { recursive: true });
-    expect(await undoRestore(to, at)).toBe(true);
+    expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
     expect(tags(to)).toBe('b');
-    expect(fs.existsSync(path.join(to, 'songs', 'ПС-b.vosongs'))).toBe(true);
+    expect(lastRestore(to, at.getTime())).toBeNull();
+    expect(fs.readdirSync(path.join(to, 'backups'))).toEqual(['pending.zip']);
+    // the file is still there to try again
+    expect(await restorePending(to, '1.5.0', at)).not.toBeNull();
+    expect(state(to).songs).toEqual(['ПС-a.vosongs']);
+  });
+
+  it('five kept states stay, the new one always among them — even with the clock behind', async () => {
+    const from = dataDir('a');
+    const to = dataDir('b');
+    // five kept states named after a later clock
+    for (let d = 1; d <= 5; d++)
+      fs.mkdirSync(path.join(to, 'backups', `before-restore-2026-11-0${d}T10-00-00-000Z`), {
+        recursive: true,
+      });
+    await keepPending(to, await makeBackup(from, '1.5.0'));
+    const at = new Date('2026-10-01T10:00:00Z');
+    await restorePending(to, '1.5.0', at);
+    const kept = fs.readdirSync(path.join(to, 'backups')).filter((f) => f.startsWith('before-'));
+    expect(kept).toHaveLength(5);
+    const last = lastRestore(to, at.getTime())!;
+    expect(kept).toContain(last.undo);
+    expect(state(path.join(to, 'backups', last.undo)).songs).toEqual(['ПС-b.vosongs']);
+    expect(kept).not.toContain('before-restore-2026-11-01T10-00-00-000Z');
+  });
+
+  it('an old kept state that cannot go now fails nothing; the way back is not offered twice', async () => {
+    const from = dataDir('a');
+    const to = dataDir('b');
+    for (let d = 1; d <= 5; d++)
+      fs.mkdirSync(path.join(to, 'backups', `before-undo-2026-09-0${d}T10-00-00-000Z`), {
+        recursive: true,
+      });
+    await keepPending(to, await makeBackup(from, '1.5.0'));
+    const at = new Date('2026-10-01T10:00:00Z');
+    await restorePending(to, '1.5.0', at);
+    const rm = fsp.rm.bind(fsp);
+    vi.spyOn(fsp, 'rm').mockImplementation(async (p, o) => {
+      if (String(p).endsWith('before-undo-2026-09-01T10-00-00-000Z'))
+        throw Object.assign(new Error('EBUSY: rm'), { code: 'EBUSY' });
+      return rm(p, o);
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(await undoRestore(to, at)).toBe(true);
+    expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
+    expect(lastRestore(to, at.getTime())).toBeNull();
+    expect(await undoRestore(to, at)).toBe(false);
   });
 
   it('a move that fails puts back what it moved: a restore changes nothing, no way back is offered', async () => {
