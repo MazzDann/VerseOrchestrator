@@ -368,6 +368,12 @@ export const EN: Record<string, string> = {
     'This is not a VerseOrchestrator backup, or the file is damaged',
   'Спершу виберіть файл копії ще раз': 'Choose the backup file again first',
   'Повертати вже нічого': 'There is nothing to go back to',
+  'Повернеться стан до відновлення. Те, що змінено після нього, буде замінено, але збережеться окремо в папці data/backups/.':
+    'The state before the restore comes back. What was changed after it is replaced, but kept apart in the data/backups/ folder.',
+  'Налаштування й програми замінено з резервної копії.':
+    'Settings and programs were replaced from a backup.',
+  'Копія завелика: понад 1 ГБ. Приберіть частину зображень і збережіть ще раз.':
+    'The backup is too large: over 1 GB. Remove some images and save again.',
   '«{query}» — не місце в книзі. Введіть вірш або розділ:вірш, як-от 3:16':
     '“{query}” is not a place in the book. Type a verse, or chapter:verse, like 3:16',
   'Спершу виберіть книгу': 'Choose a book first',

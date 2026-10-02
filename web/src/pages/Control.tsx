@@ -170,6 +170,7 @@ import {
   uncover,
 } from '../lib/slide';
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
+import { takeServerUiState } from '../lib/uiState';
 import {
   ToolButton,
   ToolIcon,
@@ -2372,6 +2373,17 @@ export function Control() {
             });
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
+        } else if (f.type === 'ui-state') {
+          // a backup restored or undone (1.5.0), maybe from another window: its state, now
+          void takeServerUiState().then((ok) => {
+            if (!ok) return;
+            void queryClient.invalidateQueries({ queryKey: ['backup-state'] });
+            notifications.show({
+              message: tr('Налаштування й програми замінено з резервної копії.'),
+              color: 'gray',
+              autoClose: 4000,
+            });
+          });
         } else if (f.type === 'suggested') {
           // the hub's answer to «Запропонувати пульту» (0.6.4)
           const name =

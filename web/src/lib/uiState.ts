@@ -66,6 +66,47 @@ const writeAt = (at: Partial<Record<Key, number>>) => {
   }
 };
 
+/** The running sync's memory (the control window's; null elsewhere and before it starts). */
+let running: {
+  sent: Partial<Record<Key, string>>;
+  at: Partial<Record<Key, number>>;
+  timers: Partial<Record<Key, number>>;
+} | null = null;
+
+/**
+ * A backup was restored or undone (1.5.0, server/src/backup.ts): take data/'s UI state now — in
+ * the window that restored it, and in every other control window the hub tells — dropping the
+ * changes not sent yet. A window still holding the old state would else send it back with its
+ * next change, newer by its time, and undo the restore (review of #47). The other windows of
+ * this browser follow through `storage` events (main.tsx). False: no server to ask.
+ */
+export async function takeServerUiState(): Promise<boolean> {
+  let remote: UiState;
+  try {
+    remote = await api.uiState();
+  } catch {
+    return false;
+  }
+  const at = running?.at ?? readAt();
+  for (const key of KEYS) {
+    const entry = remote[key];
+    if (!entry) continue;
+    if (running) {
+      window.clearTimeout(running.timers[key]);
+      running.sent[key] = entry.value;
+    }
+    at[key] = entry.at;
+    try {
+      localStorage.setItem(key, entry.value);
+    } catch {
+      continue;
+    }
+    await STORES[key].persist.rehydrate();
+  }
+  writeAt(at);
+  return true;
+}
+
 /** Start syncing (the control window, once the server is there). */
 export async function startUiStateSync(): Promise<void> {
   let remote: UiState;
@@ -111,6 +152,7 @@ export async function startUiStateSync(): Promise<void> {
   }
 
   const timers: Partial<Record<Key, number>> = {};
+  running = { sent, at, timers };
   for (const key of KEYS)
     STORES[key].subscribe(() => {
       window.clearTimeout(timers[key]);
