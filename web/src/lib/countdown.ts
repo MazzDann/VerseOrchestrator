@@ -71,6 +71,16 @@ export function shiftUntil(until: number, minutes: number, now: number): number 
 }
 
 /**
+ * How far the hub's clock — the computer's, which a countdown's end is set by — is ahead of this
+ * one (1.7.3, ms): asked at `sent`, answered `hubNow`, received at `received`, with the answer
+ * taken as halfway along the round trip. A phone whose own clock is off counts by the
+ * computer's this way.
+ */
+export function hubOffset(sent: number, hubNow: number, received: number): number {
+  return hubNow - (sent + received) / 2;
+}
+
+/**
  * The time left until `until`, re-read four times a second while it runs; it stops ticking
  * once the countdown has ended (0), and with no countdown (null) it costs nothing.
  */
