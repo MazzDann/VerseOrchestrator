@@ -61,9 +61,13 @@ export function untilAt(hhmm: string, now: number): number | null {
   return t - now <= MAX_MS ? t : null;
 }
 
-/** «+1 хв» / «−1 хв» on a running countdown: never before now, never past a day from now. */
+/**
+ * «+1 хв» / «−1 хв» on a running countdown: never before now, never past a day from now — and
+ * the cap never pulls an end below where it already is (a later time today can be over 24 h
+ * away on the 25-hour day the clocks go back; review of #45).
+ */
 export function shiftUntil(until: number, minutes: number, now: number): number {
-  return Math.min(now + DAY_MS, Math.max(now, until + minutes * 60000));
+  return Math.min(Math.max(now + DAY_MS, until), Math.max(now, until + minutes * 60000));
 }
 
 /**
@@ -75,7 +79,12 @@ export function useRemaining(until: number | null | undefined): number {
   // shown for a frame against the old reading (a restarted countdown flashed a wrong time)
   const [tick, setTick] = useState(() => ({ until, now: Date.now() }));
   useEffect(() => {
-    if (until == null) return;
+    if (until == null) {
+      // no countdown (hidden, black): the reading is dropped, so the same end coming back is
+      // read afresh — not shown for a frame against the time it went away (review of #45)
+      setTick((t) => (t.until == null ? t : { until: null, now: 0 }));
+      return;
+    }
     const read = () => {
       const t = Date.now();
       setTick({ until, now: t });
