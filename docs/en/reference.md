@@ -67,13 +67,13 @@ the speaker's phone are described in [Speaker remote](remote.md#what-the-speaker
 
 The buttons at the top of the control window are grouped from left to right:
 
-| Group                | Buttons                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------- |
-| **Navigation**       | the navigation menu (in a narrow window), **Search**, the **Go to** field                         |
-| **Sources**          | **Songs**, **Custom text**, **Images**, **Running order**                                         |
-| **Windows**          | **Presentation window**, **Stage**, **Output windows**, **Viewers**, **Speaker remote**           |
-| **Output to screen** | **Live**, **To screen**, **Hide text**, **Black screen**, **Cover**, **Countdown**                |
-| **App**              | **Settings**, **Help**, **Light theme** or **Dark theme**, **Preview panel** (in a narrow window) |
+| Group                | Buttons                                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Navigation**       | the navigation menu (in a narrow window), **Search**, the **Go to** field                             |
+| **Sources**          | **Songs**, **Custom text**, **Images**, **Running order**                                             |
+| **Windows**          | **Presentation window**, **Stage**, **Output windows**, **Viewers**, **Speaker remote**               |
+| **Output to screen** | **Live**, **To screen**, **Hide text**, **Black screen**, **Cover**, **Countdown**, **Speaker timer** |
+| **App**              | **Settings**, **Help**, **Light theme** or **Dark theme**, **Preview panel** (in a narrow window)     |
 
 When the buttons don't all fit in the window, they make room one step at a time:
 

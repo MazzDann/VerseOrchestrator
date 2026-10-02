@@ -1,6 +1,6 @@
 import { N_ } from '@vo/shared';
 import { createBus, type BusChannel, type BusStorage, type Wire } from './lib/bus';
-import type { AfterZero, TimerLook } from './lib/countdown';
+import type { AfterZero, StageTimer, TimerLook } from './lib/countdown';
 import { reportSlideError } from './lib/slideErrors';
 import { tr } from './i18n';
 import { useSettings } from './settingsStore';
@@ -146,6 +146,8 @@ export interface Slide {
    * older version simply don't show it.
    */
   countdown?: SlideCountdown | null;
+  /** a speaker's timer (1.8.4, lib/countdown.ts): «Сцена» shows it; «Показ» and the phones never */
+  stageTimer?: StageTimer | null;
   /**
    * A picture on screen («Зображення», 1.5.0): the server's file, by address — every window and
    * the phones load it themselves (a slide never carries the image).

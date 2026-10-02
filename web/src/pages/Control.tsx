@@ -93,6 +93,7 @@ import {
   type TextSpan,
 } from '../presenterBus';
 import { CountdownTool } from '../components/CountdownTool';
+import { StageTimerTool } from '../components/StageTimerTool';
 import {
   afterZeroOf,
   formatRemaining,
@@ -105,6 +106,7 @@ import {
   togglePause,
   untilFor,
   type AfterZero,
+  type StageTimer,
 } from '../lib/countdown';
 import {
   NO_LIBRARY,
@@ -494,6 +496,10 @@ export function Control() {
   const [previewOverride, setPreviewOverride] = useState<Slide | null>(null);
   // The slide actually published to the output window (for the in-app live monitor).
   const [liveSlide, setLiveSlide] = useState<Slide>(() => readSlide());
+  // «Таймер доповідача» (1.8.4): the leader sets it and every slide it pushes carries it
+  // (`pushLive`); a window that waits follows the leader's, so taking over keeps it running
+  const stageTimerRef = useRef<StageTimer | null>(liveSlide.stageTimer ?? null);
+  if (!isLeader) stageTimerRef.current = liveSlide.stageTimer ?? null;
   /**
    * The speaker's own preview (0.6.2): the passage a remote picked last, as a slide — the
    * operator sees it next to their own preview; hidden with ✕ until the next pick.
@@ -630,6 +636,9 @@ export function Control() {
   const [quick, setQuick] = useState<string | null>(null);
   /** «Відлік» open (1.5.0): its fields and buttons own the keys, as the palette's do */
   const [countdownOpen, setCountdownOpen] = useState(false);
+  /** …and «Таймер доповідача» (1.8.4) */
+  const [stageTimerOpen, setStageTimerOpen] = useState(false);
+  const toolOpen = countdownOpen || stageTimerOpen;
   const quickRef = useRef<string | null>(null);
   quickRef.current = quick;
   const quickJumpRef = useRef(quickJump);
@@ -639,7 +648,7 @@ export function Control() {
       const box = quickRef.current;
       const r = quickKeydown(box, e, {
         canStart: bookNumber != null,
-        blocked: isFormField(e.target) || paletteOpen || moreShown || countdownOpen,
+        blocked: isFormField(e.target) || paletteOpen || moreShown || toolOpen,
         project: useSettings.getState().keymap.project,
       });
       if (r.box !== box) setQuick(r.box);
@@ -647,7 +656,7 @@ export function Control() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [bookNumber, paletteOpen, moreShown, countdownOpen]);
+  }, [bookNumber, paletteOpen, moreShown, toolOpen]);
   // a click lets go of the typed numbers: ⌘ / Shift + click in the verse list, then Enter,
   // belongs to the verses clicked, not to a place typed a moment ago (review of the Mac fix)
   useEffect(() => {
@@ -997,8 +1006,11 @@ export function Control() {
    */
   const [screenHeld, setScreenHeld] = useState(false);
   useEffect(() => setScreenHeld(false), [liveFollow]);
-  const pushLive = (slide: Slide, opts?: { audience?: boolean }) => {
+  const pushLive = (pushed: Slide, opts?: { audience?: boolean }) => {
     if (!leaderRef.current) return; // standby: never overrides the leader's screen
+    // the speaker's timer rides on every slide (1.8.4) — the one now, not one a slide kept
+    // from before (a cleared or covered slide coming back)
+    const slide: Slide = { ...pushed, stageTimer: stageTimerRef.current ?? undefined };
     if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
     lastPushed.current = slide;
     if (slide.visible) clearedRef.current = null; // something else is on screen: nothing to take back
@@ -1843,12 +1855,41 @@ export function Control() {
   const look = timerLook(appearance);
   const lookKey = JSON.stringify(look);
   useEffect(() => {
+    if (!leaderRef.current) return;
+    // the speaker's timer takes the colours and the format too (1.8.4)
+    const t = stageTimerRef.current;
+    const timerChanged = !!t && !hasLook(t, look);
+    if (t && timerChanged) stageTimerRef.current = { ...t, ...look };
     const s = liveSlideRef.current;
     const c = s.countdown;
-    if (!leaderRef.current || !s.cover || !c || hasLook(c, look)) return;
-    countdownChange({ ...c, ...look });
+    // one push carries both: the countdown's change takes the timer along
+    if (s.cover && c && !hasLook(c, look)) countdownChange({ ...c, ...look });
+    else if (timerChanged) pushLive({ ...s });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookKey]);
+  /**
+   * «Таймер доповідача» (1.8.4): a new state of the speaker's timer goes out with the slide on
+   * screen now — the same slide, so «Показ» and the phones don't change.
+   */
+  const stageTimerSet = (timer: StageTimer | null) => {
+    if (!leaderRef.current) return standbyNotice();
+    stageTimerRef.current = timer;
+    pushLive({ ...liveSlideRef.current });
+  };
+  const stageTimerStart = (ms: number, afterZero: AfterZero) =>
+    stageTimerSet({ until: untilFor(ms, Date.now()), afterZero, ...timerLook(appearance) });
+  const stageTimerPause = () => {
+    const t = stageTimerRef.current;
+    if (t) stageTimerSet(togglePause(t, Date.now()));
+  };
+  const stageTimerShift = (minutes: number) => {
+    const t = stageTimerRef.current;
+    if (t) stageTimerSet(shiftCountdown(t, minutes, Date.now()));
+  };
+  const stageTimerAfterZero = (afterZero: AfterZero) => {
+    const t = stageTimerRef.current;
+    if (t && afterZeroOf(t) !== afterZero) stageTimerSet({ ...t, afterZero });
+  };
   /** «Після нуля» (1.8.0) for the countdown on screen: its time, the end and the cover stay. */
   const countdownAfterZero = (afterZero: AfterZero) => {
     const c = liveSlideRef.current.countdown;
@@ -3330,6 +3371,16 @@ export function Control() {
                   onRemove={() => (leaderRef.current ? takeCoverOff() : standbyNotice())}
                   onOpenChange={setCountdownOpen}
                 />
+                <StageTimerTool
+                  running={liveSlide.stageTimer ?? null}
+                  disabled={!isLeader}
+                  onStart={stageTimerStart}
+                  onPause={stageTimerPause}
+                  onShift={stageTimerShift}
+                  onAfterZero={stageTimerAfterZero}
+                  onRemove={() => stageTimerSet(null)}
+                  onOpenChange={setStageTimerOpen}
+                />
               </ToolZone>
               {folded('app') ? (
                 !moreFirst && (
@@ -3628,7 +3679,7 @@ export function Control() {
               activeStanza={songsPanelStanza}
               onActiveStanzaChange={setSongsPanelStanza}
               onAddToPlaylist={addSongToPlaylist}
-              keysPaused={paletteOpen || moreShown || countdownOpen}
+              keysPaused={paletteOpen || moreShown || toolOpen}
               onSongEnd={songEnd}
             />
             <TextPanel

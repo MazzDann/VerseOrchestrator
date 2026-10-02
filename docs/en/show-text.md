@@ -140,6 +140,25 @@ If the time chosen with **until…** has already passed today, the countdown run
 tomorrow, but only when it is at most 12 hours away: at 23:50 you can choose 00:10.
 Otherwise the field says “This time has already passed” and the countdown doesn't start.
 
+## Give the speaker a timer
+
+The speaker timer is a time that only the speaker sees, in the **Stage** window, on the right
+under **NEXT**. The audience's screen and their phones don't show it.
+
+To start the timer:
+
+1. At the top of the control window, to the right of **Countdown**, click the **Speaker timer**
+   icon.
+2. Choose the minutes, or type your own in the **Length** field: 7, 7:30, or 1:05:00.
+3. Optional: in the **After zero** row, choose what the time does when it is up, as for the
+   countdown.
+4. Click **Start on Stage**.
+
+While the timer runs, its icon is highlighted. To change the timer, click the icon again: it has
+**Pause** / **Resume**, **−1 min** and **+1 min**, **Remove the timer**, and **After zero**. The
+timer takes its colors and format from the **Countdown** section of the appearance settings —
+see [Set up the countdown's look](appearance.md#set-up-the-countdowns-look).
+
 ## Open output windows
 
 An output window is a separate browser window for the viewers or the speaker. There are two
