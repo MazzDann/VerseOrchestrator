@@ -244,6 +244,30 @@ internet. If you went back from version 1.4.1 or later and it is still the lates
 have to download it again: **Updates** offers **Restart and update** at once. After going
 back from 1.4.0, the archive has to be downloaded again.
 
+### Install another version
+
+An app installed from an archive can switch to any regular version from 1.0.0 on, newer or
+older:
+
+1. In **Settings** → **App** → **Updates**, choose the version in the list next to the
+   download button. If there is no list yet, click **Check now**.
+2. Click **Download version …**. The app downloads its archive, checks the checksum, and
+   unpacks it alongside, as for an update.
+3. Close the output windows and click **Restart with version …** (for a newer version,
+   **Restart and update**).
+
+To change your mind before the restart, choose another version in the list and download it:
+it replaces the one downloaded.
+
+An older version doesn't know what came later: it may reset some settings to their defaults.
+So [save a backup](#save-a-backup) before you switch: after coming back, you can restore
+everything in it.
+
+To come back to the version you switched from, click **Go back to version …**. Versions before
+1.4.0 don't have that button yet: from them, you can only update to the newest version, which
+needs the internet. If the newest is the one you switched from, it doesn't need downloading
+again.
+
 ### Update by hand
 
 Versions before 1.0.0 can't update themselves. To update such a version, or if the update

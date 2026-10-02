@@ -12,6 +12,7 @@ import {
   findUnpackedApp,
   hasRollback,
   NEXT_DIR,
+  NEXT_RECORD,
   PREVIOUS_DIR,
   TOP_FILES_DIR,
   unpackCommand,
@@ -134,7 +135,7 @@ describe('installing an update (1.0.0)', () => {
     const top = tempDir();
     fs.mkdirSync(path.join(top, 'app'));
     const dataDir = path.join(top, 'data');
-    const inst = createInstaller({ top, dataDir, platform: PLATFORM, fetch });
+    const inst = createInstaller({ top, dataDir, platform: PLATFORM, fetch, current: '1.0.0' });
     expect(inst.start(latest)).toBe(true);
     await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 15_000 });
     return { top, dataDir, inst };
@@ -160,6 +161,10 @@ describe('installing an update (1.0.0)', () => {
     );
     expect(inst.prepareRollback()).toBe('1.3.1');
     expect(inst.readyVersion()).toBe('1.3.1');
+    // a swap that doesn't finish leaves it there: offered again (1.6.2)
+    expect(
+      JSON.parse(fs.readFileSync(path.join(inst.updatesDir, NEXT_RECORD), 'utf8')),
+    ).toMatchObject({ version: '1.3.1' });
     expect(fs.existsSync(prev)).toBe(false);
     expect(inst.previousVersion()).toBeNull();
   });
@@ -173,11 +178,20 @@ describe('installing an update (1.0.0)', () => {
     expect(fs.existsSync(path.join(top, NEXT_DIR, LAYOUT_MARKER))).toBe(true);
     // the start file and the notes wait for the swap; the archive is gone
     const updates = path.join(dataDir, 'updates');
-    expect(fs.readdirSync(path.join(updates, TOP_FILES_DIR)).sort()).toEqual([
+    expect(fs.readdirSync(path.join(updates, TOP_FILES_DIR, '1.0.1')).sort()).toEqual([
       'start.sh',
       'ЯК ЗАПУСТИТИ.txt',
     ]);
-    expect(fs.readdirSync(updates).sort()).toEqual([TOP_FILES_DIR]);
+    expect(fs.readdirSync(updates).sort()).toEqual([NEXT_RECORD, TOP_FILES_DIR]);
+    // this version put it there: a restart of it offers it again, whether or not it is the newest
+    // (1.6.2); the same folder after an update by hand (another version running) only if newest
+    expect(inst.waiting(null)).toBe('1.0.1');
+    const byHand = createInstaller({ top, dataDir, current: '1.0.2' });
+    expect(byHand.waiting(null)).toBeNull();
+    expect(byHand.waiting('1.0.1')).toBe('1.0.1');
+    // not a release copy: never
+    fs.rmSync(path.join(top, NEXT_DIR, LAYOUT_MARKER));
+    expect(inst.waiting('1.0.1')).toBeNull();
   });
 
   it('refuses a damaged archive, no archive for this system, and no connection', async () => {
@@ -317,7 +331,12 @@ describe('going back, and what a swap leaves behind (1.4.1)', () => {
     expect(exec).not.toHaveBeenCalled();
     expect(inst.state().phase).toBe('restarting');
     expect(versionIn(top, NEXT_DIR)).toBe('1.4.0');
-    expect(fs.readdirSync(inst.updatesDir).sort()).toEqual(['node', 'plan.json', 'swap.mts']);
+    expect(fs.readdirSync(inst.updatesDir).sort()).toEqual([
+      NEXT_RECORD,
+      'node',
+      'plan.json',
+      'swap.mts',
+    ]);
   });
 
   it('a download a rollback overtakes leaves app.next to the version brought back', async () => {
@@ -343,7 +362,8 @@ describe('going back, and what a swap leaves behind (1.4.1)', () => {
     await vi.waitFor(
       () => {
         expect(overtaken).toBe(true);
-        expect(fs.readdirSync(updates)).toEqual([]);
+        // only the rollback's record of what it put in app.next (1.6.2)
+        expect(fs.readdirSync(updates)).toEqual([NEXT_RECORD]);
       },
       { timeout: 15_000 },
     );
@@ -492,11 +512,25 @@ describe('going back, and what a swap leaves behind (1.4.1)', () => {
 
     // an update: the release's top files, app.previous left alone
     appFolder(top, PREVIOUS_DIR, '1.3.1');
-    const update = inst.prepareSwap({ ...swap, kind: 'update', to: '1.4.0' });
+    const topFiles = path.join(inst.updatesDir, TOP_FILES_DIR, '1.4.2');
+    fs.mkdirSync(topFiles, { recursive: true });
+    const update = inst.prepareSwap({ ...swap, kind: 'update', to: '1.4.2' });
     const up = JSON.parse(fs.readFileSync(update.plan, 'utf8')) as SwapPlan;
-    expect(up.topFiles).toBe(path.join(inst.updatesDir, TOP_FILES_DIR));
+    expect(up.topFiles).toBe(topFiles);
     expect(up.keepAsNext).toBeUndefined();
     expect(inst.previousVersion()).toBe('1.3.1');
+    // a version with no top files of its own here (one a rollback left in app.next): none; and
+    // one before 1.4.0 picked in the dropdown (1.6.2) keeps this one as its app.next, as a
+    // rollback to it does
+    const bare = inst.prepareSwap({ ...swap, kind: 'update', to: '1.3.9' });
+    const older = JSON.parse(fs.readFileSync(bare.plan, 'utf8')) as SwapPlan;
+    expect(older.topFiles).toBeUndefined();
+    expect(older.keepAsNext).toBe(true);
+    // …worded as a way back (every version from 1.4.0 says «Повернуто версію …»), still an
+    // update for the folders: app.previous stays
+    expect(older.kind).toBe('rollback');
+    expect(inst.previousVersion()).toBe('1.3.1');
+    expect(up.kind).toBe('update');
   });
 
   /** `<data>/updates/` as a swap leaves it: the helper's Node, its plan, the top files. */
@@ -536,6 +570,24 @@ describe('going back, and what a swap leaves behind (1.4.1)', () => {
     soon.inst.tidy(now);
     expect(fs.readdirSync(soon.dir).sort()).toEqual(['result.json', 'swap.log']);
     expect(soon.inst.lastSwap('1.4.0', now)).toMatchObject({ ok: true, at: now - HOUR });
+  });
+
+  it('a swap that failed: the version in app.next keeps its top files for the next try (1.6.2)', () => {
+    const now = Date.now();
+    const { inst, dir } = afterSwap({ ok: false, at: now - HOUR });
+    const top = path.dirname(path.dirname(dir));
+    appFolder(top, NEXT_DIR, '1.3.0');
+    fs.mkdirSync(path.join(dir, TOP_FILES_DIR, '1.3.0'));
+    fs.writeFileSync(path.join(dir, TOP_FILES_DIR, '1.3.0', 'start.sh'), '1.3.0');
+    fs.writeFileSync(
+      path.join(dir, NEXT_RECORD),
+      JSON.stringify({ version: '1.3.0', by: '1.4.0' }),
+    );
+    expect(inst.tidy(now).sort()).toEqual(['node', 'plan.json', 'swap.mts']);
+    expect(fs.readdirSync(path.join(dir, TOP_FILES_DIR, '1.3.0'))).toEqual(['start.sh']);
+    // once app.next is gone (installed, or replaced by a rollback), they go too
+    fs.rmSync(path.join(top, NEXT_DIR), { recursive: true });
+    expect(inst.tidy(now).sort()).toEqual([NEXT_RECORD, TOP_FILES_DIR]);
   });
 
   it('while the helper still checks this version, its plan answers — with a steady time', () => {

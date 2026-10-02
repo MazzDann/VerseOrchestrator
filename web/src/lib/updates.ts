@@ -21,6 +21,15 @@ export function useUpdateState(): UpdateState | undefined {
 
 const BUSY = new Set(['download', 'verify', 'unpack']);
 
+/** Negative, zero or positive, like a sort comparator (server/src/updates.ts compareVersions). */
+export function compareVersions(a: string, b: string): number {
+  const parse = (v: string) => /^v?(\d+)\.(\d+)\.(\d+)$/.exec(v.trim())?.slice(1).map(Number);
+  const x = parse(a);
+  const y = parse(b);
+  if (!x || !y) return (x ? 1 : 0) - (y ? 1 : 0);
+  return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
+}
+
 /**
  * A copy of the repository (upd2, 1.6.0): has its code changed under it? Asked once a minute —
  * a `git pull` shows up in «Оновлення» and as the settings button's dot without a reload. null in
