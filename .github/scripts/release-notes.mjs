@@ -1,5 +1,6 @@
-// The notes of a GitHub release (0.14.1): the tag's own line, then how to download, start, and
-// update — in Ukrainian, then in English. Called by .github/workflows/ci.yml:
+// The notes of a GitHub release (0.14.1): the tag's own line, then what the release brings — the
+// tag message's body, Markdown, as written (1.6.4) — then how to download, start, and update, in
+// Ukrainian, then in English. Called by .github/workflows/ci.yml:
 //
 //   node .github/scripts/release-notes.mjs v0.14.1 > notes.md
 import { execFileSync } from 'node:child_process';
@@ -9,9 +10,10 @@ if (!/^v\d+\.\d+\.\d+$/.test(tag)) {
   console.error('usage: node .github/scripts/release-notes.mjs vX.Y.Z');
   process.exit(2);
 }
-const subject = execFileSync('git', ['tag', '-l', '--format=%(contents:subject)', tag], {
-  encoding: 'utf8',
-}).trim();
+const field = (name) =>
+  execFileSync('git', ['tag', '-l', `--format=%(${name})`, tag], { encoding: 'utf8' }).trim();
+const subject = field('contents:subject');
+const body = field('contents:body');
 const preview = tag.startsWith('v0.');
 
 const files = [
@@ -42,7 +44,8 @@ const uk = [
   '',
   'Оновлення: з 1.0.0 застосунок сам каже про нову версію й установлює її — **Налаштування',
   'вигляду** → **Застосунок** → **Оновлення** → **Завантажити оновлення**, потім **Перезапустити й',
-  'оновити**. Версію 0.x оновіть вручну: замініть папку `app/` папкою `app/` з нового архіву. Папки',
+  'оновити**. Там само можна вибрати й іншу версію, новішу чи старішу (від 1.6.2). Версію 0.x',
+  'оновіть вручну: замініть папку `app/` папкою `app/` з нового архіву. Папки',
   '`data/` (налаштування, бібліотека, пісні) і `modules/` лишаються. Контрольні суми архівів — у',
   '`SHA256SUMS.txt`.',
 ];
@@ -63,13 +66,15 @@ const en = [
   '',
   'Updating: from 1.0.0 on, the app tells you about a new version and installs it — **Налаштування',
   'вигляду** > **Застосунок** > **Оновлення** > **Завантажити оновлення**, then **Перезапустити й',
-  'оновити**. Update a 0.x version by hand: replace the `app/` folder with the one from the new',
+  'оновити**. You can choose another version there too, newer or older (from 1.6.2 on). Update a',
+  '0.x version by hand: replace the `app/` folder with the one from the new',
   'archive. The `data/` (settings, library, songs) and `modules/` folders stay. Archive checksums',
   'are in `SHA256SUMS.txt`.',
 ];
 
 const blocks = [
   subject && `**${subject}**`,
+  body,
   preview &&
     'Попередня версія (0.x): перший реліз буде 1.0.0. · A preview (0.x): the first release will be 1.0.0.',
   uk.join('\n'),
