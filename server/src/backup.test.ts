@@ -38,6 +38,7 @@ function dataDir(tag: string) {
   );
   fs.mkdirSync(path.join(d, 'songs', '.trash'), { recursive: true });
   fs.writeFileSync(path.join(d, 'songs', `ПС-${tag}.vosongs`), `bundle ${tag}`);
+  fs.writeFileSync(path.join(d, 'songs', `._ПС-${tag}.vosongs`), 'AppleDouble');
   fs.writeFileSync(path.join(d, 'songs', '.trash', 'old.vosongs'), 'trash');
   fs.mkdirSync(path.join(d, 'images', '.trash'), { recursive: true });
   fs.writeFileSync(path.join(d, 'images', 'index.json'), JSON.stringify({ images: [{ id: tag }] }));
@@ -49,12 +50,17 @@ function dataDir(tag: string) {
   return d;
 }
 
+const tags = (d: string) =>
+  JSON.parse(
+    JSON.parse(fs.readFileSync(path.join(d, 'ui-state.json'), 'utf8'))['vo:settings'].value,
+  ).state.tag;
+
 describe('zip (1.5.0)', () => {
-  it('writes what it reads back: UTF-8 names, deflated and stored', () => {
+  it('writes what it reads back: UTF-8 names, deflated and stored', async () => {
     const big = Buffer.alloc(100_000, 'a');
     const raw = Buffer.from([1, 2, 3]);
-    const out = unzip(
-      zip([
+    const out = await unzip(
+      await zip([
         { name: 'songs/ПС.vosongs', data: big },
         { name: 'b.bin', data: raw },
       ]),
@@ -62,21 +68,25 @@ describe('zip (1.5.0)', () => {
     expect(out.map((e) => e.name)).toEqual(['songs/ПС.vosongs', 'b.bin']);
     expect(out[0].data.equals(big)).toBe(true);
     expect(out[1].data.equals(raw)).toBe(true);
-    expect(zip([{ name: 'a', data: big }]).length).toBeLessThan(1000);
+    expect((await zip([{ name: 'a', data: big }])).length).toBeLessThan(1000);
+    // what is compressed already is stored as it is
+    const stored = await zip([{ name: 'images/a.jpg', data: big }], new Date(), () => true);
+    expect(stored.length).toBeGreaterThan(100_000);
+    expect((await unzip(stored))[0].data.equals(big)).toBe(true);
   });
 
-  it('refuses a damaged file or one that unpacks too big', () => {
-    const z = zip([{ name: 'a', data: Buffer.alloc(5000, 'x') }]);
-    expect(() => unzip(Buffer.from('not a zip at all'))).toThrow();
+  it('refuses a damaged file or one that unpacks too big', async () => {
+    const z = await zip([{ name: 'a', data: Buffer.alloc(5000, 'x') }]);
+    await expect(unzip(Buffer.from('not a zip at all'))).rejects.toThrow();
     const broken = Buffer.from(z);
     broken[40] ^= 0xff; // inside the deflated data
-    expect(() => unzip(broken)).toThrow();
-    expect(() => unzip(z, 1000)).toThrow();
+    await expect(unzip(broken)).rejects.toThrow();
+    await expect(unzip(z, 1000)).rejects.toThrow();
   });
 });
 
 describe('«Резервна копія» (1.5.0)', () => {
-  it('holds the UI state, the song bundles and the pictures — not the library, secrets or settings', () => {
+  it('holds the UI state, the song bundles and the pictures — not the library, secrets, settings or dot files', async () => {
     const d = dataDir('a');
     const names = collect(d, '1.5.0').map((e) => e.name);
     expect(names).toEqual([
@@ -86,7 +96,9 @@ describe('«Резервна копія» (1.5.0)', () => {
       'images/a.png',
       'images/index.json',
     ]);
-    const { summary } = readBackup(makeBackup(d, '1.5.0', new Date('2026-10-01T10:00:00Z')));
+    const { summary } = await readBackup(
+      await makeBackup(d, '1.5.0', new Date('2026-10-01T10:00:00Z')),
+    );
     expect(summary).toEqual({
       app: '1.5.0',
       created: '2026-10-01T10:00:00.000Z',
@@ -98,9 +110,11 @@ describe('«Резервна копія» (1.5.0)', () => {
     });
   });
 
-  it('refuses a zip that is no backup, or that carries a file it has no business writing', () => {
-    expect(() => readBackup(Buffer.from('x'))).toThrow(BackupError);
-    expect(() => readBackup(zip([{ name: 'a.txt', data: Buffer.from('x') }]))).toThrow(BackupError);
+  it('refuses a zip that is no backup, or that carries a file it has no business writing', async () => {
+    await expect(readBackup(Buffer.from('x'))).rejects.toThrow(BackupError);
+    await expect(
+      readBackup(await zip([{ name: 'a.txt', data: Buffer.from('x') }])),
+    ).rejects.toThrow(BackupError);
     const manifest = {
       name: 'manifest.json',
       data: Buffer.from(JSON.stringify({ format: 'verse-orchestrator-backup', version: 1 })),
@@ -110,24 +124,29 @@ describe('«Резервна копія» (1.5.0)', () => {
       'settings.json',
       '../x.vosongs',
       'songs/../../x.vosongs',
+      'songs/._x.vosongs',
       'images/.trash',
       'library.db',
       'images/sub/x.png',
     ])
-      expect(() => readBackup(zip([manifest, { name: evil, data: Buffer.from('x') }]))).toThrow(
-        BackupError,
-      );
-    expect(readBackup(zip([manifest])).summary.bundles).toEqual([]);
+      await expect(
+        readBackup(await zip([manifest, { name: evil, data: Buffer.from('x') }])),
+      ).rejects.toThrow(BackupError);
+    expect((await readBackup(await zip([manifest]))).summary.bundles).toEqual([]);
   });
 
-  it('restores: the backup state in place of the current one, the UI state as the newest', () => {
+  it('restores: the backup state in place of the current one, the UI state as the newest', async () => {
     const from = dataDir('a');
     const to = dataDir('b');
-    applyBackup(to, readBackup(makeBackup(from, '1.5.0')).entries, new Date(5000));
+    applyBackup(to, (await readBackup(await makeBackup(from, '1.5.0'))).entries, new Date(5000));
     const ui = JSON.parse(fs.readFileSync(path.join(to, 'ui-state.json'), 'utf8'));
-    expect(JSON.parse(ui['vo:settings'].value).state.tag).toBe('a');
+    expect(tags(to)).toBe('a');
     expect(ui['vo:settings'].at).toBe(5000);
-    expect(fs.readdirSync(path.join(to, 'songs')).sort()).toEqual(['.trash', 'ПС-a.vosongs']);
+    expect(fs.readdirSync(path.join(to, 'songs')).sort()).toEqual([
+      '._ПС-b.vosongs',
+      '.trash',
+      'ПС-a.vosongs',
+    ]);
     expect(fs.readdirSync(path.join(to, 'images')).sort()).toEqual([
       '.trash',
       'a.png',
@@ -138,23 +157,48 @@ describe('«Резервна копія» (1.5.0)', () => {
     expect(fs.readFileSync(path.join(to, 'library.db'), 'utf8')).toBe('big');
   });
 
-  it('keeps the state it replaced, and «Повернути як було» brings it back', () => {
+  it('keeps the state it replaced; «Повернути як було» brings it back and keeps what it replaces too', async () => {
     const from = dataDir('a');
     const to = dataDir('b');
-    expect(restorePending(to, '1.5.0')).toBeNull();
-    keepPending(to, makeBackup(from, '1.5.0', new Date('2026-09-01T00:00:00Z')));
-    const summary = restorePending(to, '1.5.0', new Date('2026-10-01T12:00:00Z'))!;
+    expect(await restorePending(to, '1.5.0')).toBeNull();
+    keepPending(to, await makeBackup(from, '1.5.0', new Date('2026-09-01T00:00:00Z')));
+    const at = new Date('2026-10-01T12:00:00Z');
+    const summary = (await restorePending(to, '1.5.0', at))!;
     expect(summary.created).toBe('2026-09-01T00:00:00.000Z');
     expect(fs.existsSync(path.join(to, 'songs', 'ПС-a.vosongs'))).toBe(true);
-    expect(lastRestore(to)).toMatchObject({ created: '2026-09-01T00:00:00.000Z' });
-    expect(undoRestore(to, new Date('2026-10-01T12:05:00Z'))).toBe(true);
-    expect(fs.readdirSync(path.join(to, 'songs')).filter((f) => f.endsWith('.vosongs'))).toEqual([
-      'ПС-b.vosongs',
-    ]);
-    const ui = JSON.parse(fs.readFileSync(path.join(to, 'ui-state.json'), 'utf8'));
-    expect(JSON.parse(ui['vo:settings'].value).state.tag).toBe('b');
-    expect(lastRestore(to)).toBeNull();
-    expect(undoRestore(to)).toBe(false);
+    expect(lastRestore(to, at.getTime())).toMatchObject({ created: '2026-09-01T00:00:00.000Z' });
+    // offered for a day only
+    expect(lastRestore(to, at.getTime() + 25 * 3600_000)).toBeNull();
+    // a change after the restore…
+    fs.writeFileSync(path.join(to, 'songs', 'Нові.vosongs'), 'made after the restore');
+    expect(await undoRestore(to, '1.5.0', new Date(at.getTime() + 60_000))).toBe(true);
+    expect(
+      fs.readdirSync(path.join(to, 'songs')).filter((f) => /^[^.].*\.vosongs$/.test(f)),
+    ).toEqual(['ПС-b.vosongs']);
+    expect(tags(to)).toBe('b');
+    expect(lastRestore(to, at.getTime())).toBeNull();
+    expect(await undoRestore(to, '1.5.0')).toBe(false);
+    // …is kept in the state going back replaced
+    const kept = fs
+      .readdirSync(path.join(to, 'backups'))
+      .find((f) => f.startsWith('before-undo-'))!;
+    const inside = (await readBackup(fs.readFileSync(path.join(to, 'backups', kept)))).summary;
+    expect(inside.bundles).toEqual(['Нові', 'ПС-a']);
+  });
+
+  it('a restore that fails midway still offers the way back', async () => {
+    const from = dataDir('a');
+    const to = dataDir('b');
+    keepPending(to, await makeBackup(from, '1.5.0'));
+    // a folder where the backup's picture must go: writing it fails after the songs went in
+    fs.mkdirSync(path.join(to, 'images', 'a.png'));
+    const at = new Date();
+    await expect(restorePending(to, '1.5.0', at)).rejects.toThrow();
+    expect(lastRestore(to, at.getTime())).not.toBeNull();
+    fs.rmSync(path.join(to, 'images', 'a.png'), { recursive: true });
+    expect(await undoRestore(to, '1.5.0', at)).toBe(true);
+    expect(tags(to)).toBe('b');
+    expect(fs.existsSync(path.join(to, 'songs', 'ПС-b.vosongs'))).toBe(true);
   });
 
   it('names the file by its date and time', () => {

@@ -12,7 +12,7 @@ import { unzip, zip, type ZipEntry } from './zip.js';
  * which modules to build (data/settings.json).
  *
  * Restoring keeps the state it replaces as a backup of its own first (data/backups/), so
- * «Повернути як було» can bring it back.
+ * «Повернути як було» can bring it back; going back keeps the state it replaces too.
  */
 
 export const BACKUP_FORMAT = 'verse-orchestrator-backup';
@@ -24,8 +24,15 @@ const BUNDLE_EXT = '.vosongs'; // @vo/shared songs/bundle.ts
 export const BACKUPS = 'backups';
 const PENDING = 'pending.zip';
 const LAST = 'last-restore.json';
-/** the states restores replaced, kept for «Повернути як було» (and by hand) */
-const UNDO_KEEP = 5;
+/** the states restores and their undos replaced, kept per kind (and by hand) */
+const KEEP = 5;
+/**
+ * The largest backup there is (1 GB of files): a restore reads the whole file into memory, so
+ * one larger is refused when it is made — not found out at the restore (review of #47).
+ */
+export const MAX_BACKUP_BYTES = 1024 ** 3;
+/** «Повернути як було» is for right after a restore: a day later it is no longer offered. */
+const UNDO_FOR_MS = 24 * 60 * 60 * 1000;
 
 export interface BackupManifest {
   format: typeof BACKUP_FORMAT;
@@ -51,8 +58,11 @@ export interface BackupSummary {
   pictures: number;
 }
 
-/** Why a file can't be restored (keys of the server's messages). */
+/** Why a file can't be restored, or a backup can't be made (keys of the server's messages). */
 export class BackupError extends Error {}
+
+/** Names a backup holds: never a dot file — macOS leaves `._NAME` companions on a flash drive. */
+const own = (name: string) => !name.startsWith('.') && !name.endsWith('.tmp');
 
 const filesIn = (dir: string, keep: (name: string) => boolean) => {
   try {
@@ -66,7 +76,9 @@ const filesIn = (dir: string, keep: (name: string) => boolean) => {
   }
 };
 
-/** What goes into a backup of `dataDir`, the manifest first. */
+const bundleFile = (n: string) => own(n) && n.endsWith(BUNDLE_EXT);
+
+/** What goes into a backup of `dataDir`, the manifest first. Too big: BackupError('too big'). */
 export function collect(dataDir: string, app: string, now = new Date()): ZipEntry[] {
   const manifest: BackupManifest = {
     format: BACKUP_FORMAT,
@@ -74,28 +86,32 @@ export function collect(dataDir: string, app: string, now = new Date()): ZipEntr
     app,
     created: now.toISOString(),
   };
-  const out: ZipEntry[] = [
-    { name: MANIFEST, data: Buffer.from(JSON.stringify(manifest, null, 2) + '\n') },
-  ];
+  const files: [string, string][] = [];
   const ui = path.join(dataDir, UI_FILE);
-  if (fs.existsSync(ui)) out.push({ name: UI_FILE, data: fs.readFileSync(ui) });
+  if (fs.existsSync(ui)) files.push([UI_FILE, ui]);
   const songs = path.join(dataDir, SONGS);
-  for (const f of filesIn(songs, (n) => n.endsWith(BUNDLE_EXT)))
-    out.push({ name: `${SONGS}/${f}`, data: fs.readFileSync(path.join(songs, f)) });
+  for (const f of filesIn(songs, bundleFile)) files.push([`${SONGS}/${f}`, path.join(songs, f)]);
   const images = path.join(dataDir, IMAGES);
-  for (const f of filesIn(images, (n) => !n.startsWith('.') && !n.endsWith('.tmp')))
-    out.push({ name: `${IMAGES}/${f}`, data: fs.readFileSync(path.join(images, f)) });
-  return out;
+  for (const f of filesIn(images, own)) files.push([`${IMAGES}/${f}`, path.join(images, f)]);
+  const total = files.reduce((n, [, p]) => n + fs.statSync(p).size, 0);
+  if (total > MAX_BACKUP_BYTES) throw new BackupError('too big');
+  return [
+    { name: MANIFEST, data: Buffer.from(JSON.stringify(manifest, null, 2) + '\n') },
+    ...files.map(([name, p]) => ({ name, data: fs.readFileSync(p) })),
+  ];
 }
 
+/** A picture's file is compressed already: stored as it is (deflate would only cost time). */
+const compressed = (name: string) => name.startsWith(`${IMAGES}/`) && !name.endsWith('.json');
+
 export const makeBackup = (dataDir: string, app: string, now = new Date()) =>
-  zip(collect(dataDir, app, now), now);
+  zip(collect(dataDir, app, now), now, compressed);
 
 /** Only these names are restored: never a path out of data/, never another file of it. */
 const ALLOWED = [
-  new RegExp(`^${MANIFEST}$`),
-  new RegExp(`^${UI_FILE.replace('.', '\\.')}$`),
-  /^songs\/[^/\\]+\.vosongs$/,
+  /^manifest\.json$/,
+  /^ui-state\.json$/,
+  /^songs\/[^/\\.][^/\\]*\.vosongs$/,
   /^images\/[^/\\.][^/\\]*$/,
 ];
 const allowed = (name: string) =>
@@ -104,10 +120,12 @@ const allowed = (name: string) =>
 const count = (v: unknown) => (Array.isArray(v) ? v.length : 0);
 
 /** Read a backup file: its entries and what it holds. Refuses anything else. */
-export function readBackup(buf: Buffer): { entries: ZipEntry[]; summary: BackupSummary } {
+export async function readBackup(
+  buf: Buffer,
+): Promise<{ entries: ZipEntry[]; summary: BackupSummary }> {
   let entries: ZipEntry[];
   try {
-    entries = unzip(buf);
+    entries = await unzip(buf, MAX_BACKUP_BYTES + 16 * 1024 * 1024);
   } catch {
     throw new BackupError('not a zip');
   }
@@ -190,9 +208,9 @@ export function applyBackup(dataDir: string, entries: ZipEntry[], now = new Date
     writeJson(path.join(dataDir, UI_FILE), fresh);
   }
   const songs = path.join(dataDir, SONGS);
-  for (const f of filesIn(songs, (n) => n.endsWith(BUNDLE_EXT))) fs.rmSync(path.join(songs, f));
+  for (const f of filesIn(songs, bundleFile)) fs.rmSync(path.join(songs, f));
   const images = path.join(dataDir, IMAGES);
-  for (const f of filesIn(images, (n) => !n.startsWith('.'))) fs.rmSync(path.join(images, f));
+  for (const f of filesIn(images, own)) fs.rmSync(path.join(images, f));
   for (const e of entries) {
     if (e.name.startsWith(`${SONGS}/`) || e.name.startsWith(`${IMAGES}/`))
       put(path.join(dataDir, ...e.name.split('/')), e.data);
@@ -215,40 +233,68 @@ export interface LastRestore {
   undo: string;
 }
 
-export function lastRestore(dataDir: string): LastRestore | null {
+/** The last restore while «Повернути як було» is offered: a day, and while its file is there. */
+export function lastRestore(dataDir: string, now = Date.now()): LastRestore | null {
   const last = readJson<LastRestore | null>(path.join(backupsDir(dataDir), LAST), null);
-  return last && fs.existsSync(path.join(backupsDir(dataDir), last.undo)) ? last : null;
+  if (!last || typeof last.undo !== 'string' || !/^before-[\w.-]+\.zip$/.test(last.undo))
+    return null;
+  if (!(now - Date.parse(last.at) < UNDO_FOR_MS)) return null;
+  return fs.existsSync(path.join(backupsDir(dataDir), last.undo)) ? last : null;
+}
+
+const stamp = (now: Date) => now.toISOString().replace(/[:.]/g, '-');
+
+/** Keep the state about to be replaced as `before-<kind>-<stamp>.zip`; the oldest of a kind go. */
+async function keepBefore(
+  dataDir: string,
+  kind: 'restore' | 'undo',
+  app: string,
+  now: Date,
+): Promise<string> {
+  const dir = backupsDir(dataDir);
+  const name = `before-${kind}-${stamp(now)}.zip`;
+  put(path.join(dir, name), await makeBackup(dataDir, app, now));
+  const kept = filesIn(dir, (n) => n.startsWith(`before-${kind}-`));
+  for (const old of kept.slice(0, Math.max(0, kept.length - KEEP)))
+    fs.rmSync(path.join(dir, old), { force: true });
+  return name;
 }
 
 /**
- * Restore the pending file: first the current state as a backup of its own (the way back),
- * then the file's. Null: nothing pending.
+ * Restore the pending file: first the current state as a backup of its own (the way back) and
+ * the note that offers it — written before anything changes, so a restore that fails midway
+ * still offers «Повернути як було» (review of #47) — then the file's. Null: nothing pending.
  */
-export function restorePending(
+export async function restorePending(
   dataDir: string,
   app: string,
   now = new Date(),
-): BackupSummary | null {
+): Promise<BackupSummary | null> {
   const dir = backupsDir(dataDir);
   const pending = path.join(dir, PENDING);
   if (!fs.existsSync(pending)) return null;
-  const { entries, summary } = readBackup(fs.readFileSync(pending));
-  const undo = `before-restore-${now.toISOString().replace(/[:.]/g, '-')}.zip`;
-  put(path.join(dir, undo), makeBackup(dataDir, app, now));
+  const { entries, summary } = await readBackup(fs.readFileSync(pending));
+  const undo = await keepBefore(dataDir, 'restore', app, now);
+  writeJson(path.join(dir, LAST), { created: summary.created, at: now.toISOString(), undo });
   applyBackup(dataDir, entries, now);
   fs.rmSync(pending, { force: true });
-  writeJson(path.join(dir, LAST), { created: summary.created, at: now.toISOString(), undo });
-  const kept = filesIn(dir, (n) => n.startsWith('before-restore-'));
-  for (const old of kept.slice(0, Math.max(0, kept.length - UNDO_KEEP)))
-    fs.rmSync(path.join(dir, old), { force: true });
   return summary;
 }
 
-/** «Повернути як було»: the state the last restore replaced. False: nothing to go back to. */
-export function undoRestore(dataDir: string, now = new Date()): boolean {
-  const last = lastRestore(dataDir);
+/**
+ * «Повернути як було»: the state the last restore replaced. What is there now — the restored
+ * state and whatever was changed since — is kept first (data/backups/before-undo-…), so going
+ * back loses nothing either (review of #47). False: nothing to go back to.
+ */
+export async function undoRestore(
+  dataDir: string,
+  app: string,
+  now = new Date(),
+): Promise<boolean> {
+  const last = lastRestore(dataDir, now.getTime());
   if (!last) return false;
-  const { entries } = readBackup(fs.readFileSync(path.join(backupsDir(dataDir), last.undo)));
+  const { entries } = await readBackup(fs.readFileSync(path.join(backupsDir(dataDir), last.undo)));
+  await keepBefore(dataDir, 'undo', app, now);
   applyBackup(dataDir, entries, now);
   fs.rmSync(path.join(backupsDir(dataDir), LAST), { force: true });
   return true;

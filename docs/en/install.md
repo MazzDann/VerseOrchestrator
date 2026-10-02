@@ -281,9 +281,14 @@ To restore a backup on this or another computer:
    click **Restore**.
 3. Click **Restore**. The control window reloads with the restored state.
 
-The app keeps the state the backup replaced in the `data/backups/` folder. To bring it back,
-click **Go back to how it was** in the **Backup** section. Other windows and browsers take
-the restored settings when you open them again.
+Other open control windows take the restored settings at once.
+
+The app keeps the state the backup replaced in the `data/backups/` folder. For a day after the
+restore you can bring it back: click **Go back to how it was** in the **Backup** section and
+confirm with **Bring back**. What was changed after the restore is kept in `data/backups/`
+too.
+
+A backup can be up to 1 GB. If the images take more, the app says so and makes no backup.
 
 ## Make a portable copy
 

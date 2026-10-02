@@ -1,16 +1,22 @@
+import { promisify } from 'node:util';
 import zlib from 'node:zlib';
 
 /**
  * A small zip writer and reader (1.5.0, the backup): Node's own deflate and CRC-32, no package.
  * A backup is a .zip so that Explorer, Finder or any archiver opens it to look inside. Enough of
  * the format for that: deflate or stored entries, UTF-8 names, under 4 GB (no zip64), no
- * encryption, no spanning.
+ * encryption, no spanning. Deflate and inflate run on the thread pool (async): a backup of
+ * pictures takes seconds of CPU, and the hub — phones, remotes, the output windows' commands —
+ * must not stop meanwhile (review of #47).
  */
 
 export interface ZipEntry {
   name: string;
   data: Buffer;
 }
+
+const deflateRaw = promisify(zlib.deflateRaw);
+const inflateRaw = promisify(zlib.inflateRaw);
 
 const LOCAL = 0x04034b50;
 const CENTRAL = 0x02014b50;
@@ -26,23 +32,30 @@ function dosTime(d: Date): [number, number] {
   return [time, date];
 }
 
-/** A .zip of `entries`, each deflated unless that makes it larger. */
-export function zip(entries: ZipEntry[], when = new Date()): Buffer {
+/**
+ * A .zip of `entries`: each deflated unless `stored(name)` says it is compressed already (a
+ * JPEG, a PNG: deflating them costs CPU and saves nothing) or deflating makes it larger.
+ */
+export async function zip(
+  entries: ZipEntry[],
+  when = new Date(),
+  stored: (name: string) => boolean = () => false,
+): Promise<Buffer> {
   const [time, date] = dosTime(when);
   const parts: Buffer[] = [];
   const central: Buffer[] = [];
   let offset = 0;
   for (const e of entries) {
     const name = Buffer.from(e.name, 'utf8');
-    const deflated = zlib.deflateRawSync(e.data, { level: 6 });
-    const stored = deflated.length >= e.data.length;
-    const body = stored ? e.data : deflated;
+    const deflated = stored(e.name) ? null : await deflateRaw(e.data, { level: 6 });
+    const store = !deflated || deflated.length >= e.data.length;
+    const body = store ? e.data : deflated;
     const crc = zlib.crc32(e.data);
     const head = Buffer.alloc(30);
     head.writeUInt32LE(LOCAL, 0);
     head.writeUInt16LE(20, 4); // version needed: 2.0
     head.writeUInt16LE(UTF8, 6);
-    head.writeUInt16LE(stored ? 0 : 8, 8);
+    head.writeUInt16LE(store ? 0 : 8, 8);
     head.writeUInt16LE(time, 10);
     head.writeUInt16LE(date, 12);
     head.writeUInt32LE(crc, 14);
@@ -56,7 +69,7 @@ export function zip(entries: ZipEntry[], when = new Date()): Buffer {
     dir.writeUInt16LE(20, 4); // made by: 2.0
     dir.writeUInt16LE(20, 6);
     dir.writeUInt16LE(UTF8, 8);
-    dir.writeUInt16LE(stored ? 0 : 8, 10);
+    dir.writeUInt16LE(store ? 0 : 8, 10);
     dir.writeUInt16LE(time, 12);
     dir.writeUInt16LE(date, 14);
     dir.writeUInt32LE(crc, 16);
@@ -83,9 +96,10 @@ export class ZipError extends Error {}
 /**
  * The entries of a .zip (directories left out). Refuses what it can't read whole and right:
  * a damaged or foreign file, a method other than store / deflate, a wrong CRC, or more than
- * `maxBytes` unpacked (a zip bomb).
+ * `maxBytes` unpacked (a zip bomb). Sizes come from the central directory, so a zip whose
+ * local headers leave them to a data descriptor (bit 3 — Explorer, Archive Utility) reads too.
  */
-export function unzip(buf: Buffer, maxBytes = 2 * 1024 ** 3): ZipEntry[] {
+export async function unzip(buf: Buffer, maxBytes = 2 * 1024 ** 3): Promise<ZipEntry[]> {
   let end = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 65535); i--) {
     if (buf.readUInt32LE(i) === END) {
@@ -118,9 +132,13 @@ export function unzip(buf: Buffer, maxBytes = 2 * 1024 ** 3): ZipEntry[] {
     total += size;
     if (total > maxBytes) throw new ZipError('too big');
     let data: Buffer;
-    if (method === 0) data = Buffer.from(body);
-    else if (method === 8) data = zlib.inflateRawSync(body, { maxOutputLength: size + 1 });
-    else throw new ZipError('method');
+    try {
+      if (method === 0) data = Buffer.from(body);
+      else if (method === 8) data = await inflateRaw(body, { maxOutputLength: size + 1 });
+      else throw new ZipError('method');
+    } catch (e) {
+      throw e instanceof ZipError ? e : new ZipError('damaged');
+    }
     if (data.length !== size || zlib.crc32(data) !== crc) throw new ZipError('damaged');
     out.push({ name, data });
   }

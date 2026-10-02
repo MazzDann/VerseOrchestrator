@@ -16,6 +16,7 @@ import {
   isRemoteOnline,
   notifyAllowed,
   notifyRemotesChanged,
+  notifyUiStateRestored,
   publishLive,
   viewerCount,
   controlWindowsRoute,
@@ -63,6 +64,7 @@ import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
 import {
   BackupError,
   backupName,
+  MAX_BACKUP_BYTES,
   keepPending,
   lastRestore,
   makeBackup,
@@ -693,15 +695,32 @@ app.post(
 // ── «Резервна копія» (1.5.0, backup.ts): one .zip of the operator's own things ───────────
 
 /** The operator's backup — local control only: it holds their programs, songs, pictures. */
-app.get('/api/backup', requireLocalControl, (_req, res) => {
-  const started = Date.now();
-  const now = new Date();
-  const buf = makeBackup(dataDir, appVersion, now);
-  console.log(`[server] backup: ${Math.round(buf.length / 1024)} KB in ${Date.now() - started} ms`);
-  res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', `attachment; filename="${backupName(now)}"`);
-  res.send(buf);
-});
+app.get(
+  '/api/backup',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    const started = Date.now();
+    const now = new Date();
+    let buf: Buffer;
+    try {
+      buf = await makeBackup(dataDir, appVersion, now);
+    } catch (e) {
+      // one that could never be restored is not made (review of #47)
+      if (e instanceof BackupError)
+        throw new ApiError(
+          413,
+          N_('Копія завелика: понад 1 ГБ. Приберіть частину зображень і збережіть ще раз.'),
+        );
+      throw e;
+    }
+    console.log(
+      `[server] backup: ${Math.round(buf.length / 1024)} KB in ${Date.now() - started} ms`,
+    );
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${backupName(now)}"`);
+    res.send(buf);
+  }),
+);
 
 const backupRefusal = (e: unknown) =>
   e instanceof BackupError
@@ -712,11 +731,12 @@ const backupRefusal = (e: unknown) =>
 app.post(
   '/api/backup/check',
   requireLocalControl,
-  express.raw({ type: () => true, limit: '1gb' }),
+  // a backup is at most 1 GB of files (backup.ts), its zip a little more
+  express.raw({ type: () => true, limit: MAX_BACKUP_BYTES + 16 * 1024 * 1024 }),
   wrap(async (req, res) => {
     const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
     try {
-      const { summary } = readBackup(buf);
+      const { summary } = await readBackup(buf);
       keepPending(dataDir, buf);
       res.json(summary);
     } catch (e) {
@@ -734,12 +754,18 @@ app.post(
     const started = Date.now();
     let summary;
     try {
-      summary = restorePending(dataDir, appVersion);
+      summary = await restorePending(dataDir, appVersion);
     } catch (e) {
       throw backupRefusal(e);
     }
     if (!summary) throw new ApiError(409, N_('Спершу виберіть файл копії ще раз'));
+    // the import's «Скасувати» doesn't reach across a restore: it would overwrite or delete a
+    // restored bundle (review of #47)
+    lastImport = null;
     refreshSongs(bundlesDir(dataDir));
+    // every control window takes the restored settings now — one still open would else send
+    // its old ones back with its next change (review of #47)
+    notifyUiStateRestored();
     console.log(
       `[server] backup: restored the one from ${summary.created} (${Date.now() - started} ms)`,
     );
@@ -756,8 +782,11 @@ app.post(
   requireLocalControl,
   wrap(async (_req, res) => {
     notDuringRebuild();
-    if (!undoRestore(dataDir)) throw new ApiError(409, N_('Повертати вже нічого'));
+    if (!(await undoRestore(dataDir, appVersion)))
+      throw new ApiError(409, N_('Повертати вже нічого'));
+    lastImport = null;
     refreshSongs(bundlesDir(dataDir));
+    notifyUiStateRestored();
     console.log('[server] backup: back to the state before the last restore');
     res.json({ ok: true });
   }),

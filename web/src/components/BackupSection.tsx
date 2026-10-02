@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button, FileButton, Group, Paper, Stack, Text } from '@mantine/core';
 import { IconArchive, IconArrowBackUp, IconUpload } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type BackupSummary } from '../api';
+import { takeServerUiState } from '../lib/uiState';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { fmtDateTime, tr, trn, useLang } from '../i18n';
 
@@ -40,6 +41,10 @@ export function BackupSection() {
     queryFn: api.backupState,
     enabled: !off,
   });
+  // the picker forgets its file after each pick: the same file picked again counts again
+  const resetPicker = useRef<() => void>(null);
+  // «Повернути як було» asks first: it replaces what was changed since the restore
+  const [confirmUndo, setConfirmUndo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [checking, setChecking] = useState(false);
   const [pending, setPending] = useState<BackupSummary | null>(null);
@@ -73,17 +78,25 @@ export function BackupSection() {
       fail(e);
     } finally {
       setChecking(false);
+      resetPicker.current?.();
     }
   };
   const reloadAfter = async (act: () => Promise<unknown>, message: string) => {
     setBusy(true);
     try {
       await act();
+      // the restored state here first (and in this browser's other windows), then the reload:
+      // nothing of the old state is left to send back (review of #47)
+      await takeServerUiState();
       notifications.show({ message, color: 'green', autoClose: 2000 });
       window.setTimeout(() => window.location.reload(), 700);
     } catch (e) {
       fail(e);
       setBusy(false);
+      // a restore that failed midway: its file is used up, the way back is offered
+      setPending(null);
+      setConfirmUndo(false);
+      void state.refetch();
     }
   };
 
@@ -114,7 +127,11 @@ export function BackupSection() {
             >
               {tr('Зберегти копію')}
             </Button>
-            <FileButton onChange={(f) => void pick(f)} accept=".zip,application/zip">
+            <FileButton
+              onChange={(f) => void pick(f)}
+              accept=".zip,application/zip"
+              resetRef={resetPicker}
+            >
               {(props) => (
                 <Button
                   {...props}
@@ -180,28 +197,57 @@ export function BackupSection() {
             </Paper>
           )}
           {last && !pending && (
-            <Group gap="xs" wrap="nowrap" justify="space-between">
-              <Text size="xs" c="dimmed" style={{ minWidth: 0 }}>
-                {tr('Відновлено {at} з копії від {when}.', {
-                  at: when(last.at),
-                  when: when(last.created),
-                })}
-              </Text>
-              <Button
-                size="compact-xs"
-                variant="light"
-                leftSection={<IconArrowBackUp size={14} />}
-                loading={busy}
-                onClick={() =>
-                  void reloadAfter(
-                    api.undoRestore,
-                    tr('Повернуто як було. Вікно перезавантажується…'),
-                  )
-                }
-              >
-                {tr('Повернути як було')}
-              </Button>
-            </Group>
+            <div>
+              <Group gap="xs" wrap="nowrap" justify="space-between">
+                <Text size="xs" c="dimmed" style={{ minWidth: 0 }}>
+                  {tr('Відновлено {at} з копії від {when}.', {
+                    at: when(last.at),
+                    when: when(last.created),
+                  })}
+                </Text>
+                {!confirmUndo && (
+                  <Button
+                    size="compact-xs"
+                    variant="light"
+                    leftSection={<IconArrowBackUp size={14} />}
+                    onClick={() => setConfirmUndo(true)}
+                  >
+                    {tr('Повернути як було')}
+                  </Button>
+                )}
+              </Group>
+              {confirmUndo && (
+                <Paper withBorder p="xs" radius="md" mt={6}>
+                  <Text size="xs" mb={6}>
+                    {tr(
+                      'Повернеться стан до відновлення. Те, що змінено після нього, буде замінено, але збережеться окремо в папці data/backups/.',
+                    )}
+                  </Text>
+                  <Group gap="xs">
+                    <Button
+                      size="xs"
+                      loading={busy}
+                      onClick={() =>
+                        void reloadAfter(
+                          api.undoRestore,
+                          tr('Повернуто як було. Вікно перезавантажується…'),
+                        )
+                      }
+                    >
+                      {tr('Повернути')}
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="default"
+                      disabled={busy}
+                      onClick={() => setConfirmUndo(false)}
+                    >
+                      {tr('Скасувати')}
+                    </Button>
+                  </Group>
+                </Paper>
+              )}
+            </div>
           )}
         </Stack>
       )}
