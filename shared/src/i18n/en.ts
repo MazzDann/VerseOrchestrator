@@ -1379,8 +1379,24 @@ export const EN: Record<string, string> = {
     'You have the latest version ({current}). Checked {when}.',
   Оновлення: 'Updates',
   'Що нового': 'What’s new',
+  'Щоб оновити копію репозиторію, виконайте git pull — застосунок запропонує перезапуститися.':
+    'To update a clone of the repository, run git pull — the app offers to restart.',
   'Щоб оновити копію репозиторію, виконайте git pull і запустіть застосунок.':
     'To update a clone of the repository, run git pull and start the app.',
+  // upd2 (1.6.0)
+  'Код застосунку змінився: {from} → {to}.': "The app's code has changed: {from} → {to}.",
+  Перезапустити: 'Restart',
+  'Застосунок перебудує інтерфейс і запуститься знову у фоні — вікно запуску закриється. Сторінка оновиться сама.':
+    'The app rebuilds its interface and starts again in the background — the start window closes. The page reloads by itself.',
+  'Перезапускаю застосунок з новим кодом…': 'Restarting the app with the new code…',
+  'Застосунок не відповідає після перезапуску. Запустіть його файлом запуску; що сталося — у data/standby.log.':
+    "The app doesn't answer after the restart. Start it with the start file; what happened is in data/standby.log.",
+  'Код застосунку змінився — див. «Застосунок» → «Оновлення»':
+    "The app's code has changed — see “App” → “Updates”",
+  'Перезапускати сам уміє лише застосунок з копії репозиторію, запущений файлом запуску':
+    'Only an app run from a clone of the repository with the start file can restart itself',
+  'Застосунок перезапускається з новим кодом: він запуститься сам, у фоні.':
+    'The app is restarting with the new code: it starts by itself, in the background.',
   'Перевірити зараз': 'Check now',
   'Перевіряти оновлення': 'Check for updates',
   'Доступна версія {version} — див. «Застосунок» → «Оновлення»':

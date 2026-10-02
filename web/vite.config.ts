@@ -92,7 +92,11 @@ export default defineConfig({
   // The browser DB engine runs in a module worker (lib/engine/worker.ts).
   worker: { format: 'es' },
   // One version for the whole app (root package.json), shown in the settings panel.
-  define: { __APP_VERSION__: JSON.stringify(rootPkg.version) },
+  // …and what this build is made from: the page reloads when the app serves another (1.6.0)
+  define: {
+    __APP_VERSION__: JSON.stringify(rootPkg.version),
+    __APP_BUILD__: JSON.stringify(uiStamp(path.resolve(__dirname, '..'))),
+  },
   // Ensure single instances across all pre-bundled deps. Duplicated @mantine
   // packages break shared stores (a store created in one copy would not match the
   // component reading it from another).

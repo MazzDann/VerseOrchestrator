@@ -20,6 +20,8 @@
  *   POST /__standby/relaunch  stop the app, close, start a fresh waiter (new port)
  *   POST /__standby/shutdown  stop the app and close now («Вимкнути повністю», 0.7.1)
  *   POST /__standby/update    the same, for an update: swap.ts starts the new version (1.0.0)
+ *   POST /__standby/restart   the same, for a copy of the repository whose code changed: the app
+ *                             has started the launcher again, which waits for this one (1.6.0)
  *
  * Only node: imports, no TS-only syntax — Node runs this file as it is
  * (`node server/src/standby.ts`, type stripping); tsx is loaded only for the app itself.
@@ -42,7 +44,7 @@ export interface RunningApp {
 
 export type StandbyState = 'waiting' | 'starting' | 'running' | 'stopping';
 
-export type ShutdownReason = 'retire' | 'shutdown' | 'close' | 'update';
+export type ShutdownReason = 'retire' | 'shutdown' | 'close' | 'update' | 'restart';
 
 export interface StandbyOptions {
   port: number;
@@ -233,8 +235,9 @@ export function createStandby(o: StandbyOptions) {
       reply(200, { relaunching: true });
       relaunching = true;
       void shutdown('close');
-    } else if (action === 'shutdown' || action === 'update') {
-      // «Вимкнути повністю» or an update: now, open pages or not — they have been told (live.ts)
+    } else if (action === 'shutdown' || action === 'update' || action === 'restart') {
+      // «Вимкнути повністю», an update or a restart with new code: now, open pages or not —
+      // they have been told (live.ts) or reload themselves
       reply(200, { shuttingDown: true });
       void shutdown(action);
     } else reply(404, { error: 'unknown action' });
