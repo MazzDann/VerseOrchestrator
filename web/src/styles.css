@@ -400,6 +400,18 @@ body[data-resizing='y'] {
   }
 }
 
+/* «Відлік» on a phone (1.8.2): the screen's warning / past-zero colour as it is on a dark
+   phone; on a light one (#f6f5f1) darkened, so amber (#ffb020, 1.7:1 there) or white stays
+   readable — about 5:1 for the default amber, 7:1 for the red (review of 1.8.2). */
+.vo-follow-timer {
+  color: var(--vo-timer-color);
+}
+@media (prefers-color-scheme: light) {
+  .vo-follow-timer {
+    color: color-mix(in srgb, var(--vo-timer-color) 55%, #000);
+  }
+}
+
 /* Andika (SIL, OFL-1.1 — fonts/andika/OFL.txt; from @fontsource/andika 5.3.0) for
    «Легше читати» on /follow (0.6.21): a literacy font with Cyrillic — і ї є ґ checked glyph
    by glyph. Served with the app (a phone on the LAN may have no internet); a phone only

@@ -48,6 +48,37 @@ describe('«Заставка» and presets (1.4.0)', () => {
   });
 });
 
+describe('«Відлік» colours (1.8.2)', () => {
+  it('a preset carries them; a bad one falls back to the defaults', () => {
+    const { presetToFile, coercePreset, DEFAULT_APPEARANCE } = store;
+    const file = JSON.parse(
+      JSON.stringify(
+        presetToFile({
+          name: 'Таймер',
+          appearance: {
+            ...DEFAULT_APPEARANCE,
+            countdownWarnMinutes: 5,
+            countdownWarnColor: '#ffd43b',
+            countdownOverOn: false,
+          },
+          template: null,
+        }),
+      ),
+    );
+    const back = coercePreset(file);
+    expect(back?.appearance.countdownWarnMinutes).toBe(5);
+    expect(back?.appearance.countdownWarnColor).toBe('#ffd43b');
+    expect(back?.appearance.countdownOverOn).toBe(false);
+    const bad = coercePreset({
+      ...file,
+      appearance: { countdownWarnMinutes: 7, countdownWarnColor: 3 },
+    });
+    expect(bad?.appearance.countdownWarnMinutes).toBe(DEFAULT_APPEARANCE.countdownWarnMinutes);
+    expect(bad?.appearance.countdownWarnColor).toBe(DEFAULT_APPEARANCE.countdownWarnColor);
+    expect(bad?.appearance.countdownOverOn).toBe(true);
+  });
+});
+
 describe('the display panel below the centre (1.4.6)', () => {
   it('a layout saved before it gets the default height', () => {
     expect(store.clampLayout({ navWidth: 300, asideWidth: 640, recentHeight: 170 })).toEqual({
