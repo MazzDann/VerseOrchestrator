@@ -1,4 +1,5 @@
 import { tr } from '../i18n';
+import { phoneGif } from './gif';
 
 /** HEIF's brands — an iPhone's photos are `heic` — and AVIF's, which browsers do read. */
 const HEIF_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs']);
@@ -195,9 +196,12 @@ export async function fileToPicture(
     (file.type === 'image/gif' && file.size <= GIF_AS_IS_BYTES) ||
     (known && long <= PICTURE_MAX_SIDE && file.size <= PICTURE_AS_IS_BYTES);
   const smallAsIs = known && long <= PICTURE_SMALL_SIDE && file.size <= SMALL_AS_IS_BYTES;
+  // an animated GIF the phones would get still (over 2 MB or 1280 px): a small animated copy of
+  // its own where the browser can make one (1.7.4, lib/gif.ts) — else its first frame, as before
+  const smallGif = file.type === 'image/gif' && !smallAsIs ? await phoneGif(file) : null;
   const fullCanvas = fullAsIs ? null : drawn(img, Math.min(long, PICTURE_MAX_SIDE));
-  const smallCanvas = smallAsIs ? null : drawn(img, Math.min(long, PICTURE_SMALL_SIDE));
-  if ((!fullAsIs && !fullCanvas) || (!smallAsIs && !smallCanvas))
+  const smallCanvas = smallAsIs || smallGif ? null : drawn(img, Math.min(long, PICTURE_SMALL_SIDE));
+  if ((!fullAsIs && !fullCanvas) || (!smallAsIs && !smallGif && !smallCanvas))
     throw new Error(tr('Не вдалося прочитати зображення'));
   const probe = smallCanvas ?? fullCanvas;
   const transparent = file.type !== 'image/jpeg' && (!probe || hasTransparency(probe));
@@ -206,7 +210,7 @@ export async function fileToPicture(
   return {
     name: file.name,
     full: fullCanvas ? encode(fullCanvas, 0.9) : dataUrl,
-    small: smallCanvas ? encode(smallCanvas, 0.85) : dataUrl,
+    small: smallGif ?? (smallCanvas ? encode(smallCanvas, 0.85) : dataUrl),
     w: fullCanvas ? fullCanvas.width : w0,
     h: fullCanvas ? fullCanvas.height : h0,
   };
