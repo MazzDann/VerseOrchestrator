@@ -23,9 +23,9 @@ import {
 import { api } from '../api';
 import { sameBundleName } from '@vo/shared';
 import { tr, useLang } from '../i18n';
+import { SONG_KEYS } from '../lib/songKeys';
 
 /** What the library shows of songs after a bundle changed. */
-const SONG_KEYS = ['songs', 'song', 'song-bundles', 'song-bundle-files', 'palette-songs'];
 
 /**
  * «Бандли пісень» (1.4.0): rename a bundle (its songs keep their ids), or delete it — its row

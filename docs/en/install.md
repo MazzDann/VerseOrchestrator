@@ -282,7 +282,7 @@ To restore a backup on this or another computer:
 3. Click **Restore**. The control window reloads with the restored state.
 
 Other open control windows take the restored settings at once. While a backup is saved or
-restored, songs and images don't change: the app asks you to wait.
+restored, changes to songs and images wait until it ends.
 
 The app moves the state the backup replaced into a folder of its own in `data/backups/`: the
 song and image files stay there as they were. For a day after the restore you can bring it

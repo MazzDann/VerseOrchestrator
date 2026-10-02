@@ -1,7 +1,8 @@
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { unzip, zip } from './zip';
 import {
   applyBackup,
@@ -15,12 +16,37 @@ import {
   oneAtATime,
   readBackup,
   restorePending,
+  startChange,
   undoRestore,
 } from './backup';
 
 const dirs: string[] = [];
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
+});
+
+/** fs rename failing for a file whose path ends with `name` — `times` times, then working. */
+function renameFails(name: string, code: string, times = Infinity) {
+  const rename = fsp.rename.bind(fsp);
+  let failed = 0;
+  vi.spyOn(fsp, 'rename').mockImplementation(async (from, to) => {
+    if (String(from).endsWith(name) && failed < times) {
+      failed++;
+      throw Object.assign(new Error(`${code}: rename '${String(from)}'`), { code });
+    }
+    return rename(from, to);
+  });
+  return () => failed;
+}
+
+/** What a data folder holds of the operator's songs and pictures. */
+const state = (d: string) => ({
+  songs: fs.readdirSync(path.join(d, 'songs')).filter((f) => /^[^.].*\.vosongs$/.test(f)),
+  images: fs
+    .readdirSync(path.join(d, 'images'))
+    .filter((f) => !f.startsWith('.'))
+    .sort(),
 });
 
 /** A data folder with the operator's things — and things a backup must leave out. */
@@ -253,6 +279,77 @@ describe('«Резервна копія» (1.5.0)', () => {
     expect(await undoRestore(to, at)).toBe(true);
     expect(tags(to)).toBe('b');
     expect(fs.existsSync(path.join(to, 'songs', 'ПС-b.vosongs'))).toBe(true);
+  });
+
+  it('a move that fails puts back what it moved: a restore changes nothing, no way back is offered', async () => {
+    const from = dataDir('a');
+    const to = dataDir('b');
+    await keepPending(to, await makeBackup(from, '1.5.0'));
+    // the pictures move after the songs: the song is out when the picture can't follow
+    renameFails(path.join('images', 'b.png'), 'EIO');
+    const at = new Date();
+    await expect(restorePending(to, '1.5.0', at)).rejects.toThrow('EIO');
+    expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
+    expect(tags(to)).toBe('b');
+    expect(lastRestore(to, at.getTime())).toBeNull();
+    expect(fs.readdirSync(path.join(to, 'backups'))).toEqual(['pending.zip']);
+    // the file is still there to try again
+    vi.restoreAllMocks();
+    expect((await restorePending(to, '1.5.0', at))!.bundles).toEqual(['ПС-a']);
+  });
+
+  it('a file held a moment (Windows) is tried again', async () => {
+    const from = dataDir('a');
+    const to = dataDir('b');
+    await keepPending(to, await makeBackup(from, '1.5.0'));
+    const failed = renameFails(`ПС-b.vosongs`, 'EBUSY', 2);
+    expect(await restorePending(to, '1.5.0')).not.toBeNull();
+    expect(failed()).toBe(2);
+    expect(state(to).songs).toEqual(['ПС-a.vosongs']);
+  });
+
+  it('«Повернути як було» that fails midway leaves the restored state and the way back', async () => {
+    const from = dataDir('a');
+    const to = dataDir('b');
+    await keepPending(to, await makeBackup(from, '1.5.0'));
+    const at = new Date();
+    await restorePending(to, '1.5.0', at);
+    const was = path.join(to, 'backups', lastRestore(to, at.getTime())!.undo);
+    // the kept picture can't come back: the kept song came back already
+    renameFails(path.join(path.basename(was), 'images', 'b.png'), 'EIO');
+    await expect(undoRestore(to, at)).rejects.toThrow('EIO');
+    expect(state(to)).toEqual({ songs: ['ПС-a.vosongs'], images: ['a.png', 'index.json'] });
+    expect(state(was)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
+    expect(lastRestore(to, at.getTime())).not.toBeNull();
+    expect(fs.readdirSync(path.join(to, 'backups')).some((f) => f.startsWith('before-undo-'))).toBe(
+      false,
+    );
+    // and going back again works
+    vi.restoreAllMocks();
+    expect(await undoRestore(to, at)).toBe(true);
+    expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
+  });
+
+  it('a change to the songs or pictures and backup work wait for each other', async () => {
+    const order: string[] = [];
+    const endChange = await startChange();
+    const work = oneAtATime(async () => {
+      order.push('backup');
+    });
+    // a change asked for while backup work waits: after it
+    const later = startChange().then((end) => {
+      order.push('change 2');
+      end();
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(order).toEqual([]);
+    order.push('change 1 ends');
+    endChange();
+    endChange(); // once only
+    await work;
+    await later;
+    expect(order).toEqual(['change 1 ends', 'backup', 'change 2']);
+    expect(backupBusy()).toBe(false);
   });
 
   it('names the file by its date and time', () => {

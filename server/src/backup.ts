@@ -261,70 +261,150 @@ export function lastRestore(dataDir: string, now = Date.now()): LastRestore | nu
 
 const stamp = (now: Date) => now.toISOString().replace(/[:.]/g, '-');
 
-/** Move a file, its folder made; across drives (data/ linked elsewhere) by copying. */
+/** What Windows answers for a file another program holds a moment (an antivirus, the indexer). */
+const HELD = new Set(['EBUSY', 'EPERM', 'EACCES']);
+
+/**
+ * Move a file, its folder made; across drives (data/ linked elsewhere) by copying. A file held a
+ * moment is tried again, for a second at most (review of #47).
+ */
 async function move(from: string, to: string): Promise<void> {
   await fsp.mkdir(path.dirname(to), { recursive: true });
-  try {
-    await fsp.rename(from, to);
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e;
-    await fsp.copyFile(from, to);
-    await fsp.rm(from);
+  for (let tries = 1; ; tries++) {
+    try {
+      await fsp.rename(from, to);
+      return;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code ?? '';
+      if (code === 'EXDEV') {
+        await fsp.copyFile(from, to);
+        await fsp.rm(from);
+        return;
+      }
+      if (!HELD.has(code) || tries >= 10) throw e;
+      await new Promise((r) => setTimeout(r, 100));
+    }
   }
 }
 
-/** Move the song bundles and the pictures of one data folder (or kept state) into another. */
-async function moveState(from: string, to: string): Promise<void> {
-  const names = [
-    ...(await filesIn(path.join(from, SONGS), bundleFile)).map((f) => [SONGS, f]),
-    ...(await filesIn(path.join(from, IMAGES), own)).map((f) => [IMAGES, f]),
+/** The song bundles and the pictures of a data folder (or a kept state): [folder, name]. */
+async function stateFiles(dir: string): Promise<[string, string][]> {
+  return [
+    ...(await filesIn(path.join(dir, SONGS), bundleFile)).map((f): [string, string] => [SONGS, f]),
+    ...(await filesIn(path.join(dir, IMAGES), own)).map((f): [string, string] => [IMAGES, f]),
   ];
-  for (const [sub, f] of names) await move(path.join(from, sub, f), path.join(to, sub, f));
+}
+
+/**
+ * Move the song bundles and the pictures of one data folder (or kept state) into another — all
+ * of them or none: when one can't be moved, those already moved go back, and the error stands. A
+ * state half moved was neither the old one nor the new one, and the way back lost files
+ * (review of #47).
+ */
+async function moveState(from: string, to: string): Promise<void> {
+  const moved: [string, string][] = [];
+  try {
+    for (const [sub, f] of await stateFiles(from)) {
+      const a = path.join(from, sub, f);
+      const b = path.join(to, sub, f);
+      await move(a, b);
+      moved.push([a, b]);
+    }
+  } catch (e) {
+    for (const [a, b] of moved.reverse()) await move(b, a).catch(() => undefined);
+    throw e;
+  }
 }
 
 /**
  * A folder for the state about to be replaced, `data/backups/before-<kind>-<stamp>/`, the UI
- * state copied in (a backup without one leaves it as it is); the oldest of a kind go. The song
- * bundles and the pictures are moved in next (moveState), not packed into a zip: no copy in
- * memory and no size limit — a local zip over 2 GB could not even be read back (review of #47).
+ * state copied in (a backup without one leaves it as it is). The song bundles and the pictures
+ * are moved in next (moveState), not packed into a zip: no copy in memory and no size limit — a
+ * local zip over 2 GB could not even be read back (review of #47).
  */
 async function keepFolder(dataDir: string, kind: 'restore' | 'undo', now: Date): Promise<string> {
-  const dir = backupsDir(dataDir);
-  const name = `before-${kind}-${stamp(now)}`;
-  await fsp.mkdir(path.join(dir, name), { recursive: true });
+  const into = path.join(backupsDir(dataDir), `before-${kind}-${stamp(now)}`);
+  await fsp.mkdir(into, { recursive: true });
   const ui = path.join(dataDir, UI_FILE);
-  if (fs.existsSync(ui)) await fsp.copyFile(ui, path.join(dir, name, UI_FILE));
+  if (fs.existsSync(ui)) await fsp.copyFile(ui, path.join(into, UI_FILE));
+  return into;
+}
+
+/** A kept folder no longer needed: removed only when no song or picture is left in it. */
+async function dropFolder(folder: string): Promise<void> {
+  if ((await stateFiles(folder)).length === 0)
+    await fsp.rm(folder, { recursive: true, force: true });
+}
+
+/** The oldest kept folders of a kind go: five stay. */
+async function prune(dataDir: string, kind: 'restore' | 'undo'): Promise<void> {
+  const dir = backupsDir(dataDir);
   const kept = (await fsp.readdir(dir, { withFileTypes: true }))
     .filter((e) => e.isDirectory() && e.name.startsWith(`before-${kind}-`))
     .map((e) => e.name)
     .sort();
   for (const old of kept.slice(0, Math.max(0, kept.length - KEEP)))
     await fsp.rm(path.join(dir, old), { recursive: true, force: true });
-  return name;
 }
 
 /** Backup work running or waiting (made, checked, restored, undone). */
 let queue: Promise<unknown> = Promise.resolve();
 let queued = 0;
+/** Changes to the song bundles or the pictures under way (startChange). */
+let changing = 0;
+/** Who waits for no backup work / for no change. */
+const free: (() => void)[] = [];
+const unchanged: (() => void)[] = [];
+
+const wake = (waiting: (() => void)[]) => {
+  for (const w of waiting.splice(0)) w();
+};
+async function until(ready: () => boolean, waiting: (() => void)[]): Promise<void> {
+  while (!ready()) await new Promise<void>((r) => waiting.push(r));
+}
 
 /**
- * Backup work after the work before it: a save during a restore, or two restores from two
- * windows, read or wrote a half-replaced data/ (review of #47). The routes run it through this.
+ * Backup work after the work before it, once the changes under way have ended: a save during a
+ * restore, or two restores from two windows, read or wrote a half-replaced data/, and a change
+ * landing in the middle was lost (review of #47). The routes run it through this.
  */
 export function oneAtATime<T>(work: () => Promise<T>): Promise<T> {
   queued++;
-  const run = queue.then(work).finally(() => queued--);
+  const run = queue
+    .then(() => until(() => changing === 0, unchanged))
+    .then(work)
+    .finally(() => {
+      if (--queued === 0) wake(free);
+    });
   queue = run.catch(() => undefined);
   return run;
 }
 
-/** Backup work is running or waiting: changes to the songs and the pictures wait (index.ts). */
+/** Backup work is running or waiting. */
 export const backupBusy = () => queued > 0;
 
 /**
+ * A change to the song bundles or the pictures (index.ts — the whole request, its body
+ * included): it starts once no backup work is running or waiting, and backup work waits for it
+ * to end. Nothing is refused: an «Скасувати» that came during a save still works (review of
+ * #47). Returns its end (called once; more calls do nothing).
+ */
+export async function startChange(): Promise<() => void> {
+  await until(() => queued === 0, free);
+  changing++;
+  let ended = false;
+  return () => {
+    if (ended) return;
+    ended = true;
+    if (--changing === 0) wake(unchanged);
+  };
+}
+
+/**
  * Restore the pending file: first the current state moved into a folder of its own (the way
- * back), the note that offers it written before anything moves — a restore that fails midway
- * still offers «Повернути як було» (review of #47) — then the file's. Null: nothing pending.
+ * back) — all of it or, failing that, none — and the note that offers it, then the file's: a
+ * restore that fails after the move still offers «Повернути як було» (review of #47). Null:
+ * nothing pending.
  */
 export async function restorePending(
   dataDir: string,
@@ -335,9 +415,19 @@ export async function restorePending(
   const pending = path.join(dir, PENDING);
   if (!fs.existsSync(pending)) return null;
   const { entries, summary } = await readBackup(await fsp.readFile(pending));
-  const undo = await keepFolder(dataDir, 'restore', now);
-  writeJson(path.join(dir, LAST), { created: summary.created, at: now.toISOString(), undo });
-  await moveState(dataDir, path.join(dir, undo));
+  const kept = await keepFolder(dataDir, 'restore', now);
+  try {
+    await moveState(dataDir, kept);
+  } catch (e) {
+    await dropFolder(kept);
+    throw e;
+  }
+  writeJson(path.join(dir, LAST), {
+    created: summary.created,
+    at: now.toISOString(),
+    undo: path.basename(kept),
+  });
+  await prune(dataDir, 'restore');
   await applyBackup(dataDir, entries);
   await fsp.rm(pending, { force: true });
   return summary;
@@ -346,7 +436,8 @@ export async function restorePending(
 /**
  * «Повернути як було»: the state the last restore replaced, moved back. What is there now — the
  * restored state and whatever was changed since — is moved out first (data/backups/before-undo-…),
- * so going back loses nothing either (review of #47). The UI state goes in last, stamped as the
+ * so going back loses nothing either (review of #47). Either move failing puts everything back
+ * where it was, and the way back stays offered. The UI state goes in last, stamped as the
  * newest. False: nothing to go back to.
  */
 export async function undoRestore(dataDir: string, now = new Date()): Promise<boolean> {
@@ -355,8 +446,20 @@ export async function undoRestore(dataDir: string, now = new Date()): Promise<bo
   const dir = backupsDir(dataDir);
   const from = path.join(dir, last.undo);
   const kept = await keepFolder(dataDir, 'undo', now);
-  await moveState(dataDir, path.join(dir, kept));
-  await moveState(from, dataDir);
+  try {
+    await moveState(dataDir, kept);
+  } catch (e) {
+    await dropFolder(kept);
+    throw e;
+  }
+  try {
+    await moveState(from, dataDir);
+  } catch (e) {
+    await moveState(kept, dataDir).catch(() => undefined);
+    await dropFolder(kept);
+    throw e;
+  }
+  await prune(dataDir, 'undo');
   const ui = readJson<Record<string, { value?: unknown }> | null>(path.join(from, UI_FILE), null);
   if (ui && typeof ui === 'object') writeUiState(dataDir, ui);
   await fsp.rm(path.join(dir, LAST), { force: true });
