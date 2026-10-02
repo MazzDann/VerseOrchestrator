@@ -368,30 +368,30 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} />
   ) : null;
 
-  // --- A picture («Зображення», 1.5.0): the whole slide, on black ---------------
-  if (slide.picture) {
-    return (
-      <div style={{ ...rootStyle, background: '#000' }}>
-        <SlideFade
-          slideKey={show ? slideKey : null}
-          mode={transition}
-          style={{ position: 'absolute', inset: 0 }}
-        >
-          <PictureContent picture={slide.picture} />
-        </SlideFade>
-        {corner}
-      </div>
-    );
-  }
+  // A picture («Зображення», 1.5.0): its own layer over the whole slide, on black, under the
+  // text layer — text and picture fade into each other like any two slides (review of #46:
+  // a picture had its own root, so switching cut instead of fading)
+  const picture = show ? (slide.picture ?? null) : null;
+  const textKey = picture ? null : show ? slideKey : null;
+  const pictureLayer = (
+    <SlideFade
+      slideKey={picture ? slideKey : null}
+      mode={transition}
+      style={{ position: 'absolute', inset: 0, background: '#000' }}
+    >
+      {picture && <PictureContent picture={picture} />}
+    </SlideFade>
+  );
 
   // --- Positioned template layout ---------------------------------------------
-  const template = slide.qr || slide.cover ? null : slide.template;
+  const template = slide.qr || slide.cover || slide.picture ? null : slide.template;
   if (template) {
     return (
       <div style={rootStyle}>
         {scrim}
+        {pictureLayer}
         <SlideFade
-          slideKey={show ? slideKey : null}
+          slideKey={textKey}
           mode={transition}
           style={{
             position: 'absolute',
@@ -495,6 +495,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   return (
     <div style={rootStyle}>
       {scrim}
+      {pictureLayer}
       <div
         ref={containerRef}
         style={{
@@ -509,7 +510,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
         }}
       >
         <SlideFade
-          slideKey={show ? slideKey : null}
+          slideKey={textKey}
           mode={transition}
           layerRef={contentRef}
           style={{

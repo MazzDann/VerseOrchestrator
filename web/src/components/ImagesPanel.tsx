@@ -89,6 +89,8 @@ export function ImagesPanel({
     null,
   );
   const undoRef = useRef<HTMLButtonElement>(null);
+  // the picker forgets its files after each pick: the same ones picked again count again
+  const resetPicker = useRef<() => void>(null);
   useEffect(() => {
     if (deleted) undoRef.current?.focus();
   }, [deleted]);
@@ -115,6 +117,7 @@ export function ImagesPanel({
       }
     }
     setAdding(null);
+    resetPicker.current?.();
     setFailed(bad);
     refresh();
     const ok = files.length - bad.length;
@@ -229,6 +232,7 @@ export function ImagesPanel({
             onChange={(files) => void add(files)}
             accept="image/png,image/jpeg,image/webp,image/gif"
             multiple
+            resetRef={resetPicker}
             disabled={serverAvailable === false || !!adding}
           >
             {(props) => (

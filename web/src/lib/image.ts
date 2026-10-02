@@ -147,7 +147,11 @@ export async function fileToPicture(
   const [w0, h0] = [img.naturalWidth, img.naturalHeight];
   const long = Math.max(w0, h0);
   const known = PICTURE_TYPES.includes(file.type);
-  const fullAsIs = known && long <= PICTURE_MAX_SIDE && file.size <= PICTURE_AS_IS_BYTES;
+  // a GIF as it is, whatever its size (the server takes up to 40 MB): redrawn, an animation
+  // would be its first frame (review of #46)
+  const fullAsIs =
+    file.type === 'image/gif' ||
+    (known && long <= PICTURE_MAX_SIDE && file.size <= PICTURE_AS_IS_BYTES);
   const smallAsIs = known && long <= PICTURE_SMALL_SIDE && file.size <= SMALL_AS_IS_BYTES;
   const fullCanvas = fullAsIs ? null : drawn(img, Math.min(long, PICTURE_MAX_SIDE));
   const smallCanvas = smallAsIs ? null : drawn(img, Math.min(long, PICTURE_SMALL_SIDE));
