@@ -11,6 +11,7 @@ import {
   shiftCountdown,
   shiftUntil,
   showsTime,
+  stageTimerLook,
   freshStageTimer,
   timerColor,
   timerLook,
@@ -296,5 +297,28 @@ describe('a speaker’s timer kept in the browser (1.8.4)', () => {
     // paused, its end means nothing: it waits as it is
     const paused = { until: now - 7 * 24 * 3600_000, pausedLeft: 60_000 };
     expect(freshStageTimer(paused, now)).toBe(paused);
+  });
+});
+
+describe('the speaker timer’s own look (1.8.6)', () => {
+  it('takes its own colours, font and format; no size or words of its own', () => {
+    expect(
+      stageTimerLook({
+        stageTimerWarnMinutes: 3,
+        stageTimerWarnColor: '#ffd43b',
+        stageTimerOverOn: false,
+        stageTimerOverColor: '#e03131',
+        stageTimerFont: 'mono',
+        stageTimerFormat: 'padded',
+      }),
+    ).toEqual({
+      warnBefore: 180_000,
+      warnColor: '#ffd43b',
+      overColor: '',
+      size: 'md',
+      font: 'mono',
+      format: 'padded',
+      captionAt: 'above',
+    });
   });
 });

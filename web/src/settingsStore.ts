@@ -76,6 +76,16 @@ export interface Appearance {
   /** «Таймер доповідача» (1.8.4): the length it last ran for (whole seconds) and its «Після нуля» */
   stageTimerMinutes: number;
   stageTimerAfterZero: AfterZero;
+  /**
+   * The speaker timer's own look (1.8.6), apart from the audience's: a warning so many minutes
+   * before the end (0 — none) and its colour, a past-zero colour when on, the font and the format.
+   */
+  stageTimerWarnMinutes: number;
+  stageTimerWarnColor: string;
+  stageTimerOverOn: boolean;
+  stageTimerOverColor: string;
+  stageTimerFont: TimerFont;
+  stageTimerFormat: TimerFormat;
   /** The time's look (1.8.3): its size, font, how it is written, and where the words go. */
   countdownSize: TimerSize;
   countdownFont: TimerFont;
@@ -297,6 +307,12 @@ export const DEFAULT_APPEARANCE: Appearance = {
   countdownBeeps: false,
   stageTimerMinutes: 15,
   stageTimerAfterZero: 'overtime',
+  stageTimerWarnMinutes: 1,
+  stageTimerWarnColor: '#ffb020',
+  stageTimerOverOn: true,
+  stageTimerOverColor: '#ff5a5a',
+  stageTimerFont: 'text',
+  stageTimerFormat: 'clock',
   countdownSize: 'md',
   countdownFont: 'text',
   countdownFormat: 'clock',
@@ -377,6 +393,14 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     countdownWarnColor: strOr(m.countdownWarnColor, DEFAULT_APPEARANCE.countdownWarnColor),
     countdownOverOn: !!m.countdownOverOn,
     countdownOverColor: strOr(m.countdownOverColor, DEFAULT_APPEARANCE.countdownOverColor),
+    stageTimerWarnMinutes: (WARN_MINUTES as readonly number[]).includes(m.stageTimerWarnMinutes)
+      ? m.stageTimerWarnMinutes
+      : DEFAULT_APPEARANCE.stageTimerWarnMinutes,
+    stageTimerWarnColor: strOr(m.stageTimerWarnColor, DEFAULT_APPEARANCE.stageTimerWarnColor),
+    stageTimerOverOn: !!m.stageTimerOverOn,
+    stageTimerOverColor: strOr(m.stageTimerOverColor, DEFAULT_APPEARANCE.stageTimerOverColor),
+    stageTimerFont: lookOf({ font: m.stageTimerFont }).font,
+    stageTimerFormat: lookOf({ format: m.stageTimerFormat }).format,
     countdownSize: lookOf({ size: m.countdownSize }).size,
     countdownFont: lookOf({ font: m.countdownFont }).font,
     countdownFormat: lookOf({ format: m.countdownFormat }).format,

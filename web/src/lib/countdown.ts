@@ -98,8 +98,8 @@ export function timerLook(a: {
 
 /**
  * A speaker's timer (1.8.4, «Таймер доповідача»): shown on «Сцена» only — not on «Показ», not on
- * the phones. It counts like «Відлік» (pause, «±1 хв», «Після нуля») and takes the time's colours,
- * font and format from Налаштування вигляду → Відлік (not its size or words). It rides on every slide the control window
+ * the phones. It counts like «Відлік» (pause, «±1 хв», «Після нуля»); its colours, font and
+ * format are its own since 1.8.6 (`stageTimerLook`, Налаштування вигляду → Таймер доповідача). It rides on every slide the control window
  * pushes (`Slide.stageTimer`), so a «Сцена» that opens late or another control window that takes
  * over has it at once.
  */
@@ -119,6 +119,30 @@ export function freshStageTimer(
 
 /** The lengths offered for a speaker's timer, in minutes; any other is typed. */
 export const STAGE_MINUTES = [5, 10, 15, 20, 30, 45] as const;
+
+/**
+ * The speaker timer's own look (1.8.6; the users: settings «окреме … доповідача, пульт … і
+ * окреме … користувачам на екран»): its warning and past-zero colours, font and format, from
+ * Налаштування вигляду → Таймер доповідача. Size and words don't apply on «Сцена».
+ */
+export function stageTimerLook(a: {
+  stageTimerWarnMinutes: number;
+  stageTimerWarnColor: string;
+  stageTimerOverOn: boolean;
+  stageTimerOverColor: string;
+  stageTimerFont: TimerFont;
+  stageTimerFormat: TimerFormat;
+}): Required<TimerLook> {
+  return {
+    warnBefore: Math.max(0, a.stageTimerWarnMinutes) * 60000,
+    warnColor: a.stageTimerWarnColor,
+    overColor: a.stageTimerOverOn ? a.stageTimerOverColor : '',
+    size: 'md',
+    font: a.stageTimerFont,
+    format: a.stageTimerFormat,
+    captionAt: 'above',
+  };
+}
 
 /** Has the countdown already this look? (Only the look's own fields count.) */
 export function hasLook(c: TimerLook, look: Required<TimerLook>): boolean {
