@@ -396,8 +396,14 @@ async function updateAnswer(force: boolean) {
   };
 }
 
-/** Not while an update unpacks or the app restarts (1.4.1): installer.notNow(). */
+/**
+ * Not while an update unpacks or the app restarts (1.4.1): installer.notNow(). Nor while the
+ * library rebuilds (1.8.8): its npm child runs from app/ and outlives this process — the swap would
+ * fail with app/ in use, and the rebuild would stop halfway.
+ */
 function refuseIfNotNow(inst: NonNullable<typeof installer>) {
+  if (rebuilding)
+    throw new ApiError(409, N_('Бібліотека саме перебудовується — спробуйте за хвилину'));
   const why = inst.notNow();
   if (why) throw new ApiError(409, why);
 }
