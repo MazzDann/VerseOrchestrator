@@ -41,7 +41,7 @@ export function useLivePipeline({
   // current value rather than the one captured when the hotkey was last memoized.
   const followAlongRef = useRef(followAlong);
   followAlongRef.current = followAlong;
-  /** The hub's control socket (opened further down); preferred path for publishing. */
+  /** The hub's control socket (opened by useHub, E28); preferred path for publishing. */
   const controlConn = useRef<LiveConnection | null>(null);
   // Audience follow-along goes over the control socket when it's up, HTTP otherwise.
   const publishAudience = (slide: Slide) => {

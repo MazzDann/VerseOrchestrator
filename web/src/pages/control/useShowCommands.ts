@@ -151,10 +151,6 @@ export function useShowCommands({
   }, PRIORITY.verses);
 
   /**
-   * A remote's «На екран» (0.6.0): what the preview shows goes on screen — the operator's
-   * F5. A song stanza / free text / Strong slide in the preview is what's shown then.
-   */
-  /**
    * A passage chosen on a speaker's phone (0.6.1, the remote's own cursor) as a slide —
    * built here, in the operator's style, from the library; the operator's selection is
    * not touched. Throws «Уривок недоступний» when none of its translations has it.
@@ -301,6 +297,10 @@ export function useShowCommands({
     return { ok: true };
   }
 
+  /**
+   * A remote's «На екран» (0.6.0): what the preview shows goes on screen — the operator's
+   * F5. A song stanza / free text / Strong slide in the preview is what's shown then.
+   */
   function showPreview(): Outcome {
     if (previewOverride) {
       pushLive(previewOverride);
