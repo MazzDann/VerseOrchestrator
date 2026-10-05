@@ -729,6 +729,23 @@ export const EN: Record<string, string> = {
   'Над часом': 'Above the time',
   'Під часом': 'Below the time',
   'Без напису': 'No words',
+  // 1.8.7: the viewers' countdown in a corner
+  'Де показати': 'Where to show',
+  'На заставці': 'On the cover',
+  'У кутку': 'In a corner',
+  'Відлік у кутку': 'Countdown in a corner',
+  'Відлік у кутку скінчився.': 'The countdown in the corner has ended.',
+  'Показати в кутку: {time}': 'Show in a corner: {time}',
+  'У кутку — лише час, поверх того, що на екрані; кут — у налаштуваннях вигляду.':
+    'In a corner: the time alone, over what is on screen; the corner is in the appearance settings.',
+  'Кут для відліку': 'Countdown corner',
+  'Коли відлік показують у кутку, поверх слайда':
+    'When the countdown is shown in a corner, over the slide',
+  'Угорі праворуч': 'Top right',
+  'Угорі ліворуч': 'Top left',
+  'Унизу праворуч': 'Bottom right',
+  'Унизу ліворуч': 'Bottom left',
+  'Розмір у кутку': 'Size in the corner',
   // 1.8.5: the last seconds aloud
   'Звук останніх 5 секунд': 'Sound for the last 5 seconds',
   звук: 'sound',

@@ -108,7 +108,8 @@ import {
   togglePause,
   untilFor,
   type AfterZero,
-  freshStageTimer,
+  freshTimer,
+  type CountdownPlace,
   type StageTimer,
 } from '../lib/countdown';
 import {
@@ -501,8 +502,11 @@ export function Control() {
   const [liveSlide, setLiveSlide] = useState<Slide>(() => readSlide());
   // «Таймер доповідача» (1.8.4): the leader sets it and every slide it pushes carries it
   // (`pushLive`); a window that waits follows the leader's, so taking over keeps it running
-  const stageTimerRef = useRef<StageTimer | null>(freshStageTimer(liveSlide.stageTimer));
-  if (!isLeader) stageTimerRef.current = freshStageTimer(liveSlide.stageTimer);
+  const stageTimerRef = useRef<StageTimer | null>(freshTimer(liveSlide.stageTimer));
+  if (!isLeader) stageTimerRef.current = freshTimer(liveSlide.stageTimer);
+  // «Відлік» in a corner (1.8.7): the same way — over whatever is on screen, so it rides along
+  const cornerRef = useRef<SlideCountdown | null>(freshTimer(liveSlide.cornerCountdown));
+  if (!isLeader) cornerRef.current = freshTimer(liveSlide.cornerCountdown);
   /**
    * The speaker's own preview (0.6.2): the passage a remote picked last, as a slide — the
    * operator sees it next to their own preview; hidden with ✕ until the next pick.
@@ -1013,7 +1017,14 @@ export function Control() {
     if (!leaderRef.current) return; // standby: never overrides the leader's screen
     // the speaker's timer rides on every slide (1.8.4) — the one now, not one a slide kept
     // from before (a cleared or covered slide coming back)
-    const slide: Slide = { ...pushed, stageTimer: stageTimerRef.current ?? undefined };
+    const slide: Slide = {
+      ...pushed,
+      // one countdown for the viewers (1.8.7): a corner one takes the time off «Заставка» —
+      // whatever brings a cover countdown back (review of 1.8.7)
+      countdown: cornerRef.current && pushed.countdown ? null : pushed.countdown,
+      stageTimer: stageTimerRef.current ?? undefined,
+      cornerCountdown: cornerRef.current ?? undefined,
+    };
     if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
     lastPushed.current = slide;
     if (slide.visible) clearedRef.current = null; // something else is on screen: nothing to take back
@@ -1787,21 +1798,46 @@ export function Control() {
   };
   // «Відлік» (1.5.0, components/CountdownTool): «Заставка» with the time left under it, over
   // whatever is on screen; L or «Прибрати відлік» gives that back, as from «Заставка».
-  const countdownStart = (countdown: SlideCountdown) => {
+  const countdownStart = (
+    countdown: SlideCountdown,
+    place: CountdownPlace = appearance.countdownPlace,
+  ) => {
     if (!leaderRef.current) return standbyNotice();
     // a click or a key starts it: the moment a browser lets the page sound later (1.8.5)
     if (appearance.countdownBeeps) warmAudio();
     const cover = { text: appearance.coverText, image: appearance.coverImage };
     // the time's look from the settings (1.8.2 colours, 1.8.3 the rest)
     const timed = { ...countdown, ...timerLook(appearance) };
+    // in a corner (1.8.7): over what is on screen, which stays as it is
+    if (place === 'corner') {
+      cornerRef.current = timed;
+      pushCorner();
+      return;
+    }
+    // one countdown for the viewers at a time
+    cornerRef.current = null;
     const slide = countdownOver(liveSlideRef.current, cover, timed, slideStyle, tr('Відлік'));
     pushLive(slide);
     setPreviewOverride(slide);
     setLive(true);
   };
-  /** The same countdown with a new end: what it covers and the cover stay. */
-  const countdownChange = (countdown: SlideCountdown | null) => {
+  /** The viewers' countdown now (1.8.7): in a corner, or on «Заставка». */
+  const viewersCountdown = (): { corner: boolean; c: SlideCountdown } | null => {
+    if (cornerRef.current) return { corner: true, c: cornerRef.current };
+    const s = liveSlideRef.current;
+    return s.cover && s.countdown ? { corner: false, c: s.countdown } : null;
+  };
+  /**
+   * The same countdown with a new end: what it covers and the cover stay. In a corner (1.8.7)
+   * it goes out with the slide on screen now — the one pushed last.
+   */
+  const countdownChange = (countdown: SlideCountdown | null, corner = !!cornerRef.current) => {
     if (!leaderRef.current) return standbyNotice();
+    if (corner) {
+      cornerRef.current = countdown;
+      pushCorner();
+      return;
+    }
     const now = liveSlideRef.current;
     if (!now.cover || !now.countdown) return;
     const slide: Slide = countdown
@@ -1820,20 +1856,20 @@ export function Control() {
       afterZero: appearance.countdownAfterZero,
     });
   const countdownShift = (minutes: number) => {
-    const c = liveSlideRef.current.countdown;
-    if (c) countdownChange(shiftCountdown(c, minutes, Date.now()));
+    const v = viewersCountdown();
+    if (v) countdownChange(shiftCountdown(v.c, minutes, Date.now()), v.corner);
   };
   // going on from zero or past it (1.8.1): that zero was said already — the end notice keeps quiet
   const quietEnd = useRef<number | null>(null);
   /** «Пауза» / «Продовжити» (1.8.1): the time on screen stands still, then goes on from there. */
   const countdownPause = () => {
-    const c = liveSlideRef.current.countdown;
-    if (!c) return;
+    const v = viewersCountdown();
+    if (!v) return;
     if (appearance.countdownBeeps) warmAudio();
     const now = Date.now();
-    const next = togglePause(c, now);
+    const next = togglePause(v.c, now);
     if (!isPaused(next) && next.until <= now) quietEnd.current = next.until;
-    countdownChange(next);
+    countdownChange(next, v.corner);
     return next;
   };
   /**
@@ -1843,8 +1879,8 @@ export function Control() {
    */
   const countdownKey = () => {
     if (!leaderRef.current) return standbyNotice();
-    const s = liveSlideRef.current;
-    if (s.cover && s.countdown && showsTime(s.countdown, Date.now())) {
+    const v = viewersCountdown();
+    if (v && showsTime(v.c, Date.now())) {
       const next = countdownPause();
       notifications.show({
         message: next && isPaused(next) ? tr('Відлік: пауза') : tr('Відлік іде далі'),
@@ -1867,10 +1903,14 @@ export function Control() {
     const t = stageTimerRef.current;
     const timerChanged = !!t && !hasLook(t, stageLook);
     if (t && timerChanged) stageTimerRef.current = { ...t, ...stageLook };
+    const k = cornerRef.current;
+    const cornerChanged = !!k && !hasLook(k, look);
+    if (k && cornerChanged) cornerRef.current = { ...k, ...look };
     const s = liveSlideRef.current;
     const c = s.countdown;
-    // one push carries both: the countdown's change takes the timer along
-    if (s.cover && c && !hasLook(c, look)) countdownChange({ ...c, ...look });
+    // one push carries them all: the countdown's change takes the timers along
+    if (s.cover && c && !hasLook(c, look)) countdownChange({ ...c, ...look }, false);
+    else if (cornerChanged) pushCorner();
     else if (timerChanged) pushTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookKey, isLeader]);
@@ -1881,6 +1921,15 @@ export function Control() {
    */
   const pushTimer = () =>
     pushLive({ ...(lastPushed.current ?? liveSlideRef.current) }, { audience: false });
+  /**
+   * The corner countdown's new state (1.8.7) goes out with the slide on screen now — to the phones
+   * too, but not over the QR slide: they would go blank (the 1.8.4 lesson; review of 1.8.7). They
+   * get it with the next slide.
+   */
+  const pushCorner = () => {
+    const s = lastPushed.current ?? liveSlideRef.current;
+    pushLive({ ...s }, { audience: !s.qr });
+  };
   const stageTimerSet = (timer: StageTimer | null) => {
     if (!leaderRef.current) return standbyNotice();
     stageTimerRef.current = timer;
@@ -1902,8 +1951,8 @@ export function Control() {
   };
   /** «Після нуля» (1.8.0) for the countdown on screen: its time, the end and the cover stay. */
   const countdownAfterZero = (afterZero: AfterZero) => {
-    const c = liveSlideRef.current.countdown;
-    if (c && afterZeroOf(c) !== afterZero) countdownChange({ ...c, afterZero });
+    const v = viewersCountdown();
+    if (v && afterZeroOf(v.c) !== afterZero) countdownChange({ ...v.c, afterZero }, v.corner);
   };
   const hideQr = () => {
     const back = uncover(liveSlideRef.current);
@@ -2767,8 +2816,14 @@ export function Control() {
   // «Відлік» (1.5.0) on screen comes to its end: said once here, as «Після нуля» has it (1.8.0)
   // (also when «−1 хв» brings it to now; not for one that ended long before this window took over)
   // (paused, 1.8.1: no end until it goes on)
-  const countdownEnd =
-    coverOn && !isPaused(liveSlide.countdown) ? liveSlide.countdown?.until : undefined;
+  // (in a corner, 1.8.7: over any slide but «Чорний екран»)
+  const cornerOn = !!liveSlide.cornerCountdown && !liveSlide.forceBlack;
+  const viewersTimer = cornerOn
+    ? liveSlide.cornerCountdown
+    : coverOn
+      ? liveSlide.countdown
+      : undefined;
+  const countdownEnd = viewersTimer && !isPaused(viewersTimer) ? viewersTimer.until : undefined;
   // its last 5 seconds aloud (1.8.5), when chosen: from the window that leads, and only while the
   // hall sees the time (the user: «звуки … тільки як що то на екрані таймер») — not paused, not
   // under «Чорний екран» or «Сховати текст»; the speaker's timer never sounds. «±1 хв» or going
@@ -2776,9 +2831,7 @@ export function Control() {
   const beepUntil =
     countdownEnd != null &&
     appearance.countdownBeeps &&
-    liveSlide.visible &&
-    !liveSlide.blank &&
-    !isPaused(liveSlide.countdown)
+    (cornerOn || (liveSlide.visible && !liveSlide.blank))
       ? countdownEnd
       : undefined;
   useEffect(() => {
@@ -2799,8 +2852,10 @@ export function Control() {
       window.removeEventListener('keydown', wake, true);
     };
   }, [appearance.countdownBeeps]);
-  const countdownAfter = useRef(afterZeroOf(liveSlide.countdown));
-  countdownAfter.current = afterZeroOf(liveSlide.countdown);
+  const countdownAfter = useRef(afterZeroOf(viewersTimer));
+  countdownAfter.current = afterZeroOf(viewersTimer);
+  const countdownInCorner = useRef(cornerOn);
+  countdownInCorner.current = cornerOn;
   useEffect(() => {
     if (countdownEnd == null || !isLeader) return;
     const t = window.setTimeout(
@@ -2812,7 +2867,9 @@ export function Control() {
               ? tr('Відлік дійшов до нуля: далі йде перевищення.')
               : countdownAfter.current === 'stop'
                 ? tr('Відлік дійшов до 0:00: час лишається на екрані.')
-                : tr('Відлік скінчився: заставка лишається на екрані.'),
+                : countdownInCorner.current
+                  ? tr('Відлік у кутку скінчився.')
+                  : tr('Відлік скінчився: заставка лишається на екрані.'),
           color: 'gray',
           autoClose: 5000,
         });
@@ -3400,15 +3457,22 @@ export function Control() {
                   onClick={coverToggle}
                 />
                 <CountdownTool
-                  running={coverOn ? (liveSlide.countdown ?? null) : null}
+                  running={viewersTimer ?? null}
+                  inCorner={cornerOn}
                   disabled={!isLeader}
                   combo={keymap.countdown}
                   onStart={countdownStart}
                   onShift={countdownShift}
                   onPause={() => (leaderRef.current ? countdownPause() : standbyNotice())}
                   onAfterZero={countdownAfterZero}
-                  onKeepCover={() => countdownChange(null)}
-                  onRemove={() => (leaderRef.current ? takeCoverOff() : standbyNotice())}
+                  onKeepCover={() => countdownChange(null, false)}
+                  onRemove={() =>
+                    !leaderRef.current
+                      ? standbyNotice()
+                      : cornerOn
+                        ? countdownChange(null, true)
+                        : takeCoverOff()
+                  }
                   onOpenChange={setCountdownOpen}
                 />
                 <StageTimerTool
