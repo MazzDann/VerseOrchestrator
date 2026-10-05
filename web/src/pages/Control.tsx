@@ -7,11 +7,11 @@ import {
   useComputedColorScheme,
 } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
-import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { IconAdjustments, IconQrcode, IconDeviceMobile, IconAppWindow } from '@tabler/icons-react';
 
-import { api, ApiFailure, type Verse, type RemoteCommand, type Pairing } from '../api';
+import { api, type RemoteCommand, type Pairing } from '../api';
 import { useStore } from '../store';
 import { useSettings, refKey, type RefItem } from '../settingsStore';
 import {
@@ -21,12 +21,9 @@ import {
   setPublishing,
   type Slide,
   type SlideLine,
-  type SlideStyle,
-  type SlideReveal,
-  type SlideSource,
 } from '../presenterBus';
-import { NO_LIBRARY, markedText, strongLangFor } from '@vo/shared';
-import { SearchPanel, type SearchScope } from '../components/SearchPanel';
+import { markedText, strongLangFor } from '@vo/shared';
+import { SearchPanel } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { SongsPanel } from '../components/SongsPanel';
 import { TextPanel } from '../components/TextPanel';
@@ -43,17 +40,7 @@ import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
 import { formatReference } from '../lib/reference';
-import { parseQuickRef, placeKey, quickKeydown, showStep } from '../lib/quickRef';
 import { QuickRefPill } from '../components/QuickRefPill';
-import {
-  chapterName,
-  crossTarget,
-  edgeNotice,
-  landingVerse,
-  pressAtEdge,
-  translationEdge,
-  type CrossArm,
-} from '../lib/chapterCross';
 import { connectLive } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
 import {
@@ -74,7 +61,6 @@ import {
 import { useServer } from '../serverStore';
 import { tr, useLang } from '../i18n';
 import { useEffectiveSource } from '../dataSourceStore';
-import { type LibraryGap } from '../components/NoLibrary';
 import { useCodeState, useUpdateState } from '../lib/updates';
 import { forAudience, pictureSlide, sameContent, summarize } from '../lib/slide';
 import { CommandPalette } from '../components/CommandPalette';
@@ -83,11 +69,10 @@ import { SONG_KEYS } from '../lib/songKeys';
 import { useHeaderFold } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { SETTINGS_PANEL_KEY } from '../lib/panelBox';
-import { isFormField } from '../lib/keyScroll';
 import { applyHandoverFrame, claimForHandover, controlHello, takeHandover } from '../lib/handover';
 import { usePlaylist, type SeqItem } from '../playlistStore';
 import { ImagesPanel } from '../components/ImagesPanel';
-import { joinVerses, redLetterSegments, strongHighlightSegments } from './control/slideText';
+import { joinVerses, redLetterSegments } from './control/slideText';
 import { withSecond } from './control/songSlides';
 import { standbyNotice } from './control/standby';
 import { usePanelResize } from './control/usePanelResize';
@@ -103,15 +88,17 @@ import { useSongProjection } from './control/useSongProjection';
 import { usePictures } from './control/usePictures';
 import { usePlaylistActions } from './control/usePlaylistActions';
 import { useTimers } from './control/useTimers';
+import { useVerseDeck } from './control/useVerseDeck';
+import { useJumps } from './control/useJumps';
+import { useShowSteps } from './control/useShowSteps';
+import { useShowJumpWhenReady } from './control/useShowJumpWhenReady';
+import { usePublishNext, useAdoptRestore } from './control/useTakeover';
 import { ControlHeader } from './control/ControlHeader';
 import { ControlNavbar } from './control/ControlNavbar';
 import { HubBanners } from './control/HubBanners';
 import { ChapterBar } from './control/ChapterBar';
 import { VerseList } from './control/VerseList';
 import { PlaylistFloating } from './control/PlaylistFloating';
-
-const EMPTY_ARRAY: never[] = [];
-type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
 
 type InlinePanel = 'search' | 'songs' | 'text' | 'images';
 
@@ -221,7 +208,6 @@ export function Control() {
   const setSongsOpen = useMemo(() => inlineSetter('songs'), [inlineSetter]);
   const setTextOpen = useMemo(() => inlineSetter('text'), [inlineSetter]);
   const setImagesOpen = useMemo(() => inlineSetter('images'), [inlineSetter]);
-  const [searchScope, setSearchScope] = useState<SearchScope>('current');
   const [asideMode, setAsideMode] = useState<AsideMode>('preview');
   const [sidebarTab, setSidebarTab] = useState<string | null>('history');
   const [navOpened, { toggle: toggleNav }] = useDisclosure(false);
@@ -231,7 +217,6 @@ export function Control() {
   const [scrollTarget, setScrollTarget] = useState<number | null>(null);
   // Active Strong number for the concordance panel shown beside the verse list.
   const [concordanceStrong, setConcordanceStrong] = useState<string | null>(null);
-  const [goToValue, setGoToValue] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const serverAvailable = useServer((s) => s.available);
   const openAppSettings = useAppSettingsOpener({ setSettingsOpen, serverAvailable });
@@ -277,10 +262,6 @@ export function Control() {
     setSongsPanelSongId(id);
     setSongsPanelStanza(null);
   };
-  // Active page when a long passage is split across multiple slides.
-  const [pageIndex, setPageIndex] = useState(0);
-  // How many verses are revealed so far in progressive-reveal mode (1-based).
-  const [revealCount, setRevealCount] = useState(1);
   // Last song/text/Strong projection shown in the preview (so the preview reflects
   // songs and free text, not only the verse selection). Cleared on navigation.
   const [previewOverride, setPreviewOverride] = useState<Slide | null>(null);
@@ -311,197 +292,96 @@ export function Control() {
     slide: Slide;
   } | null>(null);
 
-  // `focus`: hand the keyboard to the verse landed on (search, «Перейти»), so ↩ puts it on
-  // screen and the arrows walk on. Mac re-check (0.6.13): after a search pick the panel
-  // closed and left the focus on <body> — ↩ did nothing, only ⌘↩ (a page-wide hotkey)
-  // projected. Other jumps (history, concordance, sequence, remotes) keep the focus.
-  const focusJump = useRef(false);
-  const jumpTo = (r: Jumpable, opts?: { focus?: boolean }) => {
-    if (selectedIds.length === 0) setTranslations([r.translationId]);
-    selectBook(r.bookNumber);
-    selectChapter(r.chapter);
-    setSelectedVerses([r.verse]);
-    setScrollTarget(r.verse);
-    focusJump.current = !!opts?.focus;
-  };
+  // The verses (useVerseDeck): the page and reveal step, the queries and what they give — the
+  // slide, the preview, «Далі». Its queries' subscriptions and E6 now run before the jumps'
+  // E3–E5 (the plan's relocation: E3–E5 register listeners and a timer, none reads a query).
+  const effectiveSource = useEffectiveSource();
+  const {
+    pageIndex,
+    setPageIndex,
+    revealCount,
+    setRevealCount,
+    translations,
+    libraryGap,
+    books,
+    chapters,
+    verseQueries,
+    primaryVerses,
+    versesLoading,
+    currentBook,
+    reference,
+    referenceShort,
+    primaryHasStrong,
+    selectedPrimaryVerses,
+    pageCount,
+    safePageIndex,
+    pageVerses,
+    pageReference,
+    buildLines,
+    slideLines,
+    slideStyle,
+    revealUnits,
+    revealForSlide,
+    verseSource,
+    versePreview,
+    previewSlide,
+    nextSlide,
+    nextSlideRef,
+  } = useVerseDeck({
+    selectedIds,
+    primaryId,
+    bookNumber,
+    chapter,
+    selectedVerses,
+    appearance,
+    effectiveSource,
+    followAlong,
+    followQrCorner,
+    followUrl,
+    followQrStyle,
+    slideTemplate,
+    previewOverride,
+  });
 
-  // Quick jump bar: resolve a reference/text query and jump to the first hit.
-  const goTo = async (q: string) => {
-    const query = q.trim();
-    if (!query || primaryId == null) return;
-    // numbers only («3:16», «16»): a place in the open book (1.4.0)
-    if (parseQuickRef(query) && bookNumber != null) {
-      if (await quickJump(query)) setGoToValue('');
-      return;
-    }
-    try {
-      const res = await api.search(query, [primaryId]);
-      if (res.results.length > 0) {
-        jumpTo(res.results[0], { focus: true });
-        setGoToValue('');
-      } else {
-        notifications.show({
-          message: tr(
-            '«{query}» не знайдено. Спробуйте посилання, як-от «Ів 3:16», або слово з тексту',
-            {
-              query,
-            },
-          ),
-          color: 'gray',
-          autoClose: 2500,
-        });
-      }
-    } catch (e) {
-      notifications.show({
-        message: tr('Не вдалося перейти: {error}', { error: tr((e as Error).message) }),
-        color: 'red',
-      });
-    }
-  };
-
-  /**
-   * «На екран» pressed while typing numbers (Mac check of 1.4.0): the place gone to — shown
-   * once it is the selection and its verses are in (the effect after `sendAndNotify`).
-   */
-  const showJump = useRef<{ key: string; timer: number } | null>(null);
-
-  /**
-   * «3:16» typed straight into the control window, or into «Перейти до посилання» (1.4.0):
-   * a place in the open book — the verse (or verses) selected, its row focused, so Enter
-   * puts it on screen; on screen at once while the screen follows the selection, or with
-   * `show` (⌘↩ / Ctrl+Enter / «На екран» in the typed-number box).
-   */
-  const quickJump = async (q: string, opts?: { show?: boolean }): Promise<boolean> => {
-    const r = parseQuickRef(q);
-    const say = (message: string) => {
-      notifications.show({ message, color: 'gray', autoClose: 2500 });
-      return false;
-    };
-    if (!r) {
-      return say(
-        tr('«{query}» — не місце в книзі. Введіть вірш або розділ:вірш, як-от 3:16', { query: q }),
-      );
-    }
-    if (primaryId == null || bookNumber == null) return say(tr('Спершу виберіть книгу'));
-    const ch = r.chapter ?? chapter;
-    if (ch == null) return say(tr('Спершу виберіть розділ'));
-    const book = currentBook;
-    if (!chapters.includes(ch)) {
-      return say(tr('{book}: розділу {n} немає', { book: book?.longName ?? '', n: ch }));
-    }
-    const tid = primaryId;
-    const bn = bookNumber;
-    const verses = await queryClient
-      .fetchQuery({ queryKey: ['verses', tid, bn, ch], queryFn: () => api.verses(tid, bn, ch) })
-      .catch(() => []);
-    const have = verses.map((v) => v.verse);
-    const from = r.verse ?? Math.min(...have);
-    if (!have.includes(from)) {
-      return say(tr('{place}: вірша {n} немає', { place: chapterName(book, ch), n: from }));
-    }
-    const to = Math.min(r.verseEnd ?? from, Math.max(...have));
-    const picked = have.filter((v) => v >= from && v <= to).sort((a, b) => a - b);
-    if (opts?.show) {
-      if (showJump.current) window.clearTimeout(showJump.current.timer);
-      const wait = { key: placeKey(bn, ch, picked), timer: 0 };
-      // never late: a slide that isn't ready in 3 s is not shown at some later moment — said
-      // so while the place is still the selection (one left meanwhile goes quietly)
-      wait.timer = window.setTimeout(() => {
-        if (showJump.current !== wait) return;
-        showJump.current = null;
-        const now = useStore.getState();
-        if (placeKey(now.bookNumber, now.chapter, now.selectedVerses) === wait.key) {
-          say(tr('Текст ще не завантажився — натисніть «На екран» ще раз'));
-        }
-      }, 3000);
-      showJump.current = wait;
-    }
-    if (ch !== chapter) selectChapter(ch);
-    setSelectedVerses(picked);
-    // from its first page and reveal step in the same render as the selection — live-follow
-    // must not push it at the old page or step first (review of the Mac fix)
-    setPageIndex(0);
-    setRevealCount(1);
-    setScrollTarget(from);
-    focusJump.current = true;
-    return true;
-  };
-
-  // Numbers typed where no field has the focus start a quick jump (1.4.0): the pill at the
-  // bottom shows them, Enter goes, Esc (or any other key) lets go. While typing, «.» and the
-  // space are separators, not «Чорний екран» or a verse's selection; Esc only cancels.
-  // Mac check of 1.4.0 (lib/quickRef.ts quickKeydown): a lone Shift (before «:») keeps the box;
-  // the «.» / «,» keys separate on any layout (Ukrainian: «ю» / «б»); ⌘↩ / Ctrl+Enter or «На
-  // екран» goes there and shows it — they projected the old selection; a click lets go.
-  const [quick, setQuick] = useState<string | null>(null);
   /** «Відлік» open (1.5.0): its fields and buttons own the keys, as the palette's do */
   const [countdownOpen, setCountdownOpen] = useState(false);
   /** …and «Таймер доповідача» (1.8.4) */
   const [stageTimerOpen, setStageTimerOpen] = useState(false);
   const toolOpen = countdownOpen || stageTimerOpen;
-  const quickRef = useRef<string | null>(null);
-  quickRef.current = quick;
-  const quickJumpRef = useRef(quickJump);
-  quickJumpRef.current = quickJump;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const box = quickRef.current;
-      const r = quickKeydown(box, e, {
-        canStart: bookNumber != null,
-        blocked: isFormField(e.target) || paletteOpen || moreShown || toolOpen,
-        project: useSettings.getState().keymap.project,
-      });
-      if (r.box !== box) setQuick(r.box);
-      if (r.go) void quickJumpRef.current(r.go.text, { show: r.go.show });
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [bookNumber, paletteOpen, moreShown, toolOpen]);
-  // a click lets go of the typed numbers: ⌘ / Shift + click in the verse list, then Enter,
-  // belongs to the verses clicked, not to a place typed a moment ago (review of the Mac fix)
-  useEffect(() => {
-    const onPointer = () => {
-      if (quickRef.current !== null) setQuick(null);
-    };
-    window.addEventListener('pointerdown', onPointer, true);
-    return () => window.removeEventListener('pointerdown', onPointer, true);
-  }, []);
-  // forgotten halfway: gone after a few seconds without a key
-  useEffect(() => {
-    if (quick === null) return;
-    const t = window.setTimeout(() => setQuick(null), 6000);
-    return () => window.clearTimeout(t);
-  }, [quick]);
-
-  const openSearch = (scope: SearchScope) => {
-    setSearchScope(scope);
-    setSearchOpen(true);
-  };
-
-  const translationsQuery = useQuery({
-    queryKey: ['translations'],
-    queryFn: api.translations,
-    // no library on the server: say so at once, not after three retries (0.13.1)
-    retry: (n, e) => !(e instanceof ApiFailure && e.key === NO_LIBRARY) && n < 3,
+  // Finding the place (useJumps, vo-search): jumps, the go-to bar, the typed numbers (E3–E5)
+  // and the search panel's scope — after toolOpen, which E3 reads
+  const {
+    searchScope,
+    setSearchScope,
+    goToValue,
+    setGoToValue,
+    focusJump,
+    jumpTo,
+    goTo,
+    showJump,
+    quick,
+    openSearch,
+  } = useJumps({
+    selectedIds,
+    setTranslations,
+    selectBook,
+    selectChapter,
+    setSelectedVerses,
+    setScrollTarget,
+    primaryId,
+    bookNumber,
+    chapter,
+    currentBook,
+    chapters,
+    queryClient,
+    setPageIndex,
+    setRevealCount,
+    paletteOpen,
+    moreShown,
+    toolOpen,
+    setSearchOpen,
   });
-  const translations = translationsQuery.data ?? EMPTY_ARRAY;
-  const effectiveSource = useEffectiveSource();
-  /** Nothing to read, and why (0.13.1) — the centre then says what to do. */
-  const libraryGap: LibraryGap | null =
-    translationsQuery.error instanceof ApiFailure && translationsQuery.error.key === NO_LIBRARY
-      ? 'missing'
-      : translationsQuery.isSuccess && translations.length === 0
-        ? effectiveSource === 'local'
-          ? 'local'
-          : 'empty'
-        : null;
 
-  const booksQuery = useQuery({
-    queryKey: ['books', primaryId],
-    queryFn: () => api.books(primaryId!),
-    enabled: primaryId != null,
-  });
-  const books = booksQuery.data ?? EMPTY_ARRAY;
   const filteredBooks = useMemo(() => {
     const q = bookFilter.trim().toLowerCase();
     if (!q) return books;
@@ -510,12 +390,6 @@ export function Control() {
     );
   }, [books, bookFilter]);
 
-  const chaptersQuery = useQuery({
-    queryKey: ['chapters', primaryId, bookNumber],
-    queryFn: () => api.chapters(primaryId!, bookNumber!),
-    enabled: primaryId != null && bookNumber != null,
-  });
-  const chapters = chaptersQuery.data ?? EMPTY_ARRAY;
   /**
    * The book list and the palette (the user's idea, 2026-10-01): a book picked opens its first
    * chapter at once — a one-chapter book needed a click on its only number — and the open
@@ -529,238 +403,13 @@ export function Control() {
         : queryClient.getQueryData<number[]>(['chapters', primaryId, bn]),
     );
 
-  const verseQueries = useQueries({
-    queries: selectedIds.map((id) => ({
-      queryKey: ['verses', id, bookNumber, chapter],
-      queryFn: () => api.verses(id, bookNumber!, chapter!),
-      enabled: bookNumber != null && chapter != null,
-    })),
-  });
-  const versesByTranslation = useMemo(() => {
-    const map = new Map<number, Verse[]>();
-    selectedIds.forEach((id, i) => map.set(id, verseQueries[i]?.data ?? []));
-    return map;
-  }, [selectedIds, verseQueries]);
-  const primaryVerses = useMemo(
-    () => (primaryId != null ? (versesByTranslation.get(primaryId) ?? []) : []),
-    [primaryId, versesByTranslation],
-  );
-  /** The open chapter's verses still on their way: the list says nothing about them yet. */
-  const versesLoading = bookNumber != null && chapter != null && !!verseQueries[0]?.isPending;
-
-  const currentBook = books.find((b) => b.bookNumber === bookNumber) ?? null;
-  const reference = useMemo(
-    () => formatReference(currentBook, chapter, selectedVerses),
-    [currentBook, chapter, selectedVerses],
-  );
-  const referenceShort = useMemo(
-    () => formatReference(currentBook, chapter, selectedVerses, true),
-    [currentBook, chapter, selectedVerses],
-  );
-  const primaryHasStrong = translations.find((t) => t.id === primaryId)?.hasStrong ?? false;
-  const selectedPrimaryVerses = useMemo(
-    () => primaryVerses.filter((v) => selectedVerses.includes(v.verse)),
-    [primaryVerses, selectedVerses],
-  );
-
-  // --- Long-passage pagination -------------------------------------------------
-  // Split the selection into pages of `versesPerSlide` verses; the projected slide
-  // shows one page and PageDown/arrows step pages. 0 (or a selection that fits) →
-  // a single page = the whole selection (current behaviour, zero regression).
-  const versesPerSlide = appearance.versesPerSlide ?? 0;
-  const pages = useMemo<number[][]>(() => {
-    if (selectedVerses.length === 0) return [];
-    if (!versesPerSlide || versesPerSlide < 1 || selectedVerses.length <= versesPerSlide) {
-      return [selectedVerses];
-    }
-    const out: number[][] = [];
-    for (let i = 0; i < selectedVerses.length; i += versesPerSlide) {
-      out.push(selectedVerses.slice(i, i + versesPerSlide));
-    }
-    return out;
-  }, [selectedVerses, versesPerSlide]);
-  const pageCount = pages.length;
-  const safePageIndex = Math.min(pageIndex, Math.max(0, pageCount - 1));
-  const pageVerses = pages[safePageIndex] ?? selectedVerses;
-  const pageReference = useMemo(
-    () => formatReference(currentBook, chapter, pageVerses),
-    [currentBook, chapter, pageVerses],
-  );
-
-  // Back to the first page whenever the selection or the page size changes.
-  useEffect(() => {
-    setPageIndex(0);
-  }, [selectedVerses, versesPerSlide]);
-
   // Hide the Strong tab (and leave it) when the primary translation has no Strong numbers.
   useEffect(() => {
     if (asideMode === 'strong' && !primaryHasStrong) setAsideMode('preview');
   }, [asideMode, primaryHasStrong]);
 
-  // Build slide lines for an arbitrary set of verse numbers in the current chapter
-  // (shared by the live slide and the stage "next" preview).
-  const buildLines = useCallback(
-    (verseNums: number[]): SlideLine[] => {
-      if (verseNums.length === 0) return [];
-      return selectedIds
-        .map((id) => {
-          const t = translations.find((x) => x.id === id);
-          const verses = versesByTranslation.get(id) ?? [];
-          const text = joinVerses(verses, verseNums, appearance.showVerseNumbers);
-          if (!text.trim()) return null;
-          const segments = redLetterSegments(verses, verseNums, appearance.showVerseNumbers);
-          return { translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments } as SlideLine;
-        })
-        .filter((x): x is SlideLine => x !== null);
-    },
-    [selectedIds, versesByTranslation, translations, appearance.showVerseNumbers],
-  );
-  const slideLines = useMemo(() => buildLines(pageVerses), [buildLines, pageVerses]);
-
-  const slideStyle: SlideStyle = useMemo(
-    () => ({
-      font: appearance.scriptureFont,
-      color: appearance.textColor,
-      align: appearance.textAlign,
-      bgColor: appearance.bgColor,
-      bgImage: appearance.bgImage,
-      showVerseNumbers: appearance.showVerseNumbers,
-      padTop: appearance.padTop,
-      padRight: appearance.padRight,
-      padBottom: appearance.padBottom,
-      padLeft: appearance.padLeft,
-      padUnit: appearance.padUnit,
-      redLetter: appearance.redLetter,
-      jesusColor: appearance.jesusColor,
-      highlightColor: appearance.highlightColor,
-      transition: appearance.transition,
-      // the viewers' QR in a corner (0.6.16) — only while the relay is on to read from
-      qrCorner: followAlong && followQrCorner ? followUrl : null,
-      qrStyle: followQrStyle,
-    }),
-    [appearance, followAlong, followQrCorner, followUrl, followQrStyle],
-  );
-
-  // --- Progressive reveal --------------------------------------------------------
-  // Units = the current page's verses (primary translation), revealed one per step.
-  const revealUnits = useMemo<string[] | null>(() => {
-    if (!appearance.reveal) return null;
-    const verses = primaryId != null ? (versesByTranslation.get(primaryId) ?? []) : [];
-    const byNum = new Map(verses.map((v) => [v.verse, v]));
-    const units: string[] = [];
-    for (const n of pageVerses) {
-      const t = (byNum.get(n)?.text ?? '').trim();
-      if (t) units.push(`${appearance.showVerseNumbers ? `${n} ` : ''}${t}`);
-    }
-    return units.length ? units : null;
-  }, [appearance.reveal, appearance.showVerseNumbers, primaryId, versesByTranslation, pageVerses]);
-
-  const revealForSlide: SlideReveal | undefined =
-    appearance.reveal && revealUnits
-      ? {
-          units: revealUnits,
-          count: Math.min(Math.max(1, revealCount), revealUnits.length),
-          mode: appearance.revealSpotlight ? 'spotlight' : 'accumulate',
-          placeholders: appearance.revealPlaceholders,
-        }
-      : undefined;
-
-  /** Where a verse slide comes from (0.5.10, SlideSource): the selection, page, reveal step. */
-  const verseSource = (
-    verses: number[] = selectedVerses,
-    page: number = safePageIndex,
-    reveal: number = revealCount,
-  ): SlideSource | undefined =>
-    bookNumber != null && chapter != null && verses.length > 0
-      ? { kind: 'verses', translationIds: selectedIds, bookNumber, chapter, verses, page, reveal }
-      : undefined;
-
-  // WYSIWYG of the current page — what would be projected for the verse selection.
-  const versePreview: Slide = {
-    lines: slideLines,
-    reference: pageReference,
-    blank: false,
-    visible: slideLines.length > 0,
-    style: slideStyle,
-    template: slideTemplate,
-    reveal: revealForSlide,
-  };
-  // Show the last song/text/Strong projection while one is active; otherwise the
-  // verse selection. The override is cleared on navigation (effect below).
-  const previewSlide: Slide = previewOverride ?? versePreview;
-
-  // What advancing once would project — fed to the stage display's "next" pane.
-  // Only meaningful for verse/page navigation; null while an override owns the screen.
-  const nextSlide = useMemo<Slide | null>(() => {
-    if (previewOverride || selectedVerses.length === 0) return null;
-    // Mid-reveal, the next press reveals one more verse of the CURRENT slide — show
-    // that on the stage "next" pane, not the following page/verse.
-    if (
-      appearance.reveal &&
-      revealUnits &&
-      revealUnits.length > 1 &&
-      revealCount < revealUnits.length
-    ) {
-      return {
-        lines: slideLines,
-        reference: pageReference,
-        blank: false,
-        visible: true,
-        style: slideStyle,
-        template: slideTemplate,
-        reveal: {
-          units: revealUnits,
-          count: revealCount + 1,
-          mode: appearance.revealSpotlight ? 'spotlight' : 'accumulate',
-          placeholders: appearance.revealPlaceholders,
-        },
-      };
-    }
-    let nextVerses: number[] | null = null;
-    if (pageCount > 1 && safePageIndex < pageCount - 1) {
-      nextVerses = pages[safePageIndex + 1];
-    } else if (pageCount <= 1) {
-      const all = primaryVerses.map((v) => v.verse);
-      const last = selectedVerses[selectedVerses.length - 1];
-      const idx = all.indexOf(last);
-      if (idx >= 0 && idx < all.length - 1) nextVerses = [all[idx + 1]];
-    }
-    if (!nextVerses) return null;
-    const lines = buildLines(nextVerses);
-    if (lines.length === 0) return null;
-    return {
-      lines,
-      reference: formatReference(currentBook, chapter, nextVerses),
-      blank: false,
-      visible: true,
-      style: slideStyle,
-      template: slideTemplate,
-    };
-  }, [
-    previewOverride,
-    selectedVerses,
-    pageCount,
-    safePageIndex,
-    pages,
-    primaryVerses,
-    buildLines,
-    currentBook,
-    chapter,
-    slideStyle,
-    slideTemplate,
-    appearance.reveal,
-    appearance.revealSpotlight,
-    appearance.revealPlaceholders,
-    revealUnits,
-    revealCount,
-    slideLines,
-    pageReference,
-  ]);
-
-  // Mirror the next-slide preview to the stage window.
-  useEffect(() => {
-    if (isLeader) publishNext(nextSlide);
-  }, [nextSlide, isLeader]);
+  // E8: what one step would show, to «Сцена» (the leader only)
+  usePublishNext({ isLeader, nextSlide });
 
   /** A takeover still restoring page / reveal (0.5.10): key = the selection it waits for. */
   const adopting = useRef<{
@@ -769,12 +418,6 @@ export function Control() {
     reveal: number;
     override: Slide | null;
   } | null>(null);
-  /**
-   * «Прев’ю: далі / назад» (Alt+arrows, 1.1.0): the preview walked ahead and the screen stays,
-   * though «Наживо» is on — until «На екран», a plain step, or «Наживо» switched.
-   */
-  const [screenHeld, setScreenHeld] = useState(false);
-  useEffect(() => setScreenHeld(false), [liveFollow]);
 
   // Switching follow-along on pushes the current slide at once (phones already on the
   // page jump to it); switching it OFF pauses the relay, so phones show «paused» instead
@@ -872,252 +515,74 @@ export function Control() {
     referenceShort,
   });
 
-  const send = (overrides?: Partial<Slide>) => {
-    const slide: Slide = {
-      lines: slideLines,
-      reference: pageReference,
-      blank: false,
-      visible: slideLines.length > 0,
-      style: slideStyle,
-      template: slideTemplate,
-      reveal: revealForSlide,
-      source: verseSource(),
-      ...overrides,
-    };
-    pushLive(slide);
-    setLive(slide.visible && !slide.blank);
-    // Projecting the verse selection ends any song/text/Strong override, so the
-    // preview and live-follow track the verses again (no preview/screen desync).
-    setPreviewOverride(null);
-    setScreenHeld(false); // the screen shows the preview: it follows again
-  };
-
-  // Project the Strong-bearing (primary) translation only, with a "word — gloss"
-  // subline. Used contextually from the Strong tab; normal navigation reverts it.
-  // Scoped to the current page (like `send`/preview) so it stays WYSIWYG when a long
-  // passage is split across slides.
-  const projectStrong = (subline: string, strong: string) => {
-    const t = translations.find((x) => x.id === primaryId);
-    const pageStrongVerses = selectedPrimaryVerses.filter((v) => pageVerses.includes(v.verse));
-    const text = joinVerses(pageStrongVerses, pageVerses, appearance.showVerseNumbers);
-    if (!text.trim()) return;
-    const segments = strongHighlightSegments(
-      pageStrongVerses,
-      pageVerses,
-      appearance.showVerseNumbers,
-      strong,
-    );
-    const slide: Slide = {
-      lines: [{ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments }],
-      reference: pageReference,
-      blank: false,
-      visible: true,
-      style: slideStyle,
-      template: slideTemplate,
-      subline,
-      source: verseSource(),
-    };
-    pushLive(slide);
-    setPreviewOverride(slide);
-    setLive(true);
-    notifications.show({
-      message: tr('На екрані зі Стронгом: {ref}', { ref: pageReference }),
-      color: 'live',
-      autoClose: 1500,
-    });
-  };
-
-  // While following live, republish when the selection, reference, or appearance
-  // changes. With follow off, navigation only updates the preview — push with F5/F2.
-  // Skip while a song/text/Strong projection (`previewOverride`) owns the screen, or
-  // live-follow would clobber it back to the verse selection on the next render
-  // (slideLines gets a fresh identity every render via useQueries). Navigating the
-  // verses clears the override, after which live-follow resumes.
-  useEffect(() => {
-    if (adopting.current) return; // taking over: the screen stays until page/reveal are set
-    if (liveFollow && live && !screenHeld && slideLines.length > 0 && !previewOverride) send();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  // The steps of the show (useShowSteps): «На екран», Strong, Enter on a verse, live-follow, one
+  // step forward or back — E9, E11, E12, E16. After usePlaylistActions: crossChapter takes
+  // activatePassage.
+  const {
+    screenHeld,
+    send,
+    sendAndNotify,
+    projectStrong,
+    projectVerseOnEnter,
+    advanceAndSay,
+    advance,
+  } = useShowSteps({
+    liveFollow,
+    live,
+    adopting,
     slideLines,
-    reference,
+    pageReference,
     slideStyle,
     slideTemplate,
-    liveFollow,
-    screenHeld,
+    revealForSlide,
+    verseSource,
+    pushLive,
+    setLive,
+    setPreviewOverride,
+    translations,
+    primaryId,
+    selectedPrimaryVerses,
+    pageVerses,
+    appearance,
+    reference,
     previewOverride,
     revealCount,
-    appearance.reveal,
-    appearance.revealSpotlight,
-    appearance.revealPlaceholders,
-  ]);
-
-  // A song/text/Strong projection takes over the preview; navigating the verse
-  // selection reverts the preview to the verses.
-  useEffect(() => {
-    setPreviewOverride(null);
-  }, [selectedVerses, bookNumber, chapter, primaryId]);
-
-  const stepVerse = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
-    if (primaryVerses.length === 0) return { ok: false, reason: tr('Спершу виберіть розділ') };
-    const all = primaryVerses.map((v) => v.verse);
-    const current = selectedVerses.length ? selectedVerses[selectedVerses.length - 1] : all[0] - 1;
-    const idx = all.indexOf(current);
-    const next = all[Math.min(all.length - 1, Math.max(0, idx + delta))];
-    if (next == null || next === current) return crossChapter(delta, previewOnly);
-    crossArm.current = null;
-    setSelectedVerses([next]);
-    return { ok: true };
-  };
-
-  // At the chapter's edge (0.6.23): the first press says where a second one goes; pressed
-  // again within 5 s it opens the next chapter's first verse (the previous one's last going
-  // back) — on screen too when the screen follows the selection. At a book's edge the same
-  // two presses open the next book (1.4.0).
-  const crossArm = useRef<CrossArm | null>(null);
-  const crossChapter = async (delta: number, previewOnly = false): Promise<Outcome> => {
-    if (primaryId == null || bookNumber == null || chapter == null) {
-      return { ok: false, reason: tr('Спершу виберіть розділ') };
-    }
-    const tid = primaryId;
-    const book = bookNumber;
-    // armed before anything loads, so a quick second press still counts as the second
-    const key = `${tid}:${book}:${chapter}:${delta > 0 ? 1 : -1}`;
-    const press = pressAtEdge(crossArm.current, key, Date.now());
-    crossArm.current = press.arm;
-    const onScreen = !previewOnly && liveFollow && live && !previewOverride;
-    const target = await crossTarget(
-      { book, chapter },
-      chapters,
-      books.map((b) => b.bookNumber),
-      delta,
-      (b) =>
-        queryClient.fetchQuery({
-          queryKey: ['chapters', tid, b],
-          queryFn: () => api.chapters(tid, b),
-        }),
-    );
-    if (!target) {
-      crossArm.current = null;
-      return { ok: false, reason: translationEdge(delta) };
-    }
-    const to = target.chapter;
-    const toBook = books.find((b) => b.bookNumber === target.book) ?? currentBook;
-    if (!press.cross) {
-      return {
-        ok: false,
-        reason: edgeNotice(delta, chapterName(toBook, to), target.newBook),
-      };
-    }
-    const verses = await queryClient.fetchQuery({
-      queryKey: ['verses', tid, target.book, to],
-      queryFn: () => api.verses(tid, target.book, to),
-    });
-    const v = landingVerse(
-      verses.map((x) => x.verse),
-      delta,
-    );
-    if (v == null) return { ok: false, reason: tr('У цьому розділі немає віршів') };
-    const label = formatReference(toBook, to, [v]);
-    if (onScreen) {
-      await activatePassage({
-        kind: 'passage',
-        id: `cross-${target.book}-${to}-${v}`,
-        label,
-        translationIds: selectedIds,
-        bookNumber: target.book,
-        chapter: to,
-        verses: [v],
-      });
-    } else {
-      if (target.newBook) selectBook(target.book);
-      selectChapter(to);
-      setSelectedVerses([v]);
-      setScrollTarget(v);
-    }
-    return { ok: true, reason: label };
-  };
-  /** Keys and buttons: say why the show didn't move (at a chapter's edge: what's next). */
-  const advanceAndSay = (delta: number, previewOnly = false) => {
-    // the first preview-only step while the screen follows: say that the screen stays
-    if (previewOnly && liveFollow && live && !screenHeld) {
-      notifications.show({
-        id: 'screen-held',
-        message: tr('Екран стоїть, прев’ю йде далі. Показати прев’ю — «На екран».'),
-        color: 'cue',
-        autoClose: 3000,
-      });
-    }
-    void Promise.resolve(advance(delta, previewOnly)).then((o) => {
-      if (!o.ok && o.reason) {
-        notifications.show({ message: o.reason, color: 'gray', autoClose: 2500 });
-      }
-    });
-  };
-
-  // "Next/previous": with a long passage split across pages, step pages; otherwise
-  // step the single verse. Drives arrows, the PageDown/PageUp clicker keys, and the
-  // preview's page arrows — so the same gesture always means "advance the screen".
-  /**
-   * One step of the show (reveal → page → verse); says whether anything moved. `previewOnly`
-   * (Alt+arrows): the screen stays while «Наживо» is on; a plain step lets it follow again.
-   */
-  const advance = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
-    setScreenHeld(previewOnly && liveFollow && live);
-    // Progressive reveal first: step through the verses of the current slide before
-    // moving on. Only while projecting the verse selection (no song/text override).
-    if (appearance.reveal && revealUnits && revealUnits.length > 1 && !previewOverride) {
-      if (delta > 0 && revealCount < revealUnits.length) {
-        setRevealCount((c) => Math.min(revealUnits.length, c + 1));
-        return { ok: true };
-      }
-      if (delta < 0 && revealCount > 1) {
-        setRevealCount((c) => Math.max(1, c - 1));
-        return { ok: true };
-      }
-      // Exhausted in this direction → fall through to step the page/verse.
-    }
-    if (pageCount > 1) {
-      const target = Math.min(pageCount - 1, Math.max(0, safePageIndex + delta));
-      if (target === safePageIndex) {
-        return {
-          ok: false,
-          reason: delta > 0 ? tr('Це остання сторінка') : tr('Це перша сторінка'),
-        };
-      }
-      // Moving to a new page: start its reveal fresh in THIS batched update (not via the
-      // post-commit reset effect) so live-follow doesn't push the new content at the old
-      // reveal count for a frame. Paging also ends any projection override, so
-      // live-follow pushes the new page (the page alone doesn't touch the selection).
-      setRevealCount(1);
-      setPreviewOverride(null);
-      setPageIndex(target);
-      return { ok: true };
-    }
-    const moved = stepVerse(delta, previewOnly);
-    if (!(moved instanceof Promise) && moved.ok) setRevealCount(1); // same batch as the verse
-    return moved;
-  };
-
-  // Reset the reveal to the first verse whenever the projected content changes.
-  useEffect(() => {
-    setRevealCount(1);
-  }, [selectedVerses, safePageIndex, primaryId]);
-
-  // Taking over (0.5.10): once the adopted selection is in, restore its page, then its
-  // reveal step and a Strong slide — declared after the reset effects above, so it runs
-  // after them in the same commit and wins. Live-follow waits until this is done.
-  useEffect(() => {
-    const a = adopting.current;
-    if (!a || JSON.stringify([selectedIds, bookNumber, chapter, selectedVerses]) !== a.key) return;
-    const page = Math.min(a.page, Math.max(0, pageCount - 1));
-    if (safePageIndex !== page) {
-      setPageIndex(page);
-      return;
-    }
-    setRevealCount(a.reveal);
-    if (a.override) setPreviewOverride(a.override);
-    adopting.current = null;
-  }, [selectedIds, bookNumber, chapter, selectedVerses, safePageIndex, pageCount]);
+    selectedVerses,
+    bookNumber,
+    chapter,
+    primaryVerses,
+    setSelectedVerses,
+    chapters,
+    books,
+    queryClient,
+    currentBook,
+    activatePassage,
+    selectedIds,
+    selectBook,
+    selectChapter,
+    setScrollTarget,
+    revealUnits,
+    setRevealCount,
+    pageCount,
+    safePageIndex,
+    setPageIndex,
+    leaderRef,
+    buildLines,
+  });
+  // E17: a takeover restores its page and reveal step — after the steps' reset effects (E12,
+  // E16), so it runs after them in the same commit and wins
+  useAdoptRestore({
+    adopting,
+    selectedIds,
+    bookNumber,
+    chapter,
+    selectedVerses,
+    safePageIndex,
+    pageCount,
+    setPageIndex,
+    setRevealCount,
+    setPreviewOverride,
+  });
 
   // the verse list's scroll and the history (E13–E15) — after the steps' effects above
   const { verseViewport } = useVerseListEffects({
@@ -1166,81 +631,21 @@ export function Control() {
   // E20: the corner QR follows its settings on what is on screen — after E19, before E21
   useQrCornerFollow({ liveSlideRef, slideStyle, pushLive });
 
-  const sendAndNotify = () => {
-    if (!leaderRef.current) return standbyNotice();
-    send();
-    if (slideLines.length > 0) {
-      notifications.show({
-        message: tr('На екрані: {ref}', { ref: pageReference }),
-        color: 'live',
-        autoClose: 1500,
-      });
-    }
-  };
-
-  // «На екран» in the typed-number box (showJump, set by quickJump): show the place once it
-  // is the selection and every translation's verses are in — from its first page and reveal
-  // step (quickJump sets both with the selection; declared after their reset effects, so it
-  // runs after them in the same commit)
-  useEffect(() => {
-    const wait = showJump.current;
-    if (!wait) return;
-    const step = showStep(wait.key, {
-      place: placeKey(bookNumber, chapter, selectedVerses),
-      loading: verseQueries.some((q) => q.isPending),
-      ready: slideLines.length > 0,
-      page: safePageIndex,
-      revealStep: appearance.reveal ? revealCount : null,
-    });
-    if (step === 'firstPage') setPageIndex(0);
-    else if (step === 'firstStep') setRevealCount(1);
-    if (step !== 'show') return;
-    window.clearTimeout(wait.timer);
-    showJump.current = null;
-    sendAndNotify();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  // E21: a typed place sent with «На екран» goes on screen once it is in — after E19 and E20
+  useShowJumpWhenReady({
+    showJump,
     bookNumber,
     chapter,
     selectedVerses,
     verseQueries,
     slideLines,
     safePageIndex,
-    appearance.reveal,
+    appearance,
     revealCount,
-  ]);
-
-  // Enter on a verse projects it straight away (no need to enable live-follow / press
-  // F5). If it's already part of the selection, project the whole selection; otherwise
-  // select just this verse and push it directly (built from the loaded chapter, so we
-  // don't wait for the selection-derived slideLines to recompute).
-  const projectVerseOnEnter = (verseNum: number) => {
-    if (selectedVerses.includes(verseNum)) {
-      sendAndNotify();
-      return;
-    }
-    setSelectedVerses([verseNum]);
-    const lines = buildLines([verseNum]);
-    if (lines.length === 0) return;
-    pushLive({
-      lines,
-      reference: formatReference(currentBook, chapter, [verseNum]),
-      blank: false,
-      visible: true,
-      style: slideStyle,
-      template: slideTemplate,
-      source: verseSource([verseNum], 0, 1),
-    });
-    setLive(true);
-    setPreviewOverride(null);
-    notifications.show({
-      message: tr('На екрані: {ref}', {
-        ref: formatReference(currentBook, chapter, [verseNum], true),
-      }),
-      color: 'live',
-      autoClose: 1500,
-    });
-  };
+    setPageIndex,
+    setRevealCount,
+    sendAndNotify,
+  });
 
   // The 14 page hotkeys (their order kept) and Alt+arrows (E18) — here, below the handlers they
   // take: after the timers' effects, the corner QR's and showJump's (E19–E21).
@@ -1531,8 +936,6 @@ export function Control() {
   // the preview gets a new identity every render: compare its summary instead
   const previewSummary = useRef('');
   previewSummary.current = JSON.stringify(summarize(previewSlide));
-  const nextSlideRef = useRef(nextSlide);
-  nextSlideRef.current = nextSlide;
 
   // Leader ⇄ standby (0.4.4). Standby: publish nothing and mirror what the leader shows
   // (the «На екрані» monitor stays true). Becoming leader — at start, when the leading
