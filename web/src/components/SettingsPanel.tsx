@@ -361,9 +361,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             )}
           </Text>
           <Text size="xs" c="dimmed">
-            {tr(
-              'Розмір і напис — лише для відліку на екрані; таймер доповідача бере кольори, шрифт і запис часу.',
-            )}
+            {tr('Тут — те, що бачать глядачі. Таймер доповідача має свій розділ нижче.')}
           </Text>
           <Switch
             label={tr('Звук останніх 5 секунд')}
@@ -459,6 +457,82 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               ]}
             />
           </div>
+        </Section>
+
+        {/* «Таймер доповідача» (1.8.6): its own look, apart from what the hall sees */}
+        <Section
+          value="stageTimer"
+          title={tr('Таймер доповідача')}
+          summary={
+            summary(
+              a.stageTimerWarnMinutes > 0 &&
+                tr('попередження за {n} хв', { n: a.stageTimerWarnMinutes }),
+              a.stageTimerOverOn && tr('колір після нуля'),
+              (a.stageTimerFont !== 'text' || a.stageTimerFormat !== 'clock') &&
+                tr('свій вигляд часу'),
+            ) || tr('звичайний вигляд')
+          }
+        >
+          <Text size="xs" c="dimmed">
+            {tr(
+              'Час, який бачить лише доповідач у вікні «Сцена». Глядачів ці налаштування не стосуються.',
+            )}
+          </Text>
+          <Select
+            label={tr('Попередження')}
+            data={WARN_MINUTES.map((n) => ({
+              value: String(n),
+              label: n === 0 ? tr('Без попередження') : tr('За {n} хв до кінця', { n }),
+            }))}
+            value={String(a.stageTimerWarnMinutes)}
+            onChange={(v) => v != null && set({ stageTimerWarnMinutes: Number(v) })}
+            allowDeselect={false}
+          />
+          {a.stageTimerWarnMinutes > 0 && (
+            <ColorInput
+              label={tr('Колір попередження')}
+              value={a.stageTimerWarnColor}
+              onChange={(v) => set({ stageTimerWarnColor: v })}
+              format="hex"
+              swatches={['#ffb020', '#ffd43b', '#ff922b', '#ffffff']}
+            />
+          )}
+          <Switch
+            label={tr('Інший колір після нуля')}
+            checked={a.stageTimerOverOn}
+            onChange={(e) => set({ stageTimerOverOn: e.currentTarget.checked })}
+          />
+          {a.stageTimerOverOn && (
+            <ColorInput
+              label={tr('Колір після нуля')}
+              value={a.stageTimerOverColor}
+              onChange={(v) => set({ stageTimerOverColor: v })}
+              format="hex"
+              swatches={['#ff5a5a', '#e03131', '#ff922b', '#ffffff']}
+            />
+          )}
+          <Select
+            label={tr('Шрифт часу')}
+            data={[
+              { value: 'text', label: tr('Як у тексті') },
+              { value: 'sans', label: tr('Inter (без зарубок)') },
+              { value: 'mono', label: tr('Моноширинний') },
+            ]}
+            value={a.stageTimerFont}
+            onChange={(v) => v && set({ stageTimerFont: v as TimerFont })}
+            allowDeselect={false}
+          />
+          <Select
+            label={tr('Як писати час')}
+            data={[
+              { value: 'clock', label: '4:59' },
+              { value: 'padded', label: '04:59' },
+              { value: 'minutes', label: tr('5 хв, секунди — в останню хвилину') },
+            ]}
+            value={a.stageTimerFormat}
+            onChange={(v) => v && set({ stageTimerFormat: v as TimerFormat })}
+            allowDeselect={false}
+          />
         </Section>
 
         <Section

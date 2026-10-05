@@ -126,10 +126,16 @@ The same section sets the look of the time:
   set in the **Words with the time** field when you start a countdown.
 
 The viewers' phones write the time the same way and put the words in the same place, but keep
-their own size, made for the phone's screen. The
-[speaker timer](show-text.md#give-the-speaker-a-timer) takes its colors, font, and format from
-here; size and words are for the countdown on screen only. A countdown on screen takes the new look at once.
+their own size, made for the phone's screen. A countdown on screen takes the new look at once.
 Presets keep this look with the rest.
+
+## Set up the speaker timer
+
+Only the speaker sees the [speaker timer](show-text.md#give-the-speaker-a-timer), in the **Stage**
+window, so its look is set apart from what the viewers see. The **Speaker timer** section has the
+same **Warning** and **Warning color**, **Another color past zero** and **Color past zero**,
+**Time font** (**As the text** — the slides' font), and **Time format** as the countdown. By default they match the countdown's; there
+is no size or words here — Stage has its own. A running timer takes new settings at once. Presets don't change these settings: a preset is the viewers' look.
 
 ## Place the slide's elements
 
