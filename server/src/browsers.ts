@@ -11,7 +11,7 @@
  *
  * Only node: imports — the launcher runs before `npm ci` (like standby.ts and shortcut.ts).
  */
-import { spawnSync } from 'node:child_process';
+import { spawnSync, type SpawnOptions } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -365,6 +365,17 @@ export function markBrowser(url: string, id: string): string {
   } catch {
     return url;
   }
+}
+
+/**
+ * How a browser is started (launcher.ts openBrowser, handover.ts spawnBrowser): detached, and from
+ * the home folder. A browser that wasn't running yet keeps the folder it was started in for as long
+ * as it runs — started from app/ (the start file goes there), it kept Windows from renaming app/,
+ * and an update or «Повернути версію» failed with EBUSY (the user's report, 2026-10-05: Firefox
+ * opened by the app). Windows: a browser is a GUI program — windowsHide only for `cmd /c start`.
+ */
+export function browserSpawnOptions(cmd: string): SpawnOptions {
+  return { stdio: 'ignore', detached: true, windowsHide: cmd === 'cmd', cwd: os.homedir() };
 }
 
 /**

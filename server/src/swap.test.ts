@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { copyTopFiles, previousAsNext, rollbackFolders, swapFolders } from './swap';
+import { copyTopFiles, isHeld, previousAsNext, rollbackFolders, swapFolders } from './swap';
 
 const temps: string[] = [];
 afterEach(() => {
@@ -37,6 +37,21 @@ describe('the update swap (1.0.0)', () => {
     const top = release({ app: '1.0.0' });
     await expect(swapFolders(top)).rejects.toThrow();
     expect(versionIn(top, 'app')).toBe('1.0.0');
+  });
+
+  it('a failed swap keeps the version «Повернути версію» goes back to (1.8.8)', async () => {
+    const top = release({ app: '1.0.0', 'app.previous': '0.14.2' });
+    await expect(swapFolders(top)).rejects.toThrow();
+    expect(versionIn(top, 'app')).toBe('1.0.0');
+    expect(versionIn(top, 'app.previous')).toBe('0.14.2');
+    expect(fs.existsSync(path.join(top, 'app.previous.old'))).toBe(false);
+  });
+
+  it('says when a program holds the folder (1.8.8)', () => {
+    expect(isHeld(Object.assign(new Error('x'), { code: 'EBUSY' }))).toBe(true);
+    expect(isHeld(Object.assign(new Error('x'), { code: 'EPERM' }))).toBe(true);
+    expect(isHeld(Object.assign(new Error('x'), { code: 'ENOENT' }))).toBe(false);
+    expect(isHeld(null)).toBe(false);
   });
 
   it('rolls back: the failed app aside, the previous one back', async () => {

@@ -1,4 +1,7 @@
 @echo off
+rem the folder and PATH set below stay inside this file: a cmd window that ran it is not left
+rem in the app folder (Windows will not rename a folder in use, and an update renames it - 1.8.8)
+setlocal
 rem VerseOrchestrator - start the app on Windows: double-click this file.
 rem Everything else happens in server\src\launcher.ts (the same on macOS and Linux).
 rem A release folder (npm run portable, 0.14.0) keeps the app in app\ next to this file.
