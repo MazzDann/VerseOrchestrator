@@ -133,6 +133,12 @@ When the countdown reaches zero, the control window says so. Before the end and 
 time changes color, and you can choose its size, font, and format: see
 [Set up the countdown's look](appearance.md#set-up-the-countdowns-look).
 
+To hear the last 5 seconds, turn on **Sound for the last 5 seconds** in the countdown window or
+in the **Countdown** section of the appearance settings: a short tone sounds at 5, 4, 3, 2, and
+1, and a longer one at zero. The control window plays it, so it comes from this computer's
+speakers. It sounds only while the time is on screen: not while paused, not under **Black
+screen**, and not while the text is hidden. The speaker timer makes no sound.
+
 The T key pauses and resumes the countdown on screen. With no countdown on screen, T shows a
 new one of the length you chose last.
 
