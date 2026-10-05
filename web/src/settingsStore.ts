@@ -79,6 +79,7 @@ export interface Appearance {
   /**
    * The speaker timer's own look (1.8.6), apart from the audience's: a warning so many minutes
    * before the end (0 — none) and its colour, a past-zero colour when on, the font and the format.
+   * The operator's own (`ownContent`): a preset — the viewers' look — leaves it as it is.
    */
   stageTimerWarnMinutes: number;
   stageTimerWarnColor: string;
@@ -332,6 +333,13 @@ const ownContent = (a: Appearance) => ({
   countdownBeeps: a.countdownBeeps,
   stageTimerMinutes: a.stageTimerMinutes,
   stageTimerAfterZero: a.stageTimerAfterZero,
+  // the speaker timer's look (1.8.6): not the viewers' look a preset is (review of 1.8.6)
+  stageTimerWarnMinutes: a.stageTimerWarnMinutes,
+  stageTimerWarnColor: a.stageTimerWarnColor,
+  stageTimerOverOn: a.stageTimerOverOn,
+  stageTimerOverColor: a.stageTimerOverColor,
+  stageTimerFont: a.stageTimerFont,
+  stageTimerFormat: a.stageTimerFormat,
 });
 
 export const FONT_OPTIONS = [
@@ -393,14 +401,6 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     countdownWarnColor: strOr(m.countdownWarnColor, DEFAULT_APPEARANCE.countdownWarnColor),
     countdownOverOn: !!m.countdownOverOn,
     countdownOverColor: strOr(m.countdownOverColor, DEFAULT_APPEARANCE.countdownOverColor),
-    stageTimerWarnMinutes: (WARN_MINUTES as readonly number[]).includes(m.stageTimerWarnMinutes)
-      ? m.stageTimerWarnMinutes
-      : DEFAULT_APPEARANCE.stageTimerWarnMinutes,
-    stageTimerWarnColor: strOr(m.stageTimerWarnColor, DEFAULT_APPEARANCE.stageTimerWarnColor),
-    stageTimerOverOn: !!m.stageTimerOverOn,
-    stageTimerOverColor: strOr(m.stageTimerOverColor, DEFAULT_APPEARANCE.stageTimerOverColor),
-    stageTimerFont: lookOf({ font: m.stageTimerFont }).font,
-    stageTimerFormat: lookOf({ format: m.stageTimerFormat }).format,
     countdownSize: lookOf({ size: m.countdownSize }).size,
     countdownFont: lookOf({ font: m.countdownFont }).font,
     countdownFormat: lookOf({ format: m.countdownFormat }).format,

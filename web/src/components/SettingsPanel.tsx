@@ -361,7 +361,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             )}
           </Text>
           <Text size="xs" c="dimmed">
-            {tr('Тут — те, що бачить зал. Таймер доповідача має свій розділ нижче.')}
+            {tr('Тут — те, що бачать глядачі. Таймер доповідача має свій розділ нижче.')}
           </Text>
           <Switch
             label={tr('Звук останніх 5 секунд')}
@@ -468,12 +468,14 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               a.stageTimerWarnMinutes > 0 &&
                 tr('попередження за {n} хв', { n: a.stageTimerWarnMinutes }),
               a.stageTimerOverOn && tr('колір після нуля'),
+              (a.stageTimerFont !== 'text' || a.stageTimerFormat !== 'clock') &&
+                tr('свій вигляд часу'),
             ) || tr('звичайний вигляд')
           }
         >
           <Text size="xs" c="dimmed">
             {tr(
-              'Час, який бачить лише доповідач у вікні «Сцена». Залу ці налаштування не стосуються.',
+              'Час, який бачить лише доповідач у вікні «Сцена». Глядачів ці налаштування не стосуються.',
             )}
           </Text>
           <Select

@@ -502,7 +502,7 @@ export function Control() {
   // «Таймер доповідача» (1.8.4): the leader sets it and every slide it pushes carries it
   // (`pushLive`); a window that waits follows the leader's, so taking over keeps it running
   const stageTimerRef = useRef<StageTimer | null>(freshStageTimer(liveSlide.stageTimer));
-  if (!isLeader) stageTimerRef.current = liveSlide.stageTimer ?? null;
+  if (!isLeader) stageTimerRef.current = freshStageTimer(liveSlide.stageTimer);
   /**
    * The speaker's own preview (0.6.2): the passage a remote picked last, as a slide — the
    * operator sees it next to their own preview; hidden with ✕ until the next pick.
@@ -1873,7 +1873,7 @@ export function Control() {
     if (s.cover && c && !hasLook(c, look)) countdownChange({ ...c, ...look });
     else if (timerChanged) pushTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lookKey]);
+  }, [lookKey, isLeader]);
   /**
    * «Таймер доповідача» (1.8.4): a new state of the speaker's timer goes out with the slide on
    * screen now — the one pushed last (the render's copy may be a push behind; review of 1.8.4) —
