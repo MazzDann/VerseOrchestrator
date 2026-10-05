@@ -1,6 +1,7 @@
 import type * as ChildProcess from 'node:child_process';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import os from 'node:os';
 import express from 'express';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -363,5 +364,12 @@ describe('spawnBrowser (the real runner)', () => {
   it('a command that fails says how', async () => {
     expect(await spawnBrowser(node, ['-e', 'process.exit(3)'])).toBe('exit 3');
     expect(await spawnBrowser('/no/such/browser', [])).toMatch(/ENOENT/);
+  });
+
+  it('starts it from the home folder, never from app/ (1.8.8: a browser there kept app/ in use)', async () => {
+    const home = JSON.stringify(os.homedir());
+    // exits 0 only when its working folder is the home folder
+    const check = `process.exit(require('node:path').relative(process.cwd(), ${home}) === '' ? 0 : 7)`;
+    expect(await spawnBrowser(node, ['-e', check])).toBeNull();
   });
 });

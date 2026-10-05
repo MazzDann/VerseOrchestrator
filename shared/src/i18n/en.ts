@@ -1553,6 +1553,8 @@ export const EN: Record<string, string> = {
   'В архіві оновлення не та версія': 'The update archive holds a different version',
   'Не вдалося замінити папку app/ — працює попередня версія':
     'Couldn’t replace the app/ folder — the previous version is running',
+  'Не вдалося замінити папку app/: її тримає інша програма — браузер, який відкрив застосунок, вікно Провідника чи термінал у цій папці. Закрийте її й спробуйте ще раз. Працює попередня версія':
+    'Couldn’t replace the app/ folder: another program holds it — a browser the app opened, an Explorer window, or a terminal in that folder. Close it and try again. The previous version is running',
   'Нова версія не запустилася — повернуто попередню':
     'The new version didn’t start — the previous one is back',
   'Застосунок оновлюється: нова версія запуститься сама, у фоні.':
