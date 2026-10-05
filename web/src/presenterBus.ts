@@ -146,6 +146,11 @@ export interface Slide {
    * older version simply don't show it.
    */
   countdown?: SlideCountdown | null;
+  /**
+   * the viewers' «Відлік» in a corner (1.8.7): over whatever is on screen — «Показ», «Сцена»'s
+   * previews and the phones show it; it rides on every slide the leader pushes
+   */
+  cornerCountdown?: SlideCountdown | null;
   /** a speaker's timer (1.8.4, lib/countdown.ts): «Сцена» shows it; «Показ» and the phones never */
   stageTimer?: StageTimer | null;
   /**

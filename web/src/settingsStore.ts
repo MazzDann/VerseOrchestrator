@@ -14,6 +14,9 @@ import {
   WARN_MINUTES,
   type AfterZero,
   type CaptionAt,
+  type CornerAt,
+  type CornerSize,
+  type CountdownPlace,
   type TimerFont,
   type TimerFormat,
   type TimerSize,
@@ -73,6 +76,8 @@ export interface Appearance {
   countdownOverColor: string;
   /** «Відлік»: its last 5 seconds counted aloud for the hall (1.8.5); off unless chosen */
   countdownBeeps: boolean;
+  /** …and where it goes (1.8.7): on «Заставка» or in a corner over any slide — the start's choice */
+  countdownPlace: CountdownPlace;
   /** «Таймер доповідача» (1.8.4): the length it last ran for (whole seconds) and its «Після нуля» */
   stageTimerMinutes: number;
   stageTimerAfterZero: AfterZero;
@@ -87,6 +92,9 @@ export interface Appearance {
   stageTimerOverColor: string;
   stageTimerFont: TimerFont;
   stageTimerFormat: TimerFormat;
+  /** The corner (1.8.7) and the time's size there: a look, presets carry it. */
+  countdownCorner: CornerAt;
+  countdownCornerSize: CornerSize;
   /** The time's look (1.8.3): its size, font, how it is written, and where the words go. */
   countdownSize: TimerSize;
   countdownFont: TimerFont;
@@ -306,6 +314,9 @@ export const DEFAULT_APPEARANCE: Appearance = {
   countdownOverOn: true,
   countdownOverColor: '#ff5a5a',
   countdownBeeps: false,
+  countdownPlace: 'cover',
+  countdownCorner: 'tr',
+  countdownCornerSize: 'md',
   stageTimerMinutes: 15,
   stageTimerAfterZero: 'overtime',
   stageTimerWarnMinutes: 1,
@@ -331,6 +342,7 @@ const ownContent = (a: Appearance) => ({
   countdownMinutes: a.countdownMinutes,
   countdownAfterZero: a.countdownAfterZero,
   countdownBeeps: a.countdownBeeps,
+  countdownPlace: a.countdownPlace,
   stageTimerMinutes: a.stageTimerMinutes,
   stageTimerAfterZero: a.stageTimerAfterZero,
   // the speaker timer's look (1.8.6): not the viewers' look a preset is (review of 1.8.6)
@@ -401,6 +413,8 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     countdownWarnColor: strOr(m.countdownWarnColor, DEFAULT_APPEARANCE.countdownWarnColor),
     countdownOverOn: !!m.countdownOverOn,
     countdownOverColor: strOr(m.countdownOverColor, DEFAULT_APPEARANCE.countdownOverColor),
+    countdownCorner: lookOf({ corner: m.countdownCorner }).corner,
+    countdownCornerSize: lookOf({ cornerSize: m.countdownCornerSize }).cornerSize,
     countdownSize: lookOf({ size: m.countdownSize }).size,
     countdownFont: lookOf({ font: m.countdownFont }).font,
     countdownFormat: lookOf({ format: m.countdownFormat }).format,
