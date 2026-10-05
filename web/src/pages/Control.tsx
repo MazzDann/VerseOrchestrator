@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppShell,
-  Group,
-  Button,
-  Text,
   Box,
   Divider,
   useMantineColorScheme,
@@ -14,51 +11,21 @@ import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { IconAdjustments, IconQrcode, IconDeviceMobile, IconAppWindow } from '@tabler/icons-react';
 
-import {
-  api,
-  ApiFailure,
-  type Verse,
-  type SongStyle,
-  type RemoteCommand,
-  type Pairing,
-} from '../api';
+import { api, ApiFailure, type Verse, type RemoteCommand, type Pairing } from '../api';
 import { useStore } from '../store';
 import { useSettings, refKey, type RefItem } from '../settingsStore';
 import {
-  publishSlide,
   publishNext,
-  readSlide,
   subscribeCommand,
   subscribeSlide,
   setPublishing,
   type Slide,
   type SlideLine,
   type SlideStyle,
-  type SlideTemplate,
   type SlideReveal,
   type SlideSource,
-  type SlideCountdown,
-  type SlidePicture,
 } from '../presenterBus';
-import { warmAudio } from '../lib/countdownSound';
-import {
-  afterZeroOf,
-  isPaused,
-  savedLength,
-  shiftCountdown,
-  showsTime,
-  hasLook,
-  stageTimerLook,
-  timerLook,
-  togglePause,
-  untilFor,
-  type AfterZero,
-  freshTimer,
-  type CountdownPlace,
-  type StageTimer,
-} from '../lib/countdown';
-import { NO_LIBRARY, mainText, markedText, strongLangFor, unmark } from '@vo/shared';
-import { findSong } from '../lib/songLink';
+import { NO_LIBRARY, markedText, strongLangFor } from '@vo/shared';
 import { SearchPanel, type SearchScope } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { SongsPanel } from '../components/SongsPanel';
@@ -87,7 +54,7 @@ import {
   translationEdge,
   type CrossArm,
 } from '../lib/chapterCross';
-import { connectLive, type LiveConnection } from '../lib/liveSocket';
+import { connectLive } from '../lib/liveSocket';
 import { REMOTE_LABEL } from '../lib/remote';
 import {
   asPassage,
@@ -109,38 +76,17 @@ import { tr, useLang } from '../i18n';
 import { useEffectiveSource } from '../dataSourceStore';
 import { type LibraryGap } from '../components/NoLibrary';
 import { useCodeState, useUpdateState } from '../lib/updates';
-import {
-  countdownOver,
-  coverOver,
-  forAudience,
-  pictureSlide,
-  qrOver,
-  sameContent,
-  sameSlide,
-  showsSomething,
-  summarize,
-  toggleBlack,
-  toggleHidden,
-  uncover,
-} from '../lib/slide';
+import { forAudience, pictureSlide, sameContent, summarize } from '../lib/slide';
 import { CommandPalette } from '../components/CommandPalette';
 import { takeServerUiState } from '../lib/uiState';
 import { SONG_KEYS } from '../lib/songKeys';
 import { useHeaderFold } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { SETTINGS_PANEL_KEY } from '../lib/panelBox';
-import { formatCombo } from '../hotkeys';
 import { isFormField } from '../lib/keyScroll';
 import { applyHandoverFrame, claimForHandover, controlHello, takeHandover } from '../lib/handover';
-import {
-  usePlaylist,
-  type SeqImage,
-  type SeqItem,
-  type SeqPassage,
-  type SeqSong,
-} from '../playlistStore';
+import { usePlaylist, type SeqItem } from '../playlistStore';
 import { ImagesPanel } from '../components/ImagesPanel';
-import { type ImageInfo } from '../api';
 import { joinVerses, redLetterSegments, strongHighlightSegments } from './control/slideText';
 import { withSecond } from './control/songSlides';
 import { standbyNotice } from './control/standby';
@@ -150,6 +96,13 @@ import { useVerseListEffects } from './control/useVerseListEffects';
 import { useControlHotkeys } from './control/useControlHotkeys';
 import { useTimerSignals } from './control/useTimerSignals';
 import { usePaletteCommands } from './control/usePaletteCommands';
+import { useLivePipeline } from './control/useLivePipeline';
+import { useScreenSwitches } from './control/useScreenSwitches';
+import { useQrCornerFollow } from './control/useQrCornerFollow';
+import { useSongProjection } from './control/useSongProjection';
+import { usePictures } from './control/usePictures';
+import { usePlaylistActions } from './control/usePlaylistActions';
+import { useTimers } from './control/useTimers';
 import { ControlHeader } from './control/ControlHeader';
 import { ControlNavbar } from './control/ControlNavbar';
 import { HubBanners } from './control/HubBanners';
@@ -158,8 +111,6 @@ import { VerseList } from './control/VerseList';
 import { PlaylistFloating } from './control/PlaylistFloating';
 
 const EMPTY_ARRAY: never[] = [];
-/** One «Екран очищено» notice at a time (0.13.2): a new clear replaces the last one. */
-const CLEARED_NOTICE = 'screen-cleared';
 type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
 
 type InlinePanel = 'search' | 'songs' | 'text' | 'images';
@@ -333,15 +284,22 @@ export function Control() {
   // Last song/text/Strong projection shown in the preview (so the preview reflects
   // songs and free text, not only the verse selection). Cleared on navigation.
   const [previewOverride, setPreviewOverride] = useState<Slide | null>(null);
-  // The slide actually published to the output window (for the in-app live monitor).
-  const [liveSlide, setLiveSlide] = useState<Slide>(() => readSlide());
-  // «Таймер доповідача» (1.8.4): the leader sets it and every slide it pushes carries it
-  // (`pushLive`); a window that waits follows the leader's, so taking over keeps it running
-  const stageTimerRef = useRef<StageTimer | null>(freshTimer(liveSlide.stageTimer));
-  if (!isLeader) stageTimerRef.current = freshTimer(liveSlide.stageTimer);
-  // «Відлік» in a corner (1.8.7): the same way — over whatever is on screen, so it rides along
-  const cornerRef = useRef<SlideCountdown | null>(freshTimer(liveSlide.cornerCountdown));
-  if (!isLeader) cornerRef.current = freshTimer(liveSlide.cornerCountdown);
+  // the slide on screen and the one push pipeline (vo-sync) — before the verse code; the
+  // standby sync of the timer refs runs in it during render, right after the slide
+  const {
+    liveSlide,
+    setLiveSlide,
+    stageTimerRef,
+    cornerRef,
+    liveSlideRef,
+    followAlongRef,
+    controlConn,
+    publishAudience,
+    pauseAudience,
+    lastPushed,
+    clearedRef,
+    pushLive,
+  } = useLivePipeline({ isLeader, leaderRef, followAlong });
   /**
    * The speaker's own preview (0.6.2): the passage a remote picked last, as a slide — the
    * operator sees it next to their own preview; hidden with ✕ until the next pick.
@@ -804,35 +762,6 @@ export function Control() {
     if (isLeader) publishNext(nextSlide);
   }, [nextSlide, isLeader]);
 
-  // Publish to the output window AND record it as the live slide (the bus doesn't
-  // echo to the sender, so we track it here for the in-app "what's on screen" monitor).
-  // When follow-along is on, also mirror a background-stripped copy to the server.
-  // Read followAlong through a ref so handlers with frozen deps (the clear/black
-  // hotkeys, whose react-hotkeys-hook dep arrays exclude followAlong) still see the
-  // current value rather than the one captured when the hotkey was last memoized.
-  const followAlongRef = useRef(followAlong);
-  followAlongRef.current = followAlong;
-  /** The hub's control socket (opened further down); preferred path for publishing. */
-  const controlConn = useRef<LiveConnection | null>(null);
-  // Audience follow-along goes over the control socket when it's up, HTTP otherwise.
-  const publishAudience = (slide: Slide) => {
-    if (!leaderRef.current) return; // standby: the leader feeds the phones
-    // Only with a confirmed server: at startup (probe pending) the control socket's welcome
-    // re-publishes anyway; without a server there is no audience relay at all.
-    if (useServer.getState().available !== true) return;
-    const s = forAudience(slide);
-    if (!controlConn.current?.send({ type: 'publish', slide: s })) void api.livePost(s);
-  };
-  const pauseAudience = () => {
-    if (!leaderRef.current) return;
-    if (useServer.getState().available !== true) return; // the relay starts paused anyway
-    if (!controlConn.current?.send({ type: 'publish', paused: true })) void api.livePause();
-  };
-  // What was pushed last. Live-follow re-sends whenever slideLines gets a new identity —
-  // every render (useQueries) — which re-published the SAME slide 7–10× per step (0.4.1,
-  // measured): each copy re-rendered this window, went to every output window, the
-  // remotes' «screen» frame and the phones. An identical slide is now a no-op.
-  const lastPushed = useRef<Slide | null>(null);
   /** A takeover still restoring page / reveal (0.5.10): key = the selection it waits for. */
   const adopting = useRef<{
     key: string;
@@ -840,34 +769,12 @@ export function Control() {
     reveal: number;
     override: Slide | null;
   } | null>(null);
-  /** The slide «Очистити» removed, until something else is shown (0.13.2). */
-  const clearedRef = useRef<Slide | null>(null);
   /**
    * «Прев’ю: далі / назад» (Alt+arrows, 1.1.0): the preview walked ahead and the screen stays,
    * though «Наживо» is on — until «На екран», a plain step, or «Наживо» switched.
    */
   const [screenHeld, setScreenHeld] = useState(false);
   useEffect(() => setScreenHeld(false), [liveFollow]);
-  const pushLive = (pushed: Slide, opts?: { audience?: boolean }) => {
-    if (!leaderRef.current) return; // standby: never overrides the leader's screen
-    // the speaker's timer rides on every slide (1.8.4) — the one now, not one a slide kept
-    // from before (a cleared or covered slide coming back)
-    const slide: Slide = {
-      ...pushed,
-      // one countdown for the viewers (1.8.7): a corner one takes the time off «Заставка» —
-      // whatever brings a cover countdown back (review of 1.8.7)
-      countdown: cornerRef.current && pushed.countdown ? null : pushed.countdown,
-      stageTimer: stageTimerRef.current ?? undefined,
-      cornerCountdown: cornerRef.current ?? undefined,
-    };
-    if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
-    lastPushed.current = slide;
-    if (slide.visible) clearedRef.current = null; // something else is on screen: nothing to take back
-    publishSlide(slide);
-    setLiveSlide(slide);
-    // the QR slide stays off the phones: they are already reading (0.6.16)
-    if (followAlongRef.current && opts?.audience !== false) publishAudience(slide);
-  };
 
   // Switching follow-along on pushes the current slide at once (phones already on the
   // page jump to it); switching it OFF pauses the relay, so phones show «paused» instead
@@ -877,6 +784,93 @@ export function Control() {
     else pauseAudience();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followAlong]);
+
+  // No effects in these four: the screen switches (QR, «Заставка», hide, black, clear and
+  // back), songs, pictures and the running order's actions — in this order, each taking what
+  // the one before returns (songEnd: afterToggle; activateItem: projectText, projectPicture)
+  const {
+    showQr,
+    hideQr,
+    coverToggle,
+    takeCoverOff,
+    afterToggle,
+    hideToggle,
+    blackToggle,
+    clearScreen,
+    restoreRef,
+  } = useScreenSwitches({
+    leaderRef,
+    liveSlideRef,
+    pushLive,
+    clearedRef,
+    slideStyle,
+    followUrl,
+    appearance,
+    versePreview,
+    setLive,
+    setPreviewOverride,
+  });
+  const { projectText, projectAnnouncement, songEnd } = useSongProjection({
+    slideStyle,
+    slideTemplate,
+    pushLive,
+    setPreviewOverride,
+    setLive,
+    pushRecentText,
+    leaderRef,
+    liveSlideRef,
+    afterToggle,
+  });
+  const { projectPicture, refitPicture, pictureDeleted, addImageToPlaylist, pictureOf } =
+    usePictures({
+      slideStyle,
+      pushLive,
+      setPreviewOverride,
+      setLive,
+      liveSlideRef,
+      previewOverride,
+      clearedRef,
+      playlistAdd,
+    });
+  const {
+    activatePassage,
+    activateItem,
+    stepPlaylist,
+    addCurrentPassage,
+    addSongToPlaylist,
+    addTextToPlaylist,
+  } = usePlaylistActions({
+    setTranslations,
+    selectBook,
+    selectChapter,
+    setSelectedVerses,
+    setScrollTarget,
+    queryClient,
+    appearance,
+    translations,
+    slideStyle,
+    slideTemplate,
+    pushLive,
+    setPreviewOverride,
+    setLive,
+    openSong,
+    setSongsOpen,
+    setSongsPanelStanza,
+    playlistRelinkSong,
+    projectText,
+    projectPicture,
+    pictureOf,
+    playlistSetCurrent,
+    playlistItems,
+    playlistCurrentId,
+    playlistAdd,
+    selectedIds,
+    bookNumber,
+    chapter,
+    selectedVerses,
+    reference,
+    referenceShort,
+  });
 
   const send = (overrides?: Partial<Slide>) => {
     const slide: Slide = {
@@ -931,334 +925,6 @@ export function Control() {
       color: 'live',
       autoClose: 1500,
     });
-  };
-
-  // Project a text slide (song stanza). With `faithful`, reproduce the pptx look
-  // (its background/colour/font/bold + a positioned quote box, anchored as in the file, and
-  // a second box of its own — a title slide's authors, 1.2.1); else use the app style.
-  // `look` is the stanza's own style in either mode: its second part (1.3.0) keeps the
-  // file's colour with `faithful`, and goes dimmer in the app style.
-  const projectText = (
-    text: string,
-    reference: string,
-    faithful?: SongStyle | null,
-    source?: SlideSource,
-    look?: SongStyle | null,
-  ) => {
-    if (!text.trim()) return;
-    let style = slideStyle;
-    let template = slideTemplate;
-    let quote = text;
-    let subline: string | undefined;
-    let line: SlideLine = { translationAbbr: '', text, rtl: false };
-    if (faithful) {
-      style = {
-        ...slideStyle,
-        font: faithful.font,
-        color: faithful.color,
-        align: faithful.align,
-        bgColor: faithful.bg,
-        bgImage: null,
-        redLetter: false,
-        bold: faithful.bold,
-      };
-      template = {
-        name: 'pptx',
-        objects: [
-          {
-            kind: 'quote',
-            visible: true,
-            x: faithful.x,
-            y: faithful.y,
-            w: faithful.w,
-            h: faithful.h,
-            align: faithful.align,
-            valign: faithful.anchor,
-            // Original pptx font size (cqh) → render the stanza "as made", not auto-fit.
-            size: faithful.size,
-          },
-          ...(faithful.sub
-            ? [
-                {
-                  kind: 'subline' as const,
-                  visible: true,
-                  x: faithful.sub.x,
-                  y: faithful.sub.y,
-                  w: faithful.sub.w,
-                  h: faithful.sub.h,
-                  align: faithful.sub.align,
-                  valign: faithful.sub.anchor,
-                  size: faithful.sub.size || 4, // unknown size: a caption's
-                  color: faithful.sub.color,
-                },
-              ]
-            : []),
-        ],
-      } satisfies SlideTemplate;
-      if (faithful.sub) {
-        quote = mainText(text, faithful);
-        subline = faithful.sub.text;
-      }
-      line = { ...line, text: quote };
-      const second = faithful.second;
-      if (second && unmark(second.text) === quote)
-        line = withSecond(line, second.text, second.color);
-    } else {
-      const marked = markedText(text, look);
-      if (marked) line = withSecond(line, marked);
-    }
-    const slide: Slide = {
-      lines: [line],
-      ...(subline ? { subline } : {}),
-      reference,
-      blank: false,
-      visible: true,
-      style,
-      template,
-      source,
-    };
-    pushLive(slide);
-    setPreviewOverride(slide);
-    setLive(true);
-    if (reference) {
-      notifications.show({
-        message: tr('На екрані: {ref}', { ref: reference }),
-        color: 'live',
-        autoClose: 1500,
-      });
-    }
-  };
-
-  // Project a free-text slide (announcement / note / custom text) and keep it in recents.
-  const projectAnnouncement = (title: string, body: string) => {
-    if (!body.trim()) return;
-    projectText(body, title.trim());
-    pushRecentText({ title, body });
-    if (!title.trim()) {
-      notifications.show({ message: tr('Текст на екрані'), color: 'live', autoClose: 1500 });
-    }
-  };
-
-  // «Зображення» (1.5.0): a picture on screen, as a stanza is — the preview shows it too, and
-  // «Наживо» leaves it until the verses are navigated
-  const projectPicture = (picture: SlidePicture) => {
-    const slide = pictureSlide(picture, slideStyle);
-    pushLive(slide);
-    setPreviewOverride(slide);
-    setLive(true);
-    notifications.show({
-      message: tr('На екрані: {ref}', { ref: picture.name }),
-      color: 'live',
-      autoClose: 1500,
-    });
-  };
-  // «Вписати / Заповнити» (1.7.1, the user's call): the picture on screen takes the switch at once
-  // — quietly, it is the same picture. Only its fit changes: a black screen stays black (the
-  // picture under it waits with the new fit); the preview follows when it shows that picture too
-  const refitPicture = (fit: SlidePicture['fit']) => {
-    const now = liveSlideRef.current;
-    if (!now.picture || now.picture.fit === fit) return;
-    pushLive({ ...now, picture: { ...now.picture, fit } });
-    if (previewOverride?.picture?.src === now.picture.src)
-      setPreviewOverride({ ...previewOverride, picture: { ...previewOverride.picture, fit } });
-  };
-  // a picture deleted in «Зображення» (1.7.2) leaves the screen with it — nothing shown points at a
-  // file that is gone (a black screen stays black; «Заставка» over it gives back nothing)
-  const pictureDeleted = (src: string) => {
-    const now = liveSlideRef.current;
-    if (now.picture?.src === src) {
-      pushLive(
-        now.forceBlack
-          ? { lines: [], reference: '', blank: false, visible: true, forceBlack: true }
-          : { lines: [], reference: '', blank: false, visible: false },
-      );
-      if (!now.forceBlack) setLive(false);
-      clearedRef.current = null;
-    } else if (now.returnTo?.picture?.src === src) pushLive({ ...now, returnTo: undefined });
-    // what Esc took away can't come back as a picture that is gone
-    if (clearedRef.current?.picture?.src === src) clearedRef.current = null;
-    if (previewOverride?.picture?.src === src) setPreviewOverride(null);
-  };
-  const addImageToPlaylist = (img: ImageInfo, fit: SlidePicture['fit']) => {
-    playlistAdd({
-      kind: 'image',
-      label: img.name,
-      imageId: img.id,
-      src: img.src,
-      small: img.small,
-      fit,
-    });
-    notifications.show({
-      message: tr('Зображення додано у показ'),
-      color: 'green',
-      autoClose: 1200,
-    });
-  };
-  const pictureOf = (it: SeqImage): SlidePicture => ({
-    src: it.src,
-    small: it.small,
-    name: it.label,
-    fit: it.fit,
-  });
-
-  // --- Presentation sequence (playlist) ---------------------------------------
-  // Project a saved passage: set the selection (so the list/preview follow) and
-  // push the slide directly from freshly-fetched verses (don't wait on the
-  // selection-derived `slideLines`, which only updates on the next render/query).
-  const activatePassage = async (it: SeqPassage) => {
-    setTranslations(it.translationIds);
-    selectBook(it.bookNumber);
-    selectChapter(it.chapter);
-    setSelectedVerses(it.verses);
-    setScrollTarget(it.verses[0] ?? null);
-    const lines: SlideLine[] = [];
-    for (const id of it.translationIds) {
-      try {
-        const verses = await queryClient.fetchQuery({
-          queryKey: ['verses', id, it.bookNumber, it.chapter],
-          queryFn: () => api.verses(id, it.bookNumber, it.chapter),
-        });
-        const text = joinVerses(verses, it.verses, appearance.showVerseNumbers);
-        if (!text.trim()) continue;
-        const t = translations.find((x) => x.id === id);
-        const segments = redLetterSegments(verses, it.verses, appearance.showVerseNumbers);
-        lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
-      } catch {
-        /* skip a translation that fails to load */
-      }
-    }
-    if (lines.length === 0) {
-      // Every translation failed to load (e.g. ids changed after a library rebuild).
-      notifications.show({
-        message: tr('Уривок недоступний — переклад змінився. Оновіть елемент показу.'),
-        color: 'red',
-        autoClose: 2500,
-      });
-      return;
-    }
-    pushLive({
-      lines,
-      reference: it.label,
-      blank: false,
-      visible: true,
-      style: slideStyle,
-      template: slideTemplate,
-      source: {
-        kind: 'verses',
-        translationIds: it.translationIds,
-        bookNumber: it.bookNumber,
-        chapter: it.chapter,
-        verses: it.verses,
-        page: 0,
-        reveal: 1,
-      },
-    });
-    setPreviewOverride(null);
-    setLive(true);
-  };
-
-  // Open a saved song in the Songs panel and project its first stanza; further
-  // stanzas are stepped with the arrows inside the panel (existing behaviour).
-  const activateSong = async (it: SeqSong) => {
-    openSong(it.songId);
-    setSongsOpen(true);
-    try {
-      // by its id — or by its label when the id changed (song bundles, 0.10.0)
-      const s = await findSong(it.songId, it.label, it.bundle, {
-        song: (id) =>
-          queryClient.fetchQuery({ queryKey: ['song', id], queryFn: () => api.song(id) }),
-        search: (q) => api.songs(q),
-      });
-      if (!s) return;
-      if (s.id !== it.songId) {
-        playlistRelinkSong(it.songId, it.label, s.id, s.bundle);
-        openSong(s.id);
-      }
-      if (s.slides.length > 0) {
-        projectText(
-          s.slides[0].text,
-          `№${s.number ?? ''} ${s.title}`.trim(),
-          it.faithful ? s.slides[0].style : null,
-          { kind: 'song', songId: s.id, stanza: 0 },
-          s.slides[0].style,
-        );
-        // Seed the panel's stanza highlight to 0 so the first arrow/clicker advances
-        // to stanza 1 (not re-projects the title we just put on screen).
-        setSongsPanelStanza(0);
-      }
-    } catch {
-      /* ignore a song that fails to load */
-    }
-  };
-
-  const activateItem = (it: SeqItem) => {
-    playlistSetCurrent(it.id);
-    if (it.kind === 'passage') void activatePassage(it);
-    else if (it.kind === 'text') projectText(it.body, it.title.trim());
-    else if (it.kind === 'image') projectPicture(pictureOf(it));
-    else void activateSong(it);
-  };
-
-  const stepPlaylist = (delta: 1 | -1) => {
-    if (playlistItems.length === 0) return;
-    const idx = playlistItems.findIndex((i) => i.id === playlistCurrentId);
-    const next =
-      idx < 0
-        ? delta > 0
-          ? 0
-          : playlistItems.length - 1
-        : Math.min(playlistItems.length - 1, Math.max(0, idx + delta));
-    activateItem(playlistItems[next]);
-  };
-
-  const addCurrentPassage = () => {
-    if (
-      selectedIds.length === 0 ||
-      bookNumber == null ||
-      chapter == null ||
-      selectedVerses.length === 0
-    )
-      return;
-    playlistAdd({
-      kind: 'passage',
-      label: reference || referenceShort || tr('Уривок'),
-      translationIds: selectedIds,
-      bookNumber,
-      chapter,
-      verses: selectedVerses,
-    });
-    notifications.show({
-      message: tr('Додано у показ: {item}', { item: referenceShort || reference }),
-      color: 'green',
-      autoClose: 1200,
-    });
-  };
-
-  const addSongToPlaylist = (song: {
-    songId: number;
-    label: string;
-    bundle: string;
-    faithful: boolean;
-  }) => {
-    playlistAdd({
-      kind: 'song',
-      label: song.label || tr('Пісня'),
-      songId: song.songId,
-      ...(song.bundle ? { bundle: song.bundle } : {}),
-      faithful: song.faithful,
-    });
-    notifications.show({
-      message: tr('Додано у показ: {item}', { item: song.label }),
-      color: 'green',
-      autoClose: 1200,
-    });
-  };
-
-  const addTextToPlaylist = (item: { title: string; body: string }) => {
-    if (!item.body.trim()) return;
-    const label = item.title.trim() || item.body.trim().split('\n')[0].slice(0, 40);
-    playlistAdd({ kind: 'text', label, title: item.title, body: item.body });
-    notifications.show({ message: tr('Текст додано у показ'), color: 'green', autoClose: 1200 });
   };
 
   // While following live, republish when the selection, reference, or appearance
@@ -1468,284 +1134,37 @@ export function Control() {
     pushHistory,
   });
 
-  // Remove the slide from the output. Drops out of live so the live-follow effect
-  // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
-  // which would re-run that effect).
-  // «QR на екран» (0.6.16): the viewers' QR as a slide; «Прибрати QR» brings back exactly
-  // the slide it covered (not the selection — the operator may have browsed meanwhile). The
-  // slide carries what it covers (lib/slide.ts `qrOver`, 1.4.2), so any control window that
-  // leads now can give it back.
-  const showQr = () => {
-    const slide = qrOver(liveSlideRef.current, followUrl, slideStyle, tr('QR для глядачів'));
-    pushLive(slide, { audience: false });
-    setPreviewOverride(slide);
-    setLive(true);
-  };
-  // «Заставка» (1.4.0): the logo and text from Налаштування вигляду → Заставка over whatever
-  // is on screen; again — exactly the slide it covered (as «QR на екран» does, `coverOver`).
-  // The phones get it without the image: an empty slide, «· · ·».
-  const coverToggle = () => {
-    if (!leaderRef.current) return standbyNotice();
-    const now = liveSlideRef.current;
-    if (!now.cover) {
-      const cover = { text: appearance.coverText, image: appearance.coverImage };
-      const slide = coverOver(now, cover, slideStyle, tr('Заставка'));
-      pushLive(slide);
-      setPreviewOverride(slide);
-      setLive(true);
-      if (!appearance.coverText && !appearance.coverImage) {
-        notifications.show({
-          message: tr(
-            'Заставка поки порожня — лише фон. Додайте логотип чи текст: Налаштування вигляду → Заставка',
-          ),
-          color: 'gray',
-          autoClose: 4000,
-        });
-      }
-      return;
-    }
-    takeCoverOff();
-  };
-  /** «Заставка» (with «Відлік» too) off: exactly the slide it covered, or an empty screen. */
-  const takeCoverOff = () => {
-    const back = uncover(liveSlideRef.current);
-    if (!back) {
-      pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
-      setLive(false);
-      setPreviewOverride(null);
-      return;
-    }
-    pushLive(back);
-    afterToggle(back);
-  };
-  // «Відлік» (1.5.0, components/CountdownTool): «Заставка» with the time left under it, over
-  // whatever is on screen; L or «Прибрати відлік» gives that back, as from «Заставка».
-  const countdownStart = (
-    countdown: SlideCountdown,
-    place: CountdownPlace = appearance.countdownPlace,
-  ) => {
-    if (!leaderRef.current) return standbyNotice();
-    // a click or a key starts it: the moment a browser lets the page sound later (1.8.5)
-    if (appearance.countdownBeeps) warmAudio();
-    const cover = { text: appearance.coverText, image: appearance.coverImage };
-    // the time's look from the settings (1.8.2 colours, 1.8.3 the rest)
-    const timed = { ...countdown, ...timerLook(appearance) };
-    // in a corner (1.8.7): over what is on screen, which stays as it is
-    if (place === 'corner') {
-      cornerRef.current = timed;
-      pushCorner();
-      return;
-    }
-    // one countdown for the viewers at a time
-    cornerRef.current = null;
-    const slide = countdownOver(liveSlideRef.current, cover, timed, slideStyle, tr('Відлік'));
-    pushLive(slide);
-    setPreviewOverride(slide);
-    setLive(true);
-  };
-  /** The viewers' countdown now (1.8.7): in a corner, or on «Заставка». */
-  const viewersCountdown = (): { corner: boolean; c: SlideCountdown } | null => {
-    if (cornerRef.current) return { corner: true, c: cornerRef.current };
-    const s = liveSlideRef.current;
-    return s.cover && s.countdown ? { corner: false, c: s.countdown } : null;
-  };
-  /**
-   * The same countdown with a new end: what it covers and the cover stay. In a corner (1.8.7)
-   * it goes out with the slide on screen now — the one pushed last.
-   */
-  const countdownChange = (countdown: SlideCountdown | null, corner = !!cornerRef.current) => {
-    if (!leaderRef.current) return standbyNotice();
-    if (corner) {
-      cornerRef.current = countdown;
-      pushCorner();
-      return;
-    }
-    const now = liveSlideRef.current;
-    if (!now.cover || !now.countdown) return;
-    const slide: Slide = countdown
-      ? { ...now, countdown }
-      : { ...now, countdown: null, reference: tr('Заставка') };
-    pushLive(slide);
-    // the preview follows only while it shows the cover: a passage the operator got ready
-    // meanwhile stays there for «На екран» and the stage display (review of #45)
-    setPreviewOverride((p) => (p?.cover ? slide : p));
-  };
-  /** A new countdown of what «Відлік» last chose: the palette's line and the key (1.8.1). */
-  const countdownStartSaved = () =>
-    countdownStart({
-      until: untilFor(savedLength(appearance.countdownMinutes), Date.now()),
-      caption: appearance.countdownCaption.trim() || tr('Починаємо за'),
-      afterZero: appearance.countdownAfterZero,
-    });
-  const countdownShift = (minutes: number) => {
-    const v = viewersCountdown();
-    if (v) countdownChange(shiftCountdown(v.c, minutes, Date.now()), v.corner);
-  };
-  // going on from zero or past it (1.8.1): that zero was said already — the end notice keeps quiet
-  const quietEnd = useRef<number | null>(null);
-  /** «Пауза» / «Продовжити» (1.8.1): the time on screen stands still, then goes on from there. */
-  const countdownPause = () => {
-    const v = viewersCountdown();
-    if (!v) return;
-    if (appearance.countdownBeeps) warmAudio();
-    const now = Date.now();
-    const next = togglePause(v.c, now);
-    if (!isPaused(next) && next.until <= now) quietEnd.current = next.until;
-    countdownChange(next, v.corner);
-    return next;
-  };
-  /**
-   * The key «Відлік: пауза / далі» (1.8.1, T): the countdown on screen stops or goes on; with
-   * none showing its time, a new one starts. Under «Чорний екран» it pauses the countdown there
-   * and the screen stays black — never a new one over it (review of 1.8.1).
-   */
-  const countdownKey = () => {
-    if (!leaderRef.current) return standbyNotice();
-    const v = viewersCountdown();
-    if (v && showsTime(v.c, Date.now())) {
-      const next = countdownPause();
-      notifications.show({
-        message: next && isPaused(next) ? tr('Відлік: пауза') : tr('Відлік іде далі'),
-        color: 'gray',
-        autoClose: 1500,
-      });
-      return;
-    }
-    countdownStartSaved();
-  };
-  // The time's look changed (1.8.2 colours, 1.8.3 size, font, format, words; Налаштування
-  // вигляду → Відлік, maybe from the settings window): the countdown on screen takes it at once —
-  // its time and its end stay
-  const look = timerLook(appearance);
-  // the speaker's timer has its own (1.8.6, Налаштування вигляду → Таймер доповідача)
-  const stageLook = stageTimerLook(appearance);
-  const lookKey = JSON.stringify([look, stageLook]);
-  useEffect(() => {
-    if (!leaderRef.current) return;
-    const t = stageTimerRef.current;
-    const timerChanged = !!t && !hasLook(t, stageLook);
-    if (t && timerChanged) stageTimerRef.current = { ...t, ...stageLook };
-    const k = cornerRef.current;
-    const cornerChanged = !!k && !hasLook(k, look);
-    if (k && cornerChanged) cornerRef.current = { ...k, ...look };
-    const s = liveSlideRef.current;
-    const c = s.countdown;
-    // one push carries them all: the countdown's change takes the timers along
-    if (s.cover && c && !hasLook(c, look)) countdownChange({ ...c, ...look }, false);
-    else if (cornerChanged) pushCorner();
-    else if (timerChanged) pushTimer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lookKey, isLeader]);
-  /**
-   * «Таймер доповідача» (1.8.4): a new state of the speaker's timer goes out with the slide on
-   * screen now — the one pushed last (the render's copy may be a push behind; review of 1.8.4) —
-   * and never to the phones: they have nothing new, and over the QR slide they would go blank.
-   */
-  const pushTimer = () =>
-    pushLive({ ...(lastPushed.current ?? liveSlideRef.current) }, { audience: false });
-  /**
-   * The corner countdown's new state (1.8.7) goes out with the slide on screen now — to the phones
-   * too, but not over the QR slide: they would go blank (the 1.8.4 lesson; review of 1.8.7). They
-   * get it with the next slide.
-   */
-  const pushCorner = () => {
-    const s = lastPushed.current ?? liveSlideRef.current;
-    pushLive({ ...s }, { audience: !s.qr });
-  };
-  const stageTimerSet = (timer: StageTimer | null) => {
-    if (!leaderRef.current) return standbyNotice();
-    stageTimerRef.current = timer;
-    pushTimer();
-  };
-  const stageTimerStart = (ms: number, afterZero: AfterZero) =>
-    stageTimerSet({ until: untilFor(ms, Date.now()), afterZero, ...stageTimerLook(appearance) });
-  const stageTimerPause = () => {
-    const t = stageTimerRef.current;
-    if (t) stageTimerSet(togglePause(t, Date.now()));
-  };
-  const stageTimerShift = (minutes: number) => {
-    const t = stageTimerRef.current;
-    if (t) stageTimerSet(shiftCountdown(t, minutes, Date.now()));
-  };
-  const stageTimerAfterZero = (afterZero: AfterZero) => {
-    const t = stageTimerRef.current;
-    if (t && afterZeroOf(t) !== afterZero) stageTimerSet({ ...t, afterZero });
-  };
-  /** «Після нуля» (1.8.0) for the countdown on screen: its time, the end and the cover stay. */
-  const countdownAfterZero = (afterZero: AfterZero) => {
-    const v = viewersCountdown();
-    if (v && afterZeroOf(v.c) !== afterZero) countdownChange({ ...v.c, afterZero }, v.corner);
-  };
-  const hideQr = () => {
-    const back = uncover(liveSlideRef.current);
-    if (!back) {
-      pushLive({ lines: [], reference: '', blank: false, visible: false, style: slideStyle });
-      setLive(false);
-      setPreviewOverride(null);
-      return;
-    }
-    const restored: Slide = {
-      ...back,
-      style: { ...(back.style ?? slideStyle), qrCorner: slideStyle.qrCorner },
-    };
-    pushLive(restored);
-    setLive(!restored.blank);
-    // verses: live-follow picks up again on the next step; a song / text keeps the screen
-    setPreviewOverride(restored.source?.kind === 'verses' ? null : restored);
-  };
-  // The corner QR switched on/off or restyled (0.6.20): show it on what is on screen now,
-  // whatever that is (the QR slide itself too).
-  useEffect(() => {
-    const s = liveSlideRef.current;
-    if (!s.visible || s.forceBlack) return;
-    const same =
-      (s.style?.qrCorner ?? null) === slideStyle.qrCorner &&
-      (s.style?.qrStyle ?? null) === (slideStyle.qrStyle ?? null);
-    if (same) return;
-    pushLive(
-      {
-        ...s,
-        style: {
-          ...(s.style ?? slideStyle),
-          qrCorner: slideStyle.qrCorner,
-          qrStyle: slideStyle.qrStyle,
-        },
-      },
-      { audience: !s.qr },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideStyle.qrCorner, slideStyle.qrStyle]);
-
-  // «Очистити» can be taken back (0.13.2): the slide it removed stays at hand (`clearedRef`)
-  // until something else goes on screen. Esc again keeps the screen empty — a panicked double
-  // press must not bring back what was just cleared — so taking back is its own key
-  // (Ctrl+Z / ⌘Z), the palette, or «Повернути» in the notice.
-  const clearScreen = () => {
-    const was = liveSlideRef.current;
-    const takeBack = leaderRef.current && was.visible;
-    pushLive({ lines: [], reference: '', blank: false, visible: false });
-    setLive(false);
-    if (!takeBack) return;
-    clearedRef.current = was;
-    notifications.hide(CLEARED_NOTICE);
-    notifications.show({
-      id: CLEARED_NOTICE,
-      color: 'gray',
-      autoClose: 6000,
-      message: (
-        <Group gap="xs" justify="space-between" wrap="nowrap">
-          <Text size="sm">
-            {tr('Екран очищено · {key} повертає', {
-              key: formatCombo(useSettings.getState().keymap.restore),
-            })}
-          </Text>
-          <Button size="compact-xs" variant="light" onClick={() => restoreRef.current()}>
-            {tr('Повернути')}
-          </Button>
-        </Group>
-      ),
-    });
-  };
+  // the viewers' countdown and the speaker's timer (vo-timer): their switches and E19 (a new
+  // look taken at once) — where E19 was: after E13–E15, before E20
+  const {
+    countdownStart,
+    countdownChange,
+    countdownStartSaved,
+    countdownShift,
+    quietEnd,
+    countdownPause,
+    countdownKey,
+    stageTimerSet,
+    stageTimerStart,
+    stageTimerPause,
+    stageTimerShift,
+    stageTimerAfterZero,
+    countdownAfterZero,
+  } = useTimers({
+    leaderRef,
+    isLeader,
+    appearance,
+    cornerRef,
+    stageTimerRef,
+    liveSlideRef,
+    lastPushed,
+    slideStyle,
+    pushLive,
+    setPreviewOverride,
+    setLive,
+  });
+  // E20: the corner QR follows its settings on what is on screen — after E19, before E21
+  useQrCornerFollow({ liveSlideRef, slideStyle, pushLive });
 
   const sendAndNotify = () => {
     if (!leaderRef.current) return standbyNotice();
@@ -1823,74 +1242,8 @@ export function Control() {
     });
   };
 
-  // «Сховати текст» / «Чорний екран» (0.6.18): switches over what is on screen — the same
-  // slide comes back on the second press (lib/slide.ts). Hiding: the text fades, the
-  // background and the corner QR stay (B). Black: an instant cut, everything (.).
-  const afterToggle = (s: Slide) => {
-    // «Заставка» counts (1.4.1): black or hidden over it and back used to read as nothing
-    if (!showsSomething(s)) {
-      setLive(false);
-      return;
-    }
-    // back on screen: follow the selection again only if it is what came back
-    const verses = s.source?.kind === 'verses';
-    setLive(verses && sameContent(s, versePreview));
-    setPreviewOverride(verses ? null : s);
-  };
-  const hideToggle = () => {
-    if (!leaderRef.current) return standbyNotice();
-    const next = toggleHidden(liveSlideRef.current);
-    if (!next) {
-      notifications.show({
-        message: tr('На екрані нічого ховати'),
-        color: 'gray',
-        autoClose: 1200,
-      });
-      return;
-    }
-    pushLive(next);
-    afterToggle(next);
-    notifications.show(
-      next.blank
-        ? { message: tr('Текст сховано — фон лишається'), color: 'cue', autoClose: 1500 }
-        : { message: tr('Текст знову на екрані'), color: 'live', autoClose: 1200 },
-    );
-  };
-  const blackToggle = () => {
-    if (!leaderRef.current) return standbyNotice();
-    const next = toggleBlack(liveSlideRef.current);
-    pushLive(next);
-    afterToggle(next);
-    notifications.show(
-      next.forceBlack
-        ? { message: tr('Чорний екран'), color: 'dark', autoClose: 1200 }
-        : { message: tr('Чорний екран знято'), color: 'live', autoClose: 1200 },
-    );
-  };
-
-  /** Take back «Очистити» (0.13.2): exactly the slide it removed, as the toggles do. */
-  const restoreCleared = () => {
-    if (!leaderRef.current) return standbyNotice();
-    const back = clearedRef.current;
-    notifications.hide(CLEARED_NOTICE);
-    if (!back || liveSlideRef.current.visible) {
-      clearedRef.current = null;
-      notifications.show({
-        message: tr('Немає чого повертати на екран'),
-        color: 'gray',
-        autoClose: 1200,
-      });
-      return;
-    }
-    pushLive(back);
-    afterToggle(back);
-    notifications.show({ message: tr('Знову на екрані'), color: 'live', autoClose: 1200 });
-  };
-  // the notice's button and the key run the latest one (it reads the current preview)
-  const restoreRef = useRef(restoreCleared);
-  restoreRef.current = restoreCleared;
-  // The 14 page hotkeys (their order kept) and Alt+arrows (E18) — here, below the last handler
-  // they take (restoreRef): after the timers' effects, the corner QR's and showJump's (E19–E21).
+  // The 14 page hotkeys (their order kept) and Alt+arrows (E18) — here, below the handlers they
+  // take: after the timers' effects, the corner QR's and showJump's (E19–E21).
   useControlHotkeys({
     keymap,
     advanceAndSay,
@@ -1922,22 +1275,6 @@ export function Control() {
     reference,
     slideStyle,
   });
-
-  // «Далі» after a song's last stanza (0.6.24): an empty slide — the stanza's text goes, its
-  // background stays (the same slide, hidden, as «Сховати текст»); «Назад» or any stanza
-  // brings text back. Only over a song: after a song the screen shows nothing to read.
-  const songEnd = (): Outcome => {
-    if (!leaderRef.current) return { ok: false, reason: tr('Показом керує інше вікно керування') };
-    const s = liveSlideRef.current;
-    if (s.source?.kind !== 'song' || !s.visible) {
-      return { ok: false, reason: tr('На екрані не пісня — ховати нічого') };
-    }
-    if (s.blank || s.forceBlack) return { ok: true }; // nothing to read already
-    const next: Slide = { ...s, blank: true };
-    pushLive(next);
-    afterToggle(next);
-    return { ok: true };
-  };
 
   // Show commands from outside the operator's keyboard — an output window's keys (a
   // clicker on the 2nd monitor) and speaker remotes — all go through one dispatcher
@@ -2194,8 +1531,6 @@ export function Control() {
   // the preview gets a new identity every render: compare its summary instead
   const previewSummary = useRef('');
   previewSummary.current = JSON.stringify(summarize(previewSlide));
-  const liveSlideRef = useRef(liveSlide);
-  liveSlideRef.current = liveSlide;
   const nextSlideRef = useRef(nextSlide);
   nextSlideRef.current = nextSlide;
 
@@ -2412,6 +1747,8 @@ export function Control() {
       setHubLost(false);
       c.stop();
     };
+    // deps as they were: the rule knew these refs (now from useLivePipeline) as stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryClient, serverAvailable, isLeader]);
   // The shared running order (0.6.9): a summary of «Послідовність показу» for remotes
   // allowed «Послідовність» (the hub relays it to them only) — ids, labels, the current
@@ -2443,6 +1780,8 @@ export function Control() {
   sharedPlaylistRef.current = sharedPlaylist;
   useEffect(() => {
     if (hubActive) controlConn.current?.send({ type: 'playlist', playlist: sharedPlaylist });
+    // deps as they were: controlConn is a ref (now from useLivePipeline)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedPlaylist, hubActive]);
 
   // «Запропонувати пульту» (0.6.4): the operator's preview — a verse page or a song stanza —
@@ -2497,6 +1836,8 @@ export function Control() {
   const previewKey = previewSummary.current;
   useEffect(() => {
     controlConn.current?.send(screenFrame());
+    // deps as they were: controlConn and the refs screenFrame reads now come from useLivePipeline
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveSlide, nextSlide, previewKey]);
 
   // In-app "what's on screen now" monitor — reflects the actually-published slide.
