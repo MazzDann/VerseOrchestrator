@@ -1,4 +1,4 @@
-import { useRef, useState, type MutableRefObject } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { api } from '../../api';
 import { useServer } from '../../serverStore';
 import { publishSlide, readSlide, type Slide, type SlideCountdown } from '../../presenterBus';
@@ -98,4 +98,29 @@ export function useLivePipeline({
     clearedRef,
     pushLive,
   };
+}
+
+/**
+ * E10 (vo-sync): the phones' relay follows the follow-along switch — the current slide at once
+ * when it goes on, «paused» when it goes off.
+ */
+export function useFollowAlongRelay({
+  followAlong,
+  publishAudience,
+  liveSlide,
+  pauseAudience,
+}: {
+  followAlong: boolean;
+  publishAudience: (slide: Slide) => void;
+  liveSlide: Slide;
+  pauseAudience: () => void;
+}) {
+  // Switching follow-along on pushes the current slide at once (phones already on the
+  // page jump to it); switching it OFF pauses the relay, so phones show «paused» instead
+  // of freezing on the last slide.
+  useEffect(() => {
+    if (followAlong) publishAudience(liveSlide);
+    else pauseAudience();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followAlong]);
 }
