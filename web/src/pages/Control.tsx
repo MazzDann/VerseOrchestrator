@@ -94,7 +94,7 @@ import {
 } from '../presenterBus';
 import { CountdownTool } from '../components/CountdownTool';
 import { StageTimerTool } from '../components/StageTimerTool';
-import { beepPlan, playBeep, warmAudio } from '../lib/countdownSound';
+import { scheduleBeeps, warmAudio } from '../lib/countdownSound';
 import {
   afterZeroOf,
   formatRemaining,
@@ -2781,11 +2781,22 @@ export function Control() {
       : undefined;
   useEffect(() => {
     if (beepUntil == null || !isLeader) return;
-    const timers = beepPlan(beepUntil - Date.now()).map((b) =>
-      window.setTimeout(() => playBeep(b.zero), b.at),
-    );
-    return () => timers.forEach((t) => window.clearTimeout(t));
+    // going on from zero or past it: that zero was heard already (review of 1.8.5)
+    if (quietEnd.current === beepUntil) return;
+    return scheduleBeeps(beepUntil);
   }, [beepUntil, isLeader]);
+  // a reloaded window, or one that took over, may not sound until the operator acts there: any
+  // click or key wakes it, and the tones still ahead play (review of 1.8.5)
+  useEffect(() => {
+    if (!appearance.countdownBeeps) return;
+    const wake = () => void warmAudio();
+    window.addEventListener('pointerdown', wake, true);
+    window.addEventListener('keydown', wake, true);
+    return () => {
+      window.removeEventListener('pointerdown', wake, true);
+      window.removeEventListener('keydown', wake, true);
+    };
+  }, [appearance.countdownBeeps]);
   const countdownAfter = useRef(afterZeroOf(liveSlide.countdown));
   countdownAfter.current = afterZeroOf(liveSlide.countdown);
   useEffect(() => {

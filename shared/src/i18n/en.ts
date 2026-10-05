@@ -731,6 +731,7 @@ export const EN: Record<string, string> = {
   'Без напису': 'No words',
   // 1.8.5: the last seconds aloud
   'Звук останніх 5 секунд': 'Sound for the last 5 seconds',
+  звук: 'sound',
   '5, 4, 3, 2, 1 — короткий звук, на нулі — довший; грає вікно керування':
     '5, 4, 3, 2, 1 — a short tone, at zero a longer one; the control window plays it',
   // 1.8.4: a speaker's timer on «Сцена»
