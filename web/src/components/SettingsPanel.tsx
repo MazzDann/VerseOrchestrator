@@ -38,6 +38,8 @@ import { warmAudio } from '../lib/countdownSound';
 import {
   WARN_MINUTES,
   type CaptionAt,
+  type CornerAt,
+  type CornerSize,
   type TimerFont,
   type TimerFormat,
   type TimerSize,
@@ -457,6 +459,31 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               ]}
             />
           </div>
+          {/* «Відлік» in a corner (1.8.7): which corner and how big */}
+          <Select
+            label={tr('Кут для відліку')}
+            description={tr('Коли відлік показують у кутку, поверх слайда')}
+            data={[
+              { value: 'tr', label: tr('Угорі праворуч') },
+              { value: 'tl', label: tr('Угорі ліворуч') },
+              { value: 'br', label: tr('Унизу праворуч') },
+              { value: 'bl', label: tr('Унизу ліворуч') },
+            ]}
+            value={a.countdownCorner}
+            onChange={(v) => v && set({ countdownCorner: v as CornerAt })}
+            allowDeselect={false}
+          />
+          <Select
+            label={tr('Розмір у кутку')}
+            data={[
+              { value: 'sm', label: tr('Менший') },
+              { value: 'md', label: tr('Звичайний') },
+              { value: 'lg', label: tr('Більший') },
+            ]}
+            value={a.countdownCornerSize}
+            onChange={(v) => v && set({ countdownCornerSize: v as CornerSize })}
+            allowDeselect={false}
+          />
         </Section>
 
         {/* «Таймер доповідача» (1.8.6): its own look, apart from what the hall sees */}

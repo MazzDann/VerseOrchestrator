@@ -123,6 +123,9 @@ export function Follow() {
   // still — as the screen does
   const { left, counting: timing } = useCountdown(onScreen ? slide?.countdown : null, offset);
   const phoneLook = lookOf(slide?.countdown);
+  // the viewers' countdown in a corner (1.8.7): a small time at the top of the phone too
+  const corner = useCountdown(slide && !slide.forceBlack ? slide.cornerCountdown : null, offset);
+  const cornerLook = lookOf(slide?.cornerCountdown);
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
   const text = readerTextStyle(reader, font);
 
@@ -142,6 +145,29 @@ export function Follow() {
         WebkitTextSizeAdjust: '100%',
       }}
     >
+      {corner.counting && slide?.cornerCountdown && (
+        <div
+          className={timerColor(slide.cornerCountdown, corner.left) ? 'vo-follow-timer' : undefined}
+          style={
+            {
+              position: 'fixed',
+              top: 10,
+              right: 12,
+              zIndex: 5,
+              padding: '2px 10px',
+              borderRadius: 8,
+              background: 'rgba(127, 127, 127, 0.18)',
+              fontSize: 22,
+              fontWeight: 600,
+              fontVariantNumeric: 'tabular-nums',
+              fontFamily: cornerLook.font === 'mono' ? TIMER_FONT_CSS.mono : undefined,
+              '--vo-timer-color': timerColor(slide.cornerCountdown, corner.left),
+            } as CSSProperties
+          }
+        >
+          {formatTimer(corner.left, cornerLook.format)}
+        </div>
+      )}
       {!connected && (
         // at the top: the bottom row belongs to «Aa» and the caption
         <div

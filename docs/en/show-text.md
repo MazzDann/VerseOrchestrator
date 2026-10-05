@@ -103,14 +103,17 @@ viewers' phones, all by the computer's clock: a phone whose clock is off shows t
 To show a countdown:
 
 1. At the top of the control window, to the right of **Cover**, click the **Countdown** icon.
-2. In the **How long** row, choose the minutes, or type your own in the **Length** field: 7 is
+2. Optional: in the **Where to show** row, choose **In a corner** for the time to run in a corner
+   over what is already on screen — verses, a song, a picture. **On the cover** is the usual
+   choice.
+3. In the **How long** row, choose the minutes, or type your own in the **Length** field: 7 is
    seven minutes, 7:30 is seven minutes thirty seconds, 1:05:00 is an hour and five minutes. To
    count to a time of day, choose **until…** and type the time in the **Until what time** field.
-3. Optional: in the **Words with the time** field, change the words over the time. Without
+4. Optional: in the **Words with the time** field, change the words over the time. Without
    them, the screen says “Starting in”.
-4. Optional: in the **After zero** row, choose what the time does when it is up. See the list
+5. Optional: in the **After zero** row, choose what the time does when it is up. See the list
    below.
-5. Click the button with the words and the time, for example **Show: Starting in 5:00**. If
+6. Click the button with the words and the time, for example **Show: Starting in 5:00**. If
    you chose **until…**, the button is **Show the countdown**.
 
 While the countdown is on screen, the **Countdown** icon is highlighted and its tooltip shows
@@ -138,6 +141,12 @@ in the **Countdown** section of the appearance settings: a short tone sounds at 
 1, and a longer one at zero. The control window plays it, so it comes from this computer's
 speakers. It sounds only while the time is on screen: not while paused, not under **Black
 screen**, and not while the text is hidden. The speaker timer makes no sound.
+
+A countdown in a corner is the time alone, without words, in the corner chosen in the appearance
+settings (top right by default; when the viewers' QR takes the bottom right, the time moves up).
+The slide's text keeps out from under it. The viewers' phones show this time small at the top.
+Pause, «±1 min», **After zero**, the sound, and the T key work the same; **Remove the countdown**
+removes only the time.
 
 The T key pauses and resumes the countdown on screen. With no countdown on screen, T shows a
 new one of the length you chose last.
