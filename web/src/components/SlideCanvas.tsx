@@ -10,6 +10,7 @@ import {
   DEFAULT_STYLE,
 } from '../presenterBus';
 import {
+  CORNER_SIZE_CQH,
   formatTimer,
   lookOf,
   TIMER_FONT_CSS,
@@ -388,6 +389,8 @@ export function SlideCanvas({ slide, calm }: { slide: Slide; calm?: boolean }) {
  */
 function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   const style = slide.style ?? DEFAULT_STYLE;
+  // the viewers' countdown in a corner (1.8.7): counts, holds or goes past zero, pauses
+  const { left: cornerLeft, counting: cornerCounting } = useCountdown(slide.cornerCountdown);
   const transition = calm ? 'none' : style.transition;
   const show =
     slide.visible &&
@@ -412,6 +415,37 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   // card is 17cqh of QR + padding + caption ≈ 22cqh tall, 2.5cqh off the bottom: keep the
   // lowest 26 % of the slide free; the text auto-fits the rest, centred as before.
   const qrBand = corner ? 26 : 0;
+  // «Відлік» in a corner (1.8.7): the time alone, over any slide; the bottom right is the QR
+  // card's when it shows, so the time goes to the top right then. The text keeps out of its band.
+  const cornerLook = lookOf(slide.cornerCountdown);
+  const cornerAt = cornerLook.corner === 'br' && corner ? 'tr' : cornerLook.corner;
+  const timerCqh = CORNER_SIZE_CQH[cornerLook.cornerSize];
+  const timerBand = cornerCounting ? timerCqh + 6 : 0;
+  const top = cornerAt === 'tr' || cornerAt === 'tl';
+  const cornerTime =
+    cornerCounting && slide.cornerCountdown ? (
+      <div
+        style={{
+          position: 'absolute',
+          [top ? 'top' : 'bottom']: '2.5cqh',
+          [cornerAt === 'tr' || cornerAt === 'br' ? 'right' : 'left']: '2.5cqh',
+          padding: '0.5cqh 1.4cqh',
+          borderRadius: '1.2cqh',
+          // nearly opaque: over a bright picture a lighter pill went grey and the red/amber times
+          // read 1.1–1.8:1 (review of 1.8.7); the pill is always dark, so the time is light
+          background: 'rgba(0, 0, 0, 0.78)',
+          fontSize: `${timerCqh}cqh`,
+          lineHeight: 1.1,
+          fontWeight: 600,
+          fontVariantNumeric: 'tabular-nums',
+          whiteSpace: 'nowrap',
+          fontFamily: cornerLook.font === 'text' ? style.font : TIMER_FONT_CSS[cornerLook.font],
+          color: timerColor(slide.cornerCountdown, cornerLeft) ?? '#f4f4f6',
+        }}
+      >
+        {formatTimer(cornerLeft, cornerLook.format)}
+      </div>
+    ) : null;
   // A faithful pptx song's quote carries the original font size (cqh); cap the
   // auto-fit at it so stanzas render "as made" and only shrink when too long.
   const quoteMaxCqh = slide.template?.objects.find((o) => o.kind === 'quote')?.size ?? 0;
@@ -495,9 +529,11 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
             // (some .pptx text boxes extend past the slide — e.g. h ≈ 119%) can't
             // push the auto-fit content off the visible area.
             const cx = Math.max(0, Math.min(100, o.x));
-            const cy = Math.max(0, Math.min(100, o.y));
+            // the quote keeps out of the corner time's band too (review of 1.8.7)
+            const band = o.kind === 'quote' ? timerBand : 0;
+            const cy = Math.max(top ? band : 0, Math.max(0, Math.min(100, o.y)));
             const cw = Math.max(0, Math.min(100 - cx, o.w));
-            const ch = Math.max(0, Math.min(100 - qrBand - cy, o.h));
+            const ch = Math.max(0, Math.min(100 - Math.max(qrBand, top ? 0 : band) - cy, o.h));
             if (o.kind === 'divider') {
               if (o.tiedToSubline && !slide.subline) return null;
               return (
@@ -563,6 +599,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
           })}
         </SlideFade>
         {corner}
+        {cornerTime}
       </div>
     );
   }
@@ -572,8 +609,8 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
   const vPad = (n: number | undefined) => (u === '%' ? (n ?? 4) : (n ?? 0) / 10.8);
   const hPad = (n: number | undefined) => (u === '%' ? (n ?? 4) : (n ?? 0) / 19.2);
   const inset = {
-    top: vPad(style.padTop),
-    bottom: Math.max(vPad(style.padBottom), qrBand),
+    top: Math.max(vPad(style.padTop), top ? timerBand : 0),
+    bottom: Math.max(vPad(style.padBottom), qrBand, top ? 0 : timerBand),
     left: hPad(style.padLeft),
     right: hPad(style.padRight),
   };
@@ -650,6 +687,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
         </SlideFade>
       </div>
       {corner}
+      {cornerTime}
     </div>
   );
 }
