@@ -352,7 +352,9 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               (a.countdownSize !== 'md' ||
                 a.countdownFont !== 'text' ||
                 a.countdownFormat !== 'clock' ||
-                a.countdownCaptionAt !== 'above') &&
+                a.countdownCaptionAt !== 'above' ||
+                a.countdownCorner !== 'tr' ||
+                a.countdownCornerSize !== 'md') &&
                 tr('свій вигляд часу'),
             ) || tr('звичайний вигляд')
           }

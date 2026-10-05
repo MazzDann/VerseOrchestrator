@@ -431,14 +431,16 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
           [cornerAt === 'tr' || cornerAt === 'br' ? 'right' : 'left']: '2.5cqh',
           padding: '0.5cqh 1.4cqh',
           borderRadius: '1.2cqh',
-          background: 'rgba(0, 0, 0, 0.45)',
+          // nearly opaque: over a bright picture a lighter pill went grey and the red/amber times
+          // read 1.1–1.8:1 (review of 1.8.7); the pill is always dark, so the time is light
+          background: 'rgba(0, 0, 0, 0.78)',
           fontSize: `${timerCqh}cqh`,
           lineHeight: 1.1,
           fontWeight: 600,
           fontVariantNumeric: 'tabular-nums',
           whiteSpace: 'nowrap',
           fontFamily: cornerLook.font === 'text' ? style.font : TIMER_FONT_CSS[cornerLook.font],
-          color: timerColor(slide.cornerCountdown, cornerLeft) ?? style.color,
+          color: timerColor(slide.cornerCountdown, cornerLeft) ?? '#f4f4f6',
         }}
       >
         {formatTimer(cornerLeft, cornerLook.format)}
@@ -527,9 +529,11 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
             // (some .pptx text boxes extend past the slide — e.g. h ≈ 119%) can't
             // push the auto-fit content off the visible area.
             const cx = Math.max(0, Math.min(100, o.x));
-            const cy = Math.max(0, Math.min(100, o.y));
+            // the quote keeps out of the corner time's band too (review of 1.8.7)
+            const band = o.kind === 'quote' ? timerBand : 0;
+            const cy = Math.max(top ? band : 0, Math.max(0, Math.min(100, o.y)));
             const cw = Math.max(0, Math.min(100 - cx, o.w));
-            const ch = Math.max(0, Math.min(100 - qrBand - cy, o.h));
+            const ch = Math.max(0, Math.min(100 - Math.max(qrBand, top ? 0 : band) - cy, o.h));
             if (o.kind === 'divider') {
               if (o.tiedToSubline && !slide.subline) return null;
               return (

@@ -145,11 +145,11 @@ screen**, and not while the text is hidden. The speaker timer makes no sound.
 A countdown in a corner is the time alone, without words, in the corner chosen in the appearance
 settings (top right by default; when the viewers' QR takes the bottom right, the time moves up).
 The slide's text keeps out from under it. The viewers' phones show this time small at the top.
-Pause, «±1 min», **After zero**, the sound, and the T key work the same; **Remove the countdown**
+**Pause**, **−1 min** and **+1 min**, **After zero**, the sound, and the T key work the same; **Remove the countdown**
 removes only the time.
 
 The T key pauses and resumes the countdown on screen. With no countdown on screen, T shows a
-new one of the length you chose last.
+new one of the length and in the place (on the cover or in a corner) you chose last.
 
 If the time chosen with **until…** has already passed today, the countdown runs to it
 tomorrow, but only when it is at most 12 hours away: at 23:50 you can choose 00:10.

@@ -387,16 +387,18 @@ export function CountdownTool({
                 }}
               />
             )}
-            <TextInput
-              size="xs"
-              label={tr('Напис біля часу')}
-              placeholder={tr('Починаємо за')}
-              value={saved.countdownCaption}
-              onChange={(e) => setAppearance({ countdownCaption: e.currentTarget.value })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && startable) start();
-              }}
-            />
+            {place === 'cover' && (
+              <TextInput
+                size="xs"
+                label={tr('Напис біля часу')}
+                placeholder={tr('Починаємо за')}
+                value={saved.countdownCaption}
+                onChange={(e) => setAppearance({ countdownCaption: e.currentTarget.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && startable) start();
+                }}
+              />
+            )}
             {afterZeroControl}
             <Button
               size="xs"
