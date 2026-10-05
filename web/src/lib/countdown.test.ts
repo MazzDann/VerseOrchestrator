@@ -12,7 +12,7 @@ import {
   shiftUntil,
   showsTime,
   stageTimerLook,
-  freshStageTimer,
+  freshTimer,
   timerColor,
   timerLook,
   hasLook,
@@ -227,6 +227,8 @@ describe('the colours of the time (1.8.2)', () => {
       countdownFont: 'mono' as const,
       countdownFormat: 'padded' as const,
       countdownCaptionAt: 'below' as const,
+      countdownCorner: 'bl' as const,
+      countdownCornerSize: 'lg' as const,
     };
     expect(timerLook(a)).toEqual({
       warnBefore: 120_000,
@@ -236,6 +238,8 @@ describe('the colours of the time (1.8.2)', () => {
       font: 'mono',
       format: 'padded',
       captionAt: 'below',
+      corner: 'bl',
+      cornerSize: 'lg',
     });
     expect(timerLook({ ...a, countdownOverOn: true }).overColor).toBe('#e03131');
   });
@@ -258,12 +262,30 @@ describe('the look of the time (1.8.3)', () => {
   });
 
   it('reads a look off a slide, the 1.5.0 one where it says nothing', () => {
-    expect(lookOf(null)).toEqual({ size: 'md', font: 'text', format: 'clock', captionAt: 'above' });
-    expect(lookOf({ size: 'xl', font: 'mono', format: 'minutes', captionAt: 'none' })).toEqual({
+    expect(lookOf(null)).toEqual({
+      size: 'md',
+      font: 'text',
+      format: 'clock',
+      captionAt: 'above',
+      corner: 'tr',
+      cornerSize: 'md',
+    });
+    expect(
+      lookOf({
+        size: 'xl',
+        font: 'mono',
+        format: 'minutes',
+        captionAt: 'none',
+        corner: 'bl',
+        cornerSize: 'sm',
+      }),
+    ).toEqual({
       size: 'xl',
       font: 'mono',
       format: 'minutes',
       captionAt: 'none',
+      corner: 'bl',
+      cornerSize: 'sm',
     });
     expect(lookOf({ size: 'huge', font: 3 } as never)).toEqual(lookOf(null));
   });
@@ -277,6 +299,8 @@ describe('the look of the time (1.8.3)', () => {
       font: 'text' as const,
       format: 'clock' as const,
       captionAt: 'above' as const,
+      corner: 'tr' as const,
+      cornerSize: 'md' as const,
     };
     expect(hasLook({ ...look }, look)).toBe(true);
     expect(hasLook({ ...look, size: 'lg' }, look)).toBe(false);
@@ -290,13 +314,13 @@ describe('the look of the time (1.8.3)', () => {
 describe('a speaker’s timer kept in the browser (1.8.4)', () => {
   const now = Date.UTC(2026, 9, 2, 12);
   it('comes back the same day, not from another', () => {
-    expect(freshStageTimer(null, now)).toBeNull();
-    expect(freshStageTimer({ until: now + 60_000 }, now)).toEqual({ until: now + 60_000 });
-    expect(freshStageTimer({ until: now - 11 * 3600_000 }, now)).not.toBeNull();
-    expect(freshStageTimer({ until: now - 13 * 3600_000 }, now)).toBeNull();
+    expect(freshTimer(null, now)).toBeNull();
+    expect(freshTimer({ until: now + 60_000 }, now)).toEqual({ until: now + 60_000 });
+    expect(freshTimer({ until: now - 11 * 3600_000 }, now)).not.toBeNull();
+    expect(freshTimer({ until: now - 13 * 3600_000 }, now)).toBeNull();
     // paused, its end means nothing: it waits as it is
     const paused = { until: now - 7 * 24 * 3600_000, pausedLeft: 60_000 };
-    expect(freshStageTimer(paused, now)).toBe(paused);
+    expect(freshTimer(paused, now)).toBe(paused);
   });
 });
 
@@ -319,6 +343,8 @@ describe('the speaker timer’s own look (1.8.6)', () => {
       font: 'mono',
       format: 'padded',
       captionAt: 'above',
+      corner: 'tr',
+      cornerSize: 'md',
     });
   });
 });
