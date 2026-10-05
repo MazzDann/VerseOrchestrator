@@ -11,28 +11,8 @@ import {
 } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
-import { useHotkeys } from 'react-hotkeys-hook';
 import { notifications } from '@mantine/notifications';
-import {
-  IconScreenShare,
-  IconDeviceTv,
-  IconSquareOff,
-  IconSun,
-  IconHelp,
-  IconMessageReport,
-  IconSearch,
-  IconMusic,
-  IconLetterT,
-  IconSquareFilled,
-  IconHourglassHigh,
-  IconAdjustments,
-  IconList,
-  IconPlaylistAdd,
-  IconLayoutDashboard,
-  IconQrcode,
-  IconDeviceMobile,
-  IconAppWindow,
-} from '@tabler/icons-react';
+import { IconAdjustments, IconQrcode, IconDeviceMobile, IconAppWindow } from '@tabler/icons-react';
 
 import {
   api,
@@ -60,10 +40,9 @@ import {
   type SlideCountdown,
   type SlidePicture,
 } from '../presenterBus';
-import { scheduleBeeps, warmAudio } from '../lib/countdownSound';
+import { warmAudio } from '../lib/countdownSound';
 import {
   afterZeroOf,
-  formatRemaining,
   isPaused,
   savedLength,
   shiftCountdown,
@@ -85,7 +64,6 @@ import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { SongsPanel } from '../components/SongsPanel';
 import { TextPanel } from '../components/TextPanel';
 import { FloatingPanel } from '../components/FloatingPanel';
-import { floatingPanelOpen } from '../lib/panelStack';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { FollowPanel } from '../components/FollowPanel';
 import { usePhoneUrl } from '../lib/phoneUrl';
@@ -98,7 +76,6 @@ import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
 import { useControlLeader } from '../lib/leader';
 import { planTakeover } from '../lib/takeover';
 import { formatReference } from '../lib/reference';
-import { opensAtTop, type OpenPlace } from '../lib/bookPick';
 import { parseQuickRef, placeKey, quickKeydown, showStep } from '../lib/quickRef';
 import { QuickRefPill } from '../components/QuickRefPill';
 import {
@@ -129,7 +106,7 @@ import {
 } from '../lib/commands';
 import { useServer } from '../serverStore';
 import { tr, useLang } from '../i18n';
-import { useDataSource, useEffectiveSource } from '../dataSourceStore';
+import { useEffectiveSource } from '../dataSourceStore';
 import { type LibraryGap } from '../components/NoLibrary';
 import { useCodeState, useUpdateState } from '../lib/updates';
 import {
@@ -146,17 +123,15 @@ import {
   toggleHidden,
   uncover,
 } from '../lib/slide';
-import { CommandPalette, type CommandItem } from '../components/CommandPalette';
+import { CommandPalette } from '../components/CommandPalette';
 import { takeServerUiState } from '../lib/uiState';
 import { SONG_KEYS } from '../lib/songKeys';
 import { useHeaderFold } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { SETTINGS_PANEL_KEY } from '../lib/panelBox';
-import { formatCombo, matchesCombo } from '../hotkeys';
-import { isFormField, scrollableAround } from '../lib/keyScroll';
+import { formatCombo } from '../hotkeys';
+import { isFormField } from '../lib/keyScroll';
 import { applyHandoverFrame, claimForHandover, controlHello, takeHandover } from '../lib/handover';
-import { docsUrl } from '../lib/docs';
-import { openFeedback } from '../lib/feedback';
 import {
   usePlaylist,
   type SeqImage,
@@ -169,8 +144,12 @@ import { type ImageInfo } from '../api';
 import { joinVerses, redLetterSegments, strongHighlightSegments } from './control/slideText';
 import { withSecond } from './control/songSlides';
 import { standbyNotice } from './control/standby';
-import { openPresenter, openStage } from './control/outputWindows';
 import { usePanelResize } from './control/usePanelResize';
+import { useAppSettingsOpener } from './control/useAppSettingsOpener';
+import { useVerseListEffects } from './control/useVerseListEffects';
+import { useControlHotkeys } from './control/useControlHotkeys';
+import { useTimerSignals } from './control/useTimerSignals';
+import { usePaletteCommands } from './control/usePaletteCommands';
 import { ControlHeader } from './control/ControlHeader';
 import { ControlNavbar } from './control/ControlNavbar';
 import { HubBanners } from './control/HubBanners';
@@ -304,33 +283,7 @@ export function Control() {
   const [goToValue, setGoToValue] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const serverAvailable = useServer((s) => s.available);
-  /** The settings panel, opened on «Застосунок» (where «Джерело даних» is). */
-  const openAppSettings = () => {
-    try {
-      const open = JSON.parse(localStorage.getItem('vo:settingsSections') ?? '[]');
-      if (Array.isArray(open) && !open.includes('app'))
-        localStorage.setItem('vo:settingsSections', JSON.stringify([...open, 'app']));
-    } catch {
-      /* storage unavailable */
-    }
-    setSettingsOpen(true);
-  };
-  // First run with no server and nothing loaded: the library can only come from the
-  // browser engine — open the settings on «Джерело даних» and say why.
-  useEffect(() => {
-    if (serverAvailable !== false || useDataSource.getState().segments.length > 0) return;
-    openAppSettings();
-    // next tick: on first paint the notifications host may not be mounted yet
-    window.setTimeout(() =>
-      notifications.show({
-        message: tr(
-          'Сервера немає — бібліотека працюватиме в браузері. Виберіть переклади в «Джерело даних».',
-        ),
-        color: 'brand',
-        autoClose: 8000,
-      }),
-    );
-  }, [serverAvailable]);
+  const openAppSettings = useAppSettingsOpener({ setSettingsOpen, serverAvailable });
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false);
@@ -1338,58 +1291,6 @@ export function Control() {
     setPreviewOverride(null);
   }, [selectedVerses, bookNumber, chapter, primaryId]);
 
-  // After a search/history/concordance jump, scroll the target verse to centre.
-  // Deferred a tick so the list (and the closing search panel) settle their layout.
-  // Clear scrollTarget only inside the timeout — clearing it synchronously would
-  // re-run this effect and its cleanup would cancel the pending scroll.
-  useEffect(() => {
-    if (scrollTarget == null || !primaryVerses.some((v) => v.verse === scrollTarget)) return;
-    const verse = scrollTarget;
-    const id = window.setTimeout(() => {
-      // Instant, not smooth: Mantine/Radix ScrollArea's viewport ignores
-      // smooth scrollIntoView (it never scrolls), instant centres reliably.
-      const row = document.querySelector<HTMLElement>(`.vo-verse-item[data-verse="${verse}"]`);
-      row?.scrollIntoView({ block: 'center' });
-      if (focusJump.current) row?.focus({ preventScroll: true });
-      focusJump.current = false;
-      setScrollTarget(null);
-    }, 60);
-    return () => window.clearTimeout(id);
-  }, [scrollTarget, primaryVerses]);
-
-  // A chapter opened with no verse to bring into view (a book picked, a chapter clicked)
-  // starts at its top, not where the last one was scrolled to; a jump has its scroll target.
-  // Only another place does — «Зробити головним» keeps the scroll (lib/bookPick.ts opensAtTop).
-  const verseViewport = useRef<HTMLDivElement>(null);
-  const shownPlace = useRef<OpenPlace>({ bookNumber, chapter });
-  useEffect(() => {
-    const open = { bookNumber, chapter };
-    const top = opensAtTop(shownPlace.current, open, scrollTarget);
-    shownPlace.current = open;
-    if (top && verseViewport.current) verseViewport.current.scrollTop = 0;
-  }, [bookNumber, chapter, scrollTarget]);
-
-  // Record what was opened into history.
-  useEffect(() => {
-    if (
-      reference &&
-      primaryId != null &&
-      bookNumber != null &&
-      chapter != null &&
-      selectedVerses.length
-    ) {
-      pushHistory({
-        ref: reference,
-        refShort: referenceShort,
-        translationId: primaryId,
-        bookNumber,
-        chapter,
-        verse: selectedVerses[0],
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reference]);
-
   const stepVerse = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
     if (primaryVerses.length === 0) return { ok: false, reason: tr('Спершу виберіть розділ') };
     const all = primaryVerses.map((v) => v.verse);
@@ -1552,82 +1453,21 @@ export function Control() {
     adopting.current = null;
   }, [selectedIds, bookNumber, chapter, selectedVerses, safePageIndex, pageCount]);
 
-  // Hotkeys are user-rebindable (settingsStore.keymap; defaults in hotkeys.ts).
-  // "advanceNext/Prev" default to arrows + PageDown/PageUp (the keys USB clickers emit).
-  useHotkeys(keymap.advanceNext, () => advanceAndSay(1), [
-    keymap.advanceNext,
-    pageCount,
-    pageIndex,
+  // the verse list's scroll and the history (E13–E15) — after the steps' effects above
+  const { verseViewport } = useVerseListEffects({
+    scrollTarget,
+    setScrollTarget,
     primaryVerses,
+    focusJump,
+    bookNumber,
+    chapter,
+    reference,
+    referenceShort,
+    primaryId,
     selectedVerses,
-    revealCount,
-    revealUnits,
-    appearance.reveal,
-    previewOverride,
-    chapters,
-    live,
-    liveFollow,
-    selectedIds,
-    currentBook,
-  ]);
-  useHotkeys(keymap.advancePrev, () => advanceAndSay(-1), [
-    keymap.advancePrev,
-    pageCount,
-    pageIndex,
-    primaryVerses,
-    selectedVerses,
-    revealCount,
-    revealUnits,
-    appearance.reveal,
-    previewOverride,
-    chapters,
-    live,
-    liveFollow,
-    selectedIds,
-    currentBook,
-  ]);
-  // «Прев’ю: далі / назад» (1.1.0): the same step, the screen stays. preventDefault: the
-  // browser would scroll the list (Ctrl+↑/↓) or, on a Mac with ⌥, move the caret.
-  const previewDeps = [
-    pageCount,
-    pageIndex,
-    primaryVerses,
-    selectedVerses,
-    revealCount,
-    revealUnits,
-    appearance.reveal,
-    previewOverride,
-    chapters,
-    live,
-    liveFollow,
-    screenHeld,
-    selectedIds,
-    currentBook,
-  ];
-  useHotkeys(keymap.previewNext, () => advanceAndSay(1, true), { preventDefault: true }, [
-    keymap.previewNext,
-    ...previewDeps,
-  ]);
-  useHotkeys(keymap.previewPrev, () => advanceAndSay(-1, true), { preventDefault: true }, [
-    keymap.previewPrev,
-    ...previewDeps,
-  ]);
-  // Alt+↑/↓ scroll the list under the focus (else the verses) by a line — what Ctrl+↑/↓ did
-  // before they became the preview's (1.1.0, the operator's ask); Alt+←/→ do nothing rather
-  // than the browser's Back and Forward, which would leave the control window mid-show.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
-      if (isFormField(e.target)) return; // the caret's own moves
-      if (matchesCombo(e, keymap.previewNext) || matchesCombo(e, keymap.previewPrev)) return;
-      e.preventDefault();
-      const dy = e.key === 'ArrowDown' ? 40 : e.key === 'ArrowUp' ? -40 : 0;
-      if (dy) scrollableAround(document.activeElement, '.vo-verse-item')?.scrollBy({ top: dy });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [keymap.previewNext, keymap.previewPrev]);
+    pushHistory,
+  });
+
   // Remove the slide from the output. Drops out of live so the live-follow effect
   // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
   // which would re-run that effect).
@@ -1906,28 +1746,6 @@ export function Control() {
       ),
     });
   };
-  useHotkeys(keymap.blank, () => hideToggle(), [keymap.blank, versePreview, live]);
-  // Esc with a floating panel open closes the panel (FloatingPanel) — not the screen too.
-  useHotkeys(
-    keymap.clear,
-    (e) => {
-      if (e.key === 'Escape' && floatingPanelOpen()) return;
-      clearScreen();
-    },
-    [keymap.clear],
-  );
-  useHotkeys(keymap.searchCurrent, () => openSearch('current'), {
-    preventDefault: true,
-    enableOnFormTags: true,
-  });
-  useHotkeys(keymap.searchAll, () => openSearch('all'), {
-    preventDefault: true,
-    enableOnFormTags: true,
-  });
-  useHotkeys(keymap.palette, () => setPaletteOpen((o) => !o), {
-    preventDefault: true,
-    enableOnFormTags: true,
-  });
 
   const sendAndNotify = () => {
     if (!leaderRef.current) return standbyNotice();
@@ -2005,24 +1823,6 @@ export function Control() {
     });
   };
 
-  // "project" (default F5/F2): push the current selection to the screen (the way to
-  // project when live-follow is off; harmless while following).
-  useHotkeys(
-    keymap.project,
-    () => sendAndNotify(),
-    { preventDefault: true, enableOnFormTags: true },
-    [
-      keymap.project,
-      slideLines,
-      reference,
-      slideStyle,
-      revealCount,
-      appearance.reveal,
-      appearance.revealSpotlight,
-      appearance.revealPlaceholders,
-    ],
-  );
-
   // «Сховати текст» / «Чорний екран» (0.6.18): switches over what is on screen — the same
   // slide comes back on the second press (lib/slide.ts). Hiding: the text fades, the
   // background and the corner QR stay (B). Black: an instant cut, everything (.).
@@ -2067,9 +1867,6 @@ export function Control() {
         : { message: tr('Чорний екран знято'), color: 'live', autoClose: 1200 },
     );
   };
-  useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
-  useHotkeys(keymap.cover, () => coverToggle(), [keymap.cover, versePreview, appearance]);
-  useHotkeys(keymap.countdown, () => countdownKey(), [keymap.countdown, appearance, slideStyle]);
 
   /** Take back «Очистити» (0.13.2): exactly the slide it removed, as the toggles do. */
   const restoreCleared = () => {
@@ -2092,9 +1889,39 @@ export function Control() {
   // the notice's button and the key run the latest one (it reads the current preview)
   const restoreRef = useRef(restoreCleared);
   restoreRef.current = restoreCleared;
-  useHotkeys(keymap.restore, () => restoreRef.current(), { preventDefault: true }, [
-    keymap.restore,
-  ]);
+  // The 14 page hotkeys (their order kept) and Alt+arrows (E18) — here, below the last handler
+  // they take (restoreRef): after the timers' effects, the corner QR's and showJump's (E19–E21).
+  useControlHotkeys({
+    keymap,
+    advanceAndSay,
+    hideToggle,
+    clearScreen,
+    openSearch,
+    setPaletteOpen,
+    sendAndNotify,
+    blackToggle,
+    coverToggle,
+    countdownKey,
+    restoreRef,
+    pageCount,
+    pageIndex,
+    primaryVerses,
+    selectedVerses,
+    revealCount,
+    revealUnits,
+    appearance,
+    previewOverride,
+    chapters,
+    live,
+    liveFollow,
+    screenHeld,
+    selectedIds,
+    currentBook,
+    versePreview,
+    slideLines,
+    reference,
+    slideStyle,
+  });
 
   // «Далі» after a song's last stanza (0.6.24): an empty slide — the stanza's text goes, its
   // background stays (the same slide, hidden, as «Сховати текст»); «Назад» or any stanza
@@ -2676,71 +2503,14 @@ export function Control() {
   const textHidden = liveSlide.blank && !liveSlide.forceBlack;
   const blackOn = !!liveSlide.forceBlack;
   const coverOn = !!liveSlide.cover && !liveSlide.forceBlack;
-  // «Відлік» (1.5.0) on screen comes to its end: said once here, as «Після нуля» has it (1.8.0)
-  // (also when «−1 хв» brings it to now; not for one that ended long before this window took over)
-  // (paused, 1.8.1: no end until it goes on)
-  // (in a corner, 1.8.7: over any slide but «Чорний екран»)
-  const cornerOn = !!liveSlide.cornerCountdown && !liveSlide.forceBlack;
-  const viewersTimer = cornerOn
-    ? liveSlide.cornerCountdown
-    : coverOn
-      ? liveSlide.countdown
-      : undefined;
-  const countdownEnd = viewersTimer && !isPaused(viewersTimer) ? viewersTimer.until : undefined;
-  // its last 5 seconds aloud (1.8.5), when chosen: from the window that leads, and only while the
-  // hall sees the time (the user: «звуки … тільки як що то на екрані таймер») — not paused, not
-  // under «Чорний екран» or «Сховати текст»; the speaker's timer never sounds. «±1 хв» or going
-  // on plans the count afresh
-  const beepUntil =
-    countdownEnd != null &&
-    appearance.countdownBeeps &&
-    (cornerOn || (liveSlide.visible && !liveSlide.blank))
-      ? countdownEnd
-      : undefined;
-  useEffect(() => {
-    if (beepUntil == null || !isLeader) return;
-    // going on from zero or past it: that zero was heard already (review of 1.8.5)
-    if (quietEnd.current === beepUntil) return;
-    return scheduleBeeps(beepUntil);
-  }, [beepUntil, isLeader]);
-  // a reloaded window, or one that took over, may not sound until the operator acts there: any
-  // click or key wakes it, and the tones still ahead play (review of 1.8.5)
-  useEffect(() => {
-    if (!appearance.countdownBeeps) return;
-    const wake = () => void warmAudio();
-    window.addEventListener('pointerdown', wake, true);
-    window.addEventListener('keydown', wake, true);
-    return () => {
-      window.removeEventListener('pointerdown', wake, true);
-      window.removeEventListener('keydown', wake, true);
-    };
-  }, [appearance.countdownBeeps]);
-  const countdownAfter = useRef(afterZeroOf(viewersTimer));
-  countdownAfter.current = afterZeroOf(viewersTimer);
-  const countdownInCorner = useRef(cornerOn);
-  countdownInCorner.current = cornerOn;
-  useEffect(() => {
-    if (countdownEnd == null || !isLeader) return;
-    const t = window.setTimeout(
-      () => {
-        if (Date.now() - countdownEnd > 5000 || quietEnd.current === countdownEnd) return;
-        notifications.show({
-          message:
-            countdownAfter.current === 'overtime'
-              ? tr('Відлік дійшов до нуля: далі йде перевищення.')
-              : countdownAfter.current === 'stop'
-                ? tr('Відлік дійшов до 0:00: час лишається на екрані.')
-                : countdownInCorner.current
-                  ? tr('Відлік у кутку скінчився.')
-                  : tr('Відлік скінчився: заставка лишається на екрані.'),
-          color: 'gray',
-          autoClose: 5000,
-        });
-      },
-      Math.max(0, countdownEnd - Date.now()),
-    );
-    return () => window.clearTimeout(t);
-  }, [countdownEnd, isLeader]);
+  // the viewers' countdown: its sound, the wake, the end notice (E31–E33)
+  const { viewersTimer, cornerOn } = useTimerSignals({
+    liveSlide,
+    coverOn,
+    appearance,
+    isLeader,
+    quietEnd,
+  });
   const liveActive =
     liveSlide.visible &&
     !liveSlide.blank &&
@@ -2754,152 +2524,28 @@ export function Control() {
         ? liveSlide.reference || tr('На екрані')
         : tr('Порожньо');
 
-  // Operator actions exposed in the command palette (Ctrl+K). Fresh closures each
-  // render so they never go stale; the palette only reads this while open.
-  const paletteCommands: CommandItem[] = [
-    {
-      id: 'project',
-      label: tr('На екран'),
-      hint: tr('Показати вибір'),
-      keywords: 'project show project',
-      icon: <IconDeviceTv size={16} />,
-      run: sendAndNotify,
-    },
-    {
-      id: 'blank',
-      label: tr('Сховати / показати текст'),
-      keywords: 'blank zatemnyty',
-      icon: <IconSquareOff size={16} />,
-      run: hideToggle,
-    },
-    {
-      id: 'black',
-      label: tr('Чорний екран'),
-      keywords: 'black chornyi',
-      icon: <IconSquareFilled size={16} />,
-      run: blackToggle,
-    },
-    {
-      id: 'countdown',
-      label: tr('Відлік: {time}', {
-        time: formatRemaining(savedLength(appearance.countdownMinutes)),
-      }),
-      keywords: 'countdown timer vidlik',
-      icon: <IconHourglassHigh size={16} />,
-      run: countdownStartSaved,
-    },
-    { id: 'clear', label: tr('Прибрати з екрана'), keywords: 'clear ochystyty', run: clearScreen },
-    {
-      id: 'restore',
-      label: tr('Повернути прибраний слайд'),
-      keywords: 'undo restore povernuty',
-      run: () => restoreRef.current(),
-    },
-    {
-      id: 'addPassage',
-      label: tr('Додати уривок у показ'),
-      keywords: 'playlist add',
-      icon: <IconPlaylistAdd size={16} />,
-      run: addCurrentPassage,
-    },
-    {
-      id: 'playlist',
-      label: tr('Послідовність показу'),
-      keywords: 'playlist sequence',
-      icon: <IconList size={16} />,
-      run: () => setPlaylistOpen(true),
-    },
-    {
-      id: 'songs',
-      label: tr('Пісні'),
-      keywords: 'songs pisni',
-      icon: <IconMusic size={16} />,
-      run: () => setSongsOpen(true),
-    },
-    {
-      id: 'text',
-      label: tr('Власний текст'),
-      keywords: 'text tekst',
-      icon: <IconLetterT size={16} />,
-      run: () => setTextOpen(true),
-    },
-    {
-      id: 'search',
-      label: tr('Пошук в усіх модулях'),
-      keywords: 'search poshuk',
-      icon: <IconSearch size={16} />,
-      run: () => openSearch('all'),
-    },
-    {
-      id: 'presenter',
-      label: tr('Відкрити вікно показу'),
-      keywords: 'presenter output',
-      icon: <IconScreenShare size={16} />,
-      run: () => void openPresenter(),
-    },
-    {
-      id: 'stage',
-      label: tr('Сцена'),
-      keywords: 'stage monitor',
-      icon: <IconLayoutDashboard size={16} />,
-      run: () => void openStage(),
-    },
-    {
-      id: 'follow',
-      label: tr('Глядачі (QR)'),
-      keywords: 'follow qr phones',
-      icon: <IconQrcode size={16} />,
-      run: () => setFollowOpen(true),
-    },
-    {
-      id: 'remote',
-      label: tr('Пульт доповідача'),
-      keywords: 'remote speaker phone pult',
-      icon: <IconDeviceMobile size={16} />,
-      run: () => setRemoteOpen(true),
-    },
-    {
-      id: 'outputs',
-      label: tr('Вікна виводу'),
-      keywords: 'windows screens monitors outputs vikna ekrany',
-      icon: <IconAppWindow size={16} />,
-      run: () => setOutputsOpen(true),
-    },
-    {
-      id: 'settings',
-      label: tr('Налаштування вигляду'),
-      keywords: 'settings nalashtuvannia',
-      icon: <IconAdjustments size={16} />,
-      run: () => setSettingsOpen(true),
-    },
-    {
-      id: 'liveFollow',
-      label: liveFollow ? tr('Наживо: вимкнути') : tr('Наживо: увімкнути'),
-      keywords: 'live follow',
-      run: () => setLiveFollow(!liveFollow),
-    },
-    {
-      id: 'feedback',
-      label: tr('Надіслати відгук'),
-      keywords: 'feedback bug issue idea report vidguk pomylka',
-      icon: <IconMessageReport size={16} />,
-      run: () => openFeedback(lang),
-    },
-    {
-      id: 'docs',
-      label: tr('Довідка'),
-      keywords: 'help docs guide manual dovidka posibnyk',
-      icon: <IconHelp size={16} />,
-      run: () => window.open(docsUrl(lang), '_blank', 'noopener'),
-    },
-    {
-      id: 'theme',
-      label: colorScheme === 'dark' ? tr('Світла тема') : tr('Темна тема'),
-      keywords: 'theme tema dark light',
-      icon: <IconSun size={16} />,
-      run: () => toggleColorScheme(),
-    },
-  ];
+  const paletteCommands = usePaletteCommands({
+    sendAndNotify,
+    hideToggle,
+    blackToggle,
+    appearance,
+    countdownStartSaved,
+    clearScreen,
+    restoreRef,
+    addCurrentPassage,
+    setPlaylistOpen,
+    setSongsOpen,
+    setTextOpen,
+    openSearch,
+    setFollowOpen,
+    setRemoteOpen,
+    setOutputsOpen,
+    setSettingsOpen,
+    liveFollow,
+    setLiveFollow,
+    colorScheme,
+    toggleColorScheme,
+  });
 
   const exportBookmarks = () => {
     const blob = new Blob([JSON.stringify(bookmarks, null, 2)], { type: 'application/json' });
