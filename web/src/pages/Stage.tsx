@@ -229,7 +229,9 @@ export function Stage() {
                   fontWeight: 700,
                   fontVariantNumeric: 'tabular-nums',
                   whiteSpace: 'nowrap',
-                  fontFamily: TIMER_FONT_CSS[timerLook.font],
+                  // «Як у тексті»: the slides' font, as on «Показ» (review of 1.8.6)
+                  fontFamily:
+                    timerLook.font === 'text' ? slide.style?.font : TIMER_FONT_CSS[timerLook.font],
                   color: timerColor(timer, left),
                   opacity: paused ? 0.7 : 1,
                 }}
