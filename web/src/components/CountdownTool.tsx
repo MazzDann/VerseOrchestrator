@@ -6,6 +6,7 @@ import {
   Popover,
   SegmentedControl,
   Stack,
+  Switch,
   Text,
   TextInput,
   Tooltip,
@@ -26,6 +27,7 @@ import {
   type AfterZero,
 } from '../lib/countdown';
 import { Tip } from './Toolbar';
+import { warmAudio } from '../lib/countdownSound';
 import { tr, useLang } from '../i18n';
 
 /**
@@ -138,26 +140,40 @@ export function CountdownTool({
     // stays finished (the start form's switch is for the next countdown)
     if (running && counting) onAfterZero(v);
   };
-  // «Після нуля»: three short choices that fit the popover, the same in both views
+  // «Після нуля»: three short choices that fit the popover, the same in both views; and the
+  // last 5 seconds aloud for the hall (1.8.5), off unless chosen
   const afterZeroControl = (
-    <div>
-      <Text size="xs" fw={500} mb={4}>
-        {tr('Після нуля')}
-      </Text>
-      <SegmentedControl
+    <Stack gap="xs">
+      <Switch
         size="xs"
-        fullWidth
-        value={running && counting ? runningAfterZero : afterZero}
-        onChange={setAfterZero}
-        disabled={disabled}
-        aria-label={tr('Після нуля')}
-        data={[
-          { value: 'overtime', label: tr('У мінус') },
-          { value: 'stop', label: tr('Стоп на 0:00') },
-          { value: 'hide', label: tr('Прибрати час') },
-        ]}
+        label={tr('Звук останніх 5 секунд')}
+        checked={saved.countdownBeeps}
+        onChange={(e) => {
+          const on = e.currentTarget.checked;
+          setAppearance({ countdownBeeps: on });
+          // turned on while it counts: the page may sound from now on
+          if (on) warmAudio();
+        }}
       />
-    </div>
+      <div>
+        <Text size="xs" fw={500} mb={4}>
+          {tr('Після нуля')}
+        </Text>
+        <SegmentedControl
+          size="xs"
+          fullWidth
+          value={running && counting ? runningAfterZero : afterZero}
+          onChange={setAfterZero}
+          disabled={disabled}
+          aria-label={tr('Після нуля')}
+          data={[
+            { value: 'overtime', label: tr('У мінус') },
+            { value: 'stop', label: tr('Стоп на 0:00') },
+            { value: 'hide', label: tr('Прибрати час') },
+          ]}
+        />
+      </div>
+    </Stack>
   );
 
   // the tooltip says the time left; the button's accessible name stays put — a name that

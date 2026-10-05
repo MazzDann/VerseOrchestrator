@@ -71,6 +71,8 @@ export interface Appearance {
   countdownWarnColor: string;
   countdownOverOn: boolean;
   countdownOverColor: string;
+  /** «Відлік»: its last 5 seconds counted aloud for the hall (1.8.5); off unless chosen */
+  countdownBeeps: boolean;
   /** «Таймер доповідача» (1.8.4): the length it last ran for (whole seconds) and its «Після нуля» */
   stageTimerMinutes: number;
   stageTimerAfterZero: AfterZero;
@@ -292,6 +294,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   countdownWarnColor: '#ffb020',
   countdownOverOn: true,
   countdownOverColor: '#ff5a5a',
+  countdownBeeps: false,
   stageTimerMinutes: 15,
   stageTimerAfterZero: 'overtime',
   countdownSize: 'md',
@@ -310,6 +313,7 @@ const ownContent = (a: Appearance) => ({
   countdownCaption: a.countdownCaption,
   countdownMinutes: a.countdownMinutes,
   countdownAfterZero: a.countdownAfterZero,
+  countdownBeeps: a.countdownBeeps,
   stageTimerMinutes: a.stageTimerMinutes,
   stageTimerAfterZero: a.stageTimerAfterZero,
 });
