@@ -103,15 +103,33 @@ export async function swapFolders(top: string): Promise<void> {
   const app = path.join(top, 'app');
   const next = path.join(top, 'app.next');
   const previous = path.join(top, 'app.previous');
-  fs.rmSync(previous, { recursive: true, force: true });
-  await renameRetry(app, previous);
+  // the version «Повернути версію» goes back to stays until the swap succeeds: a failed swap
+  // left none (review of 1.8.8)
+  const older = path.join(top, 'app.previous.old');
+  fs.rmSync(older, { recursive: true, force: true });
+  if (fs.existsSync(previous)) fs.renameSync(previous, older);
+  const keepOlder = () => {
+    if (fs.existsSync(older) && !fs.existsSync(previous)) fs.renameSync(older, previous);
+  };
+  try {
+    await renameRetry(app, previous);
+  } catch (e) {
+    keepOlder();
+    throw e;
+  }
   try {
     await renameRetry(next, app);
   } catch (e) {
     await renameRetry(previous, app);
+    keepOlder();
     throw e;
   }
+  fs.rmSync(older, { recursive: true, force: true });
 }
+
+/** A rename that failed because a program still has the folder open (Windows: in use). */
+export const isHeld = (e: unknown): boolean =>
+  ['EBUSY', 'EPERM', 'EACCES'].includes((e as NodeJS.ErrnoException)?.code ?? '');
 
 /** After a rollback: the version left (`app.previous`) waits as `app.next`, like a downloaded update. */
 export async function previousAsNext(top: string): Promise<void> {
@@ -241,10 +259,20 @@ export async function runSwap(plan: SwapPlan, waitMs = 90_000): Promise<SwapResu
     await swapFolders(plan.top);
   } catch (e) {
     log(`swap failed: ${(e as Error).message}`);
+    // a program still in app/ (Windows won't rename a folder in use): say what to close (1.8.8)
+    const held = isHeld(e);
+    if (held)
+      log(
+        'app/ is in use by another program: a browser the app started before 1.8.8, an Explorer window or a terminal inside app/ — close it and try again',
+      );
     startWaiter(plan.top, plan.port);
     return done({
       ok: false,
-      error: N_('Не вдалося замінити папку app/ — працює попередня версія'),
+      error: held
+        ? N_(
+            'Не вдалося замінити папку app/: її тримає інша програма — браузер, який відкрив застосунок, вікно Провідника чи термінал у цій папці. Закрийте її й спробуйте ще раз. Працює попередня версія',
+          )
+        : N_('Не вдалося замінити папку app/ — працює попередня версія'),
     });
   }
 

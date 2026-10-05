@@ -21,6 +21,7 @@ import {
   SYSTEM_BROWSER,
   type InstalledBrowser,
   type LaunchSettings,
+  browserSpawnOptions,
 } from './browsers.js';
 import { requireLocalControl } from './guards.js';
 
@@ -126,8 +127,8 @@ export const spawnBrowser: BrowserRunner = (cmd, args) =>
   new Promise((resolve) => {
     let child: ChildProcess;
     try {
-      // Windows: a browser's program is a GUI program — no windowsHide (launcher.ts openBrowser)
-      child = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: cmd === 'cmd' });
+      // as the launcher starts one: a GUI program, never from app/ (browsers.ts)
+      child = spawn(cmd, args, browserSpawnOptions(cmd));
     } catch (err) {
       resolve((err as Error).message);
       return;

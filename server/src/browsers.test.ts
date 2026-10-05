@@ -42,6 +42,7 @@ vi.mock('node:child_process', async (importOriginal) => {
 import { spawnSync } from 'node:child_process';
 import {
   browserListing,
+  browserSpawnOptions,
   DEFAULT_LAUNCH,
   detectBrowsers,
   KNOWN_BROWSERS,
@@ -364,5 +365,19 @@ describe('opening the control window in the chosen browser', () => {
     expect(() => spawnSync('open', ['-b', 'com.google.Chrome', url])).toThrow('a test ran open');
     expect(() => spawnSync(chrome.program!, [`--app=${url}`])).toThrow('a test ran');
     expect(() => spawnSync('/usr/bin/osascript', ['-e', 'beep'])).toThrow('a test ran');
+  });
+});
+
+describe('browserSpawnOptions (1.8.8)', () => {
+  it('starts a browser from the home folder, detached; hides only cmd', () => {
+    expect(browserSpawnOptions('cmd')).toEqual({
+      stdio: 'ignore',
+      detached: true,
+      windowsHide: true,
+      cwd: os.homedir(),
+    });
+    expect(browserSpawnOptions('C:/Program Files/Mozilla Firefox/firefox.exe').windowsHide).toBe(
+      false,
+    );
   });
 });
