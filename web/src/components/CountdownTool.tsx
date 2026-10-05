@@ -24,7 +24,9 @@ import {
   untilAt,
   untilFor,
   useCountdown,
+  COUNTDOWN_PLACES,
   type AfterZero,
+  type CountdownPlace,
 } from '../lib/countdown';
 import { Tip } from './Toolbar';
 import { warmAudio } from '../lib/countdownSound';
@@ -42,6 +44,7 @@ import { tr, useLang } from '../i18n';
  */
 export function CountdownTool({
   running,
+  inCorner = false,
   disabled,
   combo,
   onStart,
@@ -52,12 +55,14 @@ export function CountdownTool({
   onRemove,
   onOpenChange,
 }: {
-  /** the countdown on screen now (a «Заставка» slide's), if any */
+  /** the viewers' countdown now (a «Заставка» slide's, or in a corner — 1.8.7), if any */
   running: SlideCountdown | null;
+  /** it is in a corner over the slide, not on «Заставка» (1.8.7) */
+  inCorner?: boolean;
   disabled: boolean;
   /** the current key of «Відлік: пауза / далі» (keymap.countdown), shown in the tooltip */
   combo?: string;
-  onStart: (countdown: SlideCountdown) => void;
+  onStart: (countdown: SlideCountdown, place: CountdownPlace) => void;
   onShift: (minutes: number) => void;
   /** «Пауза» / «Продовжити» for the countdown on screen */
   onPause: () => void;
@@ -85,6 +90,10 @@ export function CountdownTool({
   // the length as typed (1.8.1): «7», «7:30», «1:05:00»; the chips write it too
   const [length, setLength] = useState(() => formatRemaining(savedLength(saved.countdownMinutes)));
   const lengthMs = parseDuration(length);
+  // where it goes (1.8.7): on «Заставка», or in a corner over whatever is on screen
+  const [place, setPlace] = useState<CountdownPlace>(() =>
+    COUNTDOWN_PLACES.includes(saved.countdownPlace) ? saved.countdownPlace : 'cover',
+  );
   const [at, setAt] = useState('');
   const caption = saved.countdownCaption.trim() || tr('Починаємо за');
   const box = useRef<HTMLDivElement>(null);
@@ -130,7 +139,8 @@ export function CountdownTool({
         : untilAt(at, Date.now());
     if (until == null) return;
     if (mode === 'in') setAppearance({ countdownMinutes: lengthMs! / 60000 });
-    onStart({ until, caption, afterZero });
+    setAppearance({ countdownPlace: place });
+    onStart({ until, caption, afterZero }, place);
     setOpened(false);
   };
   const setAfterZero = (v: string) => {
@@ -237,7 +247,7 @@ export function CountdownTool({
           <Stack gap="xs">
             <Group justify="space-between" wrap="nowrap">
               <Text size="sm" fw={500}>
-                {tr('Відлік на екрані')}
+                {inCorner ? tr('Відлік у кутку') : tr('Відлік на екрані')}
               </Text>
               <Text size="xl" fw={600} style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {formatTimer(left)}
@@ -282,18 +292,44 @@ export function CountdownTool({
             <Button size="xs" variant="light" fullWidth disabled={disabled} onClick={onRemove}>
               {tr('Прибрати відлік')}
             </Button>
-            <Button size="xs" variant="default" fullWidth disabled={disabled} onClick={onKeepCover}>
-              {tr('Лишити заставку без часу')}
-            </Button>
+            {!inCorner && (
+              <Button
+                size="xs"
+                variant="default"
+                fullWidth
+                disabled={disabled}
+                onClick={onKeepCover}
+              >
+                {tr('Лишити заставку без часу')}
+              </Button>
+            )}
             {afterZeroControl}
           </Stack>
         ) : (
           <Stack gap="xs">
             {running && (
               <Text size="xs" c="dimmed">
-                {tr('Відлік скінчився: заставка лишається на екрані.')}
+                {inCorner
+                  ? tr('Відлік у кутку скінчився.')
+                  : tr('Відлік скінчився: заставка лишається на екрані.')}
               </Text>
             )}
+            <div>
+              <Text size="xs" fw={500} mb={4}>
+                {tr('Де показати')}
+              </Text>
+              <SegmentedControl
+                size="xs"
+                fullWidth
+                value={place}
+                onChange={(v) => setPlace(v === 'corner' ? 'corner' : 'cover')}
+                aria-label={tr('Де показати')}
+                data={[
+                  { value: 'cover', label: tr('На заставці') },
+                  { value: 'corner', label: tr('У кутку') },
+                ]}
+              />
+            </div>
             <div>
               <Text size="xs" fw={500} mb={4}>
                 {tr('Скільки')}
@@ -370,11 +406,17 @@ export function CountdownTool({
               onClick={start}
             >
               {mode === 'in' && lengthMs != null
-                ? tr('Показати: {caption} {time}', { caption, time: formatRemaining(lengthMs) })
+                ? place === 'corner'
+                  ? tr('Показати в кутку: {time}', { time: formatRemaining(lengthMs) })
+                  : tr('Показати: {caption} {time}', { caption, time: formatRemaining(lengthMs) })
                 : tr('Показати відлік')}
             </Button>
             <Text size="xs" c="dimmed">
-              {tr('Логотип і текст над часом — із розділу «Заставка» в налаштуваннях вигляду.')}
+              {place === 'corner'
+                ? tr(
+                    'У кутку — лише час, поверх того, що на екрані; кут — у налаштуваннях вигляду.',
+                  )
+                : tr('Логотип і текст над часом — із розділу «Заставка» в налаштуваннях вигляду.')}
             </Text>
           </Stack>
         )}

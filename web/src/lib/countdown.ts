@@ -64,14 +64,30 @@ export type CaptionAt = 'above' | 'below' | 'none';
 export const CAPTION_AT: readonly CaptionAt[] = ['above', 'below', 'none'];
 
 /**
- * How the time looks on the slide (1.8.2 colours, 1.8.3 the rest), carried by the countdown so
- * «Показ», «Сцена» and the phones draw it alike. Missing — the 1.5.0 look.
+ * Where the viewers' «Відлік» goes (1.8.7; the users: «щоб в куточку був також»): on
+ * «Заставка», as before, or in a corner over whatever is on screen.
+ */
+export type CountdownPlace = 'cover' | 'corner';
+export const COUNTDOWN_PLACES: readonly CountdownPlace[] = ['cover', 'corner'];
+/** Which corner (1.8.7): top right by default — the viewers' QR card takes the bottom right. */
+export type CornerAt = 'tr' | 'tl' | 'br' | 'bl';
+export const CORNERS: readonly CornerAt[] = ['tr', 'tl', 'br', 'bl'];
+/** The time's height in a corner, in % of the slide's height (cqh). */
+export type CornerSize = 'sm' | 'md' | 'lg';
+export const CORNER_SIZES: readonly CornerSize[] = ['sm', 'md', 'lg'];
+export const CORNER_SIZE_CQH: Record<CornerSize, number> = { sm: 7, md: 10, lg: 14 };
+
+/**
+ * How the time looks on the slide (1.8.2 colours, 1.8.3 the rest, 1.8.7 the corner), carried by
+ * the countdown so «Показ», «Сцена» and the phones draw it alike. Missing — the 1.5.0 look.
  */
 export interface TimerLook extends TimerColors {
   size?: TimerSize;
   font?: TimerFont;
   format?: TimerFormat;
   captionAt?: CaptionAt;
+  corner?: CornerAt;
+  cornerSize?: CornerSize;
 }
 
 /** The look a new countdown takes from the settings (Налаштування вигляду → Відлік). */
@@ -84,6 +100,8 @@ export function timerLook(a: {
   countdownFont: TimerFont;
   countdownFormat: TimerFormat;
   countdownCaptionAt: CaptionAt;
+  countdownCorner: CornerAt;
+  countdownCornerSize: CornerSize;
 }): Required<TimerLook> {
   return {
     warnBefore: Math.max(0, a.countdownWarnMinutes) * 60000,
@@ -93,6 +111,8 @@ export function timerLook(a: {
     font: a.countdownFont,
     format: a.countdownFormat,
     captionAt: a.countdownCaptionAt,
+    corner: a.countdownCorner,
+    cornerSize: a.countdownCornerSize,
   };
 }
 
@@ -106,13 +126,11 @@ export function timerLook(a: {
 export interface StageTimer extends Timed, TimerLook {}
 
 /**
- * A speaker's timer kept with the slide in the browser, as the control window starts (review of
- * 1.8.4): one that ended over 12 hours ago is from another day — not brought back.
+ * A timer kept with the slide in the browser, as the control window starts (review of 1.8.4;
+ * the speaker's timer, and since 1.8.7 the viewers' countdown in a corner): one that ended over
+ * 12 hours ago is from another day — not brought back.
  */
-export function freshStageTimer(
-  t: StageTimer | null | undefined,
-  now = Date.now(),
-): StageTimer | null {
+export function freshTimer<T extends Timed>(t: T | null | undefined, now = Date.now()): T | null {
   if (!t) return null;
   return isPaused(t) || now - t.until <= MAX_MS ? t : null;
 }
@@ -141,6 +159,8 @@ export function stageTimerLook(a: {
     font: a.stageTimerFont,
     format: a.stageTimerFormat,
     captionAt: 'above',
+    corner: 'tr',
+    cornerSize: 'md',
   };
 }
 
@@ -155,8 +175,12 @@ export function lookOf(c: TimerLook | null | undefined): {
   font: TimerFont;
   format: TimerFormat;
   captionAt: CaptionAt;
+  corner: CornerAt;
+  cornerSize: CornerSize;
 } {
   return {
+    corner: CORNERS.includes(c?.corner as CornerAt) ? c!.corner! : 'tr',
+    cornerSize: CORNER_SIZES.includes(c?.cornerSize as CornerSize) ? c!.cornerSize! : 'md',
     size: TIMER_SIZES.includes(c?.size as TimerSize) ? c!.size! : 'md',
     font: TIMER_FONTS.includes(c?.font as TimerFont) ? c!.font! : 'text',
     format: TIMER_FORMATS.includes(c?.format as TimerFormat) ? c!.format! : 'clock',
