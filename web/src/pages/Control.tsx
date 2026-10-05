@@ -94,6 +94,7 @@ import {
 } from '../presenterBus';
 import { CountdownTool } from '../components/CountdownTool';
 import { StageTimerTool } from '../components/StageTimerTool';
+import { beepPlan, playBeep, warmAudio } from '../lib/countdownSound';
 import {
   afterZeroOf,
   formatRemaining,
@@ -1787,6 +1788,8 @@ export function Control() {
   // whatever is on screen; L or «Прибрати відлік» gives that back, as from «Заставка».
   const countdownStart = (countdown: SlideCountdown) => {
     if (!leaderRef.current) return standbyNotice();
+    // a click or a key starts it: the moment a browser lets the page sound later (1.8.5)
+    if (appearance.countdownBeeps) warmAudio();
     const cover = { text: appearance.coverText, image: appearance.coverImage };
     // the time's look from the settings (1.8.2 colours, 1.8.3 the rest)
     const timed = { ...countdown, ...timerLook(appearance) };
@@ -1825,6 +1828,7 @@ export function Control() {
   const countdownPause = () => {
     const c = liveSlideRef.current.countdown;
     if (!c) return;
+    if (appearance.countdownBeeps) warmAudio();
     const now = Date.now();
     const next = togglePause(c, now);
     if (!isPaused(next) && next.until <= now) quietEnd.current = next.until;
@@ -2763,6 +2767,25 @@ export function Control() {
   // (paused, 1.8.1: no end until it goes on)
   const countdownEnd =
     coverOn && !isPaused(liveSlide.countdown) ? liveSlide.countdown?.until : undefined;
+  // its last 5 seconds aloud (1.8.5), when chosen: from the window that leads, and only while the
+  // hall sees the time (the user: «звуки … тільки як що то на екрані таймер») — not paused, not
+  // under «Чорний екран» or «Сховати текст»; the speaker's timer never sounds. «±1 хв» or going
+  // on plans the count afresh
+  const beepUntil =
+    countdownEnd != null &&
+    appearance.countdownBeeps &&
+    liveSlide.visible &&
+    !liveSlide.blank &&
+    !isPaused(liveSlide.countdown)
+      ? countdownEnd
+      : undefined;
+  useEffect(() => {
+    if (beepUntil == null || !isLeader) return;
+    const timers = beepPlan(beepUntil - Date.now()).map((b) =>
+      window.setTimeout(() => playBeep(b.zero), b.at),
+    );
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [beepUntil, isLeader]);
   const countdownAfter = useRef(afterZeroOf(liveSlide.countdown));
   countdownAfter.current = afterZeroOf(liveSlide.countdown);
   useEffect(() => {

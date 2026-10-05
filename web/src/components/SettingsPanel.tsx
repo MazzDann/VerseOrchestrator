@@ -363,6 +363,14 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               'Розмір і напис — лише для відліку на екрані; таймер доповідача бере кольори, шрифт і запис часу.',
             )}
           </Text>
+          <Switch
+            label={tr('Звук останніх 5 секунд')}
+            description={tr(
+              '5, 4, 3, 2, 1 — короткий звук, на нулі — довший; грає вікно керування',
+            )}
+            checked={a.countdownBeeps}
+            onChange={(e) => set({ countdownBeeps: e.currentTarget.checked })}
+          />
           <Select
             label={tr('Попередження')}
             data={WARN_MINUTES.map((n) => ({
