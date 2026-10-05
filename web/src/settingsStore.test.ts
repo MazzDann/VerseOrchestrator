@@ -79,6 +79,24 @@ describe('«Відлік» colours (1.8.2)', () => {
   });
 });
 
+describe('the speaker timer’s look (1.8.6)', () => {
+  it('a preset neither carries nor resets it', () => {
+    const { presetToFile, coercePreset, DEFAULT_APPEARANCE } = store;
+    const file = JSON.parse(
+      JSON.stringify(
+        presetToFile({
+          name: 'Сцена',
+          appearance: { ...DEFAULT_APPEARANCE, stageTimerFont: 'mono', stageTimerWarnMinutes: 5 },
+          template: null,
+        }),
+      ),
+    );
+    const back = coercePreset(file);
+    expect(back?.appearance.stageTimerFont).toBe(DEFAULT_APPEARANCE.stageTimerFont);
+    expect(back?.appearance.stageTimerWarnMinutes).toBe(DEFAULT_APPEARANCE.stageTimerWarnMinutes);
+  });
+});
+
 describe('the display panel below the centre (1.4.6)', () => {
   it('a layout saved before it gets the default height', () => {
     expect(store.clampLayout({ navWidth: 300, asideWidth: 640, recentHeight: 170 })).toEqual({

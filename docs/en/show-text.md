@@ -162,8 +162,8 @@ To start the timer:
 
 While the timer runs, its icon is highlighted. To change the timer, click the icon again: it has
 **Pause** / **Resume**, **−1 min** and **+1 min**, **Remove the timer**, and **After zero**. The
-timer takes its colors, font, and format from the **Countdown** section of the appearance
-settings and keeps its own size — see [Set up the countdown's look](appearance.md#set-up-the-countdowns-look).
+timer's colors, font, and format have a section of their own in the appearance settings, apart
+from what the viewers see: see [Set up the speaker timer](appearance.md#set-up-the-speaker-timer).
 
 ## Open output windows
 

@@ -76,6 +76,17 @@ export interface Appearance {
   /** «Таймер доповідача» (1.8.4): the length it last ran for (whole seconds) and its «Після нуля» */
   stageTimerMinutes: number;
   stageTimerAfterZero: AfterZero;
+  /**
+   * The speaker timer's own look (1.8.6), apart from the audience's: a warning so many minutes
+   * before the end (0 — none) and its colour, a past-zero colour when on, the font and the format.
+   * The operator's own (`ownContent`): a preset — the viewers' look — leaves it as it is.
+   */
+  stageTimerWarnMinutes: number;
+  stageTimerWarnColor: string;
+  stageTimerOverOn: boolean;
+  stageTimerOverColor: string;
+  stageTimerFont: TimerFont;
+  stageTimerFormat: TimerFormat;
   /** The time's look (1.8.3): its size, font, how it is written, and where the words go. */
   countdownSize: TimerSize;
   countdownFont: TimerFont;
@@ -297,6 +308,12 @@ export const DEFAULT_APPEARANCE: Appearance = {
   countdownBeeps: false,
   stageTimerMinutes: 15,
   stageTimerAfterZero: 'overtime',
+  stageTimerWarnMinutes: 1,
+  stageTimerWarnColor: '#ffb020',
+  stageTimerOverOn: true,
+  stageTimerOverColor: '#ff5a5a',
+  stageTimerFont: 'text',
+  stageTimerFormat: 'clock',
   countdownSize: 'md',
   countdownFont: 'text',
   countdownFormat: 'clock',
@@ -316,6 +333,13 @@ const ownContent = (a: Appearance) => ({
   countdownBeeps: a.countdownBeeps,
   stageTimerMinutes: a.stageTimerMinutes,
   stageTimerAfterZero: a.stageTimerAfterZero,
+  // the speaker timer's look (1.8.6): not the viewers' look a preset is (review of 1.8.6)
+  stageTimerWarnMinutes: a.stageTimerWarnMinutes,
+  stageTimerWarnColor: a.stageTimerWarnColor,
+  stageTimerOverOn: a.stageTimerOverOn,
+  stageTimerOverColor: a.stageTimerOverColor,
+  stageTimerFont: a.stageTimerFont,
+  stageTimerFormat: a.stageTimerFormat,
 });
 
 export const FONT_OPTIONS = [

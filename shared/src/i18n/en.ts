@@ -746,8 +746,10 @@ export const EN: Record<string, string> = {
     'Only the speaker sees the time, in the Stage window; the audience doesn’t.',
   'Запустити на «Сцені»: {time}': 'Start on Stage: {time}',
   'Запустити на «Сцені»': 'Start on Stage',
-  'Розмір і напис — лише для відліку на екрані; таймер доповідача бере кольори, шрифт і запис часу.':
-    'Size and words are for the countdown on screen only; the speaker timer takes the colors, font, and format.',
+  'Тут — те, що бачать глядачі. Таймер доповідача має свій розділ нижче.':
+    'This is what the viewers see. The speaker timer has a section of its own below.',
+  'Час, який бачить лише доповідач у вікні «Сцена». Глядачів ці налаштування не стосуються.':
+    'The time only the speaker sees, in the Stage window. These settings don’t touch the viewers.',
   'Час відліку на екрані, у «Сцені» й на телефонах змінює колір перед кінцем і після нуля.':
     'The countdown time on screen, in Stage, and on the phones changes color before the end and past zero.',
   Попередження: 'Warning',
