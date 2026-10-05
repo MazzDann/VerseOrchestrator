@@ -3,19 +3,9 @@ import {
   AppShell,
   Group,
   Button,
-  ScrollArea,
-  Stack,
   Text,
-  Badge,
-  ActionIcon,
-  Tooltip,
   Box,
-  TextInput,
   Divider,
-  Tabs,
-  FileButton,
-  Burger,
-  Switch,
   useMantineColorScheme,
   useComputedColorScheme,
 } from '@mantine/core';
@@ -30,22 +20,11 @@ import {
   IconSun,
   IconHelp,
   IconMessageReport,
-  IconMoonStars,
   IconSearch,
-  IconBookmark,
-  IconHistory,
-  IconTrash,
-  IconDownload,
-  IconUpload,
-  IconArrowRight,
   IconMusic,
   IconLetterT,
   IconSquareFilled,
-  IconPhoto,
   IconHourglassHigh,
-  IconLibraryPhoto,
-  IconChevronLeft,
-  IconChevronRight,
   IconAdjustments,
   IconList,
   IconPlaylistAdd,
@@ -53,9 +32,6 @@ import {
   IconQrcode,
   IconDeviceMobile,
   IconAppWindow,
-  IconLayoutSidebarRight,
-  IconPlugConnectedX,
-  IconPower,
 } from '@tabler/icons-react';
 
 import {
@@ -84,8 +60,6 @@ import {
   type SlideCountdown,
   type SlidePicture,
 } from '../presenterBus';
-import { CountdownTool } from '../components/CountdownTool';
-import { StageTimerTool } from '../components/StageTimerTool';
 import { scheduleBeeps, warmAudio } from '../lib/countdownSound';
 import {
   afterZeroOf,
@@ -104,27 +78,15 @@ import {
   type CountdownPlace,
   type StageTimer,
 } from '../lib/countdown';
-import {
-  NO_LIBRARY,
-  mainText,
-  markedText,
-  parseRedLetter,
-  strongLangFor,
-  unmark,
-} from '@vo/shared';
+import { NO_LIBRARY, mainText, markedText, strongLangFor, unmark } from '@vo/shared';
 import { findSong } from '../lib/songLink';
 import { SearchPanel, type SearchScope } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
-import { RefList } from '../components/RefList';
-import { VirtualList } from '../components/VirtualList';
-import { TranslationPicker } from '../components/TranslationPicker';
-import { ConcordancePanel } from '../components/ConcordancePanel';
 import { SongsPanel } from '../components/SongsPanel';
 import { TextPanel } from '../components/TextPanel';
 import { FloatingPanel } from '../components/FloatingPanel';
 import { floatingPanelOpen } from '../lib/panelStack';
 import { SettingsPanel } from '../components/SettingsPanel';
-import { PlaylistPanel } from '../components/PlaylistPanel';
 import { FollowPanel } from '../components/FollowPanel';
 import { usePhoneUrl } from '../lib/phoneUrl';
 import { RemotePanel } from '../components/RemotePanel';
@@ -165,10 +127,10 @@ import {
   targetArgs,
   toggleOf,
 } from '../lib/commands';
-import { useServer, NEEDS_SERVER, START_AGAIN } from '../serverStore';
+import { useServer } from '../serverStore';
 import { tr, useLang } from '../i18n';
 import { useDataSource, useEffectiveSource } from '../dataSourceStore';
-import { NoLibrary, type LibraryGap } from '../components/NoLibrary';
+import { type LibraryGap } from '../components/NoLibrary';
 import { useCodeState, useUpdateState } from '../lib/updates';
 import {
   countdownOver,
@@ -187,20 +149,11 @@ import {
 import { CommandPalette, type CommandItem } from '../components/CommandPalette';
 import { takeServerUiState } from '../lib/uiState';
 import { SONG_KEYS } from '../lib/songKeys';
-import {
-  ToolButton,
-  ToolIcon,
-  ToolMore,
-  ToolZone,
-  type ToolProps,
-  type ToolSection,
-} from '../components/Toolbar';
-import { useHeaderFold, type FoldZone } from '../lib/headerFold';
+import { useHeaderFold } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { SETTINGS_PANEL_KEY } from '../lib/panelBox';
 import { formatCombo, matchesCombo } from '../hotkeys';
 import { isFormField, scrollableAround } from '../lib/keyScroll';
-import { closeThisWindow } from '../lib/closeWindow';
 import { applyHandoverFrame, claimForHandover, controlHello, takeHandover } from '../lib/handover';
 import { docsUrl } from '../lib/docs';
 import { openFeedback } from '../lib/feedback';
@@ -218,6 +171,12 @@ import { withSecond } from './control/songSlides';
 import { standbyNotice } from './control/standby';
 import { openPresenter, openStage } from './control/outputWindows';
 import { usePanelResize } from './control/usePanelResize';
+import { ControlHeader } from './control/ControlHeader';
+import { ControlNavbar } from './control/ControlNavbar';
+import { HubBanners } from './control/HubBanners';
+import { ChapterBar } from './control/ChapterBar';
+import { VerseList } from './control/VerseList';
+import { PlaylistFloating } from './control/PlaylistFloating';
 
 const EMPTY_ARRAY: never[] = [];
 /** One «Екран очищено» notice at a time (0.13.2): a new clear replaces the last one. */
@@ -286,7 +245,6 @@ export function Control() {
   // the widths — the language, a burger coming or going — makes it measure afresh.
   const header = useHeaderFold(`${lang}|${panelPlacement}|${navBreakpoint}|${asideBreakpoint}`);
   const fold = header.fold;
-  const folded = (zone: FoldZone) => fold.folded.includes(zone);
 
   const queryClient = useQueryClient();
   const playlistItems = usePlaylist((s) => s.items);
@@ -3053,148 +3011,6 @@ export function Control() {
     />
   );
 
-  // The header's foldable tools, each defined once: the toolbar draws them as buttons, «Ще» as
-  // menu items — the same names, icons, hotkeys and states (vo-design §2).
-  const rowGap = fold.tight ? 'xs' : 'sm';
-  const songsTool: ToolProps = {
-    label: tr('Пісні'),
-    hint: tr('Пошук пісень з .pptx і показ куплетів'),
-    icon: <IconMusic size={18} stroke={1.5} />,
-    active: songsOpen,
-    onClick: () => setSongsOpen((o) => !o),
-  };
-  const textTool: ToolProps = {
-    label: tr('Власний текст'),
-    hint: tr('Скласти й показати довільний текст'),
-    icon: <IconLetterT size={18} stroke={1.5} />,
-    active: textOpen,
-    onClick: () => setTextOpen((o) => !o),
-  };
-  const imagesTool: ToolProps = {
-    label: tr('Зображення'),
-    hint: tr('Картинки на екран і в послідовність показу'),
-    icon: <IconLibraryPhoto size={18} stroke={1.5} />,
-    active: imagesOpen,
-    onClick: () => setImagesOpen((o) => !o),
-  };
-  const playlistTool: ToolProps = {
-    label: tr('Послідовність показу'),
-    hint: tr('Черга уривків, пісень і текстів; збережені програми'),
-    icon: <IconList size={18} stroke={1.5} />,
-    active: playlistOpen,
-    onClick: () => setPlaylistOpen((o) => !o),
-  };
-  const presenterTool: ToolProps = {
-    label: tr('Відкрити вікно показу'),
-    hint: tr('Вихідне вікно для другого монітора чи проєктора'),
-    icon: <IconScreenShare size={18} stroke={1.5} />,
-    onClick: () => void openPresenter(),
-  };
-  const stageTool: ToolProps = {
-    label: tr('Сцена'),
-    hint: tr('Монітор доповідача: зараз, далі, годинник'),
-    icon: <IconLayoutDashboard size={18} stroke={1.5} />,
-    onClick: () => void openStage(),
-  };
-  const outputsTool: ToolProps = {
-    label: outputWindows.length
-      ? tr('Вікна виводу: відкрито {n}', { n: outputWindows.length })
-      : tr('Вікна виводу'),
-    hint: tr('Екрани, відкриті вікна показу й сцени, розкладка'),
-    icon: <IconAppWindow size={18} stroke={1.5} />,
-    active: outputsOpen,
-    onClick: () => setOutputsOpen((o) => !o),
-  };
-  const viewersTool: ToolProps = {
-    label: followAlong
-      ? tr('Глядачі: трансляція увімкнена, на зв’язку {n}', { n: viewers })
-      : tr('Глядачі'),
-    hint:
-      serverAvailable === false
-        ? tr(NEEDS_SERVER)
-        : tr('QR, щоб глядачі стежили за текстом з телефона'),
-    icon: <IconQrcode size={18} stroke={1.5} />,
-    disabled: serverAvailable === false,
-    active: followOpen,
-    color: followAlong ? 'live' : undefined,
-    onClick: () => setFollowOpen((o) => !o),
-  };
-  const remoteTool: ToolProps = {
-    label: tr('Пульт доповідача'),
-    hint:
-      serverAvailable === false
-        ? tr(NEEDS_SERVER)
-        : tr('Телефон-пульт за QR: гортати показ без доступу до налаштувань'),
-    icon: <IconDeviceMobile size={18} stroke={1.5} />,
-    disabled: serverAvailable === false,
-    active: remoteOpen,
-    onClick: () => setRemoteOpen((o) => !o),
-  };
-  // a newer version to remind of — not one an older version was chosen over (1.6.3)
-  const newer = update?.available && !update.pinned ? (update.latest?.version ?? null) : null;
-  const settingsTool: ToolProps = {
-    label: tr('Налаштування вигляду'),
-    hint: code?.changed
-      ? tr('Код застосунку змінився — див. «Застосунок» → «Оновлення»')
-      : newer
-        ? tr('Доступна версія {version} — див. «Застосунок» → «Оновлення»', {
-            version: newer,
-          })
-        : tr('Шрифт, кольори, шаблон слайда, пресети, клавіші'),
-    icon: <IconAdjustments size={18} stroke={1.5} />,
-    dot: !!newer || !!code?.changed,
-    active: settingsOpen,
-    onClick: () => setSettingsOpen((o) => !o),
-  };
-  const helpTool: ToolProps = {
-    label: tr('Довідка'),
-    hint: tr('Посібник користувача — відкривається на GitHub'),
-    icon: <IconHelp size={18} stroke={1.5} />,
-    onClick: () => window.open(docsUrl(lang), '_blank', 'noopener'),
-  };
-  const themeTool: ToolProps = {
-    label: colorScheme === 'dark' ? tr('Світла тема') : tr('Темна тема'),
-    icon:
-      colorScheme === 'dark' ? (
-        <IconSun size={18} stroke={1.5} />
-      ) : (
-        <IconMoonStars size={18} stroke={1.5} />
-      ),
-    onClick: () => toggleColorScheme(),
-  };
-  // the aside's toggle (a Burger in the bar below `md`) is an item of its own in «Ще»
-  const panelTool: ToolProps = {
-    label: tr('Панель показу'),
-    icon: <IconLayoutSidebarRight size={18} stroke={1.5} />,
-    active: asideOpened,
-    onClick: toggleAside,
-  };
-  const zoneTools: Record<FoldZone, ToolSection> = {
-    sources: { label: tr('Джерела'), tools: [songsTool, textTool, imagesTool, playlistTool] },
-    windows: {
-      label: tr('Вікна'),
-      tools: [presenterTool, stageTool, outputsTool, viewersTool, remoteTool],
-    },
-    app: {
-      label: tr('Застосунок'),
-      tools: [settingsTool, helpTool, themeTool, ...(asideToggle ? [panelTool] : [])],
-    },
-  };
-  const moreSections = fold.folded.map((zone) => zoneTools[zone]);
-  const moreButton = (
-    <ToolMore
-      label={tr('Ще')}
-      hint={tr('Кнопки, які не вмістилися у вікні')}
-      sections={moreSections}
-      opened={moreShown}
-      onChange={setMoreOpen}
-    />
-  );
-  // even the last step is too wide (a very large root font in a small window): what runs off
-  // the right edge must not be «Ще», the only way to the folded tools — it goes before the
-  // go-live zone, whose buttons have their hotkeys, and the row shows that it scrolls
-  const moreFirst = header.overflow && fold.folded.includes('app');
-
   return (
     <>
       <AppShell
@@ -3208,347 +3024,107 @@ export function Control() {
         padding={0}
       >
         <AppShell.Header>
-          {/* Zones, left → right: navigate · sources | windows · live output · app. A narrow
-              window folds them step by step, zones into «Ще» (lib/headerFold.ts); the row
-              scrolls sideways only if even the last step doesn't fit (a huge root font), with
-              «Ще» moved before the go-live zone and a thin scrollbar. */}
-          <Group
-            ref={header.ref}
-            data-fold={header.step}
-            h="100%"
-            px={fold.tight ? 'xs' : 'md'}
-            justify="space-between"
-            wrap="nowrap"
-            gap={rowGap}
-            style={{ overflowX: 'auto', scrollbarWidth: header.overflow ? 'thin' : 'none' }}
-          >
-            <Group gap={rowGap} wrap="nowrap" style={{ flexShrink: 0 }}>
-              <Burger
-                opened={navOpened}
-                onClick={toggleNav}
-                hiddenFrom="sm"
-                size="sm"
-                aria-label={tr('Навігація')}
-              />
-              {!fold.noTitle && (
-                <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
-                  VerseOrchestrator
-                </Text>
-              )}
-              {/* a rule after the title or the burger, not at the window's edge */}
-              <ToolZone label={tr('Навігація')} divider={!fold.noTitle || !navBreakpoint}>
-                <ToolIcon
-                  label={tr('Пошук')}
-                  hint={tr('У поточному перекладі; {combo} — в усіх', {
-                    combo: formatCombo(keymap.searchAll),
-                  })}
-                  combo={keymap.searchCurrent}
-                  icon={<IconSearch size={18} stroke={1.5} />}
-                  onClick={() => openSearch('current')}
-                />
-                <TextInput
-                  size="sm"
-                  w={170}
-                  display={fold.noGoTo ? 'none' : undefined}
-                  placeholder={tr('Перейти: Ів 3:16')}
-                  value={goToValue}
-                  onChange={(e) => setGoToValue(e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void goTo(goToValue);
-                  }}
-                  leftSection={<IconArrowRight size={14} />}
-                  aria-label={tr('Перейти до посилання')}
-                />
-              </ToolZone>
-              {!folded('sources') && (
-                <ToolZone label={tr('Джерела')}>
-                  <ToolIcon {...songsTool} />
-                  <ToolIcon {...textTool} />
-                  <ToolIcon {...imagesTool} />
-                  <ToolIcon {...playlistTool} />
-                </ToolZone>
-              )}
-            </Group>
-
-            <Group gap={rowGap} wrap="nowrap" style={{ flexShrink: 0 }}>
-              {!folded('windows') && (
-                <ToolZone label={tr('Вікна')} divider={false}>
-                  <ToolButton
-                    {...presenterTool}
-                    text={tr('Вікно показу')}
-                    compact={fold.iconsOnly}
-                  />
-                  <ToolIcon {...stageTool} />
-                  <ToolIcon {...outputsTool} />
-                  <ToolIcon {...viewersTool} />
-                  <ToolIcon {...remoteTool} />
-                </ToolZone>
-              )}
-              {moreFirst && moreButton}
-              <ToolZone label={tr('Вихід на екран')} divider={!folded('windows') || moreFirst}>
-                <Tooltip
-                  label={tr(
-                    'Увімкнено: екран одразу повторює вибір. Вимкнено: лише прев’ю, показ кнопкою «На екран»',
-                  )}
-                  multiline
-                  w={240}
-                  withArrow
-                  openDelay={250}
-                >
-                  <Switch
-                    size="sm"
-                    color="live"
-                    checked={liveFollow}
-                    onChange={(e) => setLiveFollow(e.currentTarget.checked)}
-                    label={fold.noGoTo ? undefined : tr('Наживо')}
-                    aria-label={tr('Наживо')}
-                    styles={{ label: { paddingInlineStart: 6, whiteSpace: 'nowrap' } }}
-                  />
-                </Tooltip>
-                <ToolButton
-                  label={tr('На екран')}
-                  hint={tr('Показати поточний вибір')}
-                  text={tr('На екран')}
-                  compact={fold.projectIconOnly}
-                  variant="filled"
-                  color="live"
-                  combo={keymap.project}
-                  icon={<IconDeviceTv size={18} stroke={1.5} />}
-                  disabled={slideLines.length === 0 || !isLeader}
-                  onClick={sendAndNotify}
-                />
-                <ToolButton
-                  label={textHidden ? tr('Показати текст') : tr('Сховати текст')}
-                  hint={
-                    textHidden
-                      ? tr('Повернути той самий слайд')
-                      : tr('Текст згасає, фон лишається; ще раз — той самий слайд назад')
-                  }
-                  text={textHidden ? tr('Показати текст') : tr('Сховати текст')}
-                  compact={fold.iconsOnly}
-                  variant={textHidden ? 'filled' : 'default'}
-                  active={textHidden}
-                  color={textHidden ? 'cue' : undefined}
-                  combo={keymap.blank}
-                  icon={<IconSquareOff size={18} stroke={1.5} />}
-                  disabled={!isLeader}
-                  onClick={hideToggle}
-                />
-                <ToolIcon
-                  label={blackOn ? tr('Зняти чорний екран') : tr('Чорний екран')}
-                  hint={
-                    blackOn
-                      ? tr('Повернути те, що було')
-                      : tr('Одразу все чорне, навіть фон; ще раз — усе назад')
-                  }
-                  combo={keymap.black}
-                  icon={<IconSquareFilled size={16} />}
-                  color="dark"
-                  active={blackOn}
-                  disabled={!isLeader}
-                  onClick={blackToggle}
-                />
-                <ToolIcon
-                  label={coverOn ? tr('Прибрати заставку') : tr('Заставка')}
-                  hint={
-                    coverOn
-                      ? tr('Повернути те, що було')
-                      : tr('Логотип і текст між елементами; ще раз — те, що було')
-                  }
-                  combo={keymap.cover}
-                  icon={<IconPhoto size={18} stroke={1.5} />}
-                  active={coverOn}
-                  disabled={!isLeader}
-                  onClick={coverToggle}
-                />
-                <CountdownTool
-                  running={viewersTimer ?? null}
-                  inCorner={cornerOn}
-                  disabled={!isLeader}
-                  combo={keymap.countdown}
-                  onStart={countdownStart}
-                  onShift={countdownShift}
-                  onPause={() => (leaderRef.current ? countdownPause() : standbyNotice())}
-                  onAfterZero={countdownAfterZero}
-                  onKeepCover={() => countdownChange(null, false)}
-                  onRemove={() =>
-                    !leaderRef.current
-                      ? standbyNotice()
-                      : cornerOn
-                        ? countdownChange(null, true)
-                        : takeCoverOff()
-                  }
-                  onOpenChange={setCountdownOpen}
-                />
-                <StageTimerTool
-                  running={liveSlide.stageTimer ?? null}
-                  disabled={!isLeader}
-                  onStart={stageTimerStart}
-                  onPause={stageTimerPause}
-                  onShift={stageTimerShift}
-                  onAfterZero={stageTimerAfterZero}
-                  onRemove={() => stageTimerSet(null)}
-                  onOpenChange={setStageTimerOpen}
-                />
-              </ToolZone>
-              {folded('app') ? (
-                !moreFirst && (
-                  <>
-                    <Divider orientation="vertical" h={24} style={{ alignSelf: 'center' }} />
-                    {moreButton}
-                  </>
-                )
-              ) : (
-                <>
-                  <ToolZone label={tr('Застосунок')}>
-                    <ToolIcon {...settingsTool} />
-                    <ToolIcon {...helpTool} />
-                    <ToolIcon {...themeTool} />
-                  </ToolZone>
-                  {panelPlacement === 'aside' && (
-                    <Burger
-                      opened={asideOpened}
-                      onClick={toggleAside}
-                      hiddenFrom="md"
-                      size="sm"
-                      aria-label={tr('Панель показу')}
-                    />
-                  )}
-                </>
-              )}
-            </Group>
-          </Group>
+          <ControlHeader
+            header={header}
+            navOpened={navOpened}
+            toggleNav={toggleNav}
+            navBreakpoint={navBreakpoint}
+            keymap={keymap}
+            openSearch={openSearch}
+            goToValue={goToValue}
+            setGoToValue={setGoToValue}
+            goTo={goTo}
+            songsOpen={songsOpen}
+            setSongsOpen={setSongsOpen}
+            textOpen={textOpen}
+            setTextOpen={setTextOpen}
+            imagesOpen={imagesOpen}
+            setImagesOpen={setImagesOpen}
+            playlistOpen={playlistOpen}
+            setPlaylistOpen={setPlaylistOpen}
+            outputWindows={outputWindows}
+            outputsOpen={outputsOpen}
+            setOutputsOpen={setOutputsOpen}
+            followAlong={followAlong}
+            viewers={viewers}
+            serverAvailable={serverAvailable}
+            followOpen={followOpen}
+            setFollowOpen={setFollowOpen}
+            remoteOpen={remoteOpen}
+            setRemoteOpen={setRemoteOpen}
+            update={update}
+            code={code}
+            settingsOpen={settingsOpen}
+            setSettingsOpen={setSettingsOpen}
+            colorScheme={colorScheme}
+            toggleColorScheme={toggleColorScheme}
+            asideOpened={asideOpened}
+            toggleAside={toggleAside}
+            asideToggle={asideToggle}
+            moreShown={moreShown}
+            setMoreOpen={setMoreOpen}
+            panelPlacement={panelPlacement}
+            live={{
+              liveFollow,
+              setLiveFollow,
+              slideLines,
+              isLeader,
+              sendAndNotify,
+              textHidden,
+              hideToggle,
+              blackOn,
+              blackToggle,
+              coverOn,
+              coverToggle,
+              viewersTimer,
+              cornerOn,
+              countdownStart,
+              countdownShift,
+              leaderRef,
+              countdownPause,
+              countdownAfterZero,
+              countdownChange,
+              takeCoverOff,
+              setCountdownOpen,
+              liveSlide,
+              stageTimerStart,
+              stageTimerPause,
+              stageTimerShift,
+              stageTimerAfterZero,
+              stageTimerSet,
+              setStageTimerOpen,
+            }}
+          />
         </AppShell.Header>
 
         <AppShell.Navbar>
-          <Box visibleFrom="sm">
-            <ResizeHandle
-              axis="x"
-              edge="right"
-              label={tr('Ширина бічної панелі')}
-              {...panelResize('navbar')}
-            />
-          </Box>
-          {/* a short window (Safari's 800×600 in the Mac test) squeezed the books to nothing and
-              their hint ran over the history tabs: the books keep a few rows, the rest scrolls */}
-          <Box
-            style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}
-          >
-            <TranslationPicker
-              translations={translations}
-              selectedIds={selectedIds}
-              onChange={setTranslations}
-              onMakePrimary={makePrimary}
-            />
-            <Divider />
-            <Box p="xs" pb={4}>
-              <TextInput
-                size="xs"
-                placeholder={tr('Фільтр книг…')}
-                value={bookFilter}
-                onChange={(e) => setBookFilter(e.currentTarget.value)}
-                leftSection={<IconSearch size={14} />}
-              />
-            </Box>
-            <Box style={{ flex: 1, minHeight: BOOKS_MIN_HEIGHT, padding: '0 8px' }}>
-              <VirtualList
-                items={filteredBooks}
-                getKey={(b) => b.bookNumber}
-                isSelected={(b) => b.bookNumber === bookNumber}
-                onSelect={(b) => pickBook(b.bookNumber)}
-                renderRow={(b) => b.longName || b.shortName}
-                estimateSize={30}
-                empty={
-                  libraryGap
-                    ? tr('Перекладів ще немає')
-                    : primaryId == null
-                      ? tr('Позначте переклад угорі, щоб побачити його книги')
-                      : bookFilter.trim()
-                        ? tr('Немає книг, що збігаються з «{filter}»', {
-                            filter: bookFilter.trim(),
-                          })
-                        : tr('У цьому перекладі немає книг')
-                }
-              />
-            </Box>
-            <Divider />
-            <Tabs
-              value={sidebarTab}
-              onChange={setSidebarTab}
-              variant="default"
-              style={{ position: 'relative' }}
-            >
-              <ResizeHandle axis="y" edge="top" label={tr('Висота історії')} {...recentResize} />
-              <Tabs.List grow>
-                <Tabs.Tab value="history" leftSection={<IconHistory size={14} />}>
-                  {tr('Історія')}
-                </Tabs.Tab>
-                <Tabs.Tab value="saved" leftSection={<IconBookmark size={14} />}>
-                  {tr('Збережене')}
-                </Tabs.Tab>
-              </Tabs.List>
-              <Group justify="flex-end" gap={4} px="xs" py={4} h={30} wrap="nowrap">
-                {sidebarTab === 'history' && history.length > 0 && (
-                  <Button
-                    size="compact-xs"
-                    variant="subtle"
-                    color="gray"
-                    leftSection={<IconTrash size={12} />}
-                    onClick={clearHistory}
-                  >
-                    {tr('Очистити')}
-                  </Button>
-                )}
-                {sidebarTab === 'saved' && (
-                  <>
-                    <Button
-                      size="compact-xs"
-                      variant="subtle"
-                      color="gray"
-                      leftSection={<IconDownload size={12} />}
-                      disabled={bookmarks.length === 0}
-                      onClick={exportBookmarks}
-                    >
-                      {tr('Експорт')}
-                    </Button>
-                    <FileButton accept="application/json" onChange={importBookmarksFile}>
-                      {(props) => (
-                        <Button
-                          {...props}
-                          size="compact-xs"
-                          variant="subtle"
-                          color="gray"
-                          leftSection={<IconUpload size={12} />}
-                        >
-                          {tr('Імпорт')}
-                        </Button>
-                      )}
-                    </FileButton>
-                  </>
-                )}
-              </Group>
-              <Box ref={recentBoxRef} style={{ height: layout.recentHeight }}>
-                <ScrollArea h="100%" scrollbars="y" className="vo-scroll-rows">
-                  <Tabs.Panel value="history">
-                    <RefList
-                      items={history}
-                      onPick={jumpTo}
-                      onRemove={removeHistory}
-                      empty={tr('Тут з’являтимуться місця, які ви відкривали')}
-                    />
-                  </Tabs.Panel>
-                  <Tabs.Panel value="saved">
-                    <RefList
-                      items={bookmarks}
-                      onPick={jumpTo}
-                      onRemove={(it) => toggleBookmark(it)}
-                      empty={tr('Збережіть вірш кнопкою-закладкою над прев’ю')}
-                    />
-                  </Tabs.Panel>
-                </ScrollArea>
-              </Box>
-            </Tabs>
-          </Box>
+          <ControlNavbar
+            panelResize={panelResize}
+            translations={translations}
+            selectedIds={selectedIds}
+            setTranslations={setTranslations}
+            makePrimary={makePrimary}
+            bookFilter={bookFilter}
+            setBookFilter={setBookFilter}
+            filteredBooks={filteredBooks}
+            bookNumber={bookNumber}
+            pickBook={pickBook}
+            libraryGap={libraryGap}
+            primaryId={primaryId}
+            sidebarTab={sidebarTab}
+            setSidebarTab={setSidebarTab}
+            recentResize={recentResize}
+            history={history}
+            clearHistory={clearHistory}
+            bookmarks={bookmarks}
+            exportBookmarks={exportBookmarks}
+            importBookmarksFile={importBookmarksFile}
+            recentBoxRef={recentBoxRef}
+            layout={layout}
+            jumpTo={jumpTo}
+            removeHistory={removeHistory}
+            toggleBookmark={toggleBookmark}
+          />
         </AppShell.Navbar>
 
         <AppShell.Main>
@@ -3561,116 +3137,15 @@ export function Control() {
               height: 'calc(100vh - var(--app-shell-header-height, 3.5rem))',
             }}
           >
-            {!isLeader && (
-              <Group
-                gap="sm"
-                wrap="nowrap"
-                px="md"
-                py={6}
-                role="status"
-                style={{
-                  background: 'var(--mantine-color-default-hover)',
-                  borderBottom: '1px solid var(--mantine-color-default-border)',
-                }}
-              >
-                <Text size="sm" style={{ flex: 1 }}>
-                  {tr(
-                    'Показом керує інше вікно керування. Тут можна готувати наступне — на екран іде лише звідти.',
-                  )}
-                </Text>
-                <Button size="xs" variant="subtle" color="gray" onClick={closeThisWindow}>
-                  {tr('Закрити це вікно')}
-                </Button>
-                <Button size="xs" variant="light" onClick={takeOver}>
-                  {tr('Взяти керування')}
-                </Button>
-              </Group>
-            )}
-            {isLeader && appOff && (
-              <Group
-                gap="sm"
-                wrap="nowrap"
-                px="md"
-                py={6}
-                role="status"
-                style={{
-                  background: 'var(--mantine-color-default-hover)',
-                  borderBottom: '1px solid var(--mantine-color-default-border)',
-                }}
-              >
-                <IconPower
-                  size={16}
-                  color="var(--mantine-color-dimmed)"
-                  aria-hidden
-                  style={{ flex: 'none' }}
-                />
-                <Text size="sm" style={{ flex: 1 }}>
-                  {tr(
-                    'Застосунок вимкнено: пульти й телефони глядачів відключено, вікна виводу закрито.',
-                  )}{' '}
-                  {tr(START_AGAIN)}
-                </Text>
-              </Group>
-            )}
-            {isLeader && hubLost && !appOff && (
-              <Group
-                gap="sm"
-                wrap="nowrap"
-                px="md"
-                py={6}
-                role="status"
-                style={{
-                  background: 'var(--mantine-color-default-hover)',
-                  borderBottom: '1px solid var(--mantine-color-default-border)',
-                }}
-              >
-                <IconPlugConnectedX
-                  size={16}
-                  color="var(--mantine-color-orange-filled)"
-                  aria-hidden
-                  style={{ flex: 'none' }}
-                />
-                <Text size="sm" style={{ flex: 1 }}>
-                  {tr(
-                    'Немає зв’язку із сервером застосунку: пульти й телефони глядачів зараз не чують цього вікна, вікна виводу працюють далі. Перевірте, чи запущено застосунок, — зв’язок відновиться сам.',
-                  )}
-                </Text>
-              </Group>
-            )}
-            {isLeader && !hubLost && !appOff && !hubActive && (
-              <Group
-                gap="sm"
-                wrap="nowrap"
-                px="md"
-                py={6}
-                role="status"
-                style={{
-                  background: 'var(--mantine-color-default-hover)',
-                  borderBottom: '1px solid var(--mantine-color-default-border)',
-                }}
-              >
-                <Text size="sm" style={{ flex: 1 }}>
-                  {hubMovedTo
-                    ? tr(
-                        'Вікно керування перейшло в {browser}. Звідси показ іде лише на вікна виводу цього браузера.',
-                        { browser: hubMovedTo },
-                      )
-                    : tr(
-                        'Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси показ іде лише на вікна виводу цього браузера.',
-                      )}
-                </Text>
-                <Button size="xs" variant="subtle" color="gray" onClick={closeThisWindow}>
-                  {tr('Закрити це вікно')}
-                </Button>
-                <Button
-                  size="xs"
-                  variant="light"
-                  onClick={() => controlConn.current?.send({ type: 'take-control' })}
-                >
-                  {tr('Слухати тут')}
-                </Button>
-              </Group>
-            )}
+            <HubBanners
+              isLeader={isLeader}
+              appOff={appOff}
+              hubLost={hubLost}
+              hubActive={hubActive}
+              hubMovedTo={hubMovedTo}
+              takeOver={takeOver}
+              controlConn={controlConn}
+            />
             <SearchPanel
               open={searchOpen}
               onClose={() => setSearchOpen(false)}
@@ -3708,167 +3183,42 @@ export function Control() {
                 liveSlide.visible && !liveSlide.blank ? (liveSlide.picture?.src ?? null) : null
               }
             />
-            <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
-              <Text fw={600} size="md" truncate>
-                {currentBook ? `${currentBook.longName} ${chapter ?? ''}` : tr('Оберіть книгу')}
-              </Text>
-              <Group gap={6} wrap="nowrap">
-                <Tooltip label={tr('Що зараз на екрані показу')}>
-                  <Badge
-                    variant={liveActive ? 'filled' : 'light'}
-                    color={liveSlide.forceBlack ? 'dark' : liveActive ? 'live' : 'gray'}
-                    leftSection={<IconDeviceTv size={12} />}
-                    style={{ maxWidth: 220 }}
-                  >
-                    {liveLabel}
-                  </Badge>
-                </Tooltip>
-                {pageCount > 1 && (
-                  <Group gap={2} wrap="nowrap">
-                    <ActionIcon
-                      variant="default"
-                      size="sm"
-                      disabled={safePageIndex === 0}
-                      onClick={() => advance(-1)}
-                      aria-label={tr('Попередня сторінка')}
-                    >
-                      <IconChevronLeft size={14} />
-                    </ActionIcon>
-                    <Tooltip label={tr('Сторінка довгого уривка (← → або PageUp/PageDown)')}>
-                      <Badge variant="filled" color="brand">
-                        {safePageIndex + 1}/{pageCount}
-                      </Badge>
-                    </Tooltip>
-                    <ActionIcon
-                      variant="default"
-                      size="sm"
-                      disabled={safePageIndex === pageCount - 1}
-                      onClick={() => advance(1)}
-                      aria-label={tr('Наступна сторінка')}
-                    >
-                      <IconChevronRight size={14} />
-                    </ActionIcon>
-                  </Group>
-                )}
-                {selectedVerses.length > 0 && (
-                  <Tooltip label={tr('Додати уривок у показ')}>
-                    <ActionIcon
-                      variant="subtle"
-                      color="brand"
-                      size="sm"
-                      onClick={addCurrentPassage}
-                      aria-label={tr('Додати уривок у показ')}
-                    >
-                      <IconPlaylistAdd size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-                {selectedVerses.length > 0 && <Badge variant="light">{reference}</Badge>}
-              </Group>
-            </Group>
-            {chapters.length > 0 && (
-              <ScrollArea.Autosize mah={64} px="md" pb="xs">
-                <div className="vo-chapter-grid" role="group" aria-label={tr('Розділи')}>
-                  {chapters.map((c) => (
-                    <button
-                      key={c}
-                      className="vo-chip"
-                      data-selected={c === chapter ? 'true' : undefined}
-                      onClick={() => selectChapter(c)}
-                      aria-current={c === chapter ? 'true' : undefined}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </ScrollArea.Autosize>
-            )}
+            <ChapterBar
+              currentBook={currentBook}
+              chapter={chapter}
+              liveActive={liveActive}
+              liveSlide={liveSlide}
+              liveLabel={liveLabel}
+              pageCount={pageCount}
+              safePageIndex={safePageIndex}
+              advance={advance}
+              selectedVerses={selectedVerses}
+              addCurrentPassage={addCurrentPassage}
+              reference={reference}
+              chapters={chapters}
+              selectChapter={selectChapter}
+            />
             <Divider />
-            <div
-              style={{
-                display: 'flex',
-                flex: 1,
-                minHeight: panelPlacement === 'bottom' ? BOTTOM_VERSES_MIN : 0,
-              }}
-            >
-              <ScrollArea style={{ flex: 1 }} px="md" py="xs" viewportRef={verseViewport}>
-                <Stack gap={2}>
-                  {primaryVerses.map((v) => (
-                    <div
-                      key={v.verse}
-                      className="vo-verse-item vo-verse-row"
-                      role="button"
-                      tabIndex={0}
-                      data-verse={v.verse}
-                      data-selected={selectedVerses.includes(v.verse) ? 'true' : undefined}
-                      onClick={(e) =>
-                        e.ctrlKey || e.metaKey || e.shiftKey
-                          ? toggleVerse(v.verse)
-                          : setSelectedVerses([v.verse])
-                      }
-                      onKeyDown={(e) => {
-                        const mod = e.ctrlKey || e.metaKey || e.shiftKey;
-                        if (e.key === ' ') {
-                          e.preventDefault();
-                          if (mod) toggleVerse(v.verse);
-                          else setSelectedVerses([v.verse]);
-                        } else if (e.key === 'Enter') {
-                          // bound to «На екран» (⌘↩ on a Mac): that hotkey projects
-                          if (matchesCombo(e.nativeEvent, keymap.project)) return;
-                          e.preventDefault();
-                          // Enter projects to the screen immediately (no need to enable
-                          // live-follow or press F5); modifier+Enter extends the selection.
-                          if (mod) toggleVerse(v.verse);
-                          else projectVerseOnEnter(v.verse);
-                        }
-                      }}
-                    >
-                      <span className="vo-verse-num">{v.verse}</span>
-                      <span>
-                        {appearance.redLetter
-                          ? parseRedLetter(v.textRaw ?? v.text ?? '').map((s, j, arr) => (
-                              <Text
-                                span
-                                key={j}
-                                style={{
-                                  // a light tint toward the accent: the whole Gospel is often red-letter, so a
-                                  // strong tint turns the reading list into a wall of red (the slide keeps 50%)
-                                  color: s.jesus
-                                    ? `color-mix(in srgb, currentColor 70%, ${appearance.jesusColor})`
-                                    : undefined,
-                                }}
-                              >
-                                {s.text}
-                                {j < arr.length - 1 ? ' ' : ''}
-                              </Text>
-                            ))
-                          : v.text}
-                      </span>
-                    </div>
-                  ))}
-                  {primaryVerses.length === 0 &&
-                    (libraryGap ? (
-                      <NoLibrary gap={libraryGap} onOpenSettings={openAppSettings} />
-                    ) : versesLoading ? null : (
-                      <Text c="dimmed" size="sm" p="sm">
-                        {currentBook == null
-                          ? tr('Оберіть книгу ліворуч — відкриється її перший розділ.')
-                          : chapter == null
-                            ? tr('Оберіть розділ угорі.')
-                            : tr('У цьому розділі немає віршів у головному перекладі.')}
-                      </Text>
-                    ))}
-                </Stack>
-              </ScrollArea>
-              {concordanceStrong && (
-                <ConcordancePanel
-                  strong={concordanceStrong}
-                  primaryId={primaryId}
-                  onPick={jumpTo}
-                  onClose={() => setConcordanceStrong(null)}
-                />
-              )}
-            </div>
+            <VerseList
+              panelPlacement={panelPlacement}
+              verseViewport={verseViewport}
+              primaryVerses={primaryVerses}
+              selectedVerses={selectedVerses}
+              toggleVerse={toggleVerse}
+              setSelectedVerses={setSelectedVerses}
+              keymap={keymap}
+              projectVerseOnEnter={projectVerseOnEnter}
+              appearance={appearance}
+              libraryGap={libraryGap}
+              openAppSettings={openAppSettings}
+              versesLoading={versesLoading}
+              currentBook={currentBook}
+              chapter={chapter}
+              concordanceStrong={concordanceStrong}
+              primaryId={primaryId}
+              jumpTo={jumpTo}
+              setConcordanceStrong={setConcordanceStrong}
+            />
             {panelPlacement === 'bottom' && (
               <Box
                 ref={bottomBoxRef}
@@ -3918,57 +3268,28 @@ export function Control() {
         <SettingsPanel onDetach={() => setSettingsOpen(false)} />
       </FloatingPanel>
 
-      <FloatingPanel
-        opened={playlistOpen}
-        onClose={() => setPlaylistOpen(false)}
-        title={tr('Послідовність показу')}
-        storageKey="vo:playlistPanelPos"
-        width={340}
-        icon={<IconList size={16} />}
-      >
-        <PlaylistPanel
-          items={playlistItems}
-          currentId={playlistCurrentId}
-          saved={playlistSaved}
-          onActivate={activateItem}
-          onRemove={playlistRemove}
-          onMove={playlistMove}
-          onReorder={playlistReorder}
-          onClear={playlistClear}
-          cleared={playlistCleared}
-          onUndoClear={playlistUndoClear}
-          onNext={() => stepPlaylist(1)}
-          onPrev={() => stepPlaylist(-1)}
-          onSave={(n) => {
-            const exists = playlistSaved.some((p) => p.name === n.trim());
-            playlistSaveProgram(n);
-            notifications.show({
-              message: exists
-                ? tr('Програму оновлено: {name}', { name: n })
-                : tr('Програму збережено: {name}', { name: n }),
-              color: 'green',
-              autoClose: 1500,
-            });
-          }}
-          onLoad={(n) => {
-            playlistLoadProgram(n);
-            notifications.show({
-              message: tr('Відкрито програму: {name}', { name: n }),
-              color: 'brand',
-              autoClose: 1500,
-            });
-          }}
-          onDelete={playlistDeleteProgram}
-          deletedProgram={
-            playlistDeleted
-              ? { name: playlistDeleted.program.name, index: playlistDeleted.index }
-              : null
-          }
-          onUndoDelete={playlistUndoDelete}
-          replacedBy={playlistReplacedBy}
-          onUndoLoad={playlistUndoLoad}
-        />
-      </FloatingPanel>
+      <PlaylistFloating
+        playlistOpen={playlistOpen}
+        setPlaylistOpen={setPlaylistOpen}
+        playlistItems={playlistItems}
+        playlistCurrentId={playlistCurrentId}
+        playlistSaved={playlistSaved}
+        activateItem={activateItem}
+        playlistRemove={playlistRemove}
+        playlistMove={playlistMove}
+        playlistReorder={playlistReorder}
+        playlistClear={playlistClear}
+        playlistCleared={playlistCleared}
+        playlistUndoClear={playlistUndoClear}
+        stepPlaylist={stepPlaylist}
+        playlistSaveProgram={playlistSaveProgram}
+        playlistLoadProgram={playlistLoadProgram}
+        playlistDeleteProgram={playlistDeleteProgram}
+        playlistDeleted={playlistDeleted}
+        playlistUndoDelete={playlistUndoDelete}
+        playlistReplacedBy={playlistReplacedBy}
+        playlistUndoLoad={playlistUndoLoad}
+      />
 
       <FloatingPanel
         opened={followOpen}
@@ -4025,16 +3346,12 @@ export function Control() {
   );
 }
 
-/** The book list keeps about four rows however short the window (0.6.26). */
-const BOOKS_MIN_HEIGHT = 120;
-
 /**
  * The display panel below the centre in a short column (1.4.6): it gives way down to 10rem
  * (two fifths of a very short column) — its monitors shrink with it — while the verse list
  * keeps 7.5rem, three or four verses.
  */
 const BOTTOM_PANEL_MIN = 'min(10rem, 40%)';
-const BOTTOM_VERSES_MIN = '7.5rem';
 /**
  * How long the socket to the hub may be down before the operator is told (0.6.25), counted
  * from the drop (0.6.29: a failed retry no longer restarts it — with retries every 2 s it
