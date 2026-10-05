@@ -111,6 +111,9 @@ In the **Countdown** section:
 - **Another color past zero** — at zero and past it the time takes another color, so everyone
   sees the time is up. On by default, with a red **Color past zero**.
 
+- **Sound for the last 5 seconds** — a short tone at 5, 4, 3, 2, and 1, and a longer one at
+  zero; see [Show a countdown before the start](show-text.md#show-a-countdown-before-the-start).
+
 The same section sets the look of the time:
 
 - **Time size** — **Smaller**, **Normal**, **Larger**, or **Largest**. The larger the time, the

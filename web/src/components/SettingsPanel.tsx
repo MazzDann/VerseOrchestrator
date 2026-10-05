@@ -34,6 +34,7 @@ import {
 } from '../settingsStore';
 import type { SlideTransition } from '../presenterBus';
 import { fileToDownscaledDataUrl, fileToLogoDataUrl } from '../lib/image';
+import { warmAudio } from '../lib/countdownSound';
 import {
   WARN_MINUTES,
   type CaptionAt,
@@ -345,6 +346,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               a.countdownWarnMinutes > 0 &&
                 tr('попередження за {n} хв', { n: a.countdownWarnMinutes }),
               a.countdownOverOn && tr('колір після нуля'),
+              a.countdownBeeps && tr('звук'),
               (a.countdownSize !== 'md' ||
                 a.countdownFont !== 'text' ||
                 a.countdownFormat !== 'clock' ||
@@ -369,7 +371,10 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               '5, 4, 3, 2, 1 — короткий звук, на нулі — довший; грає вікно керування',
             )}
             checked={a.countdownBeeps}
-            onChange={(e) => set({ countdownBeeps: e.currentTarget.checked })}
+            onChange={(e) => {
+              set({ countdownBeeps: e.currentTarget.checked });
+              if (e.currentTarget.checked) warmAudio();
+            }}
           />
           <Select
             label={tr('Попередження')}
