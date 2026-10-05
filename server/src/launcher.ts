@@ -33,6 +33,7 @@ import {
   SYSTEM_BROWSER,
   type InstalledBrowser,
   type LaunchSettings,
+  browserSpawnOptions,
 } from './browsers.ts';
 import {
   alreadyOpenLines,
@@ -451,12 +452,9 @@ function openBrowser(url: string, dataDir: string, asApp = false): void {
   // Windows: `cmd /c start` hides its console. A browser started directly is a GUI program
   // (no console to hide), and windowsHide would hand it SW_HIDE for its first window: Chromium
   // shows itself anyway (0.7.5's --app had windowsHide), but Firefox, Zen and LibreWolf — now
-  // started directly when chosen — are not known to (2026-10-01; a Windows check is due)
-  const child = spawn(cmd[0], cmd[1], {
-    stdio: 'ignore',
-    detached: true,
-    windowsHide: cmd[0] === 'cmd',
-  });
+  // started directly when chosen — are not known to (2026-10-01; a Windows check is due). And
+  // never from app/: a browser started here stays in that folder (1.8.8, browserSpawnOptions)
+  const child = spawn(cmd[0], cmd[1], browserSpawnOptions(cmd[0]));
   child.on('error', () => say(`  ${tr('Відкрийте в браузері: {url}', { url })}`));
   child.unref();
 }
