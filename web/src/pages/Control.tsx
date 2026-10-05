@@ -67,14 +67,7 @@ import {
   type Pairing,
 } from '../api';
 import { useStore } from '../store';
-import {
-  useSettings,
-  refKey,
-  DEFAULT_LAYOUT,
-  LAYOUT_LIMITS,
-  type PanelLayout,
-  type RefItem,
-} from '../settingsStore';
+import { useSettings, refKey, type RefItem } from '../settingsStore';
 import {
   publishSlide,
   publishNext,
@@ -90,7 +83,6 @@ import {
   type SlideSource,
   type SlideCountdown,
   type SlidePicture,
-  type TextSpan,
 } from '../presenterBus';
 import { CountdownTool } from '../components/CountdownTool';
 import { StageTimerTool } from '../components/StageTimerTool';
@@ -117,13 +109,10 @@ import {
   mainText,
   markedText,
   parseRedLetter,
-  secondParts,
   strongLangFor,
   unmark,
 } from '@vo/shared';
-import { parseStrongTokens } from '../lib/strong';
 import { findSong } from '../lib/songLink';
-import { openPresenterWindow, openStageWindow } from '../openPresenter';
 import { SearchPanel, type SearchScope } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { RefList } from '../components/RefList';
@@ -208,8 +197,7 @@ import {
 } from '../components/Toolbar';
 import { useHeaderFold, type FoldZone } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
-import { setAppShellWidth } from '../lib/appShell';
-import { SETTINGS_PANEL_KEY, bottomHeightAfter } from '../lib/panelBox';
+import { SETTINGS_PANEL_KEY } from '../lib/panelBox';
 import { formatCombo, matchesCombo } from '../hotkeys';
 import { isFormField, scrollableAround } from '../lib/keyScroll';
 import { closeThisWindow } from '../lib/closeWindow';
@@ -225,6 +213,11 @@ import {
 } from '../playlistStore';
 import { ImagesPanel } from '../components/ImagesPanel';
 import { type ImageInfo } from '../api';
+import { joinVerses, redLetterSegments, strongHighlightSegments } from './control/slideText';
+import { withSecond } from './control/songSlides';
+import { standbyNotice } from './control/standby';
+import { openPresenter, openStage } from './control/outputWindows';
+import { usePanelResize } from './control/usePanelResize';
 
 const EMPTY_ARRAY: never[] = [];
 /** One «Екран очищено» notice at a time (0.13.2): a new clear replaces the last one. */
@@ -273,71 +266,10 @@ export function Control() {
   const keymap = useSettings((s) => s.keymap);
   const layout = useSettings((s) => s.layout);
   const setLayout = useSettings((s) => s.setLayout);
-  const recentBoxRef = useRef<HTMLDivElement>(null);
-  const clampTo = (k: keyof PanelLayout, v: number) =>
-    Math.min(LAYOUT_LIMITS[k][1], Math.max(LAYOUT_LIMITS[k][0], v));
-  // Panel resize: drags write CSS directly (no re-render of this big page per move);
-  // the final size is committed to the persisted store once, on release.
-  const panelResize = (panel: 'navbar' | 'aside') => {
-    const key = panel === 'navbar' ? 'navWidth' : 'asideWidth';
-    return {
-      onDrag: (d: number) => setAppShellWidth(panel, clampTo(key, layout[key] + d)),
-      onCommit: (d: number) => {
-        setLayout({ [key]: layout[key] + d });
-        requestAnimationFrame(() => setAppShellWidth(panel, null));
-      },
-      onReset: () => setLayout({ [key]: DEFAULT_LAYOUT[key] }),
-    };
-  };
-  const recentResize = {
-    onDrag: (d: number) => {
-      if (recentBoxRef.current)
-        recentBoxRef.current.style.height = `${clampTo('recentHeight', layout.recentHeight + d)}px`;
-    },
-    onCommit: (d: number) => {
-      setLayout({ recentHeight: layout.recentHeight + d });
-      if (recentBoxRef.current) recentBoxRef.current.style.height = '';
-    },
-    onReset: () => setLayout({ recentHeight: DEFAULT_LAYOUT.recentHeight }),
-  };
-  // The display panel below the centre (1.4.6): it had a fixed 340 px and no handle — in a
-  // short window it hid the verse list and its own «На екрані» monitor. Its height is the
-  // operator's (layout.bottomHeight) as far as the column has room: it gives way first, down
-  // to BOTTOM_PANEL_MIN, the verse list keeps BOTTOM_VERSES_MIN. A drag starts from what is
-  // shown and, once released, stores what is shown — unless that is a squeezed height the
-  // operator did not ask for (bottomHeightAfter).
-  const bottomBoxRef = useRef<HTMLDivElement>(null);
-  const bottomFrom = useRef<number | null>(null);
-  const bottomResize = {
-    onDrag: (d: number) => {
-      const el = bottomBoxRef.current;
-      if (!el) return;
-      bottomFrom.current ??= el.offsetHeight;
-      el.style.flexBasis = `${clampTo('bottomHeight', bottomFrom.current + d)}px`;
-    },
-    onCommit: (d: number) => {
-      const el = bottomBoxRef.current;
-      if (!el) return;
-      const from = bottomFrom.current ?? el.offsetHeight;
-      bottomFrom.current = null;
-      let shown = from;
-      if (d !== 0) {
-        el.style.flexBasis = `${clampTo('bottomHeight', from + d)}px`;
-        // what the column lets it have (a drag past its room would leave a dead stretch)
-        shown = clampTo('bottomHeight', el.offsetHeight);
-      }
-      // a squeezed height never replaces the operator's (a click, ↑ / ↓ with no room)
-      const next = bottomHeightAfter(layout.bottomHeight, from, shown, d);
-      // React re-renders `flex` only when the height changes: put back what it rendered
-      el.style.flexBasis = `${next}px`;
-      if (next !== layout.bottomHeight) setLayout({ bottomHeight: next });
-    },
-    onReset: () => {
-      if (bottomBoxRef.current)
-        bottomBoxRef.current.style.flexBasis = `${DEFAULT_LAYOUT.bottomHeight}px`;
-      setLayout({ bottomHeight: DEFAULT_LAYOUT.bottomHeight });
-    },
-  };
+  const { recentBoxRef, panelResize, recentResize, bottomBoxRef, bottomResize } = usePanelResize({
+    layout,
+    setLayout,
+  });
   // The burgers in the header exist below AppShell's breakpoints: the navigation's below `sm`,
   // the preview panel's below `md`. Read at once, not in an effect: a first render with the
   // wrong value only made the header measure twice.
@@ -466,14 +398,6 @@ export function Control() {
   const isLeader = leaderState === 'leader';
   const leaderRef = useRef(isLeader);
   leaderRef.current = isLeader;
-  const standbyNotice = () =>
-    notifications.show({
-      message: tr(
-        'Показом керує інше вікно керування — натисніть «Взяти керування», щоб вести звідси',
-      ),
-      color: 'orange',
-      autoClose: 2500,
-    });
   const [paletteOpen, setPaletteOpen] = useState(false);
   /** «Ще» in the header (ToolMore): while open it owns the keyboard, like the palette. */
   const [moreOpen, setMoreOpen] = useState(false);
@@ -2790,25 +2714,6 @@ export function Control() {
     controlConn.current?.send(screenFrame());
   }, [liveSlide, nextSlide, previewKey]);
 
-  const openPresenter = async () => {
-    // «Кілька вікон показу» (Вікна виводу): another window instead of the open one.
-    const win = await openPresenterWindow(useSettings.getState().outputs.multiple);
-    notifications.show(
-      win
-        ? { message: tr('Вікно показу відкрито'), color: 'brand', autoClose: 1500 }
-        : { message: tr('Не вдалося відкрити вікно (перевірте блокувальник)'), color: 'red' },
-    );
-  };
-
-  const openStage = async () => {
-    const win = await openStageWindow();
-    notifications.show(
-      win
-        ? { message: tr('Вікно сцени відкрито'), color: 'brand', autoClose: 1500 }
-        : { message: tr('Не вдалося відкрити вікно (перевірте блокувальник)'), color: 'red' },
-    );
-  };
-
   // In-app "what's on screen now" monitor — reflects the actually-published slide.
   const textHidden = liveSlide.blank && !liveSlide.forceBlack;
   const blackOn = !!liveSlide.forceBlack;
@@ -4120,8 +4025,6 @@ export function Control() {
   );
 }
 
-/** Marker inserted between non-contiguous selected verses so a skip reads as a skip. */
-const GAP = '…';
 /** The book list keeps about four rows however short the window (0.6.26). */
 const BOOKS_MIN_HEIGHT = 120;
 
@@ -4139,74 +4042,3 @@ const BOTTOM_VERSES_MIN = '7.5rem';
  * ~3.5 s before this.
  */
 const HUB_LOST_MS = 4000;
-
-/** Displayed text for the selected verses (chapter order), with gaps between non-contiguous ones. */
-function joinVerses(verses: Verse[], selected: number[], showNum: boolean): string {
-  const parts: string[] = [];
-  let prev: number | null = null;
-  for (const v of verses) {
-    if (!selected.includes(v.verse)) continue;
-    const t = (v.text ?? '').trim();
-    if (!t) continue;
-    if (prev != null && v.verse > prev + 1) parts.push(GAP);
-    parts.push(`${showNum ? `${v.verse} ` : ''}${t}`);
-    prev = v.verse;
-  }
-  return parts.join(' ');
-}
-
-/** Build red-letter (words of Jesus) segments for a translation's selected verses. */
-/**
- * A song line with its second part (1.3.0): `marked` is the line's text with the second part
- * marked (shared/src/songs/pptx.ts); it keeps `color` — the file's — or, without one, goes
- * dimmer. The pieces are the text itself, so they join without spaces.
- */
-function withSecond(line: SlideLine, marked: string, color?: string): SlideLine {
-  if (unmark(marked) !== line.text) return line;
-  const segments: TextSpan[] = secondParts(marked).map((p) =>
-    p.second ? { text: p.text, ...(color ? { color } : { soft: true }) } : { text: p.text },
-  );
-  return { ...line, segments, exact: true };
-}
-
-function redLetterSegments(verses: Verse[], selected: number[], showNum: boolean): TextSpan[] {
-  const out: TextSpan[] = [];
-  let prev: number | null = null;
-  for (const v of verses) {
-    if (!selected.includes(v.verse)) continue;
-    if (prev != null && v.verse > prev + 1) out.push({ text: GAP });
-    if (showNum) out.push({ text: String(v.verse) });
-    for (const s of parseRedLetter(v.textRaw ?? v.text ?? '')) {
-      out.push(s.jesus ? { text: s.text, jesus: true } : { text: s.text });
-    }
-    prev = v.verse;
-  }
-  return out;
-}
-
-/** Build segments with the word(s) carrying `strong` emphasised (the projected Strong word). */
-function strongHighlightSegments(
-  verses: Verse[],
-  selected: number[],
-  showNum: boolean,
-  strong: string,
-): TextSpan[] {
-  const out: TextSpan[] = [];
-  let prev: number | null = null;
-  for (const v of verses) {
-    if (!selected.includes(v.verse)) continue;
-    if (prev != null && v.verse > prev + 1) out.push({ text: GAP });
-    if (showNum) out.push({ text: String(v.verse) });
-    const tokens = parseStrongTokens(v.textRaw ?? '');
-    if (tokens.length === 0) {
-      const t = (v.text ?? '').trim();
-      if (t) out.push({ text: t });
-    } else {
-      for (const tk of tokens) {
-        out.push(tk.strong === strong ? { text: tk.text, hot: true } : { text: tk.text });
-      }
-    }
-    prev = v.verse;
-  }
-  return out;
-}
