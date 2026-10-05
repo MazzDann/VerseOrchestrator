@@ -193,8 +193,9 @@ export function Follow() {
           justifyContent: 'center',
           alignItems: reader.easy ? 'stretch' : 'center',
           textAlign: reader.easy ? 'left' : 'center',
-          // the last line ends above the «Aa» button (44 px at the bottom left)
-          padding: '7vw 6vw max(7vw, 68px)',
+          // the last line ends above the «Aa» button (44 px at the bottom left); the first starts
+          // below the corner time while it shows (1.8.7)
+          padding: `${corner.counting ? 'max(7vw, 52px)' : '7vw'} 6vw max(7vw, 68px)`,
           gap: '1.2em',
         }}
       >

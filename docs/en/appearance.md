@@ -122,10 +122,10 @@ The same section sets the look of the time:
   **Monospaced**.
 - **Time format** — 4:59, 04:59, or “5 min”: whole minutes, with seconds only in the last
   minute.
-- **Countdown corner** and **Size in the corner** — where the time goes and how big it is when
-  the countdown is shown in a corner over the slide.
 - **Words** — **Above the time**, **Below the time**, or **No words**. The words themselves are
   set in the **Words with the time** field when you start a countdown.
+- **Countdown corner** and **Size in the corner** — where the time goes and how big it is when
+  the countdown is shown in a corner over the slide.
 
 The viewers' phones write the time the same way and put the words in the same place, but keep
 their own size, made for the phone's screen. A countdown on screen takes the new look at once.
