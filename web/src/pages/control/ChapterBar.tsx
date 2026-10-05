@@ -1,0 +1,126 @@
+import { ActionIcon, Badge, Group, ScrollArea, Text, Tooltip } from '@mantine/core';
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconDeviceTv,
+  IconPlaylistAdd,
+} from '@tabler/icons-react';
+import { type Book } from '../../api';
+import { type Slide } from '../../presenterBus';
+import { type Outcome } from '../../lib/commands';
+import { tr, useLang } from '../../i18n';
+
+/**
+ * Above the verse list: the open book and chapter, what is on screen, the pages of a long
+ * passage, «Додати уривок у показ», the selection's reference, and the chapter grid.
+ */
+export function ChapterBar({
+  currentBook,
+  chapter,
+  liveActive,
+  liveSlide,
+  liveLabel,
+  pageCount,
+  safePageIndex,
+  advance,
+  selectedVerses,
+  addCurrentPassage,
+  reference,
+  chapters,
+  selectChapter,
+}: {
+  currentBook: Book | null;
+  chapter: number | null;
+  liveActive: boolean;
+  liveSlide: Slide;
+  liveLabel: string;
+  pageCount: number;
+  safePageIndex: number;
+  advance: (delta: number, previewOnly?: boolean) => Outcome | Promise<Outcome>;
+  selectedVerses: number[];
+  addCurrentPassage: () => void;
+  reference: string;
+  chapters: number[];
+  selectChapter: (chapter: number) => void;
+}) {
+  useLang();
+  return (
+    <>
+      <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
+        <Text fw={600} size="md" truncate>
+          {currentBook ? `${currentBook.longName} ${chapter ?? ''}` : tr('Оберіть книгу')}
+        </Text>
+        <Group gap={6} wrap="nowrap">
+          <Tooltip label={tr('Що зараз на екрані показу')}>
+            <Badge
+              variant={liveActive ? 'filled' : 'light'}
+              color={liveSlide.forceBlack ? 'dark' : liveActive ? 'live' : 'gray'}
+              leftSection={<IconDeviceTv size={12} />}
+              style={{ maxWidth: 220 }}
+            >
+              {liveLabel}
+            </Badge>
+          </Tooltip>
+          {pageCount > 1 && (
+            <Group gap={2} wrap="nowrap">
+              <ActionIcon
+                variant="default"
+                size="sm"
+                disabled={safePageIndex === 0}
+                onClick={() => advance(-1)}
+                aria-label={tr('Попередня сторінка')}
+              >
+                <IconChevronLeft size={14} />
+              </ActionIcon>
+              <Tooltip label={tr('Сторінка довгого уривка (← → або PageUp/PageDown)')}>
+                <Badge variant="filled" color="brand">
+                  {safePageIndex + 1}/{pageCount}
+                </Badge>
+              </Tooltip>
+              <ActionIcon
+                variant="default"
+                size="sm"
+                disabled={safePageIndex === pageCount - 1}
+                onClick={() => advance(1)}
+                aria-label={tr('Наступна сторінка')}
+              >
+                <IconChevronRight size={14} />
+              </ActionIcon>
+            </Group>
+          )}
+          {selectedVerses.length > 0 && (
+            <Tooltip label={tr('Додати уривок у показ')}>
+              <ActionIcon
+                variant="subtle"
+                color="brand"
+                size="sm"
+                onClick={addCurrentPassage}
+                aria-label={tr('Додати уривок у показ')}
+              >
+                <IconPlaylistAdd size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          {selectedVerses.length > 0 && <Badge variant="light">{reference}</Badge>}
+        </Group>
+      </Group>
+      {chapters.length > 0 && (
+        <ScrollArea.Autosize mah={64} px="md" pb="xs">
+          <div className="vo-chapter-grid" role="group" aria-label={tr('Розділи')}>
+            {chapters.map((c) => (
+              <button
+                key={c}
+                className="vo-chip"
+                data-selected={c === chapter ? 'true' : undefined}
+                onClick={() => selectChapter(c)}
+                aria-current={c === chapter ? 'true' : undefined}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </ScrollArea.Autosize>
+      )}
+    </>
+  );
+}
