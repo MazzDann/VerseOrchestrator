@@ -369,7 +369,7 @@ describe('spawnBrowser (the real runner)', () => {
   it('starts it from the home folder, never from app/ (1.8.8: a browser there kept app/ in use)', async () => {
     const home = JSON.stringify(os.homedir());
     // exits 0 only when its working folder is the home folder
-    const check = `process.exit(require('node:path').relative(process.cwd(), ${home}) === '' ? 0 : 7)`;
+    const check = `const fs = require('node:fs'); process.exit(fs.realpathSync(process.cwd()) === fs.realpathSync(${home}) ? 0 : 7)`;
     expect(await spawnBrowser(node, ['-e', check])).toBeNull();
   });
 });

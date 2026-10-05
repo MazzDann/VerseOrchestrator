@@ -368,11 +368,6 @@ export function markBrowser(url: string, id: string): string {
 }
 
 /**
- * How to open `url` in `b`: as an app window when asked and it can (`--app`, given to the
- * program itself), else as a page — macOS `open -b <bundle id>`, elsewhere the program with the
- * address. Null on Linux without a screen to open it on, or when there is nothing to start.
- */
-/**
  * How a browser is started (launcher.ts openBrowser, handover.ts spawnBrowser): detached, and from
  * the home folder. A browser that wasn't running yet keeps the folder it was started in for as long
  * as it runs — started from app/ (the start file goes there), it kept Windows from renaming app/,
@@ -383,6 +378,11 @@ export function browserSpawnOptions(cmd: string): SpawnOptions {
   return { stdio: 'ignore', detached: true, windowsHide: cmd === 'cmd', cwd: os.homedir() };
 }
 
+/**
+ * How to open `url` in `b`: as an app window when asked and it can (`--app`, given to the
+ * program itself), else as a page — macOS `open -b <bundle id>`, elsewhere the program with the
+ * address. Null on Linux without a screen to open it on, or when there is nothing to start.
+ */
 export function openInCommand(
   platform: NodeJS.Platform,
   b: InstalledBrowser,

@@ -224,8 +224,8 @@ that didn't start, in `app.failed/`.
 If **Updates** says that another program holds the `app/` folder, close that program and click
 the button again. On Windows such a folder can't be renamed while something has it open: an
 Explorer window, a terminal, or a browser that the app itself opened when the browser wasn't
-running yet (in versions before 1.8.8). If it's a browser, close all its windows, open it
-yourself, and go to the app's address. The previous version keeps running meanwhile.
+running yet (in versions before 1.8.8). If it's a browser, quit it completely (in Chrome and Edge, also its icon by the clock, if it
+stays there), open it yourself, and go to the app's address. The previous version keeps running meanwhile.
 
 An update doesn't touch the `data/` and `modules/` folders: settings, the library, songs,
 and modules carry over to the new version.
