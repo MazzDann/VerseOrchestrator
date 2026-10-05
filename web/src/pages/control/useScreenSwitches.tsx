@@ -49,9 +49,6 @@ export function useScreenSwitches({
 }) {
   // the «Екран очищено» notice translates (the i18n guard: a .tsx that calls tr subscribes)
   useLang();
-  // Remove the slide from the output. Drops out of live so the live-follow effect
-  // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
-  // which would re-run that effect).
   // «QR на екран» (0.6.16): the viewers' QR as a slide; «Прибрати QR» brings back exactly
   // the slide it covered (not the selection — the operator may have browsed meanwhile). The
   // slide carries what it covers (lib/slide.ts `qrOver`, 1.4.2), so any control window that
@@ -116,6 +113,9 @@ export function useScreenSwitches({
     // verses: live-follow picks up again on the next step; a song / text keeps the screen
     setPreviewOverride(restored.source?.kind === 'verses' ? null : restored);
   };
+  // Remove the slide from the output. Drops out of live so the live-follow effect
+  // doesn't immediately re-project the selection (pushLive's setLiveSlide re-renders,
+  // which would re-run that effect).
   // «Очистити» can be taken back (0.13.2): the slide it removed stays at hand (`clearedRef`)
   // until something else goes on screen. Esc again keeps the screen empty — a panicked double
   // press must not bring back what was just cleared — so taking back is its own key
