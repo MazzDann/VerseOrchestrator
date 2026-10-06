@@ -382,6 +382,15 @@ export const EN: Record<string, string> = {
   'Фото в папці змінилося — відкрийте альбом ще раз':
     'The photo in the folder has changed — open the album again',
   'Мала копія має бути JPEG до 4 МБ': 'A small copy must be a JPEG of up to 4 MB',
+  // Video (1.8.12-beta.3)
+  'Відео не знайдено — відкрийте список ще раз': 'Video not found — open the list again',
+  'Файлу відео вже немає': 'The video file is no longer there',
+  'Файл відео змінився — відкрийте список ще раз':
+    'The video file has changed — open the list again',
+  'Файл не знайдено': 'File not found',
+  'Це не відео MP4, MOV, WebM чи MKV, яке відтворює браузер':
+    'This is not an MP4, MOV, WebM, or MKV video the browser plays',
+  'Виберіть файл на цьому комп’ютері': 'Choose a file on this computer',
   'Альбом ще завантажується': 'The album is still loading',
   'В альбомі немає фото': 'The album has no photos',
   'Це останнє фото': 'This is the last photo',
