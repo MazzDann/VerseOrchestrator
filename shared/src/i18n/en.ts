@@ -382,6 +382,10 @@ export const EN: Record<string, string> = {
   'В альбомі немає фото': 'The album has no photos',
   'Це останнє фото': 'This is the last photo',
   'Це перше фото': 'This is the first photo',
+  'Альбом прибрано: {name}': 'Album removed: {name}',
+  'Папку не знайдено: {name}': 'Folder not found: {name}',
+  'Папку не знайдено: {path}': 'Folder not found: {path}',
+  'Альбом не вдалося показати': 'The album could not be shown',
   // «Резервна копія» (1.5.0)
   'Резервна копія': 'Backup',
   'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення. Модулі, бібліотека й пульти в нього не входять.':

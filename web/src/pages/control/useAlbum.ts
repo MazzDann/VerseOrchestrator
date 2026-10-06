@@ -8,11 +8,11 @@ import {
   type SetStateAction,
 } from 'react';
 import { notifications } from '@mantine/notifications';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type AlbumInfo } from '../../api';
 import { type Slide, type SlideStyle } from '../../presenterBus';
-import { albumSlide, photoIndex } from '../../lib/album';
-import { readImageFit } from '../../lib/imageFit';
+import { albumSlide, photoIndex, type AlbumPhoto } from '../../lib/album';
+import { readImageFit, type ImageFit } from '../../lib/imageFit';
 import { PRIORITY, useCommandHandler, type Outcome } from '../../lib/commands';
 import { isFormField, isResizeKey } from '../../lib/keyScroll';
 import { tr } from '../../i18n';
@@ -60,6 +60,7 @@ export function useAlbum({
   liveSlideRef,
   isLeader,
   imagesOpen,
+  setImagesOpen,
   keysPaused,
   serverAvailable,
 }: {
@@ -70,10 +71,14 @@ export function useAlbum({
   liveSlideRef: MutableRefObject<Slide>;
   isLeader: boolean;
   imagesOpen: boolean;
+  setImagesOpen: (v: boolean | ((open: boolean) => boolean)) => void;
   keysPaused: boolean;
   serverAvailable: boolean | null;
 }) {
+  const queryClient = useQueryClient();
   const [album, setAlbum] = useState<OpenAlbum | null>(null);
+  /** «Альбоми» shown in «Зображення» (not its pictures): only then the album owns the keys */
+  const [albumsTab, setAlbumsTab] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [every, setEveryState] = useState(readEvery);
   /** bumped by a photo picked by hand while playing: its own full interval */
@@ -93,6 +98,7 @@ export function useAlbum({
 
   const openAlbum = useCallback((id: string | null, at?: { index: number; name?: string }) => {
     setAlbum(id ? { id, index: at?.index ?? null, name: at?.name } : null);
+    if (id) setAlbumsTab(true);
     setPlaying(false);
   }, []);
 
@@ -103,17 +109,55 @@ export function useAlbum({
     return album && s && s.id === album.id && s.photos === photos ? s.index : current;
   };
 
-  const showPhoto = (index: number) => {
-    if (!album || !photos?.[index]) return;
-    shown.current = { id: album.id, photos, index };
-    // the photo on screen keeps its «Вписати / Заповнити» when it is this album's (a refit sticks)
-    const now = liveSlideRef.current;
-    const fit = (albumOnScreen(now, album.id) && now.picture?.fit) || readImageFit();
-    const slide = albumSlide(album.id, photos, index, fit, slideStyle);
+  const put = (id: string, list: AlbumPhoto[], index: number, fit: ImageFit) => {
+    shown.current = { id, photos: list, index };
+    const slide = albumSlide(id, list, index, fit, slideStyle);
     pushLive(slide);
     setPreviewOverride(slide);
     setLive(true);
-    setAlbum({ id: album.id, index, name: photos[index].name });
+    setAlbum({ id, index, name: list[index].name });
+    return slide;
+  };
+  const showPhoto = (index: number) => {
+    if (!album || !photos?.[index]) return;
+    // the photo on screen keeps its «Вписати / Заповнити» when it is this album's (a refit sticks)
+    const now = liveSlideRef.current;
+    const fit = (albumOnScreen(now, album.id) && now.picture?.fit) || readImageFit();
+    put(album.id, photos, index, fit);
+  };
+
+  /**
+   * An album of the running order (1.8.12): open in «Зображення», its first photo on screen —
+   * read from the folder now. Null, and the reason said, when it can't be shown.
+   */
+  const startAlbum = async (id: string, fit: ImageFit): Promise<Slide | null> => {
+    setAlbumsTab(true);
+    setImagesOpen(true);
+    setPlaying(false);
+    setAlbum({ id, index: null });
+    let info: AlbumInfo;
+    try {
+      info = await queryClient.fetchQuery({
+        queryKey: ['album', id],
+        queryFn: () => api.album(id),
+        staleTime: 0,
+      });
+    } catch (e) {
+      notifications.show({ message: tr((e as Error).message), color: 'red' });
+      return null;
+    }
+    const list = info.photos ?? [];
+    if (info.missing || list.length === 0) {
+      notifications.show({
+        message: info.missing
+          ? tr('Папку не знайдено: {path}', { path: info.path })
+          : tr('В альбомі немає фото'),
+        color: 'gray',
+        autoClose: 3000,
+      });
+      return null;
+    }
+    return put(id, list, 0, fit);
   };
 
   const step = (dir: 1 | -1): Outcome => {
@@ -143,7 +187,7 @@ export function useAlbum({
 
   // ← → / PageUp PageDown step the open album while the panel shows it (capture phase: the
   // verses' hotkeys don't fire too); a key ends «Міняти кожні N с»
-  const owns = imagesOpen && !!album;
+  const owns = imagesOpen && albumsTab && !!album;
   useEffect(() => {
     if (!owns || keysPaused) return;
     const onKey = (e: KeyboardEvent) => {
@@ -218,6 +262,8 @@ export function useAlbum({
   };
 
   return {
+    albumsTab,
+    setAlbumsTab,
     album,
     albumInfo: query.data?.id === album?.id ? query.data : undefined,
     albumLoading: query.isLoading,
@@ -226,7 +272,13 @@ export function useAlbum({
     photos,
     current,
     openAlbum,
+    startAlbum,
     pickPhoto,
+    /** the panel's ← → buttons: a step by hand, as a key */
+    stepBy: (dir: 1 | -1) => {
+      setPlaying(false);
+      say(step(dir));
+    },
     playing,
     play,
     pause: () => setPlaying(false),
