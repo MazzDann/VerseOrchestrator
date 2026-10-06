@@ -9,6 +9,21 @@ import {
   subscribeNext,
 } from '../presenterBus';
 import { SlidePreview } from '../components/SlideCanvas';
+import { clockOf, positionIn } from '../lib/video';
+import type { SlideVideo } from '../presenterBus';
+
+/** A video on screen (1.8.12-beta.3): the time left of it, for the speaker. */
+function VideoLeft({ video }: { video: SlideVideo }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (video.paused != null) return;
+    const t = window.setInterval(() => tick((n) => n + 1), 500);
+    return () => window.clearInterval(t);
+  }, [video.paused, video.at]);
+  if (!(video.duration && video.duration > 0) || video.loop) return null;
+  const left = video.duration - positionIn(video, video.duration);
+  return <> · {tr('відео: ще {time}', { time: clockOf(left) })}</>;
+}
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
@@ -158,6 +173,7 @@ export function Stage() {
         >
           <div style={{ fontSize: '2vmin', fontWeight: 600, opacity: 0.55, letterSpacing: 2 }}>
             {tr('ЗАРАЗ')}
+            {slide.video && <VideoLeft video={slide.video} />}
           </div>
           <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center' }}>
             {/* Tally ring: red = what the audience sees now. */}

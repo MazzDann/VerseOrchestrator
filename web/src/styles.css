@@ -967,6 +967,21 @@ body[data-resizing='y'] {
   flex-direction: column;
   min-width: 0;
 }
+/* «Відео» (1.8.12-beta.3): a tile with no poster yet, and the controls of the video on screen */
+.vo-video-blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--mantine-color-dimmed);
+}
+.vo-video-controls {
+  border: 1px solid var(--mantine-color-live-filled);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
 /* the folder picker's rows: a folder's icon before its name */
 .vo-folder-row {
   display: flex;
