@@ -374,6 +374,10 @@ export const EN: Record<string, string> = {
   'Зображення завелике — до 40 МБ': 'The image is too large — up to 40 MB',
   'Зображення не знайдено — відкрийте список ще раз': 'Image not found — open the list again',
   'Зображення вже не повернути': 'The image can no longer be brought back',
+  // Albums (1.8.12)
+  'Папку не знайдено': 'Folder not found',
+  'Альбом не знайдено — відкрийте список ще раз': 'Album not found — open the list again',
+  'Виберіть папку на цьому комп’ютері': 'Choose a folder on this computer',
   // «Резервна копія» (1.5.0)
   'Резервна копія': 'Backup',
   'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення. Модулі, бібліотека й пульти в нього не входять.':
