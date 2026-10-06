@@ -44,6 +44,8 @@ Other keys of the control window:
   the selection. On macOS, ⌥ with the arrows is **Preview: next** and **Preview: back**.
 - While a song is open, the arrow keys, PageUp, and PageDown step through its slides, and
   **Preview: next** and **Preview: back** do nothing.
+- While an album is open in the images panel, the arrow keys, PageUp, and PageDown step
+  through its photos.
 
 In the presentation window:
 
@@ -127,6 +129,7 @@ Everything the app remembers is in its folder:
 | `songs/`             | songs in presentations (`*.pptx`) that the app moves into a bundle                                  |
 | `data/songs/`        | song bundles (`*.vosongs`)                                                                          |
 | `data/images/`       | images to show: two files for each and `index.json`; in `.trash/`, the last twenty deleted          |
+| `data/albums.json`   | albums: the paths of photo folders (the photos stay in the folders; not in a backup)                |
 | `data/backups/`      | the state that restoring a backup or **Go back to how it was** replaced                             |
 | `data/library.db`    | the library: translations, dictionaries, commentaries, songs, and the search index                  |
 | `data/ui-state.json` | appearance settings, presets, hotkeys, the running order, and programs                              |
