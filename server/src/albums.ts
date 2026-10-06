@@ -102,7 +102,7 @@ const writeAlbums = (dataDir: string, albums: Album[]) =>
   writeJson(albumsFile(dataDir), { albums });
 
 /** Two spellings of one folder: NFC, and on Windows without case. */
-const samePath = (a: string, b: string) => {
+export const samePath = (a: string, b: string) => {
   const key = (p: string) => {
     const n = path.resolve(p).normalize('NFC');
     return process.platform === 'win32' ? n.toLowerCase() : n;
@@ -110,7 +110,7 @@ const samePath = (a: string, b: string) => {
   return key(a) === key(b);
 };
 
-const isFolder = (p: string) =>
+export const isFolder = (p: string) =>
   fsp.stat(p).then(
     (st) => st.isDirectory(),
     () => false,
@@ -121,9 +121,9 @@ const within = <T>(p: Promise<T>, ms: number, fallback: T) =>
   Promise.race([p, new Promise<T>((done) => setTimeout(() => done(fallback), ms).unref())]);
 
 /** A folder's name to show; a drive's root has none, so its path. */
-const folderName = (p: string) => path.basename(p).normalize('NFC') || p;
+export const folderName = (p: string) => path.basename(p).normalize('NFC') || p;
 
-const badPath = (raw: string) => !raw || raw.includes('\0') || !path.isAbsolute(raw);
+export const badPath = (raw: string) => !raw || raw.includes('\0') || !path.isAbsolute(raw);
 
 export type AlbumRefusal = 'path' | 'missing';
 
@@ -165,12 +165,12 @@ export function removeAlbum(dataDir: string, id: string): Album | null {
   return gone;
 }
 
-const extOf = (name: string) => name.slice(name.lastIndexOf('.') + 1).toLowerCase();
+export const extOf = (name: string) => name.slice(name.lastIndexOf('.') + 1).toLowerCase();
 /**
  * «IMG_2» before «IMG_10», case and accents aside — as a file manager orders them; Ukrainian
  * order (Cyrillic first) on every machine, so the PC and the Mac step an album alike.
  */
-const natural = new Intl.Collator('uk', { numeric: true, sensitivity: 'base' });
+export const natural = new Intl.Collator('uk', { numeric: true, sensitivity: 'base' });
 
 type EntryKind = 'file' | 'folder' | 'link' | null;
 
@@ -179,7 +179,7 @@ type EntryKind = 'file' | 'folder' | 'link' | null;
  * folder kept online too, not only a real link — so those are asked again: a real link or a
  * junction stays a link, a OneDrive one is the file or folder it stands for (review of step 1).
  */
-async function kindOf(dir: string, e: fs.Dirent): Promise<EntryKind> {
+export async function kindOf(dir: string, e: fs.Dirent): Promise<EntryKind> {
   if (e.isFile()) return 'file';
   if (e.isDirectory()) return 'folder';
   if (!e.isSymbolicLink()) return null;

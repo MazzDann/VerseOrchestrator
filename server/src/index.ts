@@ -90,6 +90,16 @@ import {
   smallFile,
 } from './albums.js';
 import {
+  addVideo,
+  listVideoFiles,
+  posterFile,
+  putPoster,
+  readVideos,
+  removeVideo,
+  videoEntry,
+  videoFile,
+} from './videos.js';
+import {
   BackupError,
   backupBusy,
   backupName,
@@ -1058,6 +1068,9 @@ app.get(
   wrap(async (req, res) => {
     const found = await browse(req.query.path);
     if (!found) throw new ApiError(404, N_('Папку не знайдено'));
+    // «Додати відео…» (1.8.12-beta.3): the folder's video files too
+    if (req.query.files === 'video' && found.path && !found.denied)
+      Object.assign(found, await listVideoFiles(found.path));
     res.json(found);
   }),
 );
@@ -1170,6 +1183,103 @@ app.delete(
     const gone = removeAlbum(dataDir, String(req.params.id));
     if (!gone) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
     await dropSmalls(dataDir, gone.id);
+    res.json({ name: gone.name });
+  }),
+);
+
+// ── Video (1.8.12-beta.3, videos.ts): files on this computer, read where they are ─────────────
+
+app.get(
+  '/api/videos',
+  requireLocal,
+  wrap(async (_req, res) => {
+    res.json(await Promise.all(readVideos(dataDir).map((v) => videoEntry(dataDir, v))));
+  }),
+);
+
+/**
+ * A video's file — for this machine only: «Показ», «Сцена» and the control window's sound and
+ * previews run here; the hall gets a poster or words (the phones never load the video).
+ */
+app.get(
+  '/api/videos/:id/file',
+  requireLocal,
+  wrap(async (req, res) => {
+    const video = readVideos(dataDir).find((v) => v.id === String(req.params.id));
+    const file = video ? await videoFile(video.path) : null;
+    if (!file) {
+      res.status(404).end();
+      return;
+    }
+    res.setHeader('Content-Type', file.type);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(file.file, { dotfiles: 'allow', acceptRanges: true }, (err) => {
+      if (err && !res.headersSent) res.status(404).end();
+    });
+  }),
+);
+
+/** A frame of the video for the phones (LAN-readable), when the control window drew one. */
+app.get(
+  '/api/videos/:id/poster',
+  wrap(async (req, res) => {
+    const video = readVideos(dataDir).find((v) => v.id === String(req.params.id));
+    const file = video ? await posterFile(dataDir, video) : null;
+    if (!file) {
+      res.status(404).end();
+      return;
+    }
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(file, { dotfiles: 'allow' }, (err) => {
+      if (err && !res.headersSent) res.status(404).end();
+    });
+  }),
+);
+
+app.put(
+  '/api/videos/:id/poster',
+  requireLocalControl,
+  express.raw({ type: () => true, limit: '4mb' }),
+  wrap(async (req, res) => {
+    const video = readVideos(dataDir).find((v) => v.id === String(req.params.id));
+    if (!video) throw new ApiError(404, N_('Відео не знайдено — відкрийте список ще раз'));
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const version = typeof req.query.v === 'string' ? req.query.v : '';
+    const done = await putPoster(dataDir, video, version, body);
+    if ('refused' in done) {
+      if (done.refused === 'video') throw new ApiError(404, N_('Файлу відео вже немає'));
+      if (done.refused === 'changed')
+        throw new ApiError(409, N_('Файл відео змінився — відкрийте список ще раз'));
+      throw new ApiError(400, N_('Мала копія має бути JPEG до 4 МБ'));
+    }
+    res.json(done);
+  }),
+);
+
+app.post(
+  '/api/videos',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const done = await addVideo(dataDir, req.body ?? {});
+    if ('refused' in done) {
+      if (done.refused === 'missing') throw new ApiError(404, N_('Файл не знайдено'));
+      if (done.refused === 'type')
+        throw new ApiError(400, N_('Це не відео MP4, MOV, WebM чи MKV, яке відтворює браузер'));
+      throw new ApiError(400, N_('Виберіть файл на цьому комп’ютері'));
+    }
+    res.status(201).json(await videoEntry(dataDir, done));
+  }),
+);
+
+app.delete(
+  '/api/videos/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const gone = await removeVideo(dataDir, String(req.params.id));
+    if (!gone) throw new ApiError(404, N_('Відео не знайдено — відкрийте список ще раз'));
     res.json({ name: gone.name });
   }),
 );

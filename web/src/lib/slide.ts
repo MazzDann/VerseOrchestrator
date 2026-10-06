@@ -51,14 +51,15 @@ export interface ScreenSummary {
    * in English read «Заставка». They stay for a remote page of an older version.
    * `countdown` (1.5.0): «Заставка» with «Відлік» (an older page names it «Заставка»).
    */
-  kind?: 'qr' | 'cover' | 'countdown' | 'picture';
+  kind?: 'qr' | 'cover' | 'countdown' | 'picture' | 'video';
   font?: string;
   /** where it comes from (0.6.1): a remote knows whether its own cursor is on screen */
   source?: SlideSource;
 }
 
 /** Anything to show — text, the viewers' QR slide, «Заставка» or a picture (no lines there). */
-const hasContent = (s: Slide) => s.lines.length > 0 || !!s.qr || !!s.cover || !!s.picture;
+const hasContent = (s: Slide) =>
+  s.lines.length > 0 || !!s.qr || !!s.cover || !!s.picture || !!s.video;
 
 /**
  * Do the viewers see the slide now — something to show, neither hidden nor black? The
@@ -89,7 +90,9 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
           ? tr('Заставка')
           : slide.picture
             ? slide.picture.name
-            : (slide.lines[0]?.text ?? '').slice(0, 400),
+            : slide.video
+              ? slide.video.name
+              : (slide.lines[0]?.text ?? '').slice(0, 400),
     font: slide.style?.font,
     source: slide.source,
     kind: slide.qr
@@ -100,7 +103,9 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
           : 'cover'
         : slide.picture
           ? 'picture'
-          : undefined,
+          : slide.video
+            ? 'video'
+            : undefined,
   };
 }
 
@@ -109,8 +114,8 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
  * language, anything else as it came.
  */
 export function inPhoneWords(s: ScreenSummary | null): ScreenSummary | null {
-  // a picture (1.5.0) is named by its file: the operator's words, not the app's
-  if (!s?.kind || s.kind === 'picture') return s;
+  // a picture (1.5.0) and a video (1.8.12) are named by their file: the operator's words
+  if (!s?.kind || s.kind === 'picture' || s.kind === 'video') return s;
   const name =
     s.kind === 'qr'
       ? tr('QR для глядачів')
@@ -209,6 +214,9 @@ export function forAudience(slide: Slide): Slide {
     slide.cover || slide.returnTo || slide.stageTimer
       ? { ...slide, cover: undefined, returnTo: undefined, stageTimer: undefined }
       : slide;
+  // a video (1.8.12-beta.3): the phones never load the file (it is this machine's only), only
+  // its poster or the words
+  if (s.video?.src) return forAudience({ ...s, video: { ...s.video, src: '' } });
   if (!s.style?.bgImage) return s;
   return { ...s, style: { ...s.style, bgImage: null } };
 }

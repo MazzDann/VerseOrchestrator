@@ -23,6 +23,8 @@ export type Takeover =
   | { kind: 'song'; songId: number; stanza: number; override: Slide }
   /** an album's photo (1.8.12): open that album at that photo; the slideshow's timer stays off */
   | { kind: 'album'; albumId: string; index: number; name: string; override: Slide }
+  /** a video (1.8.12-beta.3): its controls open; it plays on by its clock, the sound moves here */
+  | { kind: 'video'; videoId: string; override: Slide }
   /** free text / black / empty: nothing to stand on — keep the selection */
   | { kind: 'none' };
 
@@ -71,6 +73,9 @@ export function planTakeover(screen: Slide): Takeover {
       name: typeof src.name === 'string' ? src.name : '',
       override: screen,
     };
+  }
+  if (src?.kind === 'video' && screen.video && typeof src.videoId === 'string') {
+    return { kind: 'video', videoId: src.videoId, override: screen };
   }
   return { kind: 'none' };
 }

@@ -71,6 +71,8 @@ export function useAlbum({
   leaderRef,
   imagesOpen,
   setImagesOpen,
+  albumsTab,
+  openAlbumsTab,
   keysPaused,
   serverAvailable,
 }: {
@@ -83,13 +85,14 @@ export function useAlbum({
   leaderRef: MutableRefObject<boolean>;
   imagesOpen: boolean;
   setImagesOpen: (v: boolean | ((open: boolean) => boolean)) => void;
+  /** «Альбоми» shown in «Зображення» (not its pictures or videos): only then the album owns the keys */
+  albumsTab: boolean;
+  openAlbumsTab: () => void;
   keysPaused: boolean;
   serverAvailable: boolean | null;
 }) {
   const queryClient = useQueryClient();
   const [album, setAlbum] = useState<OpenAlbum | null>(null);
-  /** «Альбоми» shown in «Зображення» (not its pictures): only then the album owns the keys */
-  const [albumsTab, setAlbumsTab] = useState(false);
   const [playing, setPlayingState] = useState(false);
   // the timer reads it: a «Далі» that stops the show stops the very next tick too (review)
   const playingRef = useRef(false);
@@ -123,10 +126,10 @@ export function useAlbum({
       // opened at a place (a takeover): from there, not from what this window showed before
       shown.current = null;
       setAlbum(id ? { id, index: at?.index ?? null, name: at?.name } : null);
-      if (id) setAlbumsTab(true);
+      if (id) openAlbumsTab();
       setPlaying(false);
     },
-    [setPlaying],
+    [setPlaying, openAlbumsTab],
   );
   const place = () => {
     const s = shown.current;
@@ -172,7 +175,7 @@ export function useAlbum({
       return { reason: tr('Показом керує інше вікно керування') };
     }
     shown.current = null;
-    setAlbumsTab(true);
+    openAlbumsTab();
     setImagesOpen(true);
     setPlaying(false);
     setAlbum({ id, index: null });
@@ -350,8 +353,6 @@ export function useAlbum({
   };
 
   return {
-    albumsTab,
-    setAlbumsTab,
     album,
     albumInfo: query.data?.id === album?.id ? query.data : undefined,
     albumLoading: query.isLoading,

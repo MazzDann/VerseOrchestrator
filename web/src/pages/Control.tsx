@@ -12,7 +12,14 @@ import { notifications } from '@mantine/notifications';
 import { IconAdjustments, IconQrcode, IconDeviceMobile, IconAppWindow } from '@tabler/icons-react';
 
 import { useStore } from '../store';
-import { useSettings, refKey, type RefItem } from '../settingsStore';
+import {
+  useSettings,
+  refKey,
+  videoEndOf,
+  videoPhonesOf,
+  videoVolumeOf,
+  type RefItem,
+} from '../settingsStore';
 import { type Slide } from '../presenterBus';
 import { strongLangFor } from '@vo/shared';
 import { SearchPanel } from '../components/SearchPanel';
@@ -55,6 +62,8 @@ import { useQrCornerFollow } from './control/useQrCornerFollow';
 import { useSongProjection } from './control/useSongProjection';
 import { usePictures } from './control/usePictures';
 import { useAlbum } from './control/useAlbum';
+import { useVideo } from './control/useVideo';
+import { type MediaTab } from '../components/ImagesPanel';
 import { usePlaylistActions } from './control/usePlaylistActions';
 import { useTimers } from './control/useTimers';
 import { useVerseDeck } from './control/useVerseDeck';
@@ -179,6 +188,10 @@ export function Control() {
   const setSongsOpen = useMemo(() => inlineSetter('songs'), [inlineSetter]);
   const setTextOpen = useMemo(() => inlineSetter('text'), [inlineSetter]);
   const setImagesOpen = useMemo(() => inlineSetter('images'), [inlineSetter]);
+  // «Зображення» shows pictures, albums (1.8.12) or videos (1.8.12-beta.3)
+  const [mediaTab, setMediaTab] = useState<MediaTab>('images');
+  const openAlbumsTab = useCallback(() => setMediaTab('albums'), []);
+  const openVideosTab = useCallback(() => setMediaTab('videos'), []);
   const [asideMode, setAsideMode] = useState<AsideMode>('preview');
   const [sidebarTab, setSidebarTab] = useState<string | null>('history');
   const [navOpened, { toggle: toggleNav }] = useDisclosure(false);
@@ -452,8 +465,33 @@ export function Control() {
     leaderRef,
     imagesOpen,
     setImagesOpen,
+    albumsTab: mediaTab === 'albums',
+    openAlbumsTab,
     keysPaused: paletteOpen || moreShown || toolOpen,
     serverAvailable,
+  });
+  // a video (1.8.12-beta.3): the list, the clock on the slide, the sound in the leader, the end and
+  // the posters (three effects of its own) — before the running order, which starts one
+  const playlistNextRef = useRef<(() => boolean) | null>(null);
+  const videoShow = useVideo({
+    slideStyle,
+    pushLive,
+    setPreviewOverride,
+    setLive,
+    liveSlide,
+    lastPushed,
+    liveSlideRef,
+    isLeader,
+    leaderRef,
+    videosTab: imagesOpen && mediaTab === 'videos',
+    openVideosTab,
+    setImagesOpen,
+    serverAvailable,
+    videoEnd: videoEndOf(appearance.videoEnd),
+    videoPhones: videoPhonesOf(appearance.videoPhones),
+    volume: videoVolumeOf(appearance.videoVolume),
+    playlistCurrent: playlistItems.find((i) => i.id === playlistCurrentId) ?? null,
+    playlistNextRef,
   });
   const {
     activatePassage,
@@ -462,6 +500,7 @@ export function Control() {
     addCurrentPassage,
     addSongToPlaylist,
     addAlbumToPlaylist,
+    addVideoToPlaylist,
     addTextToPlaylist,
   } = usePlaylistActions({
     setTranslations,
@@ -485,6 +524,7 @@ export function Control() {
     projectPicture,
     pictureOf,
     startAlbum: albumShow.startAlbum,
+    startVideo: videoShow.startVideo,
     playlistSetCurrent,
     playlistItems,
     playlistCurrentId,
@@ -496,6 +536,12 @@ export function Control() {
     reference,
     referenceShort,
   });
+  playlistNextRef.current = () => {
+    const at = playlistItems.findIndex((i) => i.id === playlistCurrentId);
+    if (at < 0 || at >= playlistItems.length - 1) return false;
+    stepPlaylist(1);
+    return true;
+  };
 
   // The steps of the show (useShowSteps): «На екран», Strong, Enter on a verse, live-follow, one
   // step forward or back — E9, E11, E12, E16. After usePlaylistActions: crossChapter takes
@@ -683,6 +729,7 @@ export function Control() {
     slideTemplate,
     pictureOf,
     startAlbum: albumShow.startAlbum,
+    startVideo: videoShow.startVideo,
     playlistAdd,
     previewOverride,
     slideLines,
@@ -704,6 +751,7 @@ export function Control() {
     setSongsPanelStanza,
     setSongsOpen,
     openAlbum: albumShow.openAlbum,
+    openVideosTab,
     setImagesOpen,
     setPreviewOverride,
     previewOverride,
@@ -1060,13 +1108,20 @@ export function Control() {
               open={imagesOpen}
               onClose={() => setImagesOpen(false)}
               onProject={projectPicture}
-              onRefit={refitPicture}
+              onRefit={(fit) => {
+                refitPicture(fit);
+                videoShow.refit(fit);
+              }}
               onAddToPlaylist={addImageToPlaylist}
               onDeleted={pictureDeleted}
               onScreen={
                 liveSlide.visible && !liveSlide.blank ? (liveSlide.picture?.src ?? null) : null
               }
               albums={albumShow}
+              tab={mediaTab}
+              onTab={setMediaTab}
+              videos={videoShow}
+              onAddVideoToPlaylist={addVideoToPlaylist}
               onAddAlbumToPlaylist={addAlbumToPlaylist}
             />
             <ChapterBar
