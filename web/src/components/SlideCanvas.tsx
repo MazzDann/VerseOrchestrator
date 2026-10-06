@@ -262,6 +262,17 @@ function CountdownLines({ countdown, left }: { countdown: SlideCountdown; left: 
  */
 function PictureContent({ picture }: { picture: SlidePicture }) {
   const [failed, setFailed] = useState<string | null>(null);
+  // an album's next photo (1.8.12), loaded and decoded ahead and held until the one after: the
+  // page keeps it among its images, so the step shows it at once instead of loading a camera's file
+  const ahead = useRef<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!picture.next) return;
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = picture.next;
+    img.decode().catch(() => {}); // a missing one fails when it is shown, not here
+    ahead.current = img;
+  }, [picture.next]);
   if (failed === picture.src) return null;
   return (
     <img

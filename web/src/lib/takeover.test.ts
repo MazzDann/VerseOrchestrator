@@ -56,6 +56,30 @@ describe('planTakeover', () => {
     expect(planTakeover(s)).toEqual({ kind: 'song', songId: 42, stanza: 2, override: s });
   });
 
+  it('an album’s photo: open that album at that photo (1.8.12)', () => {
+    const photo: Slide = {
+      lines: [],
+      reference: 'IMG_2',
+      blank: false,
+      visible: true,
+      picture: { src: '/api/albums/a/file/IMG_2.jpg', small: '', name: 'IMG_2', fit: 'contain' },
+      source: { kind: 'album', albumId: 'a', index: 1, name: 'IMG_2.jpg' },
+    };
+    expect(planTakeover(photo)).toEqual({
+      kind: 'album',
+      albumId: 'a',
+      index: 1,
+      name: 'IMG_2.jpg',
+      override: photo,
+    });
+    // hidden or black: nothing on screen to go on from; a place a window could not have sent
+    expect(planTakeover({ ...photo, blank: true })).toEqual({ kind: 'none' });
+    expect(planTakeover({ ...photo, forceBlack: true })).toEqual({ kind: 'none' });
+    const bad = { ...photo, source: { kind: 'album', albumId: 'a', index: -1, name: 'x' } };
+    expect(planTakeover(bad as Slide)).toEqual({ kind: 'none' });
+    expect(planTakeover({ ...photo, picture: null })).toEqual({ kind: 'none' });
+  });
+
   it('«Заставка» or the QR over verses: stand on them, not live (1.4.2)', () => {
     // L / «Прибрати QR» in this window then give them back, and «Далі» goes on from there
     const covered = slide({ source: { ...verses, verses: [3, 4], page: 1, reveal: 2 } });
