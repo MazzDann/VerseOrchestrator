@@ -15,6 +15,8 @@ export interface AlbumPhoto {
   /** for the phones (1.8.12-beta.2): its small copy, or the photo itself until there is one */
   small?: string;
   needsSmall?: boolean;
+  /** the version a small copy is drawn of */
+  v?: string;
 }
 
 /** The name without its extension: what the monitors, the remotes and the phones say. */

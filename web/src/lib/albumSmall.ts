@@ -8,6 +8,8 @@
 /** As «Зображення»'s small copies (lib/image.ts PICTURE_SMALL_SIDE). */
 export const SMALL_SIDE = 1280;
 export const SMALL_QUALITY = 0.85;
+/** a photo that takes longer (a share gone quiet, a decode stuck) is left to the phones as it is */
+export const SMALL_TIMEOUT_MS = 30_000;
 
 export interface SmallCopy {
   blob: Blob;
@@ -18,15 +20,29 @@ export interface SmallCopy {
   ms: number;
 }
 
-/** Workers that draw with OffscreenCanvas (Chrome, Edge, Firefox, Safari 16.4+). */
+let worker: Worker | null = null;
+/** the worker could not start or broke: no more copies in this window (the phones get the photo) */
+let broken = false;
+let nextId = 0;
+const waiting = new Map<number, (r: SmallCopy | Error) => void>();
+
+/** Workers that draw with OffscreenCanvas (Chrome, Edge, Firefox, Safari 16.4+), and ours works. */
 export const canDrawSmall = () =>
+  !broken &&
   typeof Worker !== 'undefined' &&
   typeof OffscreenCanvas !== 'undefined' &&
   typeof createImageBitmap !== 'undefined';
 
-let worker: Worker | null = null;
-let nextId = 0;
-const waiting = new Map<number, (r: SmallCopy | Error) => void>();
+/** Every job still waiting fails; the worker goes (a new one starts unless it is broken). */
+function dropWorker(why: string, isBroken: boolean) {
+  worker?.terminate();
+  worker = null;
+  if (isBroken) broken = true;
+  for (const [id, done] of waiting) {
+    waiting.delete(id);
+    done(new Error(why));
+  }
+}
 
 function drawer(): Worker {
   if (worker) return worker;
@@ -38,14 +54,8 @@ function drawer(): Worker {
     if (e.data.error || !e.data.blob) done(new Error(e.data.error ?? 'no copy'));
     else done(e.data as SmallCopy);
   };
-  w.onerror = () => {
-    // a worker that broke: every job waiting fails, the next one starts a new worker
-    for (const [id, done] of waiting) {
-      waiting.delete(id);
-      done(new Error('worker failed'));
-    }
-    worker = null;
-  };
+  // a module worker that can't load (an old browser) or crashed: none again in this window
+  w.onerror = () => dropWorker('worker failed', true);
   worker = w;
   return w;
 }
@@ -53,9 +63,21 @@ function drawer(): Worker {
 /** Draw the small copy of the photo at `src`. */
 export function drawSmall(src: string): Promise<SmallCopy> {
   return new Promise((resolve, reject) => {
+    if (!canDrawSmall()) return reject(new Error('no worker'));
     const id = ++nextId;
-    waiting.set(id, (r) => (r instanceof Error ? reject(r) : resolve(r)));
-    drawer().postMessage({ id, src, side: SMALL_SIDE, quality: SMALL_QUALITY });
+    const timer = window.setTimeout(() => {
+      if (waiting.has(id)) dropWorker('timed out', false);
+    }, SMALL_TIMEOUT_MS);
+    waiting.set(id, (r) => {
+      window.clearTimeout(timer);
+      if (r instanceof Error) reject(r);
+      else resolve(r);
+    });
+    try {
+      drawer().postMessage({ id, src, side: SMALL_SIDE, quality: SMALL_QUALITY });
+    } catch (e) {
+      dropWorker((e as Error).message || 'no worker', true);
+    }
   });
 }
 

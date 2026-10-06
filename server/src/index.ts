@@ -1070,7 +1070,7 @@ app.get(
     if (!album) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
     const started = performance.now();
     const [listing, copies] = await Promise.all([
-      listPhotos(album.path),
+      listPhotos(album.path, true),
       smallCopies(dataDir, album.id),
     ]);
     const ms = performance.now() - started;
@@ -1138,9 +1138,12 @@ app.put(
     const album = readAlbums(dataDir).find((a) => a.id === String(req.params.id));
     if (!album) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
     const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
-    const done = await putSmall(dataDir, album, String(req.params.name), body);
+    const version = typeof req.query.v === 'string' ? req.query.v : '';
+    const done = await putSmall(dataDir, album, String(req.params.name), version, body);
     if ('refused' in done) {
       if (done.refused === 'photo') throw new ApiError(404, N_('Фото вже немає в папці'));
+      if (done.refused === 'changed')
+        throw new ApiError(409, N_('Фото в папці змінилося — відкрийте альбом ще раз'));
       throw new ApiError(400, N_('Мала копія має бути JPEG до 4 МБ'));
     }
     res.json(done);
