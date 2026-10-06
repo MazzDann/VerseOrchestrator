@@ -206,6 +206,8 @@ export interface SlideVideo {
   loop: boolean;
   /** what the phones show meanwhile (Налаштування вигляду → Відео): its frame or a line of words */
   phones: 'poster' | 'text';
+  /** its length in seconds, once the leading control window knows it («Сцена» shows the time left) */
+  duration?: number;
 }
 
 export interface SlideCover {

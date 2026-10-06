@@ -495,8 +495,28 @@ const FolderListSchema = z.object({
   photos: z.number(),
   heic: z.number(),
   denied: z.boolean().optional(),
+  /** with `files: 'video'` (1.8.12-beta.3): the folder's video files, and those browsers can't play */
+  videos: z.array(z.object({ name: z.string(), path: z.string(), size: z.number() })).optional(),
+  unplayable: z.number().optional(),
 });
 export type FolderList = z.infer<typeof FolderListSchema>;
+
+/** A video as the server lists it (1.8.12-beta.3, server/src/videos.ts `videoEntry`). */
+const VideoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  path: z.string(),
+  added: z.string(),
+  missing: z.boolean(),
+  size: z.number(),
+  /** the file's version a poster is drawn of */
+  v: z.string().optional(),
+  /** the file (this machine's windows only) and the poster (the phones) */
+  src: z.string(),
+  poster: z.string(),
+  hasPoster: z.boolean(),
+});
+export type VideoInfo = z.infer<typeof VideoSchema>;
 
 /** What a backup holds (1.5.0, server/src/backup.ts `BackupSummary`). */
 const BackupSummarySchema = z.object({
@@ -866,8 +886,11 @@ export const api = {
   /** An album with its photos, read from the folder now (new photos are there). */
   album: (id: string) => getJson(`/api/albums/${encodeURIComponent(id)}`, AlbumSchema),
   /** The folder picker: the starting points (no path) or a folder's subfolders. */
-  browseFolders: async (path?: string) => {
-    const q = path ? `?path=${encodeURIComponent(path)}` : '';
+  browseFolders: async (path?: string, files?: 'video') => {
+    const params = new URLSearchParams();
+    if (path) params.set('path', path);
+    if (files) params.set('files', files);
+    const q = params.size > 0 ? `?${params}` : '';
     const res = await request(`/api/albums/browse${q}`, { headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);
     return FolderListSchema.parse(await res.json());
@@ -885,6 +908,33 @@ export const api = {
   putAlbumSmall: async (id: string, name: string, version: string, jpeg: Blob) => {
     const res = await request(
       `/api/albums/${encodeURIComponent(id)}/small/${encodeURIComponent(name)}?v=${encodeURIComponent(version)}`,
+      { method: 'PUT', headers: { 'Content-Type': 'image/jpeg', ...CONTROL_HEADERS }, body: jpeg },
+    );
+    if (!res.ok) throw await failure(res);
+  },
+  /** Video (1.8.12-beta.3): files on this computer, read where they are. */
+  videos: () => getJson('/api/videos', z.array(VideoSchema)),
+  addVideo: async (path: string) => {
+    const res = await request('/api/videos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ path }),
+    });
+    if (!res.ok) throw await failure(res);
+    return VideoSchema.parse(await res.json());
+  },
+  removeVideo: async (id: string) => {
+    const res = await request(`/api/videos/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ name: z.string() }).parse(await res.json());
+  },
+  /** Keep a video's poster for the phones (lib/videoPoster.ts drew it of the file's version `v`). */
+  putVideoPoster: async (id: string, version: string, jpeg: Blob) => {
+    const res = await request(
+      `/api/videos/${encodeURIComponent(id)}/poster?v=${encodeURIComponent(version)}`,
       { method: 'PUT', headers: { 'Content-Type': 'image/jpeg', ...CONTROL_HEADERS }, body: jpeg },
     );
     if (!res.ok) throw await failure(res);

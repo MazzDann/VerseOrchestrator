@@ -63,14 +63,28 @@ export interface SeqAlbum {
   fit: 'contain' | 'cover';
 }
 
-export type SeqItem = SeqPassage | SeqSong | SeqText | SeqImage | SeqAlbum;
+/**
+ * A video (1.8.12-beta.3, server/src/videos.ts): a file of the list by its id; activated, it plays
+ * from its start; at its end «Далі» goes on to the next item. A video taken off the list leaves
+ * the item saying so.
+ */
+export interface SeqVideo {
+  kind: 'video';
+  id: string;
+  label: string; // the video's name
+  videoId: string;
+  fit: 'contain' | 'cover';
+}
+
+export type SeqItem = SeqPassage | SeqSong | SeqText | SeqImage | SeqAlbum | SeqVideo;
 /** An item to add — same shape minus the store-assigned id. */
 export type NewSeqItem =
   | Omit<SeqPassage, 'id'>
   | Omit<SeqSong, 'id'>
   | Omit<SeqText, 'id'>
   | Omit<SeqImage, 'id'>
-  | Omit<SeqAlbum, 'id'>;
+  | Omit<SeqAlbum, 'id'>
+  | Omit<SeqVideo, 'id'>;
 
 function newId(): string {
   try {
