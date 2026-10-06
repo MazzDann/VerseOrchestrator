@@ -32,6 +32,8 @@ export const videoOnScreen = (s: Slide) =>
   s.video && s.source?.kind === 'video' ? { video: s.video, videoId: s.source.videoId } : null;
 
 const BLACK: Slide = { lines: [], reference: '', blank: false, visible: true, forceBlack: true };
+/** an end noticed later than this is not acted on as an end («Далі» would start something cold) */
+const STALE_END_MS = 5000;
 
 /**
  * Video on screen (1.8.12-beta.3, F1005-14; the author's calls in FEEDBACK.md): the list of files,
@@ -82,8 +84,8 @@ export function useVideo({
   volume: number;
   /** the running order's current item: a video started from it goes on to the next item */
   playlistCurrent: SeqItem | null;
-  /** the running order's «Далі» (usePlaylistActions, called after this hook) */
-  playlistNextRef: MutableRefObject<(() => void) | null>;
+  /** the running order's «Далі» (usePlaylistActions, called after this hook): false at its end */
+  playlistNextRef: MutableRefObject<(() => boolean) | null>;
 }) {
   const list = useQuery({
     queryKey: ['videos'],
@@ -145,6 +147,24 @@ export function useVideo({
   const togglePause = () =>
     changeClock((v, now) => (v.paused != null ? resumeVideo(v, now) : pauseVideo(v, now)));
   const seek = (to: number) => changeClock((v, now) => seekVideo(v, to, now));
+  /** «Вписати / Заповнити» moved: the video on screen takes it too, as a picture does */
+  const refit = (fit: SlideVideo['fit']) => {
+    if (!leaderRef.current) return;
+    const s = screen();
+    const at = videoOnScreen(s);
+    if (!at || at.video.fit === fit) return;
+    const next: Slide = { ...s, video: { ...at.video, fit } };
+    pushLive(next);
+    setPreviewOverride((p) => (p && videoOnScreen(p)?.videoId === at.videoId ? next : p));
+  };
+  /** a video taken off the list: off the screen too, when it is there */
+  const videoRemoved = (id: string) => {
+    const s = screen();
+    if (videoOnScreen(s)?.videoId !== id) return;
+    pushLive(s.forceBlack ? BLACK : { lines: [], reference: '', blank: false, visible: false });
+    setLive(false);
+    setPreviewOverride((p) => (p && videoOnScreen(p)?.videoId === id ? null : p));
+  };
   const setLoop = (on: boolean) => {
     setLoopPref(on);
     // the video on screen goes on from where it is, now looping or not
@@ -179,11 +199,13 @@ export function useVideo({
       durationRef.current = 0;
       setDuration(0);
     }
+    // a WebM or a fragmented MP4 says Infinity at first and its real length later (review)
     const meta = () => {
       durationRef.current = Number.isFinite(el.duration) ? el.duration : 0;
       setDuration(durationRef.current);
     };
     el.addEventListener('loadedmetadata', meta);
+    el.addEventListener('durationchange', meta);
     const sync = () => {
       const v = clock.current;
       if (!v) return;
@@ -197,8 +219,23 @@ export function useVideo({
     sync();
     // a page that was reloaded under a playing video may not sound until a click: say so, and
     // take the first click or key
-    const blocked = () => setNeedsClick(true);
-    el.addEventListener('play', () => setNeedsClick(false));
+    const blocked = () => {
+      if (!el.error) setNeedsClick(true);
+    };
+    const playing = () => setNeedsClick(false);
+    el.addEventListener('play', playing);
+    // a file the browser can't play (an iPhone's HEVC .mov, a codec it lacks): said in words,
+    // not «натисніть будь-де» (review)
+    const failed = () => {
+      setNeedsClick(false);
+      notifications.show({
+        message: tr(
+          'Браузер не може відтворити це відео. Збережіть його як MP4 (H.264) і додайте знову.',
+        ),
+        color: 'red',
+      });
+    };
+    el.addEventListener('error', failed);
     const wake = () => {
       if (el.paused && audibleRef.current && clock.current?.paused == null)
         void el.play().then(() => setNeedsClick(false), blocked);
@@ -212,6 +249,9 @@ export function useVideo({
       window.clearInterval(tick);
       window.clearTimeout(check);
       el.removeEventListener('loadedmetadata', meta);
+      el.removeEventListener('durationchange', meta);
+      el.removeEventListener('play', playing);
+      el.removeEventListener('error', failed);
       window.removeEventListener('pointerdown', wake, true);
       window.removeEventListener('keydown', wake, true);
     };
@@ -228,8 +268,10 @@ export function useVideo({
   useEffect(() => {
     const s = screen();
     const at = videoOnScreen(s);
-    if (!isLeader || !at || !(duration > 0) || at.video.duration === duration) return;
-    pushLive({ ...s, video: { ...at.video, duration } });
+    // the ref, zeroed at once on a new file: the state may still hold the last video's (review)
+    const length = durationRef.current;
+    if (!isLeader || !at || !(length > 0) || at.video.duration === length) return;
+    pushLive({ ...s, video: { ...at.video, duration: length } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLeader, duration, liveVideo]);
   useEffect(() => {
@@ -251,14 +293,32 @@ export function useVideo({
     const s = screen();
     const at = videoOnScreen(s);
     if (!at) return;
+    // ended long ago — a screen restored at a start, a window back from sleep: black, nothing
+    // starts by itself (review)
+    const endedAt = at.video.at + (durationRef.current - at.video.from) * 1000;
+    if (Date.now() - endedAt > STALE_END_MS) {
+      pushLive(BLACK);
+      setLive(false);
+      return;
+    }
+    // the preview's copy of this video holds an old clock: a «На екран» would bring it back
+    // frozen at its end (review)
+    setPreviewOverride((p) => (p && videoOnScreen(p)?.videoId === at.videoId ? null : p));
+    // hidden or black: the operator took it off the hall's eyes — nothing comes up by itself,
+    // and «Сховати текст» / «Чорний екран» still give back exactly that (review)
+    if (!showsSomething(s)) return;
     const fromOrder = playlistCurrent?.kind === 'video' && playlistCurrent.videoId === at.videoId;
     if (videoEnd === 'next') {
-      if (fromOrder && playlistNextRef.current) return playlistNextRef.current();
-      const i = videos.findIndex((v) => v.id === at.videoId);
-      const next = i >= 0 ? videos.slice(i + 1).find((v) => !v.missing) : undefined;
-      if (next) {
-        showVideo(next, { fit: at.video.fit });
-        return;
+      // the running order's next item; at its last one, black (it never replays itself — review)
+      if (fromOrder) {
+        if (playlistNextRef.current?.()) return;
+      } else {
+        const i = videos.findIndex((v) => v.id === at.videoId);
+        const next = i >= 0 ? videos.slice(i + 1).find((v) => !v.missing) : undefined;
+        if (next) {
+          showVideo(next, { fit: at.video.fit });
+          return;
+        }
       }
     }
     pushLive(BLACK);
@@ -359,6 +419,8 @@ export function useVideo({
     togglePause,
     seek,
     setLoop,
+    refit,
+    videoRemoved,
     needsClick,
   };
 }

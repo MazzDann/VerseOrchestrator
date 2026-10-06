@@ -116,7 +116,7 @@ export type VideoPhones = 'poster' | 'text';
 export const videoEndOf = (v: unknown): VideoEnd => (v === 'next' ? 'next' : 'black');
 export const videoPhonesOf = (v: unknown): VideoPhones => (v === 'text' ? 'text' : 'poster');
 export const videoVolumeOf = (v: unknown) =>
-  Number.isFinite(Number(v)) ? Math.max(0, Math.min(1, Number(v))) : 1;
+  typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
 
 export interface RefItem {
   ref: string;

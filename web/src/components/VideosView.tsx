@@ -61,6 +61,8 @@ export function VideosView({
     setAsking(null);
     try {
       await api.removeVideo(v.id);
+      // the one on screen leaves it with its list (as a deleted picture does)
+      show.videoRemoved(v.id);
       notifications.show({
         message: tr('Відео прибрано: {name}', { name: v.name }),
         color: 'green',
@@ -178,6 +180,11 @@ export function VideosView({
                       <Text size="xs" c="dimmed">
                         {tr('Файл лишиться на місці; додати його можна знову.')}
                       </Text>
+                      {v.id === live && (
+                        <Text size="xs" c="dimmed">
+                          {tr('Воно зараз на екрані: застосунок прибере його з екрана.')}
+                        </Text>
+                      )}
                       {uses(v.id) > 0 && (
                         <Text size="xs" c="dimmed">
                           {tr(
@@ -252,8 +259,8 @@ function VideoControls({ show }: { show: VideoShow }) {
         mt={6}
         min={0}
         max={Math.max(1, duration)}
-        step={0.1}
-        value={Math.min(dragging ?? at, Math.max(1, duration))}
+        step={1}
+        value={duration > 0 ? Math.min(dragging ?? at, duration) : 0}
         onChange={setDragging}
         onChangeEnd={(t) => {
           setDragging(null);
@@ -261,7 +268,7 @@ function VideoControls({ show }: { show: VideoShow }) {
         }}
         disabled={!(duration > 0)}
         label={(t) => clockOf(t)}
-        aria-label={tr('Де відео зараз')}
+        thumbLabel={tr('Де відео зараз')}
       />
       <Group gap="md" wrap="nowrap" mt={6}>
         <Switch
@@ -280,7 +287,7 @@ function VideoControls({ show }: { show: VideoShow }) {
             value={Math.round(volume * 100)}
             onChange={(n) => setAppearance({ videoVolume: n / 100 })}
             label={(n) => `${n} %`}
-            aria-label={tr('Гучність відео в цьому вікні')}
+            thumbLabel={tr('Гучність відео в цьому вікні')}
           />
         </Group>
       </Group>

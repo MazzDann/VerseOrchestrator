@@ -472,7 +472,7 @@ export function Control() {
   });
   // a video (1.8.12-beta.3): the list, the clock on the slide, the sound in the leader, the end and
   // the posters (three effects of its own) — before the running order, which starts one
-  const playlistNextRef = useRef<(() => void) | null>(null);
+  const playlistNextRef = useRef<(() => boolean) | null>(null);
   const videoShow = useVideo({
     slideStyle,
     pushLive,
@@ -536,7 +536,12 @@ export function Control() {
     reference,
     referenceShort,
   });
-  playlistNextRef.current = () => stepPlaylist(1);
+  playlistNextRef.current = () => {
+    const at = playlistItems.findIndex((i) => i.id === playlistCurrentId);
+    if (at < 0 || at >= playlistItems.length - 1) return false;
+    stepPlaylist(1);
+    return true;
+  };
 
   // The steps of the show (useShowSteps): «На екран», Strong, Enter on a verse, live-follow, one
   // step forward or back — E9, E11, E12, E16. After usePlaylistActions: crossChapter takes
@@ -1103,7 +1108,10 @@ export function Control() {
               open={imagesOpen}
               onClose={() => setImagesOpen(false)}
               onProject={projectPicture}
-              onRefit={refitPicture}
+              onRefit={(fit) => {
+                refitPicture(fit);
+                videoShow.refit(fit);
+              }}
               onAddToPlaylist={addImageToPlaylist}
               onDeleted={pictureDeleted}
               onScreen={
