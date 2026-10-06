@@ -8,6 +8,7 @@ const KIND_MARK: Record<PlaylistEntry['kind'], string> = {
   text: N_('Т'), // «Текст»: one letter
   image: '🖼',
   album: '🗂',
+  video: '🎞',
 };
 
 /**

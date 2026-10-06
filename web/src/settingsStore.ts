@@ -100,7 +100,23 @@ export interface Appearance {
   countdownFont: TimerFont;
   countdownFormat: TimerFormat;
   countdownCaptionAt: CaptionAt;
+  /**
+   * Video (1.8.12-beta.3, the author's calls): what follows its end — a black screen or «Далі»
+   * (the running order's next item, else the list's next video); what the phones show meanwhile —
+   * its frame or a line of words; the sound's loudness in this window (0–1). The operator's own
+   * (`ownContent`): a preset leaves them as they are.
+   */
+  videoEnd: VideoEnd;
+  videoPhones: VideoPhones;
+  videoVolume: number;
 }
+
+export type VideoEnd = 'black' | 'next';
+export type VideoPhones = 'poster' | 'text';
+export const videoEndOf = (v: unknown): VideoEnd => (v === 'next' ? 'next' : 'black');
+export const videoPhonesOf = (v: unknown): VideoPhones => (v === 'text' ? 'text' : 'poster');
+export const videoVolumeOf = (v: unknown) =>
+  Number.isFinite(Number(v)) ? Math.max(0, Math.min(1, Number(v))) : 1;
 
 export interface RefItem {
   ref: string;
@@ -329,6 +345,9 @@ export const DEFAULT_APPEARANCE: Appearance = {
   countdownFont: 'text',
   countdownFormat: 'clock',
   countdownCaptionAt: 'above',
+  videoEnd: 'black',
+  videoPhones: 'poster',
+  videoVolume: 1,
 };
 
 /**
@@ -352,6 +371,10 @@ const ownContent = (a: Appearance) => ({
   stageTimerOverColor: a.stageTimerOverColor,
   stageTimerFont: a.stageTimerFont,
   stageTimerFormat: a.stageTimerFormat,
+  // video (1.8.12-beta.3): how this operator runs one, not a look
+  videoEnd: a.videoEnd,
+  videoPhones: a.videoPhones,
+  videoVolume: a.videoVolume,
 });
 
 export const FONT_OPTIONS = [

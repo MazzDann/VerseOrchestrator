@@ -92,6 +92,7 @@ export function useLeaderTakeover({
   setSongsPanelStanza,
   setSongsOpen,
   openAlbum,
+  openVideosTab,
   setImagesOpen,
   setPreviewOverride,
   previewOverride,
@@ -118,6 +119,7 @@ export function useLeaderTakeover({
   setSongsPanelStanza: (stanza: number | null) => void;
   setSongsOpen: (v: boolean | ((open: boolean) => boolean)) => void;
   openAlbum: (id: string | null, at?: { index: number; name?: string }) => void;
+  openVideosTab: () => void;
   setImagesOpen: (v: boolean | ((open: boolean) => boolean)) => void;
   setPreviewOverride: Dispatch<SetStateAction<Slide | null>>;
   previewOverride: Slide | null;
@@ -170,6 +172,12 @@ export function useLeaderTakeover({
     } else if (t.kind === 'album') {
       // an album's photo (1.8.12): that album at that photo, its timer off — the same wait for «live»
       openAlbum(t.albumId, { index: t.index, name: t.name });
+      setImagesOpen(true);
+      songTakeover.current = t.override;
+      setPreviewOverride(t.override);
+    } else if (t.kind === 'video') {
+      // a video (1.8.12-beta.3) plays on by its clock; this window's sound takes it from here
+      openVideosTab();
       setImagesOpen(true);
       songTakeover.current = t.override;
       setPreviewOverride(t.override);

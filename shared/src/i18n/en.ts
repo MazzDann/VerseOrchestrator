@@ -391,6 +391,50 @@ export const EN: Record<string, string> = {
   'Це не відео MP4, MOV, WebM чи MKV, яке відтворює браузер':
     'This is not an MP4, MOV, WebM, or MKV video the browser plays',
   'Виберіть файл на цьому комп’ютері': 'Choose a file on this computer',
+  Відео: 'Videos',
+  'Відео на екрані': 'Video on screen',
+  'відео: ще {time}': 'video: {time} left',
+  'Відео додано: {name}': 'Video added: {name}',
+  'Тут немає ні папок, ні відео.': 'There are no folders or videos in here.',
+  'Додати відео «{name}»': 'Add the video “{name}”',
+  'Натисніть відео, щоб додати його.': 'Click a video to add it.',
+  'У цій папці немає відео MP4, MOV, WebM чи MKV.':
+    'This folder has no MP4, MOV, WebM, or MKV videos.',
+  '{n} відео браузер не відтворить (AVI, WMV…) — збережіть його як MP4.|{n} відео браузер не відтворить (AVI, WMV…) — збережіть їх як MP4.|{n} відео браузер не відтворить (AVI, WMV…) — збережіть їх як MP4.':
+    "{n} video the browser won't play (AVI, WMV…) — save it as MP4.|{n} videos the browser won't play (AVI, WMV…) — save them as MP4.",
+  'Відео прибрано: {name}': 'Video removed: {name}',
+  'Файл не знайдено: {name}': 'File not found: {name}',
+  'Файл не знайдено: {path}': 'File not found: {path}',
+  'після кінця — далі': 'after the end: next',
+  'після кінця — чорний екран': 'after the end: black screen',
+  'на телефонах — напис': 'phones: words',
+  'на телефонах — кадр': 'phones: a frame',
+  'Відео грає у вікні показу без звуку; звук іде з вікна керування.':
+    'A video plays in the presentation window without sound; the sound comes from the control window.',
+  'Після кінця відео': 'After a video ends',
+  'Далі: наступний пункт послідовності чи наступне відео':
+    'Next: the next item of the running order or the next video',
+  'Телефони глядачів під час відео': "Viewers' phones during a video",
+  'Кадр з відео': 'A frame of the video',
+  'Напис «Відео на екрані»': 'The words “Video on screen”',
+  'Відео з цього комп’ютера — без копій. Звук іде з цього вікна.':
+    'Videos from this computer — no copies. The sound comes from this window.',
+  'Оновити список відео': 'Refresh the video list',
+  'Додати відео…': 'Add a video…',
+  'Відео ще немає. Натисніть «Додати відео…» і виберіть файл MP4, MOV, WebM чи MKV.':
+    'No videos yet. Click “Add a video…” and choose an MP4, MOV, WebM, or MKV file.',
+  'Прибрати відео': 'Remove the video',
+  'Прибрати відео «{name}»': 'Remove the video “{name}”',
+  'Прибрати відео «{name}»?': 'Remove the video “{name}”?',
+  'Файл лишиться на місці; додати його можна знову.':
+    'The file stays where it is; you can add it again.',
+  'Пункти послідовності показу й програм з ним лишаться з позначкою «Відео прибрано».':
+    'Its items in the running order and programs stay, marked “Video removed”.',
+  'Де відео зараз': 'Where the video is now',
+  Повторювати: 'Repeat',
+  'Гучність відео в цьому вікні': 'Video volume in this window',
+  'Натисніть будь-де в цьому вікні, щоб увімкнути звук відео: браузер дає звук лише після кліку.':
+    'Click anywhere in this window to turn the video sound on: the browser allows sound only after a click.',
   'Альбом ще завантажується': 'The album is still loading',
   'В альбомі немає фото': 'The album has no photos',
   'Це останнє фото': 'This is the last photo',
@@ -399,7 +443,7 @@ export const EN: Record<string, string> = {
   'Папку не знайдено: {name}': 'Folder not found: {name}',
   'Папку не знайдено: {path}': 'Folder not found: {path}',
   Альбоми: 'Albums',
-  'Зображення чи альбоми з папок': 'Images or albums from folders',
+  'Зображення, альбоми з папок чи відео': 'Images, albums from folders, or videos',
   'Фото з папок на цьому комп’ютері — без копій: нові фото в папці з’являються самі.':
     'Photos from folders on this computer — no copies: new photos in a folder show up by themselves.',
   'Додати папку…': 'Add a folder…',
