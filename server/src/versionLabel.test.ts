@@ -53,6 +53,21 @@ function fakeGit(answers: { describe?: string | null; status?: string | null }) 
 }
 
 describe('the dev label (2026-10-01)', () => {
+  it('reads git describe after a beta tag (1.8.11)', () => {
+    expect(parseDescribe('v1.8.12-beta.1-3-g20dd850')).toEqual({
+      version: '1.8.12-beta.1',
+      ahead: 3,
+      hash: '20dd850',
+    });
+    expect(parseDescribe('v1.8.12-beta-0-g20dd850')).toMatchObject({ version: '1.8.12-beta' });
+    expect(parseDescribe('v1.8.12-3-g20dd850')).toMatchObject({ version: '1.8.12', ahead: 3 });
+    // any pre-release tag counts — before 1.8.11 one was no release tag at all
+    expect(parseDescribe('v1.4.2-rc1-7-g20dd850')).toMatchObject({
+      version: '1.4.2-rc1',
+      ahead: 7,
+    });
+  });
+
   it('reads git describe', () => {
     expect(parseDescribe('v1.4.2-7-g20dd850')).toEqual({
       version: '1.4.2',
@@ -123,7 +138,6 @@ describe('the dev label (2026-10-01)', () => {
       'fatal: No names found, cannot describe anything.',
       'd4961e3',
       'v1.4-7-g20dd850',
-      'v1.4.2-rc1-7-g20dd850',
       'v1.4.2-x-g20dd850',
       'v1.4.2-7-20dd850',
       'v1.4.2-7-gXYZ',

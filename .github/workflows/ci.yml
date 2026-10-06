@@ -2,7 +2,8 @@
 # through pull requests whose «Checks» passed). A pushed tag vX.Y.Z — on a commit of main whose
 # package.json says X.Y.Z (docs/dev/contributing.md) — also packages the app for Windows, macOS
 # and Linux and makes a GitHub release with them. Versions 0.x came out as pre-releases; the
-# first regular release is 1.0.0.
+# first regular release is 1.0.0. A beta, vX.Y.Z-beta.N (1.8.11), is a pre-release too: never
+# «Latest», offered only to copies on the «Бета» channel.
 name: CI
 
 on:
@@ -142,7 +143,7 @@ jobs:
         run: |
           node .github/scripts/release-notes.mjs "$TAG" > notes.md
           pre=""
-          case "$TAG" in v0.*) pre="--prerelease" ;; esac
+          case "$TAG" in v0.* | v*-*) pre="--prerelease" ;; esac
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" out/* --clobber
           else

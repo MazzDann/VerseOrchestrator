@@ -7,6 +7,7 @@ import {
   isQuiet,
   parseVersion,
   pickLatest,
+  preRelease,
   pickReleases,
   pinFor,
   pinForSwap,
@@ -49,12 +50,12 @@ describe('update check (1.0.0)', () => {
   });
 
   it('a 0.x installation takes previews; 1.0.0 and later only regular releases', () => {
-    expect(channelFor('0.14.3')).toBe('preview');
+    expect(channelFor('0.14.3')).toBe('beta');
     expect(channelFor('1.0.0')).toBe('stable');
     const asset = 'VerseOrchestrator-windows-x64.zip';
     expect(pickLatest(LIST, 'stable', asset)?.version).toBe('1.0.0');
     expect(pickLatest([release('v0.14.2'), release('v0.14.1')], 'stable', asset)).toBeNull();
-    const preview = pickLatest([release('v0.14.1'), release('v0.14.2')], 'preview', asset);
+    const preview = pickLatest([release('v0.14.1'), release('v0.14.2')], 'beta', asset);
     expect(preview).toMatchObject({
       version: '0.14.2',
       prerelease: true,
@@ -122,6 +123,89 @@ describe('update check (1.0.0)', () => {
     expect(swap('rollback', '1.6.3', '1.7.0', '1.7.1')).toBeNull();
   });
 
+  it('reads and orders betas (1.8.11): a release after its betas, beta.10 after beta.9', () => {
+    expect(parseVersion('v1.8.12-beta.1')).toEqual([1, 8, 12]);
+    expect(preRelease('1.8.12-beta.1')).toBe('beta.1');
+    expect(preRelease('1.8.12')).toBeNull();
+    expect(parseVersion('1.8.12-')).toBeNull();
+    expect(parseVersion('1.8.12-beta..1')).toBeNull();
+    const sorted = [
+      '1.8.12',
+      '1.8.12-beta.10',
+      '1.8.11',
+      '1.8.12-beta.2',
+      '1.8.12-beta',
+      '1.8.13-beta.1',
+    ];
+    expect([...sorted].sort(compareVersions)).toEqual([
+      '1.8.11',
+      '1.8.12-beta',
+      '1.8.12-beta.2',
+      '1.8.12-beta.10',
+      '1.8.12',
+      '1.8.13-beta.1',
+    ]);
+    expect(compareVersions('1.8.12-alpha.1', '1.8.12-beta.1')).toBeLessThan(0);
+    expect(compareVersions('1.8.12-1', '1.8.12-beta')).toBeLessThan(0); // numbers below words
+    expect(compareVersions('v1.8.12-beta.1', '1.8.12-beta.1')).toBe(0);
+  });
+
+  it('«Стабільний» skips betas — flagged or only named so; «Бета» takes both (1.8.11)', () => {
+    const asset = 'VerseOrchestrator-windows-x64.zip';
+    const list = [
+      release('v1.8.11', { prerelease: false }),
+      release('v1.8.12-beta.1', { prerelease: true }),
+      release('v1.8.12-beta.2', { prerelease: false }), // published without the flag by mistake
+      release('v1.8.10', { prerelease: false }),
+    ];
+    expect(pickReleases(list, 'stable', asset).map((r) => r.version)).toEqual(['1.8.11', '1.8.10']);
+    const beta = pickReleases(list, 'beta', asset);
+    expect(beta.map((r) => r.version)).toEqual([
+      '1.8.12-beta.2',
+      '1.8.12-beta.1',
+      '1.8.11',
+      '1.8.10',
+    ]);
+    expect(beta.every((r) => r.prerelease === r.version.includes('-'))).toBe(true);
+    // the choice wins; without one, a beta installation follows betas
+    expect(channelFor('1.8.11')).toBe('stable');
+    expect(channelFor('1.8.12-beta.1')).toBe('beta');
+    expect(channelFor('1.8.12-beta.1', 'stable')).toBe('stable');
+    expect(channelFor('1.8.11', 'beta')).toBe('beta');
+  });
+
+  it('a change of channel picks from the last answer — no new request (1.8.11)', async () => {
+    let chosen: 'stable' | 'beta' | undefined;
+    const fetch = vi.fn(async () =>
+      Response.json([
+        release('v1.8.12-beta.1', { prerelease: true }),
+        release('v1.8.11', { prerelease: false }),
+      ]),
+    );
+    const c = createUpdateChecker({
+      current: '1.8.11',
+      install: 'release',
+      isEnabled: () => true,
+      channel: () => chosen,
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      platform: 'win32',
+      arch: 'x64',
+    });
+    expect(await c.check()).toMatchObject({ channel: 'stable', available: false });
+    chosen = 'beta';
+    const s = c.state();
+    expect(s).toMatchObject({
+      channel: 'beta',
+      available: true,
+      latest: { version: '1.8.12-beta.1' },
+    });
+    expect(s.releases.map((r) => r.version)).toEqual(['1.8.12-beta.1', '1.8.11']);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    // on a beta, the channel back to «Стабільний»: nothing newer until the release itself
+    chosen = 'stable';
+    expect(c.state()).toMatchObject({ available: false, latest: { version: '1.8.11' } });
+  });
+
   const checker = (o: { current: string; enabled?: boolean; reply?: unknown; fail?: boolean }) => {
     let t = 1_000_000;
     const fetch = vi.fn(async () => {
@@ -144,7 +228,7 @@ describe('update check (1.0.0)', () => {
   it('says whether a newer version is out, and asks GitHub again only after 12 hours', async () => {
     const { c, fetch, later } = checker({ current: '0.14.1' });
     const s = await c.check();
-    expect(s).toMatchObject({ available: true, channel: 'preview', error: null });
+    expect(s).toMatchObject({ available: true, channel: 'beta', error: null });
     expect(s.latest?.version).toBe('0.14.2');
     await c.check();
     expect(fetch).toHaveBeenCalledTimes(1);

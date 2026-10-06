@@ -1550,6 +1550,14 @@ export const EN: Record<string, string> = {
     'The app is restarting with the new code: it starts by itself, in the background.',
   'Перевірити зараз': 'Check now',
   'Перевіряти оновлення': 'Check for updates',
+  Канал: 'Channel',
+  'Канал оновлень': 'Update channel',
+  Стабільний: 'Stable',
+  Бета: 'Beta',
+  'Бета-версії приносять нове раніше, але в них можуть бути вади. Повернутися можна будь-коли: перемкніть на «Стабільний» і виберіть стабільну версію в списку.':
+    'Betas bring new things sooner but may have flaws. To go back at any time, switch to «Стабільний» (Stable) and pick a stable version in the list.',
+  'Лише стабільні версії: кожна збирає кілька перевірених бета-версій.':
+    'Stable versions only: each one gathers several tested betas.',
   'Доступна версія {version} — див. «Застосунок» → «Оновлення»':
     'Version {version} is available — see “App” → “Updates”',
   'Не вдалося перевірити оновлення: немає зв’язку з GitHub':

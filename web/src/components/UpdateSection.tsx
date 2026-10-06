@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Anchor, Button, Group, Popover, Progress, Select, Switch, Text } from '@mantine/core';
+import {
+  Anchor,
+  Button,
+  Group,
+  Popover,
+  Progress,
+  SegmentedControl,
+  Select,
+  Switch,
+  Text,
+} from '@mantine/core';
 import { IconArrowBackUp, IconDownload, IconRefresh, IconReload } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
@@ -151,6 +161,16 @@ export function UpdateSection() {
     },
   });
   const enabled = settings.data?.updates.check ?? true;
+  // «Канал» (1.8.11): the server's answer says which one it follows — the choice, or by the version
+  const setChannel = useMutation({
+    mutationFn: (channel: 'stable' | 'beta') => api.updateServerSettings({ updates: { channel } }),
+    onSuccess: (s) => {
+      queryClient.setQueryData(['server-settings'], s);
+      void queryClient.invalidateQueries({ queryKey: ['update'] });
+    },
+    onError: fail,
+  });
+  const channel = state?.channel ?? settings.data?.updates.channel ?? 'stable';
 
   let status: string;
   if (restarting === 'code') status = tr('Перезапускаю застосунок з новим кодом…');
@@ -278,6 +298,27 @@ export function UpdateSection() {
           label={tr('Перевіряти оновлення')}
         />
       </Group>
+      <Group gap="xs" wrap="nowrap" mt={6}>
+        <Text size="xs">{tr('Канал')}</Text>
+        <SegmentedControl
+          size="xs"
+          aria-label={tr('Канал оновлень')}
+          value={channel}
+          disabled={serverAvailable !== true || setChannel.isPending || !!restarting}
+          onChange={(v) => setChannel.mutate(v === 'beta' ? 'beta' : 'stable')}
+          data={[
+            { value: 'stable', label: tr('Стабільний') },
+            { value: 'beta', label: tr('Бета') },
+          ]}
+        />
+      </Group>
+      <Text size="xs" c="dimmed" mt={4}>
+        {channel === 'beta'
+          ? tr(
+              'Бета-версії приносять нове раніше, але в них можуть бути вади. Повернутися можна будь-коли: перемкніть на «Стабільний» і виберіть стабільну версію в списку.',
+            )
+          : tr('Лише стабільні версії: кожна збирає кілька перевірених бета-версій.')}
+      </Text>
       <Text size="xs" c="dimmed" mt={6}>
         {tr(
           'Раз на 12 годин застосунок питає GitHub про нові версії. Завантажує й установлює лише тоді, коли ви натиснете кнопку.',
@@ -614,7 +655,7 @@ function Install({
         {options.length > 1 && (
           <Select
             size="xs"
-            w={150}
+            w={210} // «1.8.12-beta.1 · найновіша» whole (1.8.11)
             aria-label={tr('Версія')}
             placeholder={tr('Інша версія…')}
             data={options}
