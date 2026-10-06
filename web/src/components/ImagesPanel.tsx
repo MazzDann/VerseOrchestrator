@@ -21,13 +21,15 @@ import {
   IconUpload,
   IconX,
 } from '@tabler/icons-react';
-import { api, type ImageInfo } from '../api';
+import { api, type AlbumInfo, type ImageInfo } from '../api';
 import { fileToPicture } from '../lib/image';
 import { readImageFit, storeImageFit, type ImageFit } from '../lib/imageFit';
 import { type SlidePicture } from '../presenterBus';
 import { usePlaylist, type SeqItem } from '../playlistStore';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { tr, trn, useLang } from '../i18n';
+import type { useAlbum } from '../pages/control/useAlbum';
+import { AlbumsView } from './AlbumsView';
 
 type Fit = ImageFit;
 
@@ -47,7 +49,8 @@ const asPicture = (img: ImageInfo, fit: Fit): SlidePicture => ({
  * the deleted one says «Видалено: …» with «Скасувати» in its place. «Вписати» shows the whole
  * picture with bands of black, «Заповнити» fills the slide and cuts the edges — the picture on
  * screen too, at once (1.7.1, the user's call). A picture in use — on screen, in the running order
- * or a saved program — is deleted only after a question that says where (1.7.2).
+ * or a saved program — is deleted only after a question that says where (1.7.2). «Альбоми»
+ * (1.8.12): folders of photos on this computer, shown in turn (AlbumsView).
  */
 export function ImagesPanel({
   open,
@@ -57,6 +60,8 @@ export function ImagesPanel({
   onAddToPlaylist,
   onDeleted,
   onScreen,
+  albums,
+  onAddAlbumToPlaylist,
 }: {
   open: boolean;
   onClose: () => void;
@@ -68,6 +73,9 @@ export function ImagesPanel({
   onAddToPlaylist: (img: ImageInfo, fit: Fit) => void;
   /** the address of the picture on screen now, if one is */
   onScreen: string | null;
+  /** the album open in the control window (pages/control/useAlbum.ts) */
+  albums: ReturnType<typeof useAlbum>;
+  onAddAlbumToPlaylist: (album: AlbumInfo, fit: Fit) => void;
 }) {
   useLang();
   const queryClient = useQueryClient();
@@ -75,7 +83,7 @@ export function ImagesPanel({
   const images = useQuery({
     queryKey: ['images'],
     queryFn: api.images,
-    enabled: open && serverAvailable !== false,
+    enabled: open && serverAvailable !== false && !albums.albumsTab,
   });
   const [fit, setFitState] = useState<Fit>(readImageFit);
   const setFit = (f: Fit) => {
@@ -285,9 +293,16 @@ export function ImagesPanel({
       <Group justify="space-between" wrap="nowrap" mb="xs">
         <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
           <IconLibraryPhoto size={18} stroke={1.5} />
-          <Text fw={600} size="sm">
-            {tr('Зображення')}
-          </Text>
+          <SegmentedControl
+            size="xs"
+            value={albums.albumsTab ? 'albums' : 'images'}
+            onChange={(v) => albums.setAlbumsTab(v === 'albums')}
+            data={[
+              { value: 'images', label: tr('Зображення') },
+              { value: 'albums', label: tr('Альбоми') },
+            ]}
+            aria-label={tr('Зображення чи альбоми з папок')}
+          />
         </Group>
         <Group gap={6} wrap="nowrap">
           <SegmentedControl
@@ -300,25 +315,27 @@ export function ImagesPanel({
             ]}
             aria-label={tr('Як зображення займає слайд')}
           />
-          <FileButton
-            onChange={(files) => void add(files)}
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            multiple
-            resetRef={resetPicker}
-            disabled={serverAvailable === false || !!adding}
-          >
-            {(props) => (
-              <Button
-                {...props}
-                size="xs"
-                variant="light"
-                leftSection={<IconUpload size={14} />}
-                loading={!!adding}
-              >
-                {tr('Додати…')}
-              </Button>
-            )}
-          </FileButton>
+          {!albums.albumsTab && (
+            <FileButton
+              onChange={(files) => void add(files)}
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
+              resetRef={resetPicker}
+              disabled={serverAvailable === false || !!adding}
+            >
+              {(props) => (
+                <Button
+                  {...props}
+                  size="xs"
+                  variant="light"
+                  leftSection={<IconUpload size={14} />}
+                  loading={!!adding}
+                >
+                  {tr('Додати…')}
+                </Button>
+              )}
+            </FileButton>
+          )}
           <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
             <IconX size={18} />
           </ActionIcon>
@@ -328,6 +345,12 @@ export function ImagesPanel({
         <Text size="sm" c="dimmed">
           {tr(NEEDS_SERVER)}
         </Text>
+      ) : albums.albumsTab ? (
+        <AlbumsView
+          show={albums}
+          onScreen={onScreen}
+          onAddToPlaylist={(a) => onAddAlbumToPlaylist(a, fit)}
+        />
       ) : (
         <>
           {adding && (

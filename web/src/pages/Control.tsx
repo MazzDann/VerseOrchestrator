@@ -460,6 +460,7 @@ export function Control() {
     stepPlaylist,
     addCurrentPassage,
     addSongToPlaylist,
+    addAlbumToPlaylist,
     addTextToPlaylist,
   } = usePlaylistActions({
     setTranslations,
@@ -1064,6 +1065,8 @@ export function Control() {
               onScreen={
                 liveSlide.visible && !liveSlide.blank ? (liveSlide.picture?.src ?? null) : null
               }
+              albums={albumShow}
+              onAddAlbumToPlaylist={addAlbumToPlaylist}
             />
             <ChapterBar
               currentBook={currentBook}

@@ -386,6 +386,54 @@ export const EN: Record<string, string> = {
   'Папку не знайдено: {name}': 'Folder not found: {name}',
   'Папку не знайдено: {path}': 'Folder not found: {path}',
   'Альбом не вдалося показати': 'The album could not be shown',
+  Альбоми: 'Albums',
+  'Зображення чи альбоми з папок': 'Images or albums from folders',
+  'Фото з папок на цьому комп’ютері — без копій: нові фото в папці з’являються самі.':
+    'Photos from folders on this computer — no copies: new photos in a folder show up by themselves.',
+  'Додати папку…': 'Add a folder…',
+  'Альбомів ще немає. Натисніть «Додати папку…» і виберіть папку з фото.':
+    'No albums yet. Click “Add a folder…” and choose a folder of photos.',
+  'Відкрити альбом «{name}»': 'Open the album “{name}”',
+  '{n} фото|{n} фото|{n} фото': '{n} photo|{n} photos',
+  'Прибрати альбом': 'Remove the album',
+  'Прибрати альбом «{name}»': 'Remove the album “{name}”',
+  'Прибрати альбом «{name}»?': 'Remove the album “{name}”?',
+  'Папка й фото лишаться на місці; додати її можна знову.':
+    'The folder and the photos stay where they are; you can add it again.',
+  'Пункти послідовності показу й програм з ним лишаться з позначкою «Альбом прибрано».':
+    'Its items in the running order and programs stay, marked “Album removed”.',
+  'Альбом додано: {name}': 'Album added: {name}',
+  'Домашня папка ({name})': 'Home folder ({name})',
+  Угору: 'Up',
+  'Виберіть папку нижче або вставте шлях до неї': 'Choose a folder below or paste its path',
+  'Шлях до папки': 'Folder path',
+  'Система не дає відкрити цю папку. Виберіть іншу.':
+    "The system doesn't let the app open this folder. Choose another one.",
+  'Тут немає вкладених папок.': 'There are no folders in here.',
+  'У цій папці {n} фото|У цій папці {n} фото|У цій папці {n} фото':
+    'This folder has {n} photo|This folder has {n} photos',
+  'У цій папці немає фото — відкрийте папку, де вони лежать.':
+    'This folder has no photos — open the folder they are in.',
+  '{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.':
+    "{n} HEIC photo won't show — browsers can't open them.|{n} HEIC photos won't show — browsers can't open them.",
+  'Додати цю папку': 'Add this folder',
+  'До альбомів': 'Back to albums',
+  Альбом: 'Album',
+  'Попереднє фото (←)': 'Previous photo (←)',
+  'Попереднє фото': 'Previous photo',
+  'Наступне фото (→)': 'Next photo (→)',
+  'Наступне фото': 'Next photo',
+  'Міняти кожні': 'Change every',
+  'Міняти фото кожні … секунд': 'Change the photo every … seconds',
+  с: 's',
+  Пуск: 'Start',
+  'Оновити: фото, додані в папку': 'Refresh: photos added to the folder',
+  'Оновити альбом': 'Refresh the album',
+  'Папку «{path}» не знайдено. Під’єднайте диск чи флешку й натисніть «Оновити».':
+    'Folder “{path}” not found. Connect the drive or the flash drive and click “Refresh”.',
+  'У папці немає фото JPEG, PNG, WebP, GIF, AVIF чи BMP. Додайте їх туди й натисніть «Оновити».':
+    'The folder has no JPEG, PNG, WebP, GIF, AVIF, or BMP photos. Add some there and click “Refresh”.',
+  'Показано перші 5 000 фото.': 'The first 5,000 photos are shown.',
   // «Резервна копія» (1.5.0)
   'Резервна копія': 'Backup',
   'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення. Модулі, бібліотека й пульти в нього не входять.':
