@@ -10,12 +10,12 @@ pages of their own — [Hybrid database](hybrid-db.md) and
 
 The repository is an npm-workspaces monorepo on Node.js 24 and TypeScript:
 
-| Package                  | Role                                                                                                                                                                                                                                                          | Start with                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `shared/` (`@vo/shared`) | Library queries written once for every database engine, the SQLite and Postgres schemas, MyBible conversion rules, segments, song bundles and the `.pptx` reader (`src/songs/`), text normalization, reference parsing, the interface languages (`src/i18n/`) | `src/library/driver.ts`, `src/library/queries.ts`                  |
-| `builder/`               | Converts MyBible modules and the song bundles into `data/library.db`, and the library into segments for the browser                                                                                                                                           | `src/build.ts`, `src/selection.ts`, `src/segments.ts`              |
-| `server/`                | The library API (Express + better-sqlite3), the WebSocket hub for phones, and the launcher with its standby service                                                                                                                                           | `src/index.ts`, `src/live.ts`, `src/launcher.ts`, `src/standby.ts` |
-| `web/`                   | The React app: the control window, output windows, phone pages, settings, benchmarks, and the in-browser database engines                                                                                                                                     | `src/pages/Control.tsx`, `src/presenterBus.ts`, `src/lib/`         |
+| Package                  | Role                                                                                                                                                                                                                                                          | Start with                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `shared/` (`@vo/shared`) | Library queries written once for every database engine, the SQLite and Postgres schemas, MyBible conversion rules, segments, song bundles and the `.pptx` reader (`src/songs/`), text normalization, reference parsing, the interface languages (`src/i18n/`) | `src/library/driver.ts`, `src/library/queries.ts`                                   |
+| `builder/`               | Converts MyBible modules and the song bundles into `data/library.db`, and the library into segments for the browser                                                                                                                                           | `src/build.ts`, `src/selection.ts`, `src/segments.ts`                               |
+| `server/`                | The library API (Express + better-sqlite3), the WebSocket hub for phones, and the launcher with its standby service                                                                                                                                           | `src/index.ts`, `src/live.ts`, `src/launcher.ts`, `src/standby.ts`                  |
+| `web/`                   | The React app: the control window, output windows, phone pages, settings, benchmarks, and the in-browser database engines                                                                                                                                     | `src/pages/Control.tsx` and `src/pages/control/`, `src/presenterBus.ts`, `src/lib/` |
 
 ## Processes
 
@@ -105,6 +105,40 @@ remotes' commands ────────────────────�
   pipeline (`web/src/lib/commands.ts`), with priorities (an open song before verse
   navigation) and ids, so a resent command applies once.
 
+## The control window's code
+
+`web/src/pages/Control.tsx` is the control window's page. It reads the stores, holds the
+leader, the panels' open flags and the layout, and calls the hooks and components in
+`web/src/pages/control/`, one module per area. Each hook takes one params object and calls
+none of the others, so all the wiring between them is in `Control.tsx`. A doc comment tags each
+module with its area — `vo-sync`, `vo-search`, `vo-timer`, `vo-songs`, `vo-media`, or
+`vo-remote` — so a search for the tag finds the area's code.
+
+| Area                            | Modules                                                                                                                                                      | Effects                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| The slide on screen             | `useLivePipeline.ts`: `pushLive`, the one way a slide reaches the screen, and the phones' relay                                                              | E10                                  |
+| The verses                      | `useVerseDeck.ts` (the queries, pages, preview, and what «Далі» shows), `useVerseListEffects.ts`, `VerseList.tsx`, `ChapterBar.tsx`, `slideText.ts`          | E6, E13–E15                          |
+| Finding the place               | `useJumps.ts`, `useShowJumpWhenReady.ts`                                                                                                                     | E3–E5, E21                           |
+| The show's steps and a takeover | `useShowSteps.ts`, `useTakeover.ts` (`usePublishNext`, `useAdoptRestore`, `useLeaderTakeover`)                                                               | E8, E9, E11, E12, E16, E17, E24, E25 |
+| Screen switches                 | `useScreenSwitches.tsx` (QR, «Заставка», hide, black, clear, and back), `useQrCornerFollow.ts`                                                               | E20                                  |
+| Timers                          | `useTimers.ts`, `useTimerSignals.ts`                                                                                                                         | E19, E31–E33                         |
+| Songs, pictures, running order  | `useSongProjection.ts`, `songSlides.ts`, `usePictures.ts`, `usePlaylistActions.ts`, `PlaylistFloating.tsx`                                                   | none                                 |
+| Commands, the hub, remotes      | `useShowCommands.ts`, `useHub.ts`                                                                                                                            | E22, E23, E26–E30                    |
+| Keys and the palette            | `useControlHotkeys.ts`, `usePaletteCommands.tsx`                                                                                                             | E18                                  |
+| The frame                       | `ControlHeader.tsx`, `LiveZone.tsx`, `ControlNavbar.tsx`, `HubBanners.tsx`, `usePanelResize.ts`, `useAppSettingsOpener.ts`, `outputWindows.ts`, `standby.ts` | E1                                   |
+
+React runs a component's passive effects in the order of its hook calls, and several of the
+control window's effects rely on running before or after others in the same commit. So the
+order of the calls in `Control.tsx` is part of its behaviour. A comment at each call names
+its effects (E1–E33; E2 and E7 stay in `Control.tsx`) and what they must follow:
+
+- A takeover's restore of the page and the reveal step (E17) runs after the steps' resets
+  (E12, E16), so it wins.
+- The timers' new look (E19) and «Сцена»'s next slide (E8) run before the republish of a
+  window that takes the lead (E25), which runs before the hub socket opens (E28), which runs
+  before the remotes' screen frame (E30).
+- The 14 page hotkeys keep their order and their deps arrays.
+
 ## How pages load
 
 Every page — `/`, `/presenter`, `/stage`, `/follow`, `/remote`, `/settings`, `/bench` — is its
@@ -152,15 +186,16 @@ alone.
 
 ## Where to start reading
 
-| To change                                | Look at                                                                                                                                                    |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a library query or the schema            | `shared/src/library/` (`queries.ts`, `schema.ts`, `postgres.ts`); tests in `server/src/library.test.ts` and `builder/src/pglite.test.ts`                   |
-| how MyBible modules are converted        | `shared/src/library/mybible.ts`, used by the builder and the browser alike                                                                                 |
-| how slides look                          | `Appearance` in `web/src/settingsStore.ts`, `web/src/components/SlideCanvas.tsx`, `SettingsPanel.tsx`                                                      |
-| a hotkey                                 | `web/src/hotkeys.ts`                                                                                                                                       |
-| a command from output windows or remotes | `web/src/lib/commands.ts`; for remotes also `server/src/remote.ts`, `server/src/live.ts`, `web/src/pages/Remote.tsx`, `web/src/components/RemotePanel.tsx` |
-| output windows and screens               | `web/src/lib/outputs.ts`, `web/src/lib/screens.ts`, `web/src/openPresenter.ts`, `OutputsPanel.tsx`                                                         |
-| starting, stopping, portable copies      | `server/src/launcher.ts`, `standby.ts`, `autostart.ts`, `portable.ts`, `shortcut.ts`, `uiStamp.ts`                                                         |
+| To change                                 | Look at                                                                                                                                                    |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a library query or the schema             | `shared/src/library/` (`queries.ts`, `schema.ts`, `postgres.ts`); tests in `server/src/library.test.ts` and `builder/src/pglite.test.ts`                   |
+| how MyBible modules are converted         | `shared/src/library/mybible.ts`, used by the builder and the browser alike                                                                                 |
+| how slides look                           | `Appearance` in `web/src/settingsStore.ts`, `web/src/components/SlideCanvas.tsx`, `SettingsPanel.tsx`                                                      |
+| a hotkey                                  | `web/src/hotkeys.ts`                                                                                                                                       |
+| what the control window does on an action | `web/src/pages/control/` — see [The control window's code](#the-control-windows-code)                                                                      |
+| a command from output windows or remotes  | `web/src/lib/commands.ts`; for remotes also `server/src/remote.ts`, `server/src/live.ts`, `web/src/pages/Remote.tsx`, `web/src/components/RemotePanel.tsx` |
+| output windows and screens                | `web/src/lib/outputs.ts`, `web/src/lib/screens.ts`, `web/src/openPresenter.ts`, `OutputsPanel.tsx`                                                         |
+| starting, stopping, portable copies       | `server/src/launcher.ts`, `standby.ts`, `autostart.ts`, `portable.ts`, `shortcut.ts`, `uiStamp.ts`                                                         |
 
 The launcher's files run before `npm ci`, straight from TypeScript through Node.js type
 stripping: they import only `node:` modules and each other (with `.ts` extensions) and
