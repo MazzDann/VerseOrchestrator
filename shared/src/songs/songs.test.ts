@@ -79,7 +79,7 @@ function pptx(slides: string[]): Uint8Array {
  * anchors to the bottom + the authors in a subtitle), a chorus with a «Приспів:» text box
  * over it, a plain stanza. The master centres titles.
  */
-function titledPptx(): Uint8Array {
+function titledPptx(titleBody?: string): Uint8Array {
   const para = (t: string, sz: number) =>
     `<a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="uk-UA" sz="${sz}"/><a:t>${t}</a:t></a:r></a:p>`;
   const sp = (ph: string, x: number, y: number, cx: number, cy: number, body: string) =>
@@ -112,7 +112,14 @@ function titledPptx(): Uint8Array {
       layoutSp('<p:ph type="title"/>', '<a:bodyPr/>') +
       '</p:spTree></p:cSld></p:sldLayout>',
     'ppt/slides/slide1.xml': sld(
-      sp('<p:ph type="ctrTitle"/>', 0, 841772, 9144000, 1790700, para('10. Вся шир землі', 6000)) +
+      sp(
+        '<p:ph type="ctrTitle"/>',
+        0,
+        841772,
+        9144000,
+        1790700,
+        titleBody ?? para('10. Вся шир землі', 6000),
+      ) +
         sp(
           '<p:ph type="subTitle" idx="1"/>',
           728663,
@@ -207,6 +214,45 @@ describe('a .pptx song', () => {
     expect(stanza.style!.sub).toBeUndefined();
     expect(mainText(stanza.text, stanza.style)).toBe('Строфа');
     expect(mainText('Старий текст', null)).toBe('Старий текст');
+  });
+
+  it('empty lines around the text move its box, as in PowerPoint (1.8.10)', () => {
+    // a title lifted over the authors with an empty line after it (a line break, then an end
+    // mark of 20 pt): the box rises by that line, 1.2 × 20 pt of the 405 pt slide
+    const lifted = parsePptx(
+      titledPptx(
+        '<a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="uk-UA" sz="6000"/><a:t>10. Вся шир землі</a:t></a:r>' +
+          '<a:br><a:rPr lang="uk-UA" sz="6000"/></a:br><a:endParaRPr lang="uk-UA" sz="2000"/></a:p>',
+      ),
+      '10. Вся шир землі.pptx',
+    )!;
+    const line = ((2000 * 12700) / 5143500) * 1.2;
+    const title = lifted.slides[0];
+    expect(mainText(title.text, title.style)).toBe('10. Вся шир землі');
+    expect(title.style!.anchor).toBe('bottom');
+    expect(title.style!.y).toBeCloseTo(16.37 - line, 1);
+    expect(title.style!.h).toBeCloseTo(34.81, 1); // the box keeps its height
+    // three lines (song №1 has them): the box stops at the slide's top, its bottom still rises
+    const high = parsePptx(
+      titledPptx(
+        '<a:p><a:r><a:rPr sz="6000"/><a:t>10. Вся шир землі</a:t></a:r><a:br><a:rPr sz="6600"/></a:br>' +
+          '<a:r><a:rPr sz="6600"/><a:t/></a:r><a:br><a:rPr sz="6600"/></a:br>' +
+          '<a:r><a:rPr sz="6600"/><a:t/></a:r><a:br><a:rPr sz="6600"/></a:br><a:endParaRPr sz="1100"/></a:p>',
+      ),
+      '10. Вся шир землі.pptx',
+    )!.slides[0].style!;
+    expect(high.y).toBe(0);
+    expect(high.y + high.h).toBeCloseTo(16.37 + 34.81 - ((14300 * 12700) / 5143500) * 1.2, 1);
+    // the authors' box and the stanzas without empty lines stay where they were
+    expect(title.style!.sub!.y).toBeCloseTo(80.4, 1);
+    expect(lifted.slides[2].style).toMatchObject({ anchor: 'middle' });
+    expect(lifted.slides[2].style!.h).toBeCloseTo(89.39, 1);
+
+    // a top-anchored box with an empty line before its text goes down by it; the text has no gap
+    const lowered = parsePptx(pptx(['\nСлава', 'Слава\n\n']), '12. Слава.pptx')!;
+    expect(lowered.slides.map((s) => s.text)).toEqual(['Слава', 'Слава']);
+    expect(lowered.slides[0].style!.y).toBeCloseTo(10 + ((4000 * 12700) / 5143500) * 1.2, 1);
+    expect(lowered.slides[1].style).toMatchObject({ y: 10, h: 80 }); // after the text: no matter at the top
   });
 
   it('words in another colour are the second part, marked in the main text (1.3.0)', () => {
