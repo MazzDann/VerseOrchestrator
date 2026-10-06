@@ -1555,7 +1555,7 @@ export const EN: Record<string, string> = {
   Стабільний: 'Stable',
   Бета: 'Beta',
   'Бета-версії приносять нове раніше, але в них можуть бути вади. Повернутися можна будь-коли: перемкніть на «Стабільний» і виберіть стабільну версію в списку.':
-    'Betas bring new things sooner but may have flaws. To go back at any time, switch to «Стабільний» (Stable) and pick a stable version in the list.',
+    'Betas bring new things sooner but may have flaws. To go back at any time, switch to “Stable” and pick a stable version in the list.',
   'Лише стабільні версії: кожна збирає кілька перевірених бета-версій.':
     'Stable versions only: each one gathers several tested betas.',
   'Доступна версія {version} — див. «Застосунок» → «Оновлення»':

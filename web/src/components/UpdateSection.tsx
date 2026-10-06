@@ -170,7 +170,8 @@ export function UpdateSection() {
     },
     onError: fail,
   });
-  const channel = state?.channel ?? settings.data?.updates.channel ?? 'stable';
+  // a choice saved wins at once; unchosen, the one the server follows (by the version installed)
+  const channel = settings.data?.updates.channel ?? state?.channel ?? 'stable';
 
   let status: string;
   if (restarting === 'code') status = tr('Перезапускаю застосунок з новим кодом…');
@@ -253,6 +254,8 @@ export function UpdateSection() {
           (state.versions?.length ?? 0) > 1 ||
           (state.installer?.phase ?? 'idle') !== 'idle') && (
           <Install
+            // another channel, another list: a version picked in the last one goes (review of 1.8.11)
+            key={state.channel}
             state={state}
             outputsOpen={outputs.length}
             downloading={download.isPending}
@@ -304,7 +307,7 @@ export function UpdateSection() {
           size="xs"
           aria-label={tr('Канал оновлень')}
           value={channel}
-          disabled={serverAvailable !== true || setChannel.isPending || !!restarting}
+          disabled={serverAvailable !== true || !state || setChannel.isPending || !!restarting}
           onChange={(v) => setChannel.mutate(v === 'beta' ? 'beta' : 'stable')}
           data={[
             { value: 'stable', label: tr('Стабільний') },
@@ -584,10 +587,13 @@ function Install({
   // the dropdown shows the version picked; else the one waiting, the one whose download failed
   // (to try again), or the newest when it is newer than this one; else nothing yet
   // a version chosen over the newest (1.6.3): nothing picked for you — «Поточний реліз» is there
+  // only what this channel lists can be downloaded (1.8.11): a beta picked, or one whose
+  // download failed, isn't offered once the channel is «Стабільний»
+  const listed = new Set(versions.map((v) => v.version));
   const target =
-    pick ??
+    (pick && listed.has(pick) ? pick : null) ??
     ready ??
-    (phase === 'error' && inst?.version
+    (phase === 'error' && inst?.version && listed.has(inst.version)
       ? inst.version
       : state.available && !state.pinned
         ? newest
@@ -628,6 +634,8 @@ function Install({
     // the one installed is there to show where you are, not to be picked
     disabled: v.version === state.current,
   }));
+  // a version downloaded on another channel still waits to be installed: shown as it is
+  if (ready && !listed.has(ready)) options.unshift({ value: ready, label: ready, disabled: false });
   const size = chosen?.size ?? state.latest?.asset?.size ?? 0;
   const restart = !!ready && target === ready;
   // «Поточний реліз» (1.6.3, the user's ask): back to the newest from a version chosen over it

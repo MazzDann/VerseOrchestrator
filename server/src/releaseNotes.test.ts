@@ -60,6 +60,17 @@ describe('release notes', () => {
     expect(out).toContain('### Download for your system');
   });
 
+  it('a beta tag (1.8.11): its notes, said to be a beta', () => {
+    const dir = repoWithTag('v1.8.12-beta.1', '1.8.12-beta.1 — Media: photos from a folder\n');
+    const out = notes(dir, 'v1.8.12-beta.1');
+    expect(out.startsWith('**1.8.12-beta.1 — Media: photos from a folder**\n\nБета-версія:')).toBe(
+      true,
+    );
+    expect(notes(repoWithTag('v1.8.12', '1.8.12 — Media\n'), 'v1.8.12')).not.toContain(
+      'Бета-версія',
+    );
+  });
+
   it('a tag with one line only: no empty block', () => {
     const dir = repoWithTag('v1.6.1', '1.6.1 — upd2: «Отримати оновлення»\n');
     expect(notes(dir, 'v1.6.1')).toMatch(

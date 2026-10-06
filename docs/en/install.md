@@ -265,7 +265,7 @@ back from 1.4.0, the archive has to be downloaded again.
 ### Install another version
 
 An app installed from an archive can switch to any regular version from 1.0.0 on, newer or
-older:
+older; on the **Beta** channel, to a beta too:
 
 1. In **Settings** → **App** → **Updates**, choose the version in the list next to the
    download button. If there is no list yet, click **Check now**.
