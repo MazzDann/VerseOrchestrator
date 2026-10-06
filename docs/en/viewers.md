@@ -50,6 +50,7 @@ Other states of the page:
 | On the phone                                 | Why                                                 |
 | -------------------------------------------- | --------------------------------------------------- |
 | `· · ·`                                      | there is no text on screen: it is hidden or cleared |
+| a frame of the video or “Video on screen”    | a video is on screen; the phone doesn't play it     |
 | “Broadcast paused”                           | the operator turned off the broadcast               |
 | “No connection to the show. Reconnecting…”   | the phone lost the connection and tries again       |
 | “The show is over: the app is switched off.” | the app is switched off completely                  |
