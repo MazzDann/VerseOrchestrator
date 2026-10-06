@@ -13,6 +13,7 @@ import {
   readAlbums,
   removeAlbum,
   sniffPhoto,
+  type Album,
 } from './albums';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
@@ -48,6 +49,13 @@ function folder(files: Record<string, Buffer>) {
   return { root, photos, data: path.join(root, 'data') };
 }
 
+const added = async (data: string, input: { path?: unknown; name?: unknown }) => {
+  const a = await addAlbum(data, input);
+  if ('refused' in a) throw new Error(`refused: ${a.refused}`);
+  return a;
+};
+const names = async (dir: string) => (await listPhotos(dir))!.photos.map((p) => p.name);
+
 describe('albums: folders of photos (1.8.12)', () => {
   it('tells AVIF and BMP by their first bytes, besides the four pictures — never HEIC or SVG', () => {
     expect(sniffPhoto(PNG)).toBe('png');
@@ -60,7 +68,7 @@ describe('albums: folders of photos (1.8.12)', () => {
     expect(sniffPhoto(Buffer.from('BM hello, not a bitmap'))).toBeNull();
   });
 
-  it('lists the photos right in a folder in name order: no subfolders, hidden files, other types', () => {
+  it('lists the photos right in a folder in name order: no subfolders, hidden files, other types', async () => {
     const { photos } = folder({
       'IMG_10.jpg': JPG,
       'IMG_2.JPG': JPG,
@@ -75,7 +83,8 @@ describe('albums: folders of photos (1.8.12)', () => {
       '.jpg': JPG,
     });
     fs.mkdirSync(path.join(photos, 'more.jpg'));
-    const listing = listPhotos(photos)!;
+    const listing = (await listPhotos(photos))!;
+    // Ukrainian order on every machine: Cyrillic first
     expect(listing.photos.map((p) => p.name)).toEqual([
       'а.avif',
       'Б.webp',
@@ -87,26 +96,27 @@ describe('albums: folders of photos (1.8.12)', () => {
     expect(listing.truncated).toBe(false);
   });
 
-  it('names a photo in NFC, and finds the file a Mac named decomposed', () => {
+  it('names a photo in NFC, and finds the file a Mac named decomposed', async () => {
     const nfd = 'Свято й ялинка.jpg'.normalize('NFD');
     const { photos } = folder({ [nfd]: JPG });
-    const listing = listPhotos(photos)!;
     // the disk may keep either spelling (macOS / Windows); the pages always get NFC
-    expect(listing.photos[0].name).toBe('Свято й ялинка.jpg'.normalize('NFC'));
-    expect(photoFile(photos, 'Свято й ялинка.jpg'.normalize('NFC'))?.type).toBe('image/jpeg');
+    expect(await names(photos)).toEqual(['Свято й ялинка.jpg'.normalize('NFC')]);
+    expect((await photoFile(photos, 'Свято й ялинка.jpg'.normalize('NFC')))?.type).toBe(
+      'image/jpeg',
+    );
   });
 
-  it('serves only names in the listing, typed by their bytes, never a file outside the folder', () => {
+  it('serves only names in the listing, typed by their bytes, never a file outside the folder', async () => {
     const { root, photos } = folder({ 'a.jpg': JPG, 'fake.png': SVG, 'b.bmp': BMP });
     fs.writeFileSync(path.join(root, 'secret.jpg'), JPG);
     fs.mkdirSync(path.join(photos, 'sub'));
     fs.writeFileSync(path.join(photos, 'sub', 'c.jpg'), JPG);
-    expect(photoFile(photos, 'a.jpg')).toEqual({
+    expect(await photoFile(photos, 'a.jpg')).toEqual({
       file: fs.realpathSync(path.join(photos, 'a.jpg')),
       type: 'image/jpeg',
     });
-    expect(photoFile(photos, 'b.bmp')?.type).toBe('image/bmp');
-    expect(photoFile(photos, 'fake.png')).toBeNull(); // an SVG behind a picture's name
+    expect((await photoFile(photos, 'b.bmp'))?.type).toBe('image/bmp');
+    expect(await photoFile(photos, 'fake.png')).toBeNull(); // an SVG behind a picture's name
     for (const bad of [
       '../secret.jpg',
       '..\\secret.jpg',
@@ -118,10 +128,10 @@ describe('albums: folders of photos (1.8.12)', () => {
       '.',
       '..',
     ])
-      expect(photoFile(photos, bad)).toBeNull();
+      expect(await photoFile(photos, bad)).toBeNull();
   });
 
-  it('leaves out a link that leads out of the folder', () => {
+  it('leaves out a link that leads out of the folder', async () => {
     const { root, photos } = folder({ 'a.jpg': JPG });
     fs.writeFileSync(path.join(root, 'secret.jpg'), JPG);
     try {
@@ -129,43 +139,52 @@ describe('albums: folders of photos (1.8.12)', () => {
     } catch {
       return; // Windows without developer mode can't make links: nothing to escape through
     }
-    expect(listPhotos(photos)!.photos.map((p) => p.name)).toEqual(['a.jpg']);
-    expect(photoFile(photos, 'link.jpg')).toBeNull();
+    expect(await names(photos)).toEqual(['a.jpg']);
+    expect(await photoFile(photos, 'link.jpg')).toBeNull();
   });
 
-  it('keeps the first five thousand photos and says there are more', () => {
+  it('keeps the first five thousand photos and says there are more', async () => {
     const { photos } = folder({});
     for (let i = 0; i <= MAX_PHOTOS; i++) fs.writeFileSync(path.join(photos, `${i}.jpg`), JPG);
-    const listing = listPhotos(photos)!;
+    const listing = (await listPhotos(photos))!;
     expect(listing.photos).toHaveLength(MAX_PHOTOS);
     expect(listing.photos.at(-1)!.name).toBe(`${MAX_PHOTOS - 1}.jpg`);
     expect(listing.truncated).toBe(true);
   });
 
-  it('adds a folder once, names it after the folder, forgets it without touching the folder', () => {
+  it('adds a folder once, names it after the folder, forgets it without touching the folder', async () => {
     const { photos, data } = folder({ 'a.jpg': JPG });
-    const added = addAlbum(data, { path: photos });
-    if ('refused' in added) throw new Error('refused');
-    expect(added.name).toBe('Фото');
-    expect(addAlbum(data, { path: photos + path.sep })).toEqual(added);
+    const album = await added(data, { path: photos });
+    expect(album.name).toBe('Фото');
+    expect(await addAlbum(data, { path: photos + path.sep })).toEqual(album);
     if (process.platform === 'win32')
-      expect(addAlbum(data, { path: photos.toUpperCase() })).toEqual(added);
-    expect(readAlbums(data)).toEqual([added]);
-    const named = addAlbum(data, { path: path.dirname(photos), name: '  Свято  2026 ' });
-    expect('refused' in named ? null : named.name).toBe('Свято 2026');
-    expect(removeAlbum(data, added.id)?.id).toBe(added.id);
-    expect(readAlbums(data).map((a) => a.id)).not.toContain(added.id);
+      expect(await addAlbum(data, { path: photos.toUpperCase() })).toEqual(album);
+    expect(readAlbums(data)).toEqual([album]);
+    const named = await added(data, { path: path.dirname(photos), name: '  Свято  2026 ' });
+    expect(named.name).toBe('Свято 2026');
+    // two folders added at once: both kept
+    const [x, y] = [path.join(photos, 'x'), path.join(photos, 'y')];
+    fs.mkdirSync(x);
+    fs.mkdirSync(y);
+    await Promise.all([added(data, { path: x }), added(data, { path: y })]);
+    expect(readAlbums(data)).toHaveLength(4);
+    expect(removeAlbum(data, album.id)?.id).toBe(album.id);
+    expect(readAlbums(data).map((a) => a.id)).not.toContain(album.id);
     expect(fs.existsSync(path.join(photos, 'a.jpg'))).toBe(true);
-    expect(removeAlbum(data, added.id)).toBeNull();
+    expect(removeAlbum(data, album.id)).toBeNull();
   });
 
-  it('refuses what is not a folder on this computer', () => {
+  it('refuses what is not a folder on this computer', async () => {
     const { photos, data } = folder({ 'a.jpg': JPG });
-    expect(addAlbum(data, { path: 'Фото' })).toEqual({ refused: 'path' });
-    expect(addAlbum(data, { path: 3 })).toEqual({ refused: 'path' });
-    expect(addAlbum(data, { path: `${photos}\0` })).toEqual({ refused: 'path' });
-    expect(addAlbum(data, { path: path.join(photos, 'a.jpg') })).toEqual({ refused: 'missing' });
-    expect(addAlbum(data, { path: path.join(photos, 'gone') })).toEqual({ refused: 'missing' });
+    expect(await addAlbum(data, { path: 'Фото' })).toEqual({ refused: 'path' });
+    expect(await addAlbum(data, { path: 3 })).toEqual({ refused: 'path' });
+    expect(await addAlbum(data, { path: `${photos}\0` })).toEqual({ refused: 'path' });
+    expect(await addAlbum(data, { path: path.join(photos, 'a.jpg') })).toEqual({
+      refused: 'missing',
+    });
+    expect(await addAlbum(data, { path: path.join(photos, 'gone') })).toEqual({
+      refused: 'missing',
+    });
     expect(readAlbums(data)).toEqual([]);
   });
 
@@ -185,57 +204,59 @@ describe('albums: folders of photos (1.8.12)', () => {
     expect(readAlbums(data).map((a) => a.name)).toEqual(['c']);
   });
 
-  it('says a folder that went away is missing, and comes back when it returns', () => {
+  it('says a folder that went away is missing, and comes back when it returns', async () => {
     const { root, photos, data } = folder({ 'a.jpg': JPG });
-    const album = addAlbum(data, { path: photos });
-    if ('refused' in album) throw new Error('refused');
+    const album: Album = await added(data, { path: photos });
     fs.renameSync(photos, path.join(root, 'moved'));
-    expect(albumEntry(album, listPhotos(album.path))).toMatchObject({ missing: true, count: 0 });
-    expect(photoFile(album.path, 'a.jpg')).toBeNull();
+    expect(albumEntry(album, await listPhotos(album.path))).toMatchObject({
+      missing: true,
+      count: 0,
+    });
+    expect(await photoFile(album.path, 'a.jpg')).toBeNull();
     fs.renameSync(path.join(root, 'moved'), photos);
-    const back = albumEntry(album, listPhotos(album.path), true);
+    const back = albumEntry(album, await listPhotos(album.path), true);
     expect(back).toMatchObject({ missing: false, count: 1 });
     expect(back.photos).toEqual([{ name: 'a.jpg', src: `/api/albums/${album.id}/file/a.jpg` }]);
   });
 
-  it('keeps a listing two seconds for the file requests, then reads the folder again', () => {
+  it('keeps a listing two seconds for the file requests, then reads the folder again', async () => {
     const { photos } = folder({ 'a.jpg': JPG });
     const t = 1_000_000;
-    expect(cachedListing(photos, t)!.photos).toHaveLength(1);
+    expect((await cachedListing(photos, t))!.photos).toHaveLength(1);
     fs.writeFileSync(path.join(photos, 'b.jpg'), JPG);
-    expect(cachedListing(photos, t + 1000)!.photos).toHaveLength(1);
-    expect(cachedListing(photos, t + 2500)!.photos).toHaveLength(2);
+    expect((await cachedListing(photos, t + 1000))!.photos).toHaveLength(1);
+    expect((await cachedListing(photos, t + 2500))!.photos).toHaveLength(2);
   });
 
-  it('encodes a photo name in its address', () => {
+  it('encodes a photo name in its address', async () => {
     const { photos, data } = folder({ 'Різдво #1 & 100%.jpg': JPG });
-    const album = addAlbum(data, { path: photos });
-    if ('refused' in album) throw new Error('refused');
-    const [p] = albumEntry(album, listPhotos(album.path), true).photos!;
+    const album = await added(data, { path: photos });
+    const [p] = albumEntry(album, await listPhotos(album.path), true).photos!;
     expect(p.src).toBe(
       `/api/albums/${album.id}/file/${encodeURIComponent('Різдво #1 & 100%.jpg')}`,
     );
-    expect(photoFile(photos, decodeURIComponent(p.src.split('/').pop()!))?.type).toBe('image/jpeg');
+    const name = decodeURIComponent(p.src.split('/').pop()!);
+    expect((await photoFile(photos, name))?.type).toBe('image/jpeg');
   });
 
-  it('browses: the starting points, a folder’s subfolders and its photos, one level up', () => {
+  it('browses: the starting points, a folder’s subfolders and its photos, one level up', async () => {
     const { root, photos } = folder({ 'a.jpg': JPG, 'b.heic': HEIC });
     fs.mkdirSync(path.join(photos, 'Літо 10'));
     fs.mkdirSync(path.join(photos, 'Літо 2'));
     fs.mkdirSync(path.join(photos, '.git'));
     fs.mkdirSync(path.join(photos, '$RECYCLE.BIN'));
-    const start = browse(undefined)!;
+    const start = (await browse(undefined))!;
     expect(start.path).toBeNull();
     expect(start.folders[0]).toMatchObject({ path: os.homedir(), kind: 'home' });
     expect(start.folders.some((f) => f.kind === 'drive')).toBe(true);
-    const here = browse(photos)!;
+    const here = (await browse(photos))!;
     expect(here).toMatchObject({ path: photos, parent: root, photos: 1, heic: 1 });
     expect(here.folders.map((f) => f.name)).toEqual(['Літо 2', 'Літо 10']);
     expect(here.folders[0].path).toBe(path.join(photos, 'Літо 2'));
-    expect(browse(path.parse(photos).root)!.parent).toBeNull();
-    expect(browse('relative/path')).toBeNull();
-    expect(browse(path.join(photos, 'a.jpg'))).toBeNull();
-    expect(browse(path.join(photos, 'gone'))).toBeNull();
-    expect(browse(42)).toBeNull();
+    expect((await browse(path.parse(photos).root))!.parent).toBeNull();
+    expect(await browse('relative/path')).toBeNull();
+    expect(await browse(path.join(photos, 'a.jpg'))).toBeNull();
+    expect(await browse(path.join(photos, 'gone'))).toBeNull();
+    expect(await browse(42)).toBeNull();
   });
 });
