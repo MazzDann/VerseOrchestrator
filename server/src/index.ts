@@ -80,10 +80,14 @@ import {
   addAlbum,
   albumEntry,
   browse,
+  dropSmalls,
   listPhotos,
   photoFile,
+  putSmall,
   readAlbums,
   removeAlbum,
+  smallCopies,
+  smallFile,
 } from './albums.js';
 import {
   BackupError,
@@ -1065,13 +1069,16 @@ app.get(
     const album = readAlbums(dataDir).find((a) => a.id === String(req.params.id));
     if (!album) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
     const started = performance.now();
-    const listing = await listPhotos(album.path);
+    const [listing, copies] = await Promise.all([
+      listPhotos(album.path, true),
+      smallCopies(dataDir, album.id),
+    ]);
     const ms = performance.now() - started;
     if (ms > 200)
       console.log(
         `[server] albums: «${album.name}» ${listing?.photos.length ?? 0} photos, ${Math.round(ms)} ms`,
       );
-    res.json(albumEntry(album, listing, true));
+    res.json(albumEntry(album, listing, true, copies));
   }),
 );
 
@@ -1100,6 +1107,49 @@ app.get(
   }),
 );
 
+/**
+ * A photo for the phones (1.8.12-beta.2): its small copy when the control window made one, else
+ * the photo itself — LAN-readable like the photo; the same checks.
+ */
+app.get(
+  '/api/albums/:id/small/:name',
+  wrap(async (req, res) => {
+    const album = readAlbums(dataDir).find((a) => a.id === String(req.params.id));
+    const photo = album ? await smallFile(dataDir, album, String(req.params.name)) : null;
+    if (!photo) {
+      res.status(404).end();
+      return;
+    }
+    res.setHeader('Content-Type', photo.type);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(photo.file, { dotfiles: 'allow' }, (err) => {
+      if (err && !res.headersSent) res.status(404).end();
+    });
+  }),
+);
+
+/** A small copy the control window drew of a photo (a JPEG of at most 4 MB, the body itself). */
+app.put(
+  '/api/albums/:id/small/:name',
+  requireLocalControl,
+  express.raw({ type: () => true, limit: '4mb' }),
+  wrap(async (req, res) => {
+    const album = readAlbums(dataDir).find((a) => a.id === String(req.params.id));
+    if (!album) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const version = typeof req.query.v === 'string' ? req.query.v : '';
+    const done = await putSmall(dataDir, album, String(req.params.name), version, body);
+    if ('refused' in done) {
+      if (done.refused === 'photo') throw new ApiError(404, N_('Фото вже немає в папці'));
+      if (done.refused === 'changed')
+        throw new ApiError(409, N_('Фото в папці змінилося — відкрийте альбом ще раз'));
+      throw new ApiError(400, N_('Мала копія має бути JPEG до 4 МБ'));
+    }
+    res.json(done);
+  }),
+);
+
 app.post(
   '/api/albums',
   requireLocalControl,
@@ -1119,6 +1169,7 @@ app.delete(
   wrap(async (req, res) => {
     const gone = removeAlbum(dataDir, String(req.params.id));
     if (!gone) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
+    await dropSmalls(dataDir, gone.id);
     res.json({ name: gone.name });
   }),
 );

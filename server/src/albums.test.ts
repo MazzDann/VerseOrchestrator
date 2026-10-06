@@ -7,7 +7,11 @@ import {
   albumEntry,
   browse,
   cachedListing,
+  dropSmalls,
   listPhotos,
+  putSmall,
+  smallCopies,
+  smallFile,
   MAX_PHOTOS,
   photoFile,
   readAlbums,
@@ -18,6 +22,7 @@ import {
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
 const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46]);
+const GIF = Buffer.from('GIF89a', 'latin1');
 const box = (major: string, ...compatible: string[]) => {
   const brands = Buffer.from(major + '\0\0\0\0' + compatible.join(''), 'latin1');
   const size = Buffer.alloc(4);
@@ -111,7 +116,7 @@ describe('albums: folders of photos (1.8.12)', () => {
     fs.writeFileSync(path.join(root, 'secret.jpg'), JPG);
     fs.mkdirSync(path.join(photos, 'sub'));
     fs.writeFileSync(path.join(photos, 'sub', 'c.jpg'), JPG);
-    expect(await photoFile(photos, 'a.jpg')).toEqual({
+    expect(await photoFile(photos, 'a.jpg')).toMatchObject({
       file: fs.realpathSync(path.join(photos, 'a.jpg')),
       type: 'image/jpeg',
     });
@@ -216,16 +221,31 @@ describe('albums: folders of photos (1.8.12)', () => {
     fs.renameSync(path.join(root, 'moved'), photos);
     const back = albumEntry(album, await listPhotos(album.path), true);
     expect(back).toMatchObject({ missing: false, count: 1 });
-    expect(back.photos).toEqual([{ name: 'a.jpg', src: `/api/albums/${album.id}/file/a.jpg` }]);
+    expect(back.photos).toEqual([
+      {
+        name: 'a.jpg',
+        src: `/api/albums/${album.id}/file/a.jpg`,
+        small: `/api/albums/${album.id}/small/a.jpg`,
+        needsSmall: false, // a few bytes: its own small copy
+      },
+    ]);
   });
 
-  it('keeps a listing two seconds for the file requests, then reads the folder again', async () => {
+  it('keeps a listing two seconds after it is read, then reads the folder again', async () => {
     const { photos } = folder({ 'a.jpg': JPG });
-    const t = 1_000_000;
-    expect((await cachedListing(photos, t))!.photos).toHaveLength(1);
+    let t = 1_000_000;
+    const clock = () => t;
+    expect((await cachedListing(photos, clock))!.photos).toHaveLength(1);
     fs.writeFileSync(path.join(photos, 'b.jpg'), JPG);
-    expect((await cachedListing(photos, t + 1000))!.photos).toHaveLength(1);
-    expect((await cachedListing(photos, t + 2500))!.photos).toHaveLength(2);
+    t += 1000;
+    expect((await cachedListing(photos, clock))!.photos).toHaveLength(1);
+    t += 1500;
+    expect((await cachedListing(photos, clock))!.photos).toHaveLength(2);
+    // one read at a time: asked again while it is read, the same promise
+    t += 5000;
+    const first = cachedListing(photos, clock);
+    t += 5000;
+    expect(cachedListing(photos, clock)).toBe(first);
   });
 
   it('encodes a photo name in its address', async () => {
@@ -258,5 +278,62 @@ describe('albums: folders of photos (1.8.12)', () => {
     expect(await browse(path.join(photos, 'a.jpg'))).toBeNull();
     expect(await browse(path.join(photos, 'gone'))).toBeNull();
     expect(await browse(42)).toBeNull();
+  });
+
+  it('small copies for the phones: kept per photo version, the photo itself until one is there (1.8.12-beta.2)', async () => {
+    const big = Buffer.concat([JPG, Buffer.alloc(600 * 1024)]); // a «camera» photo over 512 KB
+    const { root, photos, data } = folder({ 'big.jpg': big, 'tiny.jpg': JPG });
+    fs.writeFileSync(path.join(photos, 'anim.gif'), Buffer.concat([GIF, Buffer.alloc(700 * 1024)]));
+    const album = await added(data, { path: photos });
+    const page = async () =>
+      Object.fromEntries(
+        albumEntry(
+          album,
+          await listPhotos(album.path, true),
+          true,
+          await smallCopies(data, album.id),
+        ).photos!.map((p) => [p.name, p]),
+      );
+    const needs = async () =>
+      Object.fromEntries(Object.entries(await page()).map(([n, p]) => [n, p.needsSmall]));
+    // a small file and a GIF (its frames) are their own small copies
+    expect(await needs()).toEqual({ 'anim.gif': false, 'big.jpg': true, 'tiny.jpg': false });
+    // a count or a file's checks list without stats: no version, nothing asked of anyone
+    const bare = albumEntry(album, await listPhotos(album.path), true).photos!;
+    expect(bare.every((p) => p.v === undefined && p.needsSmall === false)).toBe(true);
+    const real = fs.realpathSync(path.join(photos, 'big.jpg'));
+    expect((await smallFile(data, album, 'big.jpg'))?.file).toBe(real);
+    const v1 = (await page())['big.jpg'].v!;
+    const copy = Buffer.concat([JPG, Buffer.from('small')]);
+    expect(await putSmall(data, album, 'big.jpg', v1, copy)).toEqual({ bytes: copy.length });
+    expect(await needs()).toEqual({ 'anim.gif': false, 'big.jpg': false, 'tiny.jpg': false });
+    const sent = (await smallFile(data, album, 'big.jpg'))!;
+    expect(sent.type).toBe('image/jpeg');
+    expect(fs.readFileSync(sent.file).equals(copy)).toBe(true);
+    expect(sent.file.startsWith(path.join(data, 'album-cache', album.id))).toBe(true);
+    // replaced by another photo with an OLDER date (a copy that keeps dates): no copy of it yet
+    fs.writeFileSync(path.join(photos, 'big.jpg'), Buffer.concat([big, Buffer.alloc(10)]));
+    const old = new Date(Date.now() - 86_400_000);
+    fs.utimesSync(path.join(photos, 'big.jpg'), old, old);
+    expect((await needs())['big.jpg']).toBe(true);
+    expect((await smallFile(data, album, 'big.jpg'))?.file).toBe(real);
+    // a copy drawn of the version before is refused; one of this version replaces the old one
+    expect(await putSmall(data, album, 'big.jpg', v1, copy)).toEqual({ refused: 'changed' });
+    const v2 = (await page())['big.jpg'].v!;
+    expect(await putSmall(data, album, 'big.jpg', v2, copy)).toEqual({ bytes: copy.length });
+    expect(fs.readdirSync(path.join(data, 'album-cache', album.id))).toHaveLength(1);
+    // only JPEG, only up to 4 MB, only a photo the folder holds — and never a path
+    expect(await putSmall(data, album, 'big.jpg', v2, Buffer.from('<svg/>'))).toEqual({
+      refused: 'type',
+    });
+    const huge = Buffer.concat([JPG, Buffer.alloc(4 * 1024 * 1024)]);
+    expect(await putSmall(data, album, 'big.jpg', v2, huge)).toEqual({ refused: 'size' });
+    expect(await putSmall(data, album, '../../secret.jpg', v2, copy)).toEqual({ refused: 'photo' });
+    expect(await putSmall(data, album, 'gone.jpg', v2, copy)).toEqual({ refused: 'photo' });
+    expect(fs.readdirSync(root).sort()).toEqual(['data', 'Фото']);
+    // the album removed: its copies go, the folder stays
+    await dropSmalls(data, album.id);
+    expect(fs.existsSync(path.join(data, 'album-cache', album.id))).toBe(false);
+    expect(fs.existsSync(path.join(photos, 'big.jpg'))).toBe(true);
   });
 });

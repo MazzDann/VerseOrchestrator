@@ -12,14 +12,19 @@ import { pictureSlide } from './slide';
 export interface AlbumPhoto {
   name: string;
   src: string;
+  /** for the phones (1.8.12-beta.2): its small copy, or the photo itself until there is one */
+  small?: string;
+  needsSmall?: boolean;
+  /** the version a small copy is drawn of */
+  v?: string;
 }
 
 /** The name without its extension: what the monitors, the remotes and the phones say. */
 export const photoTitle = (name: string) => name.replace(/\.[^.]{1,5}$/, '') || name;
 
 /**
- * The slide for photo `index` of an album. The phones get the photo itself as `small` (beta.1:
- * the folder's file; small copies for phones come later).
+ * The slide for photo `index` of an album. The phones get `small`: the small copy the control
+ * window drew (lib/albumSmall.ts), or the photo itself while there is none (beta.2).
  */
 export function albumSlide(
   albumId: string,
@@ -32,7 +37,7 @@ export function albumSlide(
   const next = photos[index + 1]?.src;
   const picture: SlidePicture = {
     src: photo.src,
-    small: photo.src,
+    small: photo.small ?? photo.src,
     name: photoTitle(photo.name),
     fit,
     ...(next ? { next } : {}),
