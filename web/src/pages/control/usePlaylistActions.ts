@@ -49,6 +49,7 @@ export function usePlaylistActions({
   projectPicture,
   pictureOf,
   startAlbum,
+  startVideo,
   playlistSetCurrent,
   playlistItems,
   playlistCurrentId,
@@ -88,6 +89,11 @@ export function usePlaylistActions({
   pictureOf: (it: SeqImage) => SlidePicture;
   startAlbum: (
     albumId: string,
+    fit: SlidePicture['fit'],
+    label: string,
+  ) => Promise<{ slide: Slide } | { reason: string }>;
+  startVideo: (
+    videoId: string,
     fit: SlidePicture['fit'],
     label: string,
   ) => Promise<{ slide: Slide } | { reason: string }>;
@@ -198,6 +204,7 @@ export function usePlaylistActions({
     else if (it.kind === 'text') projectText(it.body, it.title.trim());
     else if (it.kind === 'image') projectPicture(pictureOf(it));
     else if (it.kind === 'album') void startAlbum(it.albumId, it.fit, it.label);
+    else if (it.kind === 'video') void startVideo(it.videoId, it.fit, it.label);
     else void activateSong(it);
   };
 
@@ -265,6 +272,15 @@ export function usePlaylistActions({
     });
   };
 
+  const addVideoToPlaylist = (video: { id: string; name: string }, fit: SlidePicture['fit']) => {
+    playlistAdd({ kind: 'video', label: video.name, videoId: video.id, fit });
+    notifications.show({
+      message: tr('Додано у показ: {item}', { item: video.name }),
+      color: 'green',
+      autoClose: 1200,
+    });
+  };
+
   const addTextToPlaylist = (item: { title: string; body: string }) => {
     if (!item.body.trim()) return;
     const label = item.title.trim() || item.body.trim().split('\n')[0].slice(0, 40);
@@ -279,6 +295,7 @@ export function usePlaylistActions({
     addCurrentPassage,
     addSongToPlaylist,
     addAlbumToPlaylist,
+    addVideoToPlaylist,
     addTextToPlaylist,
   };
 }

@@ -21,6 +21,7 @@ import {
   IconLetterT,
   IconLibraryPhoto,
   IconAlbum,
+  IconMovie,
   IconChevronUp,
   IconChevronDown,
   IconTrash,
@@ -69,6 +70,7 @@ const KIND_ICON = {
   text: IconLetterT,
   image: IconLibraryPhoto,
   album: IconAlbum,
+  video: IconMovie,
 } as const;
 
 // Kinds are told apart by their icon; colour stays reserved for live/cue state.
@@ -78,6 +80,7 @@ const KIND_COLOR = {
   text: 'gray',
   image: 'gray',
   album: 'gray',
+  video: 'gray',
 } as const;
 
 /**
@@ -123,9 +126,22 @@ export function PlaylistPanel({
     // a drive plugged back in: the mark goes the next time the panel looks
     staleTime: 0,
   });
+  // a video (1.8.12-beta.3) taken off the list, or its file not there now
+  const videoList = useQuery({
+    queryKey: ['videos'],
+    queryFn: api.videos,
+    enabled: serverAvailable !== false && items.some((it) => it.kind === 'video'),
+    staleTime: 0,
+  });
   const gone = (it: SeqItem): string | null => {
     if (it.kind === 'image' && !!known && !known.has(it.imageId))
       return tr('Зображення видалено: {name}', { name: it.label });
+    if (it.kind === 'video') {
+      if (!videoList.data) return null;
+      const v = videoList.data.find((x) => x.id === it.videoId);
+      if (!v) return tr('Відео прибрано: {name}', { name: it.label });
+      return v.missing ? tr('Файл не знайдено: {name}', { name: it.label }) : null;
+    }
     if (it.kind !== 'album' || !albums.data) return null;
     const album = albums.data.find((a) => a.id === it.albumId);
     if (!album) return tr('Альбом прибрано: {name}', { name: it.label });

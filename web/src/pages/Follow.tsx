@@ -321,6 +321,31 @@ export function Follow() {
             onError={() => setFailedPicture(pictureSrc)}
             style={{ display: 'block', maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain' }}
           />
+        ) : slide?.video && slide.visible && !slide.blank && !slide.forceBlack ? (
+          // a video (1.8.12-beta.3): its poster, or words when the operator chose them or the
+          // poster isn't there — never the file over the Wi-Fi
+          slide.video.phones === 'poster' && slide.video.poster !== failedPicture ? (
+            <img
+              src={slide.video.poster}
+              alt={slide.video.name}
+              onError={() => setFailedPicture(slide.video!.poster)}
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                maxHeight: '78vh',
+                objectFit: 'contain',
+              }}
+            />
+          ) : (
+            <div style={{ fontFamily: 'Inter, system-ui, sans-serif', maxWidth: 420 }}>
+              <p style={{ margin: 0, fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 600 }}>
+                {tr('Відео на екрані')}
+              </p>
+              <p style={{ margin: '0.6em 0 0', opacity: 0.65, fontSize: 'clamp(14px, 4vw, 17px)' }}>
+                {slide.video.name}
+              </p>
+            </div>
+          )
         ) : paused ? (
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', maxWidth: 420 }}>
             <p style={{ margin: 0, fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 600 }}>

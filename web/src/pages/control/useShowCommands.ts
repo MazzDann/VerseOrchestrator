@@ -27,6 +27,7 @@ import {
 } from '../../lib/commands';
 import { pictureSlide, sameContent } from '../../lib/slide';
 import { albumSlide } from '../../lib/album';
+import { videoSlide } from '../../lib/video';
 import { tr } from '../../i18n';
 import { joinVerses, redLetterSegments } from './slideText';
 import { withSecond } from './songSlides';
@@ -55,6 +56,7 @@ export function useShowCommands({
   slideTemplate,
   pictureOf,
   startAlbum,
+  startVideo,
   playlistAdd,
   previewOverride,
   slideLines,
@@ -89,6 +91,11 @@ export function useShowCommands({
     fit: SlidePicture['fit'],
     label: string,
   ) => Promise<{ slide: Slide } | { reason: string }>;
+  startVideo: (
+    albumId: string,
+    fit: SlidePicture['fit'],
+    label: string,
+  ) => Promise<{ slide: Slide } | { reason: string }>;
   playlistAdd: (item: NewSeqItem) => void;
   previewOverride: Slide | null;
   slideLines: SlideLine[];
@@ -109,10 +116,14 @@ export function useShowCommands({
       const it = playlistItems.find((i) => i.id === args.item);
       if (!it) return { ok: false, reason: tr('Цього елемента вже немає в послідовності') };
       // an album (1.8.12) goes on as the operator's own: open here, so «Далі» steps its photos
-      if (it.kind === 'album' && cmd === 'show') {
+      if ((it.kind === 'album' || it.kind === 'video') && cmd === 'show') {
         if (!leaderRef.current)
           return { ok: false, reason: tr('Показом керує інше вікно керування') };
-        return startAlbum(it.albumId, it.fit, it.label).then((r) => {
+        const started =
+          it.kind === 'album'
+            ? startAlbum(it.albumId, it.fit, it.label)
+            : startVideo(it.videoId, it.fit, it.label);
+        return started.then((r) => {
           if ('reason' in r) return { ok: false, reason: r.reason };
           playlistSetCurrent(it.id);
           setRemoteView({ name: by, target: null, slide: r.slide });
@@ -257,6 +268,30 @@ export function useShowCommands({
     const t = itemTarget(it);
     if (t) return buildRemote(t, by);
     if (it.kind === 'image') return Promise.resolve(pictureSlide(pictureOf(it), slideStyle));
+    if (it.kind === 'video') {
+      // the speaker's preview: the video as it would start (nothing plays until it is shown)
+      const id = it.videoId;
+      return queryClient
+        .fetchQuery({ queryKey: ['videos'], queryFn: api.videos, staleTime: 0 })
+        .then((all) => {
+          const v = all.find((x) => x.id === id);
+          if (!v) throw new Error(tr('Відео прибрано: {name}', { name: it.label }));
+          if (v.missing) throw new Error(tr('Файл не знайдено: {name}', { name: it.label }));
+          const s = videoSlide(
+            {
+              src: v.src,
+              poster: v.poster,
+              name: v.name,
+              fit: it.fit,
+              loop: false,
+              phones: 'poster',
+            },
+            id,
+            slideStyle,
+          );
+          return { ...s, video: { ...s.video!, paused: 0 } };
+        });
+    }
     if (it.kind === 'album') {
       // the speaker's preview: the album's first photo, read from the folder now
       const id = it.albumId;
