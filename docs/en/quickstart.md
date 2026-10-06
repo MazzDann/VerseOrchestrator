@@ -55,7 +55,7 @@ On the right, the **Preview** monitor shows the slide — how the verse will loo
 ![The control window: translations and books on the left, chapter numbers and the verses
 of John 3 in the middle, a monitor with verse 3:16 on the right](../img/en/control-window.png)
 
-To jump to a place quickly, type a reference in the **Go to** field at the top, for
+To jump to a place quickly, type a reference in the **Search** field at the top, for
 example `John 3:16`, and press Enter.
 
 ## Open the presentation window
