@@ -60,6 +60,7 @@ export function ControlHeader({
   goToValue,
   setGoToValue,
   goTo,
+  clearSearch,
   searchFieldRef,
   searchKeysRef,
   focusOnReturn,
@@ -105,6 +106,8 @@ export function ControlHeader({
   goToValue: string;
   setGoToValue: (value: string) => void;
   goTo: (q: string) => Promise<void>;
+  /** done with a query: it goes, the results close, the scope is the settings' again */
+  clearSearch: () => void;
   /** the one search field (1.8.12-beta.4) and the results panel's keys it hands over first */
   searchFieldRef: MutableRefObject<HTMLInputElement | null>;
   searchKeysRef: MutableRefObject<((e: React.KeyboardEvent) => boolean) | null>;
@@ -159,7 +162,9 @@ export function ControlHeader({
       const field = searchFieldRef.current;
       const held = document.activeElement;
       if (!field || field.offsetParent === null || busy.current) return;
-      if (held && held !== document.body && held !== field) return;
+      // already there (alt-tab while typing): nothing — a select would make the next key replace it
+      if (held === field) return;
+      if (held && held !== document.body) return;
       field.focus();
       field.select();
     };
@@ -187,7 +192,7 @@ export function ControlHeader({
     } else if (e.key === 'Escape' && goToValue) {
       e.preventDefault();
       e.stopPropagation();
-      setGoToValue('');
+      clearSearch();
     } else if (
       goToValue === '' &&
       !e.ctrlKey &&

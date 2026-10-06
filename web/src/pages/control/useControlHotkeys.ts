@@ -197,7 +197,5 @@ export function useControlHotkeys({
   ]);
   // `/` (1.8.12-beta.4, F1005-07): to the search field where the browser keeps Ctrl+F for itself
   // (LibreWolf, Firefox); typed into a field it stays a «/»
-  useHotkeys(keymap.searchFocus, () => openSearch(), { preventDefault: true }, [
-    keymap.searchFocus,
-  ]);
+  useHotkeys(keymap.searchFocus, () => openSearch(), { preventDefault: true });
 }

@@ -69,16 +69,25 @@ export function useJumps({
   const fieldShown = () => !!searchFieldRef.current && searchFieldRef.current.offsetParent !== null;
   /**
    * The query typed: words or a reference open the results under the header; numbers alone
-   * («3:16») in an open book are a place there (Enter goes, as before); an empty field closes them
-   * and the scope goes back to the settings' one.
+   * («3:16») in an open book are a place there (Enter goes, as before) — results already open
+   * close, so Enter can't pick a text hit for them (review); an empty field closes them.
    */
   const setGoToValue = (value: string) => {
     setGoToValueState(value);
     const q = value.trim();
     if (q === '') {
       if (fieldShown()) setSearchOpen(false);
-      setSearchScope(useSettings.getState().search.scope);
-    } else if (q.length >= 2 && !(parseQuickRef(q) && bookNumber != null)) setSearchOpen(true);
+    } else if (parseQuickRef(q) && bookNumber != null) setSearchOpen(false);
+    else if (q.length >= 2) setSearchOpen(true);
+  };
+  /**
+   * Done with a query (a pick, a jump, Esc in the field): it goes, the results close and the scope
+   * goes back to the settings' one — not on every emptying (F4, Backspace, a new word: still all).
+   */
+  const clearSearch = () => {
+    setGoToValueState('');
+    setSearchOpen(false);
+    setSearchScope(useSettings.getState().search.scope);
   };
 
   // `focus`: hand the keyboard to the verse landed on (search, «Перейти»), so ↩ puts it on
@@ -88,6 +97,13 @@ export function useJumps({
   const focusJump = useRef(false);
   const jumpTo = (r: Jumpable, opts?: { focus?: boolean }) => {
     if (selectedIds.length === 0) setTranslations([r.translationId]);
+    // a hit from another translation (the fallback, «Усі») in a book the main one hasn't (an NT
+    // only): that translation joins, or the verses pane stays empty (review)
+    else if (!selectedIds.includes(r.translationId)) {
+      const books = queryClient.getQueryData<Book[]>(['books', primaryId]);
+      if (books && !books.some((b) => b.bookNumber === r.bookNumber))
+        setTranslations([...selectedIds, r.translationId]);
+    }
     selectBook(r.bookNumber);
     selectChapter(r.chapter);
     setSelectedVerses([r.verse]);
@@ -101,7 +117,7 @@ export function useJumps({
     if (!query || primaryId == null) return;
     // numbers only («3:16», «16»): a place in the open book (1.4.0)
     if (parseQuickRef(query) && bookNumber != null) {
-      if (await quickJump(query)) setGoToValue('');
+      if (await quickJump(query)) clearSearch();
       return;
     }
     try {
@@ -110,7 +126,7 @@ export function useJumps({
       if (res.results.length === 0) res = await api.search(query, []);
       if (res.results.length > 0) {
         jumpTo(res.results[0], { focus: true });
-        setGoToValue('');
+        clearSearch();
       } else {
         notifications.show({
           message: tr(
@@ -259,6 +275,7 @@ export function useJumps({
     setSearchScope,
     goToValue,
     setGoToValue,
+    clearSearch,
     searchFieldRef,
     searchKeysRef,
     focusJump,
