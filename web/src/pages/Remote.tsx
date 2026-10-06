@@ -149,6 +149,8 @@ export function Remote() {
         args: CommandArgs;
         /** the speaker's cursor once this is acked */
         target?: RemoteTarget;
+        /** an album put on screen (1.8.12): «Далі» steps it there, not a cursor of this phone */
+        dropCursor?: boolean;
       }
     >(),
   );
@@ -263,6 +265,9 @@ export function Remote() {
             if (f.ok && p.target) {
               setCursorState(p.target);
               remember(CURSOR_KEY, p.target);
+            } else if (f.ok && p.dropCursor) {
+              setCursorState(null);
+              remember(CURSOR_KEY, null);
             }
           }
           // the reason comes in the operator's language, or from the server: a key either way
@@ -296,7 +301,8 @@ export function Remote() {
         ? walkable
         : undefined;
     const sent = !!conn.current?.send({ type: 'command', cmd, id, ...args });
-    pending.current.set(id, { cmd, at: Date.now(), sent, args, target: cursorAfter });
+    const dropCursor = cmd === 'show' && entry?.kind === 'album';
+    pending.current.set(id, { cmd, at: Date.now(), sent, args, target: cursorAfter, dropCursor });
     if (!sent) flash(tr('Немає зв’язку — надішлю, щойно підключуся'));
     // No answer at all (server gone mid-press): say so instead of leaving it silent.
     window.setTimeout(() => {

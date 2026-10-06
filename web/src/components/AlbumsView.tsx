@@ -236,7 +236,10 @@ function FolderPicker({
   const here = folders.data;
   // the path field: the folder shown, or one pasted («Копіювати як шлях» quotes it)
   const [draft, setDraft] = useState('');
-  useEffect(() => setDraft(here?.path ?? ''), [here?.path]);
+  // the folder once it is read: a path that is not there keeps what was typed (review)
+  useEffect(() => {
+    if (here) setDraft(here.path ?? '');
+  }, [here]);
   const go = () => setPath(draft.trim().replace(/^"(.*)"$/, '$1') || undefined);
   const add = async () => {
     if (!here?.path) return;
@@ -382,9 +385,13 @@ function OpenAlbumView({
   const viewport = useRef<HTMLDivElement>(null);
   const tiles = useRef<(HTMLButtonElement | null)[]>([]);
   // the photo stepped to stays in sight
+  const current = show.current;
+  // «Міняти кожні N с» as typed: kept once it is 2–600, the field set right when it is left
+  const [everyDraft, setEveryDraft] = useState<string | number>(show.every);
+  useEffect(() => setEveryDraft(show.every), [show.every]);
   useEffect(() => {
-    if (show.current != null) tiles.current[show.current]?.scrollIntoView({ block: 'nearest' });
-  }, [show.current]);
+    if (current != null) tiles.current[current]?.scrollIntoView({ block: 'nearest' });
+  }, [current]);
   return (
     <>
       <Group justify="space-between" wrap="nowrap" mb={4} gap="xs">
@@ -469,8 +476,12 @@ function OpenAlbumView({
           w={52}
           min={EVERY_MIN}
           max={EVERY_MAX}
-          value={show.every}
-          onChange={(v) => typeof v === 'number' && show.setEvery(v)}
+          value={everyDraft}
+          onChange={(v) => {
+            setEveryDraft(v);
+            if (typeof v === 'number' && v >= EVERY_MIN && v <= EVERY_MAX) show.setEvery(v);
+          }}
+          onBlur={() => setEveryDraft(show.every)}
           hideControls
           aria-label={tr('Міняти фото кожні … секунд')}
         />

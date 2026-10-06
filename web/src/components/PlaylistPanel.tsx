@@ -120,6 +120,8 @@ export function PlaylistPanel({
     queryKey: ['albums'],
     queryFn: api.albums,
     enabled: serverAvailable !== false && items.some((it) => it.kind === 'album'),
+    // a drive plugged back in: the mark goes the next time the panel looks
+    staleTime: 0,
   });
   const gone = (it: SeqItem): string | null => {
     if (it.kind === 'image' && !!known && !known.has(it.imageId))
