@@ -385,7 +385,6 @@ export const EN: Record<string, string> = {
   'Альбом прибрано: {name}': 'Album removed: {name}',
   'Папку не знайдено: {name}': 'Folder not found: {name}',
   'Папку не знайдено: {path}': 'Folder not found: {path}',
-  'Альбом не вдалося показати': 'The album could not be shown',
   Альбоми: 'Albums',
   'Зображення чи альбоми з папок': 'Images or albums from folders',
   'Фото з папок на цьому комп’ютері — без копій: нові фото в папці з’являються самі.':

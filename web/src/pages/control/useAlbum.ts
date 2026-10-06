@@ -16,6 +16,7 @@ import { readImageFit, type ImageFit } from '../../lib/imageFit';
 import { PRIORITY, useCommandHandler, type Outcome } from '../../lib/commands';
 import { isFormField, isResizeKey } from '../../lib/keyScroll';
 import { tr } from '../../i18n';
+import { standbyNotice } from './standby';
 
 /** The album open in «Зображення» and the photo it stands on (null: none shown yet). */
 export interface OpenAlbum {
@@ -49,6 +50,9 @@ const albumOnScreen = (s: Slide, albumId: string) =>
  * screen or the last photo end it; hidden or black, it waits. A window that takes over opens the
  * album at the photo on screen with the timer off (lib/takeover.ts).
  *
+ * Only the leader steps (a window on standby says so); the timer's steps change the screen and
+ * a preview that shows the album, never «Наживо» or a preview the operator moved on to.
+ *
  * Effects, in order: the album's keys (capture phase, ahead of the hotkeys), its commands, the
  * timer, the timer's end on standby. None of them depends on another hook's effects.
  */
@@ -59,6 +63,7 @@ export function useAlbum({
   setLive,
   liveSlideRef,
   isLeader,
+  leaderRef,
   imagesOpen,
   setImagesOpen,
   keysPaused,
@@ -70,6 +75,7 @@ export function useAlbum({
   setLive: (live: boolean) => void;
   liveSlideRef: MutableRefObject<Slide>;
   isLeader: boolean;
+  leaderRef: MutableRefObject<boolean>;
   imagesOpen: boolean;
   setImagesOpen: (v: boolean | ((open: boolean) => boolean)) => void;
   keysPaused: boolean;
@@ -79,7 +85,13 @@ export function useAlbum({
   const [album, setAlbum] = useState<OpenAlbum | null>(null);
   /** «Альбоми» shown in «Зображення» (not its pictures): only then the album owns the keys */
   const [albumsTab, setAlbumsTab] = useState(false);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlayingState] = useState(false);
+  // the timer reads it: a «Далі» that stops the show stops the very next tick too (review)
+  const playingRef = useRef(false);
+  const setPlaying = useCallback((on: boolean) => {
+    playingRef.current = on;
+    setPlayingState(on);
+  }, []);
   const [every, setEveryState] = useState(readEvery);
   /** bumped by a photo picked by hand while playing: its own full interval */
   const [restartAt, setRestartAt] = useState(0);
@@ -96,41 +108,63 @@ export function useAlbum({
       ? photoIndex(photos, { index: album.index, name: album.name })
       : null;
 
-  const openAlbum = useCallback((id: string | null, at?: { index: number; name?: string }) => {
-    setAlbum(id ? { id, index: at?.index ?? null, name: at?.name } : null);
-    if (id) setAlbumsTab(true);
-    setPlaying(false);
-  }, []);
-
   // the photo shown last, before the render that says so: two quick presses step twice
   const shown = useRef<{ id: string; photos: unknown; index: number } | null>(null);
+
+  const openAlbum = useCallback(
+    (id: string | null, at?: { index: number; name?: string }) => {
+      // opened at a place (a takeover): from there, not from what this window showed before
+      shown.current = null;
+      setAlbum(id ? { id, index: at?.index ?? null, name: at?.name } : null);
+      if (id) setAlbumsTab(true);
+      setPlaying(false);
+    },
+    [setPlaying],
+  );
   const place = () => {
     const s = shown.current;
     return album && s && s.id === album.id && s.photos === photos ? s.index : current;
   };
 
-  const put = (id: string, list: AlbumPhoto[], index: number, fit: ImageFit) => {
+  /**
+   * A photo on screen. By hand it is the preview too and «Наживо» goes on, as a picture's click
+   * does; the timer's (`quiet`) changes only the screen and a preview that shows this album.
+   */
+  const put = (id: string, list: AlbumPhoto[], index: number, fit: ImageFit, quiet = false) => {
     shown.current = { id, photos: list, index };
     const slide = albumSlide(id, list, index, fit, slideStyle);
     pushLive(slide);
-    setPreviewOverride(slide);
-    setLive(true);
+    if (quiet) setPreviewOverride((p) => (p && albumOnScreen(p, id) ? slide : p));
+    else {
+      setPreviewOverride(slide);
+      setLive(true);
+    }
     setAlbum({ id, index, name: list[index].name });
     return slide;
   };
-  const showPhoto = (index: number) => {
+  const showPhoto = (index: number, quiet = false) => {
     if (!album || !photos?.[index]) return;
     // the photo on screen keeps its «Вписати / Заповнити» when it is this album's (a refit sticks)
     const now = liveSlideRef.current;
     const fit = (albumOnScreen(now, album.id) && now.picture?.fit) || readImageFit();
-    put(album.id, photos, index, fit);
+    put(album.id, photos, index, fit, quiet);
   };
 
   /**
    * An album of the running order (1.8.12): open in «Зображення», its first photo on screen —
-   * read from the folder now. Null, and the reason said, when it can't be shown.
+   * read from the folder now. When it can't be shown, the operator is told why and the result
+   * says it in words a phone may get (the album's name, never the folder's path).
    */
-  const startAlbum = async (id: string, fit: ImageFit): Promise<Slide | null> => {
+  const startAlbum = async (
+    id: string,
+    fit: ImageFit,
+    label: string,
+  ): Promise<{ slide: Slide } | { reason: string }> => {
+    if (!leaderRef.current) {
+      standbyNotice();
+      return { reason: tr('Показом керує інше вікно керування') };
+    }
+    shown.current = null;
     setAlbumsTab(true);
     setImagesOpen(true);
     setPlaying(false);
@@ -144,8 +178,10 @@ export function useAlbum({
       });
     } catch (e) {
       notifications.show({ message: tr((e as Error).message), color: 'red' });
-      return null;
+      return { reason: tr('Альбом прибрано: {name}', { name: label }) };
     }
+    // the running order's marks («Папку не знайдено») follow what was just read
+    void queryClient.invalidateQueries({ queryKey: ['albums'] });
     const list = info.photos ?? [];
     if (info.missing || list.length === 0) {
       notifications.show({
@@ -155,20 +191,25 @@ export function useAlbum({
         color: 'gray',
         autoClose: 3000,
       });
-      return null;
+      return {
+        reason: info.missing
+          ? tr('Папку не знайдено: {name}', { name: label })
+          : tr('В альбомі немає фото'),
+      };
     }
-    return put(id, list, 0, fit);
+    return { slide: put(id, list, 0, fit) };
   };
 
-  const step = (dir: 1 | -1): Outcome => {
+  const step = (dir: 1 | -1, quiet = false): Outcome => {
     if (!album) return { ok: false };
+    if (!leaderRef.current) return { ok: false, reason: tr('Показом керує інше вікно керування') };
     if (!photos) return { ok: false, reason: tr('Альбом ще завантажується') };
     if (photos.length === 0) return { ok: false, reason: tr('В альбомі немає фото') };
     const at = place();
     const idx = Math.max(0, Math.min(photos.length - 1, (at ?? -1) + dir));
     if (at != null && idx === at)
       return { ok: false, reason: dir > 0 ? tr('Це останнє фото') : tr('Це перше фото') };
-    showPhoto(idx);
+    showPhoto(idx, quiet);
     return { ok: true };
   };
   const stepRef = useRef(step);
@@ -176,6 +217,7 @@ export function useAlbum({
 
   /** a photo picked by hand (a tile): shown; a running slideshow goes on from it */
   const pickPhoto = (index: number) => {
+    if (!leaderRef.current) return standbyNotice();
     showPhoto(index);
     setRestartAt((n) => n + 1);
   };
@@ -202,11 +244,12 @@ export function useAlbum({
       e.preventDefault();
       e.stopPropagation();
       setPlaying(false);
+      if (!leaderRef.current) return standbyNotice();
       say(stepRef.current(dir));
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [owns, keysPaused]);
+  }, [owns, keysPaused, setPlaying, leaderRef]);
 
   // the clicker in an output window and the speakers' remotes: «Далі» / «Назад»
   useCommandHandler(
@@ -224,25 +267,26 @@ export function useAlbum({
   useEffect(() => {
     if (!playing || !isLeader || !albumId) return;
     const t = window.setInterval(() => {
+      if (!playingRef.current || !leaderRef.current) return;
       const s = liveSlideRef.current;
       if (!albumOnScreen(s, albumId)) {
         setPlaying(false); // something else went on screen: the slideshow is over
         return;
       }
       if (s.blank || s.forceBlack || !s.visible) return; // hidden or black: it waits
-      const o = stepRef.current(1);
+      const o = stepRef.current(1, true);
       if (!o.ok) {
         setPlaying(false);
         if (o.reason) notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
       }
     }, every * 1000);
     return () => window.clearInterval(t);
-  }, [playing, isLeader, albumId, every, restartAt, liveSlideRef]);
+  }, [playing, isLeader, albumId, every, restartAt, liveSlideRef, leaderRef, setPlaying]);
 
   // a window on standby steps nothing: the leader's own timer, if any, goes on there
   useEffect(() => {
     if (!isLeader) setPlaying(false);
-  }, [isLeader]);
+  }, [isLeader, setPlaying]);
 
   const setEvery = (n: number) => {
     const v = Math.max(EVERY_MIN, Math.min(EVERY_MAX, Math.round(n) || EVERY_MIN));
@@ -256,6 +300,7 @@ export function useAlbum({
 
   /** «Міняти кожні N с» on: from the photo on screen, or the first one when none is shown yet */
   const play = () => {
+    if (!leaderRef.current) return standbyNotice();
     if (!album || !photos || photos.length === 0) return;
     if (!albumOnScreen(liveSlideRef.current, album.id)) showPhoto(place() ?? 0);
     setPlaying(true);
@@ -277,6 +322,7 @@ export function useAlbum({
     /** the panel's ← → buttons: a step by hand, as a key */
     stepBy: (dir: 1 | -1) => {
       setPlaying(false);
+      if (!leaderRef.current) return standbyNotice();
       say(step(dir));
     },
     playing,

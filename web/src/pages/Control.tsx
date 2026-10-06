@@ -449,6 +449,7 @@ export function Control() {
     setLive,
     liveSlideRef,
     isLeader,
+    leaderRef,
     imagesOpen,
     setImagesOpen,
     keysPaused: paletteOpen || moreShown || toolOpen,

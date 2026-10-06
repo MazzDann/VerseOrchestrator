@@ -84,7 +84,11 @@ export function useShowCommands({
   slideStyle: SlideStyle;
   slideTemplate: SlideTemplate | null;
   pictureOf: (it: SeqImage) => SlidePicture;
-  startAlbum: (albumId: string, fit: SlidePicture['fit']) => Promise<Slide | null>;
+  startAlbum: (
+    albumId: string,
+    fit: SlidePicture['fit'],
+    label: string,
+  ) => Promise<{ slide: Slide } | { reason: string }>;
   playlistAdd: (item: NewSeqItem) => void;
   previewOverride: Slide | null;
   slideLines: SlideLine[];
@@ -108,10 +112,10 @@ export function useShowCommands({
       if (it.kind === 'album' && cmd === 'show') {
         if (!leaderRef.current)
           return { ok: false, reason: tr('Показом керує інше вікно керування') };
-        return startAlbum(it.albumId, it.fit).then((slide) => {
-          if (!slide) return { ok: false, reason: tr('Альбом не вдалося показати') };
+        return startAlbum(it.albumId, it.fit, it.label).then((r) => {
+          if ('reason' in r) return { ok: false, reason: r.reason };
           playlistSetCurrent(it.id);
-          setRemoteView({ name: by, target: null, slide });
+          setRemoteView({ name: by, target: null, slide: r.slide });
           return { ok: true };
         });
       }
@@ -260,7 +264,8 @@ export function useShowCommands({
         .fetchQuery({ queryKey: ['album', id], queryFn: () => api.album(id), staleTime: 0 })
         .then((info) => {
           const list = info.photos ?? [];
-          if (info.missing || list.length === 0) throw new Error(tr('В альбомі немає фото'));
+          if (info.missing) throw new Error(tr('Папку не знайдено: {name}', { name: it.label }));
+          if (list.length === 0) throw new Error(tr('В альбомі немає фото'));
           return albumSlide(id, list, 0, it.fit, slideStyle);
         });
     }

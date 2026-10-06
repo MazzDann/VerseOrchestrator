@@ -86,7 +86,11 @@ export function usePlaylistActions({
   ) => void;
   projectPicture: (picture: SlidePicture) => void;
   pictureOf: (it: SeqImage) => SlidePicture;
-  startAlbum: (albumId: string, fit: SlidePicture['fit']) => Promise<Slide | null>;
+  startAlbum: (
+    albumId: string,
+    fit: SlidePicture['fit'],
+    label: string,
+  ) => Promise<{ slide: Slide } | { reason: string }>;
   playlistSetCurrent: (id: string | null) => void;
   playlistItems: SeqItem[];
   playlistCurrentId: string | null;
@@ -193,7 +197,7 @@ export function usePlaylistActions({
     if (it.kind === 'passage') void activatePassage(it);
     else if (it.kind === 'text') projectText(it.body, it.title.trim());
     else if (it.kind === 'image') projectPicture(pictureOf(it));
-    else if (it.kind === 'album') void startAlbum(it.albumId, it.fit);
+    else if (it.kind === 'album') void startAlbum(it.albumId, it.fit, it.label);
     else void activateSong(it);
   };
 
