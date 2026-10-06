@@ -4,7 +4,7 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { readJson, writeJson } from './jsonFile.js';
-import { CONTENT_TYPE, sniff } from './images.js';
+import { CONTENT_TYPE, MAX_SMALL_BYTES, sniff } from './images.js';
 
 /**
  * Albums (1.8.12, F1005-13): folders of photos on this computer, shown in turn. The server
@@ -45,7 +45,24 @@ export interface AlbumPhoto {
   name: string;
   /** the name on the disk */
   file: string;
+  /** bytes and last change: whether its small copy is still the photo's */
+  size: number;
+  mtime: number;
 }
+
+/**
+ * Small copies for the phones (1.8.12-beta.2): the control window draws a photo at most 1280 px
+ * and sends it; they are kept in `data/album-cache/<album id>/` (not in a backup — made again
+ * from the folder) by a hash of the photo's name. A photo this small, or a GIF (its frames), is
+ * its own small copy; until a copy is there the phones get the photo itself.
+ */
+export const SMALL_DIR = 'album-cache';
+export const SMALL_AS_IS_BYTES = 512 * 1024;
+const smallDir = (dataDir: string, albumId: string) => path.join(dataDir, SMALL_DIR, albumId);
+const smallName = (name: string) =>
+  `${crypto.createHash('sha1').update(name.normalize('NFC')).digest('hex')}.jpg`;
+/** Needs no copy of its own: small already, or a GIF that would lose its frames. */
+export const smallAsIs = (p: AlbumPhoto) => p.size <= SMALL_AS_IS_BYTES || extOf(p.name) === 'gif';
 
 export interface Listing {
   photos: AlbumPhoto[];
@@ -177,7 +194,7 @@ export async function listPhotos(folder: string): Promise<Listing | null> {
   } catch {
     return null;
   }
-  const photos: AlbumPhoto[] = [];
+  const found: { name: string; file: string }[] = [];
   let heic = 0;
   for (const e of entries) {
     if (e.name.startsWith('.')) continue;
@@ -185,14 +202,22 @@ export async function listPhotos(folder: string): Promise<Listing | null> {
     const photo = PHOTO_EXTS.includes(ext) && e.name.length > ext.length + 1;
     if (!photo && !HEIC_EXTS.includes(ext)) continue;
     if ((await kindOf(folder, e)) !== 'file') continue;
-    if (photo) photos.push({ name: e.name.normalize('NFC'), file: e.name });
+    if (photo) found.push({ name: e.name.normalize('NFC'), file: e.name });
     else heic++;
   }
-  photos.sort((a, b) => natural.compare(a.name, b.name) || (a.name < b.name ? -1 : 1));
+  found.sort((a, b) => natural.compare(a.name, b.name) || (a.name < b.name ? -1 : 1));
+  const kept = found.slice(0, MAX_PHOTOS);
+  // sizes and times, all asked at once (the thread pool takes them in turn)
+  const stats = await Promise.all(
+    kept.map((p) => fsp.stat(path.join(folder, p.file)).catch(() => null)),
+  );
   return {
-    photos: photos.slice(0, MAX_PHOTOS),
+    photos: kept.flatMap((p, i) => {
+      const st = stats[i];
+      return st ? [{ ...p, size: st.size, mtime: st.mtimeMs }] : [];
+    }),
     heic,
-    truncated: photos.length > MAX_PHOTOS,
+    truncated: found.length > MAX_PHOTOS,
   };
 }
 
@@ -239,6 +264,71 @@ export function sniffPhoto(b: Uint8Array): PhotoExt | null {
   }
   return null;
 }
+
+/** The small copies an album has, by file name → when it was written. */
+export async function smallCopies(dataDir: string, albumId: string): Promise<Map<string, number>> {
+  const dir = smallDir(dataDir, albumId);
+  const names = await fsp.readdir(dir).catch(() => [] as string[]);
+  const times = await Promise.all(
+    names.map((n) =>
+      fsp.stat(path.join(dir, n)).then(
+        (s) => s.mtimeMs,
+        () => 0,
+      ),
+    ),
+  );
+  return new Map(names.map((n, i) => [n, times[i]]));
+}
+
+/** A photo has a small copy of itself: one written after the photo last changed. */
+const hasCopy = (copies: Map<string, number>, p: AlbumPhoto) =>
+  (copies.get(smallName(p.name)) ?? 0) >= p.mtime;
+
+/**
+ * What to send a phone for a photo (the `small` address): its small copy when there is one of
+ * this version of the photo, else the photo itself (photoFile's checks either way).
+ */
+export async function smallFile(
+  dataDir: string,
+  album: Album,
+  name: string,
+): Promise<{ file: string; type: string } | null> {
+  const photo = await photoFile(album.path, name);
+  if (!photo) return null;
+  const listing = await cachedListing(album.path);
+  const p = listing?.photos.find((x) => x.name === name.normalize('NFC'));
+  if (!p || smallAsIs(p)) return photo;
+  const copy = path.join(smallDir(dataDir, album.id), smallName(p.name));
+  const st = await fsp.stat(copy).catch(() => null);
+  return st && st.mtimeMs >= p.mtime ? { file: copy, type: 'image/jpeg' } : photo;
+}
+
+export type SmallRefusal = 'photo' | 'type' | 'size';
+
+/** Keep a small copy the control window drew (a JPEG of at most 4 MB) of a photo the listing holds. */
+export async function putSmall(
+  dataDir: string,
+  album: Album,
+  name: string,
+  bytes: Buffer,
+): Promise<{ bytes: number } | { refused: SmallRefusal }> {
+  const listing = await cachedListing(album.path);
+  const p = listing?.photos.find((x) => x.name === name.normalize('NFC'));
+  if (!p) return { refused: 'photo' };
+  if (bytes.length > MAX_SMALL_BYTES) return { refused: 'size' };
+  if (sniff(bytes) !== 'jpg') return { refused: 'type' };
+  const dir = smallDir(dataDir, album.id);
+  await fsp.mkdir(dir, { recursive: true });
+  const to = path.join(dir, smallName(p.name));
+  const tmp = `${to}.${process.pid}.tmp`;
+  await fsp.writeFile(tmp, bytes);
+  await fsp.rename(tmp, to);
+  return { bytes: bytes.length };
+}
+
+/** An album's small copies go with it (the folder stays as it is). */
+export const dropSmalls = (dataDir: string, albumId: string) =>
+  fsp.rm(smallDir(dataDir, albumId), { recursive: true, force: true });
 
 /**
  * The file to send for a photo of a folder: only a name its listing holds, a plain file still
@@ -368,9 +458,18 @@ export async function browse(raw: unknown): Promise<BrowseResult | null> {
   };
 }
 
-/** An album as the pages get it; with `photos` when its listing was asked for. */
-export function albumEntry(album: Album, listing: Listing | null, withPhotos = false) {
+/**
+ * An album as the pages get it; with `photos` when its listing was asked for (and, given the
+ * small copies there are, which photos still need one).
+ */
+export function albumEntry(
+  album: Album,
+  listing: Listing | null,
+  withPhotos = false,
+  copies: Map<string, number> = new Map(),
+) {
   const src = (name: string) => `/api/albums/${album.id}/file/${encodeURIComponent(name)}`;
+  const small = (name: string) => `/api/albums/${album.id}/small/${encodeURIComponent(name)}`;
   return {
     id: album.id,
     name: album.name,
@@ -381,7 +480,14 @@ export function albumEntry(album: Album, listing: Listing | null, withPhotos = f
     heic: listing?.heic ?? 0,
     truncated: listing?.truncated ?? false,
     ...(withPhotos
-      ? { photos: (listing?.photos ?? []).map((p) => ({ name: p.name, src: src(p.name) })) }
+      ? {
+          photos: (listing?.photos ?? []).map((p) => ({
+            name: p.name,
+            src: src(p.name),
+            small: small(p.name),
+            needsSmall: !smallAsIs(p) && !hasCopy(copies, p),
+          })),
+        }
       : {}),
   };
 }
