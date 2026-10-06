@@ -234,6 +234,8 @@ function shapeAnchor(shape: Shape, layout: Shape[], master: Shape[]): TextAnchor
 
 /** The height PowerPoint gives a line: about 1.2 × its biggest font (single spacing). */
 const LINE_HEIGHT = 1.2;
+/** One line of a box's text, % of the slide; a size not in the file counts as 4 % (a caption's). */
+const oneLine = (size: number) => (size || 4) * LINE_HEIGHT;
 
 /**
  * The empty lines before and after a box's text, in % of the slide's height (1.8.10): a song's
@@ -278,18 +280,24 @@ function blankLines(shape: string, sh: number, size: number): { lead: number; tr
  * Where the text sits once the empty lines around it are gone, as in PowerPoint: a bottom
  * anchor lifts the box by the lines after the text, a top one lowers it by the lines before, a
  * middle one moves it by half their difference. The box keeps its height (in PowerPoint, text
- * taller than what the empty lines leave grows past the box's edge), within the slide.
+ * taller than what the empty lines leave grows past the box's edge), cut where it leaves the slide
+ * — as `SlideCanvas` cuts any box: cutting a middle box on both sides to keep its centre would
+ * shrink the text of boxes taller than the slide (№183: 92.9 → 77.3 % of room; review of 1.8.10).
+ * A box the edge would leave lower than `line` (one line of its text) stays where it was: the
+ * empty lines are measured, not laid out, and a wrong guess must not hide the text.
  */
 function withoutBlankLines(
   box: { y: number; h: number },
   anchor: TextAnchor,
   { lead, trail }: { lead: number; trail: number },
+  line: number,
 ): { y: number; h: number } {
   const shift = anchor === 'bottom' ? -trail : anchor === 'top' ? lead : (lead - trail) / 2;
   if (!shift) return box;
   const top = box.y + shift;
   const y = Math.max(0, top);
-  return { y, h: Math.max(0, Math.min(top + box.h, 100) - y) };
+  const h = Math.max(0, Math.min(top + box.h, 100) - y);
+  return h < line ? box : { y, h };
 }
 
 /**
@@ -315,7 +323,12 @@ function readSlide(
   const style: SlideStyleSpec = {
     bg,
     ...mainBox,
-    ...withoutBlankLines(mainBox, anchor, blankLines(main.xml, sh, mainBox.size)),
+    ...withoutBlankLines(
+      mainBox,
+      anchor,
+      blankLines(main.xml, sh, mainBox.size),
+      oneLine(mainBox.size),
+    ),
     anchor,
   };
   const second = secondOf(main.xml, style.color, theme);
@@ -326,7 +339,12 @@ function readSlide(
   if (!other || !subText || !own) return { text: bodyText(slideXml), style };
   const box = boxOf(other.xml, sw, sh, theme);
   const subAnchor = shapeAnchor(other, layout, master);
-  const subPlace = withoutBlankLines(box, subAnchor, blankLines(other.xml, sh, box.size));
+  const subPlace = withoutBlankLines(
+    box,
+    subAnchor,
+    blankLines(other.xml, sh, box.size),
+    oneLine(box.size),
+  );
   style.sub = {
     text: subText,
     color: box.color,
@@ -340,7 +358,8 @@ function readSlide(
   };
   // plain text reads top to bottom, by the boxes' middles (a chorus box can start above its
   // label and still hold its text lower): a label over the chorus first, the authors last
-  const above = box.y + box.h / 2 < style.y + style.h / 2;
+  // where the files put the boxes, before the empty lines move them: the order of reader 4
+  const above = box.y + box.h / 2 < mainBox.y + mainBox.h / 2;
   return { text: above ? `${subText}\n${own}` : `${own}\n${subText}`, style };
 }
 
