@@ -23,20 +23,13 @@ import {
 } from '@tabler/icons-react';
 import { api, type ImageInfo } from '../api';
 import { fileToPicture } from '../lib/image';
+import { readImageFit, storeImageFit, type ImageFit } from '../lib/imageFit';
 import { type SlidePicture } from '../presenterBus';
 import { usePlaylist, type SeqItem } from '../playlistStore';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { tr, trn, useLang } from '../i18n';
 
-type Fit = SlidePicture['fit'];
-const FIT_KEY = 'vo:imageFit';
-const readFit = (): Fit => {
-  try {
-    return localStorage.getItem(FIT_KEY) === 'cover' ? 'cover' : 'contain';
-  } catch {
-    return 'contain';
-  }
-};
+type Fit = ImageFit;
 
 /** A picture as a slide shows it. */
 const asPicture = (img: ImageInfo, fit: Fit): SlidePicture => ({
@@ -84,14 +77,10 @@ export function ImagesPanel({
     queryFn: api.images,
     enabled: open && serverAvailable !== false,
   });
-  const [fit, setFitState] = useState<Fit>(readFit);
+  const [fit, setFitState] = useState<Fit>(readImageFit);
   const setFit = (f: Fit) => {
     setFitState(f);
-    try {
-      localStorage.setItem(FIT_KEY, f);
-    } catch {
-      /* a per-viewer convenience: not kept is fine */
-    }
+    storeImageFit(f);
     onRefit(f);
   };
   const [adding, setAdding] = useState<{ done: number; of: number } | null>(null);

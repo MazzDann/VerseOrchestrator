@@ -54,6 +54,7 @@ import { useScreenSwitches } from './control/useScreenSwitches';
 import { useQrCornerFollow } from './control/useQrCornerFollow';
 import { useSongProjection } from './control/useSongProjection';
 import { usePictures } from './control/usePictures';
+import { useAlbum } from './control/useAlbum';
 import { usePlaylistActions } from './control/usePlaylistActions';
 import { useTimers } from './control/useTimers';
 import { useVerseDeck } from './control/useVerseDeck';
@@ -439,6 +440,19 @@ export function Control() {
       clearedRef,
       playlistAdd,
     });
+  // an album in turn (1.8.12): its keys, commands and «Міняти кожні N с» (three effects of its
+  // own, independent of the others) — before the takeover, which opens it
+  const albumShow = useAlbum({
+    slideStyle,
+    pushLive,
+    setPreviewOverride,
+    setLive,
+    liveSlideRef,
+    isLeader,
+    imagesOpen,
+    keysPaused: paletteOpen || moreShown || toolOpen,
+    serverAvailable,
+  });
   const {
     activatePassage,
     activateItem,
@@ -684,6 +698,8 @@ export function Control() {
     openSong,
     setSongsPanelStanza,
     setSongsOpen,
+    openAlbum: albumShow.openAlbum,
+    setImagesOpen,
     setPreviewOverride,
     previewOverride,
     isLeader,
