@@ -14,9 +14,11 @@ import { releaseAsset } from './layout.js';
  * version.
  */
 
+// 100 (the API's most, one request all the same): betas take places in the list since 1.8.11, the
+// dropdown keeps the stable releases it showed with 30
 export const RELEASES_URL =
   process.env.VO_UPDATE_URL ??
-  'https://api.github.com/repos/MazzDann/VerseOrchestrator/releases?per_page=30';
+  'https://api.github.com/repos/MazzDann/VerseOrchestrator/releases?per_page=100';
 /** How long an answer counts as fresh. */
 export const CHECK_EVERY_MS = 12 * 60 * 60 * 1000;
 const TIMEOUT_MS = 8000;
