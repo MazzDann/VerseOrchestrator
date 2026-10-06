@@ -117,12 +117,19 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
 
      CI builds the packages and publishes the release — see [Releases](#releases).
 
+- **Betas.** From 1.8.11 on, a feature can come out first as a beta: the version and the tag
+  are `X.Y.Z-beta.N`, for example `1.8.12-beta.1`, made the same way as a release. CI
+  publishes a beta as a GitHub pre-release: it never becomes **Latest**, and the app offers it
+  only to copies on the **Бета** channel. A stable release `X.Y.Z` gathers the betas before
+  it. Versions before 1.8.11 never see a beta: they skip pre-releases and can't read the
+  version.
+
 ## Releases
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the checks above on every push to `main`
-and on every pull request. A pushed tag `vX.Y.Z` makes a release when `X.Y.Z` is the
-`version` in the tagged commit's `package.json` and the commit is on `main`; otherwise the
-run fails and says why:
+and on every pull request. A pushed tag `vX.Y.Z` or `vX.Y.Z-beta.N` makes a release when
+its version is the `version` in the tagged commit's `package.json` and the commit is on
+`main`; otherwise the run fails and says why:
 
 1. On Windows, macOS, and Linux runners, `npm run portable -- --release` builds a copy with
    its own Node.js — no settings of the build machine and never the library, whose
@@ -132,7 +139,8 @@ run fails and says why:
    carry no version, so `…/releases/latest/download/<file>` stays the same link.
 3. A GitHub release for the tag gets the archives, `SHA256SUMS.txt`, and notes from
    `.github/scripts/release-notes.mjs`: the tag message's first line in bold, its body, then
-   how to download, start, and update. Versions `0.x` come out as pre-releases.
+   how to download, start, and update. Versions `0.x` and betas `X.Y.Z-beta.N` come out as
+   pre-releases.
 
 To try the packages without a release — for example, a pull request's branch — run the
 workflow by hand: **Actions** → **CI** → **Run workflow**, and pick the branch; the archives

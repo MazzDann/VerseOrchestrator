@@ -21,13 +21,34 @@ export function useUpdateState(): UpdateState | undefined {
 
 const BUSY = new Set(['download', 'verify', 'unpack']);
 
-/** Negative, zero or positive, like a sort comparator (server/src/updates.ts compareVersions). */
+const VERSION = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*))?$/;
+
+/**
+ * Negative, zero or positive, like a sort comparator (server/src/updates.ts compareVersions):
+ * semver, betas too (1.8.11) — a release after its betas, numbers as numbers.
+ */
 export function compareVersions(a: string, b: string): number {
-  const parse = (v: string) => /^v?(\d+)\.(\d+)\.(\d+)$/.exec(v.trim())?.slice(1).map(Number);
-  const x = parse(a);
-  const y = parse(b);
+  const x = VERSION.exec(a.trim());
+  const y = VERSION.exec(b.trim());
   if (!x || !y) return (x ? 1 : 0) - (y ? 1 : 0);
-  return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
+  for (let i = 1; i <= 3; i++)
+    if (Number(x[i]) !== Number(y[i])) return Number(x[i]) - Number(y[i]);
+  const [p, q] = [x[4] ?? null, y[4] ?? null];
+  if (p === q) return 0;
+  if (p === null) return 1;
+  if (q === null) return -1;
+  const u = p.split('.');
+  const v = q.split('.');
+  for (let i = 0; i < Math.max(u.length, v.length); i++) {
+    if (u[i] === undefined) return -1;
+    if (v[i] === undefined) return 1;
+    const nu = /^\d+$/.test(u[i]);
+    const nv = /^\d+$/.test(v[i]);
+    if (nu && nv && Number(u[i]) !== Number(v[i])) return Number(u[i]) - Number(v[i]);
+    if (nu !== nv) return nu ? -1 : 1;
+    if (!nu && u[i] !== v[i]) return u[i] < v[i] ? -1 : 1;
+  }
+  return 0;
 }
 
 /**

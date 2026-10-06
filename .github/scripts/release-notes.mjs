@@ -6,8 +6,9 @@
 import { execFileSync } from 'node:child_process';
 
 const tag = process.argv[2] ?? '';
-if (!/^v\d+\.\d+\.\d+$/.test(tag)) {
-  console.error('usage: node .github/scripts/release-notes.mjs vX.Y.Z');
+// a release, or a beta (1.8.11): the grammar of server/src/updates.ts
+if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?$/.test(tag)) {
+  console.error('usage: node .github/scripts/release-notes.mjs vX.Y.Z[-beta.N]');
   process.exit(2);
 }
 const field = (name) =>
@@ -15,6 +16,7 @@ const field = (name) =>
 const subject = field('contents:subject');
 const body = field('contents:body');
 const preview = tag.startsWith('v0.');
+const beta = !preview && tag.includes('-');
 
 const files = [
   ['Windows 10/11 (x64)', 'VerseOrchestrator-windows-x64.zip'],
@@ -77,6 +79,8 @@ const blocks = [
   body,
   preview &&
     'Попередня версія (0.x): перший реліз буде 1.0.0. · A preview (0.x): the first release will be 1.0.0.',
+  beta &&
+    'Бета-версія: застосунок пропонує її лише на каналі «Бета» (Налаштування вигляду → Застосунок → Оновлення). · A beta: the app offers it only on the «Бета» (Beta) channel (Settings → App → Updates).',
   uk.join('\n'),
   '---',
   en.join('\n'),

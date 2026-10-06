@@ -198,8 +198,20 @@ link. **Check now** asks at once. To keep the app from contacting GitHub, turn o
 **Check for updates**. The app downloads and installs a new version only when you click the
 button.
 
-Versions 0.x are previews: while you have a 0.x version, the app offers previews too; from
-1.0.0 on, only regular releases.
+### Choose a channel
+
+From version 1.8.11, **Updates** has a **Channel** switch:
+
+- **Stable** offers stable versions only. Each one gathers several betas that were already
+  tested.
+- **Beta** offers betas too, such as `1.8.12-beta.1`. New things come sooner, but betas may
+  have flaws.
+
+To go back from a beta, switch the channel to **Stable** and pick a stable version in the list
+(see [Install another version](#install-another-version)). Until you choose a channel, the app
+offers betas only if a beta is already installed. Versions before 1.8.11 don't see betas.
+
+Versions 0.x are previews: while you have a 0.x version, the app offers previews too.
 
 ### Update the app from the archive
 
@@ -253,7 +265,7 @@ back from 1.4.0, the archive has to be downloaded again.
 ### Install another version
 
 An app installed from an archive can switch to any regular version from 1.0.0 on, newer or
-older:
+older; on the **Beta** channel, to a beta too:
 
 1. In **Settings** → **App** → **Updates**, choose the version in the list next to the
    download button. If there is no list yet, click **Check now**.
