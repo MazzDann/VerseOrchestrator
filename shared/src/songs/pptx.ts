@@ -11,9 +11,10 @@ import { unzipSync, strFromU8 } from 'fflate';
  * The version of this reader. A bundle a folder of .pptx files feeds is read again when an
  * older reader wrote it (2 — 1.2.1: title slides kept their authors in the title's box; 3 —
  * 1.3.0: a second part in another colour; 4: keys in one Unicode form, so a Mac's reading
- * replaces a Windows one instead of doubling it).
+ * replaces a Windows one instead of doubling it; 5 — 1.8.10: a box moved by the empty lines
+ * around its text, so a title lifted with empty lines no longer drops onto the authors).
  */
-export const PPTX_READER = 4;
+export const PPTX_READER = 5;
 
 /**
  * A second part (1.3.0): words the file colours apart from the rest of the box — an echo or
@@ -231,6 +232,74 @@ function shapeAnchor(shape: Shape, layout: Shape[], master: Shape[]): TextAnchor
   return (onMaster && anchorOf(onMaster.xml)) ?? 'top';
 }
 
+/** The height PowerPoint gives a line: about 1.2 × its biggest font (single spacing). */
+const LINE_HEIGHT = 1.2;
+/** One line of a box's text, % of the slide; a size not in the file counts as 4 % (a caption's). */
+const oneLine = (size: number) => (size || 4) * LINE_HEIGHT;
+
+/**
+ * The empty lines before and after a box's text, in % of the slide's height (1.8.10): a song's
+ * author lifts a bottom-anchored title above the authors' box with empty lines after it
+ * (`<a:br>`s, empty paragraphs). The text drops them (`bodyText`), so the box moves instead
+ * (`withoutBlankLines`). A line is as high as its biggest run, a line break included; an empty
+ * paragraph's last line takes its end mark's size; without one, the box's own size (`size`, cqh).
+ */
+function blankLines(shape: string, sh: number, size: number): { lead: number; trail: number } {
+  const lines: { blank: boolean; sz: number }[] = [];
+  let text = '';
+  let sz = 0;
+  let end = 0;
+  const close = (own = 0) => {
+    lines.push({ blank: !text.trim(), sz: Math.max(sz, own) || end });
+    text = '';
+    sz = 0;
+    end = 0;
+  };
+  const re =
+    /<a:(?:r|fld)\b[^>]*>([\s\S]*?)<\/a:(?:r|fld)>|<a:br\b[^>]*?(?:\/>|>([\s\S]*?)<\/a:br>)|<a:endParaRPr\b([^>]*)|<\/a:p>/g;
+  const sizeIn = (xml: string | undefined) =>
+    Number(first(xml ?? '', /<a:rPr\b[^>]*\bsz="(\d+)"/) ?? 0);
+  for (const m of shape.matchAll(re)) {
+    if (m[1] !== undefined) {
+      text += first(m[1], /<a:t>([\s\S]*?)<\/a:t>/) ?? '';
+      sz = Math.max(sz, sizeIn(m[1]));
+    } else if (m[0].startsWith('<a:br')) close(sizeIn(m[2]));
+    else if (m[3] !== undefined) end = Number(first(m[3], /\bsz="(\d+)"/) ?? 0);
+    else close();
+  }
+  const from = lines.findIndex((l) => !l.blank);
+  if (from < 0 || !sh) return { lead: 0, trail: 0 };
+  const to = lines.length - 1 - [...lines].reverse().findIndex((l) => !l.blank);
+  // hundredths of a point → % of the slide, as `boxOf` does; a size of 0 = the box's own (cqh)
+  const height = (ls: typeof lines) =>
+    ls.reduce((h, l) => h + (l.sz ? (l.sz * 12700) / sh : size) * LINE_HEIGHT, 0);
+  return { lead: height(lines.slice(0, from)), trail: height(lines.slice(to + 1)) };
+}
+
+/**
+ * Where the text sits once the empty lines around it are gone, as in PowerPoint: a bottom
+ * anchor lifts the box by the lines after the text, a top one lowers it by the lines before, a
+ * middle one moves it by half their difference. The box keeps its height (in PowerPoint, text
+ * taller than what the empty lines leave grows past the box's edge), cut where it leaves the slide
+ * — as `SlideCanvas` cuts any box: cutting a middle box on both sides to keep its centre would
+ * shrink the text of boxes taller than the slide (№183: 92.9 → 77.3 % of room; review of 1.8.10).
+ * A box the edge would leave lower than `line` (one line of its text) stays where it was: the
+ * empty lines are measured, not laid out, and a wrong guess must not hide the text.
+ */
+function withoutBlankLines(
+  box: { y: number; h: number },
+  anchor: TextAnchor,
+  { lead, trail }: { lead: number; trail: number },
+  line: number,
+): { y: number; h: number } {
+  const shift = anchor === 'bottom' ? -trail : anchor === 'top' ? lead : (lead - trail) / 2;
+  if (!shift) return box;
+  const top = box.y + shift;
+  const y = Math.max(0, top);
+  const h = Math.max(0, Math.min(top + box.h, 100) - y);
+  return h < line ? box : { y, h };
+}
+
 /**
  * One slide: its text and faithful style — the title's box (else the first text box's) on
  * the master background. A slide with exactly two text boxes keeps the other one apart
@@ -249,10 +318,18 @@ function readSlide(
   const shapes = shapesOf(slideXml, true);
   if (shapes.length === 0) return { text: bodyText(slideXml), style: null };
   const main = shapes.find((x) => isTitle(x.type)) ?? shapes[0];
+  const mainBox = boxOf(main.xml, sw, sh, theme);
+  const anchor = shapeAnchor(main, layout, master);
   const style: SlideStyleSpec = {
     bg,
-    ...boxOf(main.xml, sw, sh, theme),
-    anchor: shapeAnchor(main, layout, master),
+    ...mainBox,
+    ...withoutBlankLines(
+      mainBox,
+      anchor,
+      blankLines(main.xml, sh, mainBox.size),
+      oneLine(mainBox.size),
+    ),
+    anchor,
   };
   const second = secondOf(main.xml, style.color, theme);
   if (second) style.second = second;
@@ -261,20 +338,28 @@ function readSlide(
   const own = bodyText(main.xml);
   if (!other || !subText || !own) return { text: bodyText(slideXml), style };
   const box = boxOf(other.xml, sw, sh, theme);
+  const subAnchor = shapeAnchor(other, layout, master);
+  const subPlace = withoutBlankLines(
+    box,
+    subAnchor,
+    blankLines(other.xml, sh, box.size),
+    oneLine(box.size),
+  );
   style.sub = {
     text: subText,
     color: box.color,
     align: box.align,
-    anchor: shapeAnchor(other, layout, master),
+    anchor: subAnchor,
     x: box.x,
-    y: box.y,
+    y: subPlace.y,
     w: box.w,
-    h: box.h,
+    h: subPlace.h,
     size: box.size,
   };
   // plain text reads top to bottom, by the boxes' middles (a chorus box can start above its
   // label and still hold its text lower): a label over the chorus first, the authors last
-  const above = box.y + box.h / 2 < style.y + style.h / 2;
+  // where the files put the boxes, before the empty lines move them: the order of reader 4
+  const above = box.y + box.h / 2 < mainBox.y + mainBox.h / 2;
   return { text: above ? `${subText}\n${own}` : `${own}\n${subText}`, style };
 }
 
