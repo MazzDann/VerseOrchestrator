@@ -21,6 +21,8 @@ export type Takeover =
       override: Slide | null;
     }
   | { kind: 'song'; songId: number; stanza: number; override: Slide }
+  /** an album's photo (1.8.12): open that album at that photo; the slideshow's timer stays off */
+  | { kind: 'album'; albumId: string; index: number; name: string; override: Slide }
   /** free text / black / empty: nothing to stand on — keep the selection */
   | { kind: 'none' };
 
@@ -49,6 +51,26 @@ export function planTakeover(screen: Slide): Takeover {
   }
   if (src?.kind === 'song' && showing) {
     return { kind: 'song', songId: src.songId, stanza: src.stanza, override: screen };
+  }
+  // a photo has no lines: on screen = visible, not hidden, not black (a window of another
+  // version may send anything as the place: only a real one is taken)
+  if (
+    src?.kind === 'album' &&
+    screen.picture &&
+    screen.visible &&
+    !screen.blank &&
+    !screen.forceBlack &&
+    typeof src.albumId === 'string' &&
+    Number.isInteger(src.index) &&
+    src.index >= 0
+  ) {
+    return {
+      kind: 'album',
+      albumId: src.albumId,
+      index: src.index,
+      name: typeof src.name === 'string' ? src.name : '',
+      override: screen,
+    };
   }
   return { kind: 'none' };
 }
