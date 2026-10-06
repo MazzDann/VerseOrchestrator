@@ -27,6 +27,8 @@ import {
   useSettings,
   setAppearanceImage,
   FONT_OPTIONS,
+  videoEndOf,
+  videoPhonesOf,
   type TextAlign,
   type PadUnit,
   type PadLink,
@@ -484,6 +486,44 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             ]}
             value={a.countdownCornerSize}
             onChange={(v) => v && set({ countdownCornerSize: v as CornerSize })}
+            allowDeselect={false}
+          />
+        </Section>
+
+        {/* «Відео» (1.8.12-beta.3, the author's calls): its end and the phones */}
+        <Section
+          value="video"
+          title={tr('Відео')}
+          summary={summary(
+            videoEndOf(a.videoEnd) === 'next'
+              ? tr('після кінця — далі')
+              : tr('після кінця — чорний екран'),
+            videoPhonesOf(a.videoPhones) === 'text'
+              ? tr('на телефонах — напис')
+              : tr('на телефонах — кадр'),
+          )}
+        >
+          <Text size="xs" c="dimmed">
+            {tr('Відео грає у вікні показу без звуку; звук іде з вікна керування.')}
+          </Text>
+          <Select
+            label={tr('Після кінця відео')}
+            data={[
+              { value: 'black', label: tr('Чорний екран') },
+              { value: 'next', label: tr('Далі: наступний пункт послідовності чи наступне відео') },
+            ]}
+            value={videoEndOf(a.videoEnd)}
+            onChange={(v) => v && set({ videoEnd: videoEndOf(v) })}
+            allowDeselect={false}
+          />
+          <Select
+            label={tr('Телефони глядачів під час відео')}
+            data={[
+              { value: 'poster', label: tr('Кадр з відео') },
+              { value: 'text', label: tr('Напис «Відео на екрані»') },
+            ]}
+            value={videoPhonesOf(a.videoPhones)}
+            onChange={(v) => v && set({ videoPhones: videoPhonesOf(v) })}
             allowDeselect={false}
           />
         </Section>

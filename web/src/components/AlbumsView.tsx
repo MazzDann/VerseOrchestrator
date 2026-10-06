@@ -20,6 +20,7 @@ import {
   IconFolder,
   IconFolderPlus,
   IconHome,
+  IconMovie,
   IconPhoto,
   IconPlayerPause,
   IconPlayerPlay,
@@ -56,7 +57,14 @@ export function AlbumsView({
 }) {
   useLang();
   const [picking, setPicking] = useState(false);
-  if (picking) return <FolderPicker onDone={() => setPicking(false)} openAlbum={show.openAlbum} />;
+  if (picking)
+    return (
+      <FolderPicker
+        mode="album"
+        onDone={() => setPicking(false)}
+        onAdded={(id) => show.openAlbum(id)}
+      />
+    );
   if (show.album)
     return <OpenAlbumView show={show} onScreen={onScreen} onAddToPlaylist={onAddToPlaylist} />;
   return (
@@ -218,19 +226,28 @@ function AlbumList({
 }
 
 /** «Додати папку…»: the computer's folders, from home, Pictures and the drives. */
-function FolderPicker({
+/**
+ * The computer's folders, from home, Pictures and the drives: «Додати папку…» adds the folder shown
+ * as an album; «Додати відео…» (1.8.12-beta.3, `mode="video"`) lists its video files too, and a
+ * click on one adds it.
+ */
+export function FolderPicker({
+  mode,
   onDone,
-  openAlbum,
+  onAdded,
 }: {
+  mode: 'album' | 'video';
   onDone: () => void;
-  openAlbum: AlbumShow['openAlbum'];
+  /** the album or the video just added */
+  onAdded: (id: string) => void;
 }) {
+  useLang();
   const queryClient = useQueryClient();
   const [path, setPath] = useState<string | undefined>(undefined);
   const [adding, setAdding] = useState(false);
   const folders = useQuery<FolderList>({
-    queryKey: ['folders', path ?? ''],
-    queryFn: () => api.browseFolders(path),
+    queryKey: ['folders', path ?? '', mode],
+    queryFn: () => api.browseFolders(path, mode === 'video' ? 'video' : undefined),
     staleTime: 0,
   });
   const here = folders.data;
@@ -253,13 +270,33 @@ function FolderPicker({
         autoClose: 1500,
       });
       onDone();
-      openAlbum(a.id);
+      onAdded(a.id);
     } catch (e) {
       notifications.show({ message: tr((e as Error).message), color: 'red' });
     } finally {
       setAdding(false);
     }
   };
+  const addVideo = async (file: string) => {
+    setAdding(true);
+    try {
+      const v = await api.addVideo(file);
+      await queryClient.invalidateQueries({ queryKey: ['videos'] });
+      notifications.show({
+        message: tr('Відео додано: {name}', { name: v.name }),
+        color: 'green',
+        autoClose: 1500,
+      });
+      onDone();
+      onAdded(v.id);
+    } catch (e) {
+      notifications.show({ message: tr((e as Error).message), color: 'red' });
+    } finally {
+      setAdding(false);
+    }
+  };
+  const mb = (bytes: number) => `${(bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0)} МБ`; // i18n-ignore
+  const files = mode === 'video' ? (here?.videos ?? []) : [];
   const startName = (f: FolderList['folders'][number]) =>
     f.kind === 'home' ? tr('Домашня папка ({name})', { name: f.name }) : f.name;
   const startIcon = (f: FolderList['folders'][number]) =>
@@ -312,9 +349,11 @@ function FolderPicker({
             <Text size="sm" c="dimmed">
               {tr('Система не дає відкрити цю папку. Виберіть іншу.')}
             </Text>
-          ) : here && here.folders.length === 0 ? (
+          ) : here && here.folders.length === 0 && files.length === 0 ? (
             <Text size="sm" c="dimmed">
-              {tr('Тут немає вкладених папок.')}
+              {mode === 'video'
+                ? tr('Тут немає ні папок, ні відео.')
+                : tr('Тут немає вкладених папок.')}
             </Text>
           ) : (
             (here?.folders ?? []).map((f) => (
@@ -337,16 +376,52 @@ function FolderPicker({
               </div>
             ))
           )}
+          {files.map((f) => (
+            <div
+              key={f.path}
+              className="vo-list-item vo-folder-row"
+              role="button"
+              tabIndex={0}
+              aria-label={tr('Додати відео «{name}»', { name: f.name })}
+              onClick={() => !adding && void addVideo(f.path)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (!adding) void addVideo(f.path);
+                }
+              }}
+              title={f.path}
+            >
+              <IconMovie size={14} />
+              <span>{f.name}</span>
+              <Text span size="xs" c="dimmed" ml="auto" style={{ flexShrink: 0 }}>
+                {mb(f.size)}
+              </Text>
+            </div>
+          ))}
         </ScrollArea.Autosize>
       )}
       <Group justify="space-between" wrap="nowrap" gap="xs">
         <Text size="xs" c="dimmed" style={{ minWidth: 0 }}>
-          {here?.path
-            ? here.photos > 0
-              ? trn(here.photos, 'У цій папці {n} фото|У цій папці {n} фото|У цій папці {n} фото')
-              : tr('У цій папці немає фото — відкрийте папку, де вони лежать.')
-            : ''}
-          {here?.path && here.heic > 0
+          {mode === 'video' && here?.path
+            ? `${
+                files.length > 0
+                  ? tr('Натисніть відео, щоб додати його.')
+                  : tr('У цій папці немає відео MP4, MOV, WebM чи MKV.')
+              }${
+                here.unplayable
+                  ? ` ${trn(here.unplayable, '{n} відео браузер не відтворить (AVI, WMV…) — збережіть його як MP4.|{n} відео браузер не відтворить (AVI, WMV…) — збережіть їх як MP4.|{n} відео браузер не відтворить (AVI, WMV…) — збережіть їх як MP4.')}`
+                  : ''
+              }`
+            : null}
+          {mode === 'video'
+            ? null
+            : here?.path
+              ? here.photos > 0
+                ? trn(here.photos, 'У цій папці {n} фото|У цій папці {n} фото|У цій папці {n} фото')
+                : tr('У цій папці немає фото — відкрийте папку, де вони лежать.')
+              : ''}
+          {mode === 'album' && here?.path && here.heic > 0
             ? ` ${trn(here.heic, '{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.')}`
             : ''}
         </Text>
@@ -354,16 +429,18 @@ function FolderPicker({
           <Button size="xs" variant="default" onClick={onDone}>
             {tr('Скасувати')}
           </Button>
-          <Button
-            size="xs"
-            variant="light"
-            leftSection={<IconFolderPlus size={14} />}
-            disabled={!here?.path || here.denied}
-            loading={adding}
-            onClick={() => void add()}
-          >
-            {tr('Додати цю папку')}
-          </Button>
+          {mode === 'album' && (
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<IconFolderPlus size={14} />}
+              disabled={!here?.path || here.denied}
+              loading={adding}
+              onClick={() => void add()}
+            >
+              {tr('Додати цю папку')}
+            </Button>
+          )}
         </Group>
       </Group>
     </>

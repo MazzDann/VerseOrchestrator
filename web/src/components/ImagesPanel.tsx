@@ -21,7 +21,7 @@ import {
   IconUpload,
   IconX,
 } from '@tabler/icons-react';
-import { api, type AlbumInfo, type ImageInfo } from '../api';
+import { api, type AlbumInfo, type ImageInfo, type VideoInfo } from '../api';
 import { fileToPicture } from '../lib/image';
 import { readImageFit, storeImageFit, type ImageFit } from '../lib/imageFit';
 import { type SlidePicture } from '../presenterBus';
@@ -29,7 +29,12 @@ import { usePlaylist, type SeqItem } from '../playlistStore';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { tr, trn, useLang } from '../i18n';
 import type { useAlbum } from '../pages/control/useAlbum';
+import type { useVideo } from '../pages/control/useVideo';
 import { AlbumsView } from './AlbumsView';
+import { VideosView } from './VideosView';
+
+/** What «Зображення» shows: pictures, albums (1.8.12) or videos (1.8.12-beta.3). */
+export type MediaTab = 'images' | 'albums' | 'videos';
 
 type Fit = ImageFit;
 
@@ -62,6 +67,10 @@ export function ImagesPanel({
   onScreen,
   albums,
   onAddAlbumToPlaylist,
+  tab,
+  onTab,
+  videos,
+  onAddVideoToPlaylist,
 }: {
   open: boolean;
   onClose: () => void;
@@ -76,6 +85,11 @@ export function ImagesPanel({
   /** the album open in the control window (pages/control/useAlbum.ts) */
   albums: ReturnType<typeof useAlbum>;
   onAddAlbumToPlaylist: (album: AlbumInfo, fit: Fit) => void;
+  tab: MediaTab;
+  onTab: (tab: MediaTab) => void;
+  /** the videos of the list and the one on screen (pages/control/useVideo.ts) */
+  videos: ReturnType<typeof useVideo>;
+  onAddVideoToPlaylist: (video: VideoInfo, fit: Fit) => void;
 }) {
   useLang();
   const queryClient = useQueryClient();
@@ -83,7 +97,7 @@ export function ImagesPanel({
   const images = useQuery({
     queryKey: ['images'],
     queryFn: api.images,
-    enabled: open && serverAvailable !== false && !albums.albumsTab,
+    enabled: open && serverAvailable !== false && tab === 'images',
   });
   const [fit, setFitState] = useState<Fit>(readImageFit);
   const setFit = (f: Fit) => {
@@ -295,13 +309,14 @@ export function ImagesPanel({
           <IconLibraryPhoto size={18} stroke={1.5} />
           <SegmentedControl
             size="xs"
-            value={albums.albumsTab ? 'albums' : 'images'}
-            onChange={(v) => albums.setAlbumsTab(v === 'albums')}
+            value={tab}
+            onChange={(v) => onTab(v as MediaTab)}
             data={[
               { value: 'images', label: tr('Зображення') },
               { value: 'albums', label: tr('Альбоми') },
+              { value: 'videos', label: tr('Відео') },
             ]}
-            aria-label={tr('Зображення чи альбоми з папок')}
+            aria-label={tr('Зображення, альбоми з папок чи відео')}
           />
         </Group>
         <Group gap={6} wrap="nowrap">
@@ -315,7 +330,7 @@ export function ImagesPanel({
             ]}
             aria-label={tr('Як зображення займає слайд')}
           />
-          {!albums.albumsTab && (
+          {tab === 'images' && (
             <FileButton
               onChange={(files) => void add(files)}
               accept="image/png,image/jpeg,image/webp,image/gif"
@@ -345,7 +360,9 @@ export function ImagesPanel({
         <Text size="sm" c="dimmed">
           {tr(NEEDS_SERVER)}
         </Text>
-      ) : albums.albumsTab ? (
+      ) : tab === 'videos' ? (
+        <VideosView show={videos} onAddToPlaylist={(v) => onAddVideoToPlaylist(v, fit)} />
+      ) : tab === 'albums' ? (
         <AlbumsView
           show={albums}
           onScreen={onScreen}
