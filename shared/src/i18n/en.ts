@@ -393,6 +393,8 @@ export const EN: Record<string, string> = {
   'Виберіть файл на цьому комп’ютері': 'Choose a file on this computer',
   Відео: 'Videos',
   'Відео на екрані': 'Video on screen',
+  'Браузер не може відтворити це відео. Збережіть його як MP4 (H.264) і додайте знову.':
+    "The browser can't play this video. Save it as MP4 (H.264) and add it again.",
   'відео: ще {time}': 'video: {time} left',
   'Відео додано: {name}': 'Video added: {name}',
   'Тут немає ні папок, ні відео.': 'There are no folders or videos in here.',

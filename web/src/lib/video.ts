@@ -92,6 +92,8 @@ export function syncMedia(el: HTMLMediaElement, v: SlideVideo, now = Date.now())
     if (Math.abs(el.currentTime - target) > 0.05) el.currentTime = target;
     return;
   }
+  // played to its end a moment before the clock says so: stay there, not start over (review)
+  if (el.ended && !v.loop && target > d - SEEK_S) return;
   const step = syncStep(el.currentTime, target, v.loop ? d : 0);
   if (step.seek != null) el.currentTime = step.seek;
   if (el.playbackRate !== step.rate) el.playbackRate = step.rate;

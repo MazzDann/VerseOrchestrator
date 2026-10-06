@@ -314,7 +314,8 @@ function VideoContent({ video }: { video: SlideVideo }) {
       el.removeEventListener('loadedmetadata', sync);
     };
   }, [video.src, video.at, video.from, video.paused, video.loop]);
-  if (failed === video.src) return null;
+  // a file that failed is tried again by a new start of it (the same element stays mounted)
+  if (failed === `${video.src}|${video.at}`) return null;
   return (
     <video
       ref={ref}
@@ -323,7 +324,7 @@ function VideoContent({ video }: { video: SlideVideo }) {
       playsInline
       preload="auto"
       disablePictureInPicture
-      onError={() => setFailed(video.src)}
+      onError={() => setFailed(`${video.src}|${video.at}`)}
       style={{
         display: 'block',
         width: '100%',
