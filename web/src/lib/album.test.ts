@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { albumSlide, photoIndex, photoTitle, type AlbumPhoto } from './album';
 import { forAudience } from './slide';
+import { smallOrder } from './albumSmall';
 import { isSlide } from './bus';
 
 const photos: AlbumPhoto[] = ['IMG_1.jpg', 'IMG_2.jpg', 'IMG_10.jpg'].map((name) => ({
@@ -40,5 +41,25 @@ describe('albums on screen (1.8.12)', () => {
     expect(photoIndex(photos, { index: 9, name: 'gone.jpg' })).toBe(2);
     expect(photoIndex(photos, { index: -3 })).toBe(0);
     expect(photoIndex([], { index: 0, name: 'IMG_1.jpg' })).toBeNull();
+  });
+});
+
+describe('small copies for the phones (1.8.12-beta.2)', () => {
+  it('the phones get the small copy when the server lists one', () => {
+    const withSmall = photos.map((p) => ({ ...p, small: p.src.replace('/file/', '/small/') }));
+    expect(albumSlide('a', withSmall, 0, 'contain', style).picture?.small).toBe(
+      '/api/albums/a/small/IMG_1.jpg',
+    );
+    // a listing of an older server: the photo itself, as beta.1 did
+    expect(albumSlide('a', photos, 0, 'contain', style).picture?.small).toBe(photos[0].src);
+  });
+
+  it('draws the photo on screen and the next two first, then the rest from the start', () => {
+    const all = () => true;
+    expect(smallOrder(6, 3, all)).toEqual([3, 4, 5, 0, 1, 2]);
+    expect(smallOrder(6, 5, all)).toEqual([5, 0, 1, 2, 3, 4]);
+    expect(smallOrder(6, null, all)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(smallOrder(6, 1, (i) => i % 2 === 0)).toEqual([2, 0, 4]);
+    expect(smallOrder(0, 0, all)).toEqual([]);
   });
 });

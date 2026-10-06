@@ -100,8 +100,11 @@ Above the thumbnails you see which photo is on screen, for example “3 / 18”.
 To have the album show photos you just added to the folder, click the **Refresh** icon.
 
 The **Fit** / **Fill** switch works on an album's photos as it does on images. Viewers'
-phones get the photo from the folder as it is, without a small copy, so a big camera photo
-takes a few megabytes on a phone.
+phones get a small copy of the photo, up to 1280 pixels: a big camera photo takes about
+200 KB there instead of a few megabytes. The control window makes the small copies while the
+album is open: first the photo on screen and the next two, then the rest, one photo at a time.
+Until a photo has a small copy, the phones get the photo itself. The small copies are in the
+`data/album-cache/` folder.
 
 If another control window leads the show and you click **Take control**, this window opens the
 album at the photo that is on screen. The slideshow is off then.

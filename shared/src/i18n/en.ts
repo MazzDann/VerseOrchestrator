@@ -378,6 +378,10 @@ export const EN: Record<string, string> = {
   'Папку не знайдено': 'Folder not found',
   'Альбом не знайдено — відкрийте список ще раз': 'Album not found — open the list again',
   'Виберіть папку на цьому комп’ютері': 'Choose a folder on this computer',
+  'Фото вже немає в папці': 'The photo is no longer in the folder',
+  'Фото в папці змінилося — відкрийте альбом ще раз':
+    'The photo in the folder has changed — open the album again',
+  'Мала копія має бути JPEG до 4 МБ': 'A small copy must be a JPEG of up to 4 MB',
   'Альбом ще завантажується': 'The album is still loading',
   'В альбомі немає фото': 'The album has no photos',
   'Це останнє фото': 'This is the last photo',

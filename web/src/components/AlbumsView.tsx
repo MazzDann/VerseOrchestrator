@@ -546,7 +546,7 @@ function OpenAlbumView({
                     aria-label={tr('Показати «{name}»', { name: photoTitle(p.name) })}
                     aria-current={i === show.current || undefined}
                   >
-                    <LazyThumb src={p.src} root={viewport} />
+                    <LazyThumb src={p.small ?? p.src} root={viewport} />
                   </button>
                   <Text size="xs" truncate title={p.name} px={4} py={2}>
                     {photoTitle(p.name)}

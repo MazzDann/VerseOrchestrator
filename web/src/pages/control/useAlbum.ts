@@ -13,6 +13,7 @@ import { api, type AlbumInfo } from '../../api';
 import { type Slide, type SlideStyle } from '../../presenterBus';
 import { albumSlide, photoIndex, type AlbumPhoto } from '../../lib/album';
 import { readImageFit, type ImageFit } from '../../lib/imageFit';
+import { canDrawSmall, drawSmall, smallOrder } from '../../lib/albumSmall';
 import { PRIORITY, useCommandHandler, type Outcome } from '../../lib/commands';
 import { isFormField, isResizeKey } from '../../lib/keyScroll';
 import { tr } from '../../i18n';
@@ -53,8 +54,12 @@ const albumOnScreen = (s: Slide, albumId: string) =>
  * Only the leader steps (a window on standby says so); the timer's steps change the screen and
  * a preview that shows the album, never «Наживо» or a preview the operator moved on to.
  *
+ * The leader also draws the open album's missing small copies for the phones (beta.2), one at a
+ * time in a worker: the photo on screen and the next two first.
+ *
  * Effects, in order: the album's keys (capture phase, ahead of the hotkeys), its commands, the
- * timer, the timer's end on standby. None of them depends on another hook's effects.
+ * timer, the timer's end on standby, the small copies. None of them depends on another hook's
+ * effects.
  */
 export function useAlbum({
   slideStyle,
@@ -107,6 +112,8 @@ export function useAlbum({
     album && album.index != null && photos
       ? photoIndex(photos, { index: album.index, name: album.name })
       : null;
+  const currentRef = useRef(current);
+  currentRef.current = current;
 
   // the photo shown last, before the render that says so: two quick presses step twice
   const shown = useRef<{ id: string; photos: unknown; index: number } | null>(null);
@@ -287,6 +294,42 @@ export function useAlbum({
   useEffect(() => {
     if (!isLeader) setPlaying(false);
   }, [isLeader, setPlaying]);
+
+  // small copies for the phones (beta.2): the leader draws the open album's missing ones, one at a
+  // time, the photo on screen and the next two first; each photo once per window (a failure leaves
+  // the phones the photo itself). `performance` keeps how long each took (w-album reads it).
+  const tried = useRef(new Set<string>());
+  useEffect(() => {
+    if (!isLeader || !albumId || !photos || serverAvailable === false || !canDrawSmall()) return;
+    let stopped = false;
+    const key = (name: string) => `${albumId}|${name}`;
+    void (async () => {
+      while (!stopped && canDrawSmall()) {
+        const order = smallOrder(
+          photos.length,
+          currentRef.current,
+          (i) => !!photos[i].needsSmall && !!photos[i].v && !tried.current.has(key(photos[i].name)),
+        );
+        if (order.length === 0) return;
+        const p = photos[order[0]];
+        tried.current.add(key(p.name));
+        try {
+          const started = performance.now();
+          const copy = await drawSmall(p.src);
+          await api.putAlbumSmall(albumId, p.name, p.v!, copy.blob);
+          performance.measure('vo:album-small', {
+            start: started,
+            detail: { name: p.name, ms: copy.ms, from: copy.from, bytes: copy.blob.size },
+          });
+        } catch {
+          /* the phones keep getting the photo itself */
+        }
+      }
+    })();
+    return () => {
+      stopped = true;
+    };
+  }, [isLeader, albumId, photos, serverAvailable]);
 
   const setEvery = (n: number) => {
     const v = Math.max(EVERY_MIN, Math.min(EVERY_MAX, Math.round(n) || EVERY_MIN));
