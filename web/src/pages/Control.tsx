@@ -102,6 +102,7 @@ export function Control() {
   const setLive = useStore((s) => s.setLive);
 
   const appearance = useSettings((s) => s.appearance);
+  const searchPrefs = useSettings((s) => s.search);
   const history = useSettings((s) => s.history);
   const bookmarks = useSettings((s) => s.bookmarks);
   const pushHistory = useSettings((s) => s.pushHistory);
@@ -339,6 +340,8 @@ export function Control() {
     setSearchScope,
     goToValue,
     setGoToValue,
+    searchFieldRef,
+    searchKeysRef,
     focusJump,
     jumpTo,
     goTo,
@@ -966,6 +969,10 @@ export function Control() {
             goToValue={goToValue}
             setGoToValue={setGoToValue}
             goTo={goTo}
+            searchFieldRef={searchFieldRef}
+            searchKeysRef={searchKeysRef}
+            focusOnReturn={searchPrefs.focusOnReturn}
+            keysBusy={paletteOpen || moreShown || toolOpen}
             songsOpen={songsOpen}
             setSongsOpen={setSongsOpen}
             textOpen={textOpen}
@@ -1085,6 +1092,12 @@ export function Control() {
               scope={searchScope}
               onScopeChange={setSearchScope}
               onPick={(r) => jumpTo(r, { focus: true })}
+              query={goToValue}
+              setQuery={setGoToValue}
+              ownField={header.fold.noGoTo}
+              keysRef={searchKeysRef}
+              translations={translations}
+              dedupe={searchPrefs.dedupe}
             />
             <SongsPanel
               open={songsOpen}

@@ -242,8 +242,30 @@ export function clampLayout(raw: unknown): PanelLayout {
   return out;
 }
 
+/**
+ * The one search field (1.8.12-beta.4, the author's calls): where words are searched first (the
+ * main translation — with none there, the others — or all the selected ones), one row per place
+ * found in several translations, and the cursor in the field when the window comes back.
+ */
+export interface SearchPrefs {
+  scope: 'current' | 'all';
+  dedupe: boolean;
+  focusOnReturn: boolean;
+}
+export const DEFAULT_SEARCH: SearchPrefs = { scope: 'current', dedupe: true, focusOnReturn: false };
+export function sanitizeSearch(raw: unknown): SearchPrefs {
+  const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<SearchPrefs>;
+  return {
+    scope: p.scope === 'all' ? 'all' : 'current',
+    dedupe: typeof p.dedupe === 'boolean' ? p.dedupe : DEFAULT_SEARCH.dedupe,
+    focusOnReturn: p.focusOnReturn === true,
+  };
+}
+
 interface SettingsState {
   appearance: Appearance;
+  search: SearchPrefs;
+  setSearch: (patch: Partial<SearchPrefs>) => void;
   panelPlacement: PanelPlacement;
   layout: PanelLayout;
   /** When true, the presenter follows the selection live; when false, push manually (F5/F2). */
@@ -531,6 +553,8 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
       appearance: DEFAULT_APPEARANCE,
+      search: DEFAULT_SEARCH,
+      setSearch: (patch) => set((s) => ({ search: sanitizeSearch({ ...s.search, ...patch }) })),
       panelPlacement: 'aside',
       layout: DEFAULT_LAYOUT,
       liveFollow: true,
@@ -696,6 +720,7 @@ export const useSettings = create<SettingsState>()(
           keymap: sanitizeKeymap(p.keymap),
           layout: clampLayout(p.layout),
           outputs: sanitizeOutputs(p.outputs),
+          search: sanitizeSearch(p.search),
           // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
         };

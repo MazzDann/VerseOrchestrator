@@ -57,8 +57,29 @@ export function useJumps({
   toolOpen: boolean;
   setSearchOpen: (v: boolean | ((open: boolean) => boolean)) => void;
 }) {
-  const [searchScope, setSearchScope] = useState<SearchScope>('current');
-  const [goToValue, setGoToValue] = useState('');
+  // one search (1.8.12-beta.4): the header's field and the results panel share the query; the
+  // scope starts as the settings say (F3 / Ctrl+F — the main translation, F4 — all)
+  const defaultScope = useSettings((s) => s.search.scope);
+  const [searchScope, setSearchScope] = useState<SearchScope>(defaultScope);
+  const [goToValue, setGoToValueState] = useState('');
+  /** the header's search field (null or hidden when the header folded it away) */
+  const searchFieldRef = useRef<HTMLInputElement | null>(null);
+  /** the results panel's keys (↑ ↓ Enter Esc) — the field hands them over first */
+  const searchKeysRef = useRef<((e: React.KeyboardEvent) => boolean) | null>(null);
+  const fieldShown = () => !!searchFieldRef.current && searchFieldRef.current.offsetParent !== null;
+  /**
+   * The query typed: words or a reference open the results under the header; numbers alone
+   * («3:16») in an open book are a place there (Enter goes, as before); an empty field closes them
+   * and the scope goes back to the settings' one.
+   */
+  const setGoToValue = (value: string) => {
+    setGoToValueState(value);
+    const q = value.trim();
+    if (q === '') {
+      if (fieldShown()) setSearchOpen(false);
+      setSearchScope(useSettings.getState().search.scope);
+    } else if (q.length >= 2 && !(parseQuickRef(q) && bookNumber != null)) setSearchOpen(true);
+  };
 
   // `focus`: hand the keyboard to the verse landed on (search, «Перейти»), so ↩ puts it on
   // screen and the arrows walk on. Mac re-check (0.6.13): after a search pick the panel
@@ -84,7 +105,9 @@ export function useJumps({
       return;
     }
     try {
-      const res = await api.search(query, [primaryId]);
+      // the main translation first; with nothing there, the others (the author's call, 1.8.12-beta.4)
+      let res = await api.search(query, [primaryId]);
+      if (res.results.length === 0) res = await api.search(query, []);
       if (res.results.length > 0) {
         jumpTo(res.results[0], { focus: true });
         setGoToValue('');
@@ -217,9 +240,18 @@ export function useJumps({
     return () => window.clearTimeout(t);
   }, [quick]);
 
-  const openSearch = (scope: SearchScope) => {
-    setSearchScope(scope);
-    setSearchOpen(true);
+  /**
+   * F3 / Ctrl+F (the main translation), F4 (all), `/` (as the settings say): the cursor in the
+   * header's field, its text selected; with the header folded, the panel with a field of its own.
+   */
+  const openSearch = (scope?: SearchScope) => {
+    setSearchScope(scope ?? useSettings.getState().search.scope);
+    const field = searchFieldRef.current;
+    if (field && fieldShown()) {
+      field.focus();
+      field.select();
+      if (goToValue.trim().length >= 2) setSearchOpen(true);
+    } else setSearchOpen(true);
   };
 
   return {
@@ -227,6 +259,8 @@ export function useJumps({
     setSearchScope,
     goToValue,
     setGoToValue,
+    searchFieldRef,
+    searchKeysRef,
     focusJump,
     jumpTo,
     goTo,

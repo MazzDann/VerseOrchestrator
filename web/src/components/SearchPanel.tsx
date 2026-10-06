@@ -1,4 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from 'react';
 import {
   Paper,
   TextInput,
@@ -17,6 +26,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
 import { isScrolling } from '../lib/scrolling';
+import { groupResults } from '../lib/searchGroups';
 import { tr, useLang } from '../i18n';
 
 export type SearchScope = 'current' | 'all';
@@ -59,28 +69,64 @@ interface Props {
   scope: SearchScope;
   onScopeChange: (scope: SearchScope) => void;
   onPick: (result: SearchResult) => void;
+  /** the query — the header's field and this panel share it (1.8.12-beta.4) */
+  query: string;
+  setQuery: (q: string) => void;
+  /** the header's field is hidden (a narrow window): the panel shows a field of its own */
+  ownField: boolean;
+  /** the header's field hands its ↑ ↓ Enter Esc here first */
+  keysRef: MutableRefObject<((e: React.KeyboardEvent) => boolean) | null>;
+  /** the translations' short names, for the rows that stand for several */
+  translations: readonly { id: number; abbr: string }[];
+  /** one row per place found in several translations (Налаштування вигляду → Пошук) */
+  dedupe: boolean;
 }
 
 /**
- * Inline search panel (opened by F3 / Ctrl+F = current module, F4 = all).
- * Handles reference queries ("бут 2 3", "Ів 3:16-18") and full text; the server
- * decides which. Rendered inline (no Modal/portal) for reliability.
+ * The results of the one search (1.8.12-beta.4, the author's calls; F3 / Ctrl+F = the main
+ * translation, F4 = all): under the header's field while typing — references («бут 2 3», «Ів
+ * 3:16-18») and words alike, the server decides which. The main translation first; with nothing
+ * there, the others («У поточному нічого — знайдено в інших»). A verse found in several
+ * translations is one row. Rendered inline (no Modal/portal) for reliability.
  */
-export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, onPick }: Props) {
+export function SearchPanel({
+  open,
+  onClose,
+  primaryId,
+  scope,
+  onScopeChange,
+  onPick,
+  query,
+  setQuery,
+  ownField,
+  keysRef,
+  translations,
+  dedupe,
+}: Props) {
   useLang();
-  const [query, setQuery] = useState('');
   const [debounced] = useDebouncedValue(query, 200);
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const translationIds = scope === 'current' && primaryId != null ? [primaryId] : [];
-
+  const current = scope === 'current' && primaryId != null;
   const { data, isFetching } = useQuery({
     queryKey: ['search', debounced, scope, primaryId],
-    queryFn: () => api.search(debounced, translationIds),
+    queryFn: async () => {
+      const first = await api.search(debounced, current ? [primaryId] : []);
+      // nothing in the main translation: the others (the author's call)
+      if (current && first.results.length === 0) {
+        const all = await api.search(debounced, []);
+        return { ...all, fallback: all.results.length > 0 };
+      }
+      return { ...first, fallback: false };
+    },
     enabled: open && debounced.trim().length >= 2,
   });
-  const results = (data?.results ?? []).slice(0, 80);
+  const abbr = useMemo(() => new Map(translations.map((t) => [t.id, t.abbr])), [translations]);
+  const rows = useMemo(
+    () => groupResults(data?.results ?? [], primaryId, dedupe).slice(0, 80),
+    [data?.results, primaryId, dedupe],
+  );
   const suggestions = data?.suggestions ?? [];
   // Words to highlight in text results (strip operators/quotes; ≥2 chars).
   const terms = useMemo(
@@ -95,12 +141,12 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
   );
 
   useEffect(() => {
-    if (open) {
+    if (open && ownField) {
       setHighlight(0);
       const t = setTimeout(() => inputRef.current?.focus(), 30);
       return () => clearTimeout(t);
     }
-  }, [open]);
+  }, [open, ownField]);
 
   useEffect(() => setHighlight(0), [debounced, scope]);
 
@@ -108,44 +154,76 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
   const pickRef = useRef<(r: SearchResult) => void>(() => undefined);
   const onRowPick = useCallback((r: SearchResult) => pickRef.current(r), []);
 
-  if (!open) return null;
-
   const pick = (r: SearchResult) => {
     onPick(r);
+    setQuery('');
     onClose();
   };
   pickRef.current = pick;
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
+  /** ↑ ↓ through the rows, Enter picks, Esc closes — from this panel's field or the header's */
+  const onKey = (e: React.KeyboardEvent): boolean => {
+    if (!open) return false;
+    if (e.key === 'ArrowDown' && rows.length > 0) {
       e.preventDefault();
-      setHighlight((h) => Math.min(results.length - 1, h + 1));
-    } else if (e.key === 'ArrowUp') {
+      setHighlight((h) => Math.min(rows.length - 1, h + 1));
+      return true;
+    }
+    if (e.key === 'ArrowUp' && rows.length > 0) {
       e.preventDefault();
       setHighlight((h) => Math.max(0, h - 1));
-    } else if (e.key === 'Enter' && results[highlight]) {
+      return true;
+    }
+    // the results of what is typed now (not of a query the debounce hasn't caught up with)
+    if (e.key === 'Enter' && rows[highlight] && debounced === query) {
       e.preventDefault();
-      pick(results[highlight]);
-    } else if (e.key === 'Escape') {
+      pick(rows[highlight].r);
+      return true;
+    }
+    if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       onClose();
+      return true;
     }
+    return false;
   };
+  keysRef.current = open ? onKey : null;
+  useEffect(
+    () => () => {
+      keysRef.current = null;
+    },
+    [keysRef],
+  );
+
+  if (!open) return null;
 
   return (
     <Paper withBorder shadow="sm" p="sm" m="sm">
       <Group gap="xs" wrap="nowrap">
-        <TextInput
-          ref={inputRef}
-          flex={1}
-          value={query}
-          onChange={(e) => setQuery(e.currentTarget.value)}
-          onKeyDown={onKeyDown}
-          placeholder={tr('Пошук: «любов», «Ів 3:16», «"світло життя"», «-темрява», «G2424»')}
-          leftSection={<IconSearch size={18} />}
-          rightSection={isFetching ? <Loader size="xs" /> : null}
-        />
+        {ownField ? (
+          <TextInput
+            ref={inputRef}
+            flex={1}
+            value={query}
+            onChange={(e) => setQuery(e.currentTarget.value)}
+            onKeyDown={(e) => void onKey(e)}
+            placeholder={tr('Пошук: «любов», «Ів 3:16», «"світло життя"», «-темрява», «G2424»')}
+            leftSection={<IconSearch size={18} />}
+            rightSection={isFetching ? <Loader size="xs" /> : null}
+            aria-label={tr('Пошук або посилання')}
+          />
+        ) : (
+          <Group gap={6} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+            <IconSearch size={16} />
+            <Text size="sm" fw={500} truncate>
+              {debounced.trim().length >= 2
+                ? tr('Знайдено для «{query}»', { query: debounced.trim() })
+                : tr('Пошук')}
+            </Text>
+            {isFetching && <Loader size="xs" />}
+          </Group>
+        )}
         <SegmentedControl
           size="xs"
           value={scope}
@@ -164,6 +242,11 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
           <IconX size={18} />
         </ActionIcon>
       </Group>
+      {data?.fallback && (
+        <Text size="xs" c="dimmed" mt={6}>
+          {tr('У поточному перекладі нічого — знайдено в інших.')}
+        </Text>
+      )}
       {suggestions.length > 0 && (
         <Group gap={6} mt="xs" wrap="wrap">
           <Text size="xs" c="dimmed">
@@ -182,13 +265,19 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
           ))}
         </Group>
       )}
-      {(debounced.trim().length >= 2 || results.length > 0) && (
+      {(debounced.trim().length >= 2 || rows.length > 0) && (
         <ScrollArea.Autosize mah="min(320px, 30vh)" mt="xs">
           <Stack gap={0}>
-            {results.map((r, i) => (
+            {rows.map((row, i) => (
               <ResultRow
-                key={`${r.translationId}-${r.bookNumber}-${r.chapter}-${r.verse}`}
-                r={r}
+                key={row.key}
+                r={row.r}
+                also={row.also.map((id) => abbr.get(id) ?? '').filter(Boolean)}
+                own={
+                  row.also.length > 0 || row.r.translationId !== primaryId
+                    ? (abbr.get(row.r.translationId) ?? '')
+                    : ''
+                }
                 index={i}
                 active={i === highlight}
                 terms={terms}
@@ -196,7 +285,7 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
                 onPoint={setHighlight}
               />
             ))}
-            {debounced.trim().length >= 2 && results.length === 0 && !isFetching && (
+            {debounced.trim().length >= 2 && rows.length === 0 && !isFetching && (
               <Text size="sm" c="dimmed" p="sm">
                 {tr('Нічого не знайдено')}
               </Text>
@@ -216,6 +305,8 @@ export function SearchPanel({ open, onClose, primaryId, scope, onScopeChange, on
  */
 const ResultRow = memo(function ResultRow({
   r,
+  also,
+  own,
   index,
   active,
   terms,
@@ -223,6 +314,10 @@ const ResultRow = memo(function ResultRow({
   onPoint,
 }: {
   r: SearchResult;
+  /** the other translations that have this verse (one row for all) */
+  also: string[];
+  /** this row's own translation, named when it isn't the main one alone */
+  own: string;
   index: number;
   active: boolean;
   terms: string[];
@@ -244,6 +339,14 @@ const ResultRow = memo(function ResultRow({
     >
       <Text size="xs" c="dimmed">
         {r.longName || r.shortName} {r.chapter}:{r.verse}
+        {own && ` · ${own}`}
+        {also.length > 0 &&
+          ` · ${tr('також: {list}', {
+            list:
+              also.length > 4
+                ? `${also.slice(0, 4).join(', ')} +${also.length - 4}`
+                : also.join(', '),
+          })}`}
       </Text>
       <Text size="sm" lineClamp={1}>
         {highlightTerms(r.text, terms)}
