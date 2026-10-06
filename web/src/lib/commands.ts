@@ -84,7 +84,9 @@ export type PlaylistEntry =
   | { id: string; kind: 'song'; label: string; songId: number }
   | { id: string; kind: 'text'; label: string }
   /** a picture (1.5.0): shown from the control window, as a free text is */
-  | { id: string; kind: 'image'; label: string };
+  | { id: string; kind: 'image'; label: string }
+  /** an album (1.8.12): shown from the control window at its first photo, then stepped there */
+  | { id: string; kind: 'album'; label: string };
 
 export interface SharedPlaylist {
   items: PlaylistEntry[];

@@ -24,7 +24,8 @@ import { joinVerses, redLetterSegments } from './slideText';
 
 /**
  * The running order's actions («Послідовність показу»): an item put on screen (a passage, a
- * song's first stanza, a text, a picture), a step through the list, and adding to it. No effects.
+ * song's first stanza, a text, a picture, an album's first photo), a step through the list, and
+ * adding to it. No effects.
  */
 export function usePlaylistActions({
   setTranslations,
@@ -47,6 +48,7 @@ export function usePlaylistActions({
   projectText,
   projectPicture,
   pictureOf,
+  startAlbum,
   playlistSetCurrent,
   playlistItems,
   playlistCurrentId,
@@ -84,6 +86,7 @@ export function usePlaylistActions({
   ) => void;
   projectPicture: (picture: SlidePicture) => void;
   pictureOf: (it: SeqImage) => SlidePicture;
+  startAlbum: (albumId: string, fit: SlidePicture['fit']) => Promise<Slide | null>;
   playlistSetCurrent: (id: string | null) => void;
   playlistItems: SeqItem[];
   playlistCurrentId: string | null;
@@ -190,6 +193,7 @@ export function usePlaylistActions({
     if (it.kind === 'passage') void activatePassage(it);
     else if (it.kind === 'text') projectText(it.body, it.title.trim());
     else if (it.kind === 'image') projectPicture(pictureOf(it));
+    else if (it.kind === 'album') void startAlbum(it.albumId, it.fit);
     else void activateSong(it);
   };
 
@@ -248,6 +252,15 @@ export function usePlaylistActions({
     });
   };
 
+  const addAlbumToPlaylist = (album: { id: string; name: string }, fit: SlidePicture['fit']) => {
+    playlistAdd({ kind: 'album', label: album.name, albumId: album.id, fit });
+    notifications.show({
+      message: tr('Додано у показ: {item}', { item: album.name }),
+      color: 'green',
+      autoClose: 1200,
+    });
+  };
+
   const addTextToPlaylist = (item: { title: string; body: string }) => {
     if (!item.body.trim()) return;
     const label = item.title.trim() || item.body.trim().split('\n')[0].slice(0, 40);
@@ -261,6 +274,7 @@ export function usePlaylistActions({
     stepPlaylist,
     addCurrentPassage,
     addSongToPlaylist,
+    addAlbumToPlaylist,
     addTextToPlaylist,
   };
 }

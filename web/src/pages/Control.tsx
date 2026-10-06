@@ -450,6 +450,7 @@ export function Control() {
     liveSlideRef,
     isLeader,
     imagesOpen,
+    setImagesOpen,
     keysPaused: paletteOpen || moreShown || toolOpen,
     serverAvailable,
   });
@@ -481,6 +482,7 @@ export function Control() {
     projectText,
     projectPicture,
     pictureOf,
+    startAlbum: albumShow.startAlbum,
     playlistSetCurrent,
     playlistItems,
     playlistCurrentId,
@@ -678,6 +680,7 @@ export function Control() {
     slideStyle,
     slideTemplate,
     pictureOf,
+    startAlbum: albumShow.startAlbum,
     playlistAdd,
     previewOverride,
     slideLines,
