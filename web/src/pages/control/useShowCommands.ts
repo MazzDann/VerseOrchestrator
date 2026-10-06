@@ -1,0 +1,334 @@
+import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { type QueryClient } from '@tanstack/react-query';
+import { notifications } from '@mantine/notifications';
+import { markedText } from '@vo/shared';
+import { api, type Translation } from '../../api';
+import { type Appearance } from '../../settingsStore';
+import { type NewSeqItem, type SeqImage, type SeqItem } from '../../playlistStore';
+import {
+  subscribeCommand,
+  type Slide,
+  type SlideLine,
+  type SlidePicture,
+  type SlideStyle,
+  type SlideTemplate,
+} from '../../presenterBus';
+import { formatReference } from '../../lib/reference';
+import {
+  commands,
+  PRIORITY,
+  useCommandHandler,
+  type Outcome,
+  type RemotePassage,
+  type RemoteSong,
+  type RemoteTarget,
+  type ShowToggle,
+  toggleOf,
+} from '../../lib/commands';
+import { pictureSlide, sameContent } from '../../lib/slide';
+import { tr } from '../../i18n';
+import { joinVerses, redLetterSegments } from './slideText';
+import { withSecond } from './songSlides';
+
+/**
+ * Show commands from outside the operator's keyboard (vo-sync, vo-remote): the default handler
+ * of lib/commands.ts (E22, the effect in useCommandHandler) — «Далі» / «Назад», a remote's «На
+ * екран», pick and queue, the shared running order's items, the switches — and an output
+ * window's forwarded keys (E23). No return: the speaker's own preview goes to `setRemoteView`.
+ */
+export function useShowCommands({
+  advance,
+  playlistItems,
+  leaderRef,
+  pushLive,
+  setLive,
+  playlistSetCurrent,
+  setRemoteView,
+  hideToggle,
+  blackToggle,
+  coverToggle,
+  queryClient,
+  appearance,
+  translations,
+  slideStyle,
+  slideTemplate,
+  pictureOf,
+  playlistAdd,
+  previewOverride,
+  slideLines,
+  liveSlide,
+  versePreview,
+  send,
+}: {
+  advance: (delta: number, previewOnly?: boolean) => Outcome | Promise<Outcome>;
+  playlistItems: SeqItem[];
+  leaderRef: MutableRefObject<boolean>;
+  pushLive: (pushed: Slide, opts?: { audience?: boolean }) => void;
+  setLive: (live: boolean) => void;
+  playlistSetCurrent: (id: string | null) => void;
+  setRemoteView: Dispatch<
+    SetStateAction<{
+      name: string;
+      target: RemoteTarget | null;
+      slide: Slide;
+    } | null>
+  >;
+  hideToggle: () => void;
+  blackToggle: () => void;
+  coverToggle: () => void;
+  queryClient: QueryClient;
+  appearance: Appearance;
+  translations: Translation[];
+  slideStyle: SlideStyle;
+  slideTemplate: SlideTemplate | null;
+  pictureOf: (it: SeqImage) => SlidePicture;
+  playlistAdd: (item: NewSeqItem) => void;
+  previewOverride: Slide | null;
+  slideLines: SlideLine[];
+  liveSlide: Slide;
+  versePreview: Slide;
+  send: (overrides?: Partial<Slide>) => void;
+}) {
+  // Show commands from outside the operator's keyboard — an output window's keys (a
+  // clicker on the 2nd monitor) and speaker remotes — all go through one dispatcher
+  // (lib/commands.ts). This is the default handler; an open song registers a
+  // higher-priority one for next/prev (SongsPanel).
+  useCommandHandler((cmd, _source, args) => {
+    if (cmd === 'next') return advance(1);
+    if (cmd === 'prev') return advance(-1);
+    const by = _source.name ?? tr('Пульт');
+    // an item of the shared running order (0.6.9)
+    if (args.item && (cmd === 'show' || cmd === 'pick')) {
+      const it = playlistItems.find((i) => i.id === args.item);
+      if (!it) return { ok: false, reason: tr('Цього елемента вже немає в послідовності') };
+      return playlistItemSlide(it, by).then((slide) => {
+        if (cmd === 'show') {
+          if (!leaderRef.current)
+            return { ok: false, reason: tr('Показом керує інше вікно керування') };
+          pushLive(slide);
+          setLive(false);
+          playlistSetCurrent(it.id);
+        }
+        setRemoteView({ name: by, target: itemTarget(it), slide });
+        return { ok: true };
+      });
+    }
+    if (cmd === 'queue') {
+      return args.passage || args.song
+        ? queueFromRemote(
+            args.passage
+              ? { kind: 'verses', passage: args.passage }
+              : { kind: 'song', song: args.song! },
+            by,
+          )
+        : { ok: false, reason: tr('Нічого додати') };
+    }
+    const target: RemoteTarget | null = args.passage
+      ? { kind: 'verses', passage: args.passage }
+      : args.song
+        ? { kind: 'song', song: args.song }
+        : null;
+    if (cmd === 'show') return target ? showRemote(target, by) : showPreview();
+    if (cmd === 'pick') {
+      return target
+        ? buildRemote(target, by).then((slide) => {
+            setRemoteView({ name: by, target, slide });
+            return { ok: true };
+          })
+        : { ok: false, reason: tr('Не вибрано вірш') };
+    }
+    // the switches: B, «.» and (1.4.1) L pressed in an output window, a remote's buttons —
+    // each by name (lib/commands.ts toggleOf), none by default
+    const toggle = toggleOf(cmd);
+    if (!toggle) return null;
+    const flip: Record<ShowToggle, () => void> = {
+      hide: hideToggle,
+      black: blackToggle,
+      cover: coverToggle,
+    };
+    flip[toggle]();
+    return { ok: true };
+  }, PRIORITY.verses);
+
+  /**
+   * A passage chosen on a speaker's phone (0.6.1, the remote's own cursor) as a slide —
+   * built here, in the operator's style, from the library; the operator's selection is
+   * not touched. Throws «Уривок недоступний» when none of its translations has it.
+   */
+  async function remoteSlide(p: RemotePassage, by: string): Promise<Slide> {
+    const lines: SlideLine[] = [];
+    for (const id of p.translationIds) {
+      const verses = await queryClient.fetchQuery({
+        queryKey: ['verses', id, p.bookNumber, p.chapter],
+        queryFn: () => api.verses(id, p.bookNumber, p.chapter),
+      });
+      const text = joinVerses(verses, p.verses, appearance.showVerseNumbers);
+      if (!text.trim()) continue;
+      const t = translations.find((x) => x.id === id);
+      const segments = redLetterSegments(verses, p.verses, appearance.showVerseNumbers);
+      lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
+    }
+    if (lines.length === 0) throw new Error(tr('Уривок недоступний'));
+    const first = p.translationIds[0];
+    const bookList = await queryClient.fetchQuery({
+      queryKey: ['books', first],
+      queryFn: () => api.books(first),
+    });
+    return {
+      lines,
+      reference: formatReference(
+        bookList.find((b) => b.bookNumber === p.bookNumber) ?? null,
+        p.chapter,
+        p.verses,
+      ),
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+      source: { kind: 'verses', ...p, page: 0, reveal: 1, by },
+    };
+  }
+
+  /** A song stanza chosen on a remote (0.6.3), in the operator's style (not «як у pptx»). */
+  async function remoteSongSlide(p: RemoteSong, by: string): Promise<Slide> {
+    const s = await queryClient.fetchQuery({
+      queryKey: ['song', p.songId],
+      queryFn: () => api.song(p.songId),
+    });
+    const stanza = s.slides[p.stanza];
+    if (!stanza) throw new Error(tr('Такої строфи немає'));
+    const line: SlideLine = { translationAbbr: '', text: stanza.text, rtl: false };
+    const marked = markedText(stanza.text, stanza.style);
+    return {
+      // its second part dimmer, as in «Простий текст» (1.3.0)
+      lines: [marked ? withSecond(line, marked) : line],
+      reference: `№${s.number ?? ''} ${s.title}`.trim(),
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+      source: { kind: 'song', songId: p.songId, stanza: p.stanza, by },
+    };
+  }
+
+  const buildRemote = (t: RemoteTarget, by: string) =>
+    t.kind === 'verses' ? remoteSlide(t.passage, by) : remoteSongSlide(t.song, by);
+
+  /** A running-order item as a remote target (a free-text item has none). */
+  const itemTarget = (it: SeqItem): RemoteTarget | null =>
+    it.kind === 'passage'
+      ? {
+          kind: 'verses',
+          passage: {
+            translationIds: it.translationIds,
+            bookNumber: it.bookNumber,
+            chapter: it.chapter,
+            verses: it.verses,
+          },
+        }
+      : it.kind === 'song'
+        ? { kind: 'song', song: { songId: it.songId, stanza: 0 } }
+        : null;
+
+  /**
+   * A running-order item shown from a remote (0.6.9) — built like the speaker's own choice
+   * (the operator's style, their selection untouched); a free-text item as the operator
+   * projects it.
+   */
+  function playlistItemSlide(it: SeqItem, by: string): Promise<Slide> {
+    const t = itemTarget(it);
+    if (t) return buildRemote(t, by);
+    if (it.kind === 'image') return Promise.resolve(pictureSlide(pictureOf(it), slideStyle));
+    const text = it.kind === 'text' ? it : null;
+    return Promise.resolve({
+      lines: [{ translationAbbr: '', text: text?.body ?? '', rtl: false }],
+      reference: text?.title.trim() ?? '',
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+    });
+  }
+
+  /** The speaker adds their choice to the shared running order (0.6.9). */
+  async function queueFromRemote(t: RemoteTarget, by: string): Promise<Outcome> {
+    let label: string;
+    if (t.kind === 'verses') {
+      const p = t.passage;
+      const first = p.translationIds[0];
+      const bookList = await queryClient.fetchQuery({
+        queryKey: ['books', first],
+        queryFn: () => api.books(first),
+      });
+      label =
+        formatReference(
+          bookList.find((b) => b.bookNumber === p.bookNumber) ?? null,
+          p.chapter,
+          p.verses,
+        ) || tr('Уривок');
+      playlistAdd({ kind: 'passage', label, ...p });
+    } else {
+      const s = await queryClient.fetchQuery({
+        queryKey: ['song', t.song.songId],
+        queryFn: () => api.song(t.song.songId),
+      });
+      label = `№${s.number ?? ''} ${s.title}`.trim();
+      playlistAdd({ kind: 'song', label, songId: t.song.songId, faithful: false });
+    }
+    notifications.show({
+      message: tr('Пульт «{remote}» додав у показ: {item}', { remote: by, item: label }),
+      color: 'brand',
+      autoClose: 2000,
+    });
+    return { ok: true };
+  }
+
+  /**
+   * The remote puts its passage / stanza on screen. The screen is the speaker's now: the
+   * operator's selection stops following live (`live` off) — they keep preparing, and
+   * their F5 / «На екран» takes the screen back.
+   */
+  async function showRemote(t: RemoteTarget, by: string): Promise<Outcome> {
+    const slide = await buildRemote(t, by);
+    if (!leaderRef.current) return { ok: false, reason: tr('Показом керує інше вікно керування') };
+    pushLive(slide);
+    setLive(false);
+    setRemoteView({ name: by, target: t, slide });
+    return { ok: true };
+  }
+
+  /**
+   * A remote's «На екран» (0.6.0): what the preview shows goes on screen — the operator's
+   * F5. A song stanza / free text / Strong slide in the preview is what's shown then.
+   */
+  function showPreview(): Outcome {
+    if (previewOverride) {
+      pushLive(previewOverride);
+      setLive(true);
+      return { ok: true };
+    }
+    if (slideLines.length === 0) return { ok: false, reason: tr('У передпоказі нічого немає') };
+    const onScreen =
+      liveSlide.visible && !liveSlide.blank && !liveSlide.forceBlack && liveSlide.lines.length > 0;
+    if (onScreen && sameContent(liveSlide, versePreview))
+      return { ok: true, reason: tr('Уже на екрані') };
+    send();
+    return { ok: true };
+  }
+  useEffect(
+    () =>
+      subscribeCommand((cmd, id) => {
+        if (!leaderRef.current) return;
+        void commands.dispatch(id, cmd, { kind: 'output' }).then((o) => {
+          // a clicker at the output window can't see why nothing moved — the operator can
+          // (at a chapter's edge: where a second press goes, 0.6.23)
+          if (!o.ok && !o.duplicate && o.reason) {
+            notifications.show({ message: o.reason, color: 'gray', autoClose: 2500 });
+          }
+        });
+      }),
+    // deps as they were in Control, where the rule knew leaderRef (a ref) as stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+}
