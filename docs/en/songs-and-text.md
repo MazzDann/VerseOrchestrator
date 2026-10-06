@@ -92,7 +92,9 @@ New and changed files in the same folder update that bundle after the rescan.
 - The lines and paragraphs of the text stay as they are in the file.
 - For **As in the file**, the app takes the background color, the text's color and font,
   bold, alignment, the text box's place and size, the font size, and where the text sits
-  in its box — top, middle, or bottom — from the file.
+  in its box — top, middle, or bottom — from the file. Empty lines before or after the text
+  move it as in PowerPoint: a title lifted above the authors with empty lines shows above
+  them.
 - If a slide has two text boxes, for example the title and the authors on the first slide
   or a “Chorus:” label over a chorus, **As in the file** shows each box in its own place
   and size. **Plain text** shows both as one text, top to bottom.
