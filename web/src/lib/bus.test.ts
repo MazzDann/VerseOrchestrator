@@ -274,6 +274,12 @@ describe('window bus v2', () => {
       }),
     ).toBe(true);
     expect(isSlide({ ...slide('x'), picture: { src: 7 } })).toBe(false);
+    // an album's next photo (1.8.12): an address or nothing
+    const photo = { src: '/api/albums/a/file/1.jpg', small: '', name: '1', fit: 'contain' };
+    expect(
+      isSlide({ ...slide('x'), picture: { ...photo, next: '/api/albums/a/file/2.jpg' } }),
+    ).toBe(true);
+    expect(isSlide({ ...slide('x'), picture: { ...photo, next: 2 } })).toBe(false);
   });
 
   it('«Заставка»: its image crosses once as an asset, as the background does (1.4.2)', async () => {

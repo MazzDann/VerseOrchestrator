@@ -181,6 +181,8 @@ export interface SlidePicture {
   small: string;
   name: string;
   fit: 'contain' | 'cover';
+  /** an album's next photo (1.8.12): the output windows load it ahead, so a step shows at once */
+  next?: string;
 }
 
 export interface SlideCover {
@@ -205,7 +207,7 @@ export interface SlideCountdown extends TimerLook {
 
 /**
  * What produced a slide (0.5.10): the verse selection (with the page of a long passage
- * and the reveal step) or a song stanza. A control window that becomes the leader after
+ * and the reveal step), a song stanza or an album's photo. A control window that becomes the leader after
  * another one led (takeover / failover) puts its own selection there, so its first
  * «Далі» continues from the screen instead of from where that window was left. Output
  * windows ignore it; free text and black/empty screens carry none.
@@ -223,7 +225,12 @@ export type SlideSource =
       /** put there by a speaker's remote (0.6.2) — its name */
       by?: string;
     }
-  | { kind: 'song'; songId: number; stanza: number; by?: string };
+  | { kind: 'song'; songId: number; stanza: number; by?: string }
+  /**
+   * a photo of an album (1.8.12, lib/album.ts): its place and name — the name finds it again
+   * when the folder changed meanwhile
+   */
+  | { kind: 'album'; albumId: string; index: number; name: string; by?: string };
 
 /** Built-in layout presets. The first (null template) is the default centred look. */
 export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }[] = [

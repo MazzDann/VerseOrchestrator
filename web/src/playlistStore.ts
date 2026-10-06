@@ -50,13 +50,27 @@ export interface SeqImage {
   fit: 'contain' | 'cover';
 }
 
-export type SeqItem = SeqPassage | SeqSong | SeqText | SeqImage;
+/**
+ * An album (1.8.12, server/src/albums.ts): a folder of photos by its id; activated, it opens in
+ * «Зображення» at its first photo, and the clicker steps it. A removed album or a folder gone
+ * leaves the item saying so.
+ */
+export interface SeqAlbum {
+  kind: 'album';
+  id: string;
+  label: string; // the album's name
+  albumId: string;
+  fit: 'contain' | 'cover';
+}
+
+export type SeqItem = SeqPassage | SeqSong | SeqText | SeqImage | SeqAlbum;
 /** An item to add — same shape minus the store-assigned id. */
 export type NewSeqItem =
   | Omit<SeqPassage, 'id'>
   | Omit<SeqSong, 'id'>
   | Omit<SeqText, 'id'>
-  | Omit<SeqImage, 'id'>;
+  | Omit<SeqImage, 'id'>
+  | Omit<SeqAlbum, 'id'>;
 
 function newId(): string {
   try {

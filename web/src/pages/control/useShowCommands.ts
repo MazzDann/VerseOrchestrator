@@ -26,6 +26,7 @@ import {
   toggleOf,
 } from '../../lib/commands';
 import { pictureSlide, sameContent } from '../../lib/slide';
+import { albumSlide } from '../../lib/album';
 import { tr } from '../../i18n';
 import { joinVerses, redLetterSegments } from './slideText';
 import { withSecond } from './songSlides';
@@ -53,6 +54,7 @@ export function useShowCommands({
   slideStyle,
   slideTemplate,
   pictureOf,
+  startAlbum,
   playlistAdd,
   previewOverride,
   slideLines,
@@ -82,6 +84,11 @@ export function useShowCommands({
   slideStyle: SlideStyle;
   slideTemplate: SlideTemplate | null;
   pictureOf: (it: SeqImage) => SlidePicture;
+  startAlbum: (
+    albumId: string,
+    fit: SlidePicture['fit'],
+    label: string,
+  ) => Promise<{ slide: Slide } | { reason: string }>;
   playlistAdd: (item: NewSeqItem) => void;
   previewOverride: Slide | null;
   slideLines: SlideLine[];
@@ -101,6 +108,17 @@ export function useShowCommands({
     if (args.item && (cmd === 'show' || cmd === 'pick')) {
       const it = playlistItems.find((i) => i.id === args.item);
       if (!it) return { ok: false, reason: tr('Цього елемента вже немає в послідовності') };
+      // an album (1.8.12) goes on as the operator's own: open here, so «Далі» steps its photos
+      if (it.kind === 'album' && cmd === 'show') {
+        if (!leaderRef.current)
+          return { ok: false, reason: tr('Показом керує інше вікно керування') };
+        return startAlbum(it.albumId, it.fit, it.label).then((r) => {
+          if ('reason' in r) return { ok: false, reason: r.reason };
+          playlistSetCurrent(it.id);
+          setRemoteView({ name: by, target: null, slide: r.slide });
+          return { ok: true };
+        });
+      }
       return playlistItemSlide(it, by).then((slide) => {
         if (cmd === 'show') {
           if (!leaderRef.current)
@@ -239,6 +257,18 @@ export function useShowCommands({
     const t = itemTarget(it);
     if (t) return buildRemote(t, by);
     if (it.kind === 'image') return Promise.resolve(pictureSlide(pictureOf(it), slideStyle));
+    if (it.kind === 'album') {
+      // the speaker's preview: the album's first photo, read from the folder now
+      const id = it.albumId;
+      return queryClient
+        .fetchQuery({ queryKey: ['album', id], queryFn: () => api.album(id), staleTime: 0 })
+        .then((info) => {
+          const list = info.photos ?? [];
+          if (info.missing) throw new Error(tr('Папку не знайдено: {name}', { name: it.label }));
+          if (list.length === 0) throw new Error(tr('В альбомі немає фото'));
+          return albumSlide(id, list, 0, it.fit, slideStyle);
+        });
+    }
     const text = it.kind === 'text' ? it : null;
     return Promise.resolve({
       lines: [{ translationAbbr: '', text: text?.body ?? '', rtl: false }],

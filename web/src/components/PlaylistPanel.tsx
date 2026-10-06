@@ -20,6 +20,7 @@ import {
   IconMusic,
   IconLetterT,
   IconLibraryPhoto,
+  IconAlbum,
   IconChevronUp,
   IconChevronDown,
   IconTrash,
@@ -67,10 +68,17 @@ const KIND_ICON = {
   song: IconMusic,
   text: IconLetterT,
   image: IconLibraryPhoto,
+  album: IconAlbum,
 } as const;
 
 // Kinds are told apart by their icon; colour stays reserved for live/cue state.
-const KIND_COLOR = { passage: 'gray', song: 'gray', text: 'gray', image: 'gray' } as const;
+const KIND_COLOR = {
+  passage: 'gray',
+  song: 'gray',
+  text: 'gray',
+  image: 'gray',
+  album: 'gray',
+} as const;
 
 /**
  * The running order: an ordered list of passages / songs / free texts. Click a row
@@ -107,7 +115,22 @@ export function PlaylistPanel({
     enabled: serverAvailable !== false && items.some((it) => it.kind === 'image'),
   });
   const known = pictures.data ? new Set(pictures.data.map((p) => p.id)) : null;
-  const gone = (it: SeqItem) => it.kind === 'image' && !!known && !known.has(it.imageId);
+  // an album (1.8.12) taken off the list, or its folder not there now: the item says which
+  const albums = useQuery({
+    queryKey: ['albums'],
+    queryFn: api.albums,
+    enabled: serverAvailable !== false && items.some((it) => it.kind === 'album'),
+    // a drive plugged back in: the mark goes the next time the panel looks
+    staleTime: 0,
+  });
+  const gone = (it: SeqItem): string | null => {
+    if (it.kind === 'image' && !!known && !known.has(it.imageId))
+      return tr('Зображення видалено: {name}', { name: it.label });
+    if (it.kind !== 'album' || !albums.data) return null;
+    const album = albums.data.find((a) => a.id === it.albumId);
+    if (!album) return tr('Альбом прибрано: {name}', { name: it.label });
+    return album.missing ? tr('Папку не знайдено: {name}', { name: it.label }) : null;
+  };
   const [programsOpen, setProgramsOpen] = useState(false);
   const [name, setName] = useState('');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -405,7 +428,7 @@ export function PlaylistPanel({
                   style={{ flex: 1, minWidth: 0 }}
                   truncate
                 >
-                  {gone(it) ? tr('Зображення видалено: {name}', { name: it.label }) : it.label}
+                  {gone(it) ?? it.label}
                 </Text>
                 <Group gap={0} wrap="nowrap">
                   <ActionIcon
