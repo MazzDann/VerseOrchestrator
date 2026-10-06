@@ -159,6 +159,11 @@ export interface Slide {
    */
   picture?: SlidePicture | null;
   /**
+   * A video on screen (1.8.12-beta.3, lib/video.ts): the file by address and the clock it plays by —
+   * every window plays the same moment; the phones get a frame of it or words (`phones`).
+   */
+  video?: SlideVideo | null;
+  /**
    * The slide a QR slide or «Заставка» covers — what «Прибрати QR» / L bring back (1.4.2).
    * It travels with the slide, so a control window that takes over, or reloads, can still
    * give it back (it was kept in the covering window only: another one emptied the screen).
@@ -183,6 +188,24 @@ export interface SlidePicture {
   fit: 'contain' | 'cover';
   /** an album's next photo (1.8.12): the output windows load it ahead, so a step shows at once */
   next?: string;
+}
+
+/**
+ * A video on screen (1.8.12-beta.3): its file (this machine's windows only), a poster frame (the
+ * phones), its name, how it fills the slide, and its clock — playing from `from` seconds since
+ * `at` (ms since the epoch), or `paused` at a position; `loop` starts it over at its end.
+ */
+export interface SlideVideo {
+  src: string;
+  poster: string;
+  name: string;
+  fit: 'contain' | 'cover';
+  at: number;
+  from: number;
+  paused: number | null;
+  loop: boolean;
+  /** what the phones show meanwhile (Налаштування вигляду → Відео): its frame or a line of words */
+  phones: 'poster' | 'text';
 }
 
 export interface SlideCover {
@@ -230,7 +253,9 @@ export type SlideSource =
    * a photo of an album (1.8.12, lib/album.ts): its place and name — the name finds it again
    * when the folder changed meanwhile
    */
-  | { kind: 'album'; albumId: string; index: number; name: string; by?: string };
+  | { kind: 'album'; albumId: string; index: number; name: string; by?: string }
+  /** a video of the list (1.8.12-beta.3) */
+  | { kind: 'video'; videoId: string; by?: string };
 
 /** Built-in layout presets. The first (null template) is the default centred look. */
 export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }[] = [

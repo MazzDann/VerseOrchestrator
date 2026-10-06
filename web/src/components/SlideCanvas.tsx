@@ -7,8 +7,10 @@ import {
   type SlideCover,
   type SlideCountdown,
   type SlidePicture,
+  type SlideVideo,
   DEFAULT_STYLE,
 } from '../presenterBus';
+import { syncMedia } from '../lib/video';
 import {
   CORNER_SIZE_CQH,
   formatTimer,
@@ -289,6 +291,49 @@ function PictureContent({ picture, prefetch }: { picture: SlidePicture; prefetch
   );
 }
 
+/**
+ * A video on screen (1.8.12-beta.3, lib/video.ts): played muted — the sound comes from the control
+ * window (the author's call) — and kept to the slide's clock, so every window shows the same
+ * moment. A file that won't play leaves the slide black.
+ */
+function VideoContent({ video }: { video: SlideVideo }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const clock = useRef(video);
+  clock.current = video;
+  // at once on a change of the clock (pause, seek, a start), then four times a second
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const sync = () => syncMedia(el, clock.current);
+    sync();
+    el.addEventListener('loadedmetadata', sync);
+    const t = window.setInterval(sync, 250);
+    return () => {
+      window.clearInterval(t);
+      el.removeEventListener('loadedmetadata', sync);
+    };
+  }, [video.src, video.at, video.from, video.paused, video.loop]);
+  if (failed === video.src) return null;
+  return (
+    <video
+      ref={ref}
+      src={video.src}
+      muted
+      playsInline
+      preload="auto"
+      disablePictureInPicture
+      onError={() => setFailed(video.src)}
+      style={{
+        display: 'block',
+        width: '100%',
+        height: '100%',
+        objectFit: video.fit === 'cover' ? 'cover' : 'contain',
+      }}
+    />
+  );
+}
+
 /** A 16:9 WYSIWYG preview box of the slide (identical look to the presenter). */
 export function SlidePreview({ slide, maxWidth }: { slide: Slide; maxWidth?: number }) {
   return (
@@ -426,17 +471,19 @@ function DrawnSlide({
   const show =
     slide.visible &&
     !slide.blank &&
-    (slide.lines.length > 0 || !!slide.qr || !!slide.cover || !!slide.picture);
+    (slide.lines.length > 0 || !!slide.qr || !!slide.cover || !!slide.picture || !!slide.video);
   const slideKey = !show
     ? 'blank'
     : slide.picture
       ? `picture|${slide.picture.src}|${slide.picture.fit}`
-      : slide.qr
-        ? `qr|${slide.qr}`
-        : slide.cover
-          ? // a countdown starting or going fades like a new slide; «+1 хв» only changes the time
-            `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}|${slide.countdown ? slide.countdown.caption : '-'}`
-          : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
+      : slide.video
+        ? `video|${slide.video.src}|${slide.video.fit}`
+        : slide.qr
+          ? `qr|${slide.qr}`
+          : slide.cover
+            ? // a countdown starting or going fades like a new slide; «+1 хв» only changes the time
+              `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}|${slide.countdown ? slide.countdown.caption : '-'}`
+            : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
   // the viewers' QR in a corner (0.6.16) — over any slide but the QR slide itself
   const corner =
     style.qrCorner && !slide.qr ? (
@@ -491,9 +538,10 @@ function DrawnSlide({
   // A picture is drawn in the layout of the last text slide: the text layer leaving for it keeps
   // its place and fades out — a layout switch unmounted it at once (review of #46: a faithful
   // song's stanza or a «Макет» preset cut to the picture)
-  const ownTemplate = slide.qr || slide.cover || slide.picture ? null : (slide.template ?? null);
+  const media = !!slide.picture || !!slide.video;
+  const ownTemplate = slide.qr || slide.cover || media ? null : (slide.template ?? null);
   const lastTemplate = useRef(ownTemplate);
-  if (!slide.picture) lastTemplate.current = ownTemplate;
+  if (!media) lastTemplate.current = ownTemplate;
 
   // Pure-black override: paint solid black over everything, ignoring the
   // background image/colour (the operator's "force black" key/button).
@@ -522,20 +570,23 @@ function DrawnSlide({
   // A picture («Зображення», 1.5.0): its own layer over the whole slide, on black, under the
   // text layer — text and picture fade into each other like any two slides (review of #46:
   // a picture had its own root, so switching cut instead of fading)
+  // A video (1.8.12-beta.3) takes the same layer: text, pictures and videos fade into each other
   const picture = show ? (slide.picture ?? null) : null;
-  const textKey = picture ? null : show ? slideKey : null;
+  const video = show && !picture ? (slide.video ?? null) : null;
+  const textKey = picture || video ? null : show ? slideKey : null;
   const pictureLayer = (
     <SlideFade
-      slideKey={picture ? slideKey : null}
+      slideKey={picture || video ? slideKey : null}
       mode={transition}
       style={{ position: 'absolute', inset: 0, background: '#000' }}
     >
       {picture && <PictureContent picture={picture} prefetch={prefetch} />}
+      {video && <VideoContent video={video} />}
     </SlideFade>
   );
 
   // --- Positioned template layout ---------------------------------------------
-  const template = slide.picture ? lastTemplate.current : ownTemplate;
+  const template = media ? lastTemplate.current : ownTemplate;
   if (template) {
     return (
       <div style={rootStyle}>
