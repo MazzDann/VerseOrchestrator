@@ -56,7 +56,7 @@ without a book name too.
 To find a word or a phrase:
 
 1. Click the **Search** field at the top, or press `/`, Ctrl+F, or F3 to search the main
-   translation, or F4 to search all the selected translations. On macOS, ⌘F and ⇧⌘F. If the
+   translation, or F4 to search every translation in the library. On macOS, ⌘F and ⇧⌘F. If the
    browser keeps Ctrl+F for itself (Firefox, LibreWolf), press `/`.
 2. Type the query. The results appear under the header as you type, with the matches
    highlighted. If the main translation has nothing, the app searches the others and says so.

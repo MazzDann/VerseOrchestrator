@@ -511,7 +511,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             label={tr('Де шукати слова спершу')}
             data={[
               { value: 'current', label: tr('У поточному перекладі (F3)') },
-              { value: 'all', label: tr('В усіх вибраних перекладах (F4)') },
+              { value: 'all', label: tr('В усіх перекладах бібліотеки (F4)') },
             ]}
             value={search.scope}
             onChange={(v) => v && setSearch({ scope: v === 'all' ? 'all' : 'current' })}

@@ -340,6 +340,7 @@ export function Control() {
     setSearchScope,
     goToValue,
     setGoToValue,
+    clearSearch,
     searchFieldRef,
     searchKeysRef,
     focusJump,
@@ -969,6 +970,7 @@ export function Control() {
             goToValue={goToValue}
             setGoToValue={setGoToValue}
             goTo={goTo}
+            clearSearch={clearSearch}
             searchFieldRef={searchFieldRef}
             searchKeysRef={searchKeysRef}
             focusOnReturn={searchPrefs.focusOnReturn}
@@ -1098,6 +1100,8 @@ export function Control() {
               keysRef={searchKeysRef}
               translations={translations}
               dedupe={searchPrefs.dedupe}
+              onEnter={(q) => void goTo(q)}
+              onDone={clearSearch}
             />
             <SongsPanel
               open={songsOpen}

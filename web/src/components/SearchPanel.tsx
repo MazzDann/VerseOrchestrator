@@ -80,6 +80,10 @@ interface Props {
   translations: readonly { id: number; abbr: string }[];
   /** one row per place found in several translations (Налаштування вигляду → Пошук) */
   dedupe: boolean;
+  /** Enter with nothing to pick (typing still, numbers in the open book): go as the header does */
+  onEnter: (q: string) => void;
+  /** a pick or a jump: the query goes, the scope is the settings' again */
+  onDone: () => void;
 }
 
 /**
@@ -102,6 +106,8 @@ export function SearchPanel({
   keysRef,
   translations,
   dedupe,
+  onEnter,
+  onDone,
 }: Props) {
   useLang();
   const [debounced] = useDebouncedValue(query, 200);
@@ -123,9 +129,27 @@ export function SearchPanel({
     enabled: open && debounced.trim().length >= 2,
   });
   const abbr = useMemo(() => new Map(translations.map((t) => [t.id, t.abbr])), [translations]);
+  // the translations' names worked out once per result list: fresh arrays each render made every
+  // memoized row render again on each highlight move (review; the 0.6.5 rule)
   const rows = useMemo(
-    () => groupResults(data?.results ?? [], primaryId, dedupe).slice(0, 80),
-    [data?.results, primaryId, dedupe],
+    () =>
+      groupResults(data?.results ?? [], primaryId, dedupe)
+        .slice(0, 80)
+        .map((row) => {
+          const names = row.also.map((id) => abbr.get(id) ?? '').filter(Boolean);
+          return {
+            ...row,
+            alsoText:
+              names.length > 4
+                ? `${names.slice(0, 4).join(', ')} +${names.length - 4}`
+                : names.join(', '),
+            ownText:
+              row.also.length > 0 || row.r.translationId !== primaryId
+                ? (abbr.get(row.r.translationId) ?? '')
+                : '',
+          };
+        }),
+    [data?.results, primaryId, dedupe, abbr],
   );
   const suggestions = data?.suggestions ?? [];
   // Words to highlight in text results (strip operators/quotes; ≥2 chars).
@@ -156,8 +180,7 @@ export function SearchPanel({
 
   const pick = (r: SearchResult) => {
     onPick(r);
-    setQuery('');
-    onClose();
+    onDone();
   };
   pickRef.current = pick;
 
@@ -207,7 +230,12 @@ export function SearchPanel({
             flex={1}
             value={query}
             onChange={(e) => setQuery(e.currentTarget.value)}
-            onKeyDown={(e) => void onKey(e)}
+            onKeyDown={(e) => {
+              if (!onKey(e) && e.key === 'Enter') {
+                e.preventDefault();
+                onEnter(query);
+              }
+            }}
             placeholder={tr('Пошук: «любов», «Ів 3:16», «"світло життя"», «-темрява», «G2424»')}
             leftSection={<IconSearch size={18} />}
             rightSection={isFetching ? <Loader size="xs" /> : null}
@@ -272,12 +300,8 @@ export function SearchPanel({
               <ResultRow
                 key={row.key}
                 r={row.r}
-                also={row.also.map((id) => abbr.get(id) ?? '').filter(Boolean)}
-                own={
-                  row.also.length > 0 || row.r.translationId !== primaryId
-                    ? (abbr.get(row.r.translationId) ?? '')
-                    : ''
-                }
+                also={row.alsoText}
+                own={row.ownText}
                 index={i}
                 active={i === highlight}
                 terms={terms}
@@ -314,8 +338,8 @@ const ResultRow = memo(function ResultRow({
   onPoint,
 }: {
   r: SearchResult;
-  /** the other translations that have this verse (one row for all) */
-  also: string[];
+  /** the other translations that have this verse (one row for all), named */
+  also: string;
   /** this row's own translation, named when it isn't the main one alone */
   own: string;
   index: number;
@@ -340,13 +364,7 @@ const ResultRow = memo(function ResultRow({
       <Text size="xs" c="dimmed">
         {r.longName || r.shortName} {r.chapter}:{r.verse}
         {own && ` · ${own}`}
-        {also.length > 0 &&
-          ` · ${tr('також: {list}', {
-            list:
-              also.length > 4
-                ? `${also.slice(0, 4).join(', ')} +${also.length - 4}`
-                : also.join(', '),
-          })}`}
+        {also && ` · ${tr('також: {list}', { list: also })}`}
       </Text>
       <Text size="sm" lineClamp={1}>
         {highlightTerms(r.text, terms)}

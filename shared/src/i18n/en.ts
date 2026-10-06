@@ -411,7 +411,7 @@ export const EN: Record<string, string> = {
     'One field at the top: a reference goes there, words show results under it. When the current translation has nothing, the app searches the others.',
   'Де шукати слова спершу': 'Where to search words first',
   'У поточному перекладі (F3)': 'In the current translation (F3)',
-  'В усіх вибраних перекладах (F4)': 'In all selected translations (F4)',
+  'В усіх перекладах бібліотеки (F4)': 'In every translation of the library (F4)',
   'Той самий вірш з різних перекладів — одним рядком':
     'The same verse from different translations — one row',
   'Курсор у пошук, коли повертаєтеся до вікна керування':
