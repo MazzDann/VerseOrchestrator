@@ -260,8 +260,19 @@ function CountdownLines({ countdown, left }: { countdown: SlideCountdown; left: 
  * A picture on screen (1.5.0): the server's file over the whole slide. One that doesn't load
  * (deleted meanwhile, the server gone) leaves the black of the slide, never a broken-image sign.
  */
-function PictureContent({ picture }: { picture: SlidePicture }) {
+function PictureContent({ picture, prefetch }: { picture: SlidePicture; prefetch?: boolean }) {
   const [failed, setFailed] = useState<string | null>(null);
+  // an album's next photo (1.8.12), loaded and decoded ahead and held until the one after: the
+  // page keeps it among its images, so the step shows it at once instead of loading a camera's file
+  const ahead = useRef<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!prefetch || !picture.next) return;
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = picture.next;
+    img.decode().catch(() => {}); // a missing one fails when it is shown, not here
+    ahead.current = img;
+  }, [prefetch, picture.next]);
   if (failed === picture.src) return null;
   return (
     <img
@@ -369,14 +380,26 @@ class SlideGuard extends Component<GuardProps, GuardState> {
  * transition — for the operator's monitors when the system asks for less motion. The output
  * windows keep the transition the operator chose for the audience.
  */
-export function SlideCanvas({ slide, calm }: { slide: Slide; calm?: boolean }) {
+/**
+ * `prefetch` (1.8.12): load an album's next photo ahead — «Показ» only; the previews in the
+ * control window and on «Сцена» would each fetch and decode it again.
+ */
+export function SlideCanvas({
+  slide,
+  calm,
+  prefetch,
+}: {
+  slide: Slide;
+  calm?: boolean;
+  prefetch?: boolean;
+}) {
   return (
     <SlideGuard slide={slide} fallback={() => BLACK}>
       <SlideGuard
         slide={slide}
         fallback={(last) => (last ? <DrawnSlide slide={last} calm={calm} /> : BLACK)}
       >
-        <DrawnSlide slide={slide} calm={calm} />
+        <DrawnSlide slide={slide} calm={calm} prefetch={prefetch} />
       </SlideGuard>
     </SlideGuard>
   );
@@ -387,7 +410,15 @@ export function SlideCanvas({ slide, calm }: { slide: Slide; calm?: boolean }) {
  * is set) a positioned template — each object placed in % of the slide so preview ≡
  * presenter.
  */
-function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
+function DrawnSlide({
+  slide,
+  calm,
+  prefetch,
+}: {
+  slide: Slide;
+  calm?: boolean;
+  prefetch?: boolean;
+}) {
   const style = slide.style ?? DEFAULT_STYLE;
   // the viewers' countdown in a corner (1.8.7): counts, holds or goes past zero, pauses
   const { left: cornerLeft, counting: cornerCounting } = useCountdown(slide.cornerCountdown);
@@ -499,7 +530,7 @@ function DrawnSlide({ slide, calm }: { slide: Slide; calm?: boolean }) {
       mode={transition}
       style={{ position: 'absolute', inset: 0, background: '#000' }}
     >
-      {picture && <PictureContent picture={picture} />}
+      {picture && <PictureContent picture={picture} prefetch={prefetch} />}
     </SlideFade>
   );
 

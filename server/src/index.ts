@@ -77,6 +77,15 @@ import {
   type ImageExt,
 } from './images.js';
 import {
+  addAlbum,
+  albumEntry,
+  browse,
+  listPhotos,
+  photoFile,
+  readAlbums,
+  removeAlbum,
+} from './albums.js';
+import {
   BackupError,
   backupBusy,
   backupName,
@@ -1021,6 +1030,96 @@ app.post(
     const back = trashed ? restoreImage(imagesDir(dataDir), trashed) : null;
     if (!back) throw new ApiError(409, N_('Зображення вже не повернути'));
     res.json(imageEntry(back));
+  }),
+);
+
+// ── Albums (1.8.12, albums.ts): folders of photos on this computer, read where they are ─────
+
+// the albums and the folder picker are the operator's (this machine): a phone gets a photo's
+// address with the slide, not the folders of the computer
+app.get(
+  '/api/albums',
+  requireLocal,
+  wrap(async (_req, res) => {
+    const albums = readAlbums(dataDir);
+    const listings = await Promise.all(albums.map((a) => listPhotos(a.path)));
+    res.json(albums.map((a, i) => albumEntry(a, listings[i])));
+  }),
+);
+
+/** The folder picker: the starting points, or a folder's subfolders and its photo count. */
+app.get(
+  '/api/albums/browse',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const found = await browse(req.query.path);
+    if (!found) throw new ApiError(404, N_('Папку не знайдено'));
+    res.json(found);
+  }),
+);
+
+app.get(
+  '/api/albums/:id',
+  requireLocal,
+  wrap(async (req, res) => {
+    const album = readAlbums(dataDir).find((a) => a.id === String(req.params.id));
+    if (!album) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
+    const started = performance.now();
+    const listing = await listPhotos(album.path);
+    const ms = performance.now() - started;
+    if (ms > 200)
+      console.log(
+        `[server] albums: «${album.name}» ${listing?.photos.length ?? 0} photos, ${Math.round(ms)} ms`,
+      );
+    res.json(albumEntry(album, listing, true));
+  }),
+);
+
+/**
+ * A photo of an album. Read by every page — the output windows and the phones (through the
+ * waiter) — so not local-only, like a picture's file; only names the folder's listing holds,
+ * typed by their first bytes. `no-cache`: a photo taken out of the folder goes black.
+ */
+app.get(
+  '/api/albums/:id/file/:name',
+  wrap(async (req, res) => {
+    const album = readAlbums(dataDir).find((a) => a.id === String(req.params.id));
+    const photo = album ? await photoFile(album.path, String(req.params.name)) : null;
+    if (!photo) {
+      res.status(404).end();
+      return;
+    }
+    res.setHeader('Content-Type', photo.type);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-cache');
+    // the folder may sit under a dot folder: the name was checked above. A file gone or locked
+    // since: a plain 404 — Express's own error page would show the hall the path (review)
+    res.sendFile(photo.file, { dotfiles: 'allow' }, (err) => {
+      if (err && !res.headersSent) res.status(404).end();
+    });
+  }),
+);
+
+app.post(
+  '/api/albums',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const done = await addAlbum(dataDir, req.body ?? {});
+    if ('refused' in done) {
+      if (done.refused === 'missing') throw new ApiError(404, N_('Папку не знайдено'));
+      throw new ApiError(400, N_('Виберіть папку на цьому комп’ютері'));
+    }
+    res.status(201).json(albumEntry(done, await listPhotos(done.path)));
+  }),
+);
+
+app.delete(
+  '/api/albums/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const gone = removeAlbum(dataDir, String(req.params.id));
+    if (!gone) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
+    res.json({ name: gone.name });
   }),
 );
 

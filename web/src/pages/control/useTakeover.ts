@@ -91,6 +91,8 @@ export function useLeaderTakeover({
   openSong,
   setSongsPanelStanza,
   setSongsOpen,
+  openAlbum,
+  setImagesOpen,
   setPreviewOverride,
   previewOverride,
   isLeader,
@@ -115,6 +117,8 @@ export function useLeaderTakeover({
   openSong: (id: number | null) => void;
   setSongsPanelStanza: (stanza: number | null) => void;
   setSongsOpen: (v: boolean | ((open: boolean) => boolean)) => void;
+  openAlbum: (id: string | null, at?: { index: number; name?: string }) => void;
+  setImagesOpen: (v: boolean | ((open: boolean) => boolean)) => void;
   setPreviewOverride: Dispatch<SetStateAction<Slide | null>>;
   previewOverride: Slide | null;
   isLeader: boolean;
@@ -161,6 +165,12 @@ export function useLeaderTakeover({
       setSongsOpen(true);
       // «live» now would render before the override lands (the store updates first) and
       // live-follow would push this window's verses over the song for a moment
+      songTakeover.current = t.override;
+      setPreviewOverride(t.override);
+    } else if (t.kind === 'album') {
+      // an album's photo (1.8.12): that album at that photo, its timer off — the same wait for «live»
+      openAlbum(t.albumId, { index: t.index, name: t.name });
+      setImagesOpen(true);
       songTakeover.current = t.override;
       setPreviewOverride(t.override);
     }

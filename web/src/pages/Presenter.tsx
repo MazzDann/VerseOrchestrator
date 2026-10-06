@@ -86,7 +86,7 @@ export function Presenter() {
         cursor: cursorHidden ? 'none' : 'auto',
       }}
     >
-      <SlideCanvas slide={slide} />
+      <SlideCanvas slide={slide} prefetch />
       <IdentifyOverlay label={identify} />
       {hint && (
         <div

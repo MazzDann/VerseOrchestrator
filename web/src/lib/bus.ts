@@ -100,6 +100,9 @@ function slideAt(x: unknown, depth: number): x is Slide {
     // a picture (1.5.0): addresses, not images
     obj(s.picture) &&
     (!s.picture || typeof (s.picture as { src: unknown }).src === 'string') &&
+    // an album's next photo (1.8.12): an address too — the windows load it ahead
+    (!s.picture ||
+      ['undefined', 'string'].includes(typeof (s.picture as { next: unknown }).next)) &&
     // what a QR slide or «Заставка» covers (1.4.2): brought back as it is, so a slide too
     (s.returnTo == null || (depth < MAX_RETURN_DEPTH && slideAt(s.returnTo, depth + 1)))
   );

@@ -258,8 +258,8 @@ export function useHub({
             }
           : it.kind === 'song'
             ? { id: it.id, kind: 'song', label: it.label, songId: it.songId }
-            : it.kind === 'image'
-              ? { id: it.id, kind: 'image', label: it.label }
+            : it.kind === 'image' || it.kind === 'album'
+              ? { id: it.id, kind: it.kind, label: it.label }
               : { id: it.id, kind: 'text', label: it.label },
       ),
       currentId: playlistCurrentId,

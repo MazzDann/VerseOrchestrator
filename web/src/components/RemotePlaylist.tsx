@@ -7,6 +7,7 @@ const KIND_MARK: Record<PlaylistEntry['kind'], string> = {
   song: '♪',
   text: N_('Т'), // «Текст»: one letter
   image: '🖼',
+  album: '🗂',
 };
 
 /**
