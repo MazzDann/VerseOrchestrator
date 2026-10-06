@@ -328,6 +328,7 @@ const updates = createUpdateChecker({
   current: appVersion,
   install: readLayout(repoRoot) ? 'release' : 'source',
   isEnabled: () => getServerSettings().updates.check,
+  channel: () => getServerSettings().updates.channel,
 });
 
 // Is a control window open on this machine? The start file and the shortcut then open no
@@ -381,6 +382,8 @@ async function updateAnswer(force: boolean) {
           size: r.asset?.size ?? 0,
           installable: !!r.asset && !!r.sums,
           selfReturn: hasRollback(r.version),
+          // a beta (1.8.11): said so in the dropdown
+          prerelease: r.prerelease,
         }))
       : [],
     installer: install,

@@ -311,7 +311,11 @@ export const DEFAULT_LAUNCH: LaunchSettings = { browser: 'system', appWindow: fa
 const ServerSettingsSchema = z.object({
   version: z.number(),
   remotes: z.object({ persist: z.boolean() }),
-  updates: z.object({ check: z.boolean() }),
+  updates: z.object({
+    check: z.boolean(),
+    /** «Канал» (1.8.11); absent until chosen — the server follows the installed version */
+    channel: z.enum(['stable', 'beta']).optional(),
+  }),
   launch: LaunchSchema.catch(DEFAULT_LAUNCH),
 });
 
@@ -331,7 +335,8 @@ export type BrowserListing = z.infer<typeof BrowsersSchema>['browsers'][number];
 /** Is there a newer version (1.0.0, server/src/updates.ts)? */
 const UpdateStateSchema = z.object({
   current: z.string(),
-  channel: z.enum(['stable', 'preview']),
+  /** «Стабільний»: regular releases; «Бета» (1.8.11): pre-releases too */
+  channel: z.enum(['stable', 'beta']),
   install: z.enum(['release', 'source']),
   enabled: z.boolean(),
   checkedAt: z.number().nullable(),
@@ -394,6 +399,8 @@ const UpdateStateSchema = z.object({
         installable: z.boolean(),
         /** it has «Повернути версію» of its own (1.4.0 or later) */
         selfReturn: z.boolean(),
+        /** a beta (1.8.11) */
+        prerelease: z.boolean().optional(),
       }),
     )
     .optional(),
@@ -894,7 +901,7 @@ export const api = {
   },
   updateServerSettings: async (patch: {
     remotes?: { persist?: boolean };
-    updates?: { check?: boolean };
+    updates?: { check?: boolean; channel?: 'stable' | 'beta' };
     launch?: Partial<LaunchSettings>;
   }) => {
     const res = await request('/api/server-settings', {
