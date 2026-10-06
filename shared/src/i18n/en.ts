@@ -378,6 +378,10 @@ export const EN: Record<string, string> = {
   'Папку не знайдено': 'Folder not found',
   'Альбом не знайдено — відкрийте список ще раз': 'Album not found — open the list again',
   'Виберіть папку на цьому комп’ютері': 'Choose a folder on this computer',
+  'Альбом ще завантажується': 'The album is still loading',
+  'В альбомі немає фото': 'The album has no photos',
+  'Це останнє фото': 'This is the last photo',
+  'Це перше фото': 'This is the first photo',
   // «Резервна копія» (1.5.0)
   'Резервна копія': 'Backup',
   'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення. Модулі, бібліотека й пульти в нього не входять.':

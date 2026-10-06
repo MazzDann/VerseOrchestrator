@@ -449,6 +449,42 @@ const ImageSchema = z.object({
 });
 export type ImageInfo = z.infer<typeof ImageSchema>;
 
+/** An album as the server lists it (1.8.12, server/src/albums.ts `albumEntry`). */
+const AlbumSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** the folder on this computer */
+  path: z.string(),
+  added: z.string(),
+  /** the folder is not there (moved, a drive taken out) */
+  missing: z.boolean(),
+  count: z.number(),
+  /** HEIC photos left out: browsers can't draw them */
+  heic: z.number(),
+  /** more than 5 000 photos: the rest left out */
+  truncated: z.boolean(),
+  /** in folder order, with the album asked for by id */
+  photos: z.array(z.object({ name: z.string(), src: z.string() })).optional(),
+});
+export type AlbumInfo = z.infer<typeof AlbumSchema>;
+
+/** The folder picker (server/src/albums.ts `browse`). */
+const FolderListSchema = z.object({
+  path: z.string().nullable(),
+  parent: z.string().nullable(),
+  folders: z.array(
+    z.object({
+      name: z.string(),
+      path: z.string(),
+      kind: z.enum(['home', 'pictures', 'drive']).optional(),
+    }),
+  ),
+  photos: z.number(),
+  heic: z.number(),
+  denied: z.boolean().optional(),
+});
+export type FolderList = z.infer<typeof FolderListSchema>;
+
 /** What a backup holds (1.5.0, server/src/backup.ts `BackupSummary`). */
 const BackupSummarySchema = z.object({
   app: z.string(),
@@ -811,6 +847,35 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return ImageSchema.parse(await res.json());
+  },
+  /** Albums (1.8.12): folders of photos on this computer, read where they are. */
+  albums: () => getJson('/api/albums', z.array(AlbumSchema)),
+  /** An album with its photos, read from the folder now (new photos are there). */
+  album: (id: string) => getJson(`/api/albums/${encodeURIComponent(id)}`, AlbumSchema),
+  /** The folder picker: the starting points (no path) or a folder's subfolders. */
+  browseFolders: async (path?: string) => {
+    const q = path ? `?path=${encodeURIComponent(path)}` : '';
+    const res = await request(`/api/albums/browse${q}`, { headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return FolderListSchema.parse(await res.json());
+  },
+  addAlbum: async (path: string, name?: string) => {
+    const res = await request('/api/albums', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ path, name }),
+    });
+    if (!res.ok) throw await failure(res);
+    return AlbumSchema.parse(await res.json());
+  },
+  /** Forget an album; the folder stays as it is. */
+  removeAlbum: async (id: string) => {
+    const res = await request(`/api/albums/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ name: z.string() }).parse(await res.json());
   },
   songBundleFiles: () =>
     getJson(
