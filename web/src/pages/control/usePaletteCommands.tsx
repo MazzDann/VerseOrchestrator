@@ -62,7 +62,7 @@ export function usePaletteCommands({
   setPlaylistOpen: (open: boolean) => void;
   setSongsOpen: (open: boolean) => void;
   setTextOpen: (open: boolean) => void;
-  openSearch: (scope: SearchScope) => void;
+  openSearch: (scope?: SearchScope) => void;
   setFollowOpen: (open: boolean) => void;
   setRemoteOpen: (open: boolean) => void;
   setOutputsOpen: (open: boolean) => void;

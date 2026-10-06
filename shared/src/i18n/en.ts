@@ -393,6 +393,31 @@ export const EN: Record<string, string> = {
   'Виберіть файл на цьому комп’ютері': 'Choose a file on this computer',
   Відео: 'Videos',
   'Відео на екрані': 'Video on screen',
+  // One search (1.8.12-beta.4)
+  'Пошук або посилання': 'Search or a reference',
+  'Пошук: Ів 3:16, любов ({key})': 'Search: John 3:16, love ({key})',
+  'Знайдено для «{query}»': 'Found for “{query}”',
+  'У поточному перекладі нічого — знайдено в інших.':
+    'Nothing in the current translation — found in others.',
+  'також: {list}': 'also: {list}',
+  'До поля пошуку': 'To the search field',
+  'Курсор у полі пошуку вгорі — клавіша, якої браузер не забирає':
+    "The cursor in the search field at the top — a key the browser doesn't take",
+  'спершу в усіх': 'all first',
+  'спершу в поточному': 'current first',
+  'без повторів': 'no repeats',
+  'курсор у пошук': 'cursor to search',
+  'Одне поле вгорі: посилання — перехід, слова — результати під ним. Якщо в поточному перекладі нічого, застосунок шукає в інших.':
+    'One field at the top: a reference goes there, words show results under it. When the current translation has nothing, the app searches the others.',
+  'Де шукати слова спершу': 'Where to search words first',
+  'У поточному перекладі (F3)': 'In the current translation (F3)',
+  'В усіх вибраних перекладах (F4)': 'In all selected translations (F4)',
+  'Той самий вірш з різних перекладів — одним рядком':
+    'The same verse from different translations — one row',
+  'Курсор у пошук, коли повертаєтеся до вікна керування':
+    'The cursor to search when you come back to the control window',
+  'Поки поле порожнє, стрілки й PageUp/PageDown далі гортають вірші.':
+    'While the field is empty, the arrows and PageUp/PageDown still step the verses.',
   'Браузер не може відтворити це відео. Збережіть його як MP4 (H.264) і додайте знову.':
     "The browser can't play this video. Save it as MP4 (H.264) and add it again.",
   'відео: ще {time}': 'video: {time} left',
@@ -595,8 +620,6 @@ export const EN: Record<string, string> = {
   Навігація: 'Navigation',
   Пошук: 'Search',
   'У поточному перекладі; {combo} — в усіх': 'In the current translation; {combo} — in all',
-  'Перейти: Ів 3:16': 'Go to: John 3:16',
-  'Перейти до посилання': 'Go to a reference',
   Джерела: 'Sources',
   'Пошук пісень з .pptx і показ куплетів': 'Find songs from .pptx files and show their stanzas',
   'Скласти й показати довільний текст': 'Write and show any text',

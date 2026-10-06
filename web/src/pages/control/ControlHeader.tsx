@@ -1,9 +1,14 @@
-import { type Dispatch, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useRef,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react';
 import { Burger, Divider, Group, Text, TextInput } from '@mantine/core';
 import {
   IconAdjustments,
   IconAppWindow,
-  IconArrowRight,
   IconDeviceMobile,
   IconHelp,
   IconLayoutDashboard,
@@ -55,6 +60,10 @@ export function ControlHeader({
   goToValue,
   setGoToValue,
   goTo,
+  searchFieldRef,
+  searchKeysRef,
+  focusOnReturn,
+  keysBusy,
   songsOpen,
   setSongsOpen,
   textOpen,
@@ -92,10 +101,17 @@ export function ControlHeader({
   toggleNav: () => void;
   navBreakpoint: boolean | undefined;
   keymap: Keymap;
-  openSearch: (scope: SearchScope) => void;
+  openSearch: (scope?: SearchScope) => void;
   goToValue: string;
   setGoToValue: (value: string) => void;
   goTo: (q: string) => Promise<void>;
+  /** the one search field (1.8.12-beta.4) and the results panel's keys it hands over first */
+  searchFieldRef: MutableRefObject<HTMLInputElement | null>;
+  searchKeysRef: MutableRefObject<((e: React.KeyboardEvent) => boolean) | null>;
+  /** the setting: the cursor back in the field when the window comes back */
+  focusOnReturn: boolean;
+  /** the palette, «Ще» or a tool owns the keyboard now */
+  keysBusy: boolean;
   songsOpen: boolean;
   setSongsOpen: Toggle;
   textOpen: boolean;
@@ -133,6 +149,59 @@ export function ControlHeader({
   const lang = useLang();
   const fold = header.fold;
   const folded = (zone: FoldZone) => fold.folded.includes(zone);
+  // F1005-11 (the setting, off by default): the window coming back puts the cursor in the
+  // field — only when nothing else holds it, and not over the palette or a tool
+  const busy = useRef(keysBusy);
+  busy.current = keysBusy;
+  useEffect(() => {
+    if (!focusOnReturn) return;
+    const back = () => {
+      const field = searchFieldRef.current;
+      const held = document.activeElement;
+      if (!field || field.offsetParent === null || busy.current) return;
+      if (held && held !== document.body && held !== field) return;
+      field.focus();
+      field.select();
+    };
+    const visible = () => {
+      if (document.visibilityState === 'visible') back();
+    };
+    window.addEventListener('focus', back);
+    document.addEventListener('visibilitychange', visible);
+    return () => {
+      window.removeEventListener('focus', back);
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, [focusOnReturn, searchFieldRef]);
+  /**
+   * The field's keys: the results panel's first (↑ ↓ Enter Esc); Enter else goes (a reference,
+   * numbers in the open book, the first hit); Esc clears; in an EMPTY field the arrows and
+   * PageUp / PageDown keep stepping the show — the field lets go and hands the key on.
+   */
+  const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (searchKeysRef.current?.(e)) return;
+    const field = e.currentTarget;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void goTo(goToValue);
+    } else if (e.key === 'Escape' && goToValue) {
+      e.preventDefault();
+      e.stopPropagation();
+      setGoToValue('');
+    } else if (
+      goToValue === '' &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      !e.metaKey &&
+      ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'].includes(e.key)
+    ) {
+      e.preventDefault();
+      field.blur();
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', { key: e.key, code: e.code, bubbles: true, cancelable: true }),
+      );
+    }
+  };
 
   // The header's foldable tools, each defined once: the toolbar draws them as buttons, «Ще» as
   // menu items — the same names, icons, hotkeys and states (vo-design §2).
@@ -316,17 +385,18 @@ export function ControlHeader({
             onClick={() => openSearch('current')}
           />
           <TextInput
+            ref={searchFieldRef}
             size="sm"
-            w={170}
+            w={230}
             display={fold.noGoTo ? 'none' : undefined}
-            placeholder={tr('Перейти: Ів 3:16')}
+            placeholder={tr('Пошук: Ів 3:16, любов ({key})', {
+              key: formatCombo(keymap.searchFocus),
+            })}
             value={goToValue}
             onChange={(e) => setGoToValue(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void goTo(goToValue);
-            }}
-            leftSection={<IconArrowRight size={14} />}
-            aria-label={tr('Перейти до посилання')}
+            onKeyDown={onSearchKey}
+            leftSection={<IconSearch size={14} />}
+            aria-label={tr('Пошук або посилання')}
           />
         </ToolZone>
         {!folded('sources') && (
