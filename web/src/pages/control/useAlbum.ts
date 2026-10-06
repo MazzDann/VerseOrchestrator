@@ -304,11 +304,11 @@ export function useAlbum({
     let stopped = false;
     const key = (name: string) => `${albumId}|${name}`;
     void (async () => {
-      while (!stopped) {
+      while (!stopped && canDrawSmall()) {
         const order = smallOrder(
           photos.length,
           currentRef.current,
-          (i) => !!photos[i].needsSmall && !tried.current.has(key(photos[i].name)),
+          (i) => !!photos[i].needsSmall && !!photos[i].v && !tried.current.has(key(photos[i].name)),
         );
         if (order.length === 0) return;
         const p = photos[order[0]];
@@ -316,7 +316,7 @@ export function useAlbum({
         try {
           const started = performance.now();
           const copy = await drawSmall(p.src);
-          await api.putAlbumSmall(albumId, p.name, copy.blob);
+          await api.putAlbumSmall(albumId, p.name, p.v!, copy.blob);
           performance.measure('vo:album-small', {
             start: started,
             detail: { name: p.name, ms: copy.ms, from: copy.from, bytes: copy.blob.size },

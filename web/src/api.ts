@@ -473,6 +473,8 @@ const AlbumSchema = z.object({
         small: z.string().optional(),
         /** no small copy yet: the control window draws one */
         needsSmall: z.boolean().optional(),
+        /** the photo's version the copy is drawn of (sent back with it) */
+        v: z.string().optional(),
       }),
     )
     .optional(),
@@ -880,9 +882,9 @@ export const api = {
     return AlbumSchema.parse(await res.json());
   },
   /** Keep a small copy of an album's photo for the phones (lib/albumSmall.ts drew it). */
-  putAlbumSmall: async (id: string, name: string, jpeg: Blob) => {
+  putAlbumSmall: async (id: string, name: string, version: string, jpeg: Blob) => {
     const res = await request(
-      `/api/albums/${encodeURIComponent(id)}/small/${encodeURIComponent(name)}`,
+      `/api/albums/${encodeURIComponent(id)}/small/${encodeURIComponent(name)}?v=${encodeURIComponent(version)}`,
       { method: 'PUT', headers: { 'Content-Type': 'image/jpeg', ...CONTROL_HEADERS }, body: jpeg },
     );
     if (!res.ok) throw await failure(res);
