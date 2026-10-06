@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Anchor, Button, Group, Popover, Progress, Select, Switch, Text } from '@mantine/core';
+import {
+  Anchor,
+  Button,
+  Group,
+  Popover,
+  Progress,
+  SegmentedControl,
+  Select,
+  Switch,
+  Text,
+} from '@mantine/core';
 import { IconArrowBackUp, IconDownload, IconRefresh, IconReload } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
@@ -151,6 +161,17 @@ export function UpdateSection() {
     },
   });
   const enabled = settings.data?.updates.check ?? true;
+  // «Канал» (1.8.11): the server's answer says which one it follows — the choice, or by the version
+  const setChannel = useMutation({
+    mutationFn: (channel: 'stable' | 'beta') => api.updateServerSettings({ updates: { channel } }),
+    onSuccess: (s) => {
+      queryClient.setQueryData(['server-settings'], s);
+      void queryClient.invalidateQueries({ queryKey: ['update'] });
+    },
+    onError: fail,
+  });
+  // a choice saved wins at once; unchosen, the one the server follows (by the version installed)
+  const channel = settings.data?.updates.channel ?? state?.channel ?? 'stable';
 
   let status: string;
   if (restarting === 'code') status = tr('Перезапускаю застосунок з новим кодом…');
@@ -233,6 +254,8 @@ export function UpdateSection() {
           (state.versions?.length ?? 0) > 1 ||
           (state.installer?.phase ?? 'idle') !== 'idle') && (
           <Install
+            // another channel, another list: a version picked in the last one goes (review of 1.8.11)
+            key={state.channel}
             state={state}
             outputsOpen={outputs.length}
             downloading={download.isPending}
@@ -278,6 +301,27 @@ export function UpdateSection() {
           label={tr('Перевіряти оновлення')}
         />
       </Group>
+      <Group gap="xs" wrap="nowrap" mt={6}>
+        <Text size="xs">{tr('Канал')}</Text>
+        <SegmentedControl
+          size="xs"
+          aria-label={tr('Канал оновлень')}
+          value={channel}
+          disabled={serverAvailable !== true || !state || setChannel.isPending || !!restarting}
+          onChange={(v) => setChannel.mutate(v === 'beta' ? 'beta' : 'stable')}
+          data={[
+            { value: 'stable', label: tr('Стабільний') },
+            { value: 'beta', label: tr('Бета') },
+          ]}
+        />
+      </Group>
+      <Text size="xs" c="dimmed" mt={4}>
+        {channel === 'beta'
+          ? tr(
+              'Бета-версії приносять нове раніше, але в них можуть бути вади. Повернутися можна будь-коли: перемкніть на «Стабільний» і виберіть стабільну версію в списку.',
+            )
+          : tr('Лише стабільні версії: кожна збирає кілька перевірених бета-версій.')}
+      </Text>
       <Text size="xs" c="dimmed" mt={6}>
         {tr(
           'Раз на 12 годин застосунок питає GitHub про нові версії. Завантажує й установлює лише тоді, коли ви натиснете кнопку.',
@@ -543,10 +587,13 @@ function Install({
   // the dropdown shows the version picked; else the one waiting, the one whose download failed
   // (to try again), or the newest when it is newer than this one; else nothing yet
   // a version chosen over the newest (1.6.3): nothing picked for you — «Поточний реліз» is there
+  // only what this channel lists can be downloaded (1.8.11): a beta picked, or one whose
+  // download failed, isn't offered once the channel is «Стабільний»
+  const listed = new Set(versions.map((v) => v.version));
   const target =
-    pick ??
+    (pick && listed.has(pick) ? pick : null) ??
     ready ??
-    (phase === 'error' && inst?.version
+    (phase === 'error' && inst?.version && listed.has(inst.version)
       ? inst.version
       : state.available && !state.pinned
         ? newest
@@ -587,6 +634,8 @@ function Install({
     // the one installed is there to show where you are, not to be picked
     disabled: v.version === state.current,
   }));
+  // a version downloaded on another channel still waits to be installed: shown as it is
+  if (ready && !listed.has(ready)) options.unshift({ value: ready, label: ready, disabled: false });
   const size = chosen?.size ?? state.latest?.asset?.size ?? 0;
   const restart = !!ready && target === ready;
   // «Поточний реліз» (1.6.3, the user's ask): back to the newest from a version chosen over it
@@ -614,7 +663,7 @@ function Install({
         {options.length > 1 && (
           <Select
             size="xs"
-            w={150}
+            w={210} // «1.8.12-beta.1 · найновіша» whole (1.8.11)
             aria-label={tr('Версія')}
             placeholder={tr('Інша версія…')}
             data={options}

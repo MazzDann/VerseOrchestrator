@@ -1,7 +1,7 @@
 import { sanitizeLibrarySelection, type LibrarySelection } from '@vo/shared';
 import { DEFAULT_LAUNCH, sanitizeLaunch, type LaunchSettings } from './browsers.js';
 import { readJson, writeJson } from './jsonFile.js';
-import { parseVersion, type Pin } from './updates.js';
+import { parseVersion, type Channel, type Pin } from './updates.js';
 
 /**
  * Server options — NOT secrets. Lives in `<data>/settings.json` (git-ignored), editable
@@ -25,8 +25,9 @@ export interface ServerSettings {
   /**
    * «Перевіряти оновлення» (1.0.0): ask GitHub about new versions now and then. `pin` (1.6.3): an
    * older version chosen over the newest release — «Оновлення» keeps quiet about it (updates.ts).
+   * `channel` (1.8.11): «Стабільний» or «Бета»; absent until the operator chooses (channelFor).
    */
-  updates: { check: boolean; pin?: Pin };
+  updates: { check: boolean; channel?: Channel; pin?: Pin };
   /**
    * «Відкривати вікно керування в…» (2026-10-01): the browser the start file and the shortcut
    * open the control window in, and whether as an app window (browsers.ts; the launcher reads it).
@@ -64,7 +65,11 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     remotes?: { persist?: unknown };
     library?: unknown;
     standby?: { port?: unknown; idleMinutes?: unknown };
-    updates?: { check?: unknown; pin?: { version?: unknown; skip?: unknown } | null };
+    updates?: {
+      check?: unknown;
+      channel?: unknown;
+      pin?: { version?: unknown; skip?: unknown } | null;
+    };
     launch?: unknown;
   };
   const idle = Number(r.standby?.idleMinutes);
@@ -91,6 +96,8 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     },
     launch: sanitizeLaunch(r.launch),
   };
+  const channel = r.updates?.channel;
+  if (channel === 'stable' || channel === 'beta') out.updates.channel = channel;
   // two versions or none (null clears it)
   const pin = r.updates?.pin;
   if (

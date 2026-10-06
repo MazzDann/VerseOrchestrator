@@ -92,11 +92,16 @@ export function isDevCopy(root: string): boolean {
   return readLayout(root) === null && fs.existsSync(path.join(root, '.git'));
 }
 
-/** What `git describe --tags --long` says («v1.4.2-7-g20dd850»), in parts; or null. */
+/**
+ * What `git describe --tags --long` says («v1.4.2-7-g20dd850», after a beta tag
+ * «v1.8.12-beta.1-3-g20dd850», 1.8.11), in parts; or null.
+ */
 export function parseDescribe(
   text: string | null,
 ): { version: string; ahead: number; hash: string } | null {
-  const m = /^v(\d+\.\d+\.\d+)-(\d+)-g([0-9a-f]{4,40})$/.exec(text?.trim() ?? '');
+  const m = /^v(\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?)-(\d+)-g([0-9a-f]{4,40})$/.exec(
+    text?.trim() ?? '',
+  );
   return m ? { version: m[1], ahead: Number(m[2]), hash: m[3] } : null;
 }
 

@@ -53,6 +53,24 @@ function fakeGit(answers: { describe?: string | null; status?: string | null }) 
 }
 
 describe('the dev label (2026-10-01)', () => {
+  it('reads git describe after a beta tag (1.8.11)', () => {
+    expect(parseDescribe('v1.8.12-beta.1-3-g20dd850')).toEqual({
+      version: '1.8.12-beta.1',
+      ahead: 3,
+      hash: '20dd850',
+    });
+    expect(parseDescribe('v1.8.12-beta-0-g20dd850')).toMatchObject({ version: '1.8.12-beta' });
+    expect(parseDescribe('v1.8.12-3-g20dd850')).toMatchObject({ version: '1.8.12', ahead: 3 });
+    expect(devLabel('1.8.12-beta.1', 'v1.8.12-beta.1-3-g20dd850', status('feat/x'))).toBe(
+      'dev 1.8.12-beta.1.try3 (feat/x · 20dd850)',
+    );
+    // any pre-release tag counts — before 1.8.11 one was no release tag at all
+    expect(parseDescribe('v1.4.2-rc1-7-g20dd850')).toMatchObject({
+      version: '1.4.2-rc1',
+      ahead: 7,
+    });
+  });
+
   it('reads git describe', () => {
     expect(parseDescribe('v1.4.2-7-g20dd850')).toEqual({
       version: '1.4.2',
@@ -123,7 +141,6 @@ describe('the dev label (2026-10-01)', () => {
       'fatal: No names found, cannot describe anything.',
       'd4961e3',
       'v1.4-7-g20dd850',
-      'v1.4.2-rc1-7-g20dd850',
       'v1.4.2-x-g20dd850',
       'v1.4.2-7-20dd850',
       'v1.4.2-7-gXYZ',
@@ -171,7 +188,7 @@ describe('a dev copy or a release', () => {
     // source zip has no .git at all: the version as it is
     expect(versionLabel(root, '9.9.9')).toMatch(
       fs.existsSync(path.join(root, '.git'))
-        ? /^dev \d+\.\d+\.\d+(\.try\d+)?( \(.+ · [0-9a-f]{4,40}\+?\)| \([0-9a-f]{4,40}\+?\))?$/
+        ? /^dev \d+\.\d+\.\d+(-[0-9A-Za-z.]+)?(\.try\d+)?( \(.+ · [0-9a-f]{4,40}\+?\)| \([0-9a-f]{4,40}\+?\))?$/
         : /^9\.9\.9$/,
     );
   });

@@ -37,6 +37,28 @@ describe('the browser choice in settings.json (2026-10-01)', () => {
     expect(updateServerSettings({ updates: { pin: null } }).updates).toEqual({ check: false });
   });
 
+  it('keeps a channel chosen (1.8.11), drops anything else, and a pin keeps it', () => {
+    expect(sanitizeServerSettings({ updates: { channel: 'beta' } }).updates).toEqual({
+      check: true,
+      channel: 'beta',
+    });
+    for (const channel of ['preview', 'Beta', 1, null])
+      expect(sanitizeServerSettings({ updates: { channel } }).updates.channel).toBeUndefined();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-settings-'));
+    dirs.push(dir);
+    initServerSettings(path.join(dir, 'settings.json'));
+    updateServerSettings({ updates: { channel: 'beta' } });
+    const pinned = updateServerSettings({
+      updates: { pin: { version: '1.8.12-beta.1', skip: '1.8.12-beta.2' } },
+    });
+    expect(pinned.updates).toEqual({
+      check: true,
+      channel: 'beta',
+      pin: { version: '1.8.12-beta.1', skip: '1.8.12-beta.2' },
+    });
+    expect(updateServerSettings({ updates: { channel: 'stable' } }).updates.channel).toBe('stable');
+  });
+
   it('defaults to the system browser, as before', () => {
     expect(sanitizeServerSettings({}).launch).toEqual({ browser: 'system', appWindow: false });
     expect(
