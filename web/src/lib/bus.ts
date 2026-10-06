@@ -103,10 +103,19 @@ function slideAt(x: unknown, depth: number): x is Slide {
     // an album's next photo (1.8.12): an address too — the windows load it ahead
     (!s.picture ||
       ['undefined', 'string'].includes(typeof (s.picture as { next: unknown }).next)) &&
+    // a video (1.8.12-beta.3): an address and a clock — NaN would play nowhere
+    obj(s.video) &&
+    (!s.video || videoOk(s.video as Record<string, unknown>)) &&
     // what a QR slide or «Заставка» covers (1.4.2): brought back as it is, so a slide too
     (s.returnTo == null || (depth < MAX_RETURN_DEPTH && slideAt(s.returnTo, depth + 1)))
   );
 }
+
+const videoOk = (v: Record<string, unknown>) =>
+  typeof v.src === 'string' &&
+  Number.isFinite(v.at) &&
+  Number.isFinite(v.from) &&
+  (v.paused == null || Number.isFinite(v.paused));
 
 const isInline = (bg: string | null | undefined): bg is string =>
   !!bg && !bg.startsWith(ASSET_PREFIX) && bg.length > 256; // data URLs; short URLs stay inline
