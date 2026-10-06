@@ -464,7 +464,18 @@ const AlbumSchema = z.object({
   /** more than 5 000 photos: the rest left out */
   truncated: z.boolean(),
   /** in folder order, with the album asked for by id */
-  photos: z.array(z.object({ name: z.string(), src: z.string() })).optional(),
+  photos: z
+    .array(
+      z.object({
+        name: z.string(),
+        src: z.string(),
+        /** for the phones (1.8.12-beta.2): the small copy, the photo itself until there is one */
+        small: z.string().optional(),
+        /** no small copy yet: the control window draws one */
+        needsSmall: z.boolean().optional(),
+      }),
+    )
+    .optional(),
 });
 export type AlbumInfo = z.infer<typeof AlbumSchema>;
 
@@ -867,6 +878,14 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return AlbumSchema.parse(await res.json());
+  },
+  /** Keep a small copy of an album's photo for the phones (lib/albumSmall.ts drew it). */
+  putAlbumSmall: async (id: string, name: string, jpeg: Blob) => {
+    const res = await request(
+      `/api/albums/${encodeURIComponent(id)}/small/${encodeURIComponent(name)}`,
+      { method: 'PUT', headers: { 'Content-Type': 'image/jpeg', ...CONTROL_HEADERS }, body: jpeg },
+    );
+    if (!res.ok) throw await failure(res);
   },
   /** Forget an album; the folder stays as it is. */
   removeAlbum: async (id: string) => {
