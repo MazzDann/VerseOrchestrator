@@ -3,7 +3,7 @@
 [Українською](../images.md) · English
 
 This page is for the operator: how to show a poster, an announcement, or a photo on screen,
-add an image to the running order, and show the photos of a folder in turn. To show a logo between the items of a show, see
+add an image to the running order, show the photos of a folder in turn, and show a video. To show a logo between the items of a show, see
 [Set up the cover](appearance.md#set-up-the-cover).
 
 The app keeps the images, so they work while the app is running (`start.cmd`,
@@ -123,3 +123,60 @@ Items of the running order with this album are marked “Album removed: …”.
 
 If the folder isn't there (a drive or a flash drive is disconnected), the album says “Folder
 not found”. Connect the drive and click **Refresh**.
+
+## Show a video
+
+Videos are MP4, MOV, WebM, or MKV files on this computer. The app reads a file where it is
+and doesn't copy it.
+
+### Add a video
+
+To add a video:
+
+1. In the images panel, at the top, choose **Videos**.
+2. Click **Add a video…**.
+3. Open the folder with the video: start from your home folder or a drive, or paste the
+   folder's path into the field at the top and press Enter. Below the folders you see the
+   folder's videos with their sizes.
+4. Click the video you need. It appears in the list.
+
+The browser doesn't play AVI, WMV, and other formats: the app says how many of them the folder
+has. Save such a video as MP4.
+
+### Control the video on screen
+
+To show a video, click its thumbnail. The video starts from the beginning. Above the
+thumbnails, the buttons of the video on screen appear:
+
+- **Start** / **Pause** — stop the video and go on from the same place;
+- the slider — go to another place in the video; next to it you see the time, for example
+  “0:12 / 4:30”;
+- **Repeat** — start the video again when it ends;
+- the volume slider — the sound's volume in the control window.
+
+A video plays in the presentation window without sound, and the sound comes from the control
+window — connect the hall's speakers to this computer. If you reloaded the control window
+while a video was playing, click anywhere in it: the browser allows sound only after a click.
+
+To choose what happens after a video ends, open **Settings** → **Video** → **After a video
+ends**:
+
+- **Black screen**;
+- **Next** — the next item of the running order if the video started from it, otherwise the
+  next video of the list.
+
+Viewers' phones don't get the video. To choose what they show, use **Viewers' phones during a
+video**: **A frame of the video** or **The words “Video on screen”**. The control window makes
+the frame when the video appears in the list. The stage window shows how much of the video is
+left.
+
+### Add a video to the running order
+
+To add a video to the [running order](running-order.md), hover over its thumbnail and click the
+**Add to the running order** icon. The item plays the video from the beginning.
+
+### Remove a video
+
+To remove a video from the list, hover over its thumbnail, click the trash icon **Remove the
+video**, and then **Remove**. The file stays where it is. If the file isn't there (a drive is
+disconnected), the thumbnail says “File not found”.
