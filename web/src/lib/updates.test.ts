@@ -44,3 +44,12 @@ describe('a step down and the running order (1.9.1)', () => {
     expect(kindsBreaking('1.10.0-beta.1', [order])).toEqual([]);
   });
 });
+
+describe('«Заставка» items and a step down (1.10.0-beta.2)', () => {
+  it('a version before 1.9.1 fails on them; 1.9.1 and later pass over', async () => {
+    const { kindsBreaking } = await import('./updates');
+    const cover = { kind: 'cover', id: 'c', label: 'c' } as never;
+    expect(kindsBreaking('1.9.0', [[cover]])).toEqual(['cover']);
+    expect(kindsBreaking('1.9.10', [[cover]])).toEqual([]);
+  });
+});

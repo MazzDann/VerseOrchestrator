@@ -26,7 +26,7 @@ import {
   type ShowToggle,
   toggleOf,
 } from '../../lib/commands';
-import { pictureSlide, sameContent } from '../../lib/slide';
+import { coverOver, pictureSlide, sameContent } from '../../lib/slide';
 import { albumSlide } from '../../lib/album';
 import { videoSlide } from '../../lib/video';
 import { tr } from '../../i18n';
@@ -44,6 +44,7 @@ export function useShowCommands({
   advance,
   playlistItems,
   leaderRef,
+  liveSlideRef,
   pushLive,
   setLive,
   playlistSetCurrent,
@@ -67,6 +68,8 @@ export function useShowCommands({
   versePreview,
   send,
 }: {
+  /** what is on screen now: a «Заставка» item covers it (1.10.0-beta.2) */
+  liveSlideRef: MutableRefObject<Slide>;
   advance: (delta: number, previewOnly?: boolean) => Outcome | Promise<Outcome>;
   playlistItems: SeqItem[];
   leaderRef: MutableRefObject<boolean>;
@@ -282,6 +285,16 @@ export function useShowCommands({
     const t = itemTarget(it);
     if (t) return buildRemote(t, by);
     if (it.kind === 'image') return Promise.resolve(pictureSlide(pictureOf(it), slideStyle));
+    // «Заставка» as an item (1.10.0-beta.2): its text and picture over what is on screen
+    if (it.kind === 'cover')
+      return Promise.resolve(
+        coverOver(
+          liveSlideRef.current,
+          { text: it.text, image: it.image?.src ?? null },
+          slideStyle,
+          it.label,
+        ),
+      );
     if (it.kind === 'video') {
       // the speaker's preview: the video as it would start (nothing plays until it is shown)
       const id = it.videoId;

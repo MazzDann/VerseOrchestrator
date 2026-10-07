@@ -34,6 +34,7 @@ const KIND_NAMES: Partial<Record<SeqItem['kind'], string>> = {
   image: N_('пункти із зображеннями'),
   album: N_('альбоми'),
   video: N_('відео'),
+  cover: N_('пункти «Заставка»'),
   foreign: N_('пункти новішої версії'),
 };
 
