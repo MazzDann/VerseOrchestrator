@@ -70,6 +70,8 @@ const SECTIONS_KEY = 'vo:settingsSections';
 export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const a = useSettings((s) => s.appearance);
   const set = useSettings((s) => s.setAppearance);
+  const search = useSettings((s) => s.search);
+  const setSearch = useSettings((s) => s.setSearch);
   const keymapCover = useSettings((s) => s.keymap.cover);
   const reset = useSettings((s) => s.resetAppearance);
   const template = useSettings((s) => s.slideTemplate);
@@ -487,6 +489,44 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             value={a.countdownCornerSize}
             onChange={(v) => v && set({ countdownCornerSize: v as CornerSize })}
             allowDeselect={false}
+          />
+        </Section>
+
+        {/* «Пошук» (1.8.12-beta.4, the author's calls): where words go first, no repeats, focus */}
+        <Section
+          value="search"
+          title={tr('Пошук')}
+          summary={summary(
+            search.scope === 'all' ? tr('спершу в усіх') : tr('спершу в поточному'),
+            search.dedupe && tr('без повторів'),
+            search.focusOnReturn && tr('курсор у пошук'),
+          )}
+        >
+          <Text size="xs" c="dimmed">
+            {tr(
+              'Одне поле вгорі: посилання — перехід, слова — результати під ним. Якщо в поточному перекладі нічого, застосунок шукає в інших.',
+            )}
+          </Text>
+          <Select
+            label={tr('Де шукати слова спершу')}
+            data={[
+              { value: 'current', label: tr('У поточному перекладі (F3)') },
+              { value: 'all', label: tr('В усіх перекладах бібліотеки (F4)') },
+            ]}
+            value={search.scope}
+            onChange={(v) => v && setSearch({ scope: v === 'all' ? 'all' : 'current' })}
+            allowDeselect={false}
+          />
+          <Switch
+            label={tr('Той самий вірш з різних перекладів — одним рядком')}
+            checked={search.dedupe}
+            onChange={(e) => setSearch({ dedupe: e.currentTarget.checked })}
+          />
+          <Switch
+            label={tr('Курсор у пошук, коли повертаєтеся до вікна керування')}
+            description={tr('Поки поле порожнє, стрілки й PageUp/PageDown далі гортають вірші.')}
+            checked={search.focusOnReturn}
+            onChange={(e) => setSearch({ focusOnReturn: e.currentTarget.checked })}
           />
         </Section>
 

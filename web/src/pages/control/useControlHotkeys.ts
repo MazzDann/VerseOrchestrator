@@ -48,7 +48,7 @@ export function useControlHotkeys({
   advanceAndSay: (delta: number, previewOnly?: boolean) => void;
   hideToggle: () => void;
   clearScreen: () => void;
-  openSearch: (scope: SearchScope) => void;
+  openSearch: (scope?: SearchScope) => void;
   setPaletteOpen: Dispatch<SetStateAction<boolean>>;
   sendAndNotify: () => void;
   blackToggle: () => void;
@@ -195,4 +195,7 @@ export function useControlHotkeys({
   useHotkeys(keymap.restore, () => restoreRef.current(), { preventDefault: true }, [
     keymap.restore,
   ]);
+  // `/` (1.8.12-beta.4, F1005-07): to the search field where the browser keeps Ctrl+F for itself
+  // (LibreWolf, Firefox); typed into a field it stays a «/»
+  useHotkeys(keymap.searchFocus, () => openSearch(), { preventDefault: true });
 }

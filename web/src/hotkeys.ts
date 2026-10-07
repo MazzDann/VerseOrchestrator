@@ -36,6 +36,7 @@ export type HotkeyActionId =
   | 'restore'
   | 'searchCurrent'
   | 'searchAll'
+  | 'searchFocus'
   | 'palette';
 
 export interface HotkeyActionDef {
@@ -154,6 +155,13 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     enableOnFormTags: true,
     default: 'f4',
     mac: 'meta+shift+f',
+  },
+  {
+    // 1.8.12-beta.4 (F1005-07): LibreWolf / Firefox keep Ctrl+F for their own find bar
+    id: 'searchFocus',
+    label: N_('До поля пошуку'),
+    hint: N_('Курсор у полі пошуку вгорі — клавіша, якої браузер не забирає'),
+    default: 'slash',
   },
   {
     id: 'palette',
