@@ -5,6 +5,7 @@ import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
 import { outputKeyAction } from '../lib/outputKeys';
+import { useWakeLock } from '../lib/wakeLock';
 import { tr, useLang } from '../i18n';
 
 /** Fullscreen needs a user gesture in this window — or one lent by the control window. */
@@ -18,6 +19,7 @@ export function Presenter() {
   const [cursorHidden, setCursorHidden] = useState(false);
   // Tell the control window this output exists (its «Вікна виводу» list).
   const identify = useAnnounceOutput('presenter');
+  useWakeLock(); // an open «Показ» is a show: the projector must not sleep (Mac check of 1.9.0)
 
   useEffect(() => {
     setSlide(readSlide());
