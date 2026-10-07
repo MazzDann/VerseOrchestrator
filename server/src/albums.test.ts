@@ -1,13 +1,16 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addAlbum,
   albumEntry,
   browse,
   cachedListing,
   dropSmalls,
+  elsewhere,
   listPhotos,
   putSmall,
   smallCopies,
@@ -16,6 +19,7 @@ import {
   photoFile,
   readAlbums,
   removeAlbum,
+  samePath,
   sniffPhoto,
   type Album,
 } from './albums';
@@ -60,6 +64,31 @@ const added = async (data: string, input: { path?: unknown; name?: unknown }) =>
   return a;
 };
 const names = async (dir: string) => (await listPhotos(dir))!.photos.map((p) => p.name);
+
+/** A disk that doesn't tell «Фото» from «ФОТО» (a Mac's APFS by default, NTFS) — not Linux's. */
+const caseBlind = fs.existsSync(os.tmpdir().toUpperCase());
+/** A folder link: a junction needs no rights on Windows; a Mac's /var is itself a link. */
+const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+/** A folder link can be made here — probed once, like caseBlind, so a test without one says so. */
+const canLink = (() => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-albums-link-'));
+  try {
+    fs.mkdirSync(path.join(d, 'a'));
+    fs.symlinkSync(path.join(d, 'a'), path.join(d, 'b'), linkType);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    fs.rmSync(d, { recursive: true, force: true });
+  }
+})();
+/** A Mac's startup disk under /Volumes: a link to / (when it keeps its first name). */
+const startupDisk = process.platform === 'darwin' && fs.existsSync('/Volumes/Macintosh HD');
+/** Paths the other system wrote: a Windows drive and share here, a Mac's folders on Windows. */
+const [FAR, SHARE] =
+  process.platform === 'win32'
+    ? ['/Volumes/Фото/Свято', '/Users/vo/Pictures']
+    : ['D:\\Фото\\Свято', '\\\\NAS\\photos'];
 
 describe('albums: folders of photos (1.8.12)', () => {
   it('tells AVIF and BMP by their first bytes, besides the four pictures — never HEIC or SVG', () => {
@@ -210,6 +239,116 @@ describe('albums: folders of photos (1.8.12)', () => {
     );
     expect(readAlbums(data).map((a) => a.name)).toEqual(['c']);
   });
+
+  it('tells a path another system wrote (Mac check of 1.9.0)', () => {
+    expect(elsewhere('D:\\Фото\\Свято', 'darwin')).toBe(true);
+    expect(elsewhere('\\\\NAS\\photos', 'linux')).toBe(true);
+    expect(elsewhere('C:/Фото', 'darwin')).toBe(true);
+    expect(elsewhere('/Volumes/Фото', 'darwin')).toBe(false);
+    expect(elsewhere('/Volumes/Фото', 'win32')).toBe(true);
+    expect(elsewhere('D:\\Фото', 'win32')).toBe(false);
+    expect(elsewhere('d:/Фото', 'win32')).toBe(false);
+    expect(elsewhere('\\\\NAS\\photos', 'win32')).toBe(false);
+    // not a path anywhere: neither this system's nor another's (readAlbums drops it)
+    for (const platform of ['darwin', 'win32'] as const) {
+      expect(elsewhere('Фото', platform)).toBe(false);
+      expect(elsewhere('', platform)).toBe(false);
+    }
+  });
+
+  it('keeps albums another system added: written back as they are, never read, removable (Mac check of 1.9.0)', async () => {
+    const { photos, data } = folder({ 'a.jpg': JPG });
+    const theirs: Album[] = [
+      { id: crypto.randomUUID(), name: 'Свято', path: FAR, added: '2026-10-01T10:00:00.000Z' },
+      { id: crypto.randomUUID(), name: 'NAS', path: SHARE, added: '2026-10-01T10:01:00.000Z' },
+    ];
+    fs.mkdirSync(data, { recursive: true });
+    fs.writeFileSync(path.join(data, 'albums.json'), JSON.stringify({ albums: theirs }));
+    expect(readAlbums(data)).toEqual(theirs);
+    // never the album a folder here already is — not even by the path this system makes of it
+    // (on Windows `/Users/vo/Pictures` resolves to C:\Users\vo\Pictures, a folder there)
+    for (const far of [FAR, SHARE]) {
+      expect(samePath(far, path.resolve(far))).toBe(false);
+      expect(samePath(far, far)).toBe(false);
+    }
+    // an add and a remove of this computer's albums write the file again: theirs stay — and the
+    // add never asks the disk for their real paths
+    const realpath = vi.spyOn(fsp, 'realpath');
+    let asked: unknown[];
+    let mine: Album;
+    try {
+      mine = await added(data, { path: photos });
+      const other = await added(data, { path: path.dirname(photos) });
+      expect(removeAlbum(data, other.id)?.id).toBe(other.id);
+    } finally {
+      asked = realpath.mock.calls.map(([p]) => p);
+      realpath.mockRestore();
+    }
+    expect(asked).toContain(photos);
+    expect(asked).not.toContain(FAR);
+    expect(asked).not.toContain(SHARE);
+    expect(readAlbums(data)).toEqual([...theirs, mine]);
+    // shown as not here — and never asked of the disk (on a Mac `D:\Фото` is a relative name)
+    const readdir = vi.spyOn(fsp, 'readdir');
+    try {
+      expect(await listPhotos(FAR)).toBeNull();
+      expect(await photoFile(FAR, 'a.jpg')).toBeNull();
+      expect(await smallFile(data, theirs[0], 'a.jpg')).toBeNull();
+      expect(await putSmall(data, theirs[0], 'a.jpg', '8-1', JPG)).toEqual({ refused: 'photo' });
+      expect(readdir).not.toHaveBeenCalled();
+    } finally {
+      readdir.mockRestore();
+    }
+    expect(albumEntry(theirs[0], await listPhotos(FAR))).toMatchObject({
+      missing: true,
+      elsewhere: true,
+      count: 0,
+    });
+    expect(albumEntry(mine, await listPhotos(mine.path))).toMatchObject({
+      missing: false,
+      elsewhere: false,
+      count: 1,
+    });
+    // the operator can still take one away
+    expect(removeAlbum(data, theirs[0].id)?.path).toBe(FAR);
+    expect(readAlbums(data)).toEqual([theirs[1], mine]);
+  });
+
+  it.skipIf(!canLink)(
+    'a folder reached through a link is the album it already is (Mac check of 1.9.0)',
+    async () => {
+      const { root, photos, data } = folder({ 'a.jpg': JPG });
+      const album = await added(data, { path: photos });
+      const link = path.join(root, 'link');
+      fs.symlinkSync(photos, link, linkType);
+      expect(await addAlbum(data, { path: link })).toEqual(album);
+      // a Mac's temporary folder is under /var, a link to /private/var
+      expect(await addAlbum(data, { path: fs.realpathSync(photos) })).toEqual(album);
+      expect(readAlbums(data)).toEqual([album]);
+    },
+  );
+
+  it.skipIf(!startupDisk)(
+    'a folder by way of the startup disk under /Volumes is the album it already is (Mac check of 1.9.0)',
+    async () => {
+      const { photos, data } = folder({ 'a.jpg': JPG });
+      const album = await added(data, { path: photos });
+      const hd = '/Volumes/Macintosh HD' + fs.realpathSync(photos);
+      expect(await addAlbum(data, { path: hd })).toEqual(album);
+      expect(readAlbums(data)).toEqual([album]);
+    },
+  );
+
+  it.skipIf(!caseBlind)(
+    'the same folder in another case is the album it already is (Mac check of 1.9.0)',
+    async () => {
+      const { root, photos, data } = folder({ 'a.jpg': JPG });
+      const album = await added(data, { path: photos });
+      expect(await addAlbum(data, { path: path.join(root, 'фото') })).toEqual(album);
+      expect(await addAlbum(data, { path: path.join(root.toUpperCase(), 'ФОТО') })).toEqual(album);
+      expect(readAlbums(data)).toEqual([album]);
+    },
+  );
 
   it('says a folder that went away is missing, and comes back when it returns', async () => {
     const { root, photos, data } = folder({ 'a.jpg': JPG });

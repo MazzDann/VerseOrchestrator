@@ -124,6 +124,11 @@ Items of the running order with this album are marked “Album removed: …”.
 If the folder isn't there (a drive or a flash drive is disconnected), the album says “Folder
 not found”. Connect the drive and click **Refresh**.
 
+An album added on a computer with another system (the app folder carried on a flash drive from
+Windows to a Mac, or back) stays in the list as “A folder from another computer: …”. It can't be
+shown on this computer, and it works as before on the one it was added on. You can remove it like
+any other album.
+
 ## Show a video
 
 Videos are MP4, MOV, WebM, or MKV files on this computer. The app reads a file where it is
@@ -180,3 +185,7 @@ To add a video to the [running order](running-order.md), hover over its thumbnai
 To remove a video from the list, hover over its thumbnail, click the trash icon **Remove the
 video**, and then **Remove**. The file stays where it is. If the file isn't there (a drive is
 disconnected), the thumbnail says “File not found”.
+
+A video added on a computer with another system (from Windows to a Mac, or back) stays in the
+list as “A file from another computer: …”. It can't be shown here, and it plays as before on the
+computer it was added on. You can remove it like any other video.
