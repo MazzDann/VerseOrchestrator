@@ -188,6 +188,19 @@ the app restarted with **Remember remotes after a server restart** turned off. T
 speaker a new code, create a remote or reissue the code — see
 [Manage remotes](remote.md#manage-remotes).
 
+### Another computer shows “Control the show from here with a computer remote”
+
+The full control window works only on the computer that runs the app. Another computer of
+the network controls the show through a computer remote: create one (**Speaker remote** →
+**Computer**) and paste its link into the field on that page — see
+[A remote on a computer](remote.md#a-remote-on-a-computer).
+
+### A remote on a computer shows “This remote doesn’t work”
+
+The link no longer works: the remote was revoked, its link was reissued, or the app restarted
+with **Remember remotes after a server restart** turned off. Create a computer remote or
+reissue the link, and open the new one.
+
 ## If nothing helped
 
 Send feedback: tell what happened, or suggest how to make it better. To send feedback:
