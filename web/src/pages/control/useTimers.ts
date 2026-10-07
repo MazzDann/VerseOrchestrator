@@ -11,6 +11,7 @@ import {
   STAGE_MESSAGE_MAX,
   type Slide,
   type SlideCountdown,
+  type SlideCover,
   type SlideStyle,
   type StageMessage,
 } from '../../presenterBus';
@@ -74,11 +75,13 @@ export function useTimers({
   const countdownStart = (
     countdown: SlideCountdown,
     place: CountdownPlace = appearance.countdownPlace,
+    /** a «Відлік» item (1.10.0-beta.3): over the cover on screen, not the settings' one */
+    onCover?: SlideCover,
   ) => {
     if (!leaderRef.current) return standbyNotice();
     // a click or a key starts it: the moment a browser lets the page sound later (1.8.5)
     if (appearance.countdownBeeps) warmAudio();
-    const cover = { text: appearance.coverText, image: appearance.coverImage };
+    const cover = onCover ?? { text: appearance.coverText, image: appearance.coverImage };
     // the time's look from the settings (1.8.2 colours, 1.8.3 the rest)
     const timed = { ...countdown, ...timerLook(appearance) };
     // in a corner (1.8.7): over what is on screen, which stays as it is

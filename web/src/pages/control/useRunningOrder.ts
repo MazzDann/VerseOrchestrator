@@ -1,4 +1,10 @@
-import { useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useRef,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react';
 import { type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type SongStyle, type Translation } from '../../api';
@@ -12,6 +18,8 @@ import {
 } from '../../playlistStore';
 import {
   type Slide,
+  type SlideCountdown,
+  type SlideCover,
   type SlideLine,
   type SlidePicture,
   type SlideSource,
@@ -23,6 +31,9 @@ import { tr } from '../../i18n';
 import { joinVerses, redLetterSegments } from './slideText';
 import { asksFor, atItemEdge, stillThere, type PastItem } from '../../lib/orderFlow';
 import { coverOver } from '../../lib/slide';
+import { itemCountdown, zeroIn } from '../../lib/countdownItem';
+import { ORDER_CURRENT_KEY } from '../../lib/stage';
+import { type CountdownPlace } from '../../lib/countdown';
 
 /**
  * The running order on screen («Послідовність показу»; out of usePlaylistActions and Control.tsx
@@ -61,6 +72,10 @@ export function useRunningOrder({
   liveSlideRef,
   orderFlow,
   pastItemRef,
+  liveSlide,
+  isLeader,
+  leaderRef,
+  countdownStartRef,
 }: {
   setTranslations: (ids: number[]) => void;
   selectBook: (bookNumber: number) => void;
@@ -111,6 +126,14 @@ export function useRunningOrder({
   orderFlow: boolean;
   /** the verse steps, a song and an album ask here at their ends (lib/orderFlow.ts); filled here */
   pastItemRef: MutableRefObject<PastItem | null>;
+  /** the screen now (a «Відлік» item's zero follows it) and whether this window leads */
+  liveSlide: Slide;
+  isLeader: boolean;
+  leaderRef: MutableRefObject<boolean>;
+  /** «Відлік» of useTimers (called later): a «Відлік» item starts through it */
+  countdownStartRef: MutableRefObject<
+    ((countdown: SlideCountdown, place?: CountdownPlace, onCover?: SlideCover) => void) | null
+  >;
 }) {
   // --- Presentation sequence (playlist) ---------------------------------------
   // Project a saved passage: set the selection (so the list/preview follow) and
@@ -226,7 +249,14 @@ export function useRunningOrder({
     else if (it.kind === 'album') void startAlbum(it.albumId, it.fit, it.label);
     else if (it.kind === 'video') void startVideo(it.videoId, it.fit, it.label);
     else if (it.kind === 'song') void activateSong(it);
-    else if (it.kind === 'cover') {
+    else if (it.kind === 'countdown') {
+      // its own length, words and zero, on the cover on screen (an item's) or the settings' one
+      countdownStartRef.current?.(
+        itemCountdown(it, Date.now()),
+        'cover',
+        liveSlideRef.current.cover ?? undefined,
+      );
+    } else if (it.kind === 'cover') {
       // its own text and picture over what is on screen; «Заставка» (L) again gives that back
       const slide = coverOver(
         liveSlideRef.current,
@@ -284,10 +314,46 @@ export function useRunningOrder({
     stepPlaylist(delta);
     return true;
   };
+  const orderStepRef = useRef(orderStep);
+  orderStepRef.current = orderStep;
   // the keys (useControlHotkeys freezes its callbacks) and a video's end (useVideo) read refs
   const playlistStepRef = useRef<(delta: 1 | -1) => void>(() => {});
   playlistStepRef.current = (delta) => void orderStep(delta, 'key');
   playlistNextRef.current = () => orderStep(1, 'end');
+  // A «Відлік» item at zero with «наступний пункт» (1.10.0-beta.3): the window in charge keeps ONE
+  // timer to the zero shown on screen — re-armed when it moves (a pause, ±1 хв, another window
+  // taking over: armed from the slide) — not a chain of ticks, which a hidden or covered window
+  // gets late (the Mac's round). A window that takes over with no item of its own takes the one
+  // the last leader marked (lib/stage.ts ORDER_CURRENT_KEY) — before the mirror rewrites it.
+  const cd = liveSlide.countdown;
+  useEffect(() => {
+    if (!isLeader) return;
+    let currentId = playlistCurrentId;
+    if (!currentId) {
+      try {
+        const marked = localStorage.getItem(ORDER_CURRENT_KEY);
+        if (marked && playlistItems.some((i) => i.id === marked)) {
+          playlistSetCurrent(marked);
+          currentId = marked;
+        }
+      } catch {
+        /* no storage: nothing to take over */
+      }
+    }
+    const it = playlistItems.find((i) => i.id === currentId);
+    if (it?.kind !== 'countdown') return;
+    const ms = zeroIn(it, liveSlideRef.current, Date.now());
+    if (ms == null) return;
+    const t = window.setTimeout(() => {
+      const now = liveSlideRef.current;
+      if (!leaderRef.current || zeroIn(it, now, Date.now(), true) == null) return;
+      orderStepRef.current(1, 'end');
+    }, ms);
+    return () => window.clearTimeout(t);
+    // the zero is what matters: its time, its pause, its words, the item, the lead
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLeader, playlistCurrentId, playlistItems, cd?.until, cd?.pausedLeft, cd?.item]);
+
   // «Далі» past an item's last step (1.10.0-beta.1): the next item, while the switch is on and the
   // screen still shows the item (a song or an album asks at its own end — «Кінець», the last photo)
   pastItemRef.current = (delta, from) => {

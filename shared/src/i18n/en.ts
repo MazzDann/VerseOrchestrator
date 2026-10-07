@@ -1966,6 +1966,12 @@ export const EN: Record<string, string> = {
   // a step down that can update back (1.9.0, server/src/installer.ts FIRST_SWAP_SAFE)
   'З версій, старіших за 1.8.8, на Windows не вдається оновитися назад':
     'Versions older than 1.8.8 can’t update back on Windows',
+  // 1.10.0-beta.3: «Відлік» items in the running order
+  'Змінити відлік': 'Edit the countdown',
+  'Хвилини чи хв:сс — 5, 7:30, 1:05:00': 'Minutes or m:ss — 5, 7:30, 1:05:00',
+  'Введіть, наприклад, 5 або 7:30': 'Type, for example, 5 or 7:30',
+  'Наступний пункт': 'Next item',
+  'пункти «Відлік»': 'countdown items',
   // 1.10.0-beta.2: «Заставка» items in the running order
   'Змінити заставку': 'Edit the cover',
   'Без зображення': 'No picture',

@@ -89,6 +89,20 @@ export interface SeqCover {
 }
 
 /**
+ * «Відлік» as an item (1.10.0-beta.3, the author's call: its own length, words and action at zero):
+ * on the cover on screen; `next` — at zero the running order goes on by itself.
+ */
+export interface SeqCountdown {
+  kind: 'countdown';
+  id: string;
+  label: string;
+  /** 1 s … 12 h */
+  seconds: number;
+  caption: string;
+  atZero: 'next' | 'overtime' | 'stop' | 'hide';
+}
+
+/**
  * An item of a newer version (1.9.1): a kind this one doesn't know — kept exactly as it was saved,
  * so the newer version gets it back after a step down and up again; never put on screen, steps
  * pass over it. 1.9.0 drew such an item with no icon and the control window failed.
@@ -109,6 +123,7 @@ export type SeqItem =
   | SeqAlbum
   | SeqVideo
   | SeqCover
+  | SeqCountdown
   | SeqForeign;
 /** An item to add — same shape minus the store-assigned id. */
 export type NewSeqItem =
@@ -118,7 +133,8 @@ export type NewSeqItem =
   | Omit<SeqImage, 'id'>
   | Omit<SeqAlbum, 'id'>
   | Omit<SeqVideo, 'id'>
-  | Omit<SeqCover, 'id'>;
+  | Omit<SeqCover, 'id'>
+  | Omit<SeqCountdown, 'id'>;
 
 function newId(): string {
   try {
@@ -143,6 +159,7 @@ export const KIND_SINCE: Record<Exclude<SeqItem['kind'], 'foreign'>, string> = {
   album: '1.8.12-beta.1',
   video: '1.8.12-beta.3',
   cover: '1.10.0-beta.2',
+  countdown: '1.10.0-beta.3',
 };
 /** From this version on, an item of a kind the version doesn't know is passed over. */
 export const FIRST_FOREIGN_SAFE = '1.9.1';
@@ -159,13 +176,45 @@ export const playable = (it: SeqItem): boolean => it.kind !== 'foreign';
 export function fromStored(raw: unknown): SeqItem | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
-  if (typeof r.kind === 'string' && KINDS.has(r.kind)) return r as unknown as SeqItem;
+  if (typeof r.kind === 'string' && KINDS.has(r.kind)) return knownItem(r);
   return {
     kind: 'foreign',
     id: typeof r.id === 'string' && r.id ? r.id : newId(),
     label: typeof r.label === 'string' ? r.label : '',
     raw: r,
   };
+}
+
+const str = (v: unknown, or = ''): string => (typeof v === 'string' ? v : or);
+const AT_ZERO = ['next', 'overtime', 'stop', 'hide'];
+/**
+ * A known kind's fields made safe (1.10.0-beta.3 review): a hand-edited file or another build may
+ * leave a «Відлік» without words or a length — its helpers read them on every render.
+ */
+function knownItem(r: Record<string, unknown>): SeqItem {
+  if (r.kind === 'countdown') {
+    const n = Number(r.seconds);
+    return {
+      ...r,
+      label: str(r.label),
+      caption: str(r.caption),
+      seconds: Math.min(43200, Math.max(1, Math.round(Number.isFinite(n) ? n : 300))),
+      atZero: AT_ZERO.includes(r.atZero as string) ? r.atZero : 'stop',
+    } as unknown as SeqItem;
+  }
+  if (r.kind === 'cover') {
+    const img = r.image as { imageId?: unknown; src?: unknown } | null | undefined;
+    return {
+      ...r,
+      label: str(r.label),
+      text: str(r.text),
+      image:
+        img && typeof img.imageId === 'string' && typeof img.src === 'string'
+          ? { imageId: img.imageId, src: img.src }
+          : null,
+    } as unknown as SeqItem;
+  }
+  return r as unknown as SeqItem;
 }
 
 /** The item as it is saved: an item of a newer version exactly as it came (under its id). */
@@ -203,7 +252,10 @@ interface PlaylistState {
   add: (item: NewSeqItem) => void;
   removeItem: (id: string) => void;
   /** Change an item in place (1.10.0-beta.2: a «Заставка» item's text and picture). */
-  updateItem: (id: string, patch: Partial<Omit<SeqCover, 'id' | 'kind'>>) => void;
+  updateItem: (
+    id: string,
+    patch: Partial<Omit<SeqCover, 'id' | 'kind'>> | Partial<Omit<SeqCountdown, 'id' | 'kind'>>,
+  ) => void;
   /** Move an item one slot up (-1) or down (+1). */
   move: (id: string, dir: -1 | 1) => void;
   /** Move the item at `from` to position `to` (drag-and-drop reorder). */
@@ -267,7 +319,9 @@ export const usePlaylist = create<PlaylistState>()(
       updateItem: (id, patch) =>
         set((s) => ({
           items: s.items.map((it) =>
-            it.id === id && it.kind === 'cover' ? { ...it, ...patch } : it,
+            it.id === id && (it.kind === 'cover' || it.kind === 'countdown')
+              ? ({ ...it, ...patch, id: it.id, kind: it.kind } as SeqItem)
+              : it,
           ),
           replaced: null,
         })),
