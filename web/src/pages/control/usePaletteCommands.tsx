@@ -38,7 +38,7 @@ export function usePaletteCommands({
   clearScreen,
   restoreRef,
   addCurrentPassage,
-  setPlaylistOpen,
+  showOrder,
   setSongsOpen,
   setTextOpen,
   openSearch,
@@ -59,7 +59,8 @@ export function usePaletteCommands({
   clearScreen: () => void;
   restoreRef: MutableRefObject<() => void>;
   addCurrentPassage: () => void;
-  setPlaylistOpen: (open: boolean) => void;
+  /** the running order under the monitors (1.8.12-beta.6 — a floating panel before) */
+  showOrder: () => void;
   setSongsOpen: (open: boolean) => void;
   setTextOpen: (open: boolean) => void;
   openSearch: (scope?: SearchScope) => void;
@@ -126,7 +127,7 @@ export function usePaletteCommands({
       label: tr('Послідовність показу'),
       keywords: 'playlist sequence',
       icon: <IconList size={16} />,
-      run: () => setPlaylistOpen(true),
+      run: showOrder,
     },
     {
       id: 'songs',

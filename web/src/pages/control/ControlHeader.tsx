@@ -15,7 +15,6 @@ import {
   IconLayoutSidebarRight,
   IconLetterT,
   IconLibraryPhoto,
-  IconList,
   IconMoonStars,
   IconMusic,
   IconQrcode,
@@ -71,8 +70,6 @@ export function ControlHeader({
   setTextOpen,
   imagesOpen,
   setImagesOpen,
-  playlistOpen,
-  setPlaylistOpen,
   outputWindows,
   outputsOpen,
   setOutputsOpen,
@@ -121,8 +118,6 @@ export function ControlHeader({
   setTextOpen: Toggle;
   imagesOpen: boolean;
   setImagesOpen: Toggle;
-  playlistOpen: boolean;
-  setPlaylistOpen: Toggle;
   outputWindows: TrackedOutput[];
   outputsOpen: boolean;
   setOutputsOpen: Toggle;
@@ -203,7 +198,14 @@ export function ControlHeader({
       e.preventDefault();
       field.blur();
       document.body.dispatchEvent(
-        new KeyboardEvent('keydown', { key: e.key, code: e.code, bubbles: true, cancelable: true }),
+        new KeyboardEvent('keydown', {
+          key: e.key,
+          code: e.code,
+          // Shift+PageDown: the running order's next item (1.8.12-beta.6)
+          shiftKey: e.shiftKey,
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     }
   };
@@ -231,13 +233,6 @@ export function ControlHeader({
     icon: <IconLibraryPhoto size={18} stroke={1.5} />,
     active: imagesOpen,
     onClick: () => setImagesOpen((o) => !o),
-  };
-  const playlistTool: ToolProps = {
-    label: tr('Послідовність показу'),
-    hint: tr('Черга уривків, пісень і текстів; збережені програми'),
-    icon: <IconList size={18} stroke={1.5} />,
-    active: playlistOpen,
-    onClick: () => setPlaylistOpen((o) => !o),
   };
   const presenterTool: ToolProps = {
     label: tr('Відкрити вікно показу'),
@@ -325,7 +320,7 @@ export function ControlHeader({
     onClick: toggleAside,
   };
   const zoneTools: Record<FoldZone, ToolSection> = {
-    sources: { label: tr('Джерела'), tools: [songsTool, textTool, imagesTool, playlistTool] },
+    sources: { label: tr('Джерела'), tools: [songsTool, textTool, imagesTool] },
     windows: {
       label: tr('Вікна'),
       tools: [presenterTool, stageTool, outputsTool, viewersTool, remoteTool],
@@ -409,7 +404,6 @@ export function ControlHeader({
             <ToolIcon {...songsTool} />
             <ToolIcon {...textTool} />
             <ToolIcon {...imagesTool} />
-            <ToolIcon {...playlistTool} />
           </ToolZone>
         )}
       </Group>

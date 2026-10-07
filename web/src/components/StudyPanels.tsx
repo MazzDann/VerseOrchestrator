@@ -23,7 +23,7 @@ import {
   IconSend,
 } from '@tabler/icons-react';
 
-import { type CSSProperties } from 'react';
+import { type CSSProperties, type ReactNode } from 'react';
 import { type Verse, type Book } from '../api';
 import { type RefItem } from '../settingsStore';
 import { type Slide, type SlideLine } from '../presenterBus';
@@ -72,6 +72,11 @@ interface Props {
   } | null;
   /** Remotes the operator can suggest their preview to (0.6.4) and how. */
   suggest?: { remotes: { id: string; name: string }[]; onSend: (id: string) => void } | null;
+  /**
+   * What stands under the monitors (1.8.12-beta.6): the running order, the bookmarks and the
+   * slide's text (ShowList), given the text — absent, the text alone as before.
+   */
+  showList?: (text: ReactNode) => ReactNode;
 }
 
 /**
@@ -102,6 +107,7 @@ export function StudyPanels({
   compact = false,
   remote,
   suggest,
+  showList,
 }: Props) {
   useLang();
   // Program/preview monitors (video-switcher tally): when the prepared slide is already
@@ -294,15 +300,23 @@ export function StudyPanels({
     ] as const
   ).filter(([, m]) => m);
   const monitorRow = (
-    <div className="vo-monitor-row" style={{ '--monitors': monitors.length } as CSSProperties}>
+    <div
+      className="vo-monitor-row"
+      data-list={showList ? 'true' : undefined}
+      style={{ '--monitors': monitors.length } as CSSProperties}
+    >
       {monitors.map(([key, m]) => (
         <div key={key} className="vo-monitor-cell">
           {m}
         </div>
       ))}
-      <ScrollArea className="vo-monitor-text" type="hover" scrollbars="y">
-        <div className="vo-monitor-text-body">{slideText}</div>
-      </ScrollArea>
+      {showList ? (
+        <div className="vo-monitor-list">{showList(slideText)}</div>
+      ) : (
+        <ScrollArea className="vo-monitor-text" type="hover" scrollbars="y">
+          <div className="vo-monitor-text-body">{slideText}</div>
+        </ScrollArea>
+      )}
     </div>
   );
 
@@ -348,9 +362,18 @@ export function StudyPanels({
                   {monitorStack}
                 </Box>
               )}
-              <ScrollArea style={{ flex: 1 }} px="md">
-                {slideText}
-              </ScrollArea>
+              {showList ? (
+                <Box
+                  style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+                  className="vo-show-list"
+                >
+                  {showList(slideText)}
+                </Box>
+              ) : (
+                <ScrollArea style={{ flex: 1 }} px="md">
+                  {slideText}
+                </ScrollArea>
+              )}
             </>
           ))}
         {mode === 'strong' && (
