@@ -1,3 +1,4 @@
+import type { StageLayout, StageTextSize, StageTheme } from './lib/stage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import {
@@ -92,6 +93,19 @@ export interface Appearance {
   stageTimerOverColor: string;
   stageTimerFont: TimerFont;
   stageTimerFormat: TimerFormat;
+  /**
+   * «Сцена» (1.9.0-beta.11, F1005-09): «Текст» (the words, large) or «Мініатюри», the words'
+   * size, «Далі», the clock's seconds, dark or light, the running order, the place in the song or
+   * chapter. The speaker's window, not the viewers' look: the operator's own (`ownContent`).
+   * Read through lib/stage.ts `stageLook` (sound for an older or hand-edited store).
+   */
+  stageLayout: StageLayout;
+  stageTextSize: StageTextSize;
+  stageShowNext: boolean;
+  stageClockSeconds: boolean;
+  stageTheme: StageTheme;
+  stageShowOrder: boolean;
+  stageShowPlace: boolean;
   /** The corner (1.8.7) and the time's size there: a look, presets carry it. */
   countdownCorner: CornerAt;
   countdownCornerSize: CornerSize;
@@ -382,6 +396,13 @@ export const DEFAULT_APPEARANCE: Appearance = {
   stageTimerOverColor: '#ff5a5a',
   stageTimerFont: 'text',
   stageTimerFormat: 'clock',
+  stageLayout: 'text',
+  stageTextSize: 'md',
+  stageShowNext: true,
+  stageClockSeconds: true,
+  stageTheme: 'dark',
+  stageShowOrder: true,
+  stageShowPlace: true,
   countdownSize: 'md',
   countdownFont: 'text',
   countdownFormat: 'clock',
@@ -412,6 +433,14 @@ const ownContent = (a: Appearance) => ({
   stageTimerOverColor: a.stageTimerOverColor,
   stageTimerFont: a.stageTimerFont,
   stageTimerFormat: a.stageTimerFormat,
+  // «Сцена» (1.9.0-beta.11): the speaker's window, not the viewers' look
+  stageLayout: a.stageLayout,
+  stageTextSize: a.stageTextSize,
+  stageShowNext: a.stageShowNext,
+  stageClockSeconds: a.stageClockSeconds,
+  stageTheme: a.stageTheme,
+  stageShowOrder: a.stageShowOrder,
+  stageShowPlace: a.stageShowPlace,
   // video (1.8.12-beta.3): how this operator runs one, not a look
   videoEnd: a.videoEnd,
   videoPhones: a.videoPhones,
