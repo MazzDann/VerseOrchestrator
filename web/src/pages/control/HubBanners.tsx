@@ -7,6 +7,14 @@ import { closeThisWindow } from '../../lib/closeWindow';
 import { type LiveConnection } from '../../lib/liveSocket';
 
 /**
+ * A banner with buttons in a narrow centre column (Mac check of 1.9.0, the user's report: the text
+ * went one word per line and the buttons were cut — «Закрит…», «Слух…»): the row wraps — the text
+ * keeps 16rem before it gives way, the buttons never shrink and go below it, to the right.
+ */
+const WRAP_TEXT = { flex: '1 1 16rem', minWidth: 0 } as const;
+const WHOLE = { flex: 'none' } as const;
+
+/**
  * The banners above the centre column: this window on standby, the app switched off, the hub
  * lost, and another browser's control window the one the hub listens to.
  */
@@ -33,7 +41,7 @@ export function HubBanners({
       {!isLeader && (
         <Group
           gap="sm"
-          wrap="nowrap"
+          wrap="wrap"
           px="md"
           py={6}
           role="status"
@@ -42,17 +50,19 @@ export function HubBanners({
             borderBottom: '1px solid var(--mantine-color-default-border)',
           }}
         >
-          <Text size="sm" style={{ flex: 1 }}>
+          <Text size="sm" style={WRAP_TEXT}>
             {tr(
               'Показом керує інше вікно керування. Тут можна готувати наступне — на екран іде лише звідти.',
             )}
           </Text>
-          <Button size="xs" variant="subtle" color="gray" onClick={closeThisWindow}>
-            {tr('Закрити це вікно')}
-          </Button>
-          <Button size="xs" variant="light" onClick={takeOver}>
-            {tr('Взяти керування')}
-          </Button>
+          <Group gap="sm" justify="flex-end" ml="auto">
+            <Button size="xs" variant="subtle" color="gray" onClick={closeThisWindow} style={WHOLE}>
+              {tr('Закрити це вікно')}
+            </Button>
+            <Button size="xs" variant="light" onClick={takeOver} style={WHOLE}>
+              {tr('Взяти керування')}
+            </Button>
+          </Group>
         </Group>
       )}
       {isLeader && appOff && (
@@ -109,7 +119,7 @@ export function HubBanners({
       {isLeader && !hubLost && !appOff && !hubActive && (
         <Group
           gap="sm"
-          wrap="nowrap"
+          wrap="wrap"
           px="md"
           py={6}
           role="status"
@@ -118,7 +128,7 @@ export function HubBanners({
             borderBottom: '1px solid var(--mantine-color-default-border)',
           }}
         >
-          <Text size="sm" style={{ flex: 1 }}>
+          <Text size="sm" style={WRAP_TEXT}>
             {hubMovedTo
               ? tr(
                   'Вікно керування перейшло в {browser}. Звідси показ іде лише на вікна виводу цього браузера.',
@@ -128,16 +138,19 @@ export function HubBanners({
                   'Пульти й телефони глядачів слухають вікно керування в іншому браузері. Звідси показ іде лише на вікна виводу цього браузера.',
                 )}
           </Text>
-          <Button size="xs" variant="subtle" color="gray" onClick={closeThisWindow}>
-            {tr('Закрити це вікно')}
-          </Button>
-          <Button
-            size="xs"
-            variant="light"
-            onClick={() => controlConn.current?.send({ type: 'take-control' })}
-          >
-            {tr('Слухати тут')}
-          </Button>
+          <Group gap="sm" justify="flex-end" ml="auto">
+            <Button size="xs" variant="subtle" color="gray" onClick={closeThisWindow} style={WHOLE}>
+              {tr('Закрити це вікно')}
+            </Button>
+            <Button
+              size="xs"
+              variant="light"
+              onClick={() => controlConn.current?.send({ type: 'take-control' })}
+              style={WHOLE}
+            >
+              {tr('Слухати тут')}
+            </Button>
+          </Group>
         </Group>
       )}
     </>
