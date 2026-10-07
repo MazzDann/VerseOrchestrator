@@ -176,6 +176,13 @@ describe('«Відлік» (1.5.0)', () => {
     expect(phone.countdown).toEqual(at);
   });
 
+  it('a message to the speaker (1.9.0-beta.11) never reaches the phones or a desk', () => {
+    const s: Slide = { ...verse, stageMessage: { text: 'Лишилося 5 хвилин', at: 1 } };
+    expect(forAudience(s).stageMessage).toBeUndefined();
+    expect(forDesk(s).stageMessage).toBeUndefined();
+    expect(s.stageMessage?.text).toBe('Лишилося 5 хвилин'); // the screen's own slide is not touched
+  });
+
   it('reaches a desk (another computer, 1.9.0-beta.10) as «Заставка» words and time, no images', () => {
     const bg = { ...DEFAULT_STYLE, bgImage: 'data:image/png;base64,BBBB' };
     const c = countdownOver({ ...verse, style: bg }, logo, at, bg, 'Відлік');

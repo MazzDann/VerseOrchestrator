@@ -189,7 +189,7 @@ export function usePlaylistActions({
           s.slides[0].text,
           `№${s.number ?? ''} ${s.title}`.trim(),
           it.faithful ? s.slides[0].style : null,
-          { kind: 'song', songId: s.id, stanza: 0 },
+          { kind: 'song', songId: s.id, stanza: 0, total: s.slides.length },
           s.slides[0].style,
         );
         // Seed the panel's stanza highlight to 0 so the first arrow/clicker advances

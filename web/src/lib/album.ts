@@ -44,7 +44,7 @@ export function albumSlide(
   };
   return {
     ...pictureSlide(picture, style),
-    source: { kind: 'album', albumId, index, name: photo.name },
+    source: { kind: 'album', albumId, index, name: photo.name, total: photos.length },
   };
 }
 

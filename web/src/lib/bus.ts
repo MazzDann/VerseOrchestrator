@@ -97,6 +97,9 @@ function slideAt(x: unknown, depth: number): x is Slide {
     (!s.stageTimer || Number.isFinite((s.stageTimer as { until: unknown }).until)) &&
     obj(s.cornerCountdown) &&
     (!s.cornerCountdown || Number.isFinite((s.cornerCountdown as { until: unknown }).until)) &&
+    // a message to the speaker (1.9.0-beta.11): «Сцена» prints its text
+    obj(s.stageMessage) &&
+    (!s.stageMessage || typeof (s.stageMessage as { text: unknown }).text === 'string') &&
     // a picture (1.5.0): addresses, not images
     obj(s.picture) &&
     (!s.picture || typeof (s.picture as { src: unknown }).src === 'string') &&

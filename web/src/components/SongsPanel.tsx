@@ -178,7 +178,7 @@ export function SongsPanel({
         s.slides[idx].text,
         `№${s.number ?? ''} ${s.title}`.trim(),
         faithful ? s.slides[idx].style : null,
-        { kind: 'song', songId: s.id, stanza: idx },
+        { kind: 'song', songId: s.id, stanza: idx, total: s.slides.length },
         s.slides[idx].style,
       );
     },
