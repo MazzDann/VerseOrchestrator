@@ -16,10 +16,10 @@ import { usePlaylist } from './playlistStore';
 import { listenForForget } from './lib/browserData';
 import { PageGuard } from './components/PageGuard';
 import { takeHandover } from './lib/handover';
+import { Home } from './pages/Home';
 
 // Each page is its own chunk (0.12.1): a phone on /follow loads the reader, not the control
 // window with its panels, the database engine and the benchmarks.
-const Control = lazy(() => import('./pages/Control').then((m) => ({ default: m.Control })));
 const Presenter = lazy(() => import('./pages/Presenter').then((m) => ({ default: m.Presenter })));
 const Stage = lazy(() => import('./pages/Stage').then((m) => ({ default: m.Stage })));
 const Follow = lazy(() => import('./pages/Follow').then((m) => ({ default: m.Follow })));
@@ -74,7 +74,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             {/* nothing while a page's chunk arrives — a fraction of a second, once per window */}
             <Suspense fallback={null}>
               <Routes>
-                <Route path="/" element={<Control />} />
+                <Route path="/" element={<Home />} />
                 <Route path="/presenter" element={<Presenter />} />
                 <Route path="/stage" element={<Stage />} />
                 <Route path="/follow" element={<Follow />} />

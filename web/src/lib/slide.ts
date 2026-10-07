@@ -222,7 +222,7 @@ export function forAudience(slide: Slide): Slide {
 }
 
 /**
- * What a control window on another computer (`/desk`, 1.8.12-beta.10) draws on its monitors: the
+ * What a control window on another computer (`/desk`, 1.9.0-beta.1) draws on its monitors: the
  * audience's slide — no images, under the hub's frame cap — that still shows what covers the
  * screen: «Заставка» (its words, not its logo) with the countdown under it.
  */

@@ -83,7 +83,7 @@ export function useHub({
     // what the remote's «На екран» would put there (0.6.0)
     preview: JSON.parse(previewSummary.current) as ReturnType<typeof summarize>,
   });
-  // Desks (1.8.12-beta.10, a control window on another computer) draw their monitors from whole
+  // Desks (1.9.0-beta.1, a control window on another computer) draw their monitors from whole
   // slides — no images (forDesk) —, sent when they change: the hub keeps the last for a late one.
   const slidesFrame = () => ({
     type: 'slides',

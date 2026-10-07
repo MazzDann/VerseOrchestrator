@@ -88,7 +88,7 @@ describe('remote pairings on disk', () => {
   });
 });
 
-describe('a control window on another computer (1.8.12-beta.10)', () => {
+describe('a control window on another computer (1.9.0-beta.1)', () => {
   it('a pairing keeps its kind; an older file (no kind) and junk read as a phone', () => {
     initRemoteStore({ file: secrets, persist: true });
     const desk = createPairing('Ноутбук', undefined, 'desk');
