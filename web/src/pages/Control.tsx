@@ -47,7 +47,7 @@ import { CommandPalette } from '../components/CommandPalette';
 import { useHeaderFold } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { SETTINGS_PANEL_KEY } from '../lib/panelBox';
-import { usePlaylist, stepIndex, type SeqItem } from '../playlistStore';
+import { usePlaylist, type SeqItem } from '../playlistStore';
 import { ImagesPanel } from '../components/ImagesPanel';
 import { standbyNotice } from './control/standby';
 import { usePanelResize } from './control/usePanelResize';
@@ -65,6 +65,7 @@ import { useAlbum } from './control/useAlbum';
 import { useVideo } from './control/useVideo';
 import { type MediaTab } from '../components/ImagesPanel';
 import { usePlaylistActions } from './control/usePlaylistActions';
+import { useRunningOrder } from './control/useRunningOrder';
 import { useTimers } from './control/useTimers';
 import { useVerseDeck } from './control/useVerseDeck';
 import { useJumps } from './control/useJumps';
@@ -481,9 +482,10 @@ export function Control() {
   // E10: the phones' relay follows the follow-along switch
   useFollowAlongRelay({ followAlong, publishAudience, liveSlide, pauseAudience });
 
-  // No effects in these four: the screen switches (QR, «Заставка», hide, black, clear and
-  // back), songs, pictures and the running order's actions — in this order, each taking what
-  // the one before returns (songEnd: afterToggle; activateItem: projectText, projectPicture)
+  // No effects in these: the screen switches (QR, «Заставка», hide, black, clear and back),
+  // songs, pictures, then (after the album and the video) the running order on screen and its
+  // adding — in this order, each taking what the one before returns (songEnd: afterToggle;
+  // activateItem: projectText, projectPicture)
   const {
     showQr,
     hideQr,
@@ -568,16 +570,8 @@ export function Control() {
     playlistCurrent: playlistItems.find((i) => i.id === playlistCurrentId) ?? null,
     playlistNextRef,
   });
-  const {
-    activatePassage,
-    activateItem,
-    stepPlaylist,
-    addCurrentPassage,
-    addSongToPlaylist,
-    addAlbumToPlaylist,
-    addVideoToPlaylist,
-    addTextToPlaylist,
-  } = usePlaylistActions({
+  // the running order on screen: an item put on, one step on or back (no effects)
+  const { activatePassage, activateItem, stepPlaylist, playlistStepRef } = useRunningOrder({
     followItem,
     setTranslations,
     selectBook,
@@ -604,6 +598,15 @@ export function Control() {
     playlistSetCurrent,
     playlistItems,
     playlistCurrentId,
+    playlistNextRef,
+  });
+  const {
+    addCurrentPassage,
+    addSongToPlaylist,
+    addAlbumToPlaylist,
+    addVideoToPlaylist,
+    addTextToPlaylist,
+  } = usePlaylistActions({
     playlistAdd,
     selectedIds,
     bookNumber,
@@ -612,40 +615,9 @@ export function Control() {
     reference,
     referenceShort,
   });
-  // the running order's keys (1.8.12-beta.6): at an end or with nothing in it they say so
-  const playlistStepRef = useRef<(delta: 1 | -1) => void>(() => {});
-  playlistStepRef.current = (delta) => {
-    const at = playlistItems.findIndex((i) => i.id === playlistCurrentId);
-    const say = (message: string) =>
-      notifications.show({ message, color: 'gray', autoClose: 2000 });
-    if (playlistItems.length === 0)
-      return say(tr('Послідовність показу порожня — додавайте елементи кнопкою «+ у показ»'));
-    // nothing further that can go on screen (items of a newer version are passed over, 1.9.1)
-    if (stepIndex(playlistItems, playlistCurrentId, delta) == null) {
-      const beyond = at >= 0 && at + delta >= 0 && at + delta < playlistItems.length;
-      return say(
-        at < 0
-          ? tr('У послідовності лише пункти новішої версії — оновіть застосунок, щоб показати їх')
-          : beyond
-            ? delta > 0
-              ? tr('Далі лише пункти новішої версії — оновіть застосунок, щоб показати їх')
-              : tr('Перед ним лише пункти новішої версії — оновіть застосунок, щоб показати їх')
-            : delta > 0
-              ? tr('Це останній елемент показу')
-              : tr('Це перший елемент показу'),
-      );
-    }
-    stepPlaylist(delta);
-  };
-  playlistNextRef.current = () => {
-    const at = playlistItems.findIndex((i) => i.id === playlistCurrentId);
-    if (at < 0 || stepIndex(playlistItems, playlistCurrentId, 1) == null) return false;
-    stepPlaylist(1);
-    return true;
-  };
 
   // The steps of the show (useShowSteps): «На екран», Strong, Enter on a verse, live-follow, one
-  // step forward or back — E9, E11, E12, E16. After usePlaylistActions: crossChapter takes
+  // step forward or back — E9, E11, E12, E16. After useRunningOrder: crossChapter takes
   // activatePassage.
   const {
     screenHeld,
