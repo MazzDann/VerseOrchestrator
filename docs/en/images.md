@@ -75,8 +75,9 @@ To add a folder as an album:
 1. At the top, click **Media**, then choose **Albums** on the left.
 2. Click **Add a folder…**.
 3. Choose the folder: start from your home folder, the Pictures folder, or a drive, and open
-   the folders inside. Or paste the folder's path into the field at the top and press Enter.
-   Below the list you see how many photos the folder has.
+   the folders inside. Or paste the folder's path into the field at the top and press Enter: the
+   path may be in quotes, or start with `~` or `file://`. Below the list you see how many photos
+   the folder has.
 4. Click **Add this folder**. The album opens.
 
 An album shows the JPEG, PNG, WebP, GIF, AVIF, and BMP photos right in the folder, by name:
@@ -124,6 +125,12 @@ Items of the running order with this album are marked “Album removed: …”.
 If the folder isn't there (a drive or a flash drive is disconnected), the album says “Folder
 not found”. Connect the drive and click **Refresh**.
 
+If the system doesn't let the app open the folder, the album says “No access to the folder”. On a
+Mac this happens with Desktop, Documents, Downloads, flash drives, and network drives: open System
+Settings → Privacy & Security → Files & Folders (or Full Disk Access), allow access for Terminal
+or the app that starts VerseOrchestrator, and click **Refresh**. On other systems, check the
+folder's permissions.
+
 An album added on a computer with another system (the app folder carried on a flash drive from
 Windows to a Mac, or back) stays in the list as “A folder from another computer: …”. It can't be
 shown on this computer, and it works as before on the one it was added on. You can remove it like
@@ -140,9 +147,9 @@ To add a video:
 
 1. At the top, click **Media**, then choose **Videos** on the left.
 2. Click **Add a video…**.
-3. Open the folder with the video: start from your home folder or a drive, or paste the
-   folder's path into the field at the top and press Enter. Below the folders you see the
-   folder's videos with their sizes.
+3. Open the folder with the video: start from your home folder or a drive, or paste the path to
+   the folder or to the video itself into the field at the top and press Enter. Below the
+   folders you see the folder's videos with their sizes; the pasted video is highlighted.
 4. Click the video you need. It appears in the list.
 
 The browser doesn't play AVI, WMV, and other formats: the app says how many of them the folder
@@ -184,7 +191,9 @@ To add a video to the [running order](running-order.md), hover over its thumbnai
 
 To remove a video from the list, hover over its thumbnail, click the trash icon **Remove the
 video**, and then **Remove**. The file stays where it is. If the file isn't there (a drive is
-disconnected), the thumbnail says “File not found”.
+disconnected), the thumbnail says “File not found”. If the system doesn't let the app open the
+file, the thumbnail says “No access to the file”: allow access as for an album, and click the
+**Refresh the video list** icon.
 
 A video added on a computer with another system (from Windows to a Mac, or back) stays in the
 list as “A file from another computer: …”. It can't be shown here, and it plays as before on the

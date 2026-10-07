@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addAlbum,
@@ -12,6 +13,7 @@ import {
   dropSmalls,
   elsewhere,
   listPhotos,
+  pastedPath,
   putSmall,
   smallCopies,
   smallFile,
@@ -84,6 +86,12 @@ const canLink = (() => {
 })();
 /** A Mac's startup disk under /Volumes: a link to / (when it keeps its first name). */
 const startupDisk = process.platform === 'darwin' && fs.existsSync('/Volumes/Macintosh HD');
+/**
+ * A folder can be closed to this process with chmod 000 (Mac check of 1.9.0 — what macOS privacy
+ * does to Desktop or Documents, EPERM there, EACCES here): not on Windows, not as root (it
+ * reads anything).
+ */
+const canClose = process.platform !== 'win32' && process.getuid?.() !== 0;
 /** Paths the other system wrote: a Windows drive and share here, a Mac's folders on Windows. */
 const [FAR, SHARE] =
   process.platform === 'win32'
@@ -372,6 +380,130 @@ describe('albums: folders of photos (1.8.12)', () => {
     ]);
   });
 
+  it.skipIf(!canClose)(
+    'says a folder the system won’t open is refused (missing here, `denied` says why) — and serves nothing (Mac check of 1.9.0)',
+    async () => {
+      const { root, photos, data } = folder({ 'a.jpg': JPG });
+      fs.mkdirSync(path.join(photos, 'Свято'));
+      const album: Album = await added(data, { path: photos });
+      fs.chmodSync(photos, 0o000);
+      try {
+        expect(await listPhotos(photos)).toEqual({
+          photos: [],
+          heic: 0,
+          truncated: false,
+          denied: true,
+        });
+        // still `missing`: every guard that keeps a missing album off the screen keeps it off
+        const entry = albumEntry(album, await listPhotos(album.path), true);
+        expect(entry).toMatchObject({ missing: true, denied: true, count: 0, photos: [] });
+        expect(await photoFile(album.path, 'a.jpg')).toBeNull();
+        expect(await browse(photos)).toMatchObject({ path: photos, folders: [], denied: true });
+        // inside it the system won't even say what is there
+        const inside = path.join(photos, 'Свято');
+        expect(await browse(inside)).toMatchObject({ path: inside, denied: true });
+        expect(await addAlbum(data, { path: inside })).toEqual({ refused: 'denied' });
+        // the closed folder itself: stat sees it, readdir is refused (review) — and a new one
+        expect(await addAlbum(data, { path: photos })).toEqual({ refused: 'denied' });
+        const other = path.join(root, 'Закрита');
+        fs.mkdirSync(other, 0o000);
+        try {
+          expect(await addAlbum(data, { path: other })).toEqual({ refused: 'denied' });
+        } finally {
+          fs.chmodSync(other, 0o755);
+        }
+        expect(readAlbums(data)).toEqual([album]);
+      } finally {
+        fs.chmodSync(photos, 0o755);
+      }
+      expect(await addAlbum(data, { path: photos })).toEqual(album);
+      expect(albumEntry(album, await listPhotos(album.path))).toMatchObject({
+        missing: false,
+        denied: false,
+        count: 1,
+      });
+    },
+  );
+
+  it('reads a path as it is pasted: ~, file://, quotes, shell escapes (Mac check of 1.9.0)', () => {
+    const home = '/Users/me';
+    expect(pastedPath('~/Pictures/Свято', 'darwin', home)).toBe('/Users/me/Pictures/Свято');
+    expect(pastedPath(' ~ ', 'linux', home)).toBe(home);
+    expect(pastedPath('file:///Users/me/Pictures/My%20Photos', 'darwin')).toBe(
+      '/Users/me/Pictures/My Photos',
+    );
+    expect(pastedPath('file:///Users/me/%D0%A4%D0%BE%D1%82%D0%BE', 'darwin')).toBe(
+      '/Users/me/Фото',
+    );
+    expect(pastedPath("'/Users/me/My Photos'", 'darwin')).toBe('/Users/me/My Photos');
+    expect(pastedPath('"/Users/me/My Photos"', 'linux')).toBe('/Users/me/My Photos');
+    expect(pastedPath('/Users/me/My\\ Photos', 'darwin')).toBe('/Users/me/My Photos');
+    expect(pastedPath('/Users/me/Свято\\ \\(2026\\)', 'linux')).toBe('/Users/me/Свято (2026)');
+    // a Terminal drag & drop of «Свято »: the name's space escaped, one more after
+    expect(pastedPath('/Users/me/Свято\\  ', 'darwin')).toBe('/Users/me/Свято ');
+    // in quotes a backslash is the name's own, as the shell reads it
+    expect(pastedPath("'/Users/me/a\\ b'", 'darwin')).toBe('/Users/me/a\\ b');
+    // Windows: the backslash is the separator, never an escape; the quotes of «Копіювати як шлях» go
+    const winHome = 'C:\\Users\\me';
+    expect(pastedPath('C:\\Users\\me\\My Photos', 'win32', winHome)).toBe(
+      'C:\\Users\\me\\My Photos',
+    );
+    expect(pastedPath('D:\\Фото\\ Свято', 'win32')).toBe('D:\\Фото\\ Свято');
+    expect(pastedPath('D:\\Фото\\ ', 'win32')).toBe('D:\\Фото\\');
+    expect(pastedPath('"D:\\Фото\\Свято 2026"', 'win32')).toBe('D:\\Фото\\Свято 2026');
+    expect(pastedPath('\\\\NAS\\photos', 'win32')).toBe('\\\\NAS\\photos');
+    expect(pastedPath('~\\Pictures', 'win32', winHome)).toBe('C:\\Users\\me\\Pictures');
+    expect(pastedPath('file:///C:/Users/me/My%20Photos', 'win32')).toBe('C:\\Users\\me\\My Photos');
+    expect(pastedPath('file://NAS/photos/a', 'win32')).toBe('\\\\nas\\photos\\a');
+    // another computer's or broken: left as it is, for badPath to refuse
+    expect(pastedPath('file://NAS/photos', 'darwin')).toBe('file://NAS/photos');
+    expect(pastedPath('file:///Users/me/%E0%A4%A', 'darwin')).toBe('file:///Users/me/%E0%A4%A');
+    expect(pastedPath('Фото', 'darwin', home)).toBe('Фото');
+  });
+
+  it('browses a pasted path; a file’s path opens its folder (Mac check of 1.9.0)', async () => {
+    const { photos, data } = folder({ 'a.jpg': JPG });
+    const spaced = path.join(photos, 'My Photos');
+    fs.mkdirSync(spaced);
+    expect((await browse(`"${spaced}"`))?.path).toBe(spaced);
+    expect((await browse(pathToFileURL(spaced).href))?.path).toBe(spaced);
+    if (process.platform !== 'win32') {
+      expect((await browse(`'${spaced}'`))?.path).toBe(spaced);
+      expect((await browse(spaced.replace(/ /g, '\\ ')))?.path).toBe(spaced);
+    }
+    expect(await browse(path.join(photos, 'a.jpg'))).toMatchObject({
+      path: photos,
+      file: path.join(photos, 'a.jpg'),
+      photos: 1,
+    });
+    const album = await added(data, { path: `"${spaced}"` });
+    expect(album.path).toBe(spaced);
+    expect(await addAlbum(data, { path: pathToFileURL(spaced).href })).toEqual(album);
+  });
+
+  // a name may end in a space or hold «\ » on a Mac or Linux — not on Windows (review)
+  it.skipIf(process.platform === 'win32')(
+    'takes the picker’s own path as it is: a folder «Свято » or «a\\ b» (review)',
+    async () => {
+      const { photos, data } = folder({});
+      const spaced = path.join(photos, 'Свято ');
+      const escaped = path.join(photos, 'a\\ b');
+      for (const d of [spaced, escaped]) {
+        fs.mkdirSync(d);
+        fs.writeFileSync(path.join(d, 'a.jpg'), JPG);
+      }
+      const listed = (await browse(photos))!.folders.map((f) => f.path);
+      expect(listed).toEqual(expect.arrayContaining([spaced, escaped]));
+      expect(await browse(spaced)).toMatchObject({ path: spaced, photos: 1 });
+      expect(await browse(escaped)).toMatchObject({ path: escaped, photos: 1 });
+      expect((await added(data, { path: spaced })).path).toBe(spaced);
+      expect((await added(data, { path: escaped })).path).toBe(escaped);
+      // typed: read as pasted when the path as it is names nothing
+      expect((await browse(`${photos} `))?.path).toBe(photos);
+      expect((await browse(path.join(photos, 'Свято\\ ')))?.path).toBe(spaced);
+    },
+  );
+
   it('keeps a listing two seconds after it is read, then reads the folder again', async () => {
     const { photos } = folder({ 'a.jpg': JPG });
     let t = 1_000_000;
@@ -416,7 +548,6 @@ describe('albums: folders of photos (1.8.12)', () => {
     expect(here.folders[0].path).toBe(path.join(photos, 'Літо 2'));
     expect((await browse(path.parse(photos).root))!.parent).toBeNull();
     expect(await browse('relative/path')).toBeNull();
-    expect(await browse(path.join(photos, 'a.jpg'))).toBeNull();
     expect(await browse(path.join(photos, 'gone'))).toBeNull();
     expect(await browse(42)).toBeNull();
   });
