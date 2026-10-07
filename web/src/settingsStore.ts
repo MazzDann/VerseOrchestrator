@@ -297,6 +297,12 @@ interface SettingsState {
   layout: PanelLayout;
   /** When true, the presenter follows the selection live; when false, push manually (F5/F2). */
   liveFollow: boolean;
+  /**
+   * «Після кінця пункту «Далі» відкриває наступний» (1.10.0-beta.1): «Далі» past a running-order
+   * item's last step opens the next item, «Назад» at its first the previous one. Off by default.
+   */
+  orderFlow: boolean;
+  setOrderFlow: (v: boolean) => void;
   /** When true, mirror the live slide to the server so phones can follow along. */
   followAlong: boolean;
   /** The viewers' QR in a corner of the output while follow-along is on (0.6.16). */
@@ -606,6 +612,8 @@ export const useSettings = create<SettingsState>()(
       panelPlacement: 'aside',
       layout: DEFAULT_LAYOUT,
       liveFollow: true,
+      orderFlow: false,
+      setOrderFlow: (v) => set({ orderFlow: v === true }),
       followAlong: false,
       followQrCorner: false,
       followQrStyle: 'rounded',

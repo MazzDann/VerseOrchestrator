@@ -21,6 +21,7 @@ import {
 import { findSong } from '../../lib/songLink';
 import { tr } from '../../i18n';
 import { joinVerses, redLetterSegments } from './slideText';
+import { asksFor, atItemEdge, stillThere, type PastItem } from '../../lib/orderFlow';
 
 /**
  * The running order on screen («Послідовність показу»; out of usePlaylistActions and Control.tsx
@@ -56,6 +57,9 @@ export function useRunningOrder({
   playlistItems,
   playlistCurrentId,
   playlistNextRef,
+  liveSlideRef,
+  orderFlow,
+  pastItemRef,
 }: {
   setTranslations: (ids: number[]) => void;
   selectBook: (bookNumber: number) => void;
@@ -100,6 +104,12 @@ export function useRunningOrder({
   playlistCurrentId: string | null;
   /** a video at its end goes on with the next item (useVideo: «Після кінця» → «Наступний елемент»); filled here */
   playlistNextRef: MutableRefObject<(() => boolean) | null>;
+  /** what is on screen now (the leader's) */
+  liveSlideRef: MutableRefObject<Slide>;
+  /** «Після кінця пункту «Далі» відкриває наступний» (1.10.0-beta.1) */
+  orderFlow: boolean;
+  /** the verse steps, a song and an album ask here at their ends (lib/orderFlow.ts); filled here */
+  pastItemRef: MutableRefObject<PastItem | null>;
 }) {
   // --- Presentation sequence (playlist) ---------------------------------------
   // Project a saved passage: set the selection (so the list/preview follow) and
@@ -265,5 +275,19 @@ export function useRunningOrder({
   const playlistStepRef = useRef<(delta: 1 | -1) => void>(() => {});
   playlistStepRef.current = (delta) => void orderStep(delta, 'key');
   playlistNextRef.current = () => orderStep(1, 'end');
+  // «Далі» past an item's last step (1.10.0-beta.1): the next item, while the switch is on and the
+  // screen still shows the item (a song or an album asks at its own end — «Кінець», the last photo)
+  pastItemRef.current = (delta, from) => {
+    if (!orderFlow) return null;
+    const it = playlistItems.find((i) => i.id === playlistCurrentId);
+    if (!it || !asksFor(it, from)) return null;
+    const live = liveSlideRef.current;
+    if (!stillThere(it, live, from)) return null;
+    if ((from.kind === 'slide' || from.kind === 'verses') && !atItemEdge(it, live, delta))
+      return null;
+    // the last item (or the first, going back): the item's own step and words, as before
+    if (stepIndex(playlistItems, playlistCurrentId, delta) == null) return null;
+    return orderStep(delta, 'key') ? { ok: true } : { ok: false };
+  };
   return { activatePassage, activateItem, stepPlaylist, orderStep, playlistStepRef };
 }

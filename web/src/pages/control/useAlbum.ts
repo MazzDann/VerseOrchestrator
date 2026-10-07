@@ -22,6 +22,7 @@ import { tr } from '../../i18n';
 import { unusable, unusableNotice } from '../../lib/denied';
 import { standbyNotice } from './standby';
 
+import { type PastItem } from '../../lib/orderFlow';
 /** The album open in «Зображення» and the photo it stands on (null: none shown yet). */
 export interface OpenAlbum {
   id: string;
@@ -78,6 +79,7 @@ export function useAlbum({
   openAlbumsTab,
   keysPaused,
   serverAvailable,
+  pastItemRef,
 }: {
   slideStyle: SlideStyle;
   pushLive: (pushed: Slide, opts?: { audience?: boolean }) => void;
@@ -93,6 +95,8 @@ export function useAlbum({
   openAlbumsTab: () => void;
   keysPaused: boolean;
   serverAvailable: boolean | null;
+  /** the running order's answer at the last / first photo (useRunningOrder, 1.10.0-beta.1) */
+  pastItemRef: MutableRefObject<PastItem | null>;
 }) {
   const queryClient = useQueryClient();
   const [album, setAlbum] = useState<OpenAlbum | null>(null);
@@ -218,8 +222,12 @@ export function useAlbum({
     if (photos.length === 0) return { ok: false, reason: tr('В альбомі немає фото') };
     const at = place();
     const idx = Math.max(0, Math.min(photos.length - 1, (at ?? -1) + dir));
-    if (at != null && idx === at)
+    if (at != null && idx === at) {
+      // the running order's next / previous item (1.10.0-beta.1) — never from the slideshow
+      const o = quiet ? null : pastItemRef.current?.(dir, { kind: 'album', albumId: album.id });
+      if (o) return o;
       return { ok: false, reason: dir > 0 ? tr('Це останнє фото') : tr('Це перше фото') };
+    }
     showPhoto(idx, quiet);
     return { ok: true };
   };

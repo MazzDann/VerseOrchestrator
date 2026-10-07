@@ -55,6 +55,11 @@ Other keys of the control window:
   neighbouring item.
 - While an album is open in the images panel, the arrow keys, PageUp, and PageDown step
   through its photos — the same way, except the running order's item keys.
+- With the **“Next” past an item’s end opens the next one** switch (**Settings** →
+  **Hotkeys**, under **Arrows**), “Next” after the last step of a running-order item — a
+  passage's last verse, a song's “End”, an album's last photo, a text, a picture, or a video —
+  opens the next item, and “Back” at its first step opens the previous one. The remote's
+  buttons do the same. If you have shown something else since, “Next” steps as usual.
 
 In the presentation window:
 

@@ -33,6 +33,7 @@ import { type Outcome } from '../../lib/commands';
 import { tr } from '../../i18n';
 import { joinVerses, strongHighlightSegments } from './slideText';
 import { standbyNotice } from './standby';
+import { type PastItem } from '../../lib/orderFlow';
 
 /**
  * The steps of the show (vo-sync): the verse selection on screen («На екран», Enter on a verse,
@@ -83,6 +84,7 @@ export function useShowSteps({
   setPageIndex,
   leaderRef,
   buildLines,
+  pastItemRef,
 }: {
   liveFollow: boolean;
   live: boolean;
@@ -130,6 +132,8 @@ export function useShowSteps({
   setPageIndex: Dispatch<SetStateAction<number>>;
   leaderRef: MutableRefObject<boolean>;
   buildLines: (verseNums: number[]) => SlideLine[];
+  /** the running order's answer past an item's end (useRunningOrder, 1.10.0-beta.1) */
+  pastItemRef: MutableRefObject<PastItem | null>;
 }) {
   /**
    * «Прев’ю: далі / назад» (Alt+arrows, 1.1.0): the preview walked ahead and the screen stays,
@@ -344,6 +348,13 @@ export function useShowSteps({
     held = false,
   ): Outcome | Promise<Outcome> => {
     setScreenHeld(previewOnly && liveFollow && live);
+    const sign: 1 | -1 = delta > 0 ? 1 : -1;
+    // a text, a picture or a video of the running order: one step past it is the next item, when
+    // «Після кінця пункту…» is on (1.10.0-beta.1)
+    if (!previewOnly) {
+      const o = pastItemRef.current?.(sign, { kind: 'slide' });
+      if (o) return o;
+    }
     // Progressive reveal first: step through the verses of the current slide before
     // moving on. Only while projecting the verse selection (no song/text override).
     if (appearance.reveal && revealUnits && revealUnits.length > 1 && !previewOverride) {
@@ -360,6 +371,15 @@ export function useShowSteps({
     if (pageCount > 1) {
       const target = Math.min(pageCount - 1, Math.max(0, safePageIndex + delta));
       if (target === safePageIndex) {
+        // a passage of the running order at its last / first page: the next / previous item
+        const o = previewOnly
+          ? null
+          : pastItemRef.current?.(sign, {
+              kind: 'verses',
+              selected: selectedVerses,
+              page: safePageIndex,
+            });
+        if (o) return o;
         return {
           ok: false,
           reason: delta > 0 ? tr('Це остання сторінка') : tr('Це перша сторінка'),
@@ -374,6 +394,15 @@ export function useShowSteps({
       setPageIndex(target);
       return { ok: true };
     }
+    // a passage of the running order at its last / first verse: the next / previous item
+    const past = previewOnly
+      ? null
+      : pastItemRef.current?.(sign, {
+          kind: 'verses',
+          selected: selectedVerses,
+          page: safePageIndex,
+        });
+    if (past) return past;
     const moved = stepVerse(delta, previewOnly, held);
     if (!(moved instanceof Promise) && moved.ok) setRevealCount(1); // same batch as the verse
     return moved;
