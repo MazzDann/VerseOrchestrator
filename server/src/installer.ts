@@ -269,7 +269,10 @@ export function createInstaller(o: InstallerOptions) {
       if ('error' in found) return fail(found.error);
       const next = path.join(o.top, NEXT_DIR);
       fs.rmSync(next, { recursive: true, force: true });
-      fs.renameSync(found.app, next); // same disk: data/ is next to app/
+      // same disk: data/ is next to app/. Windows may hold the folder just unpacked for a moment —
+      // an antivirus, an indexer, an editor watching the folder (the 1.10 update run: EPERM every
+      // time in a copy inside a VS Code workspace) — so tried again, as the swap's renames are
+      renameSoon(found.app, next);
       recordNext(latest.version, newest);
       // the start file and the notes: swap.ts puts them next to app/ once the new version runs
       const topFiles = path.join(updatesDir, TOP_FILES_DIR, latest.version);
