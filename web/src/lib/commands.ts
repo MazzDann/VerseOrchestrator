@@ -111,7 +111,9 @@ export type PlaylistEntry =
   /** a video (1.8.12-beta.3): played from the control window */
   | { id: string; kind: 'video'; label: string }
   /** «Заставка» as an item (1.10.0-beta.2): its own text over the screen, from the control window */
-  | { id: string; kind: 'cover'; label: string };
+  | { id: string; kind: 'cover'; label: string }
+  /** «Відлік» as an item (1.10.0-beta.3) */
+  | { id: string; kind: 'countdown'; label: string };
 
 export interface SharedPlaylist {
   items: PlaylistEntry[];

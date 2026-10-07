@@ -26,6 +26,11 @@ To add an item to the running order:
   **Cover**. Its editor opens: type the text, choose a picture from **Images** if you like,
   and click **Done**. Each such cover has its own text, apart from **Settings** → **Cover**.
   To change it later, click the pencil icon in its row.
+- A countdown: the same **Add to the running order** (+) → **Countdown**. In its editor set
+  the length (5, 7:30, or 1:05:00), the caption, and what happens at zero: **Next item** — the
+  show goes on to the next item by itself — or, as a plain countdown, **Overtime**,
+  **Stop at 0:00**, or **Hide time**. The countdown stands over the cover on screen now —
+  so a cover followed by a countdown in the running order makes one screen.
 
 New items go to the end of the running order.
 

@@ -20,7 +20,8 @@ import {
   videoVolumeOf,
   type RefItem,
 } from '../settingsStore';
-import { type Slide } from '../presenterBus';
+import { type Slide, type SlideCountdown, type SlideCover } from '../presenterBus';
+import { type CountdownPlace } from '../lib/countdown';
 import { strongLangFor } from '@vo/shared';
 import { SearchPanel } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
@@ -537,6 +538,10 @@ export function Control() {
   // the running order's answer past an item's end (1.10.0-beta.1): filled by useRunningOrder, asked
   // by the album, the verse steps and the songs — the album comes before it
   const pastItemRef = useRef<PastItem | null>(null);
+  // «Відлік» (useTimers, called later) for a «Відлік» item of the running order (1.10.0-beta.3)
+  const countdownStartRef = useRef<
+    ((countdown: SlideCountdown, place?: CountdownPlace, onCover?: SlideCover) => void) | null
+  >(null);
   const albumShow = useAlbum({
     slideStyle,
     pushLive,
@@ -608,6 +613,10 @@ export function Control() {
     liveSlideRef,
     orderFlow,
     pastItemRef,
+    liveSlide,
+    isLeader,
+    leaderRef,
+    countdownStartRef,
   });
   const {
     addCurrentPassage,
@@ -743,6 +752,7 @@ export function Control() {
     setLive,
     takeCoverOff,
   });
+  countdownStartRef.current = countdownStart;
   // E20: the corner QR follows its settings on what is on screen — after E19, before E21
   useQrCornerFollow({ liveSlideRef, slideStyle, pushLive });
 
@@ -804,6 +814,7 @@ export function Control() {
     playlistItems,
     leaderRef,
     liveSlideRef,
+    countdownStart,
     pushLive,
     setLive,
     playlistSetCurrent,
