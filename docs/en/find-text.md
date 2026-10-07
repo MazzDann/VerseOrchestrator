@@ -66,7 +66,10 @@ To find a word or a phrase:
 The first Esc closes the results, the second clears the field. You can also switch where to
 search above the results: **Current (F3)** or **All (F4)**. When you search all translations,
 a verse found in several of them is one row: in the main translation's words, with “also:” and
-the other translations' names next to it.
+the other translations' names next to it. This holds even when translations number the verse
+differently: for example, Psalm 22 of the Synodal translation is Psalm 23 in the KJV, and
+Malachi 3:19 in the Hebrew numbering is Malachi 4:1. The app aligns the numberings from the
+length of each book's chapters; the verses themselves don't change.
 
 While the field is empty, the arrow keys and PageUp/PageDown in it step through the verses as
 usual.
