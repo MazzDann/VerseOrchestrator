@@ -269,6 +269,7 @@ export function UpdateSection() {
           version={state.previous}
           current={state.current}
           selfReturn={state.previousHasRollback !== false}
+          updatesBack={state.previousUpdatesBack !== false}
           phase={state.installer?.phase ?? 'idle'}
           outputsOpen={outputs.length}
           pending={rollback.isPending}
@@ -366,6 +367,7 @@ function Rollback({
   version,
   current,
   selfReturn,
+  updatesBack,
   phase,
   outputsOpen,
   pending,
@@ -375,6 +377,8 @@ function Rollback({
   current: string;
   /** `version` has «Повернути версію» of its own (1.4.0 or later) */
   selfReturn: boolean;
+  /** `version` can update back by itself here (Windows: 1.8.8 or later) */
+  updatesBack: boolean;
   /** the installer's phase */
   phase: string;
   outputsOpen: number;
@@ -420,6 +424,15 @@ function Rollback({
                 )}
             {downloading && ` ${tr('Завантаження оновлення зупиниться.')}`}
           </Text>
+          {!updatesBack && (
+            // Windows before 1.8.8 (review of the user's report, 2026-10-07): its own browser keeps app\
+            <Text size="xs" c="orange" mb="xs">
+              {tr(
+                'Увага: версія {version} на Windows не зможе оновитися назад, поки відкритий браузер, який вона запустить. Перед оновленням закрийте браузер повністю.',
+                { version },
+              )}
+            </Text>
+          )}
           <Group gap="xs" justify="flex-end">
             <Button size="xs" variant="default" onClick={() => setConfirm(false)}>
               {tr('Скасувати')}
@@ -631,9 +644,11 @@ function Install({
         : v.version === newest
           ? tr('{version} · найновіша', { version: v.version })
           : v.version,
-    // the one installed is there to show where you are, not to be picked
-    disabled: v.version === state.current,
+    // the one installed is there to show where you are, not to be picked; one that couldn't
+    // update back here (Windows before 1.8.8) neither — said under the list
+    disabled: v.version === state.current || v.updatesBack === false,
   }));
+  const stranded = versions.some((v) => v.updatesBack === false);
   // a version downloaded on another channel still waits to be installed: shown as it is
   if (ready && !listed.has(ready)) options.unshift({ value: ready, label: ready, disabled: false });
   const size = chosen?.size ?? state.latest?.asset?.size ?? 0;
@@ -729,6 +744,13 @@ function Install({
       {chosen && !chosen.installable && (
         <Text size="xs" c="dimmed" mb={4}>
           {tr('Для цієї системи в релізі немає архіву: завантажте застосунок зі сторінки релізу.')}
+        </Text>
+      )}
+      {stranded && (
+        <Text size="xs" c="dimmed" mb={4}>
+          {tr(
+            'Версії, старіші за 1.8.8, на Windows не пропонуються: з них не вдається оновитися назад, поки відкритий браузер, який вони запустили.',
+          )}
         </Text>
       )}
       {older && (
