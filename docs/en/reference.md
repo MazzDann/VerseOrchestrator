@@ -162,6 +162,11 @@ Everything the app remembers is in its folder:
 | `data/standby.log`   | the address waiter's log                                                                            |
 | `portable/`          | portable copies made with `npm run portable`                                                        |
 
+The paths in `data/albums.json` and `data/videos.json` are this computer's. When the app folder
+is carried to a computer with another system (from Windows to a Mac, or back), the albums and
+videos added there stay in these files as they are: here they are marked as from another
+computer, and there they work as before ([Images](images.md)).
+
 The browser keeps only copies of the settings and the library cache. **Switch off
 completely…** with **Also erase the browser's data** selected erases them.
 

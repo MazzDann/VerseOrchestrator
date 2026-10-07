@@ -75,6 +75,16 @@ function dataDir(tag: string) {
   fs.writeFileSync(path.join(d, 'library.db'), 'big');
   fs.writeFileSync(path.join(d, 'secrets.json'), '{"tokens":["secret"]}');
   fs.writeFileSync(path.join(d, 'settings.json'), '{"standby":{"port":4747}}');
+  // this machine's folders and files (albums, video), another computer's among them: never in a
+  // backup, never touched by a restore (Mac check of 1.9.0)
+  fs.writeFileSync(
+    path.join(d, 'albums.json'),
+    JSON.stringify({ albums: [{ path: `D:\\${tag}` }] }),
+  );
+  fs.writeFileSync(
+    path.join(d, 'videos.json'),
+    JSON.stringify({ videos: [{ path: `/${tag}.mp4` }] }),
+  );
   return d;
 }
 
@@ -233,6 +243,8 @@ describe('«Резервна копія» (1.5.0)', () => {
     // this machine's own files are untouched
     expect(fs.readFileSync(path.join(to, 'secrets.json'), 'utf8')).toContain('secret');
     expect(fs.readFileSync(path.join(to, 'library.db'), 'utf8')).toBe('big');
+    expect(fs.readFileSync(path.join(to, 'albums.json'), 'utf8')).toContain('D:\\\\b');
+    expect(fs.readFileSync(path.join(to, 'videos.json'), 'utf8')).toContain('/b.mp4');
   });
 
   it('keeps the state it replaced; «Повернути як було» brings it back and keeps what it replaces too', async () => {
