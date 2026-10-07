@@ -33,6 +33,7 @@ import {
   type PadUnit,
   type PadLink,
   type StrongSubline,
+  type SearchPlace,
 } from '../settingsStore';
 import type { SlideTransition } from '../presenterBus';
 import { fileToDownscaledDataUrl, fileToLogoDataUrl } from '../lib/image';
@@ -502,6 +503,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             search.scope === 'all' ? tr('спершу в усіх') : tr('спершу в поточному'),
             search.dedupe && tr('без повторів'),
             search.focusOnReturn && tr('курсор у пошук'),
+            search.place !== 'start' && placeName(search.place),
           )}
         >
           <Text size="xs" c="dimmed">
@@ -517,6 +519,17 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             ]}
             value={search.scope}
             onChange={(v) => v && setSearch({ scope: v === 'all' ? 'all' : 'current' })}
+            allowDeselect={false}
+          />
+          {/* 1.8.12-beta.9 (A1007-01, the author's ask): where the field stands */}
+          <Select
+            label={tr('Де поле пошуку')}
+            data={(['start', 'afterModes', 'center', 'verses'] as const).map((p) => ({
+              value: p,
+              label: placeName(p),
+            }))}
+            value={search.place}
+            onChange={(v) => v && setSearch({ place: v as SearchPlace })}
             allowDeselect={false}
           />
           <Switch
@@ -975,4 +988,15 @@ function Section({
       </Accordion.Panel>
     </Accordion.Item>
   );
+}
+
+/** Where the search field stands (1.8.12-beta.9), as the settings name it. */
+function placeName(p: SearchPlace): string {
+  return p === 'afterModes'
+    ? tr('Угорі, після режимів')
+    : p === 'center'
+      ? tr('Угорі, посередині')
+      : p === 'verses'
+        ? tr('Над віршами (у «Біблії»)')
+        : tr('Угорі, перед режимами');
 }
