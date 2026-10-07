@@ -1831,6 +1831,7 @@ export const EN: Record<string, string> = {
   'Книга, посилання чи слова…': 'Book, reference, or words…',
   'Шукаю…': 'Searching…',
   'Віршів не знайдено': 'No verses found',
+  'Пошук не вдався — спробуйте ще раз': 'The search failed — try again',
   'У перекладах пульта нічого — знайдено в інших':
     'Nothing in the remote’s translations — found in others',
   Вірші: 'Verses',
