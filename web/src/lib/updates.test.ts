@@ -28,3 +28,19 @@ describe('versions in the page (1.8.11)', () => {
     expect(compareVersions('nightly', 'latest')).toBe(0);
   });
 });
+
+describe('a step down and the running order (1.9.1)', () => {
+  const item = (kind: string) => ({ kind, id: kind, label: kind }) as never;
+  it('names the kinds an older version fails on', async () => {
+    const { kindsBreaking } = await import('./updates');
+    const order = [item('passage'), item('album'), item('video'), item('foreign')];
+    expect(kindsBreaking('1.9.0', [order])).toEqual(['foreign']);
+    expect(kindsBreaking('1.8.12-beta.1', [order])).toEqual(['video', 'foreign']);
+    expect(kindsBreaking('1.8.12-beta.2', [[item('video')], [item('album')]])).toEqual(['video']);
+    expect(kindsBreaking('1.8.11', [[item('image'), item('album')]])).toEqual(['album']);
+    expect(kindsBreaking('1.4.2', [[item('image'), item('song')]])).toEqual(['image']);
+    // 1.9.1 and later pass over a kind they don't know
+    expect(kindsBreaking('1.9.1', [order])).toEqual([]);
+    expect(kindsBreaking('1.10.0-beta.1', [order])).toEqual([]);
+  });
+});

@@ -47,7 +47,7 @@ import { CommandPalette } from '../components/CommandPalette';
 import { useHeaderFold } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { SETTINGS_PANEL_KEY } from '../lib/panelBox';
-import { usePlaylist, type SeqItem } from '../playlistStore';
+import { usePlaylist, stepIndex, type SeqItem } from '../playlistStore';
 import { ImagesPanel } from '../components/ImagesPanel';
 import { standbyNotice } from './control/standby';
 import { usePanelResize } from './control/usePanelResize';
@@ -620,13 +620,26 @@ export function Control() {
       notifications.show({ message, color: 'gray', autoClose: 2000 });
     if (playlistItems.length === 0)
       return say(tr('Послідовність показу порожня — додавайте елементи кнопкою «+ у показ»'));
-    if (at >= 0 && (at + delta < 0 || at + delta >= playlistItems.length))
-      return say(delta > 0 ? tr('Це останній елемент показу') : tr('Це перший елемент показу'));
+    // nothing further that can go on screen (items of a newer version are passed over, 1.9.1)
+    if (stepIndex(playlistItems, playlistCurrentId, delta) == null) {
+      const beyond = at >= 0 && at + delta >= 0 && at + delta < playlistItems.length;
+      return say(
+        at < 0
+          ? tr('У послідовності лише пункти новішої версії — оновіть застосунок, щоб показати їх')
+          : beyond
+            ? delta > 0
+              ? tr('Далі лише пункти новішої версії — оновіть застосунок, щоб показати їх')
+              : tr('Перед ним лише пункти новішої версії — оновіть застосунок, щоб показати їх')
+            : delta > 0
+              ? tr('Це останній елемент показу')
+              : tr('Це перший елемент показу'),
+      );
+    }
     stepPlaylist(delta);
   };
   playlistNextRef.current = () => {
     const at = playlistItems.findIndex((i) => i.id === playlistCurrentId);
-    if (at < 0 || at >= playlistItems.length - 1) return false;
+    if (at < 0 || stepIndex(playlistItems, playlistCurrentId, 1) == null) return false;
     stepPlaylist(1);
     return true;
   };
