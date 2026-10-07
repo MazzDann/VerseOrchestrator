@@ -472,6 +472,8 @@ export const EN: Record<string, string> = {
   'Папку не знайдено: {name}': 'Folder not found: {name}',
   'Папку не знайдено: {path}': 'Folder not found: {path}',
   'Папка з іншого комп’ютера: {path}': 'A folder from another computer: {path}',
+  'Папка з іншого комп’ютера: {name}': 'A folder from another computer: {name}',
+  'Немає доступу до папки: {name}': 'No access to the folder: {name}',
   'Немає доступу до папки: {path}': 'No access to the folder: {path}',
   // the system won't open a folder or a file (Mac check of 1.9.0, web/src/lib/denied.ts)
   'macOS не дає відкрити цю папку.': "macOS doesn't let the app open this folder.",

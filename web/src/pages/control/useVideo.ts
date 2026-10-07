@@ -24,6 +24,7 @@ import { drawPoster } from '../../lib/videoPoster';
 import { readImageFit } from '../../lib/imageFit';
 import { showsSomething } from '../../lib/slide';
 import { tr } from '../../i18n';
+import { unusable, unusableNotice } from '../../lib/denied';
 import { type VideoEnd, type VideoPhones } from '../../settingsStore';
 import { standbyNotice } from './standby';
 
@@ -110,7 +111,7 @@ export function useVideo({
     }
     if (v.missing) {
       notifications.show({
-        message: tr('Файл не знайдено: {path}', { path: v.path }),
+        message: unusableNotice('file', v, v.path),
         color: 'gray',
         autoClose: 3000,
       });
@@ -396,11 +397,8 @@ export function useVideo({
       return { reason: tr('Відео прибрано: {name}', { name: label }) };
     }
     if (v.missing) {
-      notifications.show({
-        message: tr('Файл не знайдено: {path}', { path: v.path }),
-        color: 'gray',
-      });
-      return { reason: tr('Файл не знайдено: {name}', { name: label }) };
+      notifications.show({ message: unusableNotice('file', v, v.path), color: 'gray' });
+      return { reason: unusable('file', v, label) ?? '' };
     }
     const slide = showVideo(v, { fit });
     return slide ? { slide } : { reason: tr('Показом керує інше вікно керування') };
