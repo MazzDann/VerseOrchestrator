@@ -17,6 +17,8 @@ These are the control window's standard keys. You can change them in **Settings*
 | **Back** — the previous verse        | ←, ↑, PageUp      |                        |
 | **Preview: next** — the preview only | Ctrl+→, Ctrl+↓    | ⌥→, ⌥↓ instead of Ctrl |
 | **Preview: back** — the preview only | Ctrl+←, Ctrl+↑    | ⌥←, ⌥↑ instead of Ctrl |
+| **Next running order item**          | Shift+PageDown    |                        |
+| **Previous running order item**      | Shift+PageUp      |                        |
 | **To the chorus** — in a song        | C                 |                        |
 | **To screen**                        | F5, F2            | ⌘↩                     |
 | **Hide text**                        | B                 |                        |
@@ -32,6 +34,10 @@ These are the control window's standard keys. You can change them in **Settings*
 
 On macOS the F keys work together with Fn, so there are ⌘ keys by default as well.
 
+What the arrows do can be chosen in the same place, in **Arrows**: **All — next / back** (the
+default), **← → screen, ↑ ↓ preview**, or **↑ ↓ verses, ← → items**. More in [Running
+order](running-order.md#show-item-by-item).
+
 Other keys of the control window:
 
 - Digits outside text fields — go to a place in the open book: `16`, `3:16`, `3:16-18`,
@@ -44,9 +50,11 @@ Other keys of the control window:
 - Alt+↑ and Alt+↓ scroll the list you are in (otherwise the verse list) without changing
   the selection. On macOS, ⌥ with the arrows is **Preview: next** and **Preview: back**.
 - While a song is open, the arrow keys, PageUp, and PageDown step through its slides, and
-  **Preview: next** and **Preview: back** do nothing.
+  **Preview: next** and **Preview: back** do nothing. The running order's item keys
+  (Shift+PageDown, Shift+PageUp, and with **↑ ↓ verses, ← → items** also ← and →) go to the
+  neighbouring item.
 - While an album is open in the images panel, the arrow keys, PageUp, and PageDown step
-  through its photos.
+  through its photos — the same way, except the running order's item keys.
 
 In the presentation window:
 
@@ -73,7 +81,7 @@ The buttons at the top of the control window are grouped from left to right:
 | Group                | Buttons                                                                                               |
 | -------------------- | ----------------------------------------------------------------------------------------------------- |
 | **Navigation**       | the navigation menu (in a narrow window), **Search**, the **Search** field                            |
-| **Sources**          | **Songs**, **Custom text**, **Images**, **Running order**                                             |
+| **Sources**          | **Songs**, **Custom text**, **Images**                                                                |
 | **Windows**          | **Presentation window**, **Stage**, **Output windows**, **Viewers**, **Speaker remote**               |
 | **Output to screen** | **Live**, **To screen**, **Hide text**, **Black screen**, **Cover**, **Countdown**, **Speaker timer** |
 | **App**              | **Settings**, **Help**, **Light theme** or **Dark theme**, **Preview panel** (in a narrow window)     |

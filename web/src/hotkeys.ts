@@ -26,6 +26,8 @@ export type HotkeyActionId =
   | 'advancePrev'
   | 'previewNext'
   | 'previewPrev'
+  | 'playlistNext'
+  | 'playlistPrev'
   | 'chorus'
   | 'project'
   | 'blank'
@@ -82,6 +84,20 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     hint: N_('Попередній вірш лише в прев’ю — екран стоїть до «На екран»'),
     default: 'ctrl+left,ctrl+up',
     macInstead: 'alt+left,alt+up',
+  },
+  // 1.8.12-beta.6 (F1005-06): the running order item by item from the keyboard — with Shift, the
+  // keys a clicker sends stay «Далі»; «Стрілки» can give them ← → (withArrowScheme)
+  {
+    id: 'playlistNext',
+    label: N_('Наступний елемент показу'),
+    hint: N_('Наступний елемент послідовності показу — на екран'),
+    default: 'shift+pagedown',
+  },
+  {
+    id: 'playlistPrev',
+    label: N_('Попередній елемент показу'),
+    hint: N_('Попередній елемент послідовності показу — на екран'),
+    default: 'shift+pageup',
   },
   // 1.3.0: songs repeat their chorus after every verse, and some have a different one —
   // this finds the next chorus of the open song (shared/src/songs/sections.ts)
@@ -184,6 +200,72 @@ export function defaultKeymap(mac: boolean = IS_MAC): Keymap {
 }
 
 export const DEFAULT_KEYMAP: Keymap = defaultKeymap();
+
+/**
+ * What the arrows do (1.8.12-beta.6, F1005-06 — the author's call: as before by default, a choice in
+ * «Клавіші»): «same» — all four step on («Далі / Назад»); «screenPreview» — ← → step the screen, ↑ ↓ only
+ * the preview; «versesItems» — ↑ ↓ step the verses, ← → the running order's items. A scheme only writes
+ * the bindings of these actions, each stays editable; `arrowScheme` reads which one they match.
+ */
+export type ArrowScheme = 'same' | 'screenPreview' | 'versesItems';
+export const ARROW_SCHEMES: { id: ArrowScheme; label: string; hint: string }[] = [
+  { id: 'same', label: N_('Усі — далі / назад'), hint: N_('Усі чотири стрілки крокують показом') },
+  {
+    id: 'screenPreview',
+    label: N_('← → екран, ↑ ↓ прев’ю'),
+    hint: N_('↑ ↓ ведуть лише прев’ю, екран чекає «На екран»'),
+  },
+  {
+    id: 'versesItems',
+    label: N_('↑ ↓ вірші, ← → елементи'),
+    hint: N_('← → — попередній / наступний елемент послідовності показу'),
+  },
+];
+const ARROW_ACTIONS = [
+  'advanceNext',
+  'advancePrev',
+  'previewNext',
+  'previewPrev',
+  'playlistNext',
+  'playlistPrev',
+] as const;
+
+function schemeKeys(scheme: ArrowScheme, mac: boolean): Partial<Keymap> {
+  const d = defaultKeymap(mac);
+  const base = Object.fromEntries(ARROW_ACTIONS.map((id) => [id, d[id]])) as Partial<Keymap>;
+  if (scheme === 'screenPreview')
+    return {
+      ...base,
+      advanceNext: 'right,pagedown',
+      advancePrev: 'left,pageup',
+      previewNext: `down,${d.previewNext}`,
+      previewPrev: `up,${d.previewPrev}`,
+    };
+  if (scheme === 'versesItems')
+    return {
+      ...base,
+      advanceNext: 'down,pagedown',
+      advancePrev: 'up,pageup',
+      playlistNext: `right,${d.playlistNext}`,
+      playlistPrev: `left,${d.playlistPrev}`,
+    };
+  return base;
+}
+
+/** The keymap with the arrows of a scheme (the other actions untouched). */
+export function withArrowScheme(keymap: Keymap, scheme: ArrowScheme, mac = IS_MAC): Keymap {
+  return { ...keymap, ...schemeKeys(scheme, mac) };
+}
+
+/** The scheme the arrows' bindings match, or null — the operator's own. */
+export function arrowScheme(keymap: Keymap, mac = IS_MAC): ArrowScheme | null {
+  return (
+    ARROW_SCHEMES.map((s) => s.id).find((id) => {
+      const keys = schemeKeys(id, mac);
+      return ARROW_ACTIONS.every((a) => keymap[a] === keys[a]);
+    }) ?? null
+  );
+}
 
 /**
  * Mirror of react-hotkeys-hook's internal `mapKey`: its special-key table plus the
@@ -302,6 +384,21 @@ export function formatCombo(combo: string, mac: boolean = IS_MAC): string {
 export function matchesCombo(e: KeyChord, combo: string): boolean {
   const chord = comboFromEvent(e);
   return !!chord && combo.split(',').includes(chord);
+}
+
+/**
+ * Which way a key steps what owns the arrows — a song's stanzas, an album (1.8.12-beta.6): the
+ * «Далі / Назад» keys, and the plain arrows and PageUp / PageDown — unless the running order has
+ * the key (`playlistNext` / `playlistPrev`, «↑ ↓ вірші, ← → елементи»): that one passes on.
+ */
+export function stepDirection(e: KeyChord, keymap: Keymap): 1 | -1 | 0 {
+  if (matchesCombo(e, keymap.playlistNext) || matchesCombo(e, keymap.playlistPrev)) return 0;
+  if (matchesCombo(e, keymap.advanceNext)) return 1;
+  if (matchesCombo(e, keymap.advancePrev)) return -1;
+  if (e.ctrlKey || e.altKey || e.metaKey) return 0;
+  if (['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key)) return 1;
+  if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)) return -1;
+  return 0;
 }
 
 /** Action ids whose keymap entry shares an alternative chord with `chord` (excluding `self`). */

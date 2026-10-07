@@ -623,8 +623,6 @@ export const EN: Record<string, string> = {
   Джерела: 'Sources',
   'Пошук пісень з .pptx і показ куплетів': 'Find songs from .pptx files and show their stanzas',
   'Скласти й показати довільний текст': 'Write and show any text',
-  'Черга уривків, пісень і текстів; збережені програми':
-    'A queue of passages, songs, and texts; saved programs',
   Вікна: 'Windows',
   'Вихідне вікно для другого монітора чи проєктора':
     'The output window for a second monitor or a projector',
@@ -981,9 +979,7 @@ export const EN: Record<string, string> = {
   // running order (web/src/components/PlaylistPanel.tsx)
   'Видалити програму {name}': 'Delete the program {name}',
   'Видалено: {name}': 'Deleted: {name}',
-  'Попередній елемент': 'Previous item',
   'Попередній елемент показу': 'Previous running order item',
-  'Наступний елемент': 'Next item',
   'Програми (зберегти / відкрити)': 'Programs (save / open)',
   Програми: 'Programs',
   'Очистити показ': 'Clear the running order',
@@ -1789,4 +1785,31 @@ export const EN: Record<string, string> = {
   'Помітили помилку чи маєте ідею? Форма відкривається на GitHub (потрібен акаунт), з версією, системою й мовою. Відгук видно всім — не пишіть особистих даних.':
     'Found a bug or have an idea? The form opens on GitHub (an account is needed), with the version, system, and language filled in. Feedback is public — don’t include personal data.',
   'Надіслати відгук': 'Send feedback',
+  // 1.8.12-beta.6 «Порядок показу» (F1005-06)
+  'Наступний елемент показу': 'Next running order item',
+  'Наступний елемент послідовності показу — на екран':
+    'The running order’s next item — to the screen',
+  'Попередній елемент послідовності показу — на екран':
+    'The running order’s previous item — to the screen',
+  'Усі — далі / назад': 'All — next / back',
+  'Усі чотири стрілки крокують показом': 'All four arrows step the show',
+  '← → екран, ↑ ↓ прев’ю': '← → screen, ↑ ↓ preview',
+  '↑ ↓ ведуть лише прев’ю, екран чекає «На екран»':
+    '↑ ↓ move only the preview, the screen waits for “To screen”',
+  '↑ ↓ вірші, ← → елементи': '↑ ↓ verses, ← → items',
+  '← → — попередній / наступний елемент послідовності показу':
+    '← → — the running order’s previous / next item',
+  Стрілки: 'Arrows',
+  Своя: 'Custom',
+  'Клавіші кроків змінено вручну — виберіть схему, щоб повернути одну зі звичних':
+    'The step keys were changed by hand — pick a scheme to go back to a usual one',
+  'Попередній елемент · {keys}': 'Previous item · {keys}',
+  'Наступний елемент · {keys}': 'Next item · {keys}',
+  'Додати в показ': 'Add to the running order',
+  'Додати в показ: {item}': 'Add to the running order: {item}',
+  'Показ · {n}': 'Running order · {n}',
+  'Послідовність показу порожня — додавайте елементи кнопкою «+ у показ»':
+    'The running order is empty — add items with “+ to the running order”',
+  'Це останній елемент показу': 'This is the last item of the running order',
+  'Це перший елемент показу': 'This is the first item of the running order',
 };
