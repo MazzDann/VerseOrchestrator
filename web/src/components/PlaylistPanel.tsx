@@ -36,9 +36,12 @@ import {
   IconArrowBackUp,
   IconPuzzle,
   IconPresentation,
+  IconHourglass,
   IconPlus,
 } from '@tabler/icons-react';
 import { CoverItemEditor } from './CoverItemEditor';
+import { CountdownItemEditor } from './CountdownItemEditor';
+import { countdownLabel } from '../lib/countdownItem';
 import { coverLabel } from '../lib/coverItem';
 import { api } from '../api';
 import { type SeqItem, type SavedProgram, stepIndex, usePlaylist } from '../playlistStore';
@@ -81,6 +84,7 @@ const KIND_ICON = {
   album: IconAlbum,
   video: IconMovie,
   cover: IconPresentation,
+  countdown: IconHourglass,
   foreign: IconPuzzle,
 } as const;
 
@@ -93,6 +97,7 @@ const KIND_COLOR = {
   album: 'gray',
   video: 'gray',
   cover: 'gray',
+  countdown: 'gray',
   foreign: 'gray',
 } as const;
 
@@ -177,6 +182,22 @@ export const PlaylistPanel = memo(function PlaylistPanel({
       label: coverLabel(coverText),
       text: coverText,
       image: null,
+    });
+    const added = usePlaylist.getState().items.at(-1);
+    if (added) setEditing(added.id);
+  };
+  // «+» → «Відлік» (1.10.0-beta.3): the settings' length and words, «Наступний пункт» at zero
+  const countdownMinutes = useSettings((s) => s.appearance.countdownMinutes);
+  const countdownCaption = useSettings((s) => s.appearance.countdownCaption);
+  const addCountdown = () => {
+    const seconds = Math.min(43200, Math.max(1, Math.round((countdownMinutes || 5) * 60)));
+    const caption = countdownCaption.trim() || tr('Починаємо за');
+    usePlaylist.getState().add({
+      kind: 'countdown',
+      label: countdownLabel(seconds, caption),
+      seconds,
+      caption,
+      atZero: 'next',
     });
     const added = usePlaylist.getState().items.at(-1);
     if (added) setEditing(added.id);
@@ -323,6 +344,9 @@ export const PlaylistPanel = memo(function PlaylistPanel({
               <Menu.Dropdown>
                 <Menu.Item leftSection={<IconPresentation size={14} />} onClick={addCover}>
                   {tr('Заставка')}
+                </Menu.Item>
+                <Menu.Item leftSection={<IconHourglass size={14} />} onClick={addCountdown}>
+                  {tr('Відлік')}
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
@@ -536,6 +560,13 @@ export const PlaylistPanel = memo(function PlaylistPanel({
                       </Badge>
                     )}
                     <Group gap={0} wrap="nowrap">
+                      {it.kind === 'countdown' && (
+                        <CountdownItemEditor
+                          item={it}
+                          opened={editing === it.id}
+                          onOpenChange={(o) => setEditing(o ? it.id : null)}
+                        />
+                      )}
                       {it.kind === 'cover' && (
                         <CoverItemEditor
                           item={it}

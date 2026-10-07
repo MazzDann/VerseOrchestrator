@@ -246,3 +246,21 @@ describe('an item of a newer version (1.9.1)', () => {
     expect(stepIndex(state().items, null, -1)).toBeNull();
   });
 });
+
+describe('«Відлік» / «Заставка» items from a hand-edited file (1.10.0-beta.3 review)', () => {
+  it('get safe fields: words, a length, a zero, a picture or none', async () => {
+    const { fromStored } = await import('./playlistStore');
+    expect(fromStored({ kind: 'countdown', id: 'c', seconds: 'x', atZero: 'later' })).toMatchObject(
+      {
+        caption: '',
+        label: '',
+        seconds: 300,
+        atZero: 'stop',
+      },
+    );
+    expect(fromStored({ kind: 'cover', id: 'v', image: { src: 1 } })).toMatchObject({
+      text: '',
+      image: null,
+    });
+  });
+});

@@ -234,6 +234,11 @@ export interface SlideCountdown extends TimerLook {
   afterZero?: AfterZero;
   /** paused (1.8.1): the time left when it stopped — every window shows it still */
   pausedLeft?: number;
+  /**
+   * the running order's «Відлік» item it came from (1.10.0-beta.3): its zero may move the order on —
+   * a «Відлік» started by hand (T) with the same words never does
+   */
+  item?: string;
 }
 
 /**
