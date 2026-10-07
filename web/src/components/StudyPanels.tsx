@@ -257,7 +257,8 @@ export function StudyPanels({
       }
     />
   );
-  // In the right column: a large preview, the smaller «На екрані» and the remote's below it.
+  // In the right column: a large preview, the smaller «На екрані» and the remote's below it
+  // (62 % and the 0.75rem above each: .vo-monitor-stack in styles.css counts on them).
   const monitorStack = (
     <>
       {previewMonitor}
@@ -356,7 +357,11 @@ export function StudyPanels({
       )}
       {!simple && <Divider />}
 
-      <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <Box
+        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        // the monitors above the list measure this body's height (.vo-monitor-stack)
+        className={mode === 'preview' && !compact && !pinned ? 'vo-preview-body' : undefined}
+      >
         {mode === 'preview' &&
           (compact ? (
             monitorRow
@@ -364,7 +369,14 @@ export function StudyPanels({
             <>
               {!pinned && (
                 <Box px="md" pt="sm" pb="xs">
-                  {monitorStack}
+                  {/* in a short column they give way to the list (Mac check of 1.9.0) */}
+                  <div
+                    className="vo-monitor-stack"
+                    data-list={showList ? 'true' : undefined}
+                    style={{ '--small-monitors': monitors.length - 1 } as CSSProperties}
+                  >
+                    {monitorStack}
+                  </div>
                 </Box>
               )}
               {showList ? (
