@@ -116,7 +116,13 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
 export function initServerSettings(path: string | null): ServerSettings {
   file = path;
   current = sanitizeServerSettings(path ? readJson(path, DEFAULT_SERVER_SETTINGS) : null);
-  if (path) writeJson(path, current); // materialise defaults so the file is discoverable
+  // materialise defaults so the file is discoverable — not over a file that couldn't be read now
+  if (path)
+    try {
+      writeJson(path, current);
+    } catch (err) {
+      console.warn('[settings]', (err as Error).message);
+    }
   return current;
 }
 
