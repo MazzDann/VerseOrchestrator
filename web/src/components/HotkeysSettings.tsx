@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Stack, Group, Text, Button, ActionIcon, Tooltip, Kbd, Select } from '@mantine/core';
+import {
+  Stack,
+  Group,
+  Text,
+  Button,
+  ActionIcon,
+  Tooltip,
+  Kbd,
+  Select,
+  Switch,
+} from '@mantine/core';
 import { IconPencil, IconRotateClockwise } from '@tabler/icons-react';
 import { useSettings } from '../settingsStore';
 import {
@@ -58,6 +68,8 @@ export function HotkeysSettings() {
 
   // «Стрілки» (1.8.12-beta.6, F1005-06): a scheme writes the arrows' bindings, each stays editable
   const scheme = arrowScheme(keymap);
+  const orderFlow = useSettings((s) => s.orderFlow);
+  const setOrderFlow = useSettings((s) => s.setOrderFlow);
   const pickScheme = (v: string | null) => {
     if (!v) return;
     const next = withArrowScheme(keymap, v as ArrowScheme);
@@ -81,6 +93,15 @@ export function HotkeysSettings() {
         onChange={pickScheme}
         allowDeselect={false}
         comboboxProps={{ withinPortal: true }}
+      />
+      <Switch
+        size="xs"
+        label={tr('Після кінця пункту «Далі» відкриває наступний')}
+        description={tr(
+          'Пункт послідовності показу: після його останнього вірша, строфи чи фото «Далі» відкриває наступний пункт, «Назад» на першому — попередній.',
+        )}
+        checked={orderFlow}
+        onChange={(e) => setOrderFlow(e.currentTarget.checked)}
       />
       {IS_MAC && (
         <Text size="xs" c="dimmed">
