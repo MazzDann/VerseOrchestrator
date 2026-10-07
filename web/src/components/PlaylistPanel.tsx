@@ -338,7 +338,11 @@ export const PlaylistPanel = memo(function PlaylistPanel({
                     value={name}
                     onChange={(e) => setName(e.currentTarget.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') save();
+                      if (e.key !== 'Enter') return;
+                      // ⌘↩ / Ctrl+Enter saves here — not «На екран» too (the page's hotkey works in
+                      // fields; 1.9.6, Mac check, as #121 for the search field)
+                      e.stopPropagation();
+                      save();
                     }}
                   />
                   <Button
