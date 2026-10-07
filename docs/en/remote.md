@@ -90,8 +90,8 @@ A verse can also be found by search, as in the control window. In the field abov
 text. The books that match stay at the top, and **Verses** appear below them: first from the
 remote's translations, and when there is nothing there — from all of them (then “Nothing in
 the remote’s translations — found in others” stands above them). The same verse from
-different translations is one row. Tap a row and the chapter opens at that verse; a reference
-also opens with the Enter key.
+different translations is one row. Tap a row and the chapter opens at that verse. The Enter key
+opens the first verse found when no book matches what you typed.
 
 The choice becomes the speaker's own preview — the **Your preview** block. Now **Next** and
 **Back** step through it, and the operator's selection in the control window doesn't change.

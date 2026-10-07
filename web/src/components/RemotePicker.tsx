@@ -98,7 +98,9 @@ export function RemotePicker({
   // Search (1.8.12-beta.9, F1005-01 — like the control window): the books' field takes a
   // reference or words too; the remote's translations first, all of them when nothing is there;
   // one row per verse. The books that match stay above the verses found.
-  const words = step === 'books' && versesAllowed ? songQuery : '';
+  // only once the debounce has caught up with the field: Enter before it would open the previous
+  // query's first row («Ів 3:1» for «Ів 3:16»), and a step's cleared field mustn't search on (review)
+  const words = step === 'books' && versesAllowed && songQuery === filter.trim() ? songQuery : '';
   const found = useQuery({
     queryKey: ['remote-search', words, ids.join(',')],
     queryFn: async () => {
@@ -112,13 +114,15 @@ export function RemotePicker({
   const foundRows = useSearchRows(found.data?.results, primary, true).slice(0, 40);
   const abbrOf = (id: number) => translations.data?.find((t) => t.id === id)?.abbr ?? '';
   const openHit = (r: SearchResult) => {
-    // a hit from another translation in a book the remote's first one lacks (an NT only): that
-    // one comes first, or the verses would be empty (as the control window does)
-    if (
-      !ids.includes(r.translationId) &&
-      !(books.data ?? []).some((b) => b.bookNumber === r.bookNumber)
-    )
-      setIds((cur) => [r.translationId, ...cur].slice(0, MAX_TRANSLATIONS));
+    // the hit's own translation leads: its chapter:verse is in ITS numbering (Ps 22 of one is
+    // Ps 23 of another), and in a book the remote's first one lacks (an NT only) the verses
+    // would be empty otherwise (review)
+    if (ids[0] !== r.translationId)
+      setIds((cur) =>
+        [r.translationId, ...cur.filter((id) => id !== r.translationId)].slice(0, MAX_TRANSLATIONS),
+      );
+    // the chosen number comes into view again, also in a chapter already scrolled to (review)
+    scrolledTo.current = null;
     setBook(r.bookNumber);
     setChapter(r.chapter);
     setVerse(r.verse);
@@ -349,15 +353,18 @@ export function RemotePicker({
           ))}
 
         {step === 'books' && words.length >= 2 && (
-          <section className="vo-remote-found" aria-live="polite">
-            <p className="vo-remote-found-head">
-              {found.isFetching && !found.data
-                ? tr('Шукаю…')
-                : foundRows.length === 0
-                  ? tr('Віршів не знайдено')
-                  : found.data?.fallback
-                    ? tr('У перекладах пульта нічого — знайдено в інших')
-                    : tr('Вірші')}
+          <section className="vo-remote-found">
+            {/* the head says what happened; the forty rows aren't read out on each change */}
+            <p className="vo-remote-found-head" aria-live="polite">
+              {found.isError
+                ? tr('Пошук не вдався — спробуйте ще раз')
+                : found.isFetching && !found.data
+                  ? tr('Шукаю…')
+                  : foundRows.length === 0
+                    ? tr('Віршів не знайдено')
+                    : found.data?.fallback
+                      ? tr('У перекладах пульта нічого — знайдено в інших')
+                      : tr('Вірші')}
             </p>
             {foundRows.map((row) => (
               <button

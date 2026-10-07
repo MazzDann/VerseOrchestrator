@@ -396,7 +396,7 @@ export function ControlHeader({
       {/* «Посередині» (1.8.12-beta.9): between the two groups, centred in the room they leave */}
       {/* up to 20rem where there is room, down to 12.5rem where there isn't — never less: the fold
           measures the children, and a field squeezed to nothing looked as if it fit */}
-      {fieldAt === 'center' && (
+      {fieldAt === 'center' && !fold.noGoTo && (
         <Box style={{ flex: '0 1 20rem', minWidth: '12.5rem' }}>{searchField('100%')}</Box>
       )}
 
