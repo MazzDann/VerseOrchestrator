@@ -7,6 +7,7 @@ import {
   getPairing,
   isRemoteAction,
   sanitizePassage,
+  sanitizeCountdown,
   sanitizeSong,
   touchPairing,
   type RemoteAction,
@@ -25,6 +26,9 @@ import { handovers } from './handover.js';
  *     (+ `handover: token` from a control window «Відкрити в … зараз» opened: it takes charge,
  *     hears { type: 'handover', browser }, the others { type: 'hub', active: false, movedTo })
  *   { type: 'hello', role: 'remote', token }  — a paired speaker remote (remote.ts)
+ *     (+ `desk: true` from a control window on another computer, `/desk`, 1.8.12-beta.10: it
+ *     also hears { type: 'slides', live, next } — whole slides for its monitors, which the
+ *     control window in charge sends without images; phones keep the `screen` summaries)
  * A remote may then send { type: 'command', cmd, id } for the commands its pairing allows;
  * the hub forwards them to the control socket(s) as { type: 'command', cmd, id, from } and
  * acks the remote with the control window's { type: 'result' } (see onCommand).
@@ -55,6 +59,8 @@ interface Meta {
   recent: number[];
   /** When this socket last asked the hub's time (1.7.3). */
   lastClock?: number;
+  /** A remote that is a control window on another computer (`/desk`): it gets `slides`. */
+  desk?: boolean;
 }
 
 /**
@@ -90,6 +96,11 @@ let screenState: { screen: unknown; next: unknown; preview: unknown } = {
   next: null,
   preview: null,
 };
+/**
+ * The same two as whole slides (1.8.12-beta.10), for the desks' monitors only — a phone has no
+ * use for them, and they are larger. The control window strips them first (no images).
+ */
+let slidesState: { live: unknown; next: unknown } = { live: null, next: null };
 let wss: WebSocketServer | null = null;
 const meta = new WeakMap<WebSocket, Meta>();
 
@@ -254,6 +265,9 @@ const playlistFrame = (allowed: boolean) => ({
   type: 'playlist',
   playlist: allowed ? playlistState : null,
 });
+const deskSockets = () => sockets('remote').filter((c) => meta.get(c)?.desk === true);
+const slidesFrame = () => ({ type: 'slides', ...slidesState });
+
 function relayPlaylist(): void {
   for (const c of sockets('remote')) {
     const p = getPairing(meta.get(c)?.pairingId ?? '');
@@ -301,9 +315,11 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     }
     m.role = 'remote';
     m.pairingId = p.id;
+    m.desk = msg.desk === true;
     touchPairing(p);
-    send(ws, { type: 'welcome', role: 'remote', name: p.name, allowed: p.allowed });
+    send(ws, { type: 'welcome', role: 'remote', name: p.name, kind: p.kind, allowed: p.allowed });
     send(ws, { type: 'screen', ...screenState });
+    if (m.desk) send(ws, slidesFrame());
     if (p.allowed.includes('playlist')) send(ws, playlistFrame(true));
     notifyRemotesChanged();
     notifyViewers();
@@ -370,6 +386,9 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   if (rawItem !== undefined && !item) return reject(N_('Неправильний елемент'));
   if (cmd === 'pick' && !passage && !song && !item) return reject(N_('Не вибрано вірш'));
   if (cmd === 'queue' && !passage && !song) return reject(N_('Нічого додати'));
+  // «Відлік» says what to do with it (1.8.12-beta.10)
+  const countdown = cmd === 'countdown' ? sanitizeCountdown(msg.countdown) : null;
+  if (cmd === 'countdown' && !countdown) return reject(N_('Неправильний відлік'));
   // each ability on its own, per remote
   if (passage && !p.allowed.includes('pick')) return reject(N_('Вибір віршів пульту не дозволено'));
   if (song && !p.allowed.includes('songs')) return reject(N_('Пісні пульту не дозволено'));
@@ -411,6 +430,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
       ...(passage ? { passage } : {}),
       ...(song ? { song } : {}),
       ...(item ? { item } : {}),
+      ...(countdown ? { countdown } : {}),
     });
   }
 }
@@ -518,6 +538,10 @@ export function attachLiveHub(server: Server, appVersion?: string, appBuild?: st
           preview: msg.preview ?? null,
         };
         for (const c of sockets('remote')) send(c, { type: 'screen', ...screenState });
+      } else if (msg?.type === 'slides' && m.role === 'control' && isActiveControl(ws)) {
+        slidesState = { live: msg.live ?? null, next: msg.next ?? null };
+        const frame = slidesFrame();
+        for (const c of deskSockets()) send(c, frame);
       }
     });
     ws.on('close', () => {

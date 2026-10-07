@@ -222,6 +222,16 @@ export function forAudience(slide: Slide): Slide {
 }
 
 /**
+ * What a control window on another computer (`/desk`, 1.8.12-beta.10) draws on its monitors: the
+ * audience's slide — no images, under the hub's frame cap — that still shows what covers the
+ * screen: «Заставка» (its words, not its logo) with the countdown under it.
+ */
+export function forDesk(slide: Slide): Slide {
+  const s = forAudience(slide);
+  return slide.cover ? { ...s, cover: { text: slide.cover.text, image: null } } : s;
+}
+
+/**
  * «Сховати текст» (0.6.18) over what is on screen — the operator: «щоб вертався рівно
  * той же контент». Hiding keeps the whole slide (lines, style, source) with blank: the
  * text fades, the background and the corner QR stay; again → the same slide back. From

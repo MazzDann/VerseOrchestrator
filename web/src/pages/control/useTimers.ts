@@ -25,6 +25,7 @@ import {
   type StageTimer,
 } from '../../lib/countdown';
 import { countdownOver } from '../../lib/slide';
+import { type Outcome, type RemoteCountdown } from '../../lib/commands';
 import { tr } from '../../i18n';
 import { standbyNotice } from './standby';
 
@@ -44,6 +45,7 @@ export function useTimers({
   pushLive,
   setPreviewOverride,
   setLive,
+  takeCoverOff,
 }: {
   leaderRef: MutableRefObject<boolean>;
   isLeader: boolean;
@@ -56,6 +58,8 @@ export function useTimers({
   pushLive: (pushed: Slide, opts?: { audience?: boolean }) => void;
   setPreviewOverride: Dispatch<SetStateAction<Slide | null>>;
   setLive: (live: boolean) => void;
+  /** «Заставка» off (useScreenSwitches): a cover countdown goes with it */
+  takeCoverOff: () => void;
 }) {
   // «Відлік» (1.5.0, components/CountdownTool): «Заставка» with the time left under it, over
   // whatever is on screen; L or «Прибрати відлік» gives that back, as from «Заставка».
@@ -152,6 +156,31 @@ export function useTimers({
     }
     countdownStartSaved();
   };
+  /**
+   * «Відлік» from a remote (1.8.12-beta.10: a control window on another computer): a new one — of
+   * its length or the saved one, in the operator's look and place —, pause / go on, or off, as
+   * «Прибрати відлік» does. What happened goes back to it.
+   */
+  const countdownRemote = (c: RemoteCountdown): Outcome => {
+    if (!leaderRef.current) return { ok: false, reason: tr('Показом керує інше вікно керування') };
+    if (c.op === 'start') {
+      countdownStart({
+        until: untilFor(
+          c.seconds ? c.seconds * 1000 : savedLength(appearance.countdownMinutes),
+          Date.now(),
+        ),
+        caption: appearance.countdownCaption.trim() || tr('Починаємо за'),
+        afterZero: appearance.countdownAfterZero,
+      });
+      return { ok: true };
+    }
+    const v = viewersCountdown();
+    if (!v) return { ok: false, reason: tr('Відліку на екрані немає') };
+    if (c.op === 'pause') countdownPause();
+    else if (v.corner) countdownChange(null, true);
+    else takeCoverOff();
+    return { ok: true };
+  };
   // The time's look changed (1.8.2 colours, 1.8.3 size, font, format, words; Налаштування
   // вигляду → Відлік, maybe from the settings window): the countdown on screen takes it at once —
   // its time and its end stay
@@ -223,6 +252,7 @@ export function useTimers({
     quietEnd,
     countdownPause,
     countdownKey,
+    countdownRemote,
     stageTimerSet,
     stageTimerStart,
     stageTimerPause,

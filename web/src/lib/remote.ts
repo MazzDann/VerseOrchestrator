@@ -12,4 +12,6 @@ export const REMOTE_LABEL: Record<RemoteCommand, string> = {
   songs: N_('Пісні'),
   playlist: N_('Послідовність'),
   queue: N_('У послідовність'),
+  cover: N_('Заставка'),
+  countdown: N_('Відлік'),
 };

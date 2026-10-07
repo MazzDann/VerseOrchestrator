@@ -261,11 +261,18 @@ const RemoteCommandSchema = z.enum([
   'songs',
   'playlist',
   'queue',
+  'cover',
+  'countdown',
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
+/** A phone (`/remote`, a QR) or a control window on another computer (`/desk`, 1.8.12-beta.10). */
+const PairingKindSchema = z.enum(['phone', 'desk']).catch('phone');
+export type PairingKind = z.infer<typeof PairingKindSchema>;
 const PairingSchema = z.object({
   id: z.string(),
   name: z.string(),
+  // a server before 1.8.12-beta.10 sends none: a phone
+  kind: PairingKindSchema.optional().transform((k) => k ?? 'phone'),
   allowed: z.array(RemoteCommandSchema),
   createdAt: z.number(),
   lastSeen: z.number().nullable(),
@@ -675,20 +682,23 @@ export const api = {
       /* best-effort, like livePost */
     });
   },
-  host: () => getJson('/api/host', z.object({ ips: z.array(z.string()) })),
+  // `local` (1.8.12-beta.10): this page runs on the computer with the app (absent before: yes)
+  host: () =>
+    getJson('/api/host', z.object({ ips: z.array(z.string()), local: z.boolean().default(true) })),
   // Speaker remotes (server/src/remote.ts). The token comes back ONLY from create.
   remotes: () => getJson('/api/remote', z.array(PairingSchema)),
-  createRemote: async (name: string, allowed: RemoteCommand[]) => {
+  createRemote: async (name: string, allowed: RemoteCommand[], kind: PairingKind = 'phone') => {
     const res = await request('/api/remote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
-      body: JSON.stringify({ name, allowed }),
+      body: JSON.stringify({ name, allowed, kind }),
     });
     if (!res.ok) throw await failure(res);
     return z
       .object({
         id: z.string(),
         name: z.string(),
+        kind: PairingKindSchema.optional().transform((k) => k ?? 'phone'),
         allowed: z.array(RemoteCommandSchema),
         token: z.string(),
       })

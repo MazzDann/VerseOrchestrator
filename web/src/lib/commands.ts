@@ -19,9 +19,19 @@ import { tr } from '../i18n';
  * `show` (0.6.0, remotes): put the preview on screen — the operator's F5 / «На екран»; with
  * a passage (0.6.1), put THAT on screen. `pick` (0.6.1): the speaker's own preview — a
  * passage chosen on the phone (the remote's cursor), not on screen yet. `cover` (1.4.1):
- * «Заставка» on and off, the L key in an output window (not a remote's action).
+ * «Заставка» on and off, the L key in an output window — and a remote's since 1.8.12-beta.10.
+ * `countdown` (1.8.12-beta.10, a remote's): «Відлік» started, paused or taken off (`args.countdown`).
  */
-export type ShowCommand = 'next' | 'prev' | 'blank' | 'black' | 'cover' | 'show' | 'pick' | 'queue';
+export type ShowCommand =
+  | 'next'
+  | 'prev'
+  | 'blank'
+  | 'black'
+  | 'cover'
+  | 'show'
+  | 'pick'
+  | 'queue'
+  | 'countdown';
 
 /** The switches of the show in the control window: «Сховати текст», «Чорний екран», «Заставка». */
 export type ShowToggle = 'hide' | 'black' | 'cover';
@@ -45,6 +55,7 @@ export function toggleOf(cmd: ShowCommand): ShowToggle | null {
     case 'show':
     case 'pick':
     case 'queue':
+    case 'countdown':
       return null;
   }
 }
@@ -68,11 +79,21 @@ export type RemoteTarget =
   | { kind: 'verses'; passage: RemotePassage }
   | { kind: 'song'; song: RemoteSong };
 
+/**
+ * «Відлік» from a remote (1.8.12-beta.10): `start` one of `seconds` (or the saved length), `pause`
+ * (pause / go on, the T key on the one showing) or `stop` (take it off).
+ */
+export interface RemoteCountdown {
+  op: 'start' | 'pause' | 'stop';
+  seconds?: number;
+}
+
 export interface CommandArgs {
   passage?: RemotePassage;
   song?: RemoteSong;
   /** an item of the shared running order, by id (0.6.9) */
   item?: string;
+  countdown?: RemoteCountdown;
 }
 
 /**
@@ -104,6 +125,14 @@ export function asSong(raw: unknown): RemoteSong | undefined {
   const r = (raw ?? {}) as Record<string, unknown>;
   if (!Number.isInteger(r.songId) || !Number.isInteger(r.stanza)) return undefined;
   return { songId: r.songId as number, stanza: r.stanza as number };
+}
+
+/** A countdown request as it arrives from the hub (the server already checked it) — or undefined. */
+export function asCountdown(raw: unknown): RemoteCountdown | undefined {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  if (r.op !== 'start' && r.op !== 'pause' && r.op !== 'stop') return undefined;
+  const seconds = Number.isInteger(r.seconds) && (r.seconds as number) > 0 ? r.seconds : undefined;
+  return seconds ? { op: r.op, seconds: seconds as number } : { op: r.op };
 }
 
 const ints = (a: unknown): a is number[] =>
