@@ -316,6 +316,22 @@ function VideoContent({ video }: { video: SlideVideo }) {
   }, [video.src, video.at, video.from, video.paused, video.loop]);
   // a file that failed is tried again by a new start of it (the same element stays mounted)
   if (failed === `${video.src}|${video.at}`) return null;
+  // the audience's copy has no file (forAudience): its poster — a desk's monitors on another
+  // computer were black for a video (1.9.9, Mac check)
+  if (!video.src)
+    return video.poster ? (
+      <img
+        src={video.poster}
+        alt=""
+        onError={() => setFailed(`${video.src}|${video.at}`)}
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          objectFit: video.fit === 'cover' ? 'cover' : 'contain',
+        }}
+      />
+    ) : null;
   return (
     <video
       ref={ref}
