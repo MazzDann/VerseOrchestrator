@@ -393,6 +393,8 @@ const UpdateStateSchema = z.object({
   previous: z.string().nullish(),
   /** …and whether it has «Повернути версію» of its own (1.4.0 or later; 1.4.1) */
   previousHasRollback: z.boolean().nullish(),
+  /** the version left can update back by itself here (Windows: 1.8.8 or later) — said before going */
+  previousUpdatesBack: z.boolean().nullish(),
   /** every release of the channel, newest first: the dropdown (1.6.2) — a release copy only */
   versions: z
     .array(
@@ -406,6 +408,8 @@ const UpdateStateSchema = z.object({
         installable: z.boolean(),
         /** it has «Повернути версію» of its own (1.4.0 or later) */
         selfReturn: z.boolean(),
+        /** once installed here it can update back (Windows: 1.8.8 or later); absent: yes */
+        updatesBack: z.boolean().optional(),
         /** a beta (1.8.11) */
         prerelease: z.boolean().optional(),
       }),

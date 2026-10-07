@@ -253,7 +253,9 @@ If something is wrong with a new version, go back to the one you had before the 
 
 In a few seconds the app runs the previous version, and **Updates** says “Went back to
 version …”. The version you left stays next to it, so you can go to it with the same button.
-If the previous version doesn't start, the app keeps the one you had.
+If the previous version doesn't start, the app keeps the one you had. On Windows, the
+confirmation warns when the previous version is older than 1.8.8: before you update from it,
+close the browser completely.
 
 Versions before 1.4.0 can't go back to another version yet. If you went back to such a
 version, it has no **Go back to version …** button, and **Updates** says “Updated from … to
@@ -265,7 +267,11 @@ back from 1.4.0, the archive has to be downloaded again.
 ### Install another version
 
 An app installed from an archive can switch to any regular version from 1.0.0 on, newer or
-older; on the **Beta** channel, to a beta too:
+older; on the **Beta** channel, to a beta too. On Windows, versions older than 1.8.8 are greyed
+out in the list: they opened their browser from the app folder, and while that browser is
+open, they can't update back.
+
+To switch to another version:
 
 1. In **Settings** → **App** → **Updates**, choose the version in the list next to the
    download button. If there is no list yet, click **Check now**.
