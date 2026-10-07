@@ -122,12 +122,14 @@ export function usePlaylistActions({
     setSelectedVerses(it.verses);
     setScrollTarget(it.verses[0] ?? null);
     const lines: SlideLine[] = [];
+    let total: number | undefined;
     for (const id of it.translationIds) {
       try {
         const verses = await queryClient.fetchQuery({
           queryKey: ['verses', id, it.bookNumber, it.chapter],
           queryFn: () => api.verses(id, it.bookNumber, it.chapter),
         });
+        total ??= verses.length > 0 ? verses[verses.length - 1].verse : undefined;
         const text = joinVerses(verses, it.verses, appearance.showVerseNumbers);
         if (!text.trim()) continue;
         const t = translations.find((x) => x.id === id);
@@ -161,6 +163,8 @@ export function usePlaylistActions({
         verses: it.verses,
         page: 0,
         reveal: 1,
+        // «вірш 16 з 36» on «Сцена» (1.9.0-beta.11): the first translation's last verse
+        ...(total ? { total } : {}),
       },
     });
     setPreviewOverride(null);

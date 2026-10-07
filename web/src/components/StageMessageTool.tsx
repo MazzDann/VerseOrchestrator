@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActionIcon, Button, Group, Popover, Stack, Text, Textarea, Tooltip } from '@mantine/core';
 import { IconMessage } from '@tabler/icons-react';
 import { STAGE_MESSAGE_MAX, type StageMessage } from '../presenterBus';
@@ -31,8 +31,9 @@ function remember(text: string): void {
 
 /**
  * «Повідомлення на сцену» (1.9.0-beta.11, F1005-09), beside «Таймер доповідача» in the header: a
- * line for the speaker that only the «Сцена» window shows — «Залишилось 5 хв», «Голосніше».
- * The last three come back with one click. The keys typed here stay here, as in «Відлік».
+ * line for the speaker that only the «Сцена» window shows — «Лишилося 5 хвилин», «Голосніше».
+ * The last three come back with one click. The keys typed here stay here, as in «Відлік»: Esc
+ * closes it wherever the focus is, and the focus stays inside while it is open.
  */
 export function StageMessageTool({
   message,
@@ -49,18 +50,38 @@ export function StageMessageTool({
   onOpenChange?: (open: boolean) => void;
 }) {
   useLang();
-  const [opened, setOpenedState] = useState(false);
+  const [opened, setOpened] = useState(false);
   const [text, setText] = useState('');
   const [recent, setRecent] = useState<string[]>(readRecent);
-  const field = useRef<HTMLTextAreaElement>(null);
-  const setOpened = (o: boolean) => {
-    setOpenedState(o);
-    onOpenChange?.(o);
-    if (o) {
-      setRecent(readRecent());
-      window.setTimeout(() => field.current?.focus(), 0);
-    }
-  };
+  const box = useRef<HTMLDivElement>(null);
+  const on = !!message;
+  const openChange = useRef(onOpenChange);
+  openChange.current = onOpenChange;
+  useEffect(() => {
+    openChange.current?.(opened);
+    if (opened) setRecent(readRecent());
+  }, [opened]);
+  // the header folding away while this is open must not leave the page's keys paused (review)
+  useEffect(() => () => openChange.current?.(false), []);
+  // Esc closes this wherever the focus is — never the page's «Прибрати з екрана»
+  useEffect(() => {
+    if (!opened) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpened(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [opened]);
+  // «Прибрати» goes away under the focus: the focus stays inside, in the field
+  useEffect(() => {
+    const el = box.current;
+    if (!opened || !el || el.contains(document.activeElement)) return;
+    el.querySelector<HTMLElement>('textarea')?.focus();
+  }, [opened, on]);
+
   const send = (words: string) => {
     const t = words.trim();
     if (!t || disabled) return;
@@ -69,7 +90,6 @@ export function StageMessageTool({
     setRecent(readRecent());
     setText('');
   };
-  const on = !!message;
   return (
     <Popover
       opened={opened}
@@ -105,7 +125,7 @@ export function StageMessageTool({
             size="lg"
             w={24}
             miw={24}
-            onClick={() => setOpened(!opened)}
+            onClick={() => setOpened((o) => !o)}
             aria-label={tr('Повідомлення на сцену')}
             aria-pressed={on}
             aria-haspopup="dialog"
@@ -119,11 +139,9 @@ export function StageMessageTool({
         w={300}
         role="dialog"
         aria-label={tr('Повідомлення на сцену')}
+        ref={box}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation();
-            setOpened(false);
-          } else if (e.key !== 'Tab') e.stopPropagation();
+          if (e.key !== 'Tab') e.stopPropagation();
         }}
       >
         <Stack gap="xs">
@@ -143,7 +161,8 @@ export function StageMessageTool({
             </Group>
           )}
           <Textarea
-            ref={field}
+            // the focus trap's first stop: the field, not «Прибрати» (review)
+            data-autofocus
             size="xs"
             autosize
             minRows={2}

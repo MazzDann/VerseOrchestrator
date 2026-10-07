@@ -1301,6 +1301,7 @@ body[data-resizing='y'] {
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
+  white-space: pre-line;
   padding: 1.2vmin 2vmin;
   border-radius: 1vmin;
   background: var(--mantine-color-cue-filled);
@@ -1462,6 +1463,10 @@ body[data-resizing='y'] {
   flex-direction: column;
   justify-content: flex-end;
   gap: 0.6vmin;
+}
+/* the timer's amber and red were made for black: on the light stage they go darker (review) */
+.vo-stage[data-theme='light'] .vo-stage-time {
+  filter: brightness(0.6) saturate(1.2);
 }
 .vo-stage-time {
   font-size: 13vmin;

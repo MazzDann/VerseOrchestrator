@@ -16,7 +16,7 @@ import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
 import { outputKeyAction } from '../lib/outputKeys';
 import { showsSomething } from '../lib/slide';
-import { clockWords, placeWords, STAGE_TEXT_MAX, stageLook } from '../lib/stage';
+import { clockWords, ORDER_CURRENT_KEY, placeWords, STAGE_TEXT_MAX, stageLook } from '../lib/stage';
 import { useSettings } from '../settingsStore';
 import { usePlaylist } from '../playlistStore';
 import { useAutoFit } from '../useAutoFit';
@@ -33,6 +33,26 @@ function VideoLeft({ video }: { video: SlideVideo }) {
   if (!(video.duration && video.duration > 0) || video.loop) return null;
   const left = video.duration - positionIn(video, video.duration);
   return <> · {tr('відео: ще {time}', { time: clockOf(left) })}</>;
+}
+
+/** The running order's item on screen, as the control window in charge writes it (lib/stage.ts). */
+function useOrderCurrent(): string | null {
+  const read = () => {
+    try {
+      return localStorage.getItem(ORDER_CURRENT_KEY);
+    } catch {
+      return null;
+    }
+  };
+  const [id, setId] = useState(read);
+  useEffect(() => {
+    const on = (e: StorageEvent) => {
+      if (e.key === ORDER_CURRENT_KEY || e.key === null) setId(read());
+    };
+    window.addEventListener('storage', on);
+    return () => window.removeEventListener('storage', on);
+  }, []);
+  return id;
 }
 
 function useNow(): Date {
@@ -80,14 +100,20 @@ function StageWords({
   maxPx,
   dim = false,
   ring,
+  empty,
 }: {
   slide: Slide;
   maxPx: number;
   dim?: boolean;
   ring: 'live' | 'cue';
+  /** what an empty slide says instead */
+  empty: string;
 }) {
   const key = slide.lines.map((l) => l.text).join('\n');
   const { containerRef, contentRef } = useAutoFit([key, maxPx], 8, Math.max(8, Math.round(maxPx)));
+  // nothing on screen (or nothing next): a quiet line, not an empty black slide in a red ring
+  if (!showsSomething(slide) && !slide.blank && !slide.forceBlack)
+    return <div className="vo-stage-none">{empty}</div>;
   if (!hasWords(slide)) return <SlideBox slide={slide} ring={ring} />;
   const several = slide.lines.length > 1;
   return (
@@ -121,7 +147,7 @@ export function Stage() {
   const vmin = useVmin();
   const look = stageLook(useSettings((s) => s.appearance));
   const order = usePlaylist((s) => s.items);
-  const currentId = usePlaylist((s) => s.currentId);
+  const currentId = useOrderCurrent();
   // the speaker's timer (1.8.4): counts, holds or goes past zero, pauses — as «Відлік» does
   const timer = slide.stageTimer ?? null;
   const { left, counting: timing, paused } = useCountdown(timer);
@@ -233,7 +259,13 @@ export function Stage() {
       {look.layout === 'text' ? (
         <main className="vo-stage-main" data-layout="text">
           <section className="vo-stage-current" aria-label={tr('Зараз')}>
-            <StageWords slide={slide} maxPx={textMax} dim={!!hidden} ring="live" />
+            <StageWords
+              slide={slide}
+              maxPx={textMax}
+              dim={!!hidden}
+              ring="live"
+              empty={tr('На екрані нічого немає')}
+            />
           </section>
           {(look.showNext || timerBlock) && (
             <div className="vo-stage-bottom" data-empty={bottomEmpty ? 'true' : undefined}>
@@ -241,7 +273,12 @@ export function Stage() {
                 <section className="vo-stage-next" aria-label={tr('Далі')}>
                   {nextLabel}
                   {next ? (
-                    <StageWords slide={next} maxPx={textMax * 0.5} ring="cue" />
+                    <StageWords
+                      slide={next}
+                      maxPx={textMax * 0.5}
+                      ring="cue"
+                      empty={tr('Нічого немає')}
+                    />
                   ) : (
                     nothingNext
                   )}

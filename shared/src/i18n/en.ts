@@ -1915,6 +1915,7 @@ export const EN: Record<string, string> = {
     'The speaker’s window: what is on screen now, what comes next, the clock, the timer, and your messages. Viewers don’t see it.',
   'Годинник із секундами': 'Clock with seconds',
   'Нічого немає': 'Nothing',
+  'На екрані нічого немає': 'Nothing on screen',
   'Де ми: «вірш 16 з 36», «строфа 3 з 5»': 'Where we are: “verse 16 of 36”, “stanza 3 of 5”',
   Зараз: 'Now',
   'Зараз: «{text}»': 'Now: “{text}”',

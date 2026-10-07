@@ -52,6 +52,14 @@ describe('where the screen is', () => {
       'фото 4 з 20',
     );
   });
+  it('a selection with pages says the page on screen (review)', () => {
+    expect(
+      placeWords({ ...verses, verses: [1, 2, 3, 4, 5, 6, 7, 8], shown: [1, 4], total: 36 }),
+    ).toBe('вірші 1–4 з 36');
+    expect(
+      placeWords({ ...verses, verses: [1, 2, 3, 4, 5, 6, 7, 8], shown: [5, 5], total: 36 }),
+    ).toBe('вірш 5 з 36');
+  });
   it('nothing without a total, a video, or no source', () => {
     expect(placeWords({ ...verses, verses: [16] })).toBe('');
     expect(placeWords({ kind: 'video', videoId: 'v' })).toBe('');
@@ -61,5 +69,19 @@ describe('where the screen is', () => {
     const t = new Date(2026, 9, 7, 9, 5, 3);
     expect(clockWords(t, true)).toBe('09:05:03');
     expect(clockWords(t, false)).toBe('09:05');
+  });
+});
+
+describe('a message from another day (review)', () => {
+  it('does not come back with a cold start', async () => {
+    const { freshMessage } = await import('../pages/control/useLivePipeline');
+    const now = 1_790_000_000_000;
+    expect(freshMessage({ text: 'Голосніше', at: now - 60_000 }, now)).toEqual({
+      text: 'Голосніше',
+      at: now - 60_000,
+    });
+    expect(freshMessage({ text: 'Голосніше', at: now - 7 * 3600_000 }, now)).toBeNull();
+    expect(freshMessage({ text: 'Голосніше', at: Number.NaN }, now)).toBeNull();
+    expect(freshMessage(null, now)).toBeNull();
   });
 });

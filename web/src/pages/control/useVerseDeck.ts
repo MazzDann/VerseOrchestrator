@@ -222,6 +222,11 @@ export function useVerseDeck({
         }
       : undefined;
 
+  /** The page on screen of a selection that has pages, as its first and last verse. */
+  const shownOf = (verses: number[], page: number): { shown?: [number, number] } => {
+    const pv = verses === selectedVerses && pages.length > 1 ? pages[page] : undefined;
+    return pv && pv.length > 0 ? { shown: [pv[0], pv[pv.length - 1]] } : {};
+  };
   /** Where a verse slide comes from (0.5.10, SlideSource): the selection, page, reveal step. */
   const verseSource = (
     verses: number[] = selectedVerses,
@@ -237,6 +242,8 @@ export function useVerseDeck({
           verses,
           page,
           reveal,
+          // «вірші 1–5» of a selection with pages: the page on screen (review of 1.9.0-beta.11)
+          ...shownOf(verses, page),
           // «вірш 16 з 36» on «Сцена» (1.9.0-beta.11): the chapter's last verse
           ...(primaryVerses.length > 0
             ? { total: primaryVerses[primaryVerses.length - 1].verse }
