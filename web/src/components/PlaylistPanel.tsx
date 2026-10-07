@@ -41,6 +41,7 @@ import { useServer } from '../serverStore';
 import { useSettings } from '../settingsStore';
 import { formatCombo } from '../hotkeys';
 import { tr, trn, useLang } from '../i18n';
+import { unusable } from '../lib/denied';
 
 interface Props {
   items: SeqItem[];
@@ -151,12 +152,12 @@ export const PlaylistPanel = memo(function PlaylistPanel({
       if (!videoList.data) return null;
       const v = videoList.data.find((x) => x.id === it.videoId);
       if (!v) return tr('Відео прибрано: {name}', { name: it.label });
-      return v.missing ? tr('Файл не знайдено: {name}', { name: it.label }) : null;
+      return unusable('file', v, it.label);
     }
     if (it.kind !== 'album' || !albums.data) return null;
     const album = albums.data.find((a) => a.id === it.albumId);
     if (!album) return tr('Альбом прибрано: {name}', { name: it.label });
-    return album.missing ? tr('Папку не знайдено: {name}', { name: it.label }) : null;
+    return unusable('folder', album, it.label);
   };
   const [programsOpen, setProgramsOpen] = useState(false);
   const [name, setName] = useState('');

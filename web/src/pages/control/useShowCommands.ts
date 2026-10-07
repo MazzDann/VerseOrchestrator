@@ -30,6 +30,7 @@ import { pictureSlide, sameContent } from '../../lib/slide';
 import { albumSlide } from '../../lib/album';
 import { videoSlide } from '../../lib/video';
 import { tr } from '../../i18n';
+import { unusable } from '../../lib/denied';
 import { joinVerses, redLetterSegments } from './slideText';
 import { withSecond } from './songSlides';
 
@@ -289,7 +290,8 @@ export function useShowCommands({
         .then((all) => {
           const v = all.find((x) => x.id === id);
           if (!v) throw new Error(tr('Відео прибрано: {name}', { name: it.label }));
-          if (v.missing) throw new Error(tr('Файл не знайдено: {name}', { name: it.label }));
+          const why = unusable('file', v, it.label);
+          if (why) throw new Error(why);
           const s = videoSlide(
             {
               src: v.src,
@@ -312,7 +314,8 @@ export function useShowCommands({
         .fetchQuery({ queryKey: ['album', id], queryFn: () => api.album(id), staleTime: 0 })
         .then((info) => {
           const list = info.photos ?? [];
-          if (info.missing) throw new Error(tr('Папку не знайдено: {name}', { name: it.label }));
+          const why = unusable('folder', info, it.label);
+          if (why) throw new Error(why);
           if (list.length === 0) throw new Error(tr('В альбомі немає фото'));
           return albumSlide(id, list, 0, it.fit, slideStyle);
         });
