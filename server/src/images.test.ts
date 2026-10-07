@@ -167,3 +167,14 @@ describe('pictures on screen (1.5.0)', () => {
     expect(isStoredImage({ ...real, ext: 'svg' })).toBe(false);
   });
 });
+
+describe('an index that cannot be read now (1.9.3 review)', () => {
+  it('a picture added then leaves no files behind', () => {
+    const dir = tmp();
+    fs.mkdirSync(path.join(dir, 'index.json'), { recursive: true }); // read fails (EISDIR), as if held
+    expect(() =>
+      addImage(dir, { name: 'a.png', full: url(PNG), small: url(JPG, 'image/jpeg'), w: 10, h: 10 }),
+    ).toThrow(/not written over/);
+    expect(fs.readdirSync(dir)).toEqual(['index.json']);
+  });
+});
