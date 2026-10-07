@@ -1,9 +1,15 @@
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useRef,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { type Book, type Verse } from '../../api';
 import { type Appearance } from '../../settingsStore';
 import { type Slide, type SlideLine, type SlideStyle } from '../../presenterBus';
-import { matchesCombo, type Keymap } from '../../hotkeys';
+import { matchesCombo, slashTyped, type Keymap } from '../../hotkeys';
 import { isFormField, scrollableAround } from '../../lib/keyScroll';
 import { floatingPanelOpen } from '../../lib/panelStack';
 import { type SearchScope } from '../../components/SearchPanel';
@@ -229,4 +235,16 @@ export function useControlHotkeys({
     { preventDefault: true },
     [keymap.playlistPrev],
   );
+  // «/» typed by any key (the Ukrainian layout's ⇧ + another key, 1.9.7) — the bound key works above
+  const openSearchRef = useRef(openSearch);
+  openSearchRef.current = openSearch;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || isFormField(e.target) || !slashTyped(e, keymap)) return;
+      e.preventDefault();
+      openSearchRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [keymap]);
 }

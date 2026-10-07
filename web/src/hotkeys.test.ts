@@ -265,3 +265,24 @@ describe('a keymap from the other platform, chords in any order (1.9.7, Mac chec
     expect(findConflicts(km, 'shift+meta+f', 'searchCurrent')).toContain('searchAll');
   });
 });
+
+describe('«/» on any layout (1.9.7, Mac check)', () => {
+  it('the typed «/» counts while searchFocus keeps its key; not with ⌘ / Ctrl, not when rebound', async () => {
+    const { defaultKeymap, slashTyped } = await import('./hotkeys');
+    const km = defaultKeymap(false);
+    const ev = (o: Partial<KeyboardEvent>) =>
+      ({
+        key: '/',
+        code: 'Digit1',
+        ctrlKey: false,
+        altKey: false,
+        metaKey: false,
+        shiftKey: true,
+        ...o,
+      }) as KeyboardEvent;
+    expect(slashTyped(ev({}), km)).toBe(true); // ⇧ + another key types «/» (Ukrainian layout)
+    expect(slashTyped(ev({ ctrlKey: true }), km)).toBe(false);
+    expect(slashTyped(ev({}), { ...km, searchFocus: 'ctrl+l' })).toBe(false);
+    expect(slashTyped(ev({ key: '.', code: 'Slash', shiftKey: false }), km)).toBe(false);
+  });
+});

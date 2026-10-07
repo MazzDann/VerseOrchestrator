@@ -32,7 +32,7 @@ import { notifications } from '@mantine/notifications';
 import { api, type RemoteCommand, type SearchResult, type Verse } from '../api';
 import { DEFAULT_STYLE, type Slide, type SlideLine } from '../presenterBus';
 import { DEFAULT_APPEARANCE } from '../settingsStore';
-import { DEFAULT_KEYMAP, matchesCombo, stepDirection } from '../hotkeys';
+import { DEFAULT_KEYMAP, matchesCombo, slashTyped, stepDirection } from '../hotkeys';
 import {
   targetArgs,
   type PlaylistEntry,
@@ -424,7 +424,7 @@ export function Desk() {
     }
     const el = e.target as HTMLElement | null;
     if (el?.closest('input, textarea, select, [contenteditable="true"], [role="option"]')) return;
-    if (matchesCombo(e, KEYS.searchFocus)) {
+    if (matchesCombo(e, KEYS.searchFocus) || slashTyped(e, KEYS)) {
       e.preventDefault();
       return searchRef.current?.focus();
     }
