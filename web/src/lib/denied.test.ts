@@ -23,3 +23,16 @@ describe('a folder or a file the system won’t open (Mac check of 1.9.0)', () =
     );
   });
 });
+
+describe('an album or video item that can’t be used, in words (1.9.4)', () => {
+  it('another computer first, then the refusal, then not found', async () => {
+    const { unusable } = await import('./denied');
+    const all = { missing: true, denied: true, elsewhere: true };
+    expect(unusable('folder', all, 'Табір')).toBe('Папка з іншого комп’ютера: Табір');
+    expect(unusable('folder', { missing: true, denied: true }, 'Табір')).toBe(
+      'Немає доступу до папки: Табір',
+    );
+    expect(unusable('file', { missing: true }, 'a.mp4')).toBe('Файл не знайдено: a.mp4');
+    expect(unusable('file', { missing: false }, 'a.mp4')).toBeNull();
+  });
+});

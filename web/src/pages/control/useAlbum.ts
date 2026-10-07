@@ -19,6 +19,7 @@ import { isFormField, isResizeKey } from '../../lib/keyScroll';
 import { stepDirection } from '../../hotkeys';
 import { useSettings } from '../../settingsStore';
 import { tr } from '../../i18n';
+import { unusable, unusableNotice } from '../../lib/denied';
 import { standbyNotice } from './standby';
 
 /** The album open in «Зображення» and the photo it stands on (null: none shown yet). */
@@ -198,15 +199,13 @@ export function useAlbum({
     if (info.missing || list.length === 0) {
       notifications.show({
         message: info.missing
-          ? tr('Папку не знайдено: {path}', { path: info.path })
+          ? unusableNotice('folder', info, info.path)
           : tr('В альбомі немає фото'),
         color: 'gray',
         autoClose: 3000,
       });
       return {
-        reason: info.missing
-          ? tr('Папку не знайдено: {name}', { name: label })
-          : tr('В альбомі немає фото'),
+        reason: info.missing ? (unusable('folder', info, label) ?? '') : tr('В альбомі немає фото'),
       };
     }
     return { slide: put(id, list, 0, fit) };
