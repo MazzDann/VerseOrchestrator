@@ -76,7 +76,20 @@ export interface SeqVideo {
   fit: 'contain' | 'cover';
 }
 
-export type SeqItem = SeqPassage | SeqSong | SeqText | SeqImage | SeqAlbum | SeqVideo;
+/**
+ * An item of a newer version (1.9.1): a kind this one doesn't know — kept exactly as it was saved,
+ * so the newer version gets it back after a step down and up again; never put on screen, steps
+ * pass over it. 1.9.0 drew such an item with no icon and the control window failed.
+ */
+export interface SeqForeign {
+  kind: 'foreign';
+  id: string;
+  label: string;
+  /** the item as it was stored */
+  raw: Record<string, unknown>;
+}
+
+export type SeqItem = SeqPassage | SeqSong | SeqText | SeqImage | SeqAlbum | SeqVideo | SeqForeign;
 /** An item to add — same shape minus the store-assigned id. */
 export type NewSeqItem =
   | Omit<SeqPassage, 'id'>
@@ -93,6 +106,70 @@ function newId(): string {
     // Fallback for older engines; uniqueness is sufficient for a local list.
     return `id-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
   }
+}
+
+/**
+ * The version each kind of item came in (1.9.1). Before 1.9.1 a control window fails on a kind it
+ * doesn't know (an item with no icon) and doesn't open while the list holds one: «Оновлення» warns
+ * before going there. A new kind goes here with its first version.
+ */
+export const KIND_SINCE: Record<Exclude<SeqItem['kind'], 'foreign'>, string> = {
+  // the first running order
+  passage: '0.0.0',
+  song: '0.0.0',
+  text: '0.0.0',
+  image: '1.5.0',
+  album: '1.8.12-beta.1',
+  video: '1.8.12-beta.3',
+};
+/** From this version on, an item of a kind the version doesn't know is passed over. */
+export const FIRST_FOREIGN_SAFE = '1.9.1';
+
+const KINDS: ReadonlySet<string> = new Set(Object.keys(KIND_SINCE));
+
+/** Can the item go on screen? An item of a newer version can't (1.9.1). */
+export const playable = (it: SeqItem): boolean => it.kind !== 'foreign';
+
+/**
+ * A stored item as this version holds it (1.9.1): a kind it knows as it is, any other kind kept
+ * whole as `foreign`; what isn't an item at all is dropped.
+ */
+export function fromStored(raw: unknown): SeqItem | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.kind === 'string' && KINDS.has(r.kind)) return r as unknown as SeqItem;
+  return {
+    kind: 'foreign',
+    id: typeof r.id === 'string' && r.id ? r.id : newId(),
+    label: typeof r.label === 'string' ? r.label : '',
+    raw: r,
+  };
+}
+
+/** The item as it is saved: an item of a newer version exactly as it came (under its id). */
+export const toStored = (it: SeqItem): unknown =>
+  it.kind === 'foreign' ? { ...it.raw, id: it.id } : it;
+
+const listFromStored = (raw: unknown): SeqItem[] =>
+  Array.isArray(raw) ? raw.map(fromStored).filter((it): it is SeqItem => it !== null) : [];
+
+/**
+ * Where a step through the running order lands (1.9.1: over items of a newer version): with no
+ * current item, the first playable one forward or the last one back; null when nothing further.
+ */
+export function stepIndex(
+  items: readonly SeqItem[],
+  currentId: string | null,
+  delta: 1 | -1,
+): number | null {
+  const at = items.findIndex((i) => i.id === currentId);
+  for (
+    let i = at < 0 ? (delta > 0 ? 0 : items.length - 1) : at + delta;
+    i >= 0 && i < items.length;
+    i += delta
+  )
+    if (playable(items[i])) return i;
+  return null;
 }
 
 interface PlaylistState {
@@ -273,7 +350,30 @@ export const usePlaylist = create<PlaylistState>()(
       version: 1,
       // currentId marks what's projected this session — never restore it as
       // "active" after a reload, when nothing has been pushed to the screen yet.
-      partialize: (s) => ({ items: s.items, saved: s.saved }),
+      // Items of a newer version go back as they came (1.9.1).
+      partialize: (s) => ({
+        items: s.items.map(toStored),
+        saved: s.saved.map((p) => ({ ...p, items: p.items.map(toStored) })),
+      }),
+      // a list a newer version saved under a later `version` comes through `merge` too: without
+      // `migrate` zustand drops it, and the next change here would write over it (1.9.1 review)
+      migrate: (persisted) => persisted as PlaylistState,
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as { items?: unknown; saved?: unknown };
+        const saved = Array.isArray(p.saved)
+          ? p.saved
+              .filter(
+                (x): x is { name: string; items: unknown } =>
+                  !!x &&
+                  typeof x === 'object' &&
+                  typeof (x as { name?: unknown }).name === 'string',
+              )
+              // what a newer version keeps in a program stays (1.9.1 review)
+              .map((x) => ({ ...x, items: listFromStored(x.items) }))
+          : current.saved;
+        const items = p.items === undefined ? current.items : listFromStored(p.items);
+        return { ...current, items, saved };
+      },
     },
   ),
 );

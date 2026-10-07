@@ -177,3 +177,72 @@ describe('a song whose id changed (0.10.0)', () => {
     expect(ids(state().saved[0].items)).toEqual(['№12 Слава:9001', '№13 Інша:3']);
   });
 });
+
+describe('an item of a newer version (1.9.1)', () => {
+  const cover = {
+    kind: 'cover',
+    id: 'c1',
+    label: 'Ласкаво просимо',
+    text: 'Ласкаво просимо',
+    image: null,
+  };
+  const stored = (items: unknown[], saved: unknown[] = []) =>
+    JSON.stringify({ state: { items, saved }, version: 1 });
+  const load = async (value: string) => {
+    local.set('vo:playlist', value);
+    await usePlaylist.persist.rehydrate();
+  };
+  const [psalm, notice] = [text('Пс 23'), text('Оголошення')].map((t, i) => ({
+    ...t,
+    id: `t${i}`,
+  }));
+
+  it('is kept whole in the list and in the programs, and saved back as it came', async () => {
+    await load(stored([psalm, cover, notice], [{ name: 'Неділя', items: [cover] }]));
+    expect(state().items.map((it) => it.kind)).toEqual(['text', 'foreign', 'text']);
+    expect(state().items[1]).toMatchObject({ id: 'c1', label: 'Ласкаво просимо' });
+    expect(state().saved[0].items[0].kind).toBe('foreign');
+    state().move('t0', 1); // any change writes the list
+    const back = JSON.parse(local.get('vo:playlist')!).state;
+    expect(back.items[0]).toEqual(cover);
+    expect(back.saved[0].items[0]).toEqual(cover);
+  });
+
+  it('a program opened gives it a fresh id, the rest of it unchanged', async () => {
+    await load(stored([], [{ name: 'Неділя', items: [cover, notice] }]));
+    state().loadProgram('Неділя');
+    const back = JSON.parse(local.get('vo:playlist')!).state.items[0];
+    expect(back).toEqual({ ...cover, id: state().items[0].id });
+    expect(back.id).not.toBe('c1');
+  });
+
+  it('a list saved under a later format version still loads; a program keeps its other fields', async () => {
+    const program = { name: 'Неділя', items: [cover], startsAt: '10:00' };
+    await load(JSON.stringify({ state: { items: [psalm, cover], saved: [program] }, version: 2 }));
+    expect(state().items.map((it) => it.kind)).toEqual(['text', 'foreign']);
+    state().move('t0', 1);
+    const back = JSON.parse(local.get('vo:playlist')!).state;
+    expect(back.items[0]).toEqual(cover);
+    expect(back.saved[0]).toEqual(program);
+  });
+
+  it('what is not an item is dropped; a list missing keeps what there is', async () => {
+    await load(stored([null, 7, 'x', [], psalm]));
+    expect(state().items.map((it) => it.id)).toEqual(['t0']);
+    await load(JSON.stringify({ state: {}, version: 1 }));
+    expect(state().items.map((it) => it.id)).toEqual(['t0']);
+  });
+
+  it('steps pass over it; nothing to step to says so', async () => {
+    const { stepIndex } = await import('./playlistStore');
+    await load(stored([psalm, cover, notice]));
+    const items = state().items;
+    expect(stepIndex(items, 't0', 1)).toBe(2);
+    expect(stepIndex(items, 't1', -1)).toBe(0);
+    expect(stepIndex(items, 't1', 1)).toBeNull();
+    expect(stepIndex(items, null, 1)).toBe(0);
+    await load(stored([cover]));
+    expect(stepIndex(state().items, null, 1)).toBeNull();
+    expect(stepIndex(state().items, null, -1)).toBeNull();
+  });
+});
