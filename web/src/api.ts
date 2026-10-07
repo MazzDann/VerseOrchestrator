@@ -724,7 +724,12 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return z
-      .object({ id: z.string(), name: z.string(), token: z.string() })
+      .object({
+        id: z.string(),
+        name: z.string(),
+        kind: PairingKindSchema.optional().transform((k) => k ?? 'phone'),
+        token: z.string(),
+      })
       .parse(await res.json());
   },
   /** Server options (data/settings.json) — not secrets. */
