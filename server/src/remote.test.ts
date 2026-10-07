@@ -151,3 +151,23 @@ describe('server settings file', () => {
     initServerSettings(null);
   });
 });
+
+describe('secrets.json held at start (1.9.3 review)', () => {
+  it('is read again once it can be; a pairing that could not be saved is not listed', () => {
+    initRemoteStore({ file: secrets, persist: true });
+    const kept = createPairing('Доповідач');
+    fs.renameSync(secrets, `${secrets}.real`);
+    fs.mkdirSync(secrets); // read fails (EISDIR), as a held file would
+    initRemoteStore({ file: secrets, persist: true }); // a restart while it is held
+    expect(() => createPairing('Новий')).toThrow(/not written over/);
+    expect(listPairings(() => false)).toEqual([]);
+    fs.rmdirSync(secrets);
+    fs.renameSync(`${secrets}.real`, secrets);
+    expect(findByToken(kept.token)?.id).toBe(kept.id); // read now
+    const next = createPairing('Новий');
+    const ids = JSON.parse(fs.readFileSync(secrets, 'utf8')).remotes.map(
+      (r: { id: string }) => r.id,
+    );
+    expect(ids).toEqual([kept.id, next.id]);
+  });
+});
