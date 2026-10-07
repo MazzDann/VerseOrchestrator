@@ -3,6 +3,7 @@ import {
   countdownOver,
   coverOver,
   forAudience,
+  forDesk,
   pictureSlide,
   inPhoneWords,
   qrOver,
@@ -171,6 +172,18 @@ describe('«Відлік» (1.5.0)', () => {
     expect(phone.cover).toBeUndefined();
     expect(phone.returnTo).toBeUndefined();
     expect(phone.countdown).toEqual(at);
+  });
+
+  it('reaches a desk (another computer, 1.8.12-beta.10) as «Заставка» words and time, no images', () => {
+    const bg = { ...DEFAULT_STYLE, bgImage: 'data:image/png;base64,BBBB' };
+    const c = countdownOver({ ...verse, style: bg }, logo, at, bg, 'Відлік');
+    const desk = forDesk(c);
+    expect(desk.cover).toEqual({ text: 'Недільне зібрання', image: null });
+    expect(desk.countdown).toEqual(at);
+    expect(desk.returnTo).toBeUndefined();
+    expect(desk.style?.bgImage).toBeNull();
+    expect(c.cover?.image).toBe(logo.image); // the screen's own slide is not touched
+    expect(forDesk(verse)).toBe(verse); // nothing to strip: the same slide
   });
 
   it('a speaker’s timer is for «Сцена»: never on the phones, a change is a new slide (1.8.4)', () => {

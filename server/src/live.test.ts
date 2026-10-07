@@ -586,6 +586,83 @@ describe('speaker remote over the hub', () => {
     r2.ws.close();
   });
 
+  it('a desk (another computer) hears whole slides; a phone keeps the summaries (1.8.12-beta.10)', async () => {
+    const pd = createPairing('Ноутбук', undefined, 'desk');
+    const pp = createPairing('Телефон');
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const desk = client({ role: 'remote', token: pd.token, desk: true });
+    expect(await desk.next('welcome')).toMatchObject({ kind: 'desk' });
+    // on connect: what the hub has (nothing yet in this run, or the last test's)
+    expect(await desk.next('slides')).toMatchObject({ type: 'slides' });
+    const phone = client({ role: 'remote', token: pp.token });
+    expect(await phone.next('welcome')).toMatchObject({ kind: 'phone' });
+    const live = { lines: [{ text: 'Бо так полюбив Бог світ' }], reference: 'Ів 3:16' };
+    const next = { lines: [{ text: 'Бо не послав Бог Сина' }], reference: 'Ів 3:17' };
+    control.ws.send(JSON.stringify({ type: 'slides', live, next }));
+    expect(await desk.next('slides')).toEqual({ type: 'slides', live, next });
+    // a desk that connects later gets them at once
+    const late = client({ role: 'remote', token: pd.token, desk: true });
+    await late.next('welcome');
+    expect(await late.next('slides')).toEqual({ type: 'slides', live, next });
+    await new Promise((r) => setTimeout(r, 60));
+    expect(phone.frames.some((f) => f.type === 'slides')).toBe(false);
+    // a remote can't feed them, nor can a control window not in charge
+    desk.ws.send(JSON.stringify({ type: 'slides', live: next, next: live }));
+    const second = client({ role: 'control' }, origin());
+    await second.next('welcome');
+    second.ws.send(JSON.stringify({ type: 'slides', live: null, next: null }));
+    await new Promise((r) => setTimeout(r, 60));
+    expect(desk.frames.some((f) => f.type === 'slides')).toBe(false);
+    for (const c of [control, second, desk, late, phone]) c.ws.close();
+    await until(() => controlWindows().open === 0);
+  });
+
+  it('«Заставка» and «Відлік» need their own permission; a countdown says what to do', async () => {
+    const p = createPairing('Ноутбук', [...DEFAULT_ALLOWED, 'cover'], 'desk');
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const desk = client({ role: 'remote', token: p.token, desk: true });
+    await desk.next('welcome');
+    desk.ws.send(JSON.stringify({ type: 'command', cmd: 'cover', id: 'c1' }));
+    const cover = await control.next('command');
+    expect(cover).toMatchObject({ cmd: 'cover', from: 'Ноутбук' });
+    control.ws.send(JSON.stringify({ type: 'result', id: cover.id, ok: true }));
+    expect(await desk.next('ack')).toMatchObject({ id: 'c1', ok: true });
+    desk.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'countdown', id: 't1', countdown: { op: 'start' } }),
+    );
+    expect(await desk.next('ack')).toMatchObject({
+      id: 't1',
+      ok: false,
+      reason: 'Ця дія пульту не дозволена',
+    });
+    notifyAllowed(p.id, setPairingAllowed(p.id, [...DEFAULT_ALLOWED, 'countdown'])!.allowed);
+    expect(await desk.next('allowed')).toMatchObject({
+      allowed: [...DEFAULT_ALLOWED, 'countdown'],
+    });
+    desk.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'countdown', id: 't2', countdown: { op: 'nope' } }),
+    );
+    expect(await desk.next('ack')).toMatchObject({ id: 't2', reason: 'Неправильний відлік' });
+    desk.ws.send(
+      JSON.stringify({
+        type: 'command',
+        cmd: 'countdown',
+        id: 't3',
+        countdown: { op: 'start', seconds: 450, extra: 'x' },
+      }),
+    );
+    const cmd = await control.next('command');
+    expect(cmd).toMatchObject({ cmd: 'countdown', countdown: { op: 'start', seconds: 450 } });
+    expect(cmd.countdown).toEqual({ op: 'start', seconds: 450 });
+    control.ws.send(JSON.stringify({ type: 'result', id: cmd.id, ok: true }));
+    expect(await desk.next('ack')).toMatchObject({ id: 't3', ok: true });
+    control.ws.close();
+    desk.ws.close();
+    await until(() => controlWindows().open === 0);
+  });
+
   it('revoking a pairing disconnects its remote', async () => {
     const p = createPairing('Тимчасовий');
     const remote = client({ role: 'remote', token: p.token });

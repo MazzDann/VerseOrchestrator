@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createDispatcher, DEDUPE_MS, PRIORITY, toggleOf, type ShowCommand } from './commands';
+import {
+  asCountdown,
+  createDispatcher,
+  DEDUPE_MS,
+  PRIORITY,
+  toggleOf,
+  type ShowCommand,
+} from './commands';
 import { outputKeyAction } from './outputKeys';
 
 const remote = { kind: 'remote' as const, name: 'Пульт' };
@@ -76,9 +83,17 @@ describe('the switches a command flips (1.4.1)', () => {
     expect(toggleOf('blank')).toBe('hide');
     expect(toggleOf('black')).toBe('black');
     expect(toggleOf('cover')).toBe('cover');
-    for (const cmd of ['next', 'prev', 'show', 'pick', 'queue'] as const) {
+    for (const cmd of ['next', 'prev', 'show', 'pick', 'queue', 'countdown'] as const) {
       expect(toggleOf(cmd)).toBeNull();
     }
+  });
+
+  it("a remote's «Відлік» (1.8.12-beta.10) arrives as start / pause / stop, a length only with start", () => {
+    expect(asCountdown({ op: 'start', seconds: 450 })).toEqual({ op: 'start', seconds: 450 });
+    expect(asCountdown({ op: 'pause' })).toEqual({ op: 'pause' });
+    expect(asCountdown({ op: 'stop', seconds: 'x' })).toEqual({ op: 'stop' });
+    expect(asCountdown({ op: 'reset' })).toBeUndefined();
+    expect(asCountdown(undefined)).toBeUndefined();
   });
 
   it('L pressed in the presentation window reaches «Заставка», not «Чорний екран»', () => {
