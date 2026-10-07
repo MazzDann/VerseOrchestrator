@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { Fragment, memo, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Stack,
@@ -37,14 +37,17 @@ import {
   IconPuzzle,
   IconPresentation,
   IconHourglass,
+  IconRepeat,
+  IconArrowBarToDown,
   IconPlus,
 } from '@tabler/icons-react';
 import { CoverItemEditor } from './CoverItemEditor';
 import { CountdownItemEditor } from './CountdownItemEditor';
+import { LoopItemEditor } from './LoopItemEditor';
 import { countdownLabel } from '../lib/countdownItem';
 import { coverLabel } from '../lib/coverItem';
 import { api } from '../api';
-import { type SeqItem, type SavedProgram, stepIndex, usePlaylist } from '../playlistStore';
+import { type SeqItem, type SavedProgram, stepIndex, usePlaylist, inLoop } from '../playlistStore';
 import { useServer } from '../serverStore';
 import { useSettings } from '../settingsStore';
 import { formatCombo } from '../hotkeys';
@@ -85,6 +88,7 @@ const KIND_ICON = {
   video: IconMovie,
   cover: IconPresentation,
   countdown: IconHourglass,
+  loop: IconRepeat,
   foreign: IconPuzzle,
 } as const;
 
@@ -98,6 +102,7 @@ const KIND_COLOR = {
   video: 'gray',
   cover: 'gray',
   countdown: 'gray',
+  loop: 'gray',
   foreign: 'gray',
 } as const;
 
@@ -174,6 +179,30 @@ export const PlaylistPanel = memo(function PlaylistPanel({
   const [programsOpen, setProgramsOpen] = useState(false);
   // the «Заставка» item whose editor is open (1.10.0-beta.2)
   const [editing, setEditing] = useState<string | null>(null);
+  // «Цикл оголошень» (1.10.0-beta.4): rows picked with Ctrl / ⌘ / Shift to gather; loops folded out
+  const [picked, setPicked] = useState<string[]>([]);
+  const [open, setOpen] = useState<string[]>([]);
+  const pickRow = (it: SeqItem, shift: boolean) => {
+    if (!inLoop(it)) return;
+    setPicked((p) => {
+      if (shift && p.length > 0) {
+        const from = items.findIndex((x) => x.id === p[p.length - 1]);
+        const to = items.findIndex((x) => x.id === it.id);
+        // the anchor left the list (review): this row alone
+        if (from < 0) return p.includes(it.id) ? p.filter((x) => x !== it.id) : [...p, it.id];
+        const range = items
+          .slice(Math.min(from, to), Math.max(from, to) + 1)
+          .filter(inLoop)
+          .map((x) => x.id);
+        return [...new Set([...p, ...range])];
+      }
+      return p.includes(it.id) ? p.filter((x) => x !== it.id) : [...p, it.id];
+    });
+  };
+  const gather = () => {
+    usePlaylist.getState().gatherLoop(picked, tr('Цикл оголошень'));
+    setPicked([]);
+  };
   const coverText = useSettings((s) => s.appearance.coverText);
   // «+» → «Заставка»: an item with the settings' text to start from, its editor open
   const addCover = () => {
@@ -472,148 +501,241 @@ export const PlaylistPanel = memo(function PlaylistPanel({
             </Text>
           ) : (
             <Stack gap={4}>
+              {picked.length > 0 && (
+                <Group gap="xs" wrap="nowrap" justify="space-between">
+                  <Text size="xs" c="dimmed">
+                    {trn(picked.length, 'Вибрано {n} слайд|Вибрано {n} слайди|Вибрано {n} слайдів')}
+                  </Text>
+                  <Group gap={4} wrap="nowrap">
+                    <Button size="compact-xs" variant="light" onClick={gather}>
+                      {tr('Зібрати в цикл')}
+                    </Button>
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      color="gray"
+                      onClick={() => setPicked([])}
+                    >
+                      {tr('Скасувати')}
+                    </Button>
+                  </Group>
+                </Group>
+              )}
               {items.map((it, i) => {
                 const Icon = KIND_ICON[it.kind];
                 const active = it.id === currentId;
                 return (
-                  <Box
-                    key={it.id}
-                    data-item={it.id}
-                    className="vo-verse-item"
-                    role="button"
-                    tabIndex={0}
-                    data-selected={active ? 'true' : undefined}
-                    onClick={() => onActivate(it)}
-                    onKeyDown={(e) => {
-                      // keys typed in a «Заставка» editor (a portal — its events still bubble
-                      // here) or on a row's own buttons are theirs (1.10.0-beta.2 review)
-                      if (e.target !== e.currentTarget) return;
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
+                  <Fragment key={it.id}>
+                    <Box
+                      data-item={it.id}
+                      className="vo-verse-item"
+                      role="button"
+                      tabIndex={0}
+                      data-selected={active ? 'true' : undefined}
+                      onClick={(e) => {
+                        // Ctrl / ⌘ / Shift picks texts, pictures, covers to gather into a «Цикл»
+                        if (
+                          (e.ctrlKey || e.metaKey || e.shiftKey) &&
+                          (inLoop(it) || picked.length > 0)
+                        ) {
+                          e.preventDefault();
+                          pickRow(it, e.shiftKey);
+                          return;
+                        }
                         onActivate(it);
-                      }
-                    }}
-                    onDragOver={(e) => {
-                      if (dragIndex === null) return;
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'move';
-                      setOverIndex(i);
-                    }}
-                    onDrop={(e) => {
-                      if (dragIndex === null) return;
-                      e.preventDefault();
-                      // The indicator (borderTop) means "insert above row i"; since reorder()
-                      // removes the source first, a downward move must target one slot lower.
-                      const to = dragIndex < i ? i - 1 : i;
-                      onReorder(dragIndex, to);
-                      endDrag();
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      borderTop:
-                        overIndex === i && dragIndex !== null && dragIndex !== i
-                          ? '2px solid var(--mantine-color-brand-filled)'
-                          : '2px solid transparent',
-                      opacity: dragIndex === i ? 0.4 : 1,
-                    }}
-                  >
-                    <span
-                      draggable
-                      onDragStart={(e) => {
-                        setDragIndex(i);
-                        e.dataTransfer.effectAllowed = 'move';
-                        // Firefox won't start a drag session unless dataTransfer is set.
-                        try {
-                          e.dataTransfer.setData('text/plain', String(i));
-                        } catch {
-                          /* ignore */
+                      }}
+                      onKeyDown={(e) => {
+                        // keys typed in a «Заставка» editor (a portal — its events still bubble
+                        // here) or on a row's own buttons are theirs (1.10.0-beta.2 review)
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onActivate(it);
                         }
                       }}
-                      onDragEnd={endDrag}
-                      onClick={(e) => e.stopPropagation()}
-                      title={tr('Перетягнути')}
+                      onDragOver={(e) => {
+                        if (dragIndex === null) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        setOverIndex(i);
+                      }}
+                      onDrop={(e) => {
+                        if (dragIndex === null) return;
+                        e.preventDefault();
+                        // The indicator (borderTop) means "insert above row i"; since reorder()
+                        // removes the source first, a downward move must target one slot lower.
+                        const to = dragIndex < i ? i - 1 : i;
+                        onReorder(dragIndex, to);
+                        endDrag();
+                      }}
                       style={{
                         display: 'flex',
-                        cursor: 'grab',
-                        color: 'var(--mantine-color-dimmed)',
+                        alignItems: 'center',
+                        gap: 6,
+                        borderTop:
+                          overIndex === i && dragIndex !== null && dragIndex !== i
+                            ? '2px solid var(--mantine-color-brand-filled)'
+                            : '2px solid transparent',
+                        opacity: dragIndex === i ? 0.4 : 1,
+                        outline: picked.includes(it.id)
+                          ? '2px solid var(--mantine-color-brand-filled)'
+                          : undefined,
                       }}
-                      aria-hidden
                     >
-                      <IconGripVertical size={14} />
-                    </span>
-                    <ThemeIcon size="sm" variant="light" color={KIND_COLOR[it.kind]}>
-                      <Icon size={14} />
-                    </ThemeIcon>
-                    <Text
-                      size="sm"
-                      c={gone(it) ? 'dimmed' : undefined}
-                      style={{ flex: 1, minWidth: 0 }}
-                      truncate
-                    >
-                      {gone(it) ?? it.label}
-                    </Text>
-                    {it.id === nextId && (
-                      <Badge size="xs" variant="light" color="cue" style={{ flexShrink: 0 }}>
-                        {tr('Далі')}
-                      </Badge>
+                      <span
+                        draggable
+                        onDragStart={(e) => {
+                          setDragIndex(i);
+                          e.dataTransfer.effectAllowed = 'move';
+                          // Firefox won't start a drag session unless dataTransfer is set.
+                          try {
+                            e.dataTransfer.setData('text/plain', String(i));
+                          } catch {
+                            /* ignore */
+                          }
+                        }}
+                        onDragEnd={endDrag}
+                        onClick={(e) => e.stopPropagation()}
+                        title={tr('Перетягнути')}
+                        style={{
+                          display: 'flex',
+                          cursor: 'grab',
+                          color: 'var(--mantine-color-dimmed)',
+                        }}
+                        aria-hidden
+                      >
+                        <IconGripVertical size={14} />
+                      </span>
+                      <ThemeIcon size="sm" variant="light" color={KIND_COLOR[it.kind]}>
+                        <Icon size={14} />
+                      </ThemeIcon>
+                      <Text
+                        size="sm"
+                        c={gone(it) ? 'dimmed' : undefined}
+                        style={{ flex: 1, minWidth: 0 }}
+                        truncate
+                      >
+                        {gone(it) ?? it.label}
+                      </Text>
+                      {it.id === nextId && (
+                        <Badge size="xs" variant="light" color="cue" style={{ flexShrink: 0 }}>
+                          {tr('Далі')}
+                        </Badge>
+                      )}
+                      <Group gap={0} wrap="nowrap">
+                        {it.kind === 'loop' && (
+                          <>
+                            <Tooltip
+                              label={open.includes(it.id) ? tr('Згорнути') : tr('Слайди циклу')}
+                            >
+                              <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpen((o) =>
+                                    o.includes(it.id)
+                                      ? o.filter((x) => x !== it.id)
+                                      : [...o, it.id],
+                                  );
+                                }}
+                                aria-label={
+                                  open.includes(it.id) ? tr('Згорнути') : tr('Слайди циклу')
+                                }
+                                aria-expanded={open.includes(it.id)}
+                              >
+                                {open.includes(it.id) ? (
+                                  <IconChevronUp size={14} />
+                                ) : (
+                                  <IconChevronDown size={14} />
+                                )}
+                              </ActionIcon>
+                            </Tooltip>
+                            <LoopItemEditor
+                              item={it}
+                              opened={editing === it.id}
+                              onOpenChange={(o) => setEditing(o ? it.id : null)}
+                            />
+                          </>
+                        )}
+                        {it.kind === 'countdown' && (
+                          <CountdownItemEditor
+                            item={it}
+                            opened={editing === it.id}
+                            onOpenChange={(o) => setEditing(o ? it.id : null)}
+                          />
+                        )}
+                        {it.kind === 'cover' && (
+                          <CoverItemEditor
+                            item={it}
+                            opened={editing === it.id}
+                            onOpenChange={(o) => setEditing(o ? it.id : null)}
+                          />
+                        )}
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="sm"
+                          disabled={i === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMove(it.id, -1);
+                          }}
+                          aria-label={tr('Вгору')}
+                        >
+                          <IconChevronUp size={14} />
+                        </ActionIcon>
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="sm"
+                          disabled={i === items.length - 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMove(it.id, 1);
+                          }}
+                          aria-label={tr('Вниз')}
+                        >
+                          <IconChevronDown size={14} />
+                        </ActionIcon>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemove(it.id);
+                          }}
+                          aria-label={tr('Прибрати')}
+                        >
+                          <IconTrash size={14} />
+                        </ActionIcon>
+                      </Group>
+                    </Box>
+                    {it.kind === 'loop' && open.includes(it.id) && (
+                      <Stack gap={2} pl="lg">
+                        {it.items.map((x) => (
+                          <Group key={x.id} gap={6} wrap="nowrap" className="vo-verse-item">
+                            <Text size="xs" style={{ flex: 1, minWidth: 0 }} truncate>
+                              {x.label}
+                            </Text>
+                            <Tooltip label={tr('Вийняти з циклу')}>
+                              <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                size="sm"
+                                onClick={() => usePlaylist.getState().takeOutOfLoop(it.id, x.id)}
+                                aria-label={tr('Вийняти з циклу')}
+                              >
+                                <IconArrowBarToDown size={14} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </Group>
+                        ))}
+                      </Stack>
                     )}
-                    <Group gap={0} wrap="nowrap">
-                      {it.kind === 'countdown' && (
-                        <CountdownItemEditor
-                          item={it}
-                          opened={editing === it.id}
-                          onOpenChange={(o) => setEditing(o ? it.id : null)}
-                        />
-                      )}
-                      {it.kind === 'cover' && (
-                        <CoverItemEditor
-                          item={it}
-                          opened={editing === it.id}
-                          onOpenChange={(o) => setEditing(o ? it.id : null)}
-                        />
-                      )}
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        size="sm"
-                        disabled={i === 0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMove(it.id, -1);
-                        }}
-                        aria-label={tr('Вгору')}
-                      >
-                        <IconChevronUp size={14} />
-                      </ActionIcon>
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        size="sm"
-                        disabled={i === items.length - 1}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMove(it.id, 1);
-                        }}
-                        aria-label={tr('Вниз')}
-                      >
-                        <IconChevronDown size={14} />
-                      </ActionIcon>
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemove(it.id);
-                        }}
-                        aria-label={tr('Прибрати')}
-                      >
-                        <IconTrash size={14} />
-                      </ActionIcon>
-                    </Group>
-                  </Box>
+                  </Fragment>
                 );
               })}
             </Stack>

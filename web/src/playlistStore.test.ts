@@ -264,3 +264,47 @@ describe('«Відлік» / «Заставка» items from a hand-edited file 
     });
   });
 });
+
+describe('«Цикл оголошень» (1.10.0-beta.4)', () => {
+  it('gathers texts where the first stood, takes one out after it, scatters back', () => {
+    const ids = state().items.map((i) => i.id); // three texts from beforeEach
+    state().gatherLoop([ids[2], ids[0]], 'Цикл');
+    const loop = state().items[0];
+    expect(state().items).toHaveLength(2);
+    expect(loop.kind).toBe('loop');
+    if (loop.kind !== 'loop') return;
+    expect(loop.items.map((x) => x.id)).toEqual([ids[0], ids[2]]);
+    state().takeOutOfLoop(loop.id, ids[0]);
+    expect(state().items.map((i) => i.id)).toEqual([loop.id, ids[0], ids[1]]);
+    state().scatterLoop(loop.id);
+    expect(state().items.map((i) => i.id)).toEqual([ids[2], ids[0], ids[1]]);
+  });
+
+  it('a stored loop keeps only its slides, with a safe interval', async () => {
+    const { fromStored } = await import('./playlistStore');
+    const l = fromStored({
+      kind: 'loop',
+      id: 'l',
+      every: 1,
+      items: [
+        { kind: 'text', id: 't', label: 'a', title: '', body: 'a' },
+        { kind: 'song', id: 's' },
+        5,
+      ],
+    });
+    expect(l).toMatchObject({ every: 3, label: '' });
+    expect(l?.kind === 'loop' && l.items.map((x) => x.id)).toEqual(['t']);
+  });
+});
+
+describe('«Цикл» and the item on screen (1.10.0-beta.4 review)', () => {
+  it('gathering the current item makes the loop current; an emptied current loop leaves none', () => {
+    const ids = state().items.map((i) => i.id);
+    state().setCurrent(ids[0]);
+    state().gatherLoop([ids[0]], 'Цикл');
+    const loop = state().items[0];
+    expect(state().currentId).toBe(loop.id);
+    state().takeOutOfLoop(loop.id, ids[0]);
+    expect(state().currentId).toBeNull();
+  });
+});

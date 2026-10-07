@@ -304,6 +304,11 @@ export function useShowCommands({
    * projects it.
    */
   function playlistItemSlide(it: SeqItem, by: string): Promise<Slide> {
+    // «Цикл» (1.10.0-beta.4): its first slide; shown, the window in charge turns the rest
+    if (it.kind === 'loop')
+      return it.items[0]
+        ? playlistItemSlide(it.items[0], by)
+        : Promise.reject(new Error(tr('Цикл порожній')));
     const t = itemTarget(it);
     if (t) return buildRemote(t, by);
     if (it.kind === 'image') return Promise.resolve(pictureSlide(pictureOf(it), slideStyle));
