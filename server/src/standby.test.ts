@@ -3,7 +3,7 @@ import net from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
-import { CONTROL_HEADER, createStandby, type RunningApp } from './standby';
+import { CONTROL_HEADER, createStandby, nodeFirstOnPath, type RunningApp } from './standby';
 
 /** A stand-in for the real app: echoes what it saw (path, X-Forwarded-For) and WebSocket frames. */
 function fakeApp() {
@@ -255,5 +255,40 @@ describe('standby waiter', () => {
     c.s.retire();
     await sleep(250);
     expect(c.events).toEqual(['retired']);
+  });
+});
+
+describe('Node’s folder first on the PATH (Mac check of 1.9.0)', () => {
+  it('launchd’s PATH has no npm: the app gets the folder npm lies in, first', () => {
+    const env = { PATH: '/usr/bin:/bin:/usr/sbin:/sbin', HOME: '/Users/a', PORT: '0' };
+    const out = nodeFirstOnPath(env, '/Users/a/VerseOrchestrator/app/node/bin', ':');
+    expect(out).toEqual({
+      PATH: '/Users/a/VerseOrchestrator/app/node/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+      HOME: '/Users/a',
+      PORT: '0',
+    });
+    expect(env.PATH).toBe('/usr/bin:/bin:/usr/sbin:/sbin'); // a copy: the caller's env untouched
+  });
+
+  it('Windows: the key keeps its case (Path), no second PATH beside it', () => {
+    const out = nodeFirstOnPath(
+      { Path: 'C:\\Windows\\system32;C:\\Windows' },
+      'C:\\VerseOrchestrator\\app\\node',
+      ';',
+    );
+    expect(out).toEqual({
+      Path: 'C:\\VerseOrchestrator\\app\\node;C:\\Windows\\system32;C:\\Windows',
+    });
+  });
+
+  it('once: the waiter, its app and the launcher it restarts don’t stack it', () => {
+    const once = nodeFirstOnPath({ PATH: '/usr/bin:/opt/n/bin:/bin' }, '/opt/n/bin', ':');
+    expect(once.PATH).toBe('/opt/n/bin:/usr/bin:/bin');
+    expect(nodeFirstOnPath(once, '/opt/n/bin', ':')).toEqual(once);
+  });
+
+  it('no PATH at all: just Node’s folder (no empty entry — that would be the working folder)', () => {
+    expect(nodeFirstOnPath({}, '/opt/n/bin', ':')).toEqual({ PATH: '/opt/n/bin' });
+    expect(nodeFirstOnPath({ PATH: '' }, '/opt/n/bin', ':')).toEqual({ PATH: '/opt/n/bin' });
   });
 });

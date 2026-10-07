@@ -31,6 +31,7 @@ import {
 } from '@tabler/icons-react';
 import { api, type AlbumInfo, type FolderList } from '../api';
 import { photoTitle } from '../lib/album';
+import { addRefusal, deniedHint } from '../lib/denied';
 import type { useAlbum } from '../pages/control/useAlbum';
 import { EVERY_MAX, EVERY_MIN } from '../pages/control/useAlbum';
 import { usePlaylist, type SeqItem } from '../playlistStore';
@@ -153,9 +154,14 @@ function AlbumList({
                       {a.name}
                     </Text>
                     <Text size="xs" c={a.missing ? 'orange' : 'dimmed'} truncate title={a.path}>
-                      {a.missing
-                        ? tr('Папку не знайдено: {path}', { path: a.path })
-                        : `${trn(a.count, '{n} фото|{n} фото|{n} фото')} · ${a.path}`}
+                      {/* a refused folder is `missing` too (albums.ts albumEntry): `denied` first */}
+                      {a.elsewhere
+                        ? tr('Папка з іншого комп’ютера: {path}', { path: a.path })
+                        : a.denied
+                          ? tr('Немає доступу до папки: {path}', { path: a.path })
+                          : a.missing
+                            ? tr('Папку не знайдено: {path}', { path: a.path })
+                            : `${trn(a.count, '{n} фото|{n} фото|{n} фото')} · ${a.path}`}
                     </Text>
                   </span>
                 </button>
@@ -251,13 +257,18 @@ export function FolderPicker({
     staleTime: 0,
   });
   const here = folders.data;
-  // the path field: the folder shown, or one pasted («Копіювати як шлях» quotes it)
+  // the path field: the folder shown, or one pasted
   const [draft, setDraft] = useState('');
   // the folder once it is read: a path that is not there keeps what was typed (review)
   useEffect(() => {
     if (here) setDraft(here.path ?? '');
   }, [here]);
-  const go = () => setPath(draft.trim().replace(/^"(.*)"$/, '$1') || undefined);
+  // sent as it is: the server reads quotes, ~, file:// and «My\ Photos» (albums.ts pastedPath —
+  // its home and its separator; Mac check of 1.9.0) when the path as it is names nothing — a
+  // folder «Свято » keeps its space (review) — and a file's path opens its folder
+  const go = () => setPath(draft.trim() ? draft : undefined);
+  // the file a pasted path named, marked among the folder's videos
+  const picked = here?.file?.normalize('NFC');
   const add = async () => {
     if (!here?.path) return;
     setAdding(true);
@@ -272,7 +283,7 @@ export function FolderPicker({
       onDone();
       onAdded(a.id);
     } catch (e) {
-      notifications.show({ message: tr((e as Error).message), color: 'red' });
+      notifications.show({ message: addRefusal(e, 'folder'), color: 'red' });
     } finally {
       setAdding(false);
     }
@@ -290,7 +301,7 @@ export function FolderPicker({
       onDone();
       onAdded(v.id);
     } catch (e) {
-      notifications.show({ message: tr((e as Error).message), color: 'red' });
+      notifications.show({ message: addRefusal(e, 'file'), color: 'red' });
     } finally {
       setAdding(false);
     }
@@ -347,7 +358,7 @@ export function FolderPicker({
         <ScrollArea.Autosize mah="var(--vo-cap, min(260px, 28vh))" mb={6}>
           {here?.denied ? (
             <Text size="sm" c="dimmed">
-              {tr('Система не дає відкрити цю папку. Виберіть іншу.')}
+              {deniedHint('folder', 'pick')}
             </Text>
           ) : here && here.folders.length === 0 && files.length === 0 ? (
             <Text size="sm" c="dimmed">
@@ -380,6 +391,7 @@ export function FolderPicker({
             <div
               key={f.path}
               className="vo-list-item vo-folder-row"
+              data-selected={f.path.normalize('NFC') === picked || undefined}
               role="button"
               tabIndex={0}
               aria-label={tr('Додати відео «{name}»', { name: f.name })}
@@ -403,7 +415,8 @@ export function FolderPicker({
       )}
       <Group justify="space-between" wrap="nowrap" gap="xs">
         <Text size="xs" c="dimmed" style={{ minWidth: 0 }}>
-          {mode === 'video' && here?.path
+          {/* a folder the system won't open has nothing to count: the hint above says why */}
+          {mode === 'video' && here?.path && !here.denied
             ? `${
                 files.length > 0
                   ? tr('Натисніть відео, щоб додати його.')
@@ -414,7 +427,7 @@ export function FolderPicker({
                   : ''
               }`
             : null}
-          {mode === 'video'
+          {mode === 'video' || here?.denied
             ? null
             : here?.path
               ? here.photos > 0
@@ -579,6 +592,18 @@ function OpenAlbumView({
       {show.albumError ? (
         <Text size="sm" c="red">
           {tr(show.albumError.message)}
+        </Text>
+      ) : info?.elsewhere ? (
+        <Text size="sm" c="dimmed">
+          {tr(
+            'Папку «{path}» додано на іншому комп’ютері — тут її немає. Відкрийте альбом там або додайте папку цього комп’ютера.',
+            { path: info.path },
+          )}
+        </Text>
+      ) : info?.denied ? (
+        // before `missing`, which a refused folder is too: where to allow it, not «plug it in»
+        <Text size="sm" c="dimmed">
+          {deniedHint('folder', 'refresh')}
         </Text>
       ) : info?.missing ? (
         <Text size="sm" c="dimmed">

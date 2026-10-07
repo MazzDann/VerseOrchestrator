@@ -132,6 +132,16 @@ export function quickKey(
   return { kind: 'close', take: false };
 }
 
+/**
+ * Enter in a search field (Mac check of 1.9.0): the field's own key — null for any other. ⌘↩ there
+ * reached the page's «На екран» too and put the OLD selection on screen; now ⌘ / Ctrl (or «На
+ * екран» itself, rebound to an Enter chord) shows the place gone to, as in the box; Enter goes.
+ */
+export function searchEnter(e: KeyChord, project: string): { show: boolean } | null {
+  if (e.key !== 'Enter') return null;
+  return { show: matchesCombo(e, project) || e.ctrlKey || e.metaKey };
+}
+
 /** A keydown the control window hands to the box (a KeyboardEvent is one). */
 export interface QuickKeydown extends QuickKeyEvent {
   preventDefault(): void;
