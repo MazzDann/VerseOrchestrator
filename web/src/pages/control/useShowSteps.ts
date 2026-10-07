@@ -225,13 +225,17 @@ export function useShowSteps({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVerses, bookNumber, chapter, primaryId]);
 
-  const stepVerse = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
+  const stepVerse = (
+    delta: number,
+    previewOnly = false,
+    held = false,
+  ): Outcome | Promise<Outcome> => {
     if (primaryVerses.length === 0) return { ok: false, reason: tr('Спершу виберіть розділ') };
     const all = primaryVerses.map((v) => v.verse);
     const current = selectedVerses.length ? selectedVerses[selectedVerses.length - 1] : all[0] - 1;
     const idx = all.indexOf(current);
     const next = all[Math.min(all.length - 1, Math.max(0, idx + delta))];
-    if (next == null || next === current) return crossChapter(delta, previewOnly);
+    if (next == null || next === current) return crossChapter(delta, previewOnly, held);
     crossArm.current = null;
     setSelectedVerses([next]);
     return { ok: true };
@@ -242,7 +246,11 @@ export function useShowSteps({
   // back) — on screen too when the screen follows the selection. At a book's edge the same
   // two presses open the next book (1.4.0).
   const crossArm = useRef<CrossArm | null>(null);
-  const crossChapter = async (delta: number, previewOnly = false): Promise<Outcome> => {
+  const crossChapter = async (
+    delta: number,
+    previewOnly = false,
+    held = false,
+  ): Promise<Outcome> => {
     if (primaryId == null || bookNumber == null || chapter == null) {
       return { ok: false, reason: tr('Спершу виберіть розділ') };
     }
@@ -250,7 +258,7 @@ export function useShowSteps({
     const book = bookNumber;
     // armed before anything loads, so a quick second press still counts as the second
     const key = `${tid}:${book}:${chapter}:${delta > 0 ? 1 : -1}`;
-    const press = pressAtEdge(crossArm.current, key, Date.now());
+    const press = pressAtEdge(crossArm.current, key, Date.now(), held);
     crossArm.current = press.arm;
     const onScreen = !previewOnly && liveFollow && live && !previewOverride;
     const target = await crossTarget(
@@ -305,7 +313,7 @@ export function useShowSteps({
     return { ok: true, reason: label };
   };
   /** Keys and buttons: say why the show didn't move (at a chapter's edge: what's next). */
-  const advanceAndSay = (delta: number, previewOnly = false) => {
+  const advanceAndSay = (delta: number, previewOnly = false, held = false) => {
     // the first preview-only step while the screen follows: say that the screen stays
     if (previewOnly && liveFollow && live && !screenHeld) {
       notifications.show({
@@ -315,7 +323,7 @@ export function useShowSteps({
         autoClose: 3000,
       });
     }
-    void Promise.resolve(advance(delta, previewOnly)).then((o) => {
+    void Promise.resolve(advance(delta, previewOnly, held)).then((o) => {
       if (!o.ok && o.reason) {
         notifications.show({ message: o.reason, color: 'gray', autoClose: 2500 });
       }
@@ -329,7 +337,12 @@ export function useShowSteps({
    * One step of the show (reveal → page → verse); says whether anything moved. `previewOnly`
    * (Alt+arrows): the screen stays while «Наживо» is on; a plain step lets it follow again.
    */
-  const advance = (delta: number, previewOnly = false): Outcome | Promise<Outcome> => {
+  const advance = (
+    delta: number,
+    previewOnly = false,
+    /** a key held down (its repeats): steps on, never across a chapter's edge (1.9.5) */
+    held = false,
+  ): Outcome | Promise<Outcome> => {
     setScreenHeld(previewOnly && liveFollow && live);
     // Progressive reveal first: step through the verses of the current slide before
     // moving on. Only while projecting the verse selection (no song/text override).
@@ -361,7 +374,7 @@ export function useShowSteps({
       setPageIndex(target);
       return { ok: true };
     }
-    const moved = stepVerse(delta, previewOnly);
+    const moved = stepVerse(delta, previewOnly, held);
     if (!(moved instanceof Promise) && moved.ok) setRevealCount(1); // same batch as the verse
     return moved;
   };

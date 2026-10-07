@@ -258,9 +258,10 @@ export function Desk() {
   const mine = !!name && src?.by === name;
   /** «Далі» past a chapter's edge: armed by the first press, crossed by the second (0.6.23) */
   const crossArm = useRef<CrossArm | null>(null);
-  const step = (delta: 1 | -1) =>
-    walk(delta).catch(() => flash(tr('Не вдалося відкрити розділ — перевірте зв’язок')));
-  const walk = async (delta: 1 | -1) => {
+  /** a held key (its repeats) steps on, never across a chapter's edge (1.9.5, Mac check) */
+  const step = (delta: 1 | -1, held = false) =>
+    walk(delta, held).catch(() => flash(tr('Не вдалося відкрити розділ — перевірте зв’язок')));
+  const walk = async (delta: 1 | -1, held = false) => {
     // from the cursor (pressed, maybe not on screen yet); after a reload, from the screen
     const at =
       cursor.current ??
@@ -293,7 +294,7 @@ export function Desk() {
         crossArm.current = null;
         return walkTo({ ...p, verses: to });
       }
-      return crossChapter(p, delta);
+      return crossChapter(p, delta, held);
     }
     if (mine && at?.kind === 'song' && mayPress(allowed, 'show', 'song')) {
       const s = await queryClient.fetchQuery({
@@ -318,12 +319,13 @@ export function Desk() {
   };
   // at the chapter's edge: the first press says where the next goes, a second one (5 s) goes —
   // into the next chapter, or the next book (as the operator's «Далі» and the phone's)
-  const crossChapter = async (p: RemotePassage, delta: 1 | -1) => {
+  const crossChapter = async (p: RemotePassage, delta: 1 | -1, held = false) => {
     const tid = p.translationIds[0];
     const step = pressAtEdge(
       crossArm.current,
       `${tid}:${p.bookNumber}:${p.chapter}:${delta}`,
       Date.now(),
+      held,
     );
     crossArm.current = step.arm;
     const [chapterList, bookList] = await Promise.all([
@@ -417,7 +419,8 @@ export function Desk() {
     if (e.defaultPrevented || link.kind === 'denied') return;
     if (matchesCombo(e, KEYS.project)) {
       e.preventDefault();
-      return show();
+      if (!e.repeat) show();
+      return;
     }
     const el = e.target as HTMLElement | null;
     if (el?.closest('input, textarea, select, [contenteditable="true"], [role="option"]')) return;
@@ -425,14 +428,22 @@ export function Desk() {
       e.preventDefault();
       return searchRef.current?.focus();
     }
-    if (matchesCombo(e, KEYS.blank)) return toggle('blank');
-    if (matchesCombo(e, KEYS.black)) return toggle('black');
-    if (matchesCombo(e, KEYS.cover)) return toggle('cover');
-    if (matchesCombo(e, KEYS.countdown)) return countdownKey();
+    // the toggles ignore a held key's repeats (a held «.» flickered the screen, 1.9.5)
+    const toggles = [
+      [KEYS.blank, () => toggle('blank')],
+      [KEYS.black, () => toggle('black')],
+      [KEYS.cover, () => toggle('cover')],
+      [KEYS.countdown, () => countdownKey()],
+    ] as const;
+    for (const [combo, act] of toggles)
+      if (matchesCombo(e, combo)) {
+        if (!e.repeat) act();
+        return;
+      }
     const d = stepDirection(e, KEYS);
     if (d !== 0) {
       e.preventDefault();
-      void step(d);
+      void step(d, e.repeat);
     }
   };
   useEffect(() => {
