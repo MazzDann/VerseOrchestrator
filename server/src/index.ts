@@ -64,7 +64,7 @@ import { keyedError, N_, sameBundleName } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
 import { handoverRoutes, spawnBrowser } from './handover.js';
-import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
+import { CONTROL_HEADER, nodeFirstOnPath, portFree, waiterAt } from './standby.js';
 import {
   addImage,
   CONTENT_TYPE,
@@ -667,13 +667,9 @@ app.post(
     // the launcher's own environment: not this app's port, host and waiter marks — and this
     // Node's folder first on the PATH: a waiter started by launchd (a Mac's autostart) has a
     // PATH without npm, which the launcher needs for npm ci and the UI build
-    const env = { ...process.env };
+    const env = nodeFirstOnPath(process.env);
     for (const k of ['PORT', 'HOST', 'VO_STANDBY', 'VO_STANDBY_PORT', 'VO_STANDBY_LISTEN'])
       delete env[k];
-    const pathKey = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
-    env[pathKey] = [path.dirname(process.execPath), env[pathKey]]
-      .filter(Boolean)
-      .join(path.delimiter);
     spawn(
       process.execPath,
       [
