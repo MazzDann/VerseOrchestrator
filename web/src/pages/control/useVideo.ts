@@ -84,7 +84,7 @@ export function useVideo({
   volume: number;
   /** the running order's current item: a video started from it goes on to the next item */
   playlistCurrent: SeqItem | null;
-  /** the running order's «Далі» (usePlaylistActions, called after this hook): false at its end */
+  /** the running order's «Далі» (useRunningOrder, called after this hook): false at its end */
   playlistNextRef: MutableRefObject<(() => boolean) | null>;
 }) {
   const list = useQuery({
