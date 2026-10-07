@@ -4,6 +4,7 @@ import {
   placeKey,
   quickKey,
   quickKeydown,
+  searchEnter,
   showStep,
   type QuickKeyContext,
   type QuickKeyEvent,
@@ -238,6 +239,51 @@ describe('the keys of the typed-number box', () => {
   });
 });
 
+// --- Enter in the search field (Mac check of 1.9.0) -------------------------------------
+
+describe('Enter in the search field', () => {
+  it('⌘↩ / Ctrl+Enter go and show the place typed — the old selection never goes on screen', () => {
+    // the field takes the key (stopPropagation), so the page's «На екран» (⌘↩) never sees it
+    expect(searchEnter(ev('Enter', 'Enter', { metaKey: true }), MAC.project)).toEqual({
+      show: true,
+    });
+    expect(searchEnter(ev('Enter', 'NumpadEnter', { metaKey: true }), MAC.project)).toEqual({
+      show: true,
+    });
+    // Ctrl+Enter on Windows: not «На екран» there (F5 / F2), but go and show all the same
+    expect(searchEnter(ev('Enter', 'Enter', { ctrlKey: true }), WIN.project)).toEqual({
+      show: true,
+    });
+    // «На екран» rebound to an Enter chord: the field takes it, so it shows
+    expect(searchEnter(ev('Enter', 'Enter', { altKey: true }), 'alt+enter')).toEqual({
+      show: true,
+    });
+  });
+
+  it('Enter and Shift+Enter only go, as before', () => {
+    expect(searchEnter(enter, MAC.project)).toEqual({ show: false });
+    expect(searchEnter(ev('Enter', 'Enter', { shiftKey: true }), MAC.project)).toEqual({
+      show: false,
+    });
+    expect(searchEnter(ev('Enter', 'Enter', { altKey: true }), WIN.project)).toEqual({
+      show: false,
+    });
+  });
+
+  it('any other key is not the field’s: F5 / F2 stay «На екран», Esc and the arrows their own', () => {
+    for (const e of [
+      ev('F5', 'F5'),
+      ev('F2', 'F2'),
+      ev('Escape', 'Escape'),
+      ev('ArrowDown', 'ArrowDown'),
+      ev('a', 'KeyA'),
+      ev('Meta', 'MetaLeft', { metaKey: true }),
+    ]) {
+      expect(searchEnter(e, MAC.project)).toBeNull();
+    }
+  });
+});
+
 describe('a place gone to with «На екран» in the box is shown when it is ready', () => {
   const pending = placeKey(43, 3, [16]);
   const ready: ShowView = {
@@ -262,6 +308,13 @@ describe('a place gone to with «На екран» in the box is shown when it i
     expect(showStep(pending, { ...ready, revealStep: 1 })).toBe('show');
     // reveal off: the step left from before doesn't matter
     expect(showStep(pending, { ...ready, revealStep: null })).toBe('show');
+  });
+
+  it('a search hit sent with ⌘↩ (1.9.0): never the old selection — the hit, once it is in', () => {
+    const hit = placeKey(43, 2, [1]); // «Ів 2:1» typed while Ів 1:1 is the selection
+    expect(showStep(hit, { ...ready, place: placeKey(43, 1, [1]) })).toBe('wait');
+    expect(showStep(hit, { ...ready, place: hit, loading: true })).toBe('wait');
+    expect(showStep(hit, { ...ready, place: hit })).toBe('show');
   });
 
   it('the place key: the same place, the same key; no book or chapter yet is a place too', () => {
