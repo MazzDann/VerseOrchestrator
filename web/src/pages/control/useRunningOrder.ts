@@ -1,6 +1,7 @@
 import {
   useEffect,
   useRef,
+  useState,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -12,6 +13,8 @@ import { type Appearance } from '../../settingsStore';
 import {
   type SeqImage,
   type SeqItem,
+  type SeqLoop,
+  type SeqLoopSlide,
   type SeqPassage,
   type SeqSong,
   stepIndex,
@@ -29,9 +32,10 @@ import {
 import { findSong } from '../../lib/songLink';
 import { tr } from '../../i18n';
 import { joinVerses, redLetterSegments } from './slideText';
-import { asksFor, atItemEdge, stillThere, type PastItem } from '../../lib/orderFlow';
+import { asksFor, atItemEdge, belongsTo, stillThere, type PastItem } from '../../lib/orderFlow';
 import { coverOver } from '../../lib/slide';
 import { itemCountdown, zeroIn } from '../../lib/countdownItem';
+import { everyMs } from '../../lib/workerClock';
 import { ORDER_CURRENT_KEY } from '../../lib/stage';
 import { type CountdownPlace } from '../../lib/countdown';
 
@@ -229,6 +233,47 @@ export function useRunningOrder({
     }
   };
 
+  /** One slide of a «Цикл» on screen (1.10.0-beta.4): a text, a picture or a cover, as their items are. */
+  const showLoopSlide = (x: SeqLoopSlide) => {
+    if (x.kind === 'text') projectText(x.body, x.title.trim());
+    else if (x.kind === 'image') projectPicture(pictureOf(x));
+    else {
+      const slide = coverOver(
+        liveSlideRef.current,
+        { text: x.text, image: x.image?.src ?? null },
+        slideStyle,
+        x.label,
+      );
+      pushLive(slide);
+      setPreviewOverride(slide);
+      setLive(true);
+    }
+  };
+  /** The loop's slide `delta` from the one on screen, round and round; its interval starts over. */
+  const [loopRestart, setLoopRestart] = useState(0);
+  // the slide shown last (review: two slides alike — the same picture twice — found the first one
+  // again by the screen and stuck there); by the screen only when this no longer matches it
+  const loopAt = useRef<{ loop: string; at: number } | null>(null);
+  const showable = (x: SeqLoopSlide) => x.kind !== 'text' || !!x.body.trim(); // projectText skips empty
+  const loopStep = (loop: SeqLoop, delta: 1 | -1, byHand = true) => {
+    const n = loop.items.length;
+    if (n === 0) return;
+    const live = liveSlideRef.current;
+    const kept = loopAt.current;
+    let at =
+      kept?.loop === loop.id && loop.items[kept.at] && belongsTo(loop.items[kept.at], live)
+        ? kept.at
+        : loop.items.findIndex((x) => belongsTo(x, live));
+    for (let tries = 0; tries < n; tries++) {
+      at = ((((at < 0 && delta < 0 ? 0 : at) + delta) % n) + n) % n;
+      if (showable(loop.items[at])) break;
+    }
+    if (!showable(loop.items[at])) return;
+    showLoopSlide(loop.items[at]);
+    loopAt.current = { loop: loop.id, at };
+    if (byHand) setLoopRestart((k) => k + 1);
+  };
+
   const activateItem = (it: SeqItem) => {
     // an item a newer version added (1.9.1): it stays in the list, nothing goes on screen
     if (it.kind === 'foreign') {
@@ -256,6 +301,14 @@ export function useRunningOrder({
         'cover',
         liveSlideRef.current.cover ?? undefined,
       );
+    } else if (it.kind === 'loop') {
+      // its first slide; the window in charge turns them every `every` s (the effect below)
+      const first = it.items.findIndex(showable);
+      if (first >= 0) {
+        showLoopSlide(it.items[first]);
+        loopAt.current = { loop: it.id, at: first };
+      }
+      setLoopRestart((k) => k + 1);
     } else if (it.kind === 'cover') {
       // its own text and picture over what is on screen; «Заставка» (L) again gives that back
       const slide = coverOver(
@@ -354,11 +407,39 @@ export function useRunningOrder({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLeader, playlistCurrentId, playlistItems, cd?.until, cd?.pausedLeft, cd?.item]);
 
+  // «Цикл оголошень» (1.10.0-beta.4): the window in charge turns the loop's slides every `every` s —
+  // from a worker's clock (a covered window's own timers stall, the Mac's round). It waits while
+  // the screen is hidden or black and does nothing once the screen shows something else.
+  const loopNow = playlistItems.find((i) => i.id === playlistCurrentId);
+  const loopEvery = loopNow?.kind === 'loop' ? loopNow.every : 0;
+  const loopRef = useRef<SeqLoop | null>(null);
+  loopRef.current = loopNow?.kind === 'loop' ? loopNow : null;
+  const loopStepRef = useRef(loopStep);
+  loopStepRef.current = loopStep;
+  useEffect(() => {
+    if (!isLeader || !loopEvery) return;
+    return everyMs(loopEvery * 1000, () => {
+      const loop = loopRef.current;
+      const s = liveSlideRef.current;
+      if (!loop || !leaderRef.current || !belongsTo(loop, s)) return;
+      if (s.blank || s.forceBlack || !s.visible) return;
+      loopStepRef.current(loop, 1, false);
+    });
+  }, [isLeader, loopEvery, playlistCurrentId, loopRestart, leaderRef, liveSlideRef]);
+
   // «Далі» past an item's last step (1.10.0-beta.1): the next item, while the switch is on and the
   // screen still shows the item (a song or an album asks at its own end — «Кінець», the last photo)
   pastItemRef.current = (delta, from) => {
-    if (!orderFlow) return null;
     const it = playlistItems.find((i) => i.id === playlistCurrentId);
+    // a «Цикл» on screen (1.10.0-beta.4): «Далі» leaves it with the switch on; without it the
+    // arrows turn its slides by hand
+    if (it?.kind === 'loop' && from.kind === 'slide' && belongsTo(it, liveSlideRef.current)) {
+      if (orderFlow && stepIndex(playlistItems, playlistCurrentId, delta) != null)
+        return orderStep(delta, 'key') ? { ok: true } : { ok: false };
+      loopStep(it, delta);
+      return { ok: true };
+    }
+    if (!orderFlow) return null;
     if (!it || !asksFor(it, from)) return null;
     const live = liveSlideRef.current;
     if (!stillThere(it, live, from)) return null;

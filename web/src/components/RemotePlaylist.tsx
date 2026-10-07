@@ -11,6 +11,7 @@ const KIND_MARK: Record<PlaylistEntry['kind'], string> = {
   video: '🎞',
   cover: '▣', // «Заставка» (1.10.0-beta.2)
   countdown: '⏱', // «Відлік» (1.10.0-beta.3)
+  loop: '↻', // «Цикл оголошень» (1.10.0-beta.4)
 };
 
 /**

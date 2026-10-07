@@ -113,7 +113,9 @@ export type PlaylistEntry =
   /** «Заставка» as an item (1.10.0-beta.2): its own text over the screen, from the control window */
   | { id: string; kind: 'cover'; label: string }
   /** «Відлік» as an item (1.10.0-beta.3) */
-  | { id: string; kind: 'countdown'; label: string };
+  | { id: string; kind: 'countdown'; label: string }
+  /** «Цикл оголошень» (1.10.0-beta.4) */
+  | { id: string; kind: 'loop'; label: string };
 
 export interface SharedPlaylist {
   items: PlaylistEntry[];
