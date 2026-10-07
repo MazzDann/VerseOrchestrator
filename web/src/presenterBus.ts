@@ -154,6 +154,12 @@ export interface Slide {
   /** a speaker's timer (1.8.4, lib/countdown.ts): «Сцена» shows it; «Показ» and the phones never */
   stageTimer?: StageTimer | null;
   /**
+   * «Повідомлення на сцену» (1.9.0-beta.11): a line the operator writes for the speaker — «Сцена»
+   * shows it, «Показ» and the phones never. It rides on every slide the leader pushes, as the
+   * speaker's timer does, so a control window that takes over keeps it.
+   */
+  stageMessage?: StageMessage | null;
+  /**
    * A picture on screen («Зображення», 1.5.0): the server's file, by address — every window and
    * the phones load it themselves (a slide never carries the image).
    */
@@ -237,6 +243,15 @@ export interface SlideCountdown extends TimerLook {
  * «Далі» continues from the screen instead of from where that window was left. Output
  * windows ignore it; free text and black/empty screens carry none.
  */
+/** «Повідомлення на сцену» (1.9.0-beta.11): the words and when the operator sent them. */
+export interface StageMessage {
+  text: string;
+  at: number;
+}
+
+/** The longest message to the speaker (a line or two on «Сцена»). */
+export const STAGE_MESSAGE_MAX = 280;
+
 export type SlideSource =
   | {
       kind: 'verses';
@@ -249,13 +264,32 @@ export type SlideSource =
       reveal: number;
       /** put there by a speaker's remote (0.6.2) — its name */
       by?: string;
+      /** the chapter's last verse — «вірш 16 з 36» on «Сцена» (1.9.0-beta.11) */
+      total?: number;
+      /** the first and the last verse of the page on screen, when the selection has pages */
+      shown?: [number, number];
     }
-  | { kind: 'song'; songId: number; stanza: number; by?: string }
+  | {
+      kind: 'song';
+      songId: number;
+      stanza: number;
+      by?: string;
+      /** the song's stanzas — «строфа 3 з 5» on «Сцена» (1.9.0-beta.11) */
+      total?: number;
+    }
   /**
    * a photo of an album (1.8.12, lib/album.ts): its place and name — the name finds it again
    * when the folder changed meanwhile
    */
-  | { kind: 'album'; albumId: string; index: number; name: string; by?: string }
+  | {
+      kind: 'album';
+      albumId: string;
+      index: number;
+      name: string;
+      by?: string;
+      /** the album's photos — «фото 4 з 20» on «Сцена» (1.9.0-beta.11) */
+      total?: number;
+    }
   /** a video of the list (1.8.12-beta.3) */
   | { kind: 'video'; videoId: string; by?: string };
 

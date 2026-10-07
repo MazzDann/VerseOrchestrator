@@ -1100,6 +1100,21 @@ body[data-resizing='y'] {
   --vo-cap: calc(100vh - var(--app-shell-header-height, 3.5rem) - 9rem);
 }
 
+/* a row that is a <button> (1.9.0-beta.11): the browser's own button look off */
+.vo-plain-button {
+  display: block;
+  width: 100%;
+  text-align: start;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+.vo-plain-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 /* ---- /desk: a control window on another computer (1.9.0-beta.10, F1005-10) ----
    The control window's three columns — books · verses · monitors — over the remote protocol. */
 .vo-desk {
@@ -1198,4 +1213,287 @@ body[data-resizing='y'] {
   .vo-desk-col + .vo-desk-col {
     border-left: 0;
   }
+}
+
+/* ---- «Сцена» (1.9.0-beta.11, F1005-09): the speaker's window ----
+   An output surface: its own colours (dark or light, Налаштування вигляду → Сцена), not the
+   operator's theme; the tally colours are the app's (live red, cue amber). Sizes in vmin. */
+.vo-stage {
+  --stage-bg: #0a0a0f;
+  --stage-fg: #f4f4f6;
+  --stage-dim: rgba(244, 244, 246, 0.58);
+  --stage-line: #2c2e33;
+  --stage-badge: rgba(244, 244, 246, 0.14);
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4vmin;
+  padding: 2.2vmin;
+  box-sizing: border-box;
+  background: var(--stage-bg);
+  color: var(--stage-fg);
+  font-family: Inter, system-ui, sans-serif;
+}
+.vo-stage[data-theme='light'] {
+  --stage-bg: #f6f6f3;
+  --stage-fg: #15161a;
+  --stage-dim: rgba(21, 22, 26, 0.62);
+  --stage-line: #d4d4cf;
+  --stage-badge: rgba(21, 22, 26, 0.08);
+}
+.vo-stage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2vmin;
+}
+.vo-stage-now-line {
+  display: flex;
+  align-items: center;
+  gap: 1.4vmin;
+  min-width: 0;
+  font-size: 3vmin;
+}
+.vo-stage-dot {
+  width: 1.6vmin;
+  height: 1.6vmin;
+  border-radius: 50%;
+  flex: none;
+  background: var(--stage-dim);
+}
+.vo-stage-dot[data-on='true'] {
+  background: var(--mantine-color-live-filled);
+  box-shadow: 0 0 1.2vmin var(--mantine-color-live-filled);
+}
+.vo-stage-ref {
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vo-stage-badge {
+  flex: none;
+  font-size: 2.2vmin;
+  font-weight: 600;
+  padding: 0.3vmin 1.2vmin;
+  border-radius: 999px;
+  background: var(--stage-badge);
+}
+.vo-stage-place {
+  flex: none;
+  color: var(--stage-dim);
+  white-space: nowrap;
+}
+.vo-stage-clock {
+  flex: none;
+  font-size: 6vmin;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+/* the operator's message: the cue colour, two lines at most; a new one pulses once */
+.vo-stage-message {
+  flex: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  padding: 1.2vmin 2vmin;
+  border-radius: 1vmin;
+  background: var(--mantine-color-cue-filled);
+  color: #1a1300;
+  font-size: 4.4vmin;
+  font-weight: 700;
+  line-height: 1.2;
+  animation: vo-stage-pulse 1.4s ease-out 1;
+}
+@keyframes vo-stage-pulse {
+  0% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 1.2vmin color-mix(in srgb, var(--mantine-color-cue-filled) 45%, transparent);
+  }
+  100% {
+    transform: none;
+    box-shadow: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vo-stage-message {
+    animation: none;
+  }
+}
+.vo-stage-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 2vmin;
+}
+.vo-stage-main[data-layout='text'] {
+  flex-direction: column;
+}
+.vo-stage-current {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1vmin;
+}
+.vo-stage-main[data-layout='slides'] .vo-stage-current {
+  flex: 1 1 64%;
+}
+.vo-stage-side {
+  flex: 1 1 36%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2vmin;
+}
+.vo-stage-side .vo-stage-box {
+  align-items: flex-start;
+}
+.vo-stage-bottom {
+  flex: 0 0 30%;
+  min-height: 0;
+  display: flex;
+  gap: 2vmin;
+  padding-top: 1.4vmin;
+  border-top: 1px solid var(--stage-line);
+}
+.vo-stage-bottom[data-empty='true'] {
+  flex: none;
+}
+.vo-stage-bottom[data-empty='true'] .vo-stage-next {
+  flex-direction: row;
+  gap: 1.4vmin;
+}
+.vo-stage-bottom[data-empty='true'] .vo-stage-none {
+  flex: none;
+  min-height: 0;
+  border: 0;
+}
+.vo-stage-next {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8vmin;
+}
+.vo-stage-label {
+  font-size: 2.2vmin;
+  font-weight: 600;
+  color: var(--stage-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* «Текст»: the words fitted to the room (useAutoFit sets the font size) */
+.vo-stage-words {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.vo-stage-words > div {
+  width: 100%;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.vo-stage-words p {
+  margin: 0 0 0.5em;
+}
+.vo-stage-words p:last-child {
+  margin-bottom: 0;
+}
+.vo-stage-words[data-dim='true'] {
+  opacity: 0.35;
+}
+.vo-stage-next .vo-stage-words {
+  color: var(--stage-dim);
+}
+.vo-stage-abbr {
+  margin-inline-end: 0.6em;
+  color: var(--stage-dim);
+  font-size: 0.45em;
+  font-weight: 600;
+  vertical-align: middle;
+}
+/* «Мініатюри» and slides without words: as large as the box allows, no bands */
+.vo-stage-box {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+}
+.vo-stage-slide {
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  border-radius: 8px;
+}
+.vo-stage-slide[data-ring='live'] {
+  box-shadow: 0 0 0 3px var(--mantine-color-live-filled);
+}
+.vo-stage-slide[data-ring='cue'] {
+  box-shadow: 0 0 0 3px var(--mantine-color-cue-filled);
+}
+.vo-stage-none {
+  flex: 1;
+  min-height: 4vmin;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--stage-line);
+  border-radius: 8px;
+  color: var(--stage-dim);
+  font-size: 2.2vmin;
+}
+.vo-stage-timer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.6vmin;
+}
+/* the timer's amber and red were made for black: on the light stage they go darker (review) */
+.vo-stage[data-theme='light'] .vo-stage-time {
+  filter: brightness(0.6) saturate(1.2);
+}
+.vo-stage-time {
+  font-size: 13vmin;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.vo-stage-order {
+  flex: none;
+  display: flex;
+  gap: 1.6vmin;
+  padding-top: 1vmin;
+  border-top: 1px solid var(--stage-line);
+  color: var(--stage-dim);
+  font-size: 2.4vmin;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.vo-stage-order span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vo-stage-order span[data-current='true'] {
+  flex: none;
+  max-width: 50%;
+  color: var(--stage-fg);
+  font-weight: 600;
 }

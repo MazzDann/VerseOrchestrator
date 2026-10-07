@@ -73,6 +73,7 @@ import { useShowJumpWhenReady } from './control/useShowJumpWhenReady';
 import { usePublishNext, useAdoptRestore, useLeaderTakeover } from './control/useTakeover';
 import { useShowCommands } from './control/useShowCommands';
 import { useHub } from './control/useHub';
+import { useOrderCurrentMirror } from './control/useOrderCurrentMirror';
 import { ControlHeader } from './control/ControlHeader';
 import { ControlNavbar } from './control/ControlNavbar';
 import { HubBanners } from './control/HubBanners';
@@ -322,6 +323,7 @@ export function Control() {
     liveSlide,
     setLiveSlide,
     stageTimerRef,
+    stageMessageRef,
     cornerRef,
     liveSlideRef,
     followAlongRef,
@@ -398,7 +400,9 @@ export function Control() {
   const [countdownOpen, setCountdownOpen] = useState(false);
   /** …and «Таймер доповідача» (1.8.4) */
   const [stageTimerOpen, setStageTimerOpen] = useState(false);
-  const toolOpen = countdownOpen || stageTimerOpen;
+  /** …and «Повідомлення на сцену» (1.9.0-beta.11): its field takes letters the keys use */
+  const [stageMessageOpen, setStageMessageOpen] = useState(false);
+  const toolOpen = countdownOpen || stageTimerOpen || stageMessageOpen;
   // Finding the place (useJumps, vo-search): jumps, the go-to bar, the typed numbers (E3–E5)
   // and the search panel's scope — after toolOpen, which E3 reads
   const {
@@ -723,6 +727,7 @@ export function Control() {
     countdownKey,
     countdownRemote,
     stageTimerSet,
+    stageMessageSet,
     stageTimerStart,
     stageTimerPause,
     stageTimerShift,
@@ -734,6 +739,7 @@ export function Control() {
     appearance,
     cornerRef,
     stageTimerRef,
+    stageMessageRef,
     liveSlideRef,
     lastPushed,
     slideStyle,
@@ -873,6 +879,9 @@ export function Control() {
     liveSlide,
     nextSlide,
   });
+  // «Сцена»'s running-order strip (1.9.0-beta.11): the item on screen, under its own key — after
+  // the hub (E26–E30); it only writes localStorage
+  useOrderCurrentMirror({ isLeader, currentId: playlistCurrentId });
 
   // In-app "what's on screen now" monitor — reflects the actually-published slide.
   const textHidden = liveSlide.blank && !liveSlide.forceBlack;
@@ -1179,6 +1188,8 @@ export function Control() {
               stageTimerAfterZero,
               stageTimerSet,
               setStageTimerOpen,
+              stageMessageSet,
+              setStageMessageOpen,
             }}
           />
         </AppShell.Header>

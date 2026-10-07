@@ -7,6 +7,7 @@ import { type HeaderFold } from '../../lib/headerFold';
 import { type Keymap } from '../../hotkeys';
 import { CountdownTool } from '../../components/CountdownTool';
 import { StageTimerTool } from '../../components/StageTimerTool';
+import { StageMessageTool } from '../../components/StageMessageTool';
 import { ToolButton, ToolIcon, ToolZone } from '../../components/Toolbar';
 import { tr, useLang } from '../../i18n';
 import { standbyNotice } from './standby';
@@ -41,11 +42,13 @@ export interface LiveZoneProps {
   stageTimerAfterZero: (afterZero: AfterZero) => void;
   stageTimerSet: (timer: StageTimer | null) => void;
   setStageTimerOpen: (open: boolean) => void;
+  stageMessageSet: (text: string | null) => void;
+  setStageMessageOpen: (open: boolean) => void;
 }
 
 /**
  * «Вихід на екран» in the header: «Наживо», «На екран», «Сховати текст», «Чорний екран»,
- * «Заставка», «Відлік» and «Таймер доповідача». It never folds into «Ще».
+ * «Заставка», «Відлік», «Таймер доповідача» and «Повідомлення на сцену». It never folds into «Ще».
  */
 export function LiveZone({
   divider,
@@ -79,6 +82,8 @@ export function LiveZone({
   stageTimerAfterZero,
   stageTimerSet,
   setStageTimerOpen,
+  stageMessageSet,
+  setStageMessageOpen,
 }: LiveZoneProps & { divider: boolean; fold: HeaderFold; keymap: Keymap }) {
   useLang();
   return (
@@ -186,6 +191,12 @@ export function LiveZone({
         onAfterZero={stageTimerAfterZero}
         onRemove={() => stageTimerSet(null)}
         onOpenChange={setStageTimerOpen}
+      />
+      <StageMessageTool
+        message={liveSlide.stageMessage ?? null}
+        disabled={!isLeader}
+        onSend={stageMessageSet}
+        onOpenChange={setStageMessageOpen}
       />
     </ToolZone>
   );

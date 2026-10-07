@@ -195,11 +195,14 @@ export function useShowCommands({
    */
   async function remoteSlide(p: RemotePassage, by: string): Promise<Slide> {
     const lines: SlideLine[] = [];
+    /** the first translation's last verse: «вірш 16 з 36» on «Сцена» (1.9.0-beta.11) */
+    let total: number | undefined;
     for (const id of p.translationIds) {
       const verses = await queryClient.fetchQuery({
         queryKey: ['verses', id, p.bookNumber, p.chapter],
         queryFn: () => api.verses(id, p.bookNumber, p.chapter),
       });
+      total ??= verses.length > 0 ? verses[verses.length - 1].verse : undefined;
       const text = joinVerses(verses, p.verses, appearance.showVerseNumbers);
       if (!text.trim()) continue;
       const t = translations.find((x) => x.id === id);
@@ -223,7 +226,7 @@ export function useShowCommands({
       visible: true,
       style: slideStyle,
       template: slideTemplate,
-      source: { kind: 'verses', ...p, page: 0, reveal: 1, by },
+      source: { kind: 'verses', ...p, page: 0, reveal: 1, by, ...(total ? { total } : {}) },
     };
   }
 
@@ -245,7 +248,7 @@ export function useShowCommands({
       visible: true,
       style: slideStyle,
       template: slideTemplate,
-      source: { kind: 'song', songId: p.songId, stanza: p.stanza, by },
+      source: { kind: 'song', songId: p.songId, stanza: p.stanza, by, total: s.slides.length },
     };
   }
 
