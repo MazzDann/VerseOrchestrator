@@ -27,6 +27,7 @@ These are the control window's standard keys. You can change them in **Settings*
 | **Bring back to the screen**         | Ctrl+Z            | ⌘Z                     |
 | **Search (current)**                 | F3, Ctrl+F        | ⌘F                     |
 | **Search (all)**                     | F4                | ⇧⌘F                    |
+| **To the search field**              | /                 | /                      |
 | **Command palette**                  | Ctrl+K, Ctrl+P    | ⌘K                     |
 
 On macOS the F keys work together with Fn, so there are ⌘ keys by default as well.
@@ -71,7 +72,7 @@ The buttons at the top of the control window are grouped from left to right:
 
 | Group                | Buttons                                                                                               |
 | -------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Navigation**       | the navigation menu (in a narrow window), **Search**, the **Go to** field                             |
+| **Navigation**       | the navigation menu (in a narrow window), **Search**, the **Search** field                            |
 | **Sources**          | **Songs**, **Custom text**, **Images**, **Running order**                                             |
 | **Windows**          | **Presentation window**, **Stage**, **Output windows**, **Viewers**, **Speaker remote**               |
 | **Output to screen** | **Live**, **To screen**, **Hide text**, **Black screen**, **Cover**, **Countdown**, **Speaker timer** |
@@ -81,7 +82,7 @@ When the buttons don't all fit in the window, they make room one step at a time:
 
 1. The app's name hides.
 2. **Presentation window** and **Hide text** keep only their icons.
-3. The **Go to** field and the **Live** caption hide.
+3. The **Search** field and the **Live** caption hide.
 4. The buttons of the **App** group, then **Windows**, then **Sources** move into the
    **More** menu — the button with three dots at the top right.
 
@@ -100,7 +101,7 @@ the arrow keys and Enter, and close the menu with Esc. While the menu is open, k
 in it: the arrow keys don't move through the verses, and Esc doesn't take the slide off the
 screen.
 
-When the **Go to** field is hidden, type the numbers right in the control window, for
+When the **Search** field is hidden, type the numbers right in the control window, for
 example `3:16`, or type the reference in the command palette (Ctrl+K, on macOS ⌘K). See
 [Find a text](find-text.md).
 
