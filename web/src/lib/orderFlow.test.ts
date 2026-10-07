@@ -95,3 +95,18 @@ describe('the step runs on what the operator sees (1.10.0-beta.1 review)', () =>
     expect(stillThere(song, verses([16]), from)).toBe(false);
   });
 });
+
+describe('a «Заставка» item (1.10.0-beta.2)', () => {
+  it('is on screen while its text and picture are', () => {
+    const cover: SeqItem = {
+      kind: 'cover',
+      id: 'c',
+      label: 'Вітаємо',
+      text: 'Вітаємо',
+      image: { imageId: 'x', src: '/x.jpg' },
+    };
+    expect(belongsTo(cover, slide({ cover: { text: 'Вітаємо', image: '/x.jpg' } }))).toBe(true);
+    expect(belongsTo(cover, slide({ cover: { text: 'Вітаємо', image: null } }))).toBe(false);
+    expect(asksFor(cover, { kind: 'slide' })).toBe(true);
+  });
+});

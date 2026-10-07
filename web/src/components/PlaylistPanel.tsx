@@ -14,6 +14,7 @@ import {
   TextInput,
   Divider,
   ScrollArea,
+  Menu,
 } from '@mantine/core';
 import {
   IconBook,
@@ -34,9 +35,13 @@ import {
   IconFolderOpen,
   IconArrowBackUp,
   IconPuzzle,
+  IconPresentation,
+  IconPlus,
 } from '@tabler/icons-react';
+import { CoverItemEditor } from './CoverItemEditor';
+import { coverLabel } from '../lib/coverItem';
 import { api } from '../api';
-import { type SeqItem, type SavedProgram, stepIndex } from '../playlistStore';
+import { type SeqItem, type SavedProgram, stepIndex, usePlaylist } from '../playlistStore';
 import { useServer } from '../serverStore';
 import { useSettings } from '../settingsStore';
 import { formatCombo } from '../hotkeys';
@@ -75,6 +80,7 @@ const KIND_ICON = {
   image: IconLibraryPhoto,
   album: IconAlbum,
   video: IconMovie,
+  cover: IconPresentation,
   foreign: IconPuzzle,
 } as const;
 
@@ -86,6 +92,7 @@ const KIND_COLOR = {
   image: 'gray',
   album: 'gray',
   video: 'gray',
+  cover: 'gray',
   foreign: 'gray',
 } as const;
 
@@ -160,6 +167,20 @@ export const PlaylistPanel = memo(function PlaylistPanel({
     return unusable('folder', album, it.label);
   };
   const [programsOpen, setProgramsOpen] = useState(false);
+  // the «Заставка» item whose editor is open (1.10.0-beta.2)
+  const [editing, setEditing] = useState<string | null>(null);
+  const coverText = useSettings((s) => s.appearance.coverText);
+  // «+» → «Заставка»: an item with the settings' text to start from, its editor open
+  const addCover = () => {
+    usePlaylist.getState().add({
+      kind: 'cover',
+      label: coverLabel(coverText),
+      text: coverText,
+      image: null,
+    });
+    const added = usePlaylist.getState().items.at(-1);
+    if (added) setEditing(added.id);
+  };
   const [name, setName] = useState('');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -291,6 +312,20 @@ export const PlaylistPanel = memo(function PlaylistPanel({
             </Tooltip>
           </Group>
           <Group gap={6} wrap="nowrap">
+            <Menu position="bottom-end" withinPortal>
+              <Menu.Target>
+                <Tooltip label={tr('Додати в показ')}>
+                  <ActionIcon variant="subtle" color="gray" aria-label={tr('Додати в показ')}>
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item leftSection={<IconPresentation size={14} />} onClick={addCover}>
+                  {tr('Заставка')}
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
             <Tooltip label={tr('Програми (зберегти / відкрити)')}>
               <ActionIcon
                 variant={programsOpen ? 'filled' : 'subtle'}
@@ -426,6 +461,9 @@ export const PlaylistPanel = memo(function PlaylistPanel({
                     data-selected={active ? 'true' : undefined}
                     onClick={() => onActivate(it)}
                     onKeyDown={(e) => {
+                      // keys typed in a «Заставка» editor (a portal — its events still bubble
+                      // here) or on a row's own buttons are theirs (1.10.0-beta.2 review)
+                      if (e.target !== e.currentTarget) return;
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         onActivate(it);
@@ -498,6 +536,13 @@ export const PlaylistPanel = memo(function PlaylistPanel({
                       </Badge>
                     )}
                     <Group gap={0} wrap="nowrap">
+                      {it.kind === 'cover' && (
+                        <CoverItemEditor
+                          item={it}
+                          opened={editing === it.id}
+                          onOpenChange={(o) => setEditing(o ? it.id : null)}
+                        />
+                      )}
                       <ActionIcon
                         variant="subtle"
                         color="gray"

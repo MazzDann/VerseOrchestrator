@@ -77,6 +77,18 @@ export interface SeqVideo {
 }
 
 /**
+ * «Заставка» as an item (1.10.0-beta.2, the author's call: its own text and picture in each item):
+ * the picture is one of «Зображення» by its address, never a data URL; none — the text alone.
+ */
+export interface SeqCover {
+  kind: 'cover';
+  id: string;
+  label: string;
+  text: string;
+  image: { imageId: string; src: string } | null;
+}
+
+/**
  * An item of a newer version (1.9.1): a kind this one doesn't know — kept exactly as it was saved,
  * so the newer version gets it back after a step down and up again; never put on screen, steps
  * pass over it. 1.9.0 drew such an item with no icon and the control window failed.
@@ -89,7 +101,15 @@ export interface SeqForeign {
   raw: Record<string, unknown>;
 }
 
-export type SeqItem = SeqPassage | SeqSong | SeqText | SeqImage | SeqAlbum | SeqVideo | SeqForeign;
+export type SeqItem =
+  | SeqPassage
+  | SeqSong
+  | SeqText
+  | SeqImage
+  | SeqAlbum
+  | SeqVideo
+  | SeqCover
+  | SeqForeign;
 /** An item to add — same shape minus the store-assigned id. */
 export type NewSeqItem =
   | Omit<SeqPassage, 'id'>
@@ -97,7 +117,8 @@ export type NewSeqItem =
   | Omit<SeqText, 'id'>
   | Omit<SeqImage, 'id'>
   | Omit<SeqAlbum, 'id'>
-  | Omit<SeqVideo, 'id'>;
+  | Omit<SeqVideo, 'id'>
+  | Omit<SeqCover, 'id'>;
 
 function newId(): string {
   try {
@@ -121,6 +142,7 @@ export const KIND_SINCE: Record<Exclude<SeqItem['kind'], 'foreign'>, string> = {
   image: '1.5.0',
   album: '1.8.12-beta.1',
   video: '1.8.12-beta.3',
+  cover: '1.10.0-beta.2',
 };
 /** From this version on, an item of a kind the version doesn't know is passed over. */
 export const FIRST_FOREIGN_SAFE = '1.9.1';
@@ -180,6 +202,8 @@ interface PlaylistState {
   saved: SavedProgram[];
   add: (item: NewSeqItem) => void;
   removeItem: (id: string) => void;
+  /** Change an item in place (1.10.0-beta.2: a «Заставка» item's text and picture). */
+  updateItem: (id: string, patch: Partial<Omit<SeqCover, 'id' | 'kind'>>) => void;
   /** Move an item one slot up (-1) or down (+1). */
   move: (id: string, dir: -1 | 1) => void;
   /** Move the item at `from` to position `to` (drag-and-drop reorder). */
@@ -238,6 +262,13 @@ export const usePlaylist = create<PlaylistState>()(
         set((s) => ({
           items: [...s.items, { ...item, id: newId() } as SeqItem],
           cleared: null,
+          replaced: null,
+        })),
+      updateItem: (id, patch) =>
+        set((s) => ({
+          items: s.items.map((it) =>
+            it.id === id && it.kind === 'cover' ? { ...it, ...patch } : it,
+          ),
           replaced: null,
         })),
       removeItem: (id) =>

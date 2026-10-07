@@ -803,6 +803,7 @@ export function Control() {
     advance,
     playlistItems,
     leaderRef,
+    liveSlideRef,
     pushLive,
     setLive,
     playlistSetCurrent,
