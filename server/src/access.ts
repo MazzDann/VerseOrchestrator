@@ -35,14 +35,31 @@ export function clientAddress(req: IncomingMessage): string {
 /** True when the request comes from the operator's own machine. */
 export const isLocalRequest = (req: IncomingMessage) => isOwnAddress(clientAddress(req));
 
+/** Virtual adapters by their Windows (and Linux) names that say what they are. */
+const VIRTUAL = /(vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|default switch)/i;
+/**
+ * Virtual and tunnel interfaces by their Unix unit names — the whole name, with its number.
+ * macOS names nothing «virtual» (Mac check of 1.9.0: UTM's and Internet Sharing's bridge100,
+ * Parallels' vnic0/vnic1 went to phones before en0): bridge (also the Thunderbolt Bridge),
+ * vmnet (VMware Fusion), vnic (Parallels), utun (VPNs, iCloud Private Relay), ipsec (the
+ * built-in VPN), awdl/llw (AirDrop), anpi, ap (Wi-Fi hotspot), gif, stf, feth. Linux: virbr
+ * (libvirt), br-<id> (Docker networks — a plain br0 often carries the real LAN, so not it),
+ * veth, and the VPNs tun/tap/wg.
+ */
+const VIRTUAL_UNIT =
+  /^(?:(?:bridge|vmnet|vnic|utun|ipsec|awdl|llw|anpi|ap|gif|stf|feth|virbr|tun|tap|wg)\d+|br-[0-9a-f]+|veth\w+)$/;
+/** A Mac's own Wi-Fi/Ethernet (en0, en5 …); Windows and Linux never name an interface so. */
+const MAC_REAL = /^en\d+$/;
+
 /**
  * This machine's LAN IPv4 addresses, the one a phone can most likely reach first: a real
- * Wi-Fi/Ethernet address before virtual adapters (Hyper-V/WSL/VirtualBox/Docker), which are
- * commonly enumerated first on Windows and aren't reachable from phones. Shared by the
- * phone QR (`/api/host`) and the launcher's printout (0.7.0).
+ * Wi-Fi/Ethernet address before virtual adapters (Hyper-V/WSL/VirtualBox/Docker on Windows,
+ * VMs/VPNs/Internet Sharing on a Mac), which are commonly enumerated first and aren't
+ * reachable from phones. Virtual ones go last rather than away: with Internet Sharing over
+ * Wi-Fi the Mac's bridge is the only address its phones have. Shared by the phone QR
+ * (`/api/host`) and the launcher's printout (0.7.0).
  */
 export function lanIps(interfaces = os.networkInterfaces()): string[] {
-  const VIRTUAL = /(vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|default switch)/i;
   // Rank by private-range likelihood: 192.168.x (home Wi-Fi) > 10.x > 172.16–31.x.
   const rangeRank = (ip: string): number => {
     if (ip.startsWith('192.168.')) return 0;
@@ -55,9 +72,11 @@ export function lanIps(interfaces = os.networkInterfaces()): string[] {
     for (const a of addrs ?? []) {
       if (a.family !== 'IPv4' || a.internal) continue;
       if (a.address.startsWith('169.254.')) continue; // link-local (no DHCP)
+      const virtual = VIRTUAL.test(name) || VIRTUAL_UNIT.test(name);
       candidates.push({
         ip: a.address,
-        rank: rangeRank(a.address) + (VIRTUAL.test(name) ? 10 : 0),
+        // among equals a Mac's en<N> first; every other name moves alike, so order holds
+        rank: rangeRank(a.address) + (virtual ? 10 : 0) + (MAC_REAL.test(name) ? 0 : 0.5),
       });
     }
   }
