@@ -4,7 +4,16 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { readJson, writeJson } from './jsonFile.js';
 import { MAX_SMALL_BYTES, sniff } from './images.js';
-import { badPath, elsewhere, extOf, kindOf, natural, realPaths, samePath } from './albums.js';
+import {
+  elsewhere,
+  extOf,
+  isDenied,
+  kindOf,
+  locate,
+  natural,
+  realPaths,
+  samePath,
+} from './albums.js';
 
 /**
  * Video on screen (1.8.12-beta.3, F1005-14): video files on this computer, picked one by one and
@@ -106,10 +115,20 @@ export function readVideos(dataDir: string): Video[] {
 const writeVideos = (dataDir: string, videos: Video[]) =>
   writeJson(videosFile(dataDir), { videos });
 
-/** A video file now: its type by its first bytes, its size and last change; null when gone or not a video. */
-export async function videoFile(
-  file: string,
-): Promise<{ file: string; type: string; kind: VideoKind; size: number; mtimeMs: number } | null> {
+export interface VideoFile {
+  file: string;
+  type: string;
+  kind: VideoKind;
+  size: number;
+  mtimeMs: number;
+}
+
+/**
+ * A video file now: its type by its first bytes, its size and last change; 'denied' when the
+ * system won't open it (albums.ts isDenied — Mac check of 1.9.0: macOS privacy was «not found»),
+ * null when gone or not a video.
+ */
+async function readVideo(file: string): Promise<VideoFile | 'denied' | null> {
   // a file of another computer is not here — and its path must never reach the disk
   if (elsewhere(file)) return null;
   let fh: fsp.FileHandle | undefined;
@@ -121,14 +140,20 @@ export async function videoFile(
     const { bytesRead } = await fh.read(head, 0, head.length, 0);
     const kind = sniffVideo(head.subarray(0, bytesRead));
     return kind ? { file, type: VIDEO_TYPE[kind], kind, size: st.size, mtimeMs: st.mtimeMs } : null;
-  } catch {
-    return null;
+  } catch (e) {
+    return isDenied(e) ? 'denied' : null;
   } finally {
     await fh?.close();
   }
 }
 
-export type VideoRefusal = 'path' | 'missing' | 'type';
+/** A video file to serve now; null when gone, refused or not a video. */
+export async function videoFile(file: string): Promise<VideoFile | null> {
+  const now = await readVideo(file);
+  return now === 'denied' ? null : now;
+}
+
+export type VideoRefusal = 'path' | 'missing' | 'type' | 'denied';
 
 const nameOf = (file: string) =>
   path
@@ -143,12 +168,14 @@ export async function addVideo(
   input: { path?: unknown; name?: unknown },
   now = new Date(),
 ): Promise<Video | { refused: VideoRefusal }> {
-  const raw = typeof input.path === 'string' ? input.path.trim() : '';
-  if (badPath(raw)) return { refused: 'path' };
-  const file = path.resolve(raw);
-  const st = await fsp.stat(file).catch(() => null);
-  if (!st?.isFile()) return { refused: 'missing' };
-  if (!(await videoFile(file))) return { refused: 'type' };
+  const found = typeof input.path === 'string' ? await locate(input.path) : null;
+  if (!found) return { refused: 'path' };
+  const { at: file, kind } = found;
+  if (kind === 'denied') return { refused: 'denied' };
+  if (kind !== 'file') return { refused: 'missing' };
+  const read = await readVideo(file);
+  if (read === 'denied') return { refused: 'denied' };
+  if (!read) return { refused: 'type' };
   const reals = await realPaths([file, ...readVideos(dataDir).map((v) => v.path)]);
   // read and written with nothing awaited between: two adds at once can't lose one
   const videos = readVideos(dataDir);
@@ -225,7 +252,8 @@ async function dropPosters(dataDir: string, id: string, keep?: string) {
 
 /** A video as the pages get it. */
 export async function videoEntry(dataDir: string, video: Video) {
-  const now = await videoFile(video.path);
+  const read = await readVideo(video.path);
+  const now = read === 'denied' ? null : read;
   const v = now ? versionOf(now) : null;
   const poster = v
     ? !!(await fsp.stat(path.join(posterDir(dataDir), posterName(video.id, v))).catch(() => null))
@@ -235,8 +263,14 @@ export async function videoEntry(dataDir: string, video: Video) {
     name: video.name,
     path: video.path,
     added: video.added,
-    /** the file is not there (or no longer a video) */
+    /**
+     * can't be used here: not there, no longer a video — or refused (`denied` says why). A
+     * refused file stays `missing` too, so every guard that keeps a missing video off the screen
+     * (the running order, «далі» after a video) keeps this one off as well
+     */
     missing: !now,
+    /** why it's `missing`: the system won't open the file (macOS privacy, rights) — the words */
+    denied: read === 'denied',
     /** added on another computer (another system's path): not here, never read */
     elsewhere: elsewhere(video.path),
     size: now?.size ?? 0,

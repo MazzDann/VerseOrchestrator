@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addVideo,
@@ -76,6 +77,8 @@ const canLink = (() => {
     fs.rmSync(d, { recursive: true, force: true });
   }
 })();
+/** A file can be closed to this process with chmod 000: not on Windows, not as root (albums.test). */
+const canClose = process.platform !== 'win32' && process.getuid?.() !== 0;
 /** A path the other system wrote: a Windows drive here, a Mac's folder on Windows. */
 const FAR = process.platform === 'win32' ? '/Volumes/Відео/Різдво.mp4' : 'D:\\Відео\\Різдво.mp4';
 
@@ -102,7 +105,25 @@ describe('video files (1.8.12-beta.3)', () => {
     expect(await addVideo(data, { path: dir })).toEqual({ refused: 'missing' });
     expect(await addVideo(data, { path: 'clip.webm' })).toEqual({ refused: 'path' });
     expect(readVideos(data)).toEqual([v]);
+    // as pasted (Mac check of 1.9.0): in quotes, as a file:// URL — the same video
+    expect(await addVideo(data, { path: `"${path.join(dir, 'Різдво 2025.mp4')}"` })).toEqual(v);
+    const url = pathToFileURL(path.join(dir, 'Різдво 2025.mp4')).href;
+    expect(await addVideo(data, { path: url })).toEqual(v);
+    expect(readVideos(data)).toEqual([v]);
   });
+
+  it.skipIf(process.platform === 'win32')(
+    'takes a listed file’s path as it is: «a\\ b.mp4», «Різдво .mp4» (review)',
+    async () => {
+      const { dir, data } = folder({ 'a\\ b.mp4': MP4, 'Різдво .mp4': MP4 });
+      const escaped = await added(data, path.join(dir, 'a\\ b.mp4'));
+      expect(escaped.path).toBe(path.join(dir, 'a\\ b.mp4'));
+      expect((await added(data, path.join(dir, 'Різдво .mp4'))).path).toBe(
+        path.join(dir, 'Різдво .mp4'),
+      );
+      expect(readVideos(data)).toHaveLength(2);
+    },
+  );
 
   it('serves a file typed by its bytes: a MOV and an MKV as the containers browsers play', async () => {
     const { dir } = folder({ 'a.mov': MOV, 'b.mkv': MKV, 'c.mp4': MP4 });
@@ -148,6 +169,44 @@ describe('video files (1.8.12-beta.3)', () => {
     expect(await videoEntry(data, v)).toMatchObject({ missing: true, size: 0, hasPoster: false });
     expect(await putPoster(data, v, '1-1', JPG)).toEqual({ refused: 'video' });
   });
+
+  it.skipIf(!canClose)(
+    'says a file the system won’t open is refused (missing here, `denied` says why) — and serves nothing (Mac check of 1.9.0)',
+    async () => {
+      const { dir, data } = folder({ 'a.mp4': MP4, 'b.mp4': MP4 });
+      const file = path.join(dir, 'a.mp4');
+      const v = await added(data, file);
+      fs.chmodSync(file, 0o000);
+      try {
+        // still `missing`: every guard that keeps a missing video off the screen keeps it off
+        expect(await videoEntry(data, v)).toMatchObject({
+          missing: true,
+          denied: true,
+          size: 0,
+          hasPoster: false,
+        });
+        expect(await videoFile(file)).toBeNull();
+        expect(await posterFile(data, v)).toBeNull();
+        expect(await putPoster(data, v, '1-1', JPG)).toEqual({ refused: 'video' });
+        // refused as such — not «not a video»
+        expect(await addVideo(data, { path: file })).toEqual({ refused: 'denied' });
+        // a folder the system won't open: the system won't say what is in it either
+        fs.chmodSync(dir, 0o000);
+        expect(await addVideo(data, { path: path.join(dir, 'b.mp4') })).toEqual({
+          refused: 'denied',
+        });
+        expect(await videoEntry(data, v)).toMatchObject({ missing: true, denied: true });
+      } finally {
+        fs.chmodSync(dir, 0o755);
+        fs.chmodSync(file, 0o644);
+      }
+      expect(await videoEntry(data, v)).toMatchObject({
+        missing: false,
+        denied: false,
+        size: MP4.length,
+      });
+    },
+  );
 
   it('keeps videos another system added: written back as they are, never read, removable (Mac check of 1.9.0)', async () => {
     const { dir, data } = folder({ 'a.mp4': MP4, 'b.mp4': MP4 });
