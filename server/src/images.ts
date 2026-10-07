@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { readJson, writeJson } from './jsonFile.js';
+import { assertWritable, readJson, writeJson } from './jsonFile.js';
 
 /**
  * Pictures on screen (1.5.0): the operator's images, kept by the server in data/images/ so the
@@ -156,10 +156,13 @@ export function addImage(
     size: full.length,
     added: now.toISOString(),
   };
+  // the list first: an index that can't be read now leaves no picture files without it (1.9.3)
+  const index = readIndex(dir);
+  assertWritable(path.join(dir, INDEX));
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, fileOf(img)), full);
   fs.writeFileSync(path.join(dir, smallOf(img)), small);
-  writeIndex(dir, [img, ...readIndex(dir).filter((i) => i.id !== img.id)]);
+  writeIndex(dir, [img, ...index.filter((i) => i.id !== img.id)]);
   return img;
 }
 
@@ -174,6 +177,7 @@ export function trashImage(
   const all = readIndex(dir);
   const img = all.find((i) => i.id === id);
   if (!img || !fs.existsSync(path.join(dir, fileOf(img)))) return null;
+  assertWritable(path.join(dir, INDEX)); // before anything moves into the trash (1.9.3)
   const trash = path.join(dir, TRASH);
   fs.mkdirSync(trash, { recursive: true });
   const trashed = `${Date.now()}-${img.id}`;
@@ -207,11 +211,14 @@ export function restoreImage(dir: string, trashed: string): StoredImage | null {
   const meta = readJson<unknown>(path.join(trash, `${trashed}.json`), null);
   if (!isStoredImage(meta) || !fs.existsSync(path.join(trash, `${trashed}.${meta.ext}`)))
     return null;
+  // the list first: an index that can't be read now leaves the picture in the trash (1.9.3)
+  const index = readIndex(dir);
+  assertWritable(path.join(dir, INDEX));
   fs.renameSync(path.join(trash, `${trashed}.${meta.ext}`), path.join(dir, fileOf(meta)));
   const small = path.join(trash, `${trashed}.small.${meta.smallExt}`);
   if (fs.existsSync(small)) fs.renameSync(small, path.join(dir, smallOf(meta)));
   fs.rmSync(path.join(trash, `${trashed}.json`), { force: true });
-  writeIndex(dir, [meta, ...readIndex(dir).filter((i) => i.id !== meta.id)]);
+  writeIndex(dir, [meta, ...index.filter((i) => i.id !== meta.id)]);
   return meta;
 }
 
