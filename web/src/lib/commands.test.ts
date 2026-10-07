@@ -88,7 +88,7 @@ describe('the switches a command flips (1.4.1)', () => {
     }
   });
 
-  it("a remote's «Відлік» (1.8.12-beta.10) arrives as start / pause / stop, a length only with start", () => {
+  it("a remote's «Відлік» (1.9.0-beta.1) arrives as start / pause / stop, a length only with start", () => {
     expect(asCountdown({ op: 'start', seconds: 450 })).toEqual({ op: 'start', seconds: 450 });
     expect(asCountdown({ op: 'pause' })).toEqual({ op: 'pause' });
     expect(asCountdown({ op: 'stop', seconds: 'x' })).toEqual({ op: 'stop' });

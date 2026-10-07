@@ -586,7 +586,7 @@ describe('speaker remote over the hub', () => {
     r2.ws.close();
   });
 
-  it('a desk (another computer) hears whole slides; a phone keeps the summaries (1.8.12-beta.10)', async () => {
+  it('a desk (another computer) hears whole slides; a phone keeps the summaries (1.9.0-beta.1)', async () => {
     const pd = createPairing('Ноутбук', undefined, 'desk');
     const pp = createPairing('Телефон');
     const control = client({ role: 'control' }, origin());

@@ -14,11 +14,23 @@ interface ServerState {
    * (server/src/versionLabel.ts); null for a release, and until the server answers.
    */
   devLabel: string | null;
+  /**
+   * Is this page on the computer with the app (1.9.0-beta.1)? The control window works only
+   * there; opened from another computer, `/` says how to get a desk link (pages/OtherComputer).
+   * True at once on a loopback address; else the control window's start asks `/api/host`;
+   * null until then. Without a server (a static build) there is nothing to control: true.
+   */
+  here: boolean | null;
 }
+
+/** localhost, 127.x.x.x, [::1]: the browser runs on the computer with the app. */
+export const isLoopbackHost = (hostname: string): boolean =>
+  /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/i.test(hostname);
 
 export const useServer = create<ServerState>()(() => ({
   available: null,
   devLabel: null,
+  here: typeof window === 'undefined' || isLoopbackHost(window.location.hostname) ? true : null,
 }));
 
 interface Health {

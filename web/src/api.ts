@@ -265,13 +265,13 @@ const RemoteCommandSchema = z.enum([
   'countdown',
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
-/** A phone (`/remote`, a QR) or a control window on another computer (`/desk`, 1.8.12-beta.10). */
+/** A phone (`/remote`, a QR) or a control window on another computer (`/desk`, 1.9.0-beta.1). */
 const PairingKindSchema = z.enum(['phone', 'desk']).catch('phone');
 export type PairingKind = z.infer<typeof PairingKindSchema>;
 const PairingSchema = z.object({
   id: z.string(),
   name: z.string(),
-  // a server before 1.8.12-beta.10 sends none: a phone
+  // a server before 1.9.0-beta.1 sends none: a phone
   kind: PairingKindSchema.optional().transform((k) => k ?? 'phone'),
   allowed: z.array(RemoteCommandSchema),
   createdAt: z.number(),
@@ -682,7 +682,7 @@ export const api = {
       /* best-effort, like livePost */
     });
   },
-  // `local` (1.8.12-beta.10): this page runs on the computer with the app (absent before: yes)
+  // `local` (1.9.0-beta.1): this page runs on the computer with the app (absent before: yes)
   host: () =>
     getJson('/api/host', z.object({ ips: z.array(z.string()), local: z.boolean().default(true) })),
   // Speaker remotes (server/src/remote.ts). The token comes back ONLY from create.

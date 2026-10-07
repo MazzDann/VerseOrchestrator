@@ -1840,7 +1840,17 @@ export const EN: Record<string, string> = {
   'Угорі, посередині': 'At the top, in the middle',
   'Над віршами (у «Біблії»)': 'Above the verses (in “Bible”)',
   'Угорі, перед режимами': 'At the top, before the modes',
-  // a control window on another computer (1.8.12-beta.10, server/src/live.ts, web/src/pages/Desk.tsx)
+  // a control window on another computer (1.9.0-beta.1, server/src/live.ts, web/src/pages/Desk.tsx)
   'Неправильний відлік': 'Invalid countdown',
   'Відліку на екрані немає': 'There is no countdown on screen',
+  'Керувати показом звідси — через пульт для комп’ютера':
+    'Control the show from here with a computer remote',
+  'Повне вікно керування працює лише на комп’ютері, де запущено застосунок. Попросіть оператора створити пульт для цього комп’ютера (Пульт доповідача → Комп’ютер) і вставте його посилання сюди.':
+    'The full control window works only on the computer that runs the app. Ask the operator to create a remote for this computer (Speaker remote → Computer) and paste its link here.',
+  'Посилання на пульт': 'Remote link',
+  Відкрити: 'Open',
+  'У цьому посиланні немає коду пульта. Скопіюйте його повністю.':
+    'This link has no remote code in it. Copy the whole link.',
+  'Лише читати текст разом із показом:': 'Only read the text along with the show:',
+  'сторінка для глядачів': 'the viewers’ page',
 };
