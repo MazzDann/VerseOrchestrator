@@ -113,3 +113,14 @@ describe('across a book’s edge (1.4.0)', () => {
     ).toBeNull();
   });
 });
+
+describe('a held key at the edge (1.9.5, Mac check)', () => {
+  it('its repeats arm, never cross; a new press crosses', async () => {
+    const { pressAtEdge } = await import('./chapterCross');
+    const first = pressAtEdge(null, 'k', 1000, true);
+    expect(first.cross).toBe(false);
+    const again = pressAtEdge(first.arm, 'k', 1100, true);
+    expect(again).toEqual({ cross: false, arm: first.arm });
+    expect(pressAtEdge(again.arm, 'k', 1500).cross).toBe(true);
+  });
+});
