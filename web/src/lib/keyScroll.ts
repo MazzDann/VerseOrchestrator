@@ -4,6 +4,19 @@ export function isFormField(target: EventTarget | null): boolean {
   return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName ?? ''));
 }
 
+/**
+ * A field the caret types in (1.8.12-beta.7): a text input or area — not a radio («Точний показ /
+ * Простий текст»), a checkbox, or a Select's read-only input, whose arrows the song may take.
+ */
+export function isTextEntry(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  if (el.isContentEditable || el.tagName === 'TEXTAREA') return true;
+  if (el.tagName !== 'INPUT') return false;
+  const input = el as HTMLInputElement;
+  return !input.readOnly && /^(text|search|number|email|url|tel|password)$/.test(input.type);
+}
+
 /** A resize control's step for one arrow key press, in px. */
 export const RESIZE_KEY_STEP = 16;
 

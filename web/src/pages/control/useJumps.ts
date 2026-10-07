@@ -37,6 +37,7 @@ export function useJumps({
   moreShown,
   toolOpen,
   setSearchOpen,
+  toBible,
 }: {
   selectedIds: number[];
   setTranslations: (ids: number[]) => void;
@@ -56,6 +57,8 @@ export function useJumps({
   moreShown: boolean;
   toolOpen: boolean;
   setSearchOpen: (v: boolean | ((open: boolean) => boolean)) => void;
+  /** a place in the Bible shows the Bible (1.8.12-beta.7): from «Пісні» or «Медіа» too */
+  toBible: () => void;
 }) {
   // one search (1.8.12-beta.4): the header's field and the results panel share the query; the
   // scope starts as the settings say (F3 / Ctrl+F — the main translation, F4 — all)
@@ -109,6 +112,7 @@ export function useJumps({
     setSelectedVerses([r.verse]);
     setScrollTarget(r.verse);
     focusJump.current = !!opts?.focus;
+    toBible();
   };
 
   // Quick jump bar: resolve a reference/text query and jump to the first hit.
@@ -212,6 +216,7 @@ export function useJumps({
     setRevealCount(1);
     setScrollTarget(from);
     focusJump.current = true;
+    toBible();
     return true;
   };
 

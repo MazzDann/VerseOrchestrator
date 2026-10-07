@@ -47,7 +47,7 @@ import { CommandPalette } from '../components/CommandPalette';
 import { useHeaderFold } from '../lib/headerFold';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { SETTINGS_PANEL_KEY } from '../lib/panelBox';
-import { usePlaylist } from '../playlistStore';
+import { usePlaylist, type SeqItem } from '../playlistStore';
 import { ImagesPanel } from '../components/ImagesPanel';
 import { standbyNotice } from './control/standby';
 import { usePanelResize } from './control/usePanelResize';
@@ -81,7 +81,10 @@ import { VerseList } from './control/VerseList';
 import { PlaylistDocked } from './control/PlaylistDocked';
 import { ShowList, type ShowTab } from '../components/ShowList';
 
-type InlinePanel = 'search' | 'songs' | 'text' | 'images';
+/** What the control window works with (1.8.12-beta.7, F1005-12 / 15). */
+export type Workspace = 'bible' | 'songs' | 'media';
+type Toggle = boolean | ((open: boolean) => boolean);
+const toggled = (v: Toggle, was: boolean) => (typeof v === 'function' ? v(was) : v);
 
 export function Control() {
   const lang = useLang();
@@ -106,6 +109,8 @@ export function Control() {
   const searchPrefs = useSettings((s) => s.search);
   const history = useSettings((s) => s.history);
   const bookmarks = useSettings((s) => s.bookmarks);
+  // «Простий вигляд» (1.8.12-beta.7): fewer tools in the header, only the preview on the right
+  const simpleView = useSettings((s) => s.simpleView);
   const pushHistory = useSettings((s) => s.pushHistory);
   const removeHistory = useSettings((s) => s.removeHistory);
   const clearHistory = useSettings((s) => s.clearHistory);
@@ -142,7 +147,9 @@ export function Control() {
   // buttons' text, the go-to field, then whole zones into «Ще» — measured, not breakpoints
   // (80em / 70em left buttons past the window's edge, Mac check of 1.4.1). What else changes
   // the widths — the language, a burger coming or going — makes it measure afresh.
-  const header = useHeaderFold(`${lang}|${panelPlacement}|${navBreakpoint}|${asideBreakpoint}`);
+  const header = useHeaderFold(
+    `${lang}|${panelPlacement}|${navBreakpoint}|${asideBreakpoint}|${simpleView}`,
+  );
   const fold = header.fold;
 
   const queryClient = useQueryClient();
@@ -168,32 +175,82 @@ export function Control() {
 
   const primaryId = selectedIds[0] ?? null;
   const [bookFilter, setBookFilter] = useState('');
-  // The centre column holds ONE inline tool at a time (search / songs / own text):
-  // stacked, they pushed the verse list off screen. A single slot makes opening one close
-  // the others; each keeps a boolean-style setter so call sites stay `setXOpen(o => !o)`.
-  // Their content state (open song, stanza, draft) lives outside, so reopening restores it.
-  const [inlinePanel, setInlinePanel] = useState<InlinePanel | null>(null);
-  const inlineSetter = useCallback(
-    (which: InlinePanel) => (v: boolean | ((open: boolean) => boolean)) =>
-      setInlinePanel((cur) => {
-        const was = cur === which;
-        const next = typeof v === 'function' ? v(was) : v;
-        return next ? which : was ? null : cur;
+  // One workspace at a time (1.8.12-beta.7, F1005-12 / 15 — the author's call): the Bible, the
+  // songs, or the media (pictures, albums, videos, own text); the left column and the centre change
+  // with it. The setters kept their boolean shape, so the call sites still say `setSongsOpen(true)`;
+  // closing one goes back to the Bible. The search results overlay any of them. Their content state
+  // (open song, stanza, draft) lives outside, so coming back restores it.
+  const [place, setPlace] = useState<{ ws: Workspace; tab: MediaTab }>({
+    ws: 'bible',
+    tab: 'images',
+  });
+  const workspace = place.ws;
+  const mediaTab = place.tab;
+  const [searchOpen, setSearchOpen] = useState(false);
+  const songsOpen = workspace === 'songs';
+  const textOpen = workspace === 'media' && mediaTab === 'text';
+  const imagesOpen = workspace === 'media' && mediaTab !== 'text';
+  const setWorkspace = useCallback(
+    (ws: Workspace) => setPlace((p) => (p.ws === ws ? p : { ...p, ws })),
+    [],
+  );
+  const toBible = useCallback(() => setWorkspace('bible'), [setWorkspace]);
+  const setMediaTab = useCallback(
+    (tab: MediaTab) => setPlace((p) => (p.tab === tab ? p : { ...p, tab })),
+    [],
+  );
+  const setSongsOpen = useCallback(
+    (v: Toggle) =>
+      setPlace((p) => {
+        const was = p.ws === 'songs';
+        return toggled(v, was) ? { ...p, ws: 'songs' } : was ? { ...p, ws: 'bible' } : p;
       }),
     [],
   );
-  const searchOpen = inlinePanel === 'search';
-  const songsOpen = inlinePanel === 'songs';
-  const textOpen = inlinePanel === 'text';
-  const imagesOpen = inlinePanel === 'images';
-  const setSearchOpen = useMemo(() => inlineSetter('search'), [inlineSetter]);
-  const setSongsOpen = useMemo(() => inlineSetter('songs'), [inlineSetter]);
-  const setTextOpen = useMemo(() => inlineSetter('text'), [inlineSetter]);
-  const setImagesOpen = useMemo(() => inlineSetter('images'), [inlineSetter]);
-  // «Зображення» shows pictures, albums (1.8.12) or videos (1.8.12-beta.3)
-  const [mediaTab, setMediaTab] = useState<MediaTab>('images');
-  const openAlbumsTab = useCallback(() => setMediaTab('albums'), []);
-  const openVideosTab = useCallback(() => setMediaTab('videos'), []);
+  const setTextOpen = useCallback(
+    (v: Toggle) =>
+      setPlace((p) => {
+        const was = p.ws === 'media' && p.tab === 'text';
+        return toggled(v, was) ? { ws: 'media', tab: 'text' } : was ? { ...p, ws: 'bible' } : p;
+      }),
+    [],
+  );
+  const setImagesOpen = useCallback(
+    (v: Toggle) =>
+      setPlace((p) => {
+        const was = p.ws === 'media' && p.tab !== 'text';
+        if (toggled(v, was)) return { ws: 'media', tab: p.tab === 'text' ? 'images' : p.tab };
+        return was ? { ...p, ws: 'bible' } : p;
+      }),
+    [],
+  );
+  const openAlbumsTab = useCallback(() => setMediaTab('albums'), [setMediaTab]);
+  const openVideosTab = useCallback(() => setMediaTab('videos'), [setMediaTab]);
+  // the running order's item takes the operator to its mode (the author's call); a song, an album
+  // and a video open theirs on their own
+  const followItem = useCallback(
+    (kind: SeqItem['kind']) => {
+      if (kind === 'passage') toBible();
+      else if (kind === 'text') setTextOpen(true);
+      else if (kind === 'image') setPlace({ ws: 'media', tab: 'images' });
+    },
+    [toBible, setTextOpen],
+  );
+  // «Текст на екран» picked by the operator (not by a running order item): the caret goes there
+  const [textFocus, setTextFocus] = useState(0);
+  const pickMediaTab = useCallback(
+    (tab: MediaTab) => {
+      setMediaTab(tab);
+      if (tab === 'text') setTextFocus((n) => n + 1);
+    },
+    [setMediaTab],
+  );
+  const pickText = useCallback(() => {
+    setTextOpen(true);
+    setTextFocus((n) => n + 1);
+  }, [setTextOpen]);
+  /** the left column's place for the song list in «Пісні» (SongsPanel draws it there) */
+  const [songListSlot, setSongListSlot] = useState<HTMLElement | null>(null);
   const [asideMode, setAsideMode] = useState<AsideMode>('preview');
   // under the monitors (1.8.12-beta.6): the running order, the bookmarks or the slide's text
   const [showTab, setShowTab] = useState<ShowTab>('order');
@@ -234,11 +291,13 @@ export function Control() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   /** «Ще» in the header (ToolMore): while open it owns the keyboard, like the palette. */
   const [moreOpen, setMoreOpen] = useState(false);
-  const moreShown = moreOpen && fold.folded.length > 0;
+  // «Ще» exists while zones fold, or always in «Простий вигляд» (1.8.12-beta.7)
+  const moreExists = fold.folded.length > 0 || simpleView;
+  const moreShown = moreOpen && moreExists;
   // the window grew and «Ще» went away while open: it must not pop open when it comes back
   useEffect(() => {
-    if (fold.folded.length === 0) setMoreOpen(false);
-  }, [fold.folded.length]);
+    if (!moreExists) setMoreOpen(false);
+  }, [moreExists]);
   // The song + highlighted stanza in the Songs panel — lifted here so the playlist
   // can open a song and seed its stanza (and so forwarded clicker commands step it).
   const [songsPanelSongId, setSongsPanelSongId] = useState<number | null>(null);
@@ -369,6 +428,7 @@ export function Control() {
     moreShown,
     toolOpen,
     setSearchOpen,
+    toBible,
   });
 
   const filteredBooks = useMemo(() => {
@@ -508,6 +568,7 @@ export function Control() {
     addVideoToPlaylist,
     addTextToPlaylist,
   } = usePlaylistActions({
+    followItem,
     setTranslations,
     selectBook,
     selectChapter,
@@ -768,6 +829,7 @@ export function Control() {
     openSong,
     setSongsPanelStanza,
     setSongsOpen,
+    toBible,
     openAlbum: albumShow.openAlbum,
     openVideosTab,
     setImagesOpen,
@@ -844,7 +906,9 @@ export function Control() {
       openAside();
     },
     setSongsOpen,
-    setTextOpen,
+    setTextOpen: (v: boolean) => (v ? pickText() : setTextOpen(false)),
+    toMedia: () => setWorkspace('media'),
+    toBible,
     openSearch,
     setFollowOpen,
     setRemoteOpen,
@@ -919,7 +983,8 @@ export function Control() {
 
   const renderStudyPanels = (compact: boolean) => (
     <StudyPanels
-      mode={asideMode}
+      mode={simpleView ? 'preview' : asideMode}
+      simple={simpleView}
       setMode={setAsideMode}
       primaryHasStrong={primaryHasStrong}
       reference={reference}
@@ -967,6 +1032,7 @@ export function Control() {
                   return;
                 }
                 const p = t.passage;
+                toBible();
                 setTranslations(p.translationIds);
                 selectBook(p.bookNumber);
                 selectChapter(p.chapter);
@@ -977,7 +1043,8 @@ export function Control() {
           onClose: () => setRemoteView(null),
         }
       }
-      pinned={pinnedPreview}
+      // no pin in «Простий вигляд»: the monitors stay on top
+      pinned={pinnedPreview && !simpleView}
       onTogglePin={togglePin}
       compact={compact}
       showList={(text) => (
@@ -1049,12 +1116,8 @@ export function Control() {
             searchKeysRef={searchKeysRef}
             focusOnReturn={searchPrefs.focusOnReturn}
             keysBusy={paletteOpen || moreShown || toolOpen}
-            songsOpen={songsOpen}
-            setSongsOpen={setSongsOpen}
-            textOpen={textOpen}
-            setTextOpen={setTextOpen}
-            imagesOpen={imagesOpen}
-            setImagesOpen={setImagesOpen}
+            workspace={workspace}
+            setWorkspace={setWorkspace}
             outputWindows={outputWindows}
             outputsOpen={outputsOpen}
             setOutputsOpen={setOutputsOpen}
@@ -1131,6 +1194,10 @@ export function Control() {
             layout={layout}
             jumpTo={jumpTo}
             removeHistory={removeHistory}
+            workspace={workspace}
+            songListSlot={setSongListSlot}
+            mediaTab={mediaTab}
+            onMediaTab={pickMediaTab}
           />
         </AppShell.Navbar>
 
@@ -1169,9 +1236,11 @@ export function Control() {
               onEnter={(q) => void goTo(q)}
               onDone={clearSearch}
             />
+            {/* the modes (1.8.12-beta.7): «Пісні» and «Медіа» take the centre, the Bible's chapter bar
+                and verses stay mounted underneath (their scroll and measures kept) */}
             <SongsPanel
               open={songsOpen}
-              onClose={() => setSongsOpen(false)}
+              listSlot={songListSlot}
               onProjectStanza={projectText}
               songId={songsPanelSongId}
               onSongIdChange={openSong}
@@ -1183,13 +1252,12 @@ export function Control() {
             />
             <TextPanel
               open={textOpen}
-              onClose={() => setTextOpen(false)}
+              focusKey={textFocus}
               onProject={projectAnnouncement}
               onAddToPlaylist={addTextToPlaylist}
             />
             <ImagesPanel
               open={imagesOpen}
-              onClose={() => setImagesOpen(false)}
               onProject={projectPicture}
               onRefit={(fit) => {
                 refitPicture(fit);
@@ -1202,47 +1270,48 @@ export function Control() {
               }
               albums={albumShow}
               tab={mediaTab}
-              onTab={setMediaTab}
               videos={videoShow}
               onAddVideoToPlaylist={addVideoToPlaylist}
               onAddAlbumToPlaylist={addAlbumToPlaylist}
             />
-            <ChapterBar
-              currentBook={currentBook}
-              chapter={chapter}
-              liveActive={liveActive}
-              liveSlide={liveSlide}
-              liveLabel={liveLabel}
-              pageCount={pageCount}
-              safePageIndex={safePageIndex}
-              advance={advance}
-              selectedVerses={selectedVerses}
-              addCurrentPassage={addCurrentPassage}
-              reference={reference}
-              chapters={chapters}
-              selectChapter={selectChapter}
-            />
-            <Divider />
-            <VerseList
-              panelPlacement={panelPlacement}
-              verseViewport={verseViewport}
-              primaryVerses={primaryVerses}
-              selectedVerses={selectedVerses}
-              toggleVerse={toggleVerse}
-              setSelectedVerses={setSelectedVerses}
-              keymap={keymap}
-              projectVerseOnEnter={projectVerseOnEnter}
-              appearance={appearance}
-              libraryGap={libraryGap}
-              openAppSettings={openAppSettings}
-              versesLoading={versesLoading}
-              currentBook={currentBook}
-              chapter={chapter}
-              concordanceStrong={concordanceStrong}
-              primaryId={primaryId}
-              jumpTo={jumpTo}
-              setConcordanceStrong={setConcordanceStrong}
-            />
+            <Box style={{ display: workspace === 'bible' ? 'contents' : 'none' }}>
+              <ChapterBar
+                currentBook={currentBook}
+                chapter={chapter}
+                liveActive={liveActive}
+                liveSlide={liveSlide}
+                liveLabel={liveLabel}
+                pageCount={pageCount}
+                safePageIndex={safePageIndex}
+                advance={advance}
+                selectedVerses={selectedVerses}
+                addCurrentPassage={addCurrentPassage}
+                reference={reference}
+                chapters={chapters}
+                selectChapter={selectChapter}
+              />
+              <Divider />
+              <VerseList
+                panelPlacement={panelPlacement}
+                verseViewport={verseViewport}
+                primaryVerses={primaryVerses}
+                selectedVerses={selectedVerses}
+                toggleVerse={toggleVerse}
+                setSelectedVerses={setSelectedVerses}
+                keymap={keymap}
+                projectVerseOnEnter={projectVerseOnEnter}
+                appearance={appearance}
+                libraryGap={libraryGap}
+                openAppSettings={openAppSettings}
+                versesLoading={versesLoading}
+                currentBook={currentBook}
+                chapter={chapter}
+                concordanceStrong={concordanceStrong}
+                primaryId={primaryId}
+                jumpTo={jumpTo}
+                setConcordanceStrong={setConcordanceStrong}
+              />
+            </Box>
             {panelPlacement === 'bottom' && (
               <Box
                 ref={bottomBoxRef}

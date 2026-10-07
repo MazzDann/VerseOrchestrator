@@ -15,12 +15,12 @@ To add an item to the running order:
 - A passage: choose the verses and click the **Add the passage to the running order** icon
   above the chapter numbers, next to the passage's reference. The passage remembers the
   translations chosen at that moment.
-- A song: open the song in the **Songs** panel and click the **Add to the running order**
+- A song: open the song in the **Songs** mode and click the **Add to the running order**
   icon next to its title. The song remembers the choice of **As in the file** or
   **Plain text**.
-- Custom text: in the **Text to screen** panel, type the text and click
+- Custom text: in **Media** → **Text to screen**, type the text and click
   **To the running order**.
-- An image: in the **Images** panel, point at a thumbnail and click the
+- An image: in **Media** → **Images**, point at a thumbnail and click the
   **Add to the running order** icon. The item remembers **Fit** or **Fill**.
 
 New items go to the end of the running order.
@@ -64,7 +64,9 @@ On the **Running order** tab:
 ## Show item by item
 
 To show an item, click its row. The item appears on screen at once and is highlighted in
-the list. A song also opens in the **Songs** panel, with its first slide on screen.
+the list, and the control window goes to the item's mode: a passage to **Bible**, a song to
+**Songs** with its first slide on screen, a text, an image, an album, or a video to
+**Media**.
 
 To go to the next item, click **Next** at the top of the tab or press Shift+PageDown; to the
 previous one, the **Previous running order item** icon next to it or Shift+PageUp. If

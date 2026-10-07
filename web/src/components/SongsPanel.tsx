@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  Paper,
   TextInput,
   ScrollArea,
   Stack,
@@ -20,8 +20,6 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
   IconMusic,
-  IconX,
-  IconChevronLeft,
   IconPlaylistAdd,
   IconFileImport,
   IconRepeat,
@@ -37,13 +35,17 @@ import { SongImport } from './SongImport';
 import { SongBundles } from './SongBundles';
 import { tr, useLang } from '../i18n';
 import { formatCombo, matchesCombo, stepDirection } from '../hotkeys';
-import { isFormField, isResizeKey } from '../lib/keyScroll';
+import { isFormField, isResizeKey, isTextEntry } from '../lib/keyScroll';
 import { useSettings } from '../settingsStore';
 import { SONG_KEYS } from '../lib/songKeys';
 
 interface Props {
   open: boolean;
-  onClose: () => void;
+  /**
+   * «Пісні» as a mode (1.8.12-beta.7): the search, the bundles and the list go to the left column
+   * (this element, the navbar's slot), the open song fills the centre.
+   */
+  listSlot: HTMLElement | null;
   /**
    * Project a stanza; `style` (when in faithful mode) reproduces the original pptx look;
    * `look` is the stanza's own style either way (its second part, 1.3.0).
@@ -88,11 +90,12 @@ function partLabel(p: SongPart): string {
 
 /**
  * Songs panel: search by number or title, open a song, and project its
- * stanzas (one .pptx slide each) as text slides on the output window.
+ * stanzas (one .pptx slide each) as text slides on the output window. The mode «Пісні»
+ * (1.8.12-beta.7): the list on the left, the song in the centre at full height.
  */
 export function SongsPanel({
   open,
-  onClose,
+  listSlot,
   onProjectStanza,
   songId,
   onSongIdChange,
@@ -243,6 +246,8 @@ export function SongsPanel({
         return;
       }
       if (!songQuery.data || songQuery.data.slides.length === 0) return;
+      // the song search stays in sight beside the song (1.8.12-beta.7): its caret keeps its arrows
+      if (isTextEntry(e.target)) return;
       // the arrows and «Далі / Назад», but not the running order's keys (1.8.12-beta.6)
       const dir = stepDirection(e, keymap);
       if (!dir) {
@@ -290,300 +295,285 @@ export function SongsPanel({
     }
   };
 
+  // the left column: the search, the bundles, the list (a portal into the navbar's slot)
+  const list = (
+    <Box p="xs" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <Group gap="xs" wrap="nowrap">
+        <TextInput
+          ref={inputRef}
+          flex={1}
+          value={query}
+          onChange={(e) => setQuery(e.currentTarget.value)}
+          placeholder={tr('Пісня: номер або назва')}
+          leftSection={<IconMusic size={18} />}
+          rightSection={listQuery.isFetching ? <Loader size="xs" /> : null}
+        />
+        {several && (
+          <Select
+            w={120}
+            aria-label={tr('Бандл пісень')}
+            data={[
+              { value: '', label: tr('Усі бандли') },
+              ...bundles.map((b) => ({ value: b.name, label: `${b.name} (${b.count})` })),
+            ]}
+            value={inBundle}
+            onChange={(v) => setBundle(v ?? '')}
+            allowDeselect={false}
+            comboboxProps={{ withinPortal: true }}
+          />
+        )}
+        <Tooltip
+          label={serverAvailable === false ? tr(NEEDS_SERVER) : tr('Імпорт пісень з файлів .pptx')}
+          multiline={serverAvailable === false}
+          w={serverAvailable === false ? 280 : undefined}
+        >
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            // data-disabled, not disabled: a disabled button shows no tooltip saying why
+            data-disabled={serverAvailable === false || undefined}
+            aria-disabled={serverAvailable === false || undefined}
+            onClick={() => serverAvailable !== false && setImporting(true)}
+            aria-label={tr('Імпорт пісень')}
+          >
+            <IconFileImport size={18} />
+          </ActionIcon>
+        </Tooltip>
+        {serverAvailable !== false && (
+          <Tooltip label={tr('Бандли пісень: перейменувати, видалити')}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              onClick={() => setManaging(true)}
+              aria-label={tr('Бандли пісень')}
+            >
+              <IconStack2 size={18} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+      </Group>
+      {imported && (
+        <Group justify="space-between" wrap="nowrap" gap="xs" mt="xs" className="vo-import-done">
+          <Text size="xs" style={{ minWidth: 0 }}>
+            {tr('Імпортовано в «{bundle}»: нових {added}, оновлено {updated}', imported)}
+          </Text>
+          <Button
+            size="compact-xs"
+            variant="light"
+            leftSection={<IconArrowBackUp size={14} />}
+            loading={undoing}
+            onClick={async () => {
+              setUndoing(true);
+              try {
+                await api.undoSongImport();
+                for (const key of SONG_KEYS) {
+                  void queryClient.invalidateQueries({ queryKey: [key] });
+                }
+                setBundle('');
+                notifications.show({
+                  message: tr('Імпорт скасовано'),
+                  color: 'green',
+                  autoClose: 1500,
+                });
+              } catch (e) {
+                notifications.show({ message: tr((e as Error).message), color: 'red' });
+              } finally {
+                setUndoing(false);
+                setImported(null);
+              }
+            }}
+          >
+            {tr('Скасувати')}
+          </Button>
+        </Group>
+      )}
+      <ScrollArea style={{ flex: 1 }} mt="xs" scrollbars="y" className="vo-scroll-rows">
+        <Stack gap={0}>
+          {songs.map((s) => (
+            <Box
+              key={s.id}
+              className="vo-list-item"
+              role="button"
+              tabIndex={0}
+              data-selected={s.id === songId ? 'true' : undefined}
+              onClick={() => onSongIdChange(s.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSongIdChange(s.id);
+                }
+              }}
+            >
+              {several && !inBundle && s.bundle && (
+                <Badge size="xs" variant="light" color="gray" mr={4}>
+                  {s.bundle}
+                </Badge>
+              )}
+              {s.number != null && (
+                <Badge size="xs" variant="light" mr={6}>
+                  {s.number}
+                </Badge>
+              )}
+              {s.title}
+            </Box>
+          ))}
+          {debounced && songs.length === 0 && !listQuery.isFetching && (
+            <Text size="sm" c="dimmed" p="sm">
+              {tr('Нічого не знайдено')}
+            </Text>
+          )}
+          {!debounced && songs.length === 0 && listQuery.isSuccess && !inBundle && (
+            <Text size="sm" c="dimmed" p="sm">
+              {tr(
+                'Пісень ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт пісень» праворуч від пошуку.',
+              )}
+            </Text>
+          )}
+        </Stack>
+      </ScrollArea>
+    </Box>
+  );
   return (
-    <Paper withBorder shadow="sm" p="sm" m="sm">
-      {importing && !song ? (
-        <SongImport
-          preferred={inBundle}
-          onBack={() => setImporting(false)}
-          onClose={onClose}
-          onDone={(name, counts) => {
-            setImporting(false);
-            setQuery('');
-            setBundle(name);
-            setImported({ bundle: name, ...counts });
-          }}
-        />
-      ) : managing && !song ? (
-        <SongBundles
-          onBack={() => setManaging(false)}
-          onClose={onClose}
-          onChanged={() => {
-            setBundle('');
-            setImported(null); // the undo of an import doesn't reach across a rename / delete
-          }}
-        />
-      ) : song ? (
-        <>
-          <Group justify="space-between" wrap="nowrap" mb="xs">
-            <Group gap={6} wrap="nowrap">
-              <ActionIcon
-                variant="subtle"
-                onClick={() => onSongIdChange(null)}
-                aria-label={tr('Назад до пошуку')}
-              >
-                <IconChevronLeft size={18} />
-              </ActionIcon>
-              <Text fw={600} size="sm" truncate>
-                {song.number != null ? `№${song.number} ` : ''}
-                {song.title}
-              </Text>
-            </Group>
-            <Group gap={4} wrap="nowrap">
-              {hasChorus && (
-                <Tooltip
-                  label={`${tr('До приспіву')}${chorusKey ? ` · ${formatCombo(chorusKey)}` : ''}`}
-                  withArrow
-                >
+    <>
+      {listSlot && createPortal(list, listSlot)}
+      <div className="vo-workspace">
+        {importing ? (
+          <SongImport
+            preferred={inBundle}
+            onBack={() => setImporting(false)}
+            onClose={() => setImporting(false)}
+            onDone={(name, counts) => {
+              setImporting(false);
+              setQuery('');
+              setBundle(name);
+              setImported({ bundle: name, ...counts });
+            }}
+          />
+        ) : managing ? (
+          <SongBundles
+            onBack={() => setManaging(false)}
+            onClose={() => setManaging(false)}
+            onChanged={() => {
+              setBundle('');
+              setImported(null); // the undo of an import doesn't reach across a rename / delete
+            }}
+          />
+        ) : song ? (
+          <>
+            <Group justify="space-between" wrap="nowrap" mb="xs">
+              <Group gap={6} wrap="nowrap">
+                <Text fw={600} size="sm" truncate>
+                  {song.number != null ? `№${song.number} ` : ''}
+                  {song.title}
+                </Text>
+              </Group>
+              <Group gap={4} wrap="nowrap">
+                {hasChorus && (
+                  <Tooltip
+                    label={`${tr('До приспіву')}${chorusKey ? ` · ${formatCombo(chorusKey)}` : ''}`}
+                    withArrow
+                  >
+                    <ActionIcon
+                      variant="subtle"
+                      onClick={() => {
+                        const o = toChorus();
+                        if (!o.ok && o.reason) {
+                          notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
+                        }
+                      }}
+                      aria-label={tr('До приспіву')}
+                    >
+                      <IconRepeat size={18} />
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+                {onAddToPlaylist && (
                   <ActionIcon
                     variant="subtle"
-                    onClick={() => {
-                      const o = toChorus();
-                      if (!o.ok && o.reason) {
-                        notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
+                    color="brand"
+                    onClick={() =>
+                      onAddToPlaylist({
+                        songId: song.id,
+                        label:
+                          `${song.number != null ? `№${song.number} ` : ''}${song.title}`.trim(),
+                        bundle: song.bundle,
+                        faithful,
+                      })
+                    }
+                    aria-label={tr('Додати у показ')}
+                    title={tr('Додати у показ')}
+                  >
+                    <IconPlaylistAdd size={18} />
+                  </ActionIcon>
+                )}
+              </Group>
+            </Group>
+            <SegmentedControl
+              fullWidth
+              size="xs"
+              mb="xs"
+              value={faithful ? 'faithful' : 'text'}
+              onChange={(v) => setFaithful(v === 'faithful')}
+              data={[
+                { label: tr('Точний показ'), value: 'faithful' },
+                { label: tr('Простий текст'), value: 'text' },
+              ]}
+            />
+            <ScrollArea style={{ flex: 1 }} scrollbars="y" className="vo-scroll-rows">
+              <Stack gap={4}>
+                {song.slides.map((s, i) => (
+                  <Box
+                    key={i}
+                    className="vo-verse-item vo-stanza-row"
+                    role="button"
+                    tabIndex={0}
+                    data-selected={activeStanza === i ? 'true' : undefined}
+                    data-part={parts[i]?.kind}
+                    onClick={() => project(i)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        project(i);
                       }
                     }}
-                    aria-label={tr('До приспіву')}
                   >
-                    <IconRepeat size={18} />
-                  </ActionIcon>
-                </Tooltip>
-              )}
-              {onAddToPlaylist && (
-                <ActionIcon
-                  variant="subtle"
-                  color="brand"
-                  onClick={() =>
-                    onAddToPlaylist({
-                      songId: song.id,
-                      label: `${song.number != null ? `№${song.number} ` : ''}${song.title}`.trim(),
-                      bundle: song.bundle,
-                      faithful,
-                    })
-                  }
-                  aria-label={tr('Додати у показ')}
-                  title={tr('Додати у показ')}
-                >
-                  <IconPlaylistAdd size={18} />
-                </ActionIcon>
-              )}
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                onClick={onClose}
-                aria-label={tr('Закрити')}
-              >
-                <IconX size={18} />
-              </ActionIcon>
-            </Group>
-          </Group>
-          <SegmentedControl
-            fullWidth
-            size="xs"
-            mb="xs"
-            value={faithful ? 'faithful' : 'text'}
-            onChange={(v) => setFaithful(v === 'faithful')}
-            data={[
-              { label: tr('Точний показ'), value: 'faithful' },
-              { label: tr('Простий текст'), value: 'text' },
-            ]}
-          />
-          <ScrollArea.Autosize mah="min(340px, 30vh)">
-            <Stack gap={4}>
-              {song.slides.map((s, i) => (
-                <Box
-                  key={i}
-                  className="vo-verse-item vo-stanza-row"
-                  role="button"
-                  tabIndex={0}
-                  data-selected={activeStanza === i ? 'true' : undefined}
-                  data-part={parts[i]?.kind}
-                  onClick={() => project(i)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      project(i);
-                    }
-                  }}
-                >
-                  <span className="vo-verse-num">
-                    {parts[i] ? partLabel(parts[i]) : tr('Куплет {n}', { n: i })}
-                  </span>
-                  <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={5}>
-                    {s.text}
-                  </Text>
-                </Box>
-              ))}
-              {onSongEnd && (
-                <Box
-                  className="vo-verse-item vo-stanza-row"
-                  role="button"
-                  tabIndex={0}
-                  data-selected={activeStanza === song.slides.length ? 'true' : undefined}
-                  onClick={endSong}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      endSong();
-                    }
-                  }}
-                >
-                  <span className="vo-verse-num">{tr('Кінець')}</span>
-                  <Text size="sm" c="dimmed">
-                    {tr('Порожній слайд: текст сховано, фон лишається')}
-                  </Text>
-                </Box>
-              )}
-            </Stack>
-          </ScrollArea.Autosize>
-        </>
-      ) : (
-        <>
-          <Group gap="xs" wrap="nowrap">
-            <TextInput
-              ref={inputRef}
-              flex={1}
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-              placeholder={tr('Пісня: номер або назва')}
-              leftSection={<IconMusic size={18} />}
-              rightSection={listQuery.isFetching ? <Loader size="xs" /> : null}
-            />
-            {several && (
-              <Select
-                w={140}
-                aria-label={tr('Бандл пісень')}
-                data={[
-                  { value: '', label: tr('Усі бандли') },
-                  ...bundles.map((b) => ({ value: b.name, label: `${b.name} (${b.count})` })),
-                ]}
-                value={inBundle}
-                onChange={(v) => setBundle(v ?? '')}
-                allowDeselect={false}
-                comboboxProps={{ withinPortal: true }}
-              />
-            )}
-            <Tooltip
-              label={
-                serverAvailable === false ? tr(NEEDS_SERVER) : tr('Імпорт пісень з файлів .pptx')
-              }
-              multiline={serverAvailable === false}
-              w={serverAvailable === false ? 280 : undefined}
-            >
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                // data-disabled, not disabled: a disabled button shows no tooltip saying why
-                data-disabled={serverAvailable === false || undefined}
-                aria-disabled={serverAvailable === false || undefined}
-                onClick={() => serverAvailable !== false && setImporting(true)}
-                aria-label={tr('Імпорт пісень')}
-              >
-                <IconFileImport size={18} />
-              </ActionIcon>
-            </Tooltip>
-            {serverAvailable !== false && (
-              <Tooltip label={tr('Бандли пісень: перейменувати, видалити')}>
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  onClick={() => setManaging(true)}
-                  aria-label={tr('Бандли пісень')}
-                >
-                  <IconStack2 size={18} />
-                </ActionIcon>
-              </Tooltip>
-            )}
-            <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
-              <IconX size={18} />
-            </ActionIcon>
-          </Group>
-          {imported && (
-            <Group
-              justify="space-between"
-              wrap="nowrap"
-              gap="xs"
-              mt="xs"
-              className="vo-import-done"
-            >
-              <Text size="xs" style={{ minWidth: 0 }}>
-                {tr('Імпортовано в «{bundle}»: нових {added}, оновлено {updated}', imported)}
-              </Text>
-              <Button
-                size="compact-xs"
-                variant="light"
-                leftSection={<IconArrowBackUp size={14} />}
-                loading={undoing}
-                onClick={async () => {
-                  setUndoing(true);
-                  try {
-                    await api.undoSongImport();
-                    for (const key of SONG_KEYS) {
-                      void queryClient.invalidateQueries({ queryKey: [key] });
-                    }
-                    setBundle('');
-                    notifications.show({
-                      message: tr('Імпорт скасовано'),
-                      color: 'green',
-                      autoClose: 1500,
-                    });
-                  } catch (e) {
-                    notifications.show({ message: tr((e as Error).message), color: 'red' });
-                  } finally {
-                    setUndoing(false);
-                    setImported(null);
-                  }
-                }}
-              >
-                {tr('Скасувати')}
-              </Button>
-            </Group>
-          )}
-          <ScrollArea.Autosize mah="min(320px, 30vh)" mt="xs">
-            <Stack gap={0}>
-              {songs.map((s) => (
-                <Box
-                  key={s.id}
-                  className="vo-list-item"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onSongIdChange(s.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onSongIdChange(s.id);
-                    }
-                  }}
-                >
-                  {several && !inBundle && s.bundle && (
-                    <Badge size="xs" variant="light" color="gray" mr={4}>
-                      {s.bundle}
-                    </Badge>
-                  )}
-                  {s.number != null && (
-                    <Badge size="xs" variant="light" mr={6}>
-                      {s.number}
-                    </Badge>
-                  )}
-                  {s.title}
-                </Box>
-              ))}
-              {debounced && songs.length === 0 && !listQuery.isFetching && (
-                <Text size="sm" c="dimmed" p="sm">
-                  {tr('Нічого не знайдено')}
-                </Text>
-              )}
-              {!debounced && songs.length === 0 && listQuery.isSuccess && !inBundle && (
-                <Text size="sm" c="dimmed" p="sm">
-                  {tr(
-                    'Пісень ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт пісень» праворуч від пошуку.',
-                  )}
-                </Text>
-              )}
-            </Stack>
-          </ScrollArea.Autosize>
-        </>
-      )}
-    </Paper>
+                    <span className="vo-verse-num">
+                      {parts[i] ? partLabel(parts[i]) : tr('Куплет {n}', { n: i })}
+                    </span>
+                    <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={5}>
+                      {s.text}
+                    </Text>
+                  </Box>
+                ))}
+                {onSongEnd && (
+                  <Box
+                    className="vo-verse-item vo-stanza-row"
+                    role="button"
+                    tabIndex={0}
+                    data-selected={activeStanza === song.slides.length ? 'true' : undefined}
+                    onClick={endSong}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        endSong();
+                      }
+                    }}
+                  >
+                    <span className="vo-verse-num">{tr('Кінець')}</span>
+                    <Text size="sm" c="dimmed">
+                      {tr('Порожній слайд: текст сховано, фон лишається')}
+                    </Text>
+                  </Box>
+                )}
+              </Stack>
+            </ScrollArea>
+          </>
+        ) : (
+          <Text size="sm" c="dimmed" p="sm">
+            {tr('Виберіть пісню ліворуч — знайдіть її за номером чи назвою.')}
+          </Text>
+        )}
+      </div>
+    </>
   );
 }

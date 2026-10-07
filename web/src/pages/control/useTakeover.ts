@@ -91,6 +91,7 @@ export function useLeaderTakeover({
   openSong,
   setSongsPanelStanza,
   setSongsOpen,
+  toBible,
   openAlbum,
   openVideosTab,
   setImagesOpen,
@@ -118,6 +119,8 @@ export function useLeaderTakeover({
   openSong: (id: number | null) => void;
   setSongsPanelStanza: (stanza: number | null) => void;
   setSongsOpen: (v: boolean | ((open: boolean) => boolean)) => void;
+  /** a passage taken over shows the Bible (1.8.12-beta.7) */
+  toBible: () => void;
   openAlbum: (id: string | null, at?: { index: number; name?: string }) => void;
   openVideosTab: () => void;
   setImagesOpen: (v: boolean | ((open: boolean) => boolean)) => void;
@@ -151,6 +154,7 @@ export function useLeaderTakeover({
         override: t.override,
       };
       adopting.current = a;
+      toBible();
       setTranslations(t.translationIds);
       selectBook(t.bookNumber);
       selectChapter(t.chapter);
