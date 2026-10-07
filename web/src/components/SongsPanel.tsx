@@ -77,6 +77,8 @@ interface Props {
    * the background stays. Without it the last stanza is where the song ends.
    */
   onSongEnd?: () => Outcome;
+  /** past «Кінець» or before the first stanza: the running order's next / previous item, or null */
+  onPastEnd?: (dir: 1 | -1, songId: number) => Outcome | null;
 }
 
 /** A slide's label in the list (1.3.0): «Заголовок», «Куплет 2», «Приспів», «Приспів 2 · 1/2». */
@@ -104,6 +106,7 @@ export function SongsPanel({
   onAddToPlaylist,
   keysPaused,
   onSongEnd,
+  onPastEnd,
 }: Props) {
   useLang();
   const [query, setQuery] = useState('');
@@ -207,8 +210,11 @@ export function SongsPanel({
       const cur = activeStanza ?? -1;
       // past the last stanza: an empty slide once, then the song is over (0.6.24);
       // «Назад» from there projects the last stanza again (the clamp below)
+      // «Далі» past «Кінець», «Назад» at the first stanza: the running order's item, when the
+      // switch is on (1.10.0-beta.1)
+      const past = (d: 1 | -1) => (onPastEnd && s ? onPastEnd(d, s.id) : null);
       if (dir > 0 && activeStanza != null && cur >= count - 1) {
-        if (cur >= count) return { ok: false, reason: tr('Кінець пісні') };
+        if (cur >= count) return past(1) ?? { ok: false, reason: tr('Кінець пісні') };
         if (!onSongEnd) return { ok: false, reason: tr('Це остання строфа') };
         const done = onSongEnd();
         if (done.ok) onActiveStanzaChange(count);
@@ -216,12 +222,16 @@ export function SongsPanel({
       }
       const idx = Math.max(0, Math.min(count - 1, cur + dir));
       if (activeStanza != null && idx === cur) {
+        if (dir < 0) {
+          const o = past(-1);
+          if (o) return o;
+        }
         return { ok: false, reason: dir > 0 ? tr('Це остання строфа') : tr('Це перша строфа') };
       }
       showStanza(idx);
       return { ok: true };
     },
-    [songQuery.data, activeStanza, onActiveStanzaChange, onSongEnd, showStanza],
+    [songQuery.data, activeStanza, onActiveStanzaChange, onSongEnd, onPastEnd, showStanza],
   );
 
   // While a song is open, arrows / PageUp-PageDown step through its stanzas.
