@@ -60,6 +60,22 @@ describe('a JSON file read, changed and written back (1.9.3)', () => {
     expect(fs.readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
   });
 
+  it('an error that will not pass (a folder in the way) is not waited on', () => {
+    const file = path.join(dir, 'albums.json');
+    fs.mkdirSync(file);
+    const t = Date.now();
+    readJson(file, {});
+    readJson(file, {});
+    expect(Date.now() - t).toBeLessThan(50);
+  });
+
+  it('the copy of a broken file starts with a dot (backups leave it out)', () => {
+    const file = path.join(dir, 'albums.json');
+    fs.writeFileSync(file, '{');
+    readJson(file, {});
+    expect(bad()[0]).toMatch(/^\.albums\.json\.bad-/);
+  });
+
   it('a restore replaces a file whatever its last read was', () => {
     const file = path.join(dir, 'ui-state.json');
     fs.mkdirSync(file);

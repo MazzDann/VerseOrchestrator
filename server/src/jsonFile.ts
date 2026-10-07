@@ -26,13 +26,40 @@ export class UnreadableFile extends Error {
 /** Files whose last read failed for a reason other than «not there» or «not JSON». */
 const unreadable = new Set<string>();
 
+/** Did the last read of `file` fail (locked, no access)? Its owner may read it again later. */
+export const isUnreadable = (file: string): boolean => unreadable.has(file);
+
+/** Throws UnreadableFile before a change with side effects (files moved, written) is begun. */
+export function assertWritable(file: string): void {
+  if (unreadable.has(file)) throw new UnreadableFile(path.basename(file));
+}
+
+/**
+ * Errors worth a second try: the file held for a moment (Windows reports a sharing violation as
+ * EBUSY, sometimes EPERM / EACCES), too many open files. A folder in the way or no access on a Mac
+ * / Linux won't pass in 100 ms: no pause for those (1.9.3 review — reads run on every photo).
+ */
+const TRANSIENT = new Set([
+  'EBUSY',
+  'EAGAIN',
+  'EMFILE',
+  'ENFILE',
+  ...(process.platform === 'win32' ? ['EPERM', 'EACCES'] : []),
+]);
+
 const pause = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
-/** A copy of a broken file next to it, once per version of it (its time and size). */
+/**
+ * A copy of a broken file next to it, once per version of it (its time and size). Its name starts
+ * with a dot, so backups leave it out and a restore never brings it back (backup.ts `own`).
+ */
 function keepBroken(file: string): string {
   try {
     const st = fs.statSync(file);
-    const copy = `${file}.bad-${Math.round(st.mtimeMs)}-${st.size}`;
+    const copy = path.join(
+      path.dirname(file),
+      `.${path.basename(file)}.bad-${Math.round(st.mtimeMs)}-${st.size}`,
+    );
     if (!fs.existsSync(copy)) fs.copyFileSync(file, copy);
     return path.basename(copy);
   } catch {
@@ -52,8 +79,9 @@ export function readJson<T>(file: string, fallback: T): T {
         unreadable.delete(file);
         return fallback;
       }
-      // Windows: an antivirus, an indexer or a sync tool may hold it for a moment
-      if (attempt < 2) {
+      // Windows: an antivirus, an indexer or a sync tool may hold it for a moment; a file already
+      // marked gets one try, no pause
+      if (attempt < 2 && code && TRANSIENT.has(code) && !unreadable.has(file)) {
         pause(50);
         continue;
       }
@@ -88,7 +116,7 @@ export function writeJson(
   value: unknown,
   opts: { secret?: boolean; replace?: boolean } = {},
 ): void {
-  if (unreadable.has(file) && !opts.replace) throw new UnreadableFile(path.basename(file));
+  if (!opts.replace) assertWritable(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', {
