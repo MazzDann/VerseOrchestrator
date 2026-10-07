@@ -36,7 +36,7 @@ import { useServer, NEEDS_SERVER } from '../serverStore';
 import { SongImport } from './SongImport';
 import { SongBundles } from './SongBundles';
 import { tr, useLang } from '../i18n';
-import { formatCombo, matchesCombo } from '../hotkeys';
+import { formatCombo, matchesCombo, stepDirection } from '../hotkeys';
 import { isFormField, isResizeKey } from '../lib/keyScroll';
 import { useSettings } from '../settingsStore';
 import { SONG_KEYS } from '../lib/songKeys';
@@ -234,24 +234,24 @@ export function SongsPanel({
         }
       };
       // «До приспіву» (1.3.0) — not while typing
-      const { chorus } = useSettings.getState().keymap;
+      const keymap = useSettings.getState().keymap;
+      const { chorus } = keymap;
       if (chorus && matchesCombo(e, chorus) && !isFormField(e.target)) {
         e.preventDefault();
         e.stopPropagation();
         say(toChorus());
         return;
       }
-      const dir = ['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key)
-        ? 1
-        : ['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)
-          ? -1
-          : 0;
-      if (!dir || !songQuery.data || songQuery.data.slides.length === 0) return;
-      if (e.ctrlKey || e.altKey || e.metaKey) {
+      if (!songQuery.data || songQuery.data.slides.length === 0) return;
+      // the arrows and «Далі / Назад», but not the running order's keys (1.8.12-beta.6)
+      const dir = stepDirection(e, keymap);
+      if (!dir) {
         // the verses' preview-only step (1.1.0) does nothing while a song owns the keys — not
         // the stanza, not the verses behind it; Alt+↑/↓ scroll, the rest is the browser's
-        const { previewNext, previewPrev } = useSettings.getState().keymap;
-        if (matchesCombo(e, previewNext) || matchesCombo(e, previewPrev)) {
+        if (
+          (e.ctrlKey || e.altKey || e.metaKey) &&
+          (matchesCombo(e, keymap.previewNext) || matchesCombo(e, keymap.previewPrev))
+        ) {
           e.preventDefault();
           e.stopPropagation();
         }

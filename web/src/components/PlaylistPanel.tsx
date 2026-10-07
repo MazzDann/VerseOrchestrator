@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Stack,
@@ -37,6 +37,8 @@ import {
 import { api } from '../api';
 import { type SeqItem, type SavedProgram } from '../playlistStore';
 import { useServer } from '../serverStore';
+import { useSettings } from '../settingsStore';
+import { formatCombo } from '../hotkeys';
 import { tr, trn, useLang } from '../i18n';
 
 interface Props {
@@ -86,9 +88,10 @@ const KIND_COLOR = {
 /**
  * The running order: an ordered list of passages / songs / free texts. Click a row
  * to project it; drag the grip (or use ↑↓) to reorder; step with Prev/Next. Programs
- * can be saved and reloaded week to week. Rendered inside a `FloatingPanel`.
+ * can be saved and reloaded week to week. Since 1.8.12-beta.6 (F1005-06) it stands under the
+ * monitors («Показ» in ShowList): the buttons stay, the list scrolls, the next item says «Далі».
  */
-export function PlaylistPanel({
+export const PlaylistPanel = memo(function PlaylistPanel({
   items,
   currentId,
   saved,
@@ -153,6 +156,17 @@ export function PlaylistPanel({
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const undoRef = useRef<HTMLButtonElement>(null);
   const undoDeleteRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const keymap = useSettings((s) => s.keymap);
+  // what «Далі» brings: the item after the current one, the first while none is
+  const at = items.findIndex((it) => it.id === currentId);
+  const nextId = at >= 0 ? (items[at + 1]?.id ?? null) : (items[0]?.id ?? null);
+  // the current item in sight as the show goes on (a long list scrolls under the monitors)
+  useEffect(() => {
+    if (!currentId) return;
+    const row = listRef.current?.querySelector(`[data-item="${CSS.escape(currentId)}"]`);
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [currentId]);
 
   // «Очистити показ» goes disabled under the pointer and takes the focus with it: hand the
   // focus to «Скасувати», so Enter or Space right away brings the list back.
@@ -235,262 +249,287 @@ export function PlaylistPanel({
   };
 
   return (
-    <Stack gap="xs" p="sm">
-      <Group justify="space-between" wrap="nowrap">
-        <Group gap={4} wrap="nowrap">
-          <Tooltip label={tr('Попередній елемент')}>
-            <ActionIcon
-              variant="default"
-              onClick={onPrev}
-              disabled={items.length === 0}
-              aria-label={tr('Попередній елемент показу')}
+    <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <Stack gap="xs" p="xs" pb={0}>
+        <Group justify="space-between" wrap="nowrap">
+          <Group gap={4} wrap="nowrap">
+            <Tooltip
+              label={tr('Попередній елемент · {keys}', { keys: formatCombo(keymap.playlistPrev) })}
             >
-              <IconPlayerTrackPrev size={16} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label={tr('Наступний елемент')}>
-            <Button
-              variant="light"
-              color="cue"
-              size="xs"
-              leftSection={<IconPlayerTrackNext size={16} />}
-              onClick={onNext}
-              disabled={items.length === 0}
+              <ActionIcon
+                variant="default"
+                onClick={onPrev}
+                disabled={items.length === 0}
+                aria-label={tr('Попередній елемент показу')}
+              >
+                <IconPlayerTrackPrev size={16} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip
+              label={tr('Наступний елемент · {keys}', { keys: formatCombo(keymap.playlistNext) })}
             >
-              {tr('Далі')}
-            </Button>
-          </Tooltip>
-        </Group>
-        <Group gap={6} wrap="nowrap">
-          <Badge variant="light" color="gray">
-            {items.length}
-          </Badge>
-          <Tooltip label={tr('Програми (зберегти / відкрити)')}>
-            <ActionIcon
-              variant={programsOpen ? 'filled' : 'subtle'}
-              color="brand"
-              onClick={() => setProgramsOpen((o) => !o)}
-              aria-label={tr('Програми')}
-            >
-              {programsOpen ? <IconFolderOpen size={16} /> : <IconFolder size={16} />}
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label={tr('Очистити показ')}>
-            <ActionIcon
-              variant="subtle"
-              color="red"
-              onClick={clear}
-              disabled={items.length === 0}
-              aria-label={tr('Очистити показ')}
-            >
-              <IconClearAll size={16} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-      </Group>
-
-      <Collapse in={programsOpen}>
-        <Box
-          p="xs"
-          style={{
-            border: '1px solid var(--mantine-color-default-border)',
-            borderRadius: 8,
-          }}
-        >
-          <Group gap="xs" wrap="nowrap" mb={programRows.length ? 'xs' : 0}>
-            <TextInput
-              size="xs"
-              flex={1}
-              placeholder={tr('Назва програми')}
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') save();
-              }}
-            />
-            <Button
-              size="xs"
-              variant="light"
-              leftSection={<IconDeviceFloppy size={14} />}
-              disabled={!name.trim() || items.length === 0}
-              onClick={save}
-            >
-              {tr('Зберегти')}
-            </Button>
+              <Button
+                variant="light"
+                color="cue"
+                size="xs"
+                leftSection={<IconPlayerTrackNext size={16} />}
+                onClick={onNext}
+                disabled={items.length === 0}
+              >
+                {tr('Далі')}
+              </Button>
+            </Tooltip>
           </Group>
-          {programRows.length > 0 && (
-            <ScrollArea.Autosize mah={160} scrollbars="y" className="vo-scroll-fit">
-              <Stack gap={2}>{programRows}</Stack>
-            </ScrollArea.Autosize>
-          )}
-        </Box>
-      </Collapse>
-
-      <Divider my={2} />
-
-      {replacedBy && (
-        // the list above is the program just opened; the one it replaced can come back (0.9.3)
-        <Group gap={4} wrap="nowrap" pl={8}>
-          <Text size="sm" c="dimmed" truncate title={replacedBy} style={{ flex: 1, minWidth: 0 }}>
-            {tr('Відкрито: {name}', { name: replacedBy })}
-          </Text>
-          <Tooltip label={tr('Повернути список, який був до цієї програми')}>
-            <Button
-              size="compact-xs"
-              variant="light"
-              leftSection={<IconArrowBackUp size={14} />}
-              onClick={onUndoLoad}
-              style={{ flexShrink: 0 }}
-            >
-              {tr('Скасувати')}
-            </Button>
-          </Tooltip>
+          <Group gap={6} wrap="nowrap">
+            <Tooltip label={tr('Програми (зберегти / відкрити)')}>
+              <ActionIcon
+                variant={programsOpen ? 'filled' : 'subtle'}
+                color="brand"
+                onClick={() => setProgramsOpen((o) => !o)}
+                aria-label={tr('Програми')}
+              >
+                {programsOpen ? <IconFolderOpen size={16} /> : <IconFolder size={16} />}
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label={tr('Очистити показ')}>
+              <ActionIcon
+                variant="subtle"
+                color="red"
+                onClick={clear}
+                disabled={items.length === 0}
+                aria-label={tr('Очистити показ')}
+              >
+                <IconClearAll size={16} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Group>
-      )}
 
-      {items.length === 0 && cleared > 0 ? (
-        <Stack gap="xs" align="center" py="md">
-          <Text size="sm" c="dimmed" ta="center">
-            {trn(
-              cleared,
-              'Показ очищено: {n} елемент.|Показ очищено: {n} елементи.|Показ очищено: {n} елементів.',
-            )}
-          </Text>
-          <Button
-            ref={undoRef}
-            size="xs"
-            variant="light"
-            leftSection={<IconArrowBackUp size={14} />}
-            onClick={onUndoClear}
-          >
-            {tr('Скасувати')}
-          </Button>
-        </Stack>
-      ) : items.length === 0 ? (
-        <Text size="sm" c="dimmed" ta="center" py="lg">
-          {tr('Порожньо. Додавайте уривки, пісні й текст кнопкою «+ у показ».')}
-        </Text>
-      ) : (
-        <Stack gap={4}>
-          {items.map((it, i) => {
-            const Icon = KIND_ICON[it.kind];
-            const active = it.id === currentId;
-            return (
+        <Divider />
+      </Stack>
+      <ScrollArea style={{ flex: 1 }} scrollbars="y" className="vo-scroll-rows">
+        <Box p="xs" ref={listRef}>
+          {/* the programs and «Відкрито: …» scroll with the list: in a short panel (below the
+              centre, 160 px) the fixed part stays one row of buttons (review, 1.8.12-beta.6) */}
+          <Stack gap="xs" mb={programsOpen || replacedBy ? 'xs' : 0}>
+            <Collapse in={programsOpen}>
               <Box
-                key={it.id}
-                className="vo-verse-item"
-                role="button"
-                tabIndex={0}
-                data-selected={active ? 'true' : undefined}
-                onClick={() => onActivate(it)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onActivate(it);
-                  }
-                }}
-                onDragOver={(e) => {
-                  if (dragIndex === null) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  setOverIndex(i);
-                }}
-                onDrop={(e) => {
-                  if (dragIndex === null) return;
-                  e.preventDefault();
-                  // The indicator (borderTop) means "insert above row i"; since reorder()
-                  // removes the source first, a downward move must target one slot lower.
-                  const to = dragIndex < i ? i - 1 : i;
-                  onReorder(dragIndex, to);
-                  endDrag();
-                }}
+                p="xs"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  borderTop:
-                    overIndex === i && dragIndex !== null && dragIndex !== i
-                      ? '2px solid var(--mantine-color-brand-filled)'
-                      : '2px solid transparent',
-                  opacity: dragIndex === i ? 0.4 : 1,
+                  border: '1px solid var(--mantine-color-default-border)',
+                  borderRadius: 8,
                 }}
               >
-                <span
-                  draggable
-                  onDragStart={(e) => {
-                    setDragIndex(i);
-                    e.dataTransfer.effectAllowed = 'move';
-                    // Firefox won't start a drag session unless dataTransfer is set.
-                    try {
-                      e.dataTransfer.setData('text/plain', String(i));
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                  onDragEnd={endDrag}
-                  onClick={(e) => e.stopPropagation()}
-                  title={tr('Перетягнути')}
-                  style={{ display: 'flex', cursor: 'grab', color: 'var(--mantine-color-dimmed)' }}
-                  aria-hidden
-                >
-                  <IconGripVertical size={14} />
-                </span>
-                <ThemeIcon size="sm" variant="light" color={KIND_COLOR[it.kind]}>
-                  <Icon size={14} />
-                </ThemeIcon>
+                <Group gap="xs" wrap="nowrap" mb={programRows.length ? 'xs' : 0}>
+                  <TextInput
+                    size="xs"
+                    flex={1}
+                    placeholder={tr('Назва програми')}
+                    value={name}
+                    onChange={(e) => setName(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') save();
+                    }}
+                  />
+                  <Button
+                    size="xs"
+                    variant="light"
+                    leftSection={<IconDeviceFloppy size={14} />}
+                    disabled={!name.trim() || items.length === 0}
+                    onClick={save}
+                  >
+                    {tr('Зберегти')}
+                  </Button>
+                </Group>
+                {programRows.length > 0 && (
+                  <ScrollArea.Autosize mah={160} scrollbars="y" className="vo-scroll-fit">
+                    <Stack gap={2}>{programRows}</Stack>
+                  </ScrollArea.Autosize>
+                )}
+              </Box>
+            </Collapse>
+
+            {replacedBy && (
+              // the list above is the program just opened; the one it replaced can come back (0.9.3)
+              <Group gap={4} wrap="nowrap" pl={8}>
                 <Text
                   size="sm"
-                  c={gone(it) ? 'dimmed' : undefined}
-                  style={{ flex: 1, minWidth: 0 }}
+                  c="dimmed"
                   truncate
+                  title={replacedBy}
+                  style={{ flex: 1, minWidth: 0 }}
                 >
-                  {gone(it) ?? it.label}
+                  {tr('Відкрито: {name}', { name: replacedBy })}
                 </Text>
-                <Group gap={0} wrap="nowrap">
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    size="sm"
-                    disabled={i === 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMove(it.id, -1);
-                    }}
-                    aria-label={tr('Вгору')}
+                <Tooltip label={tr('Повернути список, який був до цієї програми')}>
+                  <Button
+                    size="compact-xs"
+                    variant="light"
+                    leftSection={<IconArrowBackUp size={14} />}
+                    onClick={onUndoLoad}
+                    style={{ flexShrink: 0 }}
                   >
-                    <IconChevronUp size={14} />
-                  </ActionIcon>
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    size="sm"
-                    disabled={i === items.length - 1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMove(it.id, 1);
+                    {tr('Скасувати')}
+                  </Button>
+                </Tooltip>
+              </Group>
+            )}
+          </Stack>
+          {items.length === 0 && cleared > 0 ? (
+            <Stack gap="xs" align="center" py="md">
+              <Text size="sm" c="dimmed" ta="center">
+                {trn(
+                  cleared,
+                  'Показ очищено: {n} елемент.|Показ очищено: {n} елементи.|Показ очищено: {n} елементів.',
+                )}
+              </Text>
+              <Button
+                ref={undoRef}
+                size="xs"
+                variant="light"
+                leftSection={<IconArrowBackUp size={14} />}
+                onClick={onUndoClear}
+              >
+                {tr('Скасувати')}
+              </Button>
+            </Stack>
+          ) : items.length === 0 ? (
+            <Text size="sm" c="dimmed" ta="center" py="lg">
+              {tr('Порожньо. Додавайте уривки, пісні й текст кнопкою «+ у показ».')}
+            </Text>
+          ) : (
+            <Stack gap={4}>
+              {items.map((it, i) => {
+                const Icon = KIND_ICON[it.kind];
+                const active = it.id === currentId;
+                return (
+                  <Box
+                    key={it.id}
+                    data-item={it.id}
+                    className="vo-verse-item"
+                    role="button"
+                    tabIndex={0}
+                    data-selected={active ? 'true' : undefined}
+                    onClick={() => onActivate(it)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onActivate(it);
+                      }
                     }}
-                    aria-label={tr('Вниз')}
-                  >
-                    <IconChevronDown size={14} />
-                  </ActionIcon>
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove(it.id);
+                    onDragOver={(e) => {
+                      if (dragIndex === null) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      setOverIndex(i);
                     }}
-                    aria-label={tr('Прибрати')}
+                    onDrop={(e) => {
+                      if (dragIndex === null) return;
+                      e.preventDefault();
+                      // The indicator (borderTop) means "insert above row i"; since reorder()
+                      // removes the source first, a downward move must target one slot lower.
+                      const to = dragIndex < i ? i - 1 : i;
+                      onReorder(dragIndex, to);
+                      endDrag();
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      borderTop:
+                        overIndex === i && dragIndex !== null && dragIndex !== i
+                          ? '2px solid var(--mantine-color-brand-filled)'
+                          : '2px solid transparent',
+                      opacity: dragIndex === i ? 0.4 : 1,
+                    }}
                   >
-                    <IconTrash size={14} />
-                  </ActionIcon>
-                </Group>
-              </Box>
-            );
-          })}
-        </Stack>
-      )}
-    </Stack>
+                    <span
+                      draggable
+                      onDragStart={(e) => {
+                        setDragIndex(i);
+                        e.dataTransfer.effectAllowed = 'move';
+                        // Firefox won't start a drag session unless dataTransfer is set.
+                        try {
+                          e.dataTransfer.setData('text/plain', String(i));
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      onDragEnd={endDrag}
+                      onClick={(e) => e.stopPropagation()}
+                      title={tr('Перетягнути')}
+                      style={{
+                        display: 'flex',
+                        cursor: 'grab',
+                        color: 'var(--mantine-color-dimmed)',
+                      }}
+                      aria-hidden
+                    >
+                      <IconGripVertical size={14} />
+                    </span>
+                    <ThemeIcon size="sm" variant="light" color={KIND_COLOR[it.kind]}>
+                      <Icon size={14} />
+                    </ThemeIcon>
+                    <Text
+                      size="sm"
+                      c={gone(it) ? 'dimmed' : undefined}
+                      style={{ flex: 1, minWidth: 0 }}
+                      truncate
+                    >
+                      {gone(it) ?? it.label}
+                    </Text>
+                    {it.id === nextId && (
+                      <Badge size="xs" variant="light" color="cue" style={{ flexShrink: 0 }}>
+                        {tr('Далі')}
+                      </Badge>
+                    )}
+                    <Group gap={0} wrap="nowrap">
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        disabled={i === 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMove(it.id, -1);
+                        }}
+                        aria-label={tr('Вгору')}
+                      >
+                        <IconChevronUp size={14} />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        disabled={i === items.length - 1}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMove(it.id, 1);
+                        }}
+                        aria-label={tr('Вниз')}
+                      >
+                        <IconChevronDown size={14} />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemove(it.id);
+                        }}
+                        aria-label={tr('Прибрати')}
+                      >
+                        <IconTrash size={14} />
+                      </ActionIcon>
+                    </Group>
+                  </Box>
+                );
+              })}
+            </Stack>
+          )}
+        </Box>
+      </ScrollArea>
+    </Box>
   );
-}
+});

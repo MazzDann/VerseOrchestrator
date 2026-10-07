@@ -78,7 +78,8 @@ import { ControlNavbar } from './control/ControlNavbar';
 import { HubBanners } from './control/HubBanners';
 import { ChapterBar } from './control/ChapterBar';
 import { VerseList } from './control/VerseList';
-import { PlaylistFloating } from './control/PlaylistFloating';
+import { PlaylistDocked } from './control/PlaylistDocked';
+import { ShowList, type ShowTab } from '../components/ShowList';
 
 type InlinePanel = 'search' | 'songs' | 'text' | 'images';
 
@@ -194,9 +195,10 @@ export function Control() {
   const openAlbumsTab = useCallback(() => setMediaTab('albums'), []);
   const openVideosTab = useCallback(() => setMediaTab('videos'), []);
   const [asideMode, setAsideMode] = useState<AsideMode>('preview');
-  const [sidebarTab, setSidebarTab] = useState<string | null>('history');
+  // under the monitors (1.8.12-beta.6): the running order, the bookmarks or the slide's text
+  const [showTab, setShowTab] = useState<ShowTab>('order');
   const [navOpened, { toggle: toggleNav }] = useDisclosure(false);
-  const [asideOpened, { toggle: toggleAside }] = useDisclosure(false);
+  const [asideOpened, { toggle: toggleAside, open: openAside }] = useDisclosure(false);
   const [pinnedPreview, { toggle: togglePin }] = useDisclosure(false);
   // When navigating via search/history/concordance, scroll this verse into view.
   const [scrollTarget, setScrollTarget] = useState<number | null>(null);
@@ -205,7 +207,6 @@ export function Control() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const serverAvailable = useServer((s) => s.available);
   const openAppSettings = useAppSettingsOpener({ setSettingsOpen, serverAvailable });
-  const [playlistOpen, setPlaylistOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false);
   const [outputsOpen, setOutputsOpen] = useState(false);
@@ -540,6 +541,18 @@ export function Control() {
     reference,
     referenceShort,
   });
+  // the running order's keys (1.8.12-beta.6): at an end or with nothing in it they say so
+  const playlistStepRef = useRef<(delta: 1 | -1) => void>(() => {});
+  playlistStepRef.current = (delta) => {
+    const at = playlistItems.findIndex((i) => i.id === playlistCurrentId);
+    const say = (message: string) =>
+      notifications.show({ message, color: 'gray', autoClose: 2000 });
+    if (playlistItems.length === 0)
+      return say(tr('Послідовність показу порожня — додавайте елементи кнопкою «+ у показ»'));
+    if (at >= 0 && (at + delta < 0 || at + delta >= playlistItems.length))
+      return say(delta > 0 ? tr('Це останній елемент показу') : tr('Це перший елемент показу'));
+    stepPlaylist(delta);
+  };
   playlistNextRef.current = () => {
     const at = playlistItems.findIndex((i) => i.id === playlistCurrentId);
     if (at < 0 || at >= playlistItems.length - 1) return false;
@@ -693,6 +706,7 @@ export function Control() {
     coverToggle,
     countdownKey,
     restoreRef,
+    playlistStepRef,
     pageCount,
     pageIndex,
     primaryVerses,
@@ -823,7 +837,12 @@ export function Control() {
     clearScreen,
     restoreRef,
     addCurrentPassage,
-    setPlaylistOpen,
+    showOrder: () => {
+      // the running order under the monitors (1.8.12-beta.6): the preview's tab, the aside opened
+      setAsideMode('preview');
+      setShowTab('order');
+      openAside();
+    },
     setSongsOpen,
     setTextOpen,
     openSearch,
@@ -836,6 +855,23 @@ export function Control() {
     colorScheme,
     toggleColorScheme,
   });
+
+  // a bookmark into the running order (1.8.12-beta.6, «Збережене» under the monitors)
+  const addBookmarkToShow = (b: RefItem) => {
+    playlistAdd({
+      kind: 'passage',
+      label: b.ref,
+      translationIds: selectedIds.length ? selectedIds : [b.translationId],
+      bookNumber: b.bookNumber,
+      chapter: b.chapter,
+      verses: [b.verse],
+    });
+    notifications.show({
+      message: tr('Додано у показ: {item}', { item: b.refShort || b.ref }),
+      color: 'green',
+      autoClose: 1200,
+    });
+  };
 
   const exportBookmarks = () => {
     const blob = new Blob([JSON.stringify(bookmarks, null, 2)], { type: 'application/json' });
@@ -944,6 +980,44 @@ export function Control() {
       pinned={pinnedPreview}
       onTogglePin={togglePin}
       compact={compact}
+      showList={(text) => (
+        <ShowList
+          tab={showTab}
+          onTab={setShowTab}
+          orderCount={playlistItems.length}
+          order={
+            <PlaylistDocked
+              playlistItems={playlistItems}
+              playlistCurrentId={playlistCurrentId}
+              playlistSaved={playlistSaved}
+              activateItem={activateItem}
+              playlistRemove={playlistRemove}
+              playlistMove={playlistMove}
+              playlistReorder={playlistReorder}
+              playlistClear={playlistClear}
+              playlistCleared={playlistCleared}
+              playlistUndoClear={playlistUndoClear}
+              stepPlaylist={stepPlaylist}
+              playlistSaveProgram={playlistSaveProgram}
+              playlistLoadProgram={playlistLoadProgram}
+              playlistDeleteProgram={playlistDeleteProgram}
+              playlistDeleted={playlistDeleted}
+              playlistUndoDelete={playlistUndoDelete}
+              playlistReplacedBy={playlistReplacedBy}
+              playlistUndoLoad={playlistUndoLoad}
+            />
+          }
+          saved={{
+            items: bookmarks,
+            onPick: jumpTo,
+            onAdd: addBookmarkToShow,
+            onRemove: toggleBookmark,
+            onExport: exportBookmarks,
+            onImport: importBookmarksFile,
+          }}
+          text={text}
+        />
+      )}
     />
   );
 
@@ -981,8 +1055,6 @@ export function Control() {
             setTextOpen={setTextOpen}
             imagesOpen={imagesOpen}
             setImagesOpen={setImagesOpen}
-            playlistOpen={playlistOpen}
-            setPlaylistOpen={setPlaylistOpen}
             outputWindows={outputWindows}
             outputsOpen={outputsOpen}
             setOutputsOpen={setOutputsOpen}
@@ -1052,19 +1124,13 @@ export function Control() {
             pickBook={pickBook}
             libraryGap={libraryGap}
             primaryId={primaryId}
-            sidebarTab={sidebarTab}
-            setSidebarTab={setSidebarTab}
             recentResize={recentResize}
             history={history}
             clearHistory={clearHistory}
-            bookmarks={bookmarks}
-            exportBookmarks={exportBookmarks}
-            importBookmarksFile={importBookmarksFile}
             recentBoxRef={recentBoxRef}
             layout={layout}
             jumpTo={jumpTo}
             removeHistory={removeHistory}
-            toggleBookmark={toggleBookmark}
           />
         </AppShell.Navbar>
 
@@ -1225,29 +1291,6 @@ export function Control() {
       >
         <SettingsPanel onDetach={() => setSettingsOpen(false)} />
       </FloatingPanel>
-
-      <PlaylistFloating
-        playlistOpen={playlistOpen}
-        setPlaylistOpen={setPlaylistOpen}
-        playlistItems={playlistItems}
-        playlistCurrentId={playlistCurrentId}
-        playlistSaved={playlistSaved}
-        activateItem={activateItem}
-        playlistRemove={playlistRemove}
-        playlistMove={playlistMove}
-        playlistReorder={playlistReorder}
-        playlistClear={playlistClear}
-        playlistCleared={playlistCleared}
-        playlistUndoClear={playlistUndoClear}
-        stepPlaylist={stepPlaylist}
-        playlistSaveProgram={playlistSaveProgram}
-        playlistLoadProgram={playlistLoadProgram}
-        playlistDeleteProgram={playlistDeleteProgram}
-        playlistDeleted={playlistDeleted}
-        playlistUndoDelete={playlistUndoDelete}
-        playlistReplacedBy={playlistReplacedBy}
-        playlistUndoLoad={playlistUndoLoad}
-      />
 
       <FloatingPanel
         opened={followOpen}

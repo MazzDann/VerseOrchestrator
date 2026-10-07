@@ -7,6 +7,9 @@ import {
   defaultKeymap,
   formatChord,
   matchesCombo,
+  arrowScheme,
+  withArrowScheme,
+  stepDirection,
 } from './hotkeys';
 
 /** Minimal KeyboardEvent stand-in carrying just the fields comboFromEvent reads. */
@@ -190,5 +193,55 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
     expect(matchesCombo(e, 'f5,f2,meta+enter')).toBe(true);
     expect(matchesCombo(e, 'f5,f2')).toBe(false);
     expect(matchesCombo(evt('Enter', 'Enter', { ctrlKey: true }), 'f5,f2,meta+enter')).toBe(false);
+  });
+});
+
+describe('arrows (1.8.12-beta.6, F1005-06)', () => {
+  const right = evt('ArrowRight', 'ArrowRight');
+  const down = evt('ArrowDown', 'ArrowDown');
+  const up = evt('ArrowUp', 'ArrowUp');
+  const shiftPgDn = evt('PageDown', 'PageDown', { shiftKey: true });
+  for (const mac of [false, true]) {
+    it(`the defaults are «same», every scheme round-trips, none clashes (${mac ? 'Mac' : 'elsewhere'})`, () => {
+      const d = defaultKeymap(mac);
+      expect(arrowScheme(d, mac)).toBe('same');
+      for (const s of ['same', 'screenPreview', 'versesItems'] as const) {
+        const k = withArrowScheme(d, s, mac);
+        expect(arrowScheme(k, mac)).toBe(s);
+        for (const id of ['advanceNext', 'previewNext', 'playlistNext'] as const)
+          expect(conflictsForAction(k, id)).toEqual([]);
+        // a scheme only writes the arrows' actions
+        expect(k.project).toBe(d.project);
+        expect(sanitizeKeymap(k, mac)).toEqual(k);
+      }
+    });
+  }
+  it('«screenPreview»: → steps the screen, ↓ only the preview', () => {
+    const k = withArrowScheme(DEFAULT_KEYMAP, 'screenPreview');
+    expect(matchesCombo(right, k.advanceNext)).toBe(true);
+    expect(matchesCombo(down, k.advanceNext)).toBe(false);
+    expect(matchesCombo(down, k.previewNext)).toBe(true);
+    expect(matchesCombo(up, k.previewPrev)).toBe(true);
+  });
+  it('«versesItems»: ↓ steps the verses, → the running order', () => {
+    const k = withArrowScheme(DEFAULT_KEYMAP, 'versesItems');
+    expect(matchesCombo(down, k.advanceNext)).toBe(true);
+    expect(matchesCombo(right, k.playlistNext)).toBe(true);
+    expect(matchesCombo(right, k.advanceNext)).toBe(false);
+  });
+  it('a binding changed by hand is the operator’s own scheme', () => {
+    expect(arrowScheme({ ...DEFAULT_KEYMAP, advanceNext: 'space' })).toBeNull();
+  });
+  it('songs and albums step by the arrows, but leave the running order its keys', () => {
+    expect(stepDirection(right, DEFAULT_KEYMAP)).toBe(1);
+    expect(stepDirection(up, DEFAULT_KEYMAP)).toBe(-1);
+    expect(stepDirection(shiftPgDn, DEFAULT_KEYMAP)).toBe(0);
+    const items = withArrowScheme(DEFAULT_KEYMAP, 'versesItems');
+    expect(stepDirection(right, items)).toBe(0);
+    expect(stepDirection(down, items)).toBe(1);
+    // ↓ is the preview's under «screenPreview» — a song has no preview step: it steps
+    expect(stepDirection(down, withArrowScheme(DEFAULT_KEYMAP, 'screenPreview'))).toBe(1);
+    expect(stepDirection(evt('ArrowDown', 'ArrowDown', { ctrlKey: true }), DEFAULT_KEYMAP)).toBe(0);
+    expect(stepDirection(evt(' ', 'Space'), { ...DEFAULT_KEYMAP, advanceNext: 'space' })).toBe(1);
   });
 });

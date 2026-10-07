@@ -16,6 +16,8 @@ import { readImageFit, type ImageFit } from '../../lib/imageFit';
 import { canDrawSmall, drawSmall, smallOrder } from '../../lib/albumSmall';
 import { PRIORITY, useCommandHandler, type Outcome } from '../../lib/commands';
 import { isFormField, isResizeKey } from '../../lib/keyScroll';
+import { stepDirection } from '../../hotkeys';
+import { useSettings } from '../../settingsStore';
 import { tr } from '../../i18n';
 import { standbyNotice } from './standby';
 
@@ -245,12 +247,9 @@ export function useAlbum({
     const onKey = (e: KeyboardEvent) => {
       // a focused resize handle's arrows resize it; a field's move its caret («кожні N с»)
       if (isResizeKey(e) || isFormField(e.target)) return;
-      const dir = ['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key)
-        ? 1
-        : ['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)
-          ? -1
-          : 0;
-      if (!dir || e.ctrlKey || e.altKey || e.metaKey) return;
+      // the arrows and «Далі / Назад», but not the running order's keys (1.8.12-beta.6)
+      const dir = stepDirection(e, useSettings.getState().keymap);
+      if (!dir) return;
       e.preventDefault();
       e.stopPropagation();
       setPlaying(false);

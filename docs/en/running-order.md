@@ -27,23 +27,36 @@ New items go to the end of the running order.
 
 How to open a song or custom text is in [Songs and custom text](songs-and-text.md).
 
-## Open the running order
+## Where the running order is
 
-To open the running order, click the **Running order** icon at the top. A panel with the
-list opens. The icon at the start of a row shows the kind of item: a book — a passage, a
-note — a song, the letter T — custom text, a photo — an image.
+The running order is always in sight: on the right under the monitors, on the **Running
+order** tab (with the number of items). If **Strong's**, **Context**, or **Appearance** is
+open on the right, click **Preview** above the monitors. When the display panel stands
+below the verses, the running order is next to the monitors.
 
-![The Running order panel with three items: John, Romans, and “Announcement”; at the top,
-the Next button](../img/en/running-order.png)
+The icon at the start of a row shows the kind of item: a book — a passage, a note — a song,
+the letter T — custom text, a photo — an image. The item shown now is highlighted, and the
+one that comes next is marked **Next**.
+
+Next to the **Running order** tab there are two more:
+
+- **Saved** — passages you saved with the bookmark icon above the monitor. Click a line to
+  go to the passage, or click the **Add to the running order** icon to put it at the end of
+  the running order. **Export** and **Import** save the list to a file and open it on
+  another computer.
+- **Text** — the slide's text in each chosen translation.
+
+![The right column: the On screen monitor with John 3:16, below it the “Running order · 3”
+tab with the Next button and three items; the second is marked Next](../img/en/running-order.png)
 
 ## Change the order
 
-In the **Running order** panel:
+On the **Running order** tab:
 
 - To move an item, drag it by the dotted handle at the start of its row, or click **Up** or
   **Down** in its row.
 - To remove an item, click the trash icon **Remove** in its row.
-- To remove all items, click **Clear the running order** at the top of the panel. In place
+- To remove all items, click **Clear the running order** at the top of the tab. In place
   of the list, “Running order cleared” appears with a **Cancel** button that brings every
   item back. You can cancel until you add a new item, open a program, or reload the control
   window.
@@ -53,12 +66,23 @@ In the **Running order** panel:
 To show an item, click its row. The item appears on screen at once and is highlighted in
 the list. A song also opens in the **Songs** panel, with its first slide on screen.
 
-To go to the next item, click **Next** at the top of the panel; to the previous one, the
-**Previous item** icon next to it. If nothing has been shown yet, **Next** starts with the
-first item.
+To go to the next item, click **Next** at the top of the tab or press Shift+PageDown; to the
+previous one, the **Previous running order item** icon next to it or Shift+PageUp. If
+nothing has been shown yet, **Next** starts with the first item. On the last item the app
+says “This is the last item of the running order”.
 
 Inside an item, step through as usual: the arrow keys and a clicker go to the next verse or
-song slide, and **Next** in the panel goes to the next item.
+song slide, and **Next** on the tab goes to the next item.
+
+To step through items with the arrow keys, in **Settings** → **Hotkeys** → **Arrows**
+choose **↑ ↓ verses, ← → items**: ↑ and ↓ go to the neighbouring verse or song slide, ← and →
+to the previous or next item. The other choices:
+
+- **All — next / back** — the default: all four arrows go to the next or previous verse.
+- **← → screen, ↑ ↓ preview** — ← and → go on together with the screen, while ↑ and ↓ move
+  only the preview: the screen waits until you press **To screen**. This way you can
+  prepare the next verse while the previous one is on screen. It works while **Live** is
+  on.
 
 ## Save a program
 
@@ -66,7 +90,7 @@ A program is a saved running order that you can open next time.
 
 To save the running order as a program:
 
-1. At the top of the panel, click the **Programs** icon.
+1. At the top of the **Running order** tab, click the **Programs** icon.
 2. In the **Program name** field, type a name, for example `Meeting on October 4`.
 3. Click **Save**. A program with the same name is replaced by the new one.
 
