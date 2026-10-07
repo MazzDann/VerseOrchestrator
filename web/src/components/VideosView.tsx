@@ -112,7 +112,7 @@ export function VideosView({
           {tr('Відео ще немає. Натисніть «Додати відео…» і виберіть файл MP4, MOV, WebM чи MKV.')}
         </Text>
       ) : (
-        <ScrollArea.Autosize mah="min(320px, 30vh)">
+        <ScrollArea.Autosize mah="var(--vo-cap, min(320px, 30vh))">
           <div className="vo-image-grid">
             {show.videos.map((v) => (
               <div key={v.id} className="vo-image-tile" data-live={v.id === live || undefined}>

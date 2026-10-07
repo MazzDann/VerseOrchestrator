@@ -14,8 +14,8 @@ the server), the images panel says the app's server is needed.
 
 To add images:
 
-1. At the top of the control window, click the **Images** icon. The images panel appears
-   above the verses.
+1. At the top of the control window, click **Media**, then **Images** on the left. The
+   images panel appears in the middle.
 2. Click **Add…** and choose one or more PNG, JPEG, WebP, or GIF files.
 
 Thumbnails appear in the panel, newest first. The app keeps each image in the
@@ -72,7 +72,7 @@ too.
 
 To add a folder as an album:
 
-1. In the images panel, at the top, choose **Albums**.
+1. At the top, click **Media**, then choose **Albums** on the left.
 2. Click **Add a folder…**.
 3. Choose the folder: start from your home folder, the Pictures folder, or a drive, and open
    the folders inside. Or paste the folder's path into the field at the top and press Enter.
@@ -133,7 +133,7 @@ and doesn't copy it.
 
 To add a video:
 
-1. In the images panel, at the top, choose **Videos**.
+1. At the top, click **Media**, then choose **Videos** on the left.
 2. Click **Add a video…**.
 3. Open the folder with the video: start from your home folder or a drive, or paste the
    folder's path into the field at the top and press Enter. Below the folders you see the

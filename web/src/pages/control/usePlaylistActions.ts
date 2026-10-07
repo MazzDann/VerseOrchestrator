@@ -28,6 +28,7 @@ import { joinVerses, redLetterSegments } from './slideText';
  * adding to it. No effects.
  */
 export function usePlaylistActions({
+  followItem,
   setTranslations,
   selectBook,
   selectChapter,
@@ -76,6 +77,8 @@ export function usePlaylistActions({
   setLive: (live: boolean) => void;
   openSong: (id: number | null) => void;
   setSongsOpen: (v: boolean | ((open: boolean) => boolean)) => void;
+  /** the item's mode (1.8.12-beta.7): a passage — «Біблія», a text or a picture — «Медіа» */
+  followItem: (kind: SeqItem['kind']) => void;
   setSongsPanelStanza: (stanza: number | null) => void;
   playlistRelinkSong: (oldId: number, label: string, newId: number, bundle?: string) => void;
   projectText: (
@@ -200,6 +203,7 @@ export function usePlaylistActions({
 
   const activateItem = (it: SeqItem) => {
     playlistSetCurrent(it.id);
+    followItem(it.kind);
     if (it.kind === 'passage') void activatePassage(it);
     else if (it.kind === 'text') projectText(it.body, it.title.trim());
     else if (it.kind === 'image') projectPicture(pictureOf(it));

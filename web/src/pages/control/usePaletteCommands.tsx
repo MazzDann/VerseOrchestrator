@@ -9,6 +9,9 @@ import {
   IconSearch,
   IconMusic,
   IconLetterT,
+  IconBook2,
+  IconLibraryPhoto,
+  IconLayoutList,
   IconSquareFilled,
   IconHourglassHigh,
   IconAdjustments,
@@ -19,7 +22,7 @@ import {
   IconDeviceMobile,
   IconAppWindow,
 } from '@tabler/icons-react';
-import { type Appearance } from '../../settingsStore';
+import { useSettings, type Appearance } from '../../settingsStore';
 import { formatRemaining, savedLength } from '../../lib/countdown';
 import { type SearchScope } from '../../components/SearchPanel';
 import { type CommandItem } from '../../components/CommandPalette';
@@ -41,6 +44,8 @@ export function usePaletteCommands({
   showOrder,
   setSongsOpen,
   setTextOpen,
+  toMedia,
+  toBible,
   openSearch,
   setFollowOpen,
   setRemoteOpen,
@@ -63,6 +68,9 @@ export function usePaletteCommands({
   showOrder: () => void;
   setSongsOpen: (open: boolean) => void;
   setTextOpen: (open: boolean) => void;
+  /** «Медіа» at its last kind (own text stays own text — review) */
+  toMedia: () => void;
+  toBible: () => void;
   openSearch: (scope?: SearchScope) => void;
   setFollowOpen: (open: boolean) => void;
   setRemoteOpen: (open: boolean) => void;
@@ -73,6 +81,7 @@ export function usePaletteCommands({
   colorScheme: 'light' | 'dark';
   toggleColorScheme: () => void;
 }): CommandItem[] {
+  const simpleView = useSettings((s) => s.simpleView);
   const lang = useLang();
   // Operator actions exposed in the command palette (Ctrl+K). Fresh closures each
   // render so they never go stale; the palette only reads this while open.
@@ -129,6 +138,14 @@ export function usePaletteCommands({
       icon: <IconList size={16} />,
       run: showOrder,
     },
+    // the modes (1.8.12-beta.7)
+    {
+      id: 'bible',
+      label: tr('Біблія'),
+      keywords: 'bible biblia knygy',
+      icon: <IconBook2 size={16} />,
+      run: toBible,
+    },
     {
       id: 'songs',
       label: tr('Пісні'),
@@ -142,6 +159,20 @@ export function usePaletteCommands({
       keywords: 'text tekst',
       icon: <IconLetterT size={16} />,
       run: () => setTextOpen(true),
+    },
+    {
+      id: 'media',
+      label: tr('Медіа'),
+      keywords: 'media images albums video zobrazhennia',
+      icon: <IconLibraryPhoto size={16} />,
+      run: toMedia,
+    },
+    {
+      id: 'simpleView',
+      label: simpleView ? tr('Простий вигляд: вимкнути') : tr('Простий вигляд: увімкнути'),
+      keywords: 'simple view prostyi vyhliad',
+      icon: <IconLayoutList size={16} />,
+      run: () => useSettings.getState().setSimpleView(!simpleView),
     },
     {
       id: 'search',

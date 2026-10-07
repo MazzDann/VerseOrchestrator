@@ -4,7 +4,6 @@ import {
   Button,
   FileButton,
   Group,
-  Paper,
   Popover,
   ScrollArea,
   SegmentedControl,
@@ -19,7 +18,6 @@ import {
   IconPlaylistAdd,
   IconTrash,
   IconUpload,
-  IconX,
 } from '@tabler/icons-react';
 import { api, type AlbumInfo, type ImageInfo, type VideoInfo } from '../api';
 import { fileToPicture } from '../lib/image';
@@ -34,7 +32,8 @@ import { AlbumsView } from './AlbumsView';
 import { VideosView } from './VideosView';
 
 /** What «Зображення» shows: pictures, albums (1.8.12) or videos (1.8.12-beta.3). */
-export type MediaTab = 'images' | 'albums' | 'videos';
+/** «Медіа» (1.8.12-beta.7): pictures, albums, videos and own text («Текст» joined them). */
+export type MediaTab = 'images' | 'albums' | 'videos' | 'text';
 
 type Fit = ImageFit;
 
@@ -59,7 +58,6 @@ const asPicture = (img: ImageInfo, fit: Fit): SlidePicture => ({
  */
 export function ImagesPanel({
   open,
-  onClose,
   onProject,
   onRefit,
   onAddToPlaylist,
@@ -68,12 +66,10 @@ export function ImagesPanel({
   albums,
   onAddAlbumToPlaylist,
   tab,
-  onTab,
   videos,
   onAddVideoToPlaylist,
 }: {
   open: boolean;
-  onClose: () => void;
   onProject: (picture: SlidePicture) => void;
   /** the switch moved: the picture on screen takes it too */
   onRefit: (fit: Fit) => void;
@@ -86,7 +82,6 @@ export function ImagesPanel({
   albums: ReturnType<typeof useAlbum>;
   onAddAlbumToPlaylist: (album: AlbumInfo, fit: Fit) => void;
   tab: MediaTab;
-  onTab: (tab: MediaTab) => void;
   /** the videos of the list and the one on screen (pages/control/useVideo.ts) */
   videos: ReturnType<typeof useVideo>;
   onAddVideoToPlaylist: (video: VideoInfo, fit: Fit) => void;
@@ -303,21 +298,14 @@ export function ImagesPanel({
     );
 
   return (
-    <Paper withBorder shadow="sm" p="sm" m="sm">
-      <Group justify="space-between" wrap="nowrap" mb="xs">
+    <div className="vo-workspace">
+      <Group justify="space-between" wrap="nowrap">
         <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
           <IconLibraryPhoto size={18} stroke={1.5} />
-          <SegmentedControl
-            size="xs"
-            value={tab}
-            onChange={(v) => onTab(v as MediaTab)}
-            data={[
-              { value: 'images', label: tr('Зображення') },
-              { value: 'albums', label: tr('Альбоми') },
-              { value: 'videos', label: tr('Відео') },
-            ]}
-            aria-label={tr('Зображення, альбоми з папок чи відео')}
-          />
+          {/* the kinds are on the left since 1.8.12-beta.7 (the mode «Медіа») */}
+          <Text fw={600} size="sm" truncate>
+            {tab === 'albums' ? tr('Альбоми') : tab === 'videos' ? tr('Відео') : tr('Зображення')}
+          </Text>
         </Group>
         <Group gap={6} wrap="nowrap">
           <SegmentedControl
@@ -351,9 +339,6 @@ export function ImagesPanel({
               )}
             </FileButton>
           )}
-          <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
-            <IconX size={18} />
-          </ActionIcon>
         </Group>
       </Group>
       {serverAvailable === false ? (
@@ -389,12 +374,12 @@ export function ImagesPanel({
               )}
             </Text>
           ) : (
-            <ScrollArea.Autosize mah="min(320px, 30vh)">
+            <ScrollArea style={{ flex: 1 }} scrollbars="y">
               <div className="vo-image-grid">{tiles}</div>
-            </ScrollArea.Autosize>
+            </ScrollArea>
           )}
         </>
       )}
-    </Paper>
+    </div>
   );
 }

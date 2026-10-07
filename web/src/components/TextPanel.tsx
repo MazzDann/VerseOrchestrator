@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Paper,
   TextInput,
   Textarea,
   ScrollArea,
@@ -11,13 +10,14 @@ import {
   Button,
   ActionIcon,
 } from '@mantine/core';
-import { IconLetterT, IconX, IconDeviceTv, IconTrash, IconPlaylistAdd } from '@tabler/icons-react';
+import { IconLetterT, IconDeviceTv, IconTrash, IconPlaylistAdd } from '@tabler/icons-react';
 import { useSettings, type TextItem } from '../settingsStore';
 import { tr, useLang } from '../i18n';
 
 interface Props {
   open: boolean;
-  onClose: () => void;
+  /** changes when the operator picks «Текст на екран»: the caret goes to the text */
+  focusKey?: number;
   /** Project a free-text slide: `title` becomes the reference line, `body` the quote. */
   onProject: (title: string, body: string) => void;
   /** Add the composed text to the presentation sequence. */
@@ -28,7 +28,7 @@ interface Props {
  * Free-text slide composer — announcements, notes, any custom text. Reuses the
  * active slide style/template; keeps a recents list so repeat texts are one click.
  */
-export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) {
+export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Props) {
   useLang();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -36,12 +36,13 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
   const removeRecentText = useSettings((s) => s.removeRecentText);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
+  // the caret goes in when the operator picks «Текст на екран» (`focusKey` changes) — not when a
+  // running order item opens it: the show's keys would stop at the field (review, 1.8.12-beta.7)
   useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => bodyRef.current?.focus(), 30);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
+    if (!focusKey) return;
+    const t = setTimeout(() => bodyRef.current?.focus(), 30);
+    return () => clearTimeout(t);
+  }, [focusKey]);
 
   if (!open) return null;
 
@@ -56,17 +57,15 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
   };
 
   return (
-    <Paper withBorder shadow="sm" p="sm" m="sm">
-      <Group justify="space-between" wrap="nowrap" mb="xs">
+    // «Текст на екран» is a kind of «Медіа» since 1.8.12-beta.7 (the author: no sense apart)
+    <div className="vo-workspace">
+      <Group justify="space-between" wrap="nowrap">
         <Group gap={6} wrap="nowrap">
           <IconLetterT size={18} />
           <Text fw={600} size="sm">
             {tr('Текст на екран')}
           </Text>
         </Group>
-        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
-          <IconX size={18} />
-        </ActionIcon>
       </Group>
       <Stack gap="xs">
         <TextInput
@@ -122,7 +121,7 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
           <Text size="10px" c="dimmed" fw={600} tt="uppercase" mt="sm" mb={4}>
             {tr('Нещодавні')}
           </Text>
-          <ScrollArea.Autosize mah="min(200px, 20vh)">
+          <ScrollArea style={{ flex: 1 }} scrollbars="y" className="vo-scroll-rows">
             <Stack gap={4}>
               {recentTexts.map((t) => (
                 <Box
@@ -163,9 +162,9 @@ export function TextPanel({ open, onClose, onProject, onAddToPlaylist }: Props) 
                 </Box>
               ))}
             </Stack>
-          </ScrollArea.Autosize>
+          </ScrollArea>
         </>
       )}
-    </Paper>
+    </div>
   );
 }
