@@ -1945,4 +1945,11 @@ export const EN: Record<string, string> = {
   світла: 'light',
   'строфа {n} з {total}': 'stanza {n} of {total}',
   'фото {n} з {total}': 'photo {n} of {total}',
+  // a step down that can update back (1.9.0, server/src/installer.ts FIRST_SWAP_SAFE)
+  'З версій, старіших за 1.8.8, на Windows не вдається оновитися назад':
+    'Versions older than 1.8.8 can’t update back on Windows',
+  'Увага: версія {version} на Windows не зможе оновитися назад, поки відкритий браузер, який вона запустить. Коли знадобиться оновитися з неї, закрийте браузер повністю.':
+    'Note: on Windows, version {version} can’t update back while a browser it started is open. Before you update from it, close the browser completely.',
+  'Версії, старіші за 1.8.8, на Windows недоступні для вибору: з них не вдається оновитися назад, поки відкритий браузер, який вони запустили.':
+    'Versions older than 1.8.8 can’t be picked on Windows: they can’t update back while a browser they started is open.',
 };

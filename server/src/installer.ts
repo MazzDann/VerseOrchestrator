@@ -60,6 +60,18 @@ export const FIRST_ROLLBACK = '1.4.0';
 export const hasRollback = (version: string): boolean =>
   compareVersions(version, FIRST_ROLLBACK) >= 0;
 
+/**
+ * The first version whose own updates work on Windows whatever browser it opened (1.8.8): before
+ * it, a browser the app started kept `app\` as its working folder, and the swap could not rename
+ * the folder while that browser was open (EBUSY — the user's report of 2026-10-05). A step down
+ * below it on Windows would leave the copy unable to update back (the user's ask, 2026-10-07):
+ * such versions aren't offered there.
+ */
+export const FIRST_SWAP_SAFE = '1.8.8';
+/** Can `version`, once installed on `platform`, update itself again whatever browser it opened? */
+export const updatesBack = (version: string, platform: NodeJS.Platform = process.platform) =>
+  platform !== 'win32' || compareVersions(version, FIRST_SWAP_SAFE) >= 0;
+
 /** Downloading, checking, unpacking or restarting: no second download then. */
 const BUSY: readonly InstallPhase[] = ['download', 'verify', 'unpack', 'restarting'];
 /** How long a swap result is shown in «Оновлення». */
