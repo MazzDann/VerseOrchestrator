@@ -6,7 +6,7 @@ import {
   type SetStateAction,
 } from 'react';
 import { type ReactNode } from 'react';
-import { Burger, Divider, Group, Text, TextInput } from '@mantine/core';
+import { Box, Burger, Divider, Group, Text } from '@mantine/core';
 import {
   IconAdjustments,
   IconAppWindow,
@@ -43,6 +43,7 @@ import { type TrackedOutput } from '../../lib/outputs';
 import { docsUrl } from '../../lib/docs';
 import { tr, useLang } from '../../i18n';
 import { openPresenter, openStage } from './outputWindows';
+import { SearchField } from './SearchField';
 import { LiveZone, type LiveZoneProps } from './LiveZone';
 
 type Toggle = Dispatch<SetStateAction<boolean>>;
@@ -65,6 +66,7 @@ export function ControlHeader({
   searchFieldRef,
   searchKeysRef,
   focusOnReturn,
+  fieldInCentre,
   keysBusy,
   workspace,
   setWorkspace,
@@ -108,6 +110,8 @@ export function ControlHeader({
   searchKeysRef: MutableRefObject<((e: React.KeyboardEvent) => boolean) | null>;
   /** the setting: the cursor back in the field when the window comes back */
   focusOnReturn: boolean;
+  /** the field stands above the verses now («Над віршами» in «Біблія», 1.8.12-beta.9): not here */
+  fieldInCentre: boolean;
   /** the palette, «Ще» or a tool owns the keyboard now */
   keysBusy: boolean;
   /** «Біблія / Пісні / Медіа» (1.8.12-beta.7) */
@@ -168,46 +172,27 @@ export function ControlHeader({
       document.removeEventListener('visibilitychange', visible);
     };
   }, [focusOnReturn, searchFieldRef]);
-  /**
-   * The field's keys: the results panel's first (↑ ↓ Enter Esc); Enter else goes (a reference,
-   * numbers in the open book, the first hit); Esc clears; in an EMPTY field the arrows and
-   * PageUp / PageDown keep stepping the show — the field lets go and hands the key on.
-   */
-  const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (searchKeysRef.current?.(e)) return;
-    const field = e.currentTarget;
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      void goTo(goToValue);
-    } else if (e.key === 'Escape' && goToValue) {
-      e.preventDefault();
-      e.stopPropagation();
-      clearSearch();
-    } else if (
-      goToValue === '' &&
-      !e.ctrlKey &&
-      !e.altKey &&
-      !e.metaKey &&
-      ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'].includes(e.key)
-    ) {
-      e.preventDefault();
-      field.blur();
-      document.body.dispatchEvent(
-        new KeyboardEvent('keydown', {
-          key: e.key,
-          code: e.code,
-          // Shift+PageDown: the running order's next item (1.8.12-beta.6)
-          shiftKey: e.shiftKey,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    }
-  };
 
   // The header's foldable tools, each defined once: the toolbar draws them as buttons, «Ще» as
   // menu items — the same names, icons, hotkeys and states (vo-design §2).
   const rowGap = fold.tight ? 'xs' : 'sm';
+  // where the field stands (1.8.12-beta.9, A1007-01): the settings say; above the verses it is
+  // Control's, in «Пісні» / «Медіа» it comes back here at the start
+  const place = useSettings((st) => st.search.place);
+  const fieldAt = fieldInCentre ? null : place === 'verses' ? 'start' : place;
+  const searchField = (width: number | string) => (
+    <SearchField
+      fieldRef={searchFieldRef}
+      value={goToValue}
+      setValue={setGoToValue}
+      goTo={goTo}
+      clearSearch={clearSearch}
+      keysRef={searchKeysRef}
+      focusKey={keymap.searchFocus}
+      width={width}
+      hidden={fold.noGoTo}
+    />
+  );
   // the modes (1.8.12-beta.7, F1005-12 / 15): one workspace at a time — the left column and the
   // centre change with it; they stand where «Пісні», «Власний текст» and «Зображення» stood
   const modeTool = (ws: Workspace, label: string, hint: string, icon: ReactNode): ToolProps => ({
@@ -395,20 +380,7 @@ export function ControlHeader({
             icon={<IconSearch size={18} stroke={1.5} />}
             onClick={() => openSearch('current')}
           />
-          <TextInput
-            ref={searchFieldRef}
-            size="sm"
-            w={230}
-            display={fold.noGoTo ? 'none' : undefined}
-            placeholder={tr('Пошук: Ів 3:16, любов ({key})', {
-              key: formatCombo(keymap.searchFocus),
-            })}
-            value={goToValue}
-            onChange={(e) => setGoToValue(e.currentTarget.value)}
-            onKeyDown={onSearchKey}
-            leftSection={<IconSearch size={14} />}
-            aria-label={tr('Пошук або посилання')}
-          />
+          {fieldAt === 'start' && searchField(230)}
         </ToolZone>
         {!folded('sources') && (
           <ToolZone label={tr('Режим')}>
@@ -419,7 +391,14 @@ export function ControlHeader({
             ))}
           </ToolZone>
         )}
+        {fieldAt === 'afterModes' && searchField(230)}
       </Group>
+      {/* «Посередині» (1.8.12-beta.9): between the two groups, centred in the room they leave */}
+      {/* up to 20rem where there is room, down to 12.5rem where there isn't — never less: the fold
+          measures the children, and a field squeezed to nothing looked as if it fit */}
+      {fieldAt === 'center' && (
+        <Box style={{ flex: '0 1 20rem', minWidth: '12.5rem' }}>{searchField('100%')}</Box>
+      )}
 
       <Group gap={rowGap} wrap="nowrap" style={{ flexShrink: 0 }}>
         {!folded('windows') && (

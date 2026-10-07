@@ -80,6 +80,7 @@ import { ChapterBar } from './control/ChapterBar';
 import { VerseList } from './control/VerseList';
 import { PlaylistDocked } from './control/PlaylistDocked';
 import { ShowList, type ShowTab } from '../components/ShowList';
+import { SearchField } from './control/SearchField';
 
 /** What the control window works with (1.8.12-beta.7, F1005-12 / 15). */
 export type Workspace = 'bible' | 'songs' | 'media';
@@ -147,8 +148,17 @@ export function Control() {
   // buttons' text, the go-to field, then whole zones into «Ще» — measured, not breakpoints
   // (80em / 70em left buttons past the window's edge, Mac check of 1.4.1). What else changes
   // the widths — the language, a burger coming or going — makes it measure afresh.
+  // One workspace at a time (1.8.12-beta.7): see the setters below
+  const [place, setPlace] = useState<{ ws: Workspace; tab: MediaTab }>({
+    ws: 'bible',
+    tab: 'images',
+  });
+  const workspace = place.ws;
+  const mediaTab = place.tab;
+  // the search field above the verses («Над віршами», 1.8.12-beta.9): only in «Біблія»
+  const fieldInCentre = searchPrefs.place === 'verses' && workspace === 'bible';
   const header = useHeaderFold(
-    `${lang}|${panelPlacement}|${navBreakpoint}|${asideBreakpoint}|${simpleView}`,
+    `${lang}|${panelPlacement}|${navBreakpoint}|${asideBreakpoint}|${simpleView}|${searchPrefs.place}|${fieldInCentre}`,
   );
   const fold = header.fold;
 
@@ -180,12 +190,8 @@ export function Control() {
   // with it. The setters kept their boolean shape, so the call sites still say `setSongsOpen(true)`;
   // closing one goes back to the Bible. The search results overlay any of them. Their content state
   // (open song, stanza, draft) lives outside, so coming back restores it.
-  const [place, setPlace] = useState<{ ws: Workspace; tab: MediaTab }>({
-    ws: 'bible',
-    tab: 'images',
-  });
-  const workspace = place.ws;
-  const mediaTab = place.tab;
+  // (the workspace's state itself stands above the header's fold: the search field's place
+  // depends on it — 1.8.12-beta.9)
   const [searchOpen, setSearchOpen] = useState(false);
   const songsOpen = workspace === 'songs';
   const textOpen = workspace === 'media' && mediaTab === 'text';
@@ -1115,6 +1121,7 @@ export function Control() {
             searchFieldRef={searchFieldRef}
             searchKeysRef={searchKeysRef}
             focusOnReturn={searchPrefs.focusOnReturn}
+            fieldInCentre={fieldInCentre}
             keysBusy={paletteOpen || moreShown || toolOpen}
             workspace={workspace}
             setWorkspace={setWorkspace}
@@ -1220,6 +1227,20 @@ export function Control() {
               takeOver={takeOver}
               controlConn={controlConn}
             />
+            {fieldInCentre && (
+              <Box px="sm" pt="sm">
+                <SearchField
+                  fieldRef={searchFieldRef}
+                  value={goToValue}
+                  setValue={setGoToValue}
+                  goTo={goTo}
+                  clearSearch={clearSearch}
+                  keysRef={searchKeysRef}
+                  focusKey={keymap.searchFocus}
+                  width="min(100%, 32rem)"
+                />
+              </Box>
+            )}
             <SearchPanel
               open={searchOpen}
               onClose={() => setSearchOpen(false)}
@@ -1229,7 +1250,7 @@ export function Control() {
               onPick={(r) => jumpTo(r, { focus: true })}
               query={goToValue}
               setQuery={setGoToValue}
-              ownField={header.fold.noGoTo}
+              ownField={header.fold.noGoTo && !fieldInCentre}
               keysRef={searchKeysRef}
               translations={translations}
               dedupe={searchPrefs.dedupe}

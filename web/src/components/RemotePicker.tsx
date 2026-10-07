@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../api';
+import { api, type SearchResult } from '../api';
+import { useSearchRows } from '../lib/useSearchRows';
 import { onlyChapter, stepBackFromVerses, stepOverChapters } from '../lib/bookPick';
 import type { RemoteTarget } from '../lib/commands';
 import { tr, useLang } from '../i18n';
@@ -93,6 +94,36 @@ export function RemotePicker({
     queryFn: () => api.song(songId!),
     enabled: songId != null && step === 'stanzas',
   });
+
+  // Search (1.8.12-beta.9, F1005-01 — like the control window): the books' field takes a
+  // reference or words too; the remote's translations first, all of them when nothing is there;
+  // one row per verse. The books that match stay above the verses found.
+  const words = step === 'books' && versesAllowed ? songQuery : '';
+  const found = useQuery({
+    queryKey: ['remote-search', words, ids.join(',')],
+    queryFn: async () => {
+      const first = await api.search(words, ids);
+      if (first.results.length > 0 || ids.length === 0) return { ...first, fallback: false };
+      const all = await api.search(words, []);
+      return { ...all, fallback: all.results.length > 0 };
+    },
+    enabled: words.length >= 2,
+  });
+  const foundRows = useSearchRows(found.data?.results, primary, true).slice(0, 40);
+  const abbrOf = (id: number) => translations.data?.find((t) => t.id === id)?.abbr ?? '';
+  const openHit = (r: SearchResult) => {
+    // a hit from another translation in a book the remote's first one lacks (an NT only): that
+    // one comes first, or the verses would be empty (as the control window does)
+    if (
+      !ids.includes(r.translationId) &&
+      !(books.data ?? []).some((b) => b.bookNumber === r.bookNumber)
+    )
+      setIds((cur) => [r.translationId, ...cur].slice(0, MAX_TRANSLATIONS));
+    setBook(r.bookNumber);
+    setChapter(r.chapter);
+    setVerse(r.verse);
+    go('verses');
+  };
 
   const bookName = books.data?.find((b) => b.bookNumber === book)?.longName ?? '';
   const q = filter.trim().toLowerCase();
@@ -253,13 +284,23 @@ export function RemotePicker({
           className="vo-remote-filter"
           placeholder={
             step === 'books'
-              ? tr('Фільтр книг…')
+              ? tr('Книга, посилання чи слова…')
               : step === 'songs'
                 ? tr('Номер або слова пісні…')
                 : tr('Фільтр перекладів…')
           }
           value={filter}
           onChange={(e) => setFilter(e.currentTarget.value)}
+          // Enter opens the first verse found (a reference: that verse)
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' || step !== 'books' || shownBooks.length > 0) return;
+            const first = foundRows[0];
+            if (first) {
+              e.preventDefault();
+              openHit(first.r);
+            }
+          }}
+          enterKeyHint={step === 'books' ? 'search' : undefined}
         />
       )}
 
@@ -306,6 +347,38 @@ export function RemotePicker({
               {b.longName}
             </button>
           ))}
+
+        {step === 'books' && words.length >= 2 && (
+          <section className="vo-remote-found" aria-live="polite">
+            <p className="vo-remote-found-head">
+              {found.isFetching && !found.data
+                ? tr('Шукаю…')
+                : foundRows.length === 0
+                  ? tr('Віршів не знайдено')
+                  : found.data?.fallback
+                    ? tr('У перекладах пульта нічого — знайдено в інших')
+                    : tr('Вірші')}
+            </p>
+            {foundRows.map((row) => (
+              <button
+                key={row.key}
+                type="button"
+                className="vo-remote-item vo-remote-hit"
+                onClick={() => openHit(row.r)}
+              >
+                <strong>
+                  {row.r.shortName || row.r.longName} {row.r.chapter}:{row.r.verse}
+                </strong>
+                {(row.also.length > 0 || !ids.includes(row.r.translationId)) && (
+                  <span className="vo-remote-hit-also">
+                    {[row.r.translationId, ...row.also].map(abbrOf).filter(Boolean).join(', ')}
+                  </span>
+                )}
+                <span className="vo-remote-hit-text">{row.r.text}</span>
+              </button>
+            ))}
+          </section>
+        )}
 
         {step === 'chapters' && (
           <div className="vo-remote-grid">

@@ -793,6 +793,39 @@ body[data-resizing='y'] {
   font-size: 16px; /* 16px: iOS doesn't zoom into the field */
   padding: 10px 12px;
 }
+/* the remote's search (1.8.12-beta.9): the verses found under the books that match */
+.vo-remote-found {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.vo-remote-found-head {
+  margin: 4px 2px 0;
+  font-size: 13px;
+  opacity: 0.7;
+}
+.vo-remote-hit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  text-align: left;
+}
+.vo-remote-hit-also {
+  font-size: 12px;
+  opacity: 0.65;
+}
+.vo-remote-hit-text {
+  flex-basis: 100%;
+  font-size: 15px;
+  line-height: 1.35;
+  opacity: 0.85;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .vo-remote-sheet-body {
   flex: 1;
   min-height: 0;
