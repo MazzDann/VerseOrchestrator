@@ -344,6 +344,23 @@ export function createStandby(o: StandbyOptions) {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
+/**
+ * `env` with this Node's folder first on its PATH, once (the key in whatever case it has —
+ * Windows keeps `Path`). A waiter started by launchd (a Mac's autostart) has the PATH
+ * /usr/bin:/bin:/usr/sbin:/sbin, without npm: the app it started couldn't rescan the modules
+ * («npm: command not found», Mac check of 1.9.0). npm lies next to node in a release copy
+ * (app/node/bin, app\node), in Homebrew's and nvm's folders and in the nodejs folder on Windows.
+ */
+export function nodeFirstOnPath(
+  env: NodeJS.ProcessEnv,
+  nodeDir = path.dirname(process.execPath),
+  delimiter = path.delimiter,
+): NodeJS.ProcessEnv {
+  const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
+  const rest = env[key] ? env[key].split(delimiter).filter((p) => p !== nodeDir) : [];
+  return { ...env, [key]: [nodeDir, ...rest].join(delimiter) };
+}
+
 /** Run a command (npm …) to the end; `inherit`: its output goes straight to this console. */
 export function run(
   cmd: string,
@@ -354,9 +371,11 @@ export function run(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     // one command line: a shell is needed for npm(.cmd) on Windows, and Node deprecates
-    // separate args with a shell (DEP0190) — ours are fixed words, nothing to escape
+    // separate args with a shell (DEP0190) — ours are fixed words, nothing to escape.
+    // npm from Node's folder first: a waiter under launchd builds the UI after a pull too.
     const child = spawn([cmd, ...args].join(' '), {
       cwd,
+      env: nodeFirstOnPath(process.env),
       shell: true,
       windowsHide: true,
       stdio: opts.inherit ? 'inherit' : 'pipe',
@@ -426,7 +445,8 @@ export function appProcess(root: string, log: (m: string) => void) {
       ['--import', 'tsx', path.join(root, 'server', 'src', 'index.ts')],
       {
         cwd: root,
-        env: { ...process.env, PORT: '0', HOST: '127.0.0.1', VO_STANDBY: '1' },
+        // Node's folder first on the PATH: «Пересканувати модулі» runs npm (Mac check of 1.9.0)
+        env: nodeFirstOnPath({ ...process.env, PORT: '0', HOST: '127.0.0.1', VO_STANDBY: '1' }),
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
         windowsHide: true,
       },

@@ -1246,14 +1246,14 @@ export function Control() {
               primaryId={primaryId}
               scope={searchScope}
               onScopeChange={setSearchScope}
-              onPick={(r) => jumpTo(r, { focus: true })}
+              onPick={(r, opts) => jumpTo(r, { focus: true, show: opts?.show })}
               query={goToValue}
               setQuery={setGoToValue}
               ownField={header.fold.noGoTo && !fieldInCentre}
               keysRef={searchKeysRef}
               translations={translations}
               dedupe={searchPrefs.dedupe}
-              onEnter={(q) => void goTo(q)}
+              onEnter={(q, opts) => void goTo(q, opts)}
               onDone={clearSearch}
             />
             {/* the modes (1.8.12-beta.7): «Пісні» and «Медіа» take the centre, the Bible's chapter bar
