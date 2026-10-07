@@ -6,11 +6,16 @@ import { useEffect } from 'react';
  * mid-show (on a Mac on battery, after a few minutes). An open, visible output window holds a
  * Screen Wake Lock (`navigator.wakeLock.request('screen')`).
  *
- * The browser lets the lock go whenever the page is hidden (minimised, another tab, covered on
- * Windows), so the page asks again each time it is visible. No API (Firefox < 126, Safari < 16.4,
- * plain http on a LAN IP — a secure-context API) or a refusal (battery saver, NotAllowedError):
- * nothing happens on the wall, the displays just follow the system's own settings as before.
+ * The browser lets the lock go whenever the page is hidden (minimised, another tab, covered — a
+ * Mac counts a fully covered window as hidden too), so the page asks again each time it is
+ * visible. A refused request (Safari wants a click or a key in the page first; battery saver) is
+ * asked again on the next click or key in the window — in a show, F for full screen. No API
+ * (Firefox < 126, Safari < 16.4, plain http on a LAN IP — a secure-context API) or a refusal that
+ * stays: nothing happens on the wall, the displays just follow the system's own settings as before.
  */
+
+/** The page's events the lock listens to: shown again, or a gesture after a refusal. */
+export type WakeEvent = 'visibilitychange' | 'pointerdown' | 'keydown';
 
 /** The part of `WakeLockSentinel` used here (a fake one in tests). */
 export interface WakeSentinel {
@@ -25,8 +30,8 @@ export interface WakeApi {
 
 export interface WakeDoc {
   readonly visibilityState: DocumentVisibilityState;
-  addEventListener(type: 'visibilitychange', listener: () => void): void;
-  removeEventListener(type: 'visibilitychange', listener: () => void): void;
+  addEventListener(type: WakeEvent, listener: () => void, capture?: boolean): void;
+  removeEventListener(type: WakeEvent, listener: () => void, capture?: boolean): void;
 }
 
 export interface WakeLockController {
@@ -48,6 +53,8 @@ export function createWakeLock({
   let active = false;
   let sentinel: WakeSentinel | null = null;
   let pending: Promise<void> | null = null;
+  /** The last request was refused: the next click or key asks again (Safari wants a gesture). */
+  let refused = false;
 
   const holding = () => !!sentinel && !sentinel.released;
 
@@ -64,12 +71,16 @@ export function createWakeLock({
             void s.release().catch(() => undefined); // stopped while asking
             return;
           }
+          refused = false;
           sentinel = s;
           s.addEventListener('release', () => {
             if (sentinel === s) sentinel = null;
           });
         },
-        (err: unknown) => console.debug('[wake lock] not granted:', err),
+        (err: unknown) => {
+          refused = true;
+          console.debug('[wake lock] not granted:', err);
+        },
       )
       .finally(() => {
         pending = null;
@@ -78,18 +89,28 @@ export function createWakeLock({
   };
 
   const onVisibility = () => void acquire();
+  // a gesture asks only after a refusal: a held lock (or one never refused) costs a key nothing
+  const onGesture = () => {
+    if (refused) void acquire();
+  };
 
   return {
     start() {
       if (!active) {
         active = true;
         doc.addEventListener('visibilitychange', onVisibility);
+        // capture: «Показ»'s own keys (F, Esc …) may stop the event before it bubbles up
+        doc.addEventListener('pointerdown', onGesture, true);
+        doc.addEventListener('keydown', onGesture, true);
       }
       return acquire();
     },
     stop() {
       active = false;
+      refused = false;
       doc.removeEventListener('visibilitychange', onVisibility);
+      doc.removeEventListener('pointerdown', onGesture, true);
+      doc.removeEventListener('keydown', onGesture, true);
       const s = sentinel;
       sentinel = null;
       s?.release().catch(() => undefined);

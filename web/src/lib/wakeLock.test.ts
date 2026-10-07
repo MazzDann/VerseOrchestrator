@@ -5,14 +5,18 @@ import { createWakeLock, type WakeApi, type WakeDoc, type WakeSentinel } from '.
  * A page and a Screen Wake Lock with the browser's rules: a request on a hidden page is refused,
  * hiding the page releases every lock (each sentinel fires `release`), `release()` does too.
  */
-function fakeBrowser(opts: { refuse?: boolean } = {}) {
-  const listeners = new Set<() => void>();
+function fakeBrowser(opts: { refuse?: boolean; needsGesture?: boolean } = {}) {
+  const byType = new Map<string, Set<() => void>>();
+  const on = (t: string) => byType.get(t) ?? byType.set(t, new Set()).get(t)!;
+  const listeners = on('visibilitychange');
   const sentinels: (WakeSentinel & { released: boolean })[] = [];
   let resolveNext: (() => void) | null = null;
+  // Safari: a request needs a click or a key just before it (transient activation)
+  let gesture = false;
   const doc: WakeDoc & { visibilityState: DocumentVisibilityState } = {
     visibilityState: 'visible',
-    addEventListener: (_t, l) => void listeners.add(l),
-    removeEventListener: (_t, l) => void listeners.delete(l),
+    addEventListener: (t, l) => void on(t).add(l),
+    removeEventListener: (t, l) => void on(t).delete(l),
   };
   const makeSentinel = () => {
     const onRelease: (() => void)[] = [];
@@ -41,6 +45,11 @@ function fakeBrowser(opts: { refuse?: boolean } = {}) {
       if (doc.visibilityState !== 'visible') {
         return Promise.reject(Object.assign(new Error('hidden'), { name: 'NotAllowedError' }));
       }
+      if (opts.needsGesture && !gesture) {
+        return Promise.reject(
+          Object.assign(new Error('requires user activation'), { name: 'NotAllowedError' }),
+        );
+      }
       if (!hold) return Promise.resolve(makeSentinel());
       return new Promise((resolve) => {
         resolveNext = () => resolve(makeSentinel());
@@ -52,11 +61,19 @@ function fakeBrowser(opts: { refuse?: boolean } = {}) {
     if (!visible) for (const s of sentinels) void s.release();
     for (const l of listeners) l();
   };
+  /** A click (or a key) in the page: listeners run inside the gesture, as in a browser. */
+  const gestureIn = (type: 'pointerdown' | 'keydown') => {
+    gesture = true;
+    for (const l of on(type)) l();
+    gesture = false;
+  };
   return {
     api,
     doc,
     listeners,
     setVisible,
+    gestureIn,
+    listening: (type: string) => on(type).size,
     /** Sentinels the browser has granted and not released yet. */
     live: () => sentinels.filter((s) => !s.released).length,
     requests: () => requests,
@@ -187,5 +204,51 @@ describe('keeping the displays awake during a show (Mac check of 1.9.0)', () => 
     const lock2 = createWakeLock({ api: throwing, doc: b.doc });
     await expect(lock2.start()).resolves.toBeUndefined();
     expect(lock2.held()).toBe(false);
+  });
+
+  it('Safari: refused without a gesture — the next click or key in «Показ» asks again and holds it', async () => {
+    const b = fakeBrowser({ needsGesture: true });
+    const lock = createWakeLock(b);
+    await lock.start();
+    expect(lock.held()).toBe(false);
+    expect(b.requests()).toBe(1);
+    b.gestureIn('pointerdown');
+    await settle();
+    expect(lock.held()).toBe(true);
+    expect(b.requests()).toBe(2);
+    // held: keys and clicks (F for full screen, Esc) ask nothing more
+    b.gestureIn('keydown');
+    b.gestureIn('pointerdown');
+    await settle();
+    expect(b.requests()).toBe(2);
+    expect(b.live()).toBe(1);
+    // let go on hide; on show it is refused again (no gesture) — a key brings it back
+    b.setVisible(false);
+    b.setVisible(true);
+    await settle();
+    expect(lock.held()).toBe(false);
+    b.gestureIn('keydown');
+    await settle();
+    expect(lock.held()).toBe(true);
+    expect(b.live()).toBe(1);
+  });
+
+  it('a gesture never asks when nothing was refused, and stop() stops listening to gestures', async () => {
+    const b = fakeBrowser();
+    const lock = createWakeLock(b);
+    await lock.start();
+    b.gestureIn('keydown');
+    await settle();
+    expect(b.requests()).toBe(1);
+    lock.stop();
+    expect(b.listening('pointerdown')).toBe(0);
+    expect(b.listening('keydown')).toBe(0);
+    const refused = fakeBrowser({ refuse: true });
+    const lock2 = createWakeLock(refused);
+    await lock2.start();
+    lock2.stop();
+    refused.gestureIn('pointerdown');
+    await settle();
+    expect(refused.requests()).toBe(1);
   });
 });
