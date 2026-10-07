@@ -387,6 +387,22 @@ export function matchesCombo(e: KeyChord, combo: string): boolean {
 }
 
 /**
+ * The «/» typed, whatever key makes it (1.9.7, Mac check): `searchFocus` is bound to the physical
+ * key US keyboards print «/» on — on the Ukrainian layout that key types «.» and «/» is elsewhere
+ * (with ⇧). While the action keeps its default, the character itself goes to the search field too.
+ */
+export function slashTyped(e: KeyChord & { key: string }, keymap: Keymap): boolean {
+  return (
+    keymap.searchFocus === 'slash' &&
+    e.key === '/' &&
+    !e.ctrlKey &&
+    !e.altKey &&
+    !e.metaKey &&
+    !matchesCombo(e, keymap.searchFocus)
+  );
+}
+
+/**
  * Which way a key steps what owns the arrows — a song's stanzas, an album (1.8.12-beta.6): the
  * «Далі / Назад» keys, and the plain arrows and PageUp / PageDown — unless the running order has
  * the key (`playlistNext` / `playlistPrev`, «↑ ↓ вірші, ← → елементи»): that one passes on.
