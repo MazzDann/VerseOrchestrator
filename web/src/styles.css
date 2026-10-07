@@ -387,6 +387,33 @@ body[data-resizing='nesw'] {
   height: 100%;
   border-left: 1px solid var(--mantine-color-default-border);
 }
+/* The running order under the monitors in the right column (Mac check of 1.9.0): the monitors
+   kept their natural height, so in a short column — a MacBook's 1470×830 window with a wide
+   column, half a screen (735×860, the column over the centre) — the list's tabs fell below the
+   window. The mirror of the row above: the column's body measures its height, the list keeps
+   --list-min (its tabs 36 px, the toolbar 51 px, three 36 px rows with their gaps, the padding:
+   223 px), the monitors take what is left — the stack's padding, a 1.75rem caption over each
+   16:9 picture, each smaller one 62 % wide with 0.75rem above it — never more than the column's
+   width (a tall column looks as before), never less than 10rem. */
+.vo-preview-body {
+  container-type: size;
+}
+.vo-monitor-stack[data-list='true'] {
+  --list-min: 14rem;
+  /* the height that is not pictures: the padding around the stack, the captions, the gaps */
+  --stack-fixed: calc(
+    var(--mantine-spacing-sm) + var(--mantine-spacing-xs) + 1.75rem + var(--small-monitors) *
+      (var(--mantine-spacing-sm) + 1.75rem)
+  );
+  width: clamp(
+    10rem,
+    calc(
+      (100cqh - var(--list-min) - var(--stack-fixed)) * 16 / 9 / (1 + 0.62 * var(--small-monitors))
+    ),
+    100%
+  );
+  margin-inline: auto;
+}
 
 /* While dragging: keep the resize cursor everywhere and stop text selection. */
 body[data-resizing='x'] {

@@ -60,11 +60,11 @@ import {
   undoImport,
   type ImportUndo,
 } from '@vo/shared/songs-node';
-import { keyedError, N_, sameBundleName } from '@vo/shared';
+import { FILE_DENIED, FOLDER_DENIED, keyedError, N_, sameBundleName } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
 import { handoverRoutes, spawnBrowser } from './handover.js';
-import { CONTROL_HEADER, portFree, waiterAt } from './standby.js';
+import { CONTROL_HEADER, nodeFirstOnPath, portFree, waiterAt } from './standby.js';
 import {
   addImage,
   CONTENT_TYPE,
@@ -667,13 +667,9 @@ app.post(
     // the launcher's own environment: not this app's port, host and waiter marks — and this
     // Node's folder first on the PATH: a waiter started by launchd (a Mac's autostart) has a
     // PATH without npm, which the launcher needs for npm ci and the UI build
-    const env = { ...process.env };
+    const env = nodeFirstOnPath(process.env);
     for (const k of ['PORT', 'HOST', 'VO_STANDBY', 'VO_STANDBY_PORT', 'VO_STANDBY_LISTEN'])
       delete env[k];
-    const pathKey = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
-    env[pathKey] = [path.dirname(process.execPath), env[pathKey]]
-      .filter(Boolean)
-      .join(path.delimiter);
     spawn(
       process.execPath,
       [
@@ -1200,6 +1196,8 @@ app.post(
     const done = await addAlbum(dataDir, req.body ?? {});
     if ('refused' in done) {
       if (done.refused === 'missing') throw new ApiError(404, N_('Папку не знайдено'));
+      // Mac check of 1.9.0: the page says where to allow it (web/src/lib/denied.ts)
+      if (done.refused === 'denied') throw new ApiError(403, FOLDER_DENIED);
       throw new ApiError(400, N_('Виберіть папку на цьому комп’ютері'));
     }
     res.status(201).json(albumEntry(done, await listPhotos(done.path)));
@@ -1296,6 +1294,7 @@ app.post(
     const done = await addVideo(dataDir, req.body ?? {});
     if ('refused' in done) {
       if (done.refused === 'missing') throw new ApiError(404, N_('Файл не знайдено'));
+      if (done.refused === 'denied') throw new ApiError(403, FILE_DENIED);
       if (done.refused === 'type')
         throw new ApiError(400, N_('Це не відео MP4, MOV, WebM чи MKV, яке відтворює браузер'));
       throw new ApiError(400, N_('Виберіть файл на цьому комп’ютері'));

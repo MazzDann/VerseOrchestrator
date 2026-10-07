@@ -2,6 +2,8 @@ import { type MutableRefObject } from 'react';
 import { TextInput } from '@mantine/core';
 import { IconSearch } from '@tabler/icons-react';
 import { formatCombo } from '../../hotkeys';
+import { searchEnter } from '../../lib/quickRef';
+import { useSettings } from '../../settingsStore';
 import { tr, useLang } from '../../i18n';
 
 /**
@@ -23,7 +25,8 @@ export function SearchField({
   fieldRef: MutableRefObject<HTMLInputElement | null>;
   value: string;
   setValue: (value: string) => void;
-  goTo: (q: string) => Promise<void>;
+  /** `show`: and put the place gone to on screen (⌘↩ / Ctrl+Enter) */
+  goTo: (q: string, opts?: { show?: boolean }) => Promise<void>;
   clearSearch: () => void;
   /** the results panel's keys (↑ ↓ Enter Esc) — the field hands them over first */
   keysRef: MutableRefObject<((e: React.KeyboardEvent) => boolean) | null>;
@@ -39,11 +42,15 @@ export function SearchField({
    * PageUp / PageDown keep stepping the show — the field lets go and hands the key on.
    */
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // the field owns Enter (Mac check of 1.9.0): ⌘↩ also reached the page's «На екран», which put
+    // the old selection on screen — with ⌘ / Ctrl it now goes and shows the place gone to
+    const enter = searchEnter(e, useSettings.getState().keymap.project);
+    if (enter) e.stopPropagation();
     if (keysRef.current?.(e)) return;
     const field = e.currentTarget;
-    if (e.key === 'Enter') {
+    if (enter) {
       e.preventDefault();
-      void goTo(value);
+      void goTo(value, enter);
     } else if (e.key === 'Escape' && value) {
       e.preventDefault();
       e.stopPropagation();

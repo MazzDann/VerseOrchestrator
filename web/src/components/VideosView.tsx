@@ -22,6 +22,7 @@ import {
   IconVolume,
 } from '@tabler/icons-react';
 import { api, type VideoInfo } from '../api';
+import { deniedHint } from '../lib/denied';
 import { clockOf, positionIn } from '../lib/video';
 import type { useVideo } from '../pages/control/useVideo';
 import { usePlaylist, type SeqItem } from '../playlistStore';
@@ -120,7 +121,16 @@ export function VideosView({
                   type="button"
                   className="vo-image-pick"
                   onClick={() => show.showVideo(v)}
-                  title={v.missing ? tr('Файл не знайдено: {path}', { path: v.path }) : v.path}
+                  title={
+                    // a refused file is `missing` too (videos.ts videoEntry): `denied` first
+                    v.elsewhere
+                      ? tr('Файл з іншого комп’ютера: {path}', { path: v.path })
+                      : v.denied
+                        ? `${v.path}\n${deniedHint('file', 'refresh')}`
+                        : v.missing
+                          ? tr('Файл не знайдено: {path}', { path: v.path })
+                          : v.path
+                  }
                   aria-label={tr('Показати «{name}»', { name: v.name })}
                   disabled={v.missing}
                 >
@@ -140,7 +150,13 @@ export function VideosView({
                   py={2}
                   c={v.missing ? 'orange' : undefined}
                 >
-                  {v.missing ? tr('Файл не знайдено: {name}', { name: v.name }) : v.name}
+                  {v.elsewhere
+                    ? tr('Файл з іншого комп’ютера: {name}', { name: v.name })
+                    : v.denied
+                      ? tr('Немає доступу до файлу: {name}', { name: v.name })
+                      : v.missing
+                        ? tr('Файл не знайдено: {name}', { name: v.name })
+                        : v.name}
                 </Text>
                 <Group gap={2} className="vo-image-actions" wrap="nowrap">
                   <Tooltip label={tr('Додати в послідовність показу')} withArrow>

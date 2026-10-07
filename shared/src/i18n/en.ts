@@ -431,6 +431,9 @@ export const EN: Record<string, string> = {
   'Відео прибрано: {name}': 'Video removed: {name}',
   'Файл не знайдено: {name}': 'File not found: {name}',
   'Файл не знайдено: {path}': 'File not found: {path}',
+  'Файл з іншого комп’ютера: {name}': 'A file from another computer: {name}',
+  'Файл з іншого комп’ютера: {path}': 'A file from another computer: {path}',
+  'Немає доступу до файлу: {name}': 'No access to the file: {name}',
   'після кінця — далі': 'after the end: next',
   'після кінця — чорний екран': 'after the end: black screen',
   'на телефонах — напис': 'phones: words',
@@ -468,6 +471,19 @@ export const EN: Record<string, string> = {
   'Альбом прибрано: {name}': 'Album removed: {name}',
   'Папку не знайдено: {name}': 'Folder not found: {name}',
   'Папку не знайдено: {path}': 'Folder not found: {path}',
+  'Папка з іншого комп’ютера: {path}': 'A folder from another computer: {path}',
+  'Немає доступу до папки: {path}': 'No access to the folder: {path}',
+  // the system won't open a folder or a file (Mac check of 1.9.0, web/src/lib/denied.ts)
+  'macOS не дає відкрити цю папку.': "macOS doesn't let the app open this folder.",
+  'macOS не дає відкрити цей файл.': "macOS doesn't let the app open this file.",
+  'Дозвольте доступ: Системні параметри → Приватність і безпека → Файли та папки (або «Повний доступ до диска») — для Термінала чи програми, що запускає VerseOrchestrator.':
+    'Allow access: System Settings → Privacy & Security → Files & Folders (or Full Disk Access) — for Terminal or the app that starts VerseOrchestrator.',
+  'Система не дає відкрити цю папку — перевірте права доступу.':
+    "The system doesn't let the app open this folder — check its permissions.",
+  'Система не дає відкрити цей файл — перевірте права доступу.':
+    "The system doesn't let the app open this file — check its permissions.",
+  'Потім натисніть «Оновити».': 'Then click “Refresh”.',
+  'Або виберіть іншу папку.': 'Or choose another folder.',
   Альбоми: 'Albums',
   'Фото з папок на цьому комп’ютері — без копій: нові фото в папці з’являються самі.':
     'Photos from folders on this computer — no copies: new photos in a folder show up by themselves.',
@@ -488,8 +504,6 @@ export const EN: Record<string, string> = {
   Угору: 'Up',
   'Виберіть папку нижче або вставте шлях до неї': 'Choose a folder below or paste its path',
   'Шлях до папки': 'Folder path',
-  'Система не дає відкрити цю папку. Виберіть іншу.':
-    "The system doesn't let the app open this folder. Choose another one.",
   'Тут немає вкладених папок.': 'There are no folders in here.',
   'У цій папці {n} фото|У цій папці {n} фото|У цій папці {n} фото':
     'This folder has {n} photo|This folder has {n} photos',
@@ -512,6 +526,8 @@ export const EN: Record<string, string> = {
   'Оновити альбом': 'Refresh the album',
   'Папку «{path}» не знайдено. Під’єднайте диск чи флешку й натисніть «Оновити».':
     'Folder “{path}” not found. Connect the drive or the flash drive and click “Refresh”.',
+  'Папку «{path}» додано на іншому комп’ютері — тут її немає. Відкрийте альбом там або додайте папку цього комп’ютера.':
+    "The folder “{path}” was added on another computer and isn't here. Open the album there, or add a folder of this computer.",
   'У папці немає фото JPEG, PNG, WebP, GIF, AVIF чи BMP. Додайте їх туди й натисніть «Оновити».':
     'The folder has no JPEG, PNG, WebP, GIF, AVIF, or BMP photos. Add some there and click “Refresh”.',
   'Показано перші 5 000 фото.': 'The first 5,000 photos are shown.',
