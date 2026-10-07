@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readJson, writeJson } from './jsonFile.js';
 import { CONTENT_TYPE, MAX_SMALL_BYTES, sniff } from './images.js';
 
@@ -10,7 +11,9 @@ import { CONTENT_TYPE, MAX_SMALL_BYTES, sniff } from './images.js';
  * Albums (1.8.12, F1005-13): folders of photos on this computer, shown in turn. The server
  * reads a folder where it is — no copies in data/images, so a photo dropped into the folder
  * is there the next time the album is listed (the author's call). `data/albums.json` keeps only
- * the folders' paths; the paths are this machine's, so it is not in a backup.
+ * the folders' paths; the paths are this machine's, so it is not in a backup. It travels with the
+ * app folder though (a flash drive, a copy of the folder): an album another system added is kept
+ * as it is and never read (`elsewhere`).
  *
  * A photo is served only by a name its folder's listing gave, typed by its first bytes (like
  * images.ts): the listing holds files with a picture's extension right in the folder — no
@@ -77,9 +80,25 @@ export interface Listing {
   heic: number;
   /** more than MAX_PHOTOS pictures: the rest are left out */
   truncated: boolean;
+  /** the system won't open the folder (isDenied): it is there, nothing in it is served */
+  denied?: boolean;
 }
 
 const albumsFile = (dataDir: string) => path.join(dataDir, ALBUMS_FILE);
+
+/**
+ * A path another system wrote: `D:\Фото` or `\\NAS\photos` read on a Mac, `/Volumes/Фото` on
+ * Windows. Mac check of 1.9.0: albums.json and videos.json came with the app folder from Windows,
+ * the Mac dropped those entries as broken and its next add wrote the file without them — lost
+ * for good. Such an entry is kept and written back as it is, shown as one from another computer,
+ * and never read: on a Mac `D:\Фото` is a name in the working folder. This system's paths are
+ * the ones path.resolve gives — on Windows a drive's or a share's, elsewhere from the root.
+ */
+export function elsewhere(p: string, platform: NodeJS.Platform = process.platform): boolean {
+  const here =
+    platform === 'win32' ? /^(?:[a-z]:[\\/]|[\\/]{2}[^\\/])/i.test(p) : path.posix.isAbsolute(p);
+  return !here && (path.win32.isAbsolute(p) || path.posix.isAbsolute(p));
+}
 
 const isAlbum = (x: unknown): x is Album => {
   const a = x as Partial<Album> | null;
@@ -89,7 +108,7 @@ const isAlbum = (x: unknown): x is Album => {
     /^[0-9a-f-]{36}$/.test(a.id) &&
     typeof a.name === 'string' &&
     typeof a.path === 'string' &&
-    path.isAbsolute(a.path) &&
+    (path.isAbsolute(a.path) || elsewhere(a.path)) &&
     typeof a.added === 'string'
   );
 };
@@ -101,13 +120,22 @@ export function readAlbums(dataDir: string): Album[] {
 const writeAlbums = (dataDir: string, albums: Album[]) =>
   writeJson(albumsFile(dataDir), { albums });
 
-/** Two spellings of one folder: NFC, and on Windows without case. */
-export const samePath = (a: string, b: string) => {
-  const key = (p: string) => {
-    const n = path.resolve(p).normalize('NFC');
-    return process.platform === 'win32' ? n.toLowerCase() : n;
-  };
-  return key(a) === key(b);
+const pathKey = (p: string) => {
+  const n = path.resolve(p).normalize('NFC');
+  return process.platform === 'win32' ? n.toLowerCase() : n;
+};
+
+/**
+ * Two spellings of one folder or file: NFC, and on Windows without case; given their real paths
+ * (`realPaths`), also another case on a Mac's disk (APFS, exFAT) or a way through a link
+ * (`/Volumes/Macintosh HD/…` is `/…`) — Mac check of 1.9.0: each made a second album of one
+ * folder. A path of another computer is never one of this computer's.
+ */
+export const samePath = (a: string, b: string, reals?: ReadonlyMap<string, string>) => {
+  if (elsewhere(a) || elsewhere(b)) return false;
+  if (pathKey(a) === pathKey(b)) return true;
+  const [ra, rb] = [reals?.get(a), reals?.get(b)];
+  return !!ra && !!rb && pathKey(ra) === pathKey(rb);
 };
 
 export const isFolder = (p: string) =>
@@ -116,16 +144,114 @@ export const isFolder = (p: string) =>
     () => false,
   );
 
+/**
+ * The system refused, the thing is there (Mac check of 1.9.0): macOS keeps Desktop, Documents,
+ * Downloads and removable or network disks from a program it hasn't allowed (EPERM); plain
+ * rights give EACCES. Told apart from «gone», which asks to plug a drive in.
+ */
+export const isDenied = (e: unknown) => {
+  const code = (e as NodeJS.ErrnoException | null)?.code;
+  return code === 'EPERM' || code === 'EACCES';
+};
+
+export type PathKind = 'folder' | 'file' | 'denied' | null;
+
+/** What is at `p`: a folder, a file, something the system won't show (isDenied), or nothing. */
+export const pathKind = (p: string): Promise<PathKind> =>
+  fsp.stat(p).then(
+    (st) => (st.isDirectory() ? 'folder' : st.isFile() ? 'file' : null),
+    (e: unknown) => (isDenied(e) ? 'denied' : null),
+  );
+
+/**
+ * A folder stat sees but the system won't list: chmod 000 on the folder itself, or macOS privacy
+ * on ~/Desktop, ~/Documents, ~/Downloads — stat answers there, readdir gives EPERM (review).
+ */
+const listingDenied = (dir: string) =>
+  fsp.readdir(dir).then(
+    () => false,
+    (e: unknown) => isDenied(e),
+  );
+
 /** `p`, or `fallback` once `ms` pass first (a disconnected drive can take seconds to answer). */
 const within = <T>(p: Promise<T>, ms: number, fallback: T) =>
   Promise.race([p, new Promise<T>((done) => setTimeout(() => done(fallback), ms).unref())]);
+
+/**
+ * The real paths of this computer's `paths` — links followed, in the case the disk keeps (a
+ * Mac's realpath gives it, on APFS and on exFAT alike) — for samePath. Asked on adds only; one
+ * that doesn't answer in time (a sleeping share) is compared by its spelling.
+ */
+export async function realPaths(paths: string[]): Promise<Map<string, string>> {
+  const mine = [...new Set(paths)].filter((p) => !elsewhere(p));
+  const real = (p: string) => fsp.realpath(p).catch(() => null);
+  const reals = await Promise.all(mine.map((p) => within(real(p), PROBE_MS, null)));
+  const known = new Map<string, string>();
+  mine.forEach((p, i) => {
+    const real = reals[i];
+    if (real) known.set(p, real);
+  });
+  return known;
+}
 
 /** A folder's name to show; a drive's root has none, so its path. */
 export const folderName = (p: string) => path.basename(p).normalize('NFC') || p;
 
 export const badPath = (raw: string) => !raw || raw.includes('\0') || !path.isAbsolute(raw);
 
-export type AlbumRefusal = 'path' | 'missing';
+/** The escapes Terminal and zsh put in a path: «My\ Photos», «\(2024\)». */
+const SHELL_ESCAPE = /\\([ !"#$&'()*;<>?[\\\]^`{|}~])/g;
+
+/**
+ * A path as it is pasted into the folder picker (Mac check of 1.9.0: each of these was refused):
+ * «~/Pictures/Свято», a file:// URL (percent-encoded), a path in quotes (Windows' «Копіювати як
+ * шлях», a Terminal drag & drop), a shell-escaped «My\ Photos» — posix only: on Windows the
+ * backslash is the separator. Done here, not in the page: `~` is this computer's home and the
+ * separator this system's — and every way in (browse, addAlbum, addVideo) takes it alike, through
+ * locate: only a path that names nothing as it is. Anything else is left: badPath judges it.
+ */
+export function pastedPath(
+  raw: string,
+  platform: NodeJS.Platform = process.platform,
+  home: string = os.homedir(),
+): string {
+  // posix: a last «\ » is the name's own space (Terminal escapes it, then adds a space after)
+  let p = raw.replace(platform === 'win32' ? /^\s+|\s+$/g : /^\s+|(?<!\\)\s+$/g, '');
+  const quoted = /^(['"])(.*)\1$/s.exec(p);
+  if (quoted) p = quoted[2];
+  if (/^file:/i.test(p)) {
+    try {
+      return fileURLToPath(p, { windows: platform === 'win32' });
+    } catch {
+      return p; // another computer's (file://NAS/… on a Mac) or badly encoded: refused as it is
+    }
+  }
+  if (p === '~' || p.startsWith('~/') || (platform === 'win32' && p.startsWith('~\\')))
+    p = home + p.slice(1);
+  // inside quotes a backslash is the name's own (as the shell reads it)
+  return platform === 'win32' || quoted ? p : p.replace(SHELL_ESCAPE, '$1');
+}
+
+/**
+ * Where a path from the page leads, and what is there: the path as it is when it names something
+ * here — the picker's own paths (a listed folder, «Додати цю папку», a video's row) are names as
+ * they are, a folder «Свято » or «a\ b» too (review: read as pasted they were trimmed or
+ * unescaped into nothing) — else as pasted (pastedPath). Null when badPath refuses both.
+ */
+export async function locate(raw: string): Promise<{ at: string; kind: PathKind } | null> {
+  const asIs = badPath(raw) ? null : path.resolve(raw);
+  const kind = asIs ? await pathKind(asIs) : null;
+  if (asIs && (kind === 'folder' || kind === 'file')) return { at: asIs, kind };
+  const pasted = pastedPath(raw);
+  if (pasted !== raw && !badPath(pasted)) {
+    const at = path.resolve(pasted);
+    const found = await pathKind(at);
+    if (found || !asIs) return { at, kind: found };
+  }
+  return asIs ? { at: asIs, kind } : null;
+}
+
+export type AlbumRefusal = 'path' | 'missing' | 'denied';
 
 /** Add a folder as an album; the same folder again gives the album it already is. */
 export async function addAlbum(
@@ -133,13 +259,16 @@ export async function addAlbum(
   input: { path?: unknown; name?: unknown },
   now = new Date(),
 ): Promise<Album | { refused: AlbumRefusal }> {
-  const raw = typeof input.path === 'string' ? input.path.trim() : '';
-  if (badPath(raw)) return { refused: 'path' };
-  const folder = path.resolve(raw);
-  if (!(await isFolder(folder))) return { refused: 'missing' };
+  const found = typeof input.path === 'string' ? await locate(input.path) : null;
+  if (!found) return { refused: 'path' };
+  const { at: folder, kind } = found;
+  if (kind === 'denied' || (kind === 'folder' && (await listingDenied(folder))))
+    return { refused: 'denied' };
+  if (kind !== 'folder') return { refused: 'missing' };
+  const reals = await realPaths([folder, ...readAlbums(dataDir).map((a) => a.path)]);
   // read and written with nothing awaited between: two adds at once can't lose one
   const albums = readAlbums(dataDir);
-  const known = albums.find((a) => samePath(a.path, folder));
+  const known = albums.find((a) => samePath(a.path, folder, reals));
   if (known) return known;
   const given = typeof input.name === 'string' ? input.name.replace(/\s+/g, ' ').trim() : '';
   const album: Album = {
@@ -190,16 +319,20 @@ export async function kindOf(dir: string, e: fs.Dirent): Promise<EntryKind> {
 }
 
 /**
- * The photos right in a folder, in name order; null when the folder is gone. Only plain files
- * with a picture's extension: no subfolders, no hidden files (a Mac's `._NAME` companions), no
- * links — a link could lead out of the folder.
+ * The photos right in a folder, in name order; null when the folder is gone, none and `denied`
+ * when the system won't open it (isDenied). Only plain files with a picture's extension: no
+ * subfolders, no hidden files (a Mac's `._NAME` companions), no links — a link could lead out of
+ * the folder.
  */
 export async function listPhotos(folder: string, withStats = false): Promise<Listing | null> {
+  // a folder of another computer is not here — and its path must never reach the disk
+  if (elsewhere(folder)) return null;
   let entries: fs.Dirent[];
   try {
     entries = await fsp.readdir(folder, { withFileTypes: true });
-  } catch {
-    return null;
+  } catch (e) {
+    // Mac check of 1.9.0: a folder macOS keeps from the app was «not found — plug the drive in»
+    return isDenied(e) ? { photos: [], heic: 0, truncated: false, denied: true } : null;
   }
   const found: { name: string; file: string }[] = [];
   let heic = 0;
@@ -378,6 +511,8 @@ export interface BrowseEntry {
 export interface BrowseResult {
   /** the folder shown; null = the starting points */
   path: string | null;
+  /** the file a pasted path named: its folder is shown («Додати відео…» marks it) */
+  file?: string;
   /** one level up; null at a drive's root (the starting points are next) */
   parent: string | null;
   folders: BrowseEntry[];
@@ -440,25 +575,31 @@ async function subfolders(dir: string, links = false): Promise<BrowseEntry[]> {
 
 /**
  * The folder picker (local only): the starting points, or a folder's subfolders and how many
- * photos it holds. Null when the path is not an absolute path to a folder.
+ * photos it holds. A pasted path (pastedPath) to a file shows its folder. Null when the path is
+ * not an absolute path to a folder or a file here; `denied` when the system won't open it.
  */
 export async function browse(raw: unknown): Promise<BrowseResult | null> {
   if (raw === undefined || raw === '')
     return { path: null, parent: null, folders: await browseRoots(), photos: 0, heic: 0 };
-  if (typeof raw !== 'string' || badPath(raw)) return null;
-  const dir = path.resolve(raw);
-  if (!(await isFolder(dir))) return null;
+  if (typeof raw !== 'string') return null;
+  const found = await locate(raw);
+  if (!found?.kind) return null;
+  const { at, kind } = found;
+  const dir = kind === 'file' ? path.dirname(at) : at;
   const up = path.dirname(dir);
   const parent = up === dir ? null : up;
+  const refused = { path: dir, parent, folders: [], photos: 0, heic: 0, denied: true };
+  if (kind === 'denied') return refused;
   try {
     await fsp.readdir(dir);
-  } catch {
-    return { path: dir, parent, folders: [], photos: 0, heic: 0, denied: true };
+  } catch (e) {
+    return isDenied(e) ? refused : null;
   }
   const [folders, listing] = await Promise.all([subfolders(dir), listPhotos(dir)]);
   return {
     path: dir,
     parent,
+    ...(kind === 'file' ? { file: at } : {}),
     folders,
     photos: listing ? listing.photos.length : 0,
     heic: listing?.heic ?? 0,
@@ -482,7 +623,16 @@ export function albumEntry(
     name: album.name,
     path: album.path,
     added: album.added,
-    missing: listing === null,
+    /**
+     * can't be used here: gone, another computer's — or refused (`denied` says why). A refused
+     * folder stays `missing` too, so every guard that keeps a missing album off the screen (the
+     * running order's preview, an album started from it) keeps this one off as well
+     */
+    missing: listing === null || !!listing.denied,
+    /** why it's `missing`: the system won't open the folder (macOS privacy, rights) — the words */
+    denied: !!listing?.denied,
+    /** added on another computer (another system's path): not here, never read */
+    elsewhere: elsewhere(album.path),
     count: listing?.photos.length ?? 0,
     heic: listing?.heic ?? 0,
     truncated: listing?.truncated ?? false,

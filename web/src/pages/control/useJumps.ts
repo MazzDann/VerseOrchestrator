@@ -97,8 +97,10 @@ export function useJumps({
   // screen and the arrows walk on. Mac re-check (0.6.13): after a search pick the panel
   // closed and left the focus on <body> — ↩ did nothing, only ⌘↩ (a page-wide hotkey)
   // projected. Other jumps (history, concordance, sequence, remotes) keep the focus.
+  // `show`: ⌘↩ / Ctrl+Enter in the search (Mac check of 1.9.0) — the verse on screen once it is in
   const focusJump = useRef(false);
-  const jumpTo = (r: Jumpable, opts?: { focus?: boolean }) => {
+  const jumpTo = (r: Jumpable, opts?: { focus?: boolean; show?: boolean }) => {
+    if (opts?.show) showWhenReady(placeKey(r.bookNumber, r.chapter, [r.verse]));
     if (selectedIds.length === 0) setTranslations([r.translationId]);
     // a hit from another translation (the fallback, «Усі») in a book the main one hasn't (an NT
     // only): that translation joins, or the verses pane stays empty (review)
@@ -116,12 +118,13 @@ export function useJumps({
   };
 
   // Quick jump bar: resolve a reference/text query and jump to the first hit.
-  const goTo = async (q: string) => {
+  // `show`: and put it on screen (⌘↩ / Ctrl+Enter in the field, Mac check of 1.9.0)
+  const goTo = async (q: string, opts?: { show?: boolean }) => {
     const query = q.trim();
     if (!query || primaryId == null) return;
     // numbers only («3:16», «16»): a place in the open book (1.4.0)
     if (parseQuickRef(query) && bookNumber != null) {
-      if (await quickJump(query)) clearSearch();
+      if (await quickJump(query, opts)) clearSearch();
       return;
     }
     try {
@@ -129,7 +132,7 @@ export function useJumps({
       let res = await api.search(query, [primaryId]);
       if (res.results.length === 0) res = await api.search(query, []);
       if (res.results.length > 0) {
-        jumpTo(res.results[0], { focus: true });
+        jumpTo(res.results[0], { focus: true, show: opts?.show });
         clearSearch();
       } else {
         notifications.show({
@@ -152,10 +155,31 @@ export function useJumps({
   };
 
   /**
-   * «На екран» pressed while typing numbers (Mac check of 1.4.0): the place gone to — shown
-   * once it is the selection and its verses are in (useShowJumpWhenReady, E21).
+   * «На екран» pressed while typing numbers (Mac check of 1.4.0), or ⌘↩ / Ctrl+Enter in the search
+   * (Mac check of 1.9.0): the place gone to — shown once it is the selection and its verses are in
+   * (useShowJumpWhenReady, E21).
    */
   const showJump = useRef<{ key: string; timer: number } | null>(null);
+  /** Wait for the place `key` (a placeKey) to show it — the one wait, a newer one replaces it. */
+  const showWhenReady = (key: string) => {
+    if (showJump.current) window.clearTimeout(showJump.current.timer);
+    const wait = { key, timer: 0 };
+    // never late: a slide that isn't ready in 3 s is not shown at some later moment — said
+    // so while the place is still the selection (one left meanwhile goes quietly)
+    wait.timer = window.setTimeout(() => {
+      if (showJump.current !== wait) return;
+      showJump.current = null;
+      const now = useStore.getState();
+      if (placeKey(now.bookNumber, now.chapter, now.selectedVerses) === wait.key) {
+        notifications.show({
+          message: tr('Текст ще не завантажився — натисніть «На екран» ще раз'),
+          color: 'gray',
+          autoClose: 2500,
+        });
+      }
+    }, 3000);
+    showJump.current = wait;
+  };
 
   /**
    * «3:16» typed straight into the control window, or into «Перейти до посилання» (1.4.0):
@@ -193,21 +217,7 @@ export function useJumps({
     }
     const to = Math.min(r.verseEnd ?? from, Math.max(...have));
     const picked = have.filter((v) => v >= from && v <= to).sort((a, b) => a - b);
-    if (opts?.show) {
-      if (showJump.current) window.clearTimeout(showJump.current.timer);
-      const wait = { key: placeKey(bn, ch, picked), timer: 0 };
-      // never late: a slide that isn't ready in 3 s is not shown at some later moment — said
-      // so while the place is still the selection (one left meanwhile goes quietly)
-      wait.timer = window.setTimeout(() => {
-        if (showJump.current !== wait) return;
-        showJump.current = null;
-        const now = useStore.getState();
-        if (placeKey(now.bookNumber, now.chapter, now.selectedVerses) === wait.key) {
-          say(tr('Текст ще не завантажився — натисніть «На екран» ще раз'));
-        }
-      }, 3000);
-      showJump.current = wait;
-    }
+    if (opts?.show) showWhenReady(placeKey(bn, ch, picked));
     if (ch !== chapter) selectChapter(ch);
     setSelectedVerses(picked);
     // from its first page and reveal step in the same render as the selection — live-follow

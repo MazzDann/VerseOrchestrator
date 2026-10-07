@@ -467,8 +467,15 @@ const AlbumSchema = z.object({
   /** the folder on this computer */
   path: z.string(),
   added: z.string(),
-  /** the folder is not there (moved, a drive taken out) */
+  /** the folder can't be used here: not there (moved, a drive taken out) — or `denied` */
   missing: z.boolean(),
+  /**
+   * why it's `missing`: the system won't open the folder (macOS privacy, rights) — there, no
+   * photos served. Words before `missing`: where to allow it, not «plug the drive in»
+   */
+  denied: z.boolean().optional(),
+  /** added on another computer (a Windows path on a Mac, or back): missing here, kept there */
+  elsewhere: z.boolean().optional(),
   count: z.number(),
   /** HEIC photos left out: browsers can't draw them */
   heic: z.number(),
@@ -495,6 +502,8 @@ export type AlbumInfo = z.infer<typeof AlbumSchema>;
 /** The folder picker (server/src/albums.ts `browse`). */
 const FolderListSchema = z.object({
   path: z.string().nullable(),
+  /** a pasted path named this file: its folder is shown */
+  file: z.string().optional(),
   parent: z.string().nullable(),
   folders: z.array(
     z.object({
@@ -518,7 +527,12 @@ const VideoSchema = z.object({
   name: z.string(),
   path: z.string(),
   added: z.string(),
+  /** the file can't be used here: not there, not a video — or `denied` */
   missing: z.boolean(),
+  /** why it's `missing`: the system won't open the file (macOS privacy, rights) — not served */
+  denied: z.boolean().optional(),
+  /** added on another computer (a Windows path on a Mac, or back): missing here, kept there */
+  elsewhere: z.boolean().optional(),
   size: z.number(),
   /** the file's version a poster is drawn of */
   v: z.string().optional(),

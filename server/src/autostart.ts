@@ -94,12 +94,39 @@ X-GNOME-Autostart-enabled=true
   return null;
 }
 
+/**
+ * The Node the entry starts. Node reports its real path, and Homebrew's is the versioned folder
+ * (/opt/homebrew/Cellar/node/25.6.1/bin/node) that the next `brew upgrade` deletes: the
+ * LaunchAgent then started nothing at login while the switch still said on (Mac check of
+ * 1.9.0). Homebrew's links follow upgrades — the formula's own (<prefix>/opt/node/bin/node,
+ * there for a keg-only node@24 too), then <prefix>/bin/node — one is taken only when it leads to
+ * this very file. Anything else (a release copy's app/node/bin/node, nvm, the installer) stays.
+ */
+export function stableNode(
+  execPath: string,
+  opts: { platform: NodeJS.Platform; realpath?: (p: string) => string },
+): string {
+  const m =
+    opts.platform === 'darwin' && /^(.+)\/Cellar\/([^/]+)\/[^/]+\/bin\/node$/.exec(execPath);
+  if (!m) return execPath;
+  const [, prefix, formula] = m;
+  const realpath: (p: string) => string = opts.realpath ?? fs.realpathSync;
+  const same = (link: string) => {
+    try {
+      return realpath(link) === realpath(execPath);
+    } catch {
+      return false; // no such link (or no such file any more)
+    }
+  };
+  return [`${prefix}/opt/${formula}/bin/node`, `${prefix}/bin/node`].find(same) ?? execPath;
+}
+
 export function currentEntry(root: string): AutostartEntry | null {
   return autostartEntry({
     platform: process.platform,
     home: os.homedir(),
     appData: process.env.APPDATA,
-    node: process.execPath,
+    node: stableNode(process.execPath, { platform: process.platform }),
     script: path.join(root, 'server', 'src', 'standby.ts'),
     root,
   });
