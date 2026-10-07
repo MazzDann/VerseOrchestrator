@@ -8,7 +8,7 @@ describe('a desk link pasted on another computer (1.9.0-beta.1)', () => {
     expect(deskTokenOf(`http://192.168.1.5:4747/desk#${token}`)).toBe(token);
     expect(deskTokenOf(`  /desk#${encodeURIComponent(token)} `)).toBe(token);
     expect(deskTokenOf(token)).toBe(token);
-    // a phone's link works too: the hub goes by the token
+    // a phone's link gives its token too: the desk then says it is a phone's (useDeskHub)
     expect(deskTokenOf(`http://192.168.1.5:4747/remote#${token}`)).toBe(token);
   });
 

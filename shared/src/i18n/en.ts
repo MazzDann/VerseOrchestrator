@@ -1904,6 +1904,10 @@ export const EN: Record<string, string> = {
   'Перевипустити посилання: нове посилання, старий комп’ютер втратить керування':
     'Reissue the link: a new link, the old computer loses control',
   'Створити посилання': 'Create a link',
+  'Не знайдено мережевої адреси. Підключіть комп’ютер до Wi-Fi чи LAN, щоб інший комп’ютер міг приєднатися.':
+    'No network address found. Connect the computer to Wi-Fi or LAN so the other computer can join.',
+  'Це посилання пульта для телефона. Попросіть оператора створити пульт для комп’ютера (Пульт доповідача → Комп’ютер).':
+    'This is a phone remote’s link. Ask the operator to create a computer remote (Speaker remote → Computer).',
   Телефон: 'Phone',
   'Щоб показувати звідти свої вірші, позначте «На екран» і «Вибір віршів».':
     'To show its own verses from there, tick “To screen” and “Choosing verses”.',

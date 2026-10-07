@@ -33,8 +33,23 @@ import { api, type RemoteCommand, type SearchResult, type Verse } from '../api';
 import { DEFAULT_STYLE, type Slide, type SlideLine } from '../presenterBus';
 import { DEFAULT_APPEARANCE } from '../settingsStore';
 import { DEFAULT_KEYMAP, matchesCombo, stepDirection } from '../hotkeys';
-import { targetArgs, type PlaylistEntry, type RemoteTarget } from '../lib/commands';
+import {
+  targetArgs,
+  type PlaylistEntry,
+  type RemotePassage,
+  type RemoteTarget,
+} from '../lib/commands';
+import {
+  chapterName,
+  crossTarget,
+  edgeNotice,
+  landingVerse,
+  pressAtEdge,
+  translationEdge,
+  type CrossArm,
+} from '../lib/chapterCross';
 import { deskTokenOf, liveCountdown, mayPress, stepVerses } from '../lib/desk';
+import { showsTime } from '../lib/countdown';
 import { formatReference } from '../lib/reference';
 import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { TranslationPicker } from '../components/TranslationPicker';
@@ -86,17 +101,20 @@ export function Desk() {
   const queryClient = useQueryClient();
 
   const translations = useQuery({ queryKey: ['translations'], queryFn: api.translations });
-  // the first visit: the translations on screen, else one in the interface's language, else the
-  // library's first
+  // The first visit: the translations on screen, else one in the interface's language, else the
+  // library's first. A translation the library no longer has (a module removed) leaves the list.
   useEffect(() => {
     const all = translations.data;
-    if (ids.length > 0 || !all?.length) return;
+    if (!all?.length) return;
+    const known = ids.filter((id) => all.some((t) => t.id === id));
+    if (known.length !== ids.length) return set({ translationIds: known });
+    if (ids.length > 0) return;
     const src = live?.source;
     const fromScreen =
       src?.kind === 'verses' ? src.translationIds.filter((id) => all.some((t) => t.id === id)) : [];
     const ours = all.find((t) => t.language === lang) ?? all[0];
     set({ translationIds: fromScreen.length > 0 ? fromScreen.slice(0, 5) : [ours.id] });
-  }, [ids.length, translations.data, live, set, lang]);
+  }, [ids, translations.data, live, set, lang]);
 
   const books = useQuery({
     queryKey: ['books', primary],
@@ -138,19 +156,34 @@ export function Desk() {
   const song = useQuery({
     queryKey: ['song', songId],
     queryFn: () => api.song(songId!),
-    enabled: songId != null,
+    enabled: songId != null && mode === 'songs',
+    retry: false,
   });
+  // a song the library no longer has: forget it
+  useEffect(() => {
+    if (song.isError) set({ songId: null, stanza: null });
+  }, [song.isError, set]);
+  // «Пісні» taken away by the operator (or never given): back to the Bible
+  const songsAllowed = allowed.includes('songs');
+  useEffect(() => {
+    if (link.kind === 'ready' && !songsAllowed && mode === 'songs') set({ mode: 'bible' });
+  }, [link.kind, songsAllowed, mode, set]);
 
   // what «На екран» sends: the verses chosen here, or a stanza
   const target: RemoteTarget | null =
     mode === 'songs'
-      ? songId != null && stanza != null
+      ? songId != null && stanza != null && song.data?.slides[stanza]
         ? { kind: 'song', song: { songId, stanza } }
         : null
-      : primary != null && bookNumber != null && chapter != null && chosen.length > 0
+      : primary != null && currentBook && chapter != null && chosen.length > 0
         ? {
             kind: 'verses',
-            passage: { translationIds: ids, bookNumber, chapter, verses: chosen },
+            passage: {
+              translationIds: ids,
+              bookNumber: currentBook.bookNumber,
+              chapter,
+              verses: chosen,
+            },
           }
         : null;
   const carries = mode === 'songs' ? 'song' : 'verses';
@@ -203,65 +236,138 @@ export function Desk() {
   const flash = (message: string) =>
     notifications.show({ message, color: 'gray', autoClose: 1800 });
 
+  /**
+   * The desk's cursor: what it last asked to put on screen — set at the press, so two quick
+   * «Далі» step twice before the screen's frame comes back (review); dropped when refused.
+   */
+  const cursor = useRef<RemoteTarget | null>(null);
   const showTarget = (t: RemoteTarget | null) => {
     if (!t) return flash(tr('Спершу виберіть, що показати'));
     if (!mayPress(allowed, 'show', t.kind === 'song' ? 'song' : 'verses')) return refused();
-    press('show', targetArgs(t));
+    cursor.current = t;
+    press('show', targetArgs(t), (ok) => {
+      if (!ok && cursor.current === t) cursor.current = null;
+    });
   };
   const show = () => showTarget(target);
 
   // What is on screen came from this desk: «Далі» / «Назад» walk it here, in its translations;
-  // anything else steps as the operator's own «Далі» does.
+  // anything else steps as the operator's own «Далі» does. A slide is this desk's when it says so
+  // (`by`: the pairing's name — one per pairing since this release, remote.ts uniqueName).
   const src = live?.source;
   const mine = !!name && src?.by === name;
-  const step = async (delta: 1 | -1) => {
-    if (mine && src?.kind === 'verses' && mayPress(allowed, 'show', 'verses')) {
-      const tid = src.translationIds[0];
+  /** «Далі» past a chapter's edge: armed by the first press, crossed by the second (0.6.23) */
+  const crossArm = useRef<CrossArm | null>(null);
+  const step = (delta: 1 | -1) =>
+    walk(delta).catch(() => flash(tr('Не вдалося відкрити розділ — перевірте зв’язок')));
+  const walk = async (delta: 1 | -1) => {
+    // from the cursor (pressed, maybe not on screen yet); after a reload, from the screen
+    const at =
+      cursor.current ??
+      (src?.kind === 'verses'
+        ? ({
+            kind: 'verses',
+            passage: {
+              translationIds: src.translationIds,
+              bookNumber: src.bookNumber,
+              chapter: src.chapter,
+              verses: src.verses,
+            },
+          } as RemoteTarget)
+        : src?.kind === 'song'
+          ? ({ kind: 'song', song: { songId: src.songId, stanza: src.stanza } } as RemoteTarget)
+          : null);
+    if (mine && at?.kind === 'verses' && mayPress(allowed, 'show', 'verses')) {
+      const p = at.passage;
+      const tid = p.translationIds[0];
       const list = await queryClient.fetchQuery({
-        queryKey: ['verses', tid, src.bookNumber, src.chapter],
-        queryFn: () => api.verses(tid, src.bookNumber, src.chapter),
+        queryKey: ['verses', tid, p.bookNumber, p.chapter],
+        queryFn: () => api.verses(tid, p.bookNumber, p.chapter),
       });
       const to = stepVerses(
         list.map((v) => v.verse),
-        src.verses,
+        p.verses,
         delta,
       );
-      if (!to) {
-        return flash(delta > 0 ? tr('Це останній вірш розділу') : tr('Це перший вірш розділу'));
+      if (to) {
+        crossArm.current = null;
+        return walkTo({ ...p, verses: to });
       }
-      set({ mode: 'bible', bookNumber: src.bookNumber, chapter: src.chapter, verses: to });
-      scrollTo.current = to[0];
-      return press('show', {
-        passage: {
-          translationIds: src.translationIds,
-          bookNumber: src.bookNumber,
-          chapter: src.chapter,
-          verses: to,
-        },
-      });
+      return crossChapter(p, delta);
     }
-    if (mine && src?.kind === 'song' && mayPress(allowed, 'show', 'song')) {
+    if (mine && at?.kind === 'song' && mayPress(allowed, 'show', 'song')) {
       const s = await queryClient.fetchQuery({
-        queryKey: ['song', src.songId],
-        queryFn: () => api.song(src.songId),
+        queryKey: ['song', at.song.songId],
+        queryFn: () => api.song(at.song.songId),
       });
-      const to = src.stanza + delta;
+      const to = at.song.stanza + delta;
       if (to < 0 || to >= s.slides.length) {
         return flash(delta > 0 ? tr('Це остання строфа') : tr('Це перша строфа'));
       }
-      set({ mode: 'songs', songId: src.songId, stanza: to });
-      return press('show', { song: { songId: src.songId, stanza: to } });
+      set({ mode: 'songs', songId: at.song.songId, stanza: to });
+      return showTarget({ kind: 'song', song: { songId: at.song.songId, stanza: to } });
     }
     const cmd = delta > 0 ? 'next' : 'prev';
     if (!mayPress(allowed, cmd)) return refused();
     press(cmd);
+  };
+  const walkTo = (p: RemotePassage) => {
+    set({ mode: 'bible', bookNumber: p.bookNumber, chapter: p.chapter, verses: p.verses });
+    scrollTo.current = p.verses[0];
+    showTarget({ kind: 'verses', passage: p });
+  };
+  // at the chapter's edge: the first press says where the next goes, a second one (5 s) goes —
+  // into the next chapter, or the next book (as the operator's «Далі» and the phone's)
+  const crossChapter = async (p: RemotePassage, delta: 1 | -1) => {
+    const tid = p.translationIds[0];
+    const step = pressAtEdge(
+      crossArm.current,
+      `${tid}:${p.bookNumber}:${p.chapter}:${delta}`,
+      Date.now(),
+    );
+    crossArm.current = step.arm;
+    const [chapterList, bookList] = await Promise.all([
+      queryClient.fetchQuery({
+        queryKey: ['chapters', tid, p.bookNumber],
+        queryFn: () => api.chapters(tid, p.bookNumber),
+      }),
+      queryClient.fetchQuery({ queryKey: ['books', tid], queryFn: () => api.books(tid) }),
+    ]);
+    const to = await crossTarget(
+      { book: p.bookNumber, chapter: p.chapter },
+      chapterList,
+      bookList.map((b) => b.bookNumber),
+      delta,
+      (b) =>
+        queryClient.fetchQuery({
+          queryKey: ['chapters', tid, b],
+          queryFn: () => api.chapters(tid, b),
+        }),
+    );
+    if (!to) {
+      crossArm.current = null;
+      return flash(translationEdge(delta));
+    }
+    const book = bookList.find((b) => b.bookNumber === to.book) ?? null;
+    if (!step.cross) return flash(edgeNotice(delta, chapterName(book, to.chapter), to.newBook));
+    const verses = await queryClient.fetchQuery({
+      queryKey: ['verses', tid, to.book, to.chapter],
+      queryFn: () => api.verses(tid, to.book, to.chapter),
+    });
+    const v = landingVerse(
+      verses.map((x) => x.verse),
+      delta,
+    );
+    if (v == null) return flash(tr('У цьому розділі немає віршів'));
+    walkTo({ ...p, bookNumber: to.book, chapter: to.chapter, verses: [v] });
   };
   const toggle = (cmd: 'blank' | 'black' | 'cover') =>
     mayPress(allowed, cmd) ? press(cmd) : refused();
   const running = liveCountdown(live);
   const countdownKey = () => {
     if (!mayPress(allowed, 'countdown')) return refused();
-    press('countdown', { countdown: { op: running ? 'pause' : 'start' } });
+    const showing = !!running && showsTime(running, Date.now());
+    press('countdown', { countdown: { op: showing ? 'pause' : 'start' } });
   };
 
   const openBook = (bn: number) => {
@@ -301,7 +407,7 @@ export function Desk() {
     if (!row) return;
     row.scrollIntoView({ block: 'center' });
     scrollTo.current = null;
-  }, [primaryVerses, bookNumber, chapter]);
+  }, [primaryVerses, bookNumber, chapter, chosen]);
 
   // The keys (fixed: the control window's defaults, not rebindable here yet)
   const searchRef = useRef<HTMLInputElement>(null);
@@ -315,7 +421,7 @@ export function Desk() {
     }
     const el = e.target as HTMLElement | null;
     if (el?.closest('input, textarea, select, [contenteditable="true"], [role="option"]')) return;
-    if (e.key === '/') {
+    if (matchesCombo(e, KEYS.searchFocus)) {
       e.preventDefault();
       return searchRef.current?.focus();
     }
@@ -592,10 +698,15 @@ export function Desk() {
                   keymap={KEYS}
                   projectVerseOnEnter={(v) => {
                     set({ verses: [v] });
-                    if (primary != null && bookNumber != null && chapter != null)
+                    if (primary != null && currentBook && chapter != null)
                       showTarget({
                         kind: 'verses',
-                        passage: { translationIds: ids, bookNumber, chapter, verses: [v] },
+                        passage: {
+                          translationIds: ids,
+                          bookNumber: currentBook.bookNumber,
+                          chapter,
+                          verses: [v],
+                        },
                       });
                   }}
                   appearance={DEFAULT_APPEARANCE}

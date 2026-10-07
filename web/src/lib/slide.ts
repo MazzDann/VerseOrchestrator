@@ -232,6 +232,39 @@ export function forDesk(slide: Slide): Slide {
 }
 
 /**
+ * The hub closes a socket on a frame over 256 KiB (server/src/live.ts MAX_FRAME_BYTES): a desk's
+ * frame keeps well under it. Psalm 119 in five translations is about 170 KB for the screen alone
+ * (review of 1.9.0-beta.1) — and the control window would resend it after every reconnect.
+ */
+export const DESK_FRAME_MAX = 192 * 1024;
+/** A line's text on a desk's monitor at most (a slide that long is unreadable there anyway). */
+const DESK_LINE_MAX = 2000;
+const utf8 = (s: string) => new TextEncoder().encode(s).length;
+
+/**
+ * The `slides` frame for the desks: the screen and «Далі», each through forDesk. Too big: first
+ * «Далі» goes, then the screen's lines are cut (their red-letter parts with them).
+ */
+export function deskFrame(
+  live: Slide,
+  next: Slide | null,
+): { frame: { type: 'slides'; live: Slide; next: Slide | null }; key: string } {
+  let frame = { type: 'slides' as const, live: forDesk(live), next: next ? forDesk(next) : null };
+  let key = JSON.stringify(frame);
+  if (utf8(key) <= DESK_FRAME_MAX) return { frame, key };
+  frame = { ...frame, next: null };
+  key = JSON.stringify(frame);
+  if (utf8(key) <= DESK_FRAME_MAX) return { frame, key };
+  const lines = frame.live.lines.map((l) => ({
+    ...l,
+    text: l.text.length > DESK_LINE_MAX ? `${l.text.slice(0, DESK_LINE_MAX)}…` : l.text,
+    segments: undefined,
+  }));
+  frame = { ...frame, live: { ...frame.live, lines } };
+  return { frame, key: JSON.stringify(frame) };
+}
+
+/**
  * «Сховати текст» (0.6.18) over what is on screen — the operator: «щоб вертався рівно
  * той же контент». Hiding keeps the whole slide (lines, style, source) with blank: the
  * text fades, the background and the corner QR stay; again → the same slide back. From

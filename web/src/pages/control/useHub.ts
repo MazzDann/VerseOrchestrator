@@ -16,7 +16,7 @@ import {
   type RemoteTarget,
   type SharedPlaylist,
 } from '../../lib/commands';
-import { forAudience, forDesk, summarize } from '../../lib/slide';
+import { deskFrame, forAudience, summarize } from '../../lib/slide';
 import { takeServerUiState } from '../../lib/uiState';
 import { SONG_KEYS } from '../../lib/songKeys';
 import {
@@ -84,16 +84,11 @@ export function useHub({
     preview: JSON.parse(previewSummary.current) as ReturnType<typeof summarize>,
   });
   // Desks (1.9.0-beta.1, a control window on another computer) draw their monitors from whole
-  // slides — no images (forDesk) —, sent when they change: the hub keeps the last for a late one.
-  const slidesFrame = () => ({
-    type: 'slides',
-    live: forDesk(liveSlideRef.current),
-    next: nextSlideRef.current ? forDesk(nextSlideRef.current) : null,
-  });
+  // slides — no images, under the hub's frame cap (deskFrame) —, sent when they change: the hub
+  // keeps the last for a late one.
   const slidesSent = useRef('');
   const sendSlides = (force = false) => {
-    const frame = slidesFrame();
-    const key = JSON.stringify(frame);
+    const { frame, key } = deskFrame(liveSlideRef.current, nextSlideRef.current);
     if (!force && key === slidesSent.current) return;
     if (controlConn.current?.send(frame)) slidesSent.current = key;
   };

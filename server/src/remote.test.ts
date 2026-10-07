@@ -106,6 +106,16 @@ describe('a control window on another computer (1.9.0-beta.1)', () => {
     expect(findByToken(desk.token)?.kind).toBe('desk');
   });
 
+  it('one name per pairing: a desk knows its own slide by it', () => {
+    initRemoteStore({ file: null, persist: false });
+    expect(createPairing('Пульт 2').name).toBe('Пульт 2');
+    expect(createPairing('Пульт 2').name).toBe('Пульт 2 (2)');
+    expect(createPairing('Пульт 2').name).toBe('Пульт 2 (3)');
+    const long = 'Д'.repeat(40);
+    expect(createPairing(long).name).toBe(long);
+    expect(createPairing(long).name).toBe(`${'Д'.repeat(36)} (2)`);
+  });
+
   it('«Заставка» and «Відлік» are permissions of their own, off by default', () => {
     expect(sanitizeAllowed(undefined)).toEqual(['next', 'prev', 'blank']);
     expect(sanitizeAllowed(['cover', 'countdown', 'timer'])).toEqual(['cover', 'countdown']);

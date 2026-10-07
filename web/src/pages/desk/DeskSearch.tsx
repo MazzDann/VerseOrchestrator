@@ -63,7 +63,10 @@ export function DeskSearch({
         rightSection={text ? null : <Kbd size="xs">/</Kbd>}
         value={text}
         onFocus={() => setOpen(true)}
-        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        // the list stays while the focus moves into it (↓ from the field)
+        onBlur={(e) => {
+          if (!(e.relatedTarget as HTMLElement | null)?.closest('.vo-desk-found')) setOpen(false);
+        }}
         onChange={(e) => {
           setText(e.currentTarget.value);
           setOpen(true);
@@ -88,6 +91,10 @@ export function DeskSearch({
           shadow="md"
           role="listbox"
           aria-label={tr('Знайдене')}
+          onBlur={(e) => {
+            const to = e.relatedTarget as HTMLElement | null;
+            if (to !== inputRef.current && !e.currentTarget.contains(to)) setOpen(false);
+          }}
         >
           {found.data?.fallback && (
             <Text size="xs" c="dimmed" px="sm" pt="xs">

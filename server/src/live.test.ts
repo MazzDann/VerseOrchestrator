@@ -595,7 +595,8 @@ describe('speaker remote over the hub', () => {
     expect(await desk.next('welcome')).toMatchObject({ kind: 'desk' });
     // on connect: what the hub has (nothing yet in this run, or the last test's)
     expect(await desk.next('slides')).toMatchObject({ type: 'slides' });
-    const phone = client({ role: 'remote', token: pp.token });
+    // a phone's link saying `desk: true` keeps the summaries (review of 1.9.0-beta.1)
+    const phone = client({ role: 'remote', token: pp.token, desk: true });
     expect(await phone.next('welcome')).toMatchObject({ kind: 'phone' });
     const live = { lines: [{ text: 'Бо так полюбив Бог світ' }], reference: 'Ів 3:16' };
     const next = { lines: [{ text: 'Бо не послав Бог Сина' }], reference: 'Ів 3:17' };
@@ -619,14 +620,14 @@ describe('speaker remote over the hub', () => {
   });
 
   it('«Заставка» and «Відлік» need their own permission; a countdown says what to do', async () => {
-    const p = createPairing('Ноутбук', [...DEFAULT_ALLOWED, 'cover'], 'desk');
+    const p = createPairing('Ноутбук помічника', [...DEFAULT_ALLOWED, 'cover'], 'desk');
     const control = client({ role: 'control' }, origin());
     await control.next('welcome');
     const desk = client({ role: 'remote', token: p.token, desk: true });
     await desk.next('welcome');
     desk.ws.send(JSON.stringify({ type: 'command', cmd: 'cover', id: 'c1' }));
     const cover = await control.next('command');
-    expect(cover).toMatchObject({ cmd: 'cover', from: 'Ноутбук' });
+    expect(cover).toMatchObject({ cmd: 'cover', from: 'Ноутбук помічника' });
     control.ws.send(JSON.stringify({ type: 'result', id: cover.id, ok: true }));
     expect(await desk.next('ack')).toMatchObject({ id: 'c1', ok: true });
     desk.ws.send(

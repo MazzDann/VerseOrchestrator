@@ -34,7 +34,12 @@ export function useDeskHub(token: string) {
   /** the last press → ack round trip, ms */
   const [rtt, setRtt] = useState<number | null>(null);
   const conn = useRef<LiveConnection | null>(null);
-  const pending = useRef(new Map<string, { cmd: RemoteCommand; args: CommandArgs; at: number }>());
+  const pending = useRef(
+    new Map<
+      string,
+      { cmd: RemoteCommand; args: CommandArgs; at: number; onDone?: (ok: boolean) => void }
+    >(),
+  );
 
   useEffect(() => {
     if (!token) return;
@@ -61,6 +66,17 @@ export function useDeskHub(token: string) {
           const allowed = (f.allowed as RemoteCommand[]) ?? [];
           setLink((s) => (s.kind === 'ready' || s.kind === 'offline' ? { ...s, allowed } : s));
         } else if (f.type === 'welcome') {
+          // a phone's link (/remote) opened here: the hub sends it no slides — say what to ask for
+          if (f.kind === 'phone') {
+            setLink({
+              kind: 'denied',
+              reason: tr(
+                'Це посилання пульта для телефона. Попросіть оператора створити пульт для комп’ютера (Пульт доповідача → Комп’ютер).',
+              ),
+            });
+            c.stop();
+            return;
+          }
           setLink({
             kind: 'ready',
             name: String(f.name ?? tr('Пульт')),
@@ -92,6 +108,7 @@ export function useDeskHub(token: string) {
           if (p) {
             pending.current.delete(f.id as string);
             setRtt(Date.now() - p.at);
+            p.onDone?.(f.ok === true);
           }
           // the reason comes in the operator's language or from the server: a key either way
           if (!f.ok)
@@ -108,10 +125,11 @@ export function useDeskHub(token: string) {
     return () => c.stop();
   }, [token]);
 
-  const press = (cmd: RemoteCommand, args: CommandArgs = {}) => {
+  /** `onDone`: what the control window answered (false too when nothing came back). */
+  const press = (cmd: RemoteCommand, args: CommandArgs = {}, onDone?: (ok: boolean) => void) => {
     const id = newCommandId();
     const sent = !!conn.current?.send({ type: 'command', cmd, id, ...args });
-    pending.current.set(id, { cmd, args, at: Date.now() });
+    pending.current.set(id, { cmd, args, at: Date.now(), onDone });
     if (!sent)
       notifications.show({
         message: tr('Немає зв’язку — надішлю, щойно підключуся'),
@@ -120,11 +138,14 @@ export function useDeskHub(token: string) {
       });
     // no answer at all (the server gone mid-press): say so instead of staying silent
     window.setTimeout(() => {
-      if (pending.current.delete(id))
-        notifications.show({
-          message: tr('Немає відповіді. Команду, можливо, не виконано.'),
-          color: 'orange',
-        });
+      const p = pending.current.get(id);
+      if (!p) return;
+      pending.current.delete(id);
+      p.onDone?.(false);
+      notifications.show({
+        message: tr('Немає відповіді. Команду, можливо, не виконано.'),
+        color: 'orange',
+      });
     }, RESEND_MS);
   };
 

@@ -1154,6 +1154,7 @@ body[data-resizing='y'] {
 .vo-desk-found .vo-list-item {
   display: block;
   padding: 6px 8px;
+  white-space: normal;
 }
 .vo-desk-aside button.vo-list-item {
   display: block;
