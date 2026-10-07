@@ -9,6 +9,7 @@ const KIND_MARK: Record<PlaylistEntry['kind'], string> = {
   image: '🖼',
   album: '🗂',
   video: '🎞',
+  cover: '▣', // «Заставка» (1.10.0-beta.2)
 };
 
 /**

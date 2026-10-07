@@ -22,6 +22,7 @@ import { findSong } from '../../lib/songLink';
 import { tr } from '../../i18n';
 import { joinVerses, redLetterSegments } from './slideText';
 import { asksFor, atItemEdge, stillThere, type PastItem } from '../../lib/orderFlow';
+import { coverOver } from '../../lib/slide';
 
 /**
  * The running order on screen («Послідовність показу»; out of usePlaylistActions and Control.tsx
@@ -225,6 +226,18 @@ export function useRunningOrder({
     else if (it.kind === 'album') void startAlbum(it.albumId, it.fit, it.label);
     else if (it.kind === 'video') void startVideo(it.videoId, it.fit, it.label);
     else if (it.kind === 'song') void activateSong(it);
+    else if (it.kind === 'cover') {
+      // its own text and picture over what is on screen; «Заставка» (L) again gives that back
+      const slide = coverOver(
+        liveSlideRef.current,
+        { text: it.text, image: it.image?.src ?? null },
+        slideStyle,
+        it.label,
+      );
+      pushLive(slide);
+      setPreviewOverride(slide);
+      setLive(true);
+    }
   };
 
   // one item on (or back), over items of a newer version; at an end the edge item again

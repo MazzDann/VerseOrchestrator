@@ -22,6 +22,10 @@ To add an item to the running order:
   **To the running order**.
 - An image: in **Media** → **Images**, point at a thumbnail and click the
   **Add to the running order** icon. The item remembers **Fit** or **Fill**.
+- A cover: on the **Running order** tab, click the **Add to the running order** icon (+) and choose
+  **Cover**. Its editor opens: type the text, choose a picture from **Images** if you like,
+  and click **Done**. Each such cover has its own text, apart from **Settings** → **Cover**.
+  To change it later, click the pencil icon in its row.
 
 New items go to the end of the running order.
 
@@ -75,6 +79,12 @@ says “This is the last item of the running order”.
 
 Inside an item, step through as usual: the arrow keys and a clicker go to the next verse or
 song slide, and **Next** on the tab goes to the next item.
+
+To let the arrow keys and a clicker go on to the next item when an item is over, in
+**Settings** → **Hotkeys** turn on **“Next” past an item’s end opens the next one**. Then
+“Next” after a passage's last verse, a song's “End”, an album's last photo, a text, a
+picture, a video, or a cover opens the next item, and “Back” at the first step opens the
+previous one. If you have shown something else since, “Next” steps as usual.
 
 To step through items with the arrow keys, in **Settings** → **Hotkeys** → **Arrows**
 choose **↑ ↓ verses, ← → items**: ↑ and ↓ go to the neighbouring verse or song slide, ← and →
