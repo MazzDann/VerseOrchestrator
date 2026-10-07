@@ -271,7 +271,10 @@ export function useHub({
             }
           : it.kind === 'song'
             ? { id: it.id, kind: 'song', label: it.label, songId: it.songId }
-            : it.kind === 'image' || it.kind === 'album' || it.kind === 'video'
+            : it.kind === 'image' ||
+                it.kind === 'album' ||
+                it.kind === 'video' ||
+                it.kind === 'cover'
               ? { id: it.id, kind: it.kind, label: it.label }
               : { id: it.id, kind: 'text', label: it.label },
       ),

@@ -1966,6 +1966,11 @@ export const EN: Record<string, string> = {
   // a step down that can update back (1.9.0, server/src/installer.ts FIRST_SWAP_SAFE)
   'З версій, старіших за 1.8.8, на Windows не вдається оновитися назад':
     'Versions older than 1.8.8 can’t update back on Windows',
+  // 1.10.0-beta.2: «Заставка» items in the running order
+  'Змінити заставку': 'Edit the cover',
+  'Без зображення': 'No picture',
+  'пункти «Заставка»': 'cover items',
+  'Додайте зображення в «Медіа → Зображення»': 'Add pictures in “Media → Images”',
   // 1.10.0-beta.1: «Далі» past a running-order item's end
   'Після кінця пункту «Далі» відкриває наступний': '“Next” past an item’s end opens the next one',
   'Пункт послідовності показу: після його останнього вірша, строфи чи фото «Далі» відкриває наступний пункт, «Назад» на першому — попередній.':

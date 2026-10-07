@@ -180,7 +180,7 @@ describe('a song whose id changed (0.10.0)', () => {
 
 describe('an item of a newer version (1.9.1)', () => {
   const cover = {
-    kind: 'cover',
+    kind: 'later', // a kind no version knows yet (1.10 made «cover» a real one)
     id: 'c1',
     label: 'Ласкаво просимо',
     text: 'Ласкаво просимо',

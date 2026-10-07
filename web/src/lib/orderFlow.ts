@@ -32,6 +32,13 @@ export function belongsTo(it: SeqItem, slide: Slide): boolean {
   if (it.kind === 'album') return src?.kind === 'album' && src.albumId === it.albumId;
   if (it.kind === 'video') return src?.kind === 'video' && src.videoId === it.videoId;
   if (it.kind === 'image') return !!slide.picture && slide.picture.src === it.src;
+  if (it.kind === 'cover')
+    return (
+      !!slide.cover &&
+      !slide.countdown &&
+      slide.cover.text === it.text &&
+      (slide.cover.image ?? null) === (it.image?.src ?? null)
+    );
   if (it.kind === 'text')
     return (
       !src &&
@@ -77,7 +84,7 @@ export function stillThere(it: SeqItem, slide: Slide, from: PastFrom): boolean {
 /** Which callers may hand which kinds on: each kind has one place where its steps end. */
 export function asksFor(it: SeqItem, from: PastFrom): boolean {
   if (from.kind === 'slide')
-    return it.kind === 'text' || it.kind === 'image' || it.kind === 'video';
+    return it.kind === 'text' || it.kind === 'image' || it.kind === 'video' || it.kind === 'cover';
   if (from.kind === 'verses') return it.kind === 'passage';
   if (from.kind === 'song') return it.kind === 'song' && it.songId === from.songId;
   return it.kind === 'album' && it.albumId === from.albumId;
