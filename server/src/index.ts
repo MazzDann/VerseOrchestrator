@@ -8,6 +8,7 @@ import express from 'express';
 import { ApiError, closeDb, library, libraryInfo, libraryPath } from './db.js';
 import { isLocalRequest, isOwnAddress, lanIps } from './access.js';
 import { isLocalControl, requireLocal, requireLocalControl } from './guards.js';
+import { UnreadableFile } from './jsonFile.js';
 import {
   announceShutdown,
   attachLiveHub,
@@ -169,6 +170,16 @@ const wrap =
         if (err instanceof ApiError) {
           // the key and its values apart too: the page shows it in its own language (0.11.6)
           res.status(err.status).json(keyedError(err.key, err.vars));
+        } else if (err instanceof UnreadableFile) {
+          // a list file locked or unreadable a moment ago: not written over (jsonFile.ts, 1.9.3)
+          res
+            .status(503)
+            .json(
+              keyedError(
+                N_('Не вдалося прочитати {file}, тому його не перезаписано. Спробуйте ще раз.'),
+                { file: err.file },
+              ),
+            );
         } else {
           console.error(err);
           res.status(500).json({ error: (err as Error).message });
