@@ -168,6 +168,9 @@ describe('PostgreSQL (PGlite) answers like SQLite', () => {
     expect(await postgres.getTranslations()).toEqual(await sqlite.getTranslations());
     expect(await postgres.getBooks(1)).toEqual(await sqlite.getBooks(1));
     expect(await postgres.getChapters(1, 60)).toEqual(await sqlite.getChapters(1, 60));
+    expect(await postgres.chapterProfiles([1, 2], [60, 500])).toEqual(
+      await sqlite.chapterProfiles([1, 2], [60, 500]),
+    );
     const v = await postgres.getVerses(1, 500, 3);
     expect(v).toEqual(await sqlite.getVerses(1, 500, 3));
     expect(v[0].textRaw).toContain('<S>2316</S>');
