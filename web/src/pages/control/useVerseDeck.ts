@@ -229,7 +229,19 @@ export function useVerseDeck({
     reveal: number = revealCount,
   ): SlideSource | undefined =>
     bookNumber != null && chapter != null && verses.length > 0
-      ? { kind: 'verses', translationIds: selectedIds, bookNumber, chapter, verses, page, reveal }
+      ? {
+          kind: 'verses',
+          translationIds: selectedIds,
+          bookNumber,
+          chapter,
+          verses,
+          page,
+          reveal,
+          // «вірш 16 з 36» on «Сцена» (1.9.0-beta.11): the chapter's last verse
+          ...(primaryVerses.length > 0
+            ? { total: primaryVerses[primaryVerses.length - 1].verse }
+            : {}),
+        }
       : undefined;
 
   // WYSIWYG of the current page — what would be projected for the verse selection.

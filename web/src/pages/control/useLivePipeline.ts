@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { api } from '../../api';
 import { useServer } from '../../serverStore';
-import { publishSlide, readSlide, type Slide, type SlideCountdown } from '../../presenterBus';
+import {
+  publishSlide,
+  readSlide,
+  type Slide,
+  type SlideCountdown,
+  type StageMessage,
+} from '../../presenterBus';
 import { freshTimer, type StageTimer } from '../../lib/countdown';
 import { type LiveConnection } from '../../lib/liveSocket';
 import { forAudience, sameSlide } from '../../lib/slide';
@@ -27,6 +33,9 @@ export function useLivePipeline({
   // (`pushLive`); a window that waits follows the leader's, so taking over keeps it running
   const stageTimerRef = useRef<StageTimer | null>(freshTimer(liveSlide.stageTimer));
   if (!isLeader) stageTimerRef.current = freshTimer(liveSlide.stageTimer);
+  // «Повідомлення на сцену» (1.9.0-beta.11): the same way — the leader's, on every slide it pushes
+  const stageMessageRef = useRef<StageMessage | null>(liveSlide.stageMessage ?? null);
+  if (!isLeader) stageMessageRef.current = liveSlide.stageMessage ?? null;
   // «Відлік» in a corner (1.8.7): the same way — over whatever is on screen, so it rides along
   const cornerRef = useRef<SlideCountdown | null>(freshTimer(liveSlide.cornerCountdown));
   if (!isLeader) cornerRef.current = freshTimer(liveSlide.cornerCountdown);
@@ -74,6 +83,7 @@ export function useLivePipeline({
       // whatever brings a cover countdown back (review of 1.8.7)
       countdown: cornerRef.current && pushed.countdown ? null : pushed.countdown,
       stageTimer: stageTimerRef.current ?? undefined,
+      stageMessage: stageMessageRef.current ?? undefined,
       cornerCountdown: cornerRef.current ?? undefined,
     };
     if (lastPushed.current && sameSlide(slide, lastPushed.current)) return;
@@ -88,6 +98,7 @@ export function useLivePipeline({
     liveSlide,
     setLiveSlide,
     stageTimerRef,
+    stageMessageRef,
     cornerRef,
     liveSlideRef,
     followAlongRef,

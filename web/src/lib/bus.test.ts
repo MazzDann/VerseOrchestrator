@@ -266,6 +266,11 @@ describe('window bus v2', () => {
     expect(isSlide({ ...slide('x'), stageTimer: { until: 1 } })).toBe(true);
     expect(isSlide({ ...slide('x'), stageTimer: null })).toBe(true);
     expect(isSlide({ ...slide('x'), stageTimer: { until: 'x' } })).toBe(false);
+    // a message to the speaker (1.9.0-beta.11): «Сцена» prints its text
+    expect(isSlide({ ...slide('x'), stageMessage: { text: 'Голосніше', at: 1 } })).toBe(true);
+    expect(isSlide({ ...slide('x'), stageMessage: null })).toBe(true);
+    expect(isSlide({ ...slide('x'), stageMessage: { text: 5 } })).toBe(false);
+    expect(isSlide({ ...slide('x'), stageMessage: 'Голосніше' })).toBe(false);
     // a picture (1.5.0): an address
     expect(
       isSlide({

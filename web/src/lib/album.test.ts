@@ -20,7 +20,14 @@ describe('albums on screen (1.8.12)', () => {
       fit: 'cover',
       next: '/api/albums/a/file/IMG_10.jpg',
     });
-    expect(s.source).toEqual({ kind: 'album', albumId: 'a', index: 1, name: 'IMG_2.jpg' });
+    // its total: «фото 2 з 3» on «Сцена» (1.9.0-beta.11)
+    expect(s.source).toEqual({
+      kind: 'album',
+      albumId: 'a',
+      index: 1,
+      name: 'IMG_2.jpg',
+      total: 3,
+    });
     expect(s).toMatchObject({ lines: [], reference: 'IMG_2', visible: true, blank: false });
     expect(isSlide(s)).toBe(true);
     // the last photo has nothing ahead

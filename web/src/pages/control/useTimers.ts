@@ -7,7 +7,13 @@ import {
 } from 'react';
 import { notifications } from '@mantine/notifications';
 import { type Appearance } from '../../settingsStore';
-import { type Slide, type SlideCountdown, type SlideStyle } from '../../presenterBus';
+import {
+  STAGE_MESSAGE_MAX,
+  type Slide,
+  type SlideCountdown,
+  type SlideStyle,
+  type StageMessage,
+} from '../../presenterBus';
 import { warmAudio } from '../../lib/countdownSound';
 import {
   afterZeroOf,
@@ -39,6 +45,7 @@ export function useTimers({
   appearance,
   cornerRef,
   stageTimerRef,
+  stageMessageRef,
   liveSlideRef,
   lastPushed,
   slideStyle,
@@ -52,6 +59,7 @@ export function useTimers({
   appearance: Appearance;
   cornerRef: MutableRefObject<SlideCountdown | null>;
   stageTimerRef: MutableRefObject<StageTimer | null>;
+  stageMessageRef: MutableRefObject<StageMessage | null>;
   liveSlideRef: MutableRefObject<Slide>;
   lastPushed: MutableRefObject<Slide | null>;
   slideStyle: SlideStyle;
@@ -225,6 +233,16 @@ export function useTimers({
     stageTimerRef.current = timer;
     pushTimer();
   };
+  /**
+   * «Повідомлення на сцену» (1.9.0-beta.11): a line for the speaker, or none — it goes out with
+   * the slide on screen now, never to the phones (as the speaker's timer).
+   */
+  const stageMessageSet = (text: string | null) => {
+    if (!leaderRef.current) return standbyNotice();
+    const words = text?.trim().slice(0, STAGE_MESSAGE_MAX) ?? '';
+    stageMessageRef.current = words ? { text: words, at: Date.now() } : null;
+    pushTimer();
+  };
   const stageTimerStart = (ms: number, afterZero: AfterZero) =>
     stageTimerSet({ until: untilFor(ms, Date.now()), afterZero, ...stageTimerLook(appearance) });
   const stageTimerPause = () => {
@@ -254,6 +272,7 @@ export function useTimers({
     countdownKey,
     countdownRemote,
     stageTimerSet,
+    stageMessageSet,
     stageTimerStart,
     stageTimerPause,
     stageTimerShift,

@@ -64,12 +64,15 @@ import { useServer, NEEDS_SERVER, versionHeading } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
 import { tr, useLang } from '../i18n';
 import { formatCombo } from '../hotkeys';
+import { stageLook, type StageLayout, type StageTextSize, type StageTheme } from '../lib/stage';
 
 const SECTIONS_KEY = 'vo:settingsSections';
 
 /** Appearance controls for the projected screen. Persisted via the settings store. */
 export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const a = useSettings((s) => s.appearance);
+  // «Сцена» (1.9.0-beta.11): read sound, as the window itself reads it
+  const st = stageLook(a);
   const set = useSettings((s) => s.setAppearance);
   const search = useSettings((s) => s.search);
   const setSearch = useSettings((s) => s.setSearch);
@@ -656,6 +659,100 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             value={a.stageTimerFormat}
             onChange={(v) => v && set({ stageTimerFormat: v as TimerFormat })}
             allowDeselect={false}
+          />
+        </Section>
+
+        {/* «Сцена» (1.9.0-beta.11, F1005-09): the speaker's window */}
+        <Section
+          value="stage"
+          title={tr('Сцена')}
+          summary={summary(
+            st.layout === 'text' ? tr('текст') : tr('мініатюри'),
+            st.theme === 'light' && tr('світла'),
+            !st.showNext && tr('без «Далі»'),
+          )}
+        >
+          <Text size="xs" c="dimmed">
+            {tr(
+              'Вікно для доповідача: що зараз на екрані, що далі, годинник, таймер і ваші повідомлення. Глядачі його не бачать.',
+            )}
+          </Text>
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              {tr('Вигляд')}
+            </Text>
+            <SegmentedControl
+              size="xs"
+              fullWidth
+              value={st.layout}
+              onChange={(v) => set({ stageLayout: v as StageLayout })}
+              aria-label={tr('Вигляд «Сцени»')}
+              data={[
+                { value: 'text', label: tr('Текст') },
+                { value: 'slides', label: tr('Мініатюри') },
+              ]}
+            />
+            <Text size="xs" c="dimmed" mt={4}>
+              {st.layout === 'text'
+                ? tr('Слова слайда великим простим шрифтом — читаються здалеку.')
+                : tr('Слайди такі, як на екрані: з фоном і кольорами.')}
+            </Text>
+          </div>
+          {st.layout === 'text' && (
+            <div>
+              <Text size="sm" fw={500} mb={4}>
+                {tr('Розмір тексту')}
+              </Text>
+              <SegmentedControl
+                size="xs"
+                fullWidth
+                value={st.textSize}
+                onChange={(v) => set({ stageTextSize: v as StageTextSize })}
+                aria-label={tr('Розмір тексту на «Сцені»')}
+                data={[
+                  { value: 'sm', label: tr('Менший') },
+                  { value: 'md', label: tr('Звичайний') },
+                  { value: 'lg', label: tr('Більший') },
+                  { value: 'xl', label: tr('Найбільший') },
+                ]}
+              />
+            </div>
+          )}
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              {tr('Тема')}
+            </Text>
+            <SegmentedControl
+              size="xs"
+              fullWidth
+              value={st.theme}
+              onChange={(v) => set({ stageTheme: v as StageTheme })}
+              aria-label={tr('Тема «Сцени»')}
+              data={[
+                { value: 'dark', label: tr('Темна') },
+                { value: 'light', label: tr('Світла') },
+              ]}
+            />
+          </div>
+          <Switch
+            label={tr('Показувати «Далі»')}
+            checked={st.showNext}
+            onChange={(e) => set({ stageShowNext: e.currentTarget.checked })}
+          />
+          <Switch
+            label={tr('Де ми: «вірш 16 з 36», «строфа 3 з 5»')}
+            checked={st.showPlace}
+            onChange={(e) => set({ stageShowPlace: e.currentTarget.checked })}
+          />
+          <Switch
+            label={tr('Послідовність показу внизу')}
+            checked={st.showOrder}
+            onChange={(e) => set({ stageShowOrder: e.currentTarget.checked })}
+          />
+          <Switch
+            label={tr('Годинник із секундами')}
+            checked={st.clockSeconds}
+            onChange={(e) => set({ stageClockSeconds: e.currentTarget.checked })}
           />
         </Section>
 

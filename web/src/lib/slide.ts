@@ -211,8 +211,15 @@ export function uncover(now: Slide): Slide | null {
  */
 export function forAudience(slide: Slide): Slide {
   const s =
-    slide.cover || slide.returnTo || slide.stageTimer
-      ? { ...slide, cover: undefined, returnTo: undefined, stageTimer: undefined }
+    slide.cover || slide.returnTo || slide.stageTimer || slide.stageMessage
+      ? {
+          ...slide,
+          cover: undefined,
+          returnTo: undefined,
+          stageTimer: undefined,
+          // the speaker's message (1.9.0-beta.11) is for «Сцена» only
+          stageMessage: undefined,
+        }
       : slide;
   // a video (1.8.12-beta.3): the phones never load the file (it is this machine's only), only
   // its poster or the words
