@@ -1,7 +1,9 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addVideo,
   listVideoFiles,
@@ -56,6 +58,26 @@ const added = async (data: string, file: string) => {
   if ('refused' in v) throw new Error(v.refused);
   return v;
 };
+
+/** A disk that doesn't tell «a.mp4» from «A.MP4» (a Mac's APFS by default, NTFS) — not Linux's. */
+const caseBlind = fs.existsSync(os.tmpdir().toUpperCase());
+/** A folder link: a junction needs no rights on Windows; a Mac's /var is itself a link. */
+const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+/** A folder link can be made here — probed once, like caseBlind, so a test without one says so. */
+const canLink = (() => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-videos-link-'));
+  try {
+    fs.mkdirSync(path.join(d, 'a'));
+    fs.symlinkSync(path.join(d, 'a'), path.join(d, 'b'), linkType);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    fs.rmSync(d, { recursive: true, force: true });
+  }
+})();
+/** A path the other system wrote: a Windows drive here, a Mac's folder on Windows. */
+const FAR = process.platform === 'win32' ? '/Volumes/Відео/Різдво.mp4' : 'D:\\Відео\\Різдво.mp4';
 
 describe('video files (1.8.12-beta.3)', () => {
   it('tells MP4, MOV, WebM and MKV by their first bytes — never a HEIC photo or anything else', () => {
@@ -126,6 +148,75 @@ describe('video files (1.8.12-beta.3)', () => {
     expect(await videoEntry(data, v)).toMatchObject({ missing: true, size: 0, hasPoster: false });
     expect(await putPoster(data, v, '1-1', JPG)).toEqual({ refused: 'video' });
   });
+
+  it('keeps videos another system added: written back as they are, never read, removable (Mac check of 1.9.0)', async () => {
+    const { dir, data } = folder({ 'a.mp4': MP4, 'b.mp4': MP4 });
+    const theirs: Video = {
+      id: crypto.randomUUID(),
+      name: 'Різдво',
+      path: FAR,
+      added: '2026-10-01T10:00:00.000Z',
+    };
+    fs.mkdirSync(data, { recursive: true });
+    fs.writeFileSync(path.join(data, 'videos.json'), JSON.stringify({ videos: [theirs] }));
+    expect(readVideos(data)).toEqual([theirs]);
+    // the adds write the file again: theirs stays — and its real path is never asked of the disk
+    const realpath = vi.spyOn(fsp, 'realpath');
+    let asked: unknown[];
+    let mine: Video;
+    try {
+      mine = await added(data, path.join(dir, 'a.mp4'));
+      const other = await added(data, path.join(dir, 'b.mp4'));
+      expect((await removeVideo(data, other.id))?.id).toBe(other.id);
+    } finally {
+      asked = realpath.mock.calls.map(([p]) => p);
+      realpath.mockRestore();
+    }
+    expect(asked).toContain(path.join(dir, 'a.mp4'));
+    expect(asked).not.toContain(FAR);
+    expect(readVideos(data)).toEqual([theirs, mine]);
+    // shown as not here — and never opened (on a Mac `D:\Відео\…` is a relative name)
+    const open = vi.spyOn(fsp, 'open');
+    try {
+      expect(await videoFile(FAR)).toBeNull();
+      expect(await posterFile(data, theirs)).toBeNull();
+      expect(await putPoster(data, theirs, '1-1', JPG)).toEqual({ refused: 'video' });
+      expect(await videoEntry(data, theirs)).toMatchObject({
+        missing: true,
+        elsewhere: true,
+        hasPoster: false,
+      });
+      expect(open).not.toHaveBeenCalled();
+    } finally {
+      open.mockRestore();
+    }
+    expect(await videoEntry(data, mine)).toMatchObject({ missing: false, elsewhere: false });
+    expect((await removeVideo(data, theirs.id))?.path).toBe(FAR);
+    expect(readVideos(data)).toEqual([mine]);
+  });
+
+  it.skipIf(!canLink)(
+    'a file reached through a link is the video it already is (Mac check of 1.9.0)',
+    async () => {
+      const { root, dir, data } = folder({ 'a.mp4': MP4 });
+      const v = await added(data, path.join(dir, 'a.mp4'));
+      // a Mac's temporary folder is under /var, a link to /private/var
+      expect(await addVideo(data, { path: fs.realpathSync(path.join(dir, 'a.mp4')) })).toEqual(v);
+      fs.symlinkSync(dir, path.join(root, 'link'), linkType);
+      expect(await addVideo(data, { path: path.join(root, 'link', 'a.mp4') })).toEqual(v);
+      expect(readVideos(data)).toEqual([v]);
+    },
+  );
+
+  it.skipIf(!caseBlind)(
+    'a file in another case is the video it already is (Mac check of 1.9.0)',
+    async () => {
+      const { dir, data } = folder({ 'a.mp4': MP4 });
+      const v = await added(data, path.join(dir, 'a.mp4'));
+      expect(await addVideo(data, { path: path.join(dir, 'A.MP4') })).toEqual(v);
+      expect(readVideos(data)).toEqual([v]);
+    },
+  );
 
   it('lists a folder’s video files in name order and counts the ones browsers can’t play', async () => {
     const { dir } = folder({

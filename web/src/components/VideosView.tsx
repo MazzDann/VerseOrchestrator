@@ -120,7 +120,13 @@ export function VideosView({
                   type="button"
                   className="vo-image-pick"
                   onClick={() => show.showVideo(v)}
-                  title={v.missing ? tr('Файл не знайдено: {path}', { path: v.path }) : v.path}
+                  title={
+                    v.elsewhere
+                      ? tr('Файл з іншого комп’ютера: {path}', { path: v.path })
+                      : v.missing
+                        ? tr('Файл не знайдено: {path}', { path: v.path })
+                        : v.path
+                  }
                   aria-label={tr('Показати «{name}»', { name: v.name })}
                   disabled={v.missing}
                 >
@@ -140,7 +146,11 @@ export function VideosView({
                   py={2}
                   c={v.missing ? 'orange' : undefined}
                 >
-                  {v.missing ? tr('Файл не знайдено: {name}', { name: v.name }) : v.name}
+                  {v.elsewhere
+                    ? tr('Файл з іншого комп’ютера: {name}', { name: v.name })
+                    : v.missing
+                      ? tr('Файл не знайдено: {name}', { name: v.name })
+                      : v.name}
                 </Text>
                 <Group gap={2} className="vo-image-actions" wrap="nowrap">
                   <Tooltip label={tr('Додати в послідовність показу')} withArrow>

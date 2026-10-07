@@ -10,7 +10,9 @@ import { CONTENT_TYPE, MAX_SMALL_BYTES, sniff } from './images.js';
  * Albums (1.8.12, F1005-13): folders of photos on this computer, shown in turn. The server
  * reads a folder where it is — no copies in data/images, so a photo dropped into the folder
  * is there the next time the album is listed (the author's call). `data/albums.json` keeps only
- * the folders' paths; the paths are this machine's, so it is not in a backup.
+ * the folders' paths; the paths are this machine's, so it is not in a backup. It travels with the
+ * app folder though (a flash drive, a copy of the folder): an album another system added is kept
+ * as it is and never read (`elsewhere`).
  *
  * A photo is served only by a name its folder's listing gave, typed by its first bytes (like
  * images.ts): the listing holds files with a picture's extension right in the folder — no
@@ -81,6 +83,20 @@ export interface Listing {
 
 const albumsFile = (dataDir: string) => path.join(dataDir, ALBUMS_FILE);
 
+/**
+ * A path another system wrote: `D:\Фото` or `\\NAS\photos` read on a Mac, `/Volumes/Фото` on
+ * Windows. Mac check of 1.9.0: albums.json and videos.json came with the app folder from Windows,
+ * the Mac dropped those entries as broken and its next add wrote the file without them — lost
+ * for good. Such an entry is kept and written back as it is, shown as one from another computer,
+ * and never read: on a Mac `D:\Фото` is a name in the working folder. This system's paths are
+ * the ones path.resolve gives — on Windows a drive's or a share's, elsewhere from the root.
+ */
+export function elsewhere(p: string, platform: NodeJS.Platform = process.platform): boolean {
+  const here =
+    platform === 'win32' ? /^(?:[a-z]:[\\/]|[\\/]{2}[^\\/])/i.test(p) : path.posix.isAbsolute(p);
+  return !here && (path.win32.isAbsolute(p) || path.posix.isAbsolute(p));
+}
+
 const isAlbum = (x: unknown): x is Album => {
   const a = x as Partial<Album> | null;
   return (
@@ -89,7 +105,7 @@ const isAlbum = (x: unknown): x is Album => {
     /^[0-9a-f-]{36}$/.test(a.id) &&
     typeof a.name === 'string' &&
     typeof a.path === 'string' &&
-    path.isAbsolute(a.path) &&
+    (path.isAbsolute(a.path) || elsewhere(a.path)) &&
     typeof a.added === 'string'
   );
 };
@@ -101,13 +117,22 @@ export function readAlbums(dataDir: string): Album[] {
 const writeAlbums = (dataDir: string, albums: Album[]) =>
   writeJson(albumsFile(dataDir), { albums });
 
-/** Two spellings of one folder: NFC, and on Windows without case. */
-export const samePath = (a: string, b: string) => {
-  const key = (p: string) => {
-    const n = path.resolve(p).normalize('NFC');
-    return process.platform === 'win32' ? n.toLowerCase() : n;
-  };
-  return key(a) === key(b);
+const pathKey = (p: string) => {
+  const n = path.resolve(p).normalize('NFC');
+  return process.platform === 'win32' ? n.toLowerCase() : n;
+};
+
+/**
+ * Two spellings of one folder or file: NFC, and on Windows without case; given their real paths
+ * (`realPaths`), also another case on a Mac's disk (APFS, exFAT) or a way through a link
+ * (`/Volumes/Macintosh HD/…` is `/…`) — Mac check of 1.9.0: each made a second album of one
+ * folder. A path of another computer is never one of this computer's.
+ */
+export const samePath = (a: string, b: string, reals?: ReadonlyMap<string, string>) => {
+  if (elsewhere(a) || elsewhere(b)) return false;
+  if (pathKey(a) === pathKey(b)) return true;
+  const [ra, rb] = [reals?.get(a), reals?.get(b)];
+  return !!ra && !!rb && pathKey(ra) === pathKey(rb);
 };
 
 export const isFolder = (p: string) =>
@@ -119,6 +144,23 @@ export const isFolder = (p: string) =>
 /** `p`, or `fallback` once `ms` pass first (a disconnected drive can take seconds to answer). */
 const within = <T>(p: Promise<T>, ms: number, fallback: T) =>
   Promise.race([p, new Promise<T>((done) => setTimeout(() => done(fallback), ms).unref())]);
+
+/**
+ * The real paths of this computer's `paths` — links followed, in the case the disk keeps (a
+ * Mac's realpath gives it, on APFS and on exFAT alike) — for samePath. Asked on adds only; one
+ * that doesn't answer in time (a sleeping share) is compared by its spelling.
+ */
+export async function realPaths(paths: string[]): Promise<Map<string, string>> {
+  const mine = [...new Set(paths)].filter((p) => !elsewhere(p));
+  const real = (p: string) => fsp.realpath(p).catch(() => null);
+  const reals = await Promise.all(mine.map((p) => within(real(p), PROBE_MS, null)));
+  const known = new Map<string, string>();
+  mine.forEach((p, i) => {
+    const real = reals[i];
+    if (real) known.set(p, real);
+  });
+  return known;
+}
 
 /** A folder's name to show; a drive's root has none, so its path. */
 export const folderName = (p: string) => path.basename(p).normalize('NFC') || p;
@@ -137,9 +179,10 @@ export async function addAlbum(
   if (badPath(raw)) return { refused: 'path' };
   const folder = path.resolve(raw);
   if (!(await isFolder(folder))) return { refused: 'missing' };
+  const reals = await realPaths([folder, ...readAlbums(dataDir).map((a) => a.path)]);
   // read and written with nothing awaited between: two adds at once can't lose one
   const albums = readAlbums(dataDir);
-  const known = albums.find((a) => samePath(a.path, folder));
+  const known = albums.find((a) => samePath(a.path, folder, reals));
   if (known) return known;
   const given = typeof input.name === 'string' ? input.name.replace(/\s+/g, ' ').trim() : '';
   const album: Album = {
@@ -195,6 +238,8 @@ export async function kindOf(dir: string, e: fs.Dirent): Promise<EntryKind> {
  * links — a link could lead out of the folder.
  */
 export async function listPhotos(folder: string, withStats = false): Promise<Listing | null> {
+  // a folder of another computer is not here — and its path must never reach the disk
+  if (elsewhere(folder)) return null;
   let entries: fs.Dirent[];
   try {
     entries = await fsp.readdir(folder, { withFileTypes: true });
@@ -483,6 +528,8 @@ export function albumEntry(
     path: album.path,
     added: album.added,
     missing: listing === null,
+    /** added on another computer (another system's path): not here, never read */
+    elsewhere: elsewhere(album.path),
     count: listing?.photos.length ?? 0,
     heic: listing?.heic ?? 0,
     truncated: listing?.truncated ?? false,
