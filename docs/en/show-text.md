@@ -157,8 +157,8 @@ Otherwise the field says “This time has already passed” and the countdown do
 
 ## Give the speaker a timer
 
-The speaker timer is a time that only the speaker sees, in the **Stage** window, on the right
-under **NEXT**. The audience's screen and their phones don't show it.
+The speaker timer is a time that only the speaker sees, in the **Stage** window, at the bottom
+right. The audience's screen and their phones don't show it.
 
 To start the timer:
 
@@ -174,17 +174,37 @@ While the timer runs, its icon is highlighted. To change the timer, click the ic
 timer's colors, font, and format have a section of their own in the appearance settings, apart
 from what the viewers see: see [Set up the speaker timer](appearance.md#set-up-the-speaker-timer).
 
+## Write to the speaker
+
+A message to the stage is a line that only the speaker sees, in the **Stage** window, for
+example “5 minutes left” or “Louder, please”. The viewers and their phones don't see it.
+
+To send a message:
+
+1. At the top of the control window, to the right of **Speaker timer**, click the
+   **Message to the stage** icon.
+2. Type the text and press Enter, or click **Show on the stage**. Shift+Enter starts a new line.
+
+On the stage, the message shows as a band at the top and stays until you remove it: click the
+icon again and then **Remove**. The last three messages are under **Recent** — send any of them
+again with one click.
+
 ## Open output windows
 
 An output window is a separate browser window for the viewers or the speaker. There are two
 kinds:
 
 - **Presentation window** — what the viewers see, on a projector or a second monitor.
-- **Stage** — a monitor for the speaker: what is on screen now, what comes next, and a
-  clock.
+- **Stage** — a monitor for the speaker: what is on screen now, what comes next, a clock,
+  the speaker timer, your messages, and the running order.
 
-![The Stage window: on the left, the verse on screen now; on the right, the next verse; at
-the top, a clock](../img/en/stage-window.png)
+![The Stage window: at the top, the reference, “verse 16 of 36”, and a clock; below them, the
+message “5 minutes left”; in large letters, the verse on screen now; below it, the next verse
+and the speaker timer; at the bottom, the running order](../img/en/stage-window.png)
+
+By default, the stage shows the slide's words in a large plain font, so the speaker can read
+them from afar; you can choose slide previews instead. To change it, see
+[Set up the stage](appearance.md#set-up-the-stage).
 
 To open an output window, click **Presentation window** or the **Stage** icon at the top.
 If a second screen is connected, the browser asks for permission to manage windows on all

@@ -139,6 +139,25 @@ same **Warning** and **Warning color**, **Another color past zero** and **Color 
 **Time font** (**As the text** — the slides' font), and **Time format** as the countdown. By default they match the countdown's; there
 is no size or words here — Stage has its own. A running timer takes new settings at once. Presets don't change these settings: a preset is the viewers' look.
 
+## Set up the stage
+
+The **Stage** window is for the speaker, so its settings are apart from what the viewers see.
+In the **Stage** section of the appearance settings:
+
+- **Appearance** — **Text** (the default): the slide's words in a large plain font, without the
+  background or colors; or **Slides**: the slides as the screen shows them.
+- **Text size** — for **Text**: from **Smaller** to **Largest**. A long passage still
+  fits the window.
+- **Theme** — **Dark** (the default) or **Light**.
+- **Show “Next”** — what the next press of **Next** will show.
+- **Where we are** — next to the reference: “verse 16 of 36”, “stanza 3 of 5”, “photo 4 of
+  20”.
+- **The running order at the bottom** — the item on screen and the next two.
+- **Clock with seconds**.
+
+An open stage window takes new settings at once. Presets don't change them: a preset is the
+viewers' look.
+
 ## Place the slide's elements
 
 In the **Slide layout** section, in the **Template** field, choose how the slide's elements
