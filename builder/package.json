@@ -1,6 +1,6 @@
 {
   "name": "@vo/builder",
-  "version": "1.8.12-beta.8",
+  "version": "1.8.12-beta.9",
   "private": true,
   "type": "module",
   "scripts": {
