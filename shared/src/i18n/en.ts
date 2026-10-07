@@ -1840,4 +1840,77 @@ export const EN: Record<string, string> = {
   'Угорі, посередині': 'At the top, in the middle',
   'Над віршами (у «Біблії»)': 'Above the verses (in “Bible”)',
   'Угорі, перед режимами': 'At the top, before the modes',
+  // a control window on another computer (1.9.0-beta.10, server/src/live.ts, web/src/pages/Desk.tsx)
+  'Неправильний відлік': 'Invalid countdown',
+  'Відліку на екрані немає': 'There is no countdown on screen',
+  'Керувати показом звідси — через пульт для комп’ютера':
+    'Control the show from here with a computer remote',
+  'Повне вікно керування працює лише на комп’ютері, де запущено застосунок. Попросіть оператора створити пульт для цього комп’ютера (Пульт доповідача → Комп’ютер) і вставте його посилання сюди.':
+    'The full control window works only on the computer that runs the app. Ask the operator to create a remote for this computer (Speaker remote → Computer) and paste its link here.',
+  'Посилання на пульт': 'Remote link',
+  Відкрити: 'Open',
+  'У цьому посиланні немає коду пульта. Скопіюйте його повністю.':
+    'This link has no remote code in it. Copy the whole link.',
+  'Лише читати текст разом із показом:': 'Only read the text along with the show:',
+  'сторінка для глядачів': 'the viewers’ page',
+  '{status} · відповідь за {ms} мс': '{status} · answered in {ms} ms',
+  '«Далі» в оператора: {reference}': 'The operator’s “Next”: {reference}',
+  '«Починаємо за 5:00» для глядачів: почати, пауза, прибрати':
+    '“Starting in 5:00” for the viewers: start, pause, remove',
+  'Ви показали це звідси: «Далі» веде далі тут': 'You showed this from here: “Next” goes on here',
+  'Виберіть вірші — Enter чи «На екран» покаже їх.':
+    'Choose verses — Enter or “To screen” shows them.',
+  'Виберіть пісню ліворуч.': 'Choose a song on the left.',
+  'Виберіть строфу — Enter чи «На екран» покаже її.':
+    'Choose a stanza — Enter or “To screen” shows it.',
+  'Вставити нове посилання': 'Paste a new link',
+  Екран: 'Screen',
+  Знайдене: 'Found',
+  Монітори: 'Monitors',
+  'Назва чи номер пісні…': 'Song title or number…',
+  'Напишіть, як-от 5 чи 7:30': 'Type it like 5 or 7:30',
+  'Наступні вірші того, що ви показали': 'The next verses of what you showed',
+  'Не дозволено оператором': 'Not allowed by the operator',
+  'Немає пісень за «{query}»': 'No songs for “{query}”',
+  'Нічого не знайдено за «{query}»': 'Nothing found for “{query}”',
+  'Оператор ще нічого не додав.': 'The operator hasn’t added anything yet.',
+  'Показати прев’ю': 'Show the preview',
+  'Попередні вірші того, що ви показали': 'The previous verses of what you showed',
+  Почати: 'Start',
+  'Пошук: посилання чи слова': 'Search: a reference or words',
+  'Пісень у бібліотеці ще немає': 'There are no songs in the library yet',
+  'Спершу виберіть, що показати': 'First choose what to show',
+  'У ваших перекладах нічого — знайдено в інших': 'Nothing in your translations — found in others',
+  'У посиланні немає коду пульта. Відкрийте посилання, яке дав оператор.':
+    'The link has no remote code. Open the link the operator gave you.',
+  'Хвилини: 5 чи 7:30': 'Minutes: 5 or 7:30',
+  'Цей пульт не працює': 'This remote doesn’t work',
+  'Як «Далі» оператора': 'As the operator’s “Next”',
+  'Як «Назад» оператора': 'As the operator’s “Back”',
+  'Як збережено': 'As saved',
+  'Інший комп’ютер має бути в тій самій мережі. Якщо не відкривається, відкрийте керування за IP-адресою цього комп’ютера ({ip}).':
+    'The other computer must be on the same network. If it doesn’t open, open the control window by this computer’s IP address ({ip}).',
+  'Відкликати: комп’ютер одразу втратить керування': 'Revoke: the computer loses control at once',
+  'Відкрийте це посилання в браузері іншого комп’ютера (та сама мережа): там буде вікно керування з дозволеним вище. Посилання показується лише зараз; загубили — перевипустіть.':
+    'Open this link in a browser on the other computer (the same network): it gets a control window with what you allowed above. The link is shown only now; if it’s lost, reissue it.',
+  'Вікно керування на іншому комп’ютері мережі: пошук, вірші, переклади й те, що ви дозволите. Налаштувань і вікон виводу там немає.':
+    'A control window on another computer of the network: search, verses, translations, and what you allow. It has no settings and no output windows.',
+  'Для чого пульт': 'What the remote is for',
+  'Комп’ютер': 'Computer',
+  'Комп’ютер зі старим посиланням уже відключено.':
+    'The computer with the old link is already disconnected.',
+  'Комп’ютер отримає зміни одразу, без нового посилання.':
+    'The computer gets the changes at once, without a new link.',
+  'Перевипустити посилання: нове посилання, старий комп’ютер втратить керування':
+    'Reissue the link: a new link, the old computer loses control',
+  'Створити посилання': 'Create a link',
+  'Не знайдено мережевої адреси. Підключіть комп’ютер до Wi-Fi чи LAN, щоб інший комп’ютер міг приєднатися.':
+    'No network address found. Connect the computer to Wi-Fi or LAN so the other computer can join.',
+  'Це посилання пульта для телефона. Попросіть оператора створити пульт для комп’ютера (Пульт доповідача → Комп’ютер).':
+    'This is a phone remote’s link. Ask the operator to create a computer remote (Speaker remote → Computer).',
+  Телефон: 'Phone',
+  'Щоб показувати звідти свої вірші, позначте «На екран» і «Вибір віршів».':
+    'To show its own verses from there, tick “To screen” and “Choosing verses”.',
+  'застосунок вимкнено': 'the app is switched off',
+  'підключаюся…': 'connecting…',
 };

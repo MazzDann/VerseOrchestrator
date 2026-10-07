@@ -192,6 +192,30 @@ after the server is back, with a TCP proxy playing the outage (0.6.29, Chrome 15
 The control window warns about a lost hub 4 seconds after the drop, and a phone brought
 back on screen rejoins in 17 ms.
 
+## A control window on another computer: the desk
+
+A remote can be a control window on another computer of the network (`/desk#<token>`,
+1.9.0-beta.10). It is a remote socket that says `desk: true` in its hello: the same token,
+permissions, retry cache, and real acks as a phone, so the hub keeps one path for commands.
+It never becomes a control socket — output windows live in the operator's browser
+(BroadcastChannel), and only the control window there pushes slides (`pushLive`). Besides the
+phones' `screen` summaries, a desk hears `{ type: 'slides', live, next }`: whole slides for its
+monitors, stripped by `forDesk` (the audience slide, plus «Заставка»'s words without the
+logo). The control window in charge sends one only when they change, and the hub keeps the
+last for a desk that connects later.
+
+Round trips on an isolated server (Chrome, the control window in a background tab), a desk
+socket putting John 3:16/17 on screen 20 times, four runs:
+
+| Measure                           | One translation               | Three translations            |
+| --------------------------------- | ----------------------------- | ----------------------------- |
+| Ack (the control window applied)  | 1.6 ms median                 | 1.5–1.7 ms median             |
+| `slides` frame with the new slide | 17–19 ms median, p95 24–38 ms | 17–19 ms median, p95 32–37 ms |
+| Frame size                        | 0.9 KB                        | 1.4 KB                        |
+
+The ack comes first: the control window answers when the push is done, and sends `slides`
+after its render. One frame per step.
+
 ## Run the benchmark
 
 To measure the transports on your machine, open `/bench` and select the

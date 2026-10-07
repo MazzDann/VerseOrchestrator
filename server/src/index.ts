@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { ApiError, closeDb, library, libraryInfo, libraryPath } from './db.js';
-import { isOwnAddress, lanIps } from './access.js';
+import { isLocalRequest, isOwnAddress, lanIps } from './access.js';
 import { isLocalControl, requireLocal, requireLocalControl } from './guards.js';
 import {
   announceShutdown,
@@ -244,9 +244,9 @@ app.post(
   '/api/remote',
   requireLocalControl,
   wrap((req, res) => {
-    const p = createPairing(String(req.body?.name ?? ''), req.body?.allowed);
+    const p = createPairing(String(req.body?.name ?? ''), req.body?.allowed, req.body?.kind);
     notifyRemotesChanged();
-    res.json({ id: p.id, name: p.name, allowed: p.allowed, token: p.token });
+    res.json({ id: p.id, name: p.name, kind: p.kind, allowed: p.allowed, token: p.token });
   }),
 );
 
@@ -274,7 +274,7 @@ app.post(
     const p = reissuePairing(String(req.params.id));
     if (!p) throw new ApiError(404, N_('Пульт не знайдено'));
     dropRemote(p.id, 'reissued'); // the phone holding the old code loses control now
-    res.json({ id: p.id, name: p.name, allowed: p.allowed, token: p.token });
+    res.json({ id: p.id, name: p.name, kind: p.kind, allowed: p.allowed, token: p.token });
   }),
 );
 
@@ -826,10 +826,14 @@ app.delete(
   }),
 );
 
-/** LAN IPv4 addresses so the control UI can build a phone-scannable follow URL (best first). */
+/**
+ * LAN IPv4 addresses so the control UI can build a phone-scannable follow URL (best first), and
+ * whether the asker is this computer (1.9.0-beta.10): the control page opened from another
+ * computer says how to get a desk link instead of failing at every local-only route.
+ */
 app.get(
   '/api/host',
-  wrap((_req, res) => res.json({ ips: lanIps() })),
+  wrap((req, res) => res.json({ ips: lanIps(), local: isLocalRequest(req) })),
 );
 
 app.get(

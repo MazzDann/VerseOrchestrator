@@ -2,9 +2,11 @@
 
 [Українською](../remote.md) · English
 
-A speaker remote is a phone from which the speaker steps through the show. This page is for
-the operator: how to create a remote, what to allow the speaker, and how to take control
-back. How to give the text to viewers' phones is in [Viewers' phones](viewers.md).
+A speaker remote is a phone from which the speaker steps through the show. A remote can also
+be another computer of the network — with a control window that has only what you allow (see
+[A remote on a computer](#a-remote-on-a-computer)). This page is for the operator: how to
+create a remote, what to allow, and how to take control back. How to give the text to
+viewers' phones is in [Viewers' phones](viewers.md).
 
 ## Before you begin
 
@@ -17,15 +19,17 @@ Wi-Fi network for the computer and the phone. More in
 To create a remote:
 
 1. At the top, click the **Speaker remote** icon.
-2. In the **Name** field, type the remote's name, for example `Speaker`. The name shows on
+2. At the top of the panel, keep **Phone**. A remote for another computer is in
+   [A remote on a computer](#a-remote-on-a-computer).
+3. In the **Name** field, type the remote's name, for example `Speaker`. The name shows on
    the phone and in the list of remotes.
-3. In the **Allowed** group, select what the remote may do. By default, **Next**, **Back**,
+4. In the **Allowed** group, select what the remote may do. By default, **Next**, **Back**,
    and **Hide text** are selected. What each permission means is in
    [Permissions](#permissions).
-4. Click **Create a remote**. The remote's QR code appears.
-5. Have the speaker scan the QR code with their phone's camera. The remote opens on the
+5. Click **Create a remote**. The remote's QR code appears.
+6. Have the speaker scan the QR code with their phone's camera. The remote opens on the
    phone.
-6. Click **Done**.
+7. Click **Done**.
 
 The remote's QR code shows only until you click **Done**. If the speaker didn't manage to
 scan it, reissue the code — see [Manage remotes](#manage-remotes).
@@ -75,6 +79,8 @@ Each permission is turned on separately for each remote:
 | **Choosing verses** | choose a verse on the phone                                                     |
 | **Songs**           | choose a song and a stanza                                                      |
 | **Running order**   | see the running order, show the next item, add the own choice to it             |
+| **Cover**           | turn the cover on and off (a remote on a computer only)                         |
+| **Countdown**       | start a countdown, pause it, remove it (a remote on a computer only)            |
 
 ## The speaker's choice
 
@@ -112,6 +118,36 @@ The **The operator suggests** block appears on the remote with a **To preview** 
 with the **To screen** permission a **To screen** button too. The speaker decides: take the
 suggestion or dismiss it with ✕.
 
+## A remote on a computer
+
+A remote can also be on another computer of the same network — for example, an assistant's
+laptop. A control window opens there in the browser: search, books, verses, translations,
+songs, the **On screen** and **Preview** monitors, and the running order. It has no
+settings, files, or output windows: your control window shows everything, in your look.
+
+To create a remote on a computer:
+
+1. At the top, click the **Speaker remote** icon.
+2. At the top of the panel, choose **Computer**.
+3. Type a **Name** and select what is allowed. For that computer to put its own verses on
+   screen, select **To screen** and **Choosing verses**; for songs, **Songs** too.
+4. Click **Create a link**. The remote's link appears.
+5. Click **Copy** and pass the link to that computer, for example in a message.
+6. Click **Done**. The link shows only until you click **Done**.
+
+On that computer, open the link in a browser. At the top are the search field (a reference
+such as `John 3:16`, or words from the text), the **Bible** / **Songs** switch, and the show
+buttons. The choice shows on the **Preview** monitor; the **To screen** button, the F5 key
+(⌘↩ on a Mac), or Enter on a verse puts it on screen. **Next** and **Back** (the arrow keys,
+PageDown, PageUp) step on through what was shown from that computer; otherwise they act as
+**Next** and **Back** in your control window. The B, “.”, L, and T keys are **Hide text**,
+**Black screen**, **Cover**, and **Countdown**, if they are allowed. Buttons that aren't
+allowed are grey.
+
+If another computer opens the app's address without a link, such as
+`http://192.168.0.5:4747/`, it doesn't get the full control window: the page says to ask for
+a link and gives a field to paste it in.
+
 ## Manage remotes
 
 The created remotes are listed in the **Speaker remote** panel below the **Remotes**
@@ -121,7 +157,8 @@ divider. Next to each are its state (**connected**, **not connected**, or
 In a remote's row:
 
 - To change the permissions, click the **What this remote may do** icon and select what you
-  need. The phone gets the changes at once; no new QR code is needed.
+  need. The phone or the computer gets the changes at once; no new QR code or link is
+  needed.
 - To give a new QR code — for example, the remote goes to another person — click
   **Reissue the code** and confirm with **Reissue**. The phone with the old code loses
   control at once.

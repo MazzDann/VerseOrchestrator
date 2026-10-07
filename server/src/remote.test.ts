@@ -9,6 +9,8 @@ import {
   listPairings,
   reissuePairing,
   revokePairing,
+  sanitizeAllowed,
+  sanitizeCountdown,
   setRemotePersistence,
 } from './remote';
 import { initServerSettings, sanitizeServerSettings, updateServerSettings } from './serverSettings';
@@ -83,6 +85,58 @@ describe('remote pairings on disk', () => {
     );
     initRemoteStore({ file: secrets, persist: true });
     expect(listPairings(() => false)).toEqual([]);
+  });
+});
+
+describe('a control window on another computer (1.9.0-beta.10)', () => {
+  it('a pairing keeps its kind; an older file (no kind) and junk read as a phone', () => {
+    initRemoteStore({ file: secrets, persist: true });
+    const desk = createPairing('Ноутбук', undefined, 'desk');
+    const phone = createPairing('Телефон', undefined, 'tablet');
+    expect(desk.kind).toBe('desk');
+    expect(phone.kind).toBe('phone');
+    const file = JSON.parse(fs.readFileSync(secrets, 'utf8'));
+    delete file.remotes[1].kind; // as 1.8.12-beta.9 wrote it
+    fs.writeFileSync(secrets, JSON.stringify(file));
+    initRemoteStore({ file: secrets, persist: true }); // "restart"
+    expect(listPairings(() => false).map((p) => [p.name, p.kind])).toEqual([
+      ['Ноутбук', 'desk'],
+      ['Телефон', 'phone'],
+    ]);
+    expect(findByToken(desk.token)?.kind).toBe('desk');
+  });
+
+  it('one name per pairing: a desk knows its own slide by it', () => {
+    initRemoteStore({ file: null, persist: false });
+    expect(createPairing('Пульт 2').name).toBe('Пульт 2');
+    expect(createPairing('Пульт 2').name).toBe('Пульт 2 (2)');
+    expect(createPairing('Пульт 2').name).toBe('Пульт 2 (3)');
+    const long = 'Д'.repeat(40);
+    expect(createPairing(long).name).toBe(long);
+    expect(createPairing(long).name).toBe(`${'Д'.repeat(36)} (2)`);
+  });
+
+  it('«Заставка» and «Відлік» are permissions of their own, off by default', () => {
+    expect(sanitizeAllowed(undefined)).toEqual(['next', 'prev', 'blank']);
+    expect(sanitizeAllowed(['cover', 'countdown', 'timer'])).toEqual(['cover', 'countdown']);
+  });
+
+  it('a countdown request: start (of any length up to 12 h), pause, stop — nothing else', () => {
+    expect(sanitizeCountdown({ op: 'start' })).toEqual({ op: 'start' });
+    expect(sanitizeCountdown({ op: 'start', seconds: 450 })).toEqual({ op: 'start', seconds: 450 });
+    expect(sanitizeCountdown({ op: 'pause' })).toEqual({ op: 'pause' });
+    expect(sanitizeCountdown({ op: 'stop' })).toEqual({ op: 'stop' });
+    for (const bad of [
+      undefined,
+      {},
+      { op: 'reset' },
+      { op: 'start', seconds: 0 },
+      { op: 'start', seconds: 1.5 },
+      { op: 'start', seconds: 12 * 3600 + 1 },
+      { op: 'start', seconds: '300' },
+      { op: 'pause', seconds: 60 },
+    ])
+      expect(sanitizeCountdown(bad)).toBeNull();
   });
 });
 

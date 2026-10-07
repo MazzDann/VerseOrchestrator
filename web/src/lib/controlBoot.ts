@@ -1,4 +1,4 @@
-import { probeServer, useServer } from '../serverStore';
+import { isLoopbackHost, probeServer, useServer } from '../serverStore';
 import { localEngine } from './engine';
 import { restoreLocalSegments } from './engine/restore';
 import { startUiStateSync } from './uiState';
@@ -12,10 +12,29 @@ import { startUiStateSync } from './uiState';
  */
 export async function bootControl(): Promise<void> {
   await probeServer();
+  // Opened from another computer (1.9.0-beta.10): the control window works only on the one with
+  // the app — `/` shows how to get a desk link instead; no settings sync, no browser library.
+  if (useServer.getState().available && !(await onThisComputer())) {
+    useServer.setState({ here: false });
+    return;
+  }
+  useServer.setState({ here: true });
   // settings and the running order kept with the app in data/ (0.7.4)
   if (useServer.getState().available) void startUiStateSync();
   // (no server → reads go to the browser engine via effectiveSource(); the saved
   // preference is left alone so a temporary outage doesn't flip it)
   restoreLocalSegments();
   await localEngine.whenReady();
+}
+
+/** Does the server see this page coming from its own computer? (An older one can't say: yes.) */
+async function onThisComputer(): Promise<boolean> {
+  if (isLoopbackHost(window.location.hostname)) return true;
+  try {
+    const res = await fetch('/api/host', { signal: AbortSignal.timeout(1500) });
+    const host = (await res.json()) as { local?: unknown };
+    return host.local !== false;
+  } catch {
+    return true;
+  }
 }

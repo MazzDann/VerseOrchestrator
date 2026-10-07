@@ -721,6 +721,7 @@ export function Control() {
     quietEnd,
     countdownPause,
     countdownKey,
+    countdownRemote,
     stageTimerSet,
     stageTimerStart,
     stageTimerPause,
@@ -739,6 +740,7 @@ export function Control() {
     pushLive,
     setPreviewOverride,
     setLive,
+    takeCoverOff,
   });
   // E20: the corner QR follows its settings on what is on screen — after E19, before E21
   useQrCornerFollow({ liveSlideRef, slideStyle, pushLive });
@@ -807,6 +809,7 @@ export function Control() {
     hideToggle,
     blackToggle,
     coverToggle,
+    countdownRemote,
     queryClient,
     appearance,
     translations,

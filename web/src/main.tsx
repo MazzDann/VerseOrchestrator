@@ -16,14 +16,15 @@ import { usePlaylist } from './playlistStore';
 import { listenForForget } from './lib/browserData';
 import { PageGuard } from './components/PageGuard';
 import { takeHandover } from './lib/handover';
+import { Home } from './pages/Home';
 
 // Each page is its own chunk (0.12.1): a phone on /follow loads the reader, not the control
 // window with its panels, the database engine and the benchmarks.
-const Control = lazy(() => import('./pages/Control').then((m) => ({ default: m.Control })));
 const Presenter = lazy(() => import('./pages/Presenter').then((m) => ({ default: m.Presenter })));
 const Stage = lazy(() => import('./pages/Stage').then((m) => ({ default: m.Stage })));
 const Follow = lazy(() => import('./pages/Follow').then((m) => ({ default: m.Follow })));
 const Remote = lazy(() => import('./pages/Remote').then((m) => ({ default: m.Remote })));
+const Desk = lazy(() => import('./pages/Desk').then((m) => ({ default: m.Desk })));
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 const Bench = lazy(() => import('./pages/Bench').then((m) => ({ default: m.Bench })));
 const BenchPeer = lazy(() => import('./pages/BenchPeer').then((m) => ({ default: m.BenchPeer })));
@@ -74,11 +75,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             {/* nothing while a page's chunk arrives — a fraction of a second, once per window */}
             <Suspense fallback={null}>
               <Routes>
-                <Route path="/" element={<Control />} />
+                <Route path="/" element={<Home />} />
                 <Route path="/presenter" element={<Presenter />} />
                 <Route path="/stage" element={<Stage />} />
                 <Route path="/follow" element={<Follow />} />
                 <Route path="/remote" element={<Remote />} />
+                <Route path="/desk" element={<Desk />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/bench" element={<Bench />} />
                 <Route path="/bench/peer" element={<BenchPeer />} />

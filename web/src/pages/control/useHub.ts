@@ -8,6 +8,7 @@ import { type Slide, type SlideSource } from '../../presenterBus';
 import { connectLive, type LiveConnection } from '../../lib/liveSocket';
 import { REMOTE_LABEL } from '../../lib/remote';
 import {
+  asCountdown,
   asPassage,
   asSong,
   commands,
@@ -15,7 +16,7 @@ import {
   type RemoteTarget,
   type SharedPlaylist,
 } from '../../lib/commands';
-import { forAudience, summarize } from '../../lib/slide';
+import { deskFrame, forAudience, summarize } from '../../lib/slide';
 import { takeServerUiState } from '../../lib/uiState';
 import { SONG_KEYS } from '../../lib/songKeys';
 import {
@@ -82,6 +83,15 @@ export function useHub({
     // what the remote's «На екран» would put there (0.6.0)
     preview: JSON.parse(previewSummary.current) as ReturnType<typeof summarize>,
   });
+  // Desks (1.9.0-beta.10, a control window on another computer) draw their monitors from whole
+  // slides — no images, under the hub's frame cap (deskFrame) —, sent when they change: the hub
+  // keeps the last for a late one.
+  const slidesSent = useRef('');
+  const sendSlides = (force = false) => {
+    const { frame, key } = deskFrame(liveSlideRef.current, nextSlideRef.current);
+    if (!force && key === slidesSent.current) return;
+    if (controlConn.current?.send(frame)) slidesSent.current = key;
+  };
   // the preview gets a new identity every render: compare its summary instead
   const previewSummary = useRef('');
   previewSummary.current = JSON.stringify(summarize(previewSlide));
@@ -152,6 +162,7 @@ export function useHub({
           setHubActive(f.active === true);
           if (f.active === true) {
             c.send(screenFrame());
+            sendSlides(true);
             c.send({ type: 'playlist', playlist: sharedPlaylistRef.current });
             if (followAlongRef.current)
               c.send({ type: 'publish', slide: forAudience(liveSlideRef.current) });
@@ -176,8 +187,9 @@ export function useHub({
           const passage = asPassage(f.passage);
           const song = passage ? undefined : asSong(f.song);
           const item = typeof f.item === 'string' ? f.item : undefined;
+          const countdown = asCountdown(f.countdown);
           void commands
-            .dispatch(id, cmd, { kind: 'remote', name: from }, { passage, song, item })
+            .dispatch(id, cmd, { kind: 'remote', name: from }, { passage, song, item, countdown })
             .then((outcome) => {
               // The remote is acked with what really happened (server/src/live.ts onCommand).
               if (typeof f.id === 'string') c.send({ type: 'result', id: f.id, ...outcome });
@@ -322,10 +334,12 @@ export function useHub({
         }
       : null;
 
-  // Keep remotes' «На екрані» / «Передпоказ» / «Далі» in step (independent of follow-along).
+  // Keep remotes' «На екрані» / «Передпоказ» / «Далі» in step (independent of follow-along) — and
+  // the desks' whole slides, only when they changed (a preview step doesn't resend them).
   const previewKey = previewSummary.current;
   useEffect(() => {
     controlConn.current?.send(screenFrame());
+    sendSlides();
     // deps as they were: controlConn and the refs screenFrame reads now come from useLivePipeline
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveSlide, nextSlide, previewKey]);
