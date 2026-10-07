@@ -3,7 +3,7 @@ import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { type Lang } from '@vo/shared';
 import { api, type RemoteCommand, type Pairing } from '../../api';
-import { type SeqItem } from '../../playlistStore';
+import { playable, type SeqItem } from '../../playlistStore';
 import { type Slide, type SlideSource } from '../../presenterBus';
 import { connectLive, type LiveConnection } from '../../lib/liveSocket';
 import { REMOTE_LABEL } from '../../lib/remote';
@@ -257,7 +257,8 @@ export function useHub({
   // item, and what a phone needs to walk a passage / song with its own cursor.
   const sharedPlaylist: SharedPlaylist = useMemo(
     () => ({
-      items: playlistItems.map((it) =>
+      // an item of a newer version (1.9.1) stays here: a remote can't show it
+      items: playlistItems.filter(playable).map((it) =>
         it.kind === 'passage'
           ? {
               id: it.id,

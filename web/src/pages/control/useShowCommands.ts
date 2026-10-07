@@ -116,7 +116,8 @@ export function useShowCommands({
     const by = _source.name ?? tr('Пульт');
     // an item of the shared running order (0.6.9)
     if (args.item && (cmd === 'show' || cmd === 'pick')) {
-      const it = playlistItems.find((i) => i.id === args.item);
+      // an item of a newer version (1.9.1) never reaches a remote; as if gone
+      const it = playlistItems.find((i) => i.id === args.item && i.kind !== 'foreign');
       if (!it) return { ok: false, reason: tr('Цього елемента вже немає в послідовності') };
       // an album (1.8.12) goes on as the operator's own: open here, so «Далі» steps its photos
       if ((it.kind === 'album' || it.kind === 'video') && cmd === 'show') {

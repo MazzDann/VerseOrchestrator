@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatTimer, lookOf, TIMER_FONT_CSS, timerColor, useCountdown } from '../lib/countdown';
 import {
   type Slide,
@@ -18,7 +18,7 @@ import { outputKeyAction } from '../lib/outputKeys';
 import { showsSomething } from '../lib/slide';
 import { clockWords, ORDER_CURRENT_KEY, placeWords, STAGE_TEXT_MAX, stageLook } from '../lib/stage';
 import { useSettings } from '../settingsStore';
-import { usePlaylist } from '../playlistStore';
+import { playable, usePlaylist } from '../playlistStore';
 import { useAutoFit } from '../useAutoFit';
 import { tr, useLang } from '../i18n';
 
@@ -146,7 +146,9 @@ export function Stage() {
   const now = useNow();
   const vmin = useVmin();
   const look = stageLook(useSettings((s) => s.appearance));
-  const order = usePlaylist((s) => s.items);
+  // items of a newer version (1.9.1) don't go on screen: not on the strip either
+  const items = usePlaylist((s) => s.items);
+  const order = useMemo(() => items.filter(playable), [items]);
   const currentId = useOrderCurrent();
   // the speaker's timer (1.8.4): counts, holds or goes past zero, pauses — as «Відлік» does
   const timer = slide.stageTimer ?? null;
