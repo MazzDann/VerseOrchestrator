@@ -222,7 +222,7 @@ export function forAudience(slide: Slide): Slide {
 }
 
 /**
- * What a control window on another computer (`/desk`, 1.9.0-beta.1) draws on its monitors: the
+ * What a control window on another computer (`/desk`, 1.9.0-beta.10) draws on its monitors: the
  * audience's slide — no images, under the hub's frame cap — that still shows what covers the
  * screen: «Заставка» (its words, not its logo) with the countdown under it.
  */
@@ -234,7 +234,7 @@ export function forDesk(slide: Slide): Slide {
 /**
  * The hub closes a socket on a frame over 256 KiB (server/src/live.ts MAX_FRAME_BYTES): a desk's
  * frame keeps well under it. Psalm 119 in five translations is about 170 KB for the screen alone
- * (review of 1.9.0-beta.1) — and the control window would resend it after every reconnect.
+ * (review of 1.9.0-beta.10) — and the control window would resend it after every reconnect.
  */
 export const DESK_FRAME_MAX = 192 * 1024;
 /** A line's text on a desk's monitor at most (a slide that long is unreadable there anyway). */

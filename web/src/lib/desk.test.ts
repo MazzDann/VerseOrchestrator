@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { deskTokenOf, liveCountdown, mayPress, stepVerses } from './desk';
 import { DEFAULT_STYLE, type Slide } from '../presenterBus';
 
-describe('a desk link pasted on another computer (1.9.0-beta.1)', () => {
+describe('a desk link pasted on another computer (1.9.0-beta.10)', () => {
   it('finds the token in the address, its #… part or the code alone', () => {
     const token = 'a1B2c3D4e5F6g7H8i9J0k_-z';
     expect(deskTokenOf(`http://192.168.1.5:4747/desk#${token}`)).toBe(token);

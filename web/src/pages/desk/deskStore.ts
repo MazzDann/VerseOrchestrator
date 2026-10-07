@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * What a control window on another computer (`/desk`, 1.9.0-beta.1) remembers of its own: its
+ * What a control window on another computer (`/desk`, 1.9.0-beta.10) remembers of its own: its
  * translations, the place open, the verses or the stanza chosen, the mode. Under its own key,
  * never `vo:settings`: a desk tab on the operator's computer would rehydrate the control window
  * through the storage event (main.tsx) and change its translations and its place.

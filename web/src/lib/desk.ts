@@ -2,7 +2,7 @@ import type { RemoteCommand } from '../api';
 import type { Slide, SlideCountdown } from '../presenterBus';
 
 /**
- * A control window on another computer (`/desk`, 1.9.0-beta.1, F1005-10): the pieces that need
+ * A control window on another computer (`/desk`, 1.9.0-beta.10, F1005-10): the pieces that need
  * no React — the link's token, what the pairing allows.
  */
 

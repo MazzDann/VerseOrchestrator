@@ -15,7 +15,7 @@ interface ServerState {
    */
   devLabel: string | null;
   /**
-   * Is this page on the computer with the app (1.9.0-beta.1)? The control window works only
+   * Is this page on the computer with the app (1.9.0-beta.10)? The control window works only
    * there; opened from another computer, `/` says how to get a desk link (pages/OtherComputer).
    * True at once on a loopback address; else the control window's start asks `/api/host`;
    * null until then. Without a server (a static build) there is nothing to control: true.

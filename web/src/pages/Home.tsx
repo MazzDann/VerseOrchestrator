@@ -8,7 +8,7 @@ const OtherComputer = lazy(() =>
 );
 
 /**
- * `/` (1.9.0-beta.1): the control window on the computer with the app; opened from another
+ * `/` (1.9.0-beta.10): the control window on the computer with the app; opened from another
  * computer, how to get a desk link — nothing until the start knows which (at once on localhost).
  */
 export function Home() {

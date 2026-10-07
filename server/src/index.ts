@@ -828,7 +828,7 @@ app.delete(
 
 /**
  * LAN IPv4 addresses so the control UI can build a phone-scannable follow URL (best first), and
- * whether the asker is this computer (1.9.0-beta.1): the control page opened from another
+ * whether the asker is this computer (1.9.0-beta.10): the control page opened from another
  * computer says how to get a desk link instead of failing at every local-only route.
  */
 app.get(

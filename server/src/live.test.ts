@@ -586,7 +586,7 @@ describe('speaker remote over the hub', () => {
     r2.ws.close();
   });
 
-  it('a desk (another computer) hears whole slides; a phone keeps the summaries (1.9.0-beta.1)', async () => {
+  it('a desk (another computer) hears whole slides; a phone keeps the summaries (1.9.0-beta.10)', async () => {
     const pd = createPairing('Ноутбук', undefined, 'desk');
     const pp = createPairing('Телефон');
     const control = client({ role: 'control' }, origin());
@@ -595,7 +595,7 @@ describe('speaker remote over the hub', () => {
     expect(await desk.next('welcome')).toMatchObject({ kind: 'desk' });
     // on connect: what the hub has (nothing yet in this run, or the last test's)
     expect(await desk.next('slides')).toMatchObject({ type: 'slides' });
-    // a phone's link saying `desk: true` keeps the summaries (review of 1.9.0-beta.1)
+    // a phone's link saying `desk: true` keeps the summaries (review of 1.9.0-beta.10)
     const phone = client({ role: 'remote', token: pp.token, desk: true });
     expect(await phone.next('welcome')).toMatchObject({ kind: 'phone' });
     const live = { lines: [{ text: 'Бо так полюбив Бог світ' }], reference: 'Ів 3:16' };

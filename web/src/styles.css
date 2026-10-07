@@ -1100,7 +1100,7 @@ body[data-resizing='y'] {
   --vo-cap: calc(100vh - var(--app-shell-header-height, 3.5rem) - 9rem);
 }
 
-/* ---- /desk: a control window on another computer (1.9.0-beta.1, F1005-10) ----
+/* ---- /desk: a control window on another computer (1.9.0-beta.10, F1005-10) ----
    The control window's three columns — books · verses · monitors — over the remote protocol. */
 .vo-desk {
   display: grid;

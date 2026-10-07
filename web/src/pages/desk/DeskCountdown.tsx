@@ -8,7 +8,7 @@ import { ToolIcon } from '../../components/Toolbar';
 import { tr, useLang } from '../../i18n';
 
 /**
- * «Відлік» from the desk (1.9.0-beta.1, a permission of its own): a new one of a typed length —
+ * «Відлік» from the desk (1.9.0-beta.10, a permission of its own): a new one of a typed length —
  * empty: the operator's saved one —, pause / go on, off. The look, the words and the place are
  * the operator's (Налаштування вигляду → Відлік on the computer with the app).
  */

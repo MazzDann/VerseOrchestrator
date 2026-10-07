@@ -26,7 +26,7 @@ import { handovers } from './handover.js';
  *     (+ `handover: token` from a control window «Відкрити в … зараз» opened: it takes charge,
  *     hears { type: 'handover', browser }, the others { type: 'hub', active: false, movedTo })
  *   { type: 'hello', role: 'remote', token }  — a paired speaker remote (remote.ts)
- *     (+ `desk: true` from a control window on another computer, `/desk`, 1.9.0-beta.1: it
+ *     (+ `desk: true` from a control window on another computer, `/desk`, 1.9.0-beta.10: it
  *     also hears { type: 'slides', live, next } — whole slides for its monitors, which the
  *     control window in charge sends without images; phones keep the `screen` summaries)
  * A remote may then send { type: 'command', cmd, id } for the commands its pairing allows;
@@ -97,7 +97,7 @@ let screenState: { screen: unknown; next: unknown; preview: unknown } = {
   preview: null,
 };
 /**
- * The same two as whole slides (1.9.0-beta.1), for the desks' monitors only — a phone has no
+ * The same two as whole slides (1.9.0-beta.10), for the desks' monitors only — a phone has no
  * use for them, and they are larger. The control window strips them first (no images).
  */
 let slidesState: { live: unknown; next: unknown } = { live: null, next: null };
@@ -387,7 +387,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   if (rawItem !== undefined && !item) return reject(N_('Неправильний елемент'));
   if (cmd === 'pick' && !passage && !song && !item) return reject(N_('Не вибрано вірш'));
   if (cmd === 'queue' && !passage && !song) return reject(N_('Нічого додати'));
-  // «Відлік» says what to do with it (1.9.0-beta.1)
+  // «Відлік» says what to do with it (1.9.0-beta.10)
   const countdown = cmd === 'countdown' ? sanitizeCountdown(msg.countdown) : null;
   if (cmd === 'countdown' && !countdown) return reject(N_('Неправильний відлік'));
   // each ability on its own, per remote

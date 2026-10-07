@@ -68,7 +68,7 @@ const NO_VERSES: Verse[] = [];
 const noop = () => {};
 
 /**
- * A control window on another computer (`/desk#<token>`, 1.9.0-beta.1, F1005-10 — the author: a
+ * A control window on another computer (`/desk#<token>`, 1.9.0-beta.10, F1005-10 — the author: a
  * real control window with permissions, not a wide /remote). Built from the control window's
  * parts (the books, the verse list, the monitors, the toolbar), but over the remote protocol:
  * it reads the library like a phone and sends commands the operator allowed; the control
