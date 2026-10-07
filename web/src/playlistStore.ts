@@ -103,6 +103,25 @@ export interface SeqCountdown {
 }
 
 /**
+ * «Цикл оголошень» (1.10.0-beta.4, the author's call: a group going round every N s until «Далі»):
+ * texts, pictures and covers gathered from the list, shown one after another by the control window
+ * in charge.
+ */
+export type SeqLoopSlide = SeqText | SeqImage | SeqCover;
+export interface SeqLoop {
+  kind: 'loop';
+  id: string;
+  label: string;
+  /** seconds a slide stays, 3 … 600 */
+  every: number;
+  items: SeqLoopSlide[];
+}
+/** What a loop may hold: one slide each. */
+export const inLoop = (it: SeqItem): it is SeqLoopSlide =>
+  it.kind === 'text' || it.kind === 'image' || it.kind === 'cover';
+export const LOOP_MAX = 50;
+
+/**
  * An item of a newer version (1.9.1): a kind this one doesn't know — kept exactly as it was saved,
  * so the newer version gets it back after a step down and up again; never put on screen, steps
  * pass over it. 1.9.0 drew such an item with no icon and the control window failed.
@@ -124,6 +143,7 @@ export type SeqItem =
   | SeqVideo
   | SeqCover
   | SeqCountdown
+  | SeqLoop
   | SeqForeign;
 /** An item to add — same shape minus the store-assigned id. */
 export type NewSeqItem =
@@ -160,6 +180,7 @@ export const KIND_SINCE: Record<Exclude<SeqItem['kind'], 'foreign'>, string> = {
   video: '1.8.12-beta.3',
   cover: '1.10.0-beta.2',
   countdown: '1.10.0-beta.3',
+  loop: '1.10.0-beta.4',
 };
 /** From this version on, an item of a kind the version doesn't know is passed over. */
 export const FIRST_FOREIGN_SAFE = '1.9.1';
@@ -200,6 +221,23 @@ function knownItem(r: Record<string, unknown>): SeqItem {
       caption: str(r.caption),
       seconds: Math.min(43200, Math.max(1, Math.round(Number.isFinite(n) ? n : 300))),
       atZero: AT_ZERO.includes(r.atZero as string) ? r.atZero : 'stop',
+    } as unknown as SeqItem;
+  }
+  if (r.kind === 'loop') {
+    const n = Number(r.every);
+    const slides = (Array.isArray(r.items) ? r.items : [])
+      .filter(
+        (x): x is Record<string, unknown> =>
+          !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string',
+      )
+      .filter((x) => x.kind === 'text' || x.kind === 'image' || x.kind === 'cover')
+      .map(knownItem)
+      .slice(0, LOOP_MAX);
+    return {
+      ...r,
+      label: str(r.label),
+      every: Math.min(600, Math.max(3, Math.round(Number.isFinite(n) ? n : 8))),
+      items: slides,
     } as unknown as SeqItem;
   }
   if (r.kind === 'cover') {
@@ -254,8 +292,17 @@ interface PlaylistState {
   /** Change an item in place (1.10.0-beta.2: a «Заставка» item's text and picture). */
   updateItem: (
     id: string,
-    patch: Partial<Omit<SeqCover, 'id' | 'kind'>> | Partial<Omit<SeqCountdown, 'id' | 'kind'>>,
+    patch:
+      | Partial<Omit<SeqCover, 'id' | 'kind'>>
+      | Partial<Omit<SeqCountdown, 'id' | 'kind'>>
+      | Partial<Pick<SeqLoop, 'every' | 'label'>>,
   ) => void;
+  /** Gather these texts, pictures and covers into one «Цикл» where the first of them stood. */
+  gatherLoop: (ids: string[], label: string) => void;
+  /** One slide out of a loop, right after it; an emptied loop goes. */
+  takeOutOfLoop: (loopId: string, slideId: string) => void;
+  /** The loop's slides back into the list where it stood. */
+  scatterLoop: (loopId: string) => void;
   /** Move an item one slot up (-1) or down (+1). */
   move: (id: string, dir: -1 | 1) => void;
   /** Move the item at `from` to position `to` (drag-and-drop reorder). */
@@ -319,12 +366,71 @@ export const usePlaylist = create<PlaylistState>()(
       updateItem: (id, patch) =>
         set((s) => ({
           items: s.items.map((it) =>
-            it.id === id && (it.kind === 'cover' || it.kind === 'countdown')
+            it.id === id && (it.kind === 'cover' || it.kind === 'countdown' || it.kind === 'loop')
               ? ({ ...it, ...patch, id: it.id, kind: it.kind } as SeqItem)
               : it,
           ),
           replaced: null,
         })),
+      gatherLoop: (ids, label) =>
+        set((s) => {
+          const picked = s.items.filter(
+            (it) => ids.includes(it.id) && inLoop(it),
+          ) as SeqLoopSlide[];
+          if (picked.length === 0) return s;
+          const at = s.items.findIndex((it) => it.id === picked[0].id);
+          const loop: SeqLoop = {
+            kind: 'loop',
+            id: newId(),
+            label,
+            every: 8,
+            items: picked.slice(0, LOOP_MAX),
+          };
+          const rest = s.items.filter(
+            (it) => !picked.slice(0, LOOP_MAX).includes(it as SeqLoopSlide),
+          );
+          const before = s.items.slice(0, at).filter((it) => rest.includes(it)).length;
+          const items = [...rest];
+          items.splice(before, 0, loop);
+          // the item on screen went into the loop: the loop is the current item now (review)
+          const gathered = picked.slice(0, LOOP_MAX).some((x) => x.id === s.currentId);
+          return {
+            items,
+            currentId: gathered ? loop.id : s.currentId,
+            replaced: null,
+            cleared: null,
+          };
+        }),
+      takeOutOfLoop: (loopId, slideId) =>
+        set((s) => {
+          const at = s.items.findIndex((it) => it.id === loopId);
+          const loop = s.items[at];
+          if (!loop || loop.kind !== 'loop') return s;
+          const slide = loop.items.find((x) => x.id === slideId);
+          if (!slide) return s;
+          const left = loop.items.filter((x) => x.id !== slideId);
+          const items = [...s.items];
+          items.splice(at, 1, ...(left.length ? [{ ...loop, items: left }] : []), slide);
+          // an emptied loop that was current: nothing is (review)
+          return {
+            items,
+            currentId: !left.length && s.currentId === loopId ? null : s.currentId,
+            replaced: null,
+          };
+        }),
+      scatterLoop: (loopId) =>
+        set((s) => {
+          const at = s.items.findIndex((it) => it.id === loopId);
+          const loop = s.items[at];
+          if (!loop || loop.kind !== 'loop') return s;
+          const items = [...s.items];
+          items.splice(at, 1, ...loop.items);
+          return {
+            items,
+            currentId: s.currentId === loopId ? null : s.currentId,
+            replaced: null,
+          };
+        }),
       removeItem: (id) =>
         set((s) => ({
           items: s.items.filter((i) => i.id !== id),

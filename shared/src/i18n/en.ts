@@ -1966,6 +1966,18 @@ export const EN: Record<string, string> = {
   // a step down that can update back (1.9.0, server/src/installer.ts FIRST_SWAP_SAFE)
   'З версій, старіших за 1.8.8, на Windows не вдається оновитися назад':
     'Versions older than 1.8.8 can’t update back on Windows',
+  // 1.10.0-beta.4: «Цикл оголошень»
+  'Змінити цикл': 'Edit the loop',
+  'Змінювати кожні, с': 'Change every, s',
+  'Розібрати цикл': 'Take the loop apart',
+  'Цикл оголошень': 'Announcement loop',
+  'Вибрано {n} слайд|Вибрано {n} слайди|Вибрано {n} слайдів': '{n} slide picked|{n} slides picked',
+  'Зібрати в цикл': 'Gather into a loop',
+  Згорнути: 'Fold',
+  'Слайди циклу': 'The loop’s slides',
+  'Вийняти з циклу': 'Take out of the loop',
+  'цикли оголошень': 'announcement loops',
+  'Цикл порожній': 'The loop is empty',
   // 1.10.0-beta.3: «Відлік» items in the running order
   'Змінити відлік': 'Edit the countdown',
   'Хвилини чи хв:сс — 5, 7:30, 1:05:00': 'Minutes or m:ss — 5, 7:30, 1:05:00',
