@@ -38,6 +38,12 @@ const GAP = 1;
 export const PSALMS = 230;
 /** How many chapter steps a run may take to balance a verse moved across chapter edges. */
 const RUN_STEPS = 3;
+/**
+ * A chapter longer or shorter by more than this (outside the Psalms) holds an insertion somewhere
+ * inside (Daniel 3's Greek additions, 3:24–90): where, the lengths can't tell — its verses keep
+ * their numbers, as before the alignment (review).
+ */
+const MAX_TAIL = 3;
 
 /** Align two books' chapter profiles (A — the reference, B — the other translation). */
 export function alignChapters(a: Profile, b: Profile): AlignStep[] {
@@ -169,8 +175,16 @@ export function versificationMap(
     }
     const nA = total(r.a, countA);
     const nB = total(r.b, countB);
-    let posA = !r.even && atStart ? pos - (nB - nA) : pos;
-    posA = Math.max(1, Math.min(nA, posA));
+    let posA = pos;
+    if (!r.even && atStart) {
+      // a psalm's superscription counted as a verse: the extra verses at its start (verse 1 takes them)
+      posA = Math.max(1, Math.min(nA, pos - (nB - nA)));
+    } else if (!r.even) {
+      // elsewhere a few extra verses sit at the end and have no counterpart (Rev 12:18); a big
+      // difference is an insertion inside the chapter: the verses keep their numbers
+      if (Math.abs(nB - nA) > MAX_TAIL) return [chapter, verse];
+      if (pos > nA) return null;
+    }
     for (const c of r.a) {
       const len = countA.get(c) ?? 0;
       if (posA <= len) return [c, posA];

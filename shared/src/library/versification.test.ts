@@ -95,3 +95,14 @@ describe('versification alignment (1.8.12-beta.5)', () => {
     expect(p.get('2-230')).toEqual([[1, 6]]);
   });
 });
+
+describe('the review of the alignment (1.8.12-beta.5)', () => {
+  it('a few extra verses at a chapter’s end have no counterpart; a big insertion keeps its numbers', () => {
+    const a = prof(20, 17, 30);
+    const tail = prof(20, 18, 30); // Rev 12:18 in one, not in the other
+    expect(versificationMap(a, tail, 660)(2, 17)).toEqual([2, 17]);
+    expect(versificationMap(a, tail, 660)(2, 18)).toBeNull();
+    const greek = prof(20, 97, 30); // Daniel 3 with the Greek additions inside
+    expect(versificationMap(prof(20, 30, 30), greek, 340)(2, 50)).toEqual([2, 50]);
+  });
+});

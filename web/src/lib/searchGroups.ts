@@ -28,8 +28,19 @@ export function groupResults(
   if (!dedupe)
     return results.map((r) => ({ key: `${r.translationId}-${exactPlace(r)}`, r, also: [] }));
   const rows = new Map<string, SearchRow>();
+  /** the place each translation already has in a row: a second one of its own is not the same verse */
+  const seen = new Map<string, Map<number, string>>();
   for (const r of results) {
-    const key = placeOf(r);
+    let key = placeOf(r);
+    const own = seen.get(key)?.get(r.translationId);
+    // two places of one translation brought to one (a psalm's superscription and its verse 2, an
+    // end clamped): both stay, each its own row (review); the very same hit twice is one
+    if (own !== undefined) {
+      if (own === exactPlace(r)) continue;
+      key = `${r.translationId}-${exactPlace(r)}`;
+    }
+    if (!seen.has(key)) seen.set(key, new Map());
+    seen.get(key)!.set(r.translationId, exactPlace(r));
     const row = rows.get(key);
     if (!row) rows.set(key, { key, r, also: [] });
     else if (r.translationId === primaryId && row.r.translationId !== primaryId) {
