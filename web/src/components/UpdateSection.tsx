@@ -36,6 +36,7 @@ const KIND_NAMES: Partial<Record<SeqItem['kind'], string>> = {
   video: N_('відео'),
   cover: N_('пункти «Заставка»'),
   countdown: N_('пункти «Відлік»'),
+  loop: N_('цикли оголошень'),
   foreign: N_('пункти новішої версії'),
 };
 

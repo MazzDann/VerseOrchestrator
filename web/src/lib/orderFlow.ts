@@ -32,6 +32,7 @@ export function belongsTo(it: SeqItem, slide: Slide): boolean {
   if (it.kind === 'album') return src?.kind === 'album' && src.albumId === it.albumId;
   if (it.kind === 'video') return src?.kind === 'video' && src.videoId === it.videoId;
   if (it.kind === 'image') return !!slide.picture && slide.picture.src === it.src;
+  if (it.kind === 'loop') return it.items.some((x) => belongsTo(x, slide));
   if (it.kind === 'countdown')
     return !!slide.cover && !!slide.countdown && slide.countdown.item === it.id;
   if (it.kind === 'cover')
@@ -91,7 +92,8 @@ export function asksFor(it: SeqItem, from: PastFrom): boolean {
       it.kind === 'image' ||
       it.kind === 'video' ||
       it.kind === 'cover' ||
-      it.kind === 'countdown'
+      it.kind === 'countdown' ||
+      it.kind === 'loop'
     );
   if (from.kind === 'verses') return it.kind === 'passage';
   if (from.kind === 'song') return it.kind === 'song' && it.songId === from.songId;

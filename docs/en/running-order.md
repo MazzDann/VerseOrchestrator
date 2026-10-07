@@ -31,6 +31,14 @@ To add an item to the running order:
   show goes on to the next item by itself — or, as a plain countdown, **Overtime**,
   **Stop at 0:00**, or **Hide time**. The countdown stands over the cover on screen now —
   so a cover followed by a countdown in the running order makes one screen.
+- An announcement loop: pick texts, images, or covers in the list — click them with Ctrl (⌘ on
+  a Mac), and Shift takes everything between two — and click **Gather into a loop**. The loop
+  takes the place of the first of them and, once shown, turns its slides by itself every 8
+  seconds, round and round, until you go on. The pencil icon changes the interval (3 to 600
+  seconds) and takes the loop apart again; the arrow next to it folds out its slides, and each
+  can be taken out of the loop. While the screen is hidden or black, the loop waits. The arrow
+  keys and a clicker turn its slides by hand, and with the **“Next” past an item’s end opens
+  the next one** switch, “Next” leaves the loop for the next item.
 
 New items go to the end of the running order.
 

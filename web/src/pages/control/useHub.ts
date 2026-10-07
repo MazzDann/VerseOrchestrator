@@ -275,7 +275,8 @@ export function useHub({
                 it.kind === 'album' ||
                 it.kind === 'video' ||
                 it.kind === 'cover' ||
-                it.kind === 'countdown'
+                it.kind === 'countdown' ||
+                it.kind === 'loop'
               ? { id: it.id, kind: it.kind, label: it.label }
               : { id: it.id, kind: 'text', label: it.label },
       ),
