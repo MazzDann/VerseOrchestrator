@@ -11,6 +11,7 @@ import {
   createInstaller,
   findUnpackedApp,
   hasRollback,
+  updatesBack,
   NEXT_DIR,
   NEXT_RECORD,
   PREVIOUS_DIR,
@@ -250,6 +251,17 @@ describe('going back, and what a swap leaves behind (1.4.1)', () => {
     expect(hasRollback('1.4.0')).toBe(true);
     expect(hasRollback('1.10.0')).toBe(true);
     expect(hasRollback('2.0.0')).toBe(true);
+  });
+
+  it('on Windows a step down stops at 1.8.8: before it, the copy could not update back (1.9.0)', () => {
+    expect(updatesBack('1.8.7', 'win32')).toBe(false);
+    expect(updatesBack('1.3.0', 'win32')).toBe(false);
+    expect(updatesBack('1.8.8', 'win32')).toBe(true);
+    expect(updatesBack('1.8.12-beta.1', 'win32')).toBe(true);
+    expect(updatesBack('1.9.0-beta.10', 'win32')).toBe(true);
+    // a Mac or Linux renames a folder a program sits in: every version is fine there
+    expect(updatesBack('1.3.0', 'darwin')).toBe(true);
+    expect(updatesBack('1.8.7', 'linux')).toBe(true);
   });
 
   it('says why a restart or a rollback must wait while an update unpacks', async () => {

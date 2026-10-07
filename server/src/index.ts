@@ -46,7 +46,7 @@ import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
 import { createGitSync } from './gitSync.js';
 import { STAMP_FILE } from './uiStamp.js';
-import { createInstaller, hasRollback } from './installer.js';
+import { createInstaller, hasRollback, updatesBack } from './installer.js';
 import { precompressed } from './precompressed.js';
 import {
   bundlesDir,
@@ -405,6 +405,8 @@ async function updateAnswer(force: boolean) {
           size: r.asset?.size ?? 0,
           installable: !!r.asset && !!r.sums,
           selfReturn: hasRollback(r.version),
+          // a version that couldn't update back on this system (Windows before 1.8.8) isn't offered
+          updatesBack: updatesBack(r.version),
           // a beta (1.8.11): said so in the dropdown
           prerelease: r.prerelease,
         }))
@@ -419,6 +421,8 @@ async function updateAnswer(force: boolean) {
     previous,
     // …and whether it can come back here by itself (1.4.0 or later) or only by an update (1.4.1)
     previousHasRollback: previous ? hasRollback(previous) : null,
+    // «Повернути версію» to one that couldn't update back by itself here: said before it goes
+    previousUpdatesBack: previous ? updatesBack(previous) : null,
   };
 }
 
@@ -472,6 +476,12 @@ app.post(
         N_('Такої версії немає серед релізів — натисніть «Перевірити зараз»'),
       );
     if (release.version === appVersion) throw new ApiError(409, N_('Ця версія вже встановлена'));
+    // a step down that would leave this copy unable to update back (Windows before 1.8.8)
+    if (!updatesBack(release.version))
+      throw new ApiError(
+        409,
+        N_('З версій, старіших за 1.8.8, на Windows не вдається оновитися назад'),
+      );
     // the newest now: what a pick of another version is chosen over (1.6.3)
     installer.start(release, s.latest?.version ?? null);
     res.status(202).json(await updateAnswer(false));

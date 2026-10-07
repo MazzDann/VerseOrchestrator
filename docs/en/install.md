@@ -265,7 +265,11 @@ back from 1.4.0, the archive has to be downloaded again.
 ### Install another version
 
 An app installed from an archive can switch to any regular version from 1.0.0 on, newer or
-older; on the **Beta** channel, to a beta too:
+older; on the **Beta** channel, to a beta too. On Windows the list starts at 1.8.8: older
+versions opened their browser from the app folder, and while that browser was open they
+couldn't update back.
+
+To switch to another version:
 
 1. In **Settings** → **App** → **Updates**, choose the version in the list next to the
    download button. If there is no list yet, click **Check now**.
@@ -292,6 +296,9 @@ after **Go back to version …** when it leads to an older version. A release ne
 newest at that time brings the reminder back. To return to the newest stable version, click **Current release …**, then
 **Restart and update**. Versions from 1.6.3 behave this way; older ones always remind you of
 the newest.
+
+If a version older than 1.8.8 runs on Windows and an update fails, close the browser
+completely — all its windows — and click **Restart and update** again.
 
 ### Update by hand
 
