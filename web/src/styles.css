@@ -398,8 +398,10 @@ body[data-resizing='y'] {
   user-select: none;
 }
 
-/* Audience follow-along page (/follow on phones): follows the phone's colour scheme,
-   independent of the operator's app theme. */
+/* Audience follow-along page (/follow on phones) and the remote (/remote): follow the phone's
+   colour scheme, independent of the operator's app theme — unless the phone chose one
+   (`data-theme`, 1.8.12-beta.8, lib/phoneTheme.ts). The light set is written twice: for the
+   phone's own light and for a chosen «Світла». */
 .vo-follow {
   --vo-follow-bg: #0b0b12;
   --vo-follow-fg: #f4f4f6;
@@ -408,13 +410,26 @@ body[data-resizing='y'] {
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
-  .vo-follow {
+  .vo-follow:not([data-theme='dark']) {
     --vo-follow-bg: #f6f5f1;
     --vo-follow-fg: #1d1d20;
     --vo-follow-alert: #b3261e;
     --vo-follow-alert-bg: rgba(179, 38, 30, 0.08);
     color-scheme: light;
   }
+}
+.vo-follow[data-theme='light'] {
+  --vo-follow-bg: #f6f5f1;
+  --vo-follow-fg: #1d1d20;
+  --vo-follow-alert: #b3261e;
+  --vo-follow-alert-bg: rgba(179, 38, 30, 0.08);
+  color-scheme: light;
+}
+/* numbers in the remote's lists (songs, stanzas, the running order): Mantine's dimmed is the
+   operator's dark one — on a light page 2.9:1; the page's own text, dimmed, reads ≈ 4.7:1 light,
+   ≈ 7:1 dark (review of 1.8.12-beta.8) */
+.vo-follow .vo-verse-num {
+  color: color-mix(in srgb, var(--vo-follow-fg) 62%, transparent);
 }
 
 /* «Відлік» on a phone (1.8.2): the screen's warning / past-zero colour as it is on a dark
@@ -424,9 +439,12 @@ body[data-resizing='y'] {
   color: var(--vo-timer-color);
 }
 @media (prefers-color-scheme: light) {
-  .vo-follow-timer {
+  .vo-follow:not([data-theme='dark']) .vo-follow-timer {
     color: color-mix(in srgb, var(--vo-timer-color) 55%, #000);
   }
+}
+.vo-follow[data-theme='light'] .vo-follow-timer {
+  color: color-mix(in srgb, var(--vo-timer-color) 55%, #000);
 }
 
 /* Andika (SIL, OFL-1.1 — fonts/andika/OFL.txt; from @fontsource/andika 5.3.0) for
@@ -549,6 +567,13 @@ body[data-resizing='y'] {
 .vo-reader-label {
   min-width: 64px;
   opacity: 0.75;
+}
+/* «Тема» (1.8.12-beta.8): its three choices keep one line on a 360 px phone, the name above them */
+.vo-reader-row[data-stack] {
+  row-gap: 6px;
+}
+.vo-reader-row[data-stack] .vo-reader-label {
+  flex-basis: 100%;
 }
 .vo-reader-steps {
   display: inline-flex;
@@ -697,6 +722,20 @@ body[data-resizing='y'] {
   display: grid;
   grid-template-columns: 1fr 1.6fr;
   gap: 10px;
+}
+/* the remote's theme button (1.8.12-beta.8): at the header's right end, a thumb's size */
+.vo-remote-theme {
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--vo-follow-fg) 25%, transparent);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
 .vo-remote-chip {
   border-radius: 999px;

@@ -27,6 +27,8 @@ import {
 import { believedHidden, songEndStep, type EndGuard } from '../lib/songEnd';
 import { RemotePicker } from '../components/RemotePicker';
 import { tr, trn, useLang } from '../i18n';
+import { IconMoon, IconSun, IconSunMoon } from '@tabler/icons-react';
+import { nextPhoneTheme, themeAttr, themeLabel, usePhoneTheme } from '../lib/phoneTheme';
 
 const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
   !!a && !!b && a.kind === b.kind && a.reference === b.reference && a.text === b.text;
@@ -117,6 +119,7 @@ type State =
   | { kind: 'denied'; reason: string };
 
 export function Remote() {
+  const [theme, setTheme] = usePhoneTheme();
   useLang();
   const token = decodeURIComponent(window.location.hash.slice(1));
   const [state, setState] = useState<State>(
@@ -506,6 +509,7 @@ export function Remote() {
     return (
       <div
         className="vo-follow vo-remote"
+        data-theme={themeAttr(theme)}
         style={{ justifyContent: 'center', textAlign: 'center' }}
       >
         <p style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>{tr('Пульт недоступний')}</p>
@@ -519,7 +523,7 @@ export function Remote() {
   }
 
   return (
-    <div className="vo-follow vo-remote">
+    <div className="vo-follow vo-remote" data-theme={themeAttr(theme)}>
       {/* everything scrolls except the footer: «Назад / Далі» stay under the thumb (0.6.15) */}
       <div className="vo-remote-body">
         <header style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
@@ -544,6 +548,23 @@ export function Remote() {
                 ? `· ${tr('відповідь {ms} мс', { ms: rtt })}`
                 : ''}
           </span>
+          {/* light / dark of its own (1.8.12-beta.8, F1005-04): one tap goes round «Як у телефоні»,
+              «Світла», «Темна» — kept on this phone */}
+          <button
+            type="button"
+            className="vo-remote-theme"
+            onClick={() => setTheme(nextPhoneTheme(theme))}
+            aria-label={tr('Тема: {name}', { name: themeLabel(theme) })}
+            title={tr('Тема: {name}', { name: themeLabel(theme) })}
+          >
+            {theme === 'light' ? (
+              <IconSun size={18} stroke={1.6} />
+            ) : theme === 'dark' ? (
+              <IconMoon size={18} stroke={1.6} />
+            ) : (
+              <IconSunMoon size={18} stroke={1.6} />
+            )}
+          </button>
         </header>
 
         <section className="vo-remote-screen" aria-live="polite">
