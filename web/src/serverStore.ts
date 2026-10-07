@@ -23,9 +23,9 @@ interface ServerState {
   here: boolean | null;
 }
 
-/** localhost, 127.x.x.x, [::1]: the browser runs on the computer with the app. */
+/** localhost (and *.localhost), 127.x.x.x, [::1]: the browser runs on the computer with the app. */
 export const isLoopbackHost = (hostname: string): boolean =>
-  /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/i.test(hostname);
+  /^((.+\.)?localhost|127(\.\d{1,3}){3}|\[::1\])$/i.test(hostname);
 
 export const useServer = create<ServerState>()(() => ({
   available: null,
