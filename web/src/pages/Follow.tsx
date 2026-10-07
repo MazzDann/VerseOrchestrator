@@ -11,6 +11,7 @@ import {
   type ReaderPrefs,
 } from '../lib/readerPrefs';
 import { tr, useLang } from '../i18n';
+import { PHONE_THEMES, themeAttr, themeLabel, usePhoneTheme } from '../lib/phoneTheme';
 import {
   formatTimer,
   hubOffset,
@@ -37,6 +38,8 @@ export function Follow() {
   // how THIS phone likes to read (0.6.17): kept in its own browser, nothing is sent
   const [reader, setReader] = useState<ReaderPrefs>(loadReader);
   const [readerOpen, setReaderOpen] = useState(false);
+  // light / dark of its own (1.8.12-beta.8, F1005-04): the phone's, or one chosen here
+  const [theme, setTheme] = usePhoneTheme();
   // a picture whose file didn't load (deleted, or a backup's restore moving it): the dots, never
   // a broken-image sign — as on the output windows (SlideCanvas PictureContent); cleared by the
   // next slide
@@ -134,6 +137,7 @@ export function Follow() {
     // setting — viewers often read in daylight, where a black page is hard to read.
     <div
       className="vo-follow"
+      data-theme={themeAttr(theme)}
       style={{
         position: 'fixed',
         inset: 0,
@@ -423,6 +427,21 @@ export function Follow() {
               {tr('Легше читати')}
             </button>
           </div>
+          <div className="vo-reader-row" data-stack role="group" aria-label={tr('Тема')}>
+            <span className="vo-reader-label">{tr('Тема')}</span>
+            {PHONE_THEMES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                className="vo-remote-chip"
+                aria-pressed={theme === t}
+                data-selected={theme === t ? 'true' : undefined}
+                onClick={() => setTheme(t)}
+              >
+                {themeLabel(t)}
+              </button>
+            ))}
+          </div>
           <p className="vo-reader-hint">
             {tr(
               '«Легше читати» — шрифт Andika, ширші проміжки, текст ліворуч (зручніше при дислексії). Зберігається лише на цьому телефоні.',
@@ -432,7 +451,10 @@ export function Follow() {
             <button
               type="button"
               className="vo-remote-chip"
-              onClick={() => setPrefs(DEFAULT_READER)}
+              onClick={() => {
+                setPrefs(DEFAULT_READER);
+                setTheme('auto');
+              }}
             >
               {tr('Скинути')}
             </button>

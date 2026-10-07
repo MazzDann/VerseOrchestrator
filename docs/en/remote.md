@@ -55,6 +55,9 @@ At the top of the remote are its name and the connection state: the response tim
 milliseconds, or “no connection, reconnecting”. On Android the phone vibrates briefly on
 every press.
 
+At the top right is the theme button. Each press switches between **As on the phone** (the
+default), **Light**, and **Dark**; the choice is kept on that phone.
+
 If a Bluetooth clicker is connected to the phone, it steps through the show too: →, ↓,
 PageDown, and Space — **Next**; ←, ↑, and PageUp — **Back**; and Enter, with the
 **To screen** permission, — **To screen**.
