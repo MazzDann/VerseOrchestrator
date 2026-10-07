@@ -34,9 +34,9 @@ To create a remote:
 The remote's QR code shows only until you click **Done**. If the speaker didn't manage to
 scan it, reissue the code — see [Manage remotes](#manage-remotes).
 
-![The Speaker remote panel: the Name field, the permissions with Next, Back, and Hide text
-selected, the Create a remote button, and in the list the remote “Speaker”
-connected](../img/en/remote-panel.png)
+![The Speaker remote panel: Phone chosen at the top, the Name field, the permissions with
+Next, Back, and Hide text selected, the Create a remote button, and in the list the remote
+“Speaker” connected](../img/en/remote-panel.png)
 
 If the remote doesn't open on the phone, see
 [If a phone doesn't open the page](viewers.md#if-a-phone-doesnt-open-the-page).
