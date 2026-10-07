@@ -148,14 +148,16 @@ describe('albums: folders of photos (1.8.12)', () => {
     expect(await photoFile(photos, 'link.jpg')).toBeNull();
   });
 
+  // 5 001 files take 2 s alone on Windows, 4–7 s in the parallel full run: a timeout of its own.
+  // Empty files — a listing goes by the name and never reads the bytes — are quicker to write.
   it('keeps the first five thousand photos and says there are more', async () => {
     const { photos } = folder({});
-    for (let i = 0; i <= MAX_PHOTOS; i++) fs.writeFileSync(path.join(photos, `${i}.jpg`), JPG);
+    for (let i = 0; i <= MAX_PHOTOS; i++) fs.writeFileSync(path.join(photos, `${i}.jpg`), '');
     const listing = (await listPhotos(photos))!;
     expect(listing.photos).toHaveLength(MAX_PHOTOS);
     expect(listing.photos.at(-1)!.name).toBe(`${MAX_PHOTOS - 1}.jpg`);
     expect(listing.truncated).toBe(true);
-  });
+  }, 30_000);
 
   it('adds a folder once, names it after the folder, forgets it without touching the folder', async () => {
     const { photos, data } = folder({ 'a.jpg': JPG });

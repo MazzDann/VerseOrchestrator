@@ -6,6 +6,7 @@ import {
   Divider,
   Group,
   Popover,
+  SegmentedControl,
   Stack,
   Switch,
   Text,
@@ -14,13 +15,15 @@ import {
 } from '@mantine/core';
 import {
   IconAdjustmentsHorizontal,
+  IconDeviceDesktop,
+  IconDeviceMobile,
   IconDeviceMobilePlus,
   IconRefresh,
   IconTrash,
 } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { api, type RemoteCommand } from '../api';
+import { api, type PairingKind, type RemoteCommand } from '../api';
 import { PhoneLink } from './PhoneLink';
 import { REMOTE_LABEL } from '../lib/remote';
 import { tr, useLang } from '../i18n';
@@ -36,6 +39,14 @@ const ALL: RemoteCommand[] = [
   'blank',
   'black',
 ];
+/**
+ * A computer (`/desk`, 1.9.0-beta.10) may also have «Заставка» and «Відлік»; the phone's page has no
+ * buttons for them yet (1.10.x), so a phone's row doesn't offer them.
+ */
+const abilities = (kind: PairingKind): RemoteCommand[] =>
+  kind === 'desk' ? [...ALL, 'cover', 'countdown'] : ALL;
+/** Without these a computer can't put its own verses on screen: said under the boxes. */
+const DESK_SHOWS: RemoteCommand[] = ['show', 'pick'];
 
 /**
  * Speaker-remote pairing (server/src/remote.ts): create a scoped remote, show its QR once
@@ -51,10 +62,14 @@ export function RemotePanel() {
     refetchInterval: 10_000, // safety net if a change notification is missed
   });
   const [name, setName] = useState('');
+  const [kind, setKind] = useState<PairingKind>('phone');
   const [allowed, setAllowed] = useState<RemoteCommand[]>(['next', 'prev', 'blank']);
-  const [fresh, setFresh] = useState<{ name: string; token: string; reissued?: boolean } | null>(
-    null,
-  );
+  const [fresh, setFresh] = useState<{
+    name: string;
+    token: string;
+    kind: PairingKind;
+    reissued?: boolean;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   /** Row awaiting «Перевипустити?» confirmation — reissuing cuts the current phone off. */
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -92,7 +107,7 @@ export function RemotePanel() {
     setConfirmId(null);
     try {
       const r = await api.reissueRemote(id);
-      setFresh({ name: r.name, token: r.token, reissued: true });
+      setFresh({ name: r.name, token: r.token, kind: r.kind, reissued: true });
       void qc.invalidateQueries({ queryKey: ['remotes'] });
     } catch (e) {
       notifications.show({
@@ -107,9 +122,10 @@ export function RemotePanel() {
     try {
       const r = await api.createRemote(
         name.trim() || tr('Пульт {n}', { n: (remotes.data?.length ?? 0) + 1 }),
-        allowed,
+        allowed.filter((c) => abilities(kind).includes(c)),
+        kind,
       );
-      setFresh({ name: r.name, token: r.token });
+      setFresh({ name: r.name, token: r.token, kind: r.kind });
       setName('');
       void qc.invalidateQueries({ queryKey: ['remotes'] });
     } catch (e) {
@@ -152,25 +168,52 @@ export function RemotePanel() {
           </Text>
           {fresh.reissued && (
             <Text size="xs" c="dimmed">
-              {tr('Телефон зі старим кодом уже відключено.')}
+              {fresh.kind === 'desk'
+                ? tr('Комп’ютер зі старим посиланням уже відключено.')
+                : tr('Телефон зі старим кодом уже відключено.')}
             </Text>
           )}
-          <PhoneLink
-            path={`/remote#${encodeURIComponent(fresh.token)}`}
-            caption={tr(
-              'Доповідач сканує цей QR своїм телефоном (та сама мережа Wi-Fi). Код показується лише зараз; загубили — перевипустіть.',
-            )}
-          />
+          {fresh.kind === 'desk' ? (
+            <PhoneLink
+              computer
+              path={`/desk#${encodeURIComponent(fresh.token)}`}
+              caption={tr(
+                'Відкрийте це посилання в браузері іншого комп’ютера (та сама мережа): там буде вікно керування з дозволеним вище. Посилання показується лише зараз; загубили — перевипустіть.',
+              )}
+            />
+          ) : (
+            <PhoneLink
+              path={`/remote#${encodeURIComponent(fresh.token)}`}
+              caption={tr(
+                'Доповідач сканує цей QR своїм телефоном (та сама мережа Wi-Fi). Код показується лише зараз; загубили — перевипустіть.',
+              )}
+            />
+          )}
           <Button variant="default" size="xs" onClick={() => setFresh(null)}>
             {tr('Готово')}
           </Button>
         </>
       ) : (
         <>
+          <SegmentedControl
+            size="xs"
+            fullWidth
+            aria-label={tr('Для чого пульт')}
+            value={kind}
+            onChange={(v) => setKind(v as PairingKind)}
+            data={[
+              { value: 'phone', label: tr('Телефон') },
+              { value: 'desk', label: tr('Комп’ютер') },
+            ]}
+          />
           <Text size="xs" c="dimmed">
-            {tr(
-              'Дайте доповідачу телефон-пульт: він зможе гортати показ, але не бачитиме налаштувань.',
-            )}
+            {kind === 'desk'
+              ? tr(
+                  'Вікно керування на іншому комп’ютері мережі: пошук, вірші, переклади й те, що ви дозволите. Налаштувань і вікон виводу там немає.',
+                )
+              : tr(
+                  'Дайте доповідачу телефон-пульт: він зможе гортати показ, але не бачитиме налаштувань.',
+                )}
           </Text>
           <TextInput
             size="xs"
@@ -186,19 +229,26 @@ export function RemotePanel() {
             onChange={(v) => setAllowed(v as RemoteCommand[])}
           >
             <Group gap="sm" mt={4}>
-              {ALL.map((c) => (
+              {abilities(kind).map((c) => (
                 <Checkbox key={c} size="xs" value={c} label={tr(REMOTE_LABEL[c])} />
               ))}
             </Group>
           </Checkbox.Group>
+          {kind === 'desk' && DESK_SHOWS.some((c) => !allowed.includes(c)) && (
+            <Text size="xs" c="dimmed">
+              {tr('Щоб показувати звідти свої вірші, позначте «На екран» і «Вибір віршів».')}
+            </Text>
+          )}
           <Button
             size="xs"
-            leftSection={<IconDeviceMobilePlus size={14} />}
-            disabled={allowed.length === 0}
+            leftSection={
+              kind === 'desk' ? <IconDeviceDesktop size={14} /> : <IconDeviceMobilePlus size={14} />
+            }
+            disabled={allowed.filter((c) => abilities(kind).includes(c)).length === 0}
             loading={busy}
             onClick={create}
           >
-            {tr('Створити пульт')}
+            {kind === 'desk' ? tr('Створити посилання') : tr('Створити пульт')}
           </Button>
         </>
       )}
@@ -226,9 +276,16 @@ export function RemotePanel() {
                   }}
                 />
                 <div style={{ minWidth: 0 }}>
-                  <Text size="sm" fw={500} truncate>
-                    {p.name}
-                  </Text>
+                  <Group gap={4} wrap="nowrap">
+                    {p.kind === 'desk' ? (
+                      <IconDeviceDesktop size={14} aria-label={tr('Комп’ютер')} />
+                    ) : (
+                      <IconDeviceMobile size={14} aria-label={tr('Телефон')} />
+                    )}
+                    <Text size="sm" fw={500} truncate>
+                      {p.name}
+                    </Text>
+                  </Group>
                   <Text size="xs" c="dimmed" truncate>
                     {p.online
                       ? tr('на зв’язку')
@@ -280,18 +337,26 @@ export function RemotePanel() {
                         onChange={(v) => void setRemoteAllowed(p.id, v as RemoteCommand[])}
                       >
                         <Stack gap={6} mt={6}>
-                          {ALL.map((c) => (
+                          {abilities(p.kind).map((c) => (
                             <Checkbox key={c} size="xs" value={c} label={tr(REMOTE_LABEL[c])} />
                           ))}
                         </Stack>
                       </Checkbox.Group>
                       <Text size="xs" c="dimmed" mt={8}>
-                        {tr('Телефон отримає зміни одразу, без нового QR.')}
+                        {p.kind === 'desk'
+                          ? tr('Комп’ютер отримає зміни одразу, без нового посилання.')
+                          : tr('Телефон отримає зміни одразу, без нового QR.')}
                       </Text>
                     </Popover.Dropdown>
                   </Popover>
                   <Tooltip
-                    label={tr('Перевипустити код: новий QR, старий телефон втратить керування')}
+                    label={
+                      p.kind === 'desk'
+                        ? tr(
+                            'Перевипустити посилання: нове посилання, старий комп’ютер втратить керування',
+                          )
+                        : tr('Перевипустити код: новий QR, старий телефон втратить керування')
+                    }
                   >
                     <ActionIcon
                       variant="subtle"
@@ -303,7 +368,13 @@ export function RemotePanel() {
                       <IconRefresh size={14} />
                     </ActionIcon>
                   </Tooltip>
-                  <Tooltip label={tr('Відкликати: телефон одразу втратить керування')}>
+                  <Tooltip
+                    label={
+                      p.kind === 'desk'
+                        ? tr('Відкликати: комп’ютер одразу втратить керування')
+                        : tr('Відкликати: телефон одразу втратить керування')
+                    }
+                  >
                     <ActionIcon
                       variant="subtle"
                       color="red"

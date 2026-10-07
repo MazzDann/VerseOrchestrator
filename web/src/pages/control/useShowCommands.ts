@@ -19,6 +19,7 @@ import {
   PRIORITY,
   useCommandHandler,
   type Outcome,
+  type RemoteCountdown,
   type RemotePassage,
   type RemoteSong,
   type RemoteTarget,
@@ -49,6 +50,7 @@ export function useShowCommands({
   hideToggle,
   blackToggle,
   coverToggle,
+  countdownRemote,
   queryClient,
   appearance,
   translations,
@@ -80,6 +82,7 @@ export function useShowCommands({
   hideToggle: () => void;
   blackToggle: () => void;
   coverToggle: () => void;
+  countdownRemote: (c: RemoteCountdown) => Outcome;
   queryClient: QueryClient;
   appearance: Appearance;
   translations: Translation[];
@@ -165,6 +168,12 @@ export function useShowCommands({
             return { ok: true };
           })
         : { ok: false, reason: tr('Не вибрано вірш') };
+    }
+    // «Відлік» from a remote (1.9.0-beta.10): start, pause / go on, off
+    if (cmd === 'countdown') {
+      return args.countdown
+        ? countdownRemote(args.countdown)
+        : { ok: false, reason: tr('Неправильний відлік') };
     }
     // the switches: B, «.» and (1.4.1) L pressed in an output window, a remote's buttons —
     // each by name (lib/commands.ts toggleOf), none by default

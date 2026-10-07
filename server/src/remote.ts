@@ -18,6 +18,8 @@ import { readJson, writeJson } from './jsonFile.js';
  * (to preview with `pick`, to put on screen with `show` + passage, which needs both).
  * `songs` (0.6.3) is a permission, not a command: song stanzas chosen on the phone go
  * the same way (`pick` / `show` + song) — the operator grants it per remote on its own.
+ * `cover` and `countdown` (1.9.0-beta.10) are «Заставка» (the L key) and «Відлік» (start /
+ * pause / take off) — asked for a control window on another computer (F1005-10).
  */
 export const REMOTE_COMMANDS = [
   'next',
@@ -28,6 +30,8 @@ export const REMOTE_COMMANDS = [
   'pick',
   'songs',
   'playlist',
+  'cover',
+  'countdown',
 ] as const;
 export type RemoteCommand = (typeof REMOTE_COMMANDS)[number];
 
@@ -36,7 +40,17 @@ export type RemoteCommand = (typeof REMOTE_COMMANDS)[number];
  * (checked by what they carry) and `queue` (0.6.9: add the speaker's choice to the shared
  * running order — needs «Послідовність» plus the right to choose that kind).
  */
-export const REMOTE_ACTIONS = ['next', 'prev', 'blank', 'black', 'show', 'pick', 'queue'] as const;
+export const REMOTE_ACTIONS = [
+  'next',
+  'prev',
+  'blank',
+  'black',
+  'show',
+  'pick',
+  'queue',
+  'cover',
+  'countdown',
+] as const;
 export type RemoteAction = (typeof REMOTE_ACTIONS)[number];
 export const isRemoteAction = (c: unknown): c is RemoteAction =>
   REMOTE_ACTIONS.includes(c as RemoteAction);
@@ -44,9 +58,18 @@ export const isRemoteAction = (c: unknown): c is RemoteAction =>
 /** What a new pairing may do unless the operator widens it (new abilities stay off). */
 export const DEFAULT_ALLOWED: RemoteCommand[] = ['next', 'prev', 'blank'];
 
+/**
+ * What the operator paired (1.9.0-beta.10): a phone (`/remote`, a QR) or a control window on
+ * another computer of the LAN (`/desk`, a link). The hub treats both alike — the permissions
+ * decide; the kind names the row and the link in «Пульт». Older files have none: a phone.
+ */
+export type PairingKind = 'phone' | 'desk';
+const asKind = (raw: unknown): PairingKind => (raw === 'desk' ? 'desk' : 'phone');
+
 export interface Pairing {
   id: string;
   name: string;
+  kind: PairingKind;
   /** hex SHA-256 of the token */
   tokenHash: string;
   allowed: RemoteCommand[];
@@ -79,6 +102,7 @@ export function initRemoteStore(opts: { file: string | null; persist: boolean })
     pairings.set(raw.id, {
       id: raw.id,
       name: String(raw.name ?? 'Пульт').slice(0, 40), // i18n-ignore: a stored name
+      kind: asKind(raw.kind),
       tokenHash: raw.tokenHash,
       allowed: sanitizeAllowed(raw.allowed),
       createdAt: Number(raw.createdAt) || Date.now(),
@@ -116,12 +140,17 @@ export function touchPairing(p: Pairing): void {
 }
 
 /** Create a pairing; the returned `token` is the only time it exists in plain form. */
-export function createPairing(name: string, allowed?: unknown): Pairing & { token: string } {
+export function createPairing(
+  name: string,
+  allowed?: unknown,
+  kind?: unknown,
+): Pairing & { token: string } {
   const token = newToken();
   const p: Pairing = {
     id: randomUUID(),
     // the page names it in its language; this is for a request without a name
-    name: name.trim().slice(0, 40) || `Пульт ${pairings.size + 1}`, // i18n-ignore: a stored name
+    name: uniqueName(name.trim().slice(0, 40) || `Пульт ${pairings.size + 1}`), // i18n-ignore
+    kind: asKind(kind),
     tokenHash: hashToken(token),
     allowed: sanitizeAllowed(allowed),
     createdAt: Date.now(),
@@ -130,6 +159,20 @@ export function createPairing(name: string, allowed?: unknown): Pairing & { toke
   pairings.set(p.id, p);
   save();
   return { ...p, token };
+}
+
+/**
+ * One name per pairing (1.9.0-beta.10): the operator tells remotes apart by it, and a desk knows
+ * its own slide by it (`source.by`) — «Пульт 2» made again after a revoke becomes «Пульт 2 (2)».
+ */
+function uniqueName(name: string): string {
+  const taken = new Set([...pairings.values()].map((p) => p.name));
+  if (!taken.has(name)) return name;
+  for (let n = 2; ; n++) {
+    const suffix = ` (${n})`;
+    const candidate = name.slice(0, 40 - suffix.length) + suffix;
+    if (!taken.has(candidate)) return candidate;
+  }
 }
 
 /** Issue a new token for an existing pairing (the old one stops working at once). */
@@ -187,6 +230,7 @@ export function listPairings(online: (id: string) => boolean) {
   return [...pairings.values()].map((p) => ({
     id: p.id,
     name: p.name,
+    kind: p.kind,
     allowed: p.allowed,
     createdAt: p.createdAt,
     lastSeen: p.lastSeen,
@@ -236,4 +280,22 @@ export function sanitizeSong(raw: unknown): SongPick | null {
     return null;
   }
   return { songId: r.songId, stanza: r.stanza as number };
+}
+
+/**
+ * «Відлік» from a remote (1.9.0-beta.10): `start` a new one — of `seconds` (1 s – 12 h) or the
+ * operator's saved length —, `pause` (pause / go on, the T key) or `stop` (take it off).
+ */
+export interface CountdownOp {
+  op: 'start' | 'pause' | 'stop';
+  seconds?: number;
+}
+
+/** A countdown request from a remote, or null when it isn't one. */
+export function sanitizeCountdown(raw: unknown): CountdownOp | null {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  if (r.op !== 'start' && r.op !== 'pause' && r.op !== 'stop') return null;
+  if (r.seconds === undefined) return { op: r.op };
+  if (r.op !== 'start' || !posInt(r.seconds, 12 * 3600)) return null;
+  return { op: r.op, seconds: r.seconds };
 }
