@@ -401,14 +401,27 @@ export function stepDirection(e: KeyChord, keymap: Keymap): 1 | -1 | 0 {
   return 0;
 }
 
+/**
+ * One spelling per chord (1.9.7, Mac check): modifiers in a fixed order, lower case — a recorded
+ * 'shift+meta+f' is the default 'meta+shift+f'.
+ */
+const MOD_ORDER = ['mod', 'ctrl', 'alt', 'shift', 'meta'];
+export function canonChord(chord: string): string {
+  const parts = chord.trim().toLowerCase().split('+').filter(Boolean);
+  const mods = MOD_ORDER.filter((m) => parts.includes(m));
+  const keys = parts.filter((p) => !MOD_ORDER.includes(p));
+  return [...mods, ...keys].join('+');
+}
+
 /** Action ids whose keymap entry shares an alternative chord with `chord` (excluding `self`). */
 export function findConflicts(
   keymap: Keymap,
   chord: string,
   self: HotkeyActionId,
 ): HotkeyActionId[] {
+  const c = canonChord(chord);
   return (Object.keys(keymap) as HotkeyActionId[]).filter(
-    (id) => id !== self && keymap[id].split(',').includes(chord),
+    (id) => id !== self && keymap[id].split(',').some((k) => canonChord(k) === c),
   );
 }
 
@@ -430,7 +443,7 @@ export function conflictsForAction(keymap: Keymap, self: HotkeyActionId): Hotkey
  */
 export function sanitizeKeymap(raw: unknown, mac: boolean = IS_MAC): Keymap {
   const r = (raw ?? {}) as Record<string, unknown>;
-  return Object.fromEntries(
+  const keymap = Object.fromEntries(
     HOTKEY_ACTIONS.map((a) => {
       const v = r[a.id];
       if (typeof v !== 'string' || !v || v === defaultFor(a, !mac))
@@ -438,4 +451,10 @@ export function sanitizeKeymap(raw: unknown, mac: boolean = IS_MAC): Keymap {
       return [a.id, v];
     }),
   ) as Keymap;
+  // an arrow scheme chosen on the other platform (1.9.7, Mac check: «← → екран, ↑ ↓ прев’ю» from
+  // Windows kept ⌃→ / ⌃↓ on a Mac — Mission Control's): the same scheme in this platform's keys
+  const theirs = arrowScheme(r as Keymap, !mac);
+  if (theirs && theirs !== 'same' && !arrowScheme(r as Keymap, mac))
+    return withArrowScheme(keymap, theirs, mac);
+  return keymap;
 }

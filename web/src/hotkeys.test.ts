@@ -245,3 +245,23 @@ describe('arrows (1.8.12-beta.6, F1005-06)', () => {
     expect(stepDirection(evt(' ', 'Space'), { ...DEFAULT_KEYMAP, advanceNext: 'space' })).toBe(1);
   });
 });
+
+describe('a keymap from the other platform, chords in any order (1.9.7, Mac check)', () => {
+  it('an arrow scheme chosen on Windows comes to a Mac in its own keys', async () => {
+    const { defaultKeymap, withArrowScheme, sanitizeKeymap, arrowScheme } =
+      await import('./hotkeys');
+    const fromWindows = withArrowScheme(defaultKeymap(false), 'screenPreview', false);
+    const onMac = sanitizeKeymap(fromWindows, true);
+    expect(arrowScheme(onMac, true)).toBe('screenPreview');
+    expect(onMac.previewNext).not.toMatch(/ctrl\+/);
+    // and back
+    expect(arrowScheme(sanitizeKeymap(onMac, false), false)).toBe('screenPreview');
+  });
+
+  it('a recorded chord conflicts with the same chord spelt in another order', async () => {
+    const { defaultKeymap, findConflicts, canonChord } = await import('./hotkeys');
+    expect(canonChord('shift+meta+f')).toBe(canonChord('meta+shift+f'));
+    const km = { ...defaultKeymap(true), searchAll: 'meta+shift+f' };
+    expect(findConflicts(km, 'shift+meta+f', 'searchCurrent')).toContain('searchAll');
+  });
+});
