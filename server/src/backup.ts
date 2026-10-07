@@ -251,7 +251,8 @@ function writeUiState(dataDir: string, state: Record<string, { value?: unknown }
   const fresh: Record<string, { value: string; at: number }> = {};
   for (const [key, entry] of Object.entries(state))
     if (entry && typeof entry.value === 'string') fresh[key] = { value: entry.value, at };
-  writeJson(path.join(dataDir, UI_FILE), fresh);
+  // a restore's own content, not made from reading the file it replaces
+  writeJson(path.join(dataDir, UI_FILE), fresh, { replace: true });
   return at;
 }
 
@@ -503,12 +504,11 @@ export async function restorePending(
   // an earlier restore's note, put back when this one changes nothing (review of #47)
   const earlier = fs.existsSync(last) ? await fsp.readFile(last) : null;
   try {
-    writeJson(last, {
-      created: summary.created,
-      at: now.toISOString(),
-      undo: path.basename(kept),
-      files,
-    });
+    writeJson(
+      last,
+      { created: summary.created, at: now.toISOString(), undo: path.basename(kept), files },
+      { replace: true }, // this restore's note, whatever the last one was
+    );
     await applyBackup(dataDir, entries);
   } catch (e) {
     try {

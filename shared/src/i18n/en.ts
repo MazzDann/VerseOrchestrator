@@ -1964,6 +1964,9 @@ export const EN: Record<string, string> = {
   // a step down that can update back (1.9.0, server/src/installer.ts FIRST_SWAP_SAFE)
   'З версій, старіших за 1.8.8, на Windows не вдається оновитися назад':
     'Versions older than 1.8.8 can’t update back on Windows',
+  // 1.9.3: a list file the server couldn't read a moment ago is not written over
+  'Не вдалося прочитати {file}, тому його не перезаписано. Спробуйте ще раз.':
+    'Couldn’t read {file}, so it wasn’t written over. Try again.',
   // 1.9.1: items of a newer version in the running order
   'Пункт новішої версії': 'An item of a newer version',
   'Пункт новішої версії: {name}': 'An item of a newer version: {name}',
