@@ -1888,6 +1888,25 @@ export const EN: Record<string, string> = {
   'Як «Далі» оператора': 'As the operator’s “Next”',
   'Як «Назад» оператора': 'As the operator’s “Back”',
   'Як збережено': 'As saved',
+  'Інший комп’ютер має бути в тій самій мережі. Якщо не відкривається, відкрийте керування за IP-адресою цього комп’ютера ({ip}).':
+    'The other computer must be on the same network. If it doesn’t open, open the control window by this computer’s IP address ({ip}).',
+  'Відкликати: комп’ютер одразу втратить керування': 'Revoke: the computer loses control at once',
+  'Відкрийте це посилання в браузері іншого комп’ютера (та сама мережа): там буде вікно керування з дозволеним вище. Посилання показується лише зараз; загубили — перевипустіть.':
+    'Open this link in a browser on the other computer (the same network): it gets a control window with what you allowed above. The link is shown only now; if it’s lost, reissue it.',
+  'Вікно керування на іншому комп’ютері мережі: пошук, вірші, переклади й те, що ви дозволите. Налаштувань і вікон виводу там немає.':
+    'A control window on another computer of the network: search, verses, translations, and what you allow. It has no settings and no output windows.',
+  'Для чого пульт': 'What the remote is for',
+  'Комп’ютер': 'Computer',
+  'Комп’ютер зі старим посиланням уже відключено.':
+    'The computer with the old link is already disconnected.',
+  'Комп’ютер отримає зміни одразу, без нового посилання.':
+    'The computer gets the changes at once, without a new link.',
+  'Перевипустити посилання: нове посилання, старий комп’ютер втратить керування':
+    'Reissue the link: a new link, the old computer loses control',
+  'Створити посилання': 'Create a link',
+  Телефон: 'Phone',
+  'Щоб показувати звідти свої вірші, позначте «На екран» і «Вибір віршів».':
+    'To show its own verses from there, tick “To screen” and “Choosing verses”.',
   'застосунок вимкнено': 'the app is switched off',
   'підключаюся…': 'connecting…',
 };
