@@ -1821,4 +1821,10 @@ export const EN: Record<string, string> = {
     'Stage, output windows, viewers, remote, help, and theme go to the “More” menu; only the preview on the right',
   'Простий вигляд: вимкнути': 'Simple view: off',
   'Простий вигляд: увімкнути': 'Simple view: on',
+  // 1.8.12-beta.8 the phones' theme (F1005-04)
+  Тема: 'Theme',
+  Світла: 'Light',
+  Темна: 'Dark',
+  'Як у телефоні': 'As on the phone',
+  'Тема: {name}': 'Theme: {name}',
 };
