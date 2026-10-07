@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Stack, Group, Text, Button, ActionIcon, Tooltip, Kbd } from '@mantine/core';
+import { Stack, Group, Text, Button, ActionIcon, Tooltip, Kbd, Select } from '@mantine/core';
 import { IconPencil, IconRotateClockwise } from '@tabler/icons-react';
 import { useSettings } from '../settingsStore';
 import {
@@ -9,6 +9,10 @@ import {
   comboFromEvent,
   formatChord,
   conflictsForAction,
+  ARROW_SCHEMES,
+  arrowScheme,
+  withArrowScheme,
+  type ArrowScheme,
   type HotkeyActionId,
 } from '../hotkeys';
 import { tr, useLang } from '../i18n';
@@ -52,8 +56,32 @@ export function HotkeysSettings() {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [recording, setHotkey]);
 
+  // «Стрілки» (1.8.12-beta.6, F1005-06): a scheme writes the arrows' bindings, each stays editable
+  const scheme = arrowScheme(keymap);
+  const pickScheme = (v: string | null) => {
+    if (!v) return;
+    const next = withArrowScheme(keymap, v as ArrowScheme);
+    for (const id of Object.keys(next) as HotkeyActionId[])
+      if (next[id] !== keymap[id]) setHotkey(id, next[id]);
+  };
+
   return (
     <Stack gap="xs">
+      <Select
+        size="xs"
+        label={tr('Стрілки')}
+        description={
+          scheme
+            ? tr(ARROW_SCHEMES.find((s) => s.id === scheme)!.hint)
+            : tr('Клавіші кроків змінено вручну — виберіть схему, щоб повернути одну зі звичних')
+        }
+        placeholder={tr('Своя')}
+        data={ARROW_SCHEMES.map((s) => ({ value: s.id, label: tr(s.label) }))}
+        value={scheme}
+        onChange={pickScheme}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: true }}
+      />
       {IS_MAC && (
         <Text size="xs" c="dimmed">
           {tr(

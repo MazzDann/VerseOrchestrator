@@ -370,6 +370,23 @@ body[data-resizing='nesw'] {
     display: none;
   }
 }
+/* the running order beside the monitors below the centre (1.8.12-beta.6): the list keeps its
+   width, the monitors take what is left */
+.vo-monitor-row[data-list='true'] {
+  --list: 18rem;
+}
+.vo-monitor-row[data-list='true'] .vo-monitor-cell {
+  width: min(
+    calc((100cqw - var(--list) - var(--monitors) * var(--mantine-spacing-md)) / var(--monitors)),
+    calc((100cqh - 1.75rem - 4px) * 16 / 9)
+  );
+}
+.vo-monitor-list {
+  flex: 1 1 var(--list);
+  min-width: var(--list);
+  height: 100%;
+  border-left: 1px solid var(--mantine-color-default-border);
+}
 
 /* While dragging: keep the resize cursor everywhere and stop text selection. */
 body[data-resizing='x'] {

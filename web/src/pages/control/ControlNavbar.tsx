@@ -1,22 +1,6 @@
 import { type RefObject } from 'react';
-import {
-  Box,
-  Button,
-  Divider,
-  FileButton,
-  Group,
-  ScrollArea,
-  Tabs,
-  TextInput,
-} from '@mantine/core';
-import {
-  IconBookmark,
-  IconDownload,
-  IconHistory,
-  IconSearch,
-  IconTrash,
-  IconUpload,
-} from '@tabler/icons-react';
+import { Box, Button, Divider, Group, ScrollArea, Text, TextInput } from '@mantine/core';
+import { IconHistory, IconSearch, IconTrash } from '@tabler/icons-react';
 import { type Book, type Translation } from '../../api';
 import { type PanelLayout, type RefItem } from '../../settingsStore';
 import { TranslationPicker } from '../../components/TranslationPicker';
@@ -30,8 +14,8 @@ import type { usePanelResize } from './usePanelResize';
 type PanelResize = ReturnType<typeof usePanelResize>;
 
 /**
- * The navigation column: the translations, the book filter and the books, «Історія» and
- * «Збережене» (with the bookmarks' export and import).
+ * The navigation column: the translations, the book filter and the books, «Історія» («Збережене»
+ * stands under the monitors since 1.8.12-beta.6).
  */
 export function ControlNavbar({
   panelResize,
@@ -46,19 +30,13 @@ export function ControlNavbar({
   pickBook,
   libraryGap,
   primaryId,
-  sidebarTab,
-  setSidebarTab,
   recentResize,
   history,
   clearHistory,
-  bookmarks,
-  exportBookmarks,
-  importBookmarksFile,
   recentBoxRef,
   layout,
   jumpTo,
   removeHistory,
-  toggleBookmark,
 }: {
   panelResize: PanelResize['panelResize'];
   translations: Translation[];
@@ -72,19 +50,13 @@ export function ControlNavbar({
   pickBook: (bn: number) => void;
   libraryGap: LibraryGap | null;
   primaryId: number | null;
-  sidebarTab: string | null;
-  setSidebarTab: (tab: string | null) => void;
   recentResize: PanelResize['recentResize'];
   history: RefItem[];
   clearHistory: () => void;
-  bookmarks: RefItem[];
-  exportBookmarks: () => void;
-  importBookmarksFile: (file: File | null) => Promise<void>;
   recentBoxRef: RefObject<HTMLDivElement>;
   layout: PanelLayout;
   jumpTo: (item: RefItem) => void;
   removeHistory: (item: RefItem) => void;
-  toggleBookmark: (item: RefItem) => void;
 }) {
   useLang();
   return (
@@ -138,23 +110,17 @@ export function ControlNavbar({
           />
         </Box>
         <Divider />
-        <Tabs
-          value={sidebarTab}
-          onChange={setSidebarTab}
-          variant="default"
-          style={{ position: 'relative' }}
-        >
+        {/* «Історія» alone since 1.8.12-beta.6: «Збережене» went under the monitors (ShowList) */}
+        <Box style={{ position: 'relative' }}>
           <ResizeHandle axis="y" edge="top" label={tr('Висота історії')} {...recentResize} />
-          <Tabs.List grow>
-            <Tabs.Tab value="history" leftSection={<IconHistory size={14} />}>
-              {tr('Історія')}
-            </Tabs.Tab>
-            <Tabs.Tab value="saved" leftSection={<IconBookmark size={14} />}>
-              {tr('Збережене')}
-            </Tabs.Tab>
-          </Tabs.List>
-          <Group justify="flex-end" gap={4} px="xs" py={4} h={30} wrap="nowrap">
-            {sidebarTab === 'history' && history.length > 0 && (
+          <Group justify="space-between" gap={4} px="xs" py={4} h={30} wrap="nowrap">
+            <Group gap={6} wrap="nowrap">
+              <IconHistory size={14} />
+              <Text size="sm" fw={500}>
+                {tr('Історія')}
+              </Text>
+            </Group>
+            {history.length > 0 && (
               <Button
                 size="compact-xs"
                 variant="subtle"
@@ -165,55 +131,18 @@ export function ControlNavbar({
                 {tr('Очистити')}
               </Button>
             )}
-            {sidebarTab === 'saved' && (
-              <>
-                <Button
-                  size="compact-xs"
-                  variant="subtle"
-                  color="gray"
-                  leftSection={<IconDownload size={12} />}
-                  disabled={bookmarks.length === 0}
-                  onClick={exportBookmarks}
-                >
-                  {tr('Експорт')}
-                </Button>
-                <FileButton accept="application/json" onChange={importBookmarksFile}>
-                  {(props) => (
-                    <Button
-                      {...props}
-                      size="compact-xs"
-                      variant="subtle"
-                      color="gray"
-                      leftSection={<IconUpload size={12} />}
-                    >
-                      {tr('Імпорт')}
-                    </Button>
-                  )}
-                </FileButton>
-              </>
-            )}
           </Group>
           <Box ref={recentBoxRef} style={{ height: layout.recentHeight }}>
             <ScrollArea h="100%" scrollbars="y" className="vo-scroll-rows">
-              <Tabs.Panel value="history">
-                <RefList
-                  items={history}
-                  onPick={jumpTo}
-                  onRemove={removeHistory}
-                  empty={tr('Тут з’являтимуться місця, які ви відкривали')}
-                />
-              </Tabs.Panel>
-              <Tabs.Panel value="saved">
-                <RefList
-                  items={bookmarks}
-                  onPick={jumpTo}
-                  onRemove={(it) => toggleBookmark(it)}
-                  empty={tr('Збережіть вірш кнопкою-закладкою над прев’ю')}
-                />
-              </Tabs.Panel>
+              <RefList
+                items={history}
+                onPick={jumpTo}
+                onRemove={removeHistory}
+                empty={tr('Тут з’являтимуться місця, які ви відкривали')}
+              />
             </ScrollArea>
           </Box>
-        </Tabs>
+        </Box>
       </Box>
     </>
   );

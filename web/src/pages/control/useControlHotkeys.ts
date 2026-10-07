@@ -25,6 +25,7 @@ export function useControlHotkeys({
   coverToggle,
   countdownKey,
   restoreRef,
+  playlistStepRef,
   pageCount,
   pageIndex,
   primaryVerses,
@@ -55,6 +56,8 @@ export function useControlHotkeys({
   coverToggle: () => void;
   countdownKey: () => void;
   restoreRef: MutableRefObject<() => void>;
+  /** the running order's next / previous item, said when there is none (1.8.12-beta.6) */
+  playlistStepRef: MutableRefObject<(delta: 1 | -1) => void>;
   pageCount: number;
   pageIndex: number;
   primaryVerses: Verse[];
@@ -198,4 +201,12 @@ export function useControlHotkeys({
   // `/` (1.8.12-beta.4, F1005-07): to the search field where the browser keeps Ctrl+F for itself
   // (LibreWolf, Firefox); typed into a field it stays a «/»
   useHotkeys(keymap.searchFocus, () => openSearch(), { preventDefault: true });
+  // the running order item by item (1.8.12-beta.6, F1005-06): Shift+PageDown / PageUp, or ← →
+  // under «↑ ↓ вірші, ← → елементи»
+  useHotkeys(keymap.playlistNext, () => playlistStepRef.current(1), { preventDefault: true }, [
+    keymap.playlistNext,
+  ]);
+  useHotkeys(keymap.playlistPrev, () => playlistStepRef.current(-1), { preventDefault: true }, [
+    keymap.playlistPrev,
+  ]);
 }

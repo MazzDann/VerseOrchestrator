@@ -103,13 +103,14 @@ choose a line with the arrow keys and Enter.
 
 ## Go back to something recent
 
-Below the book list there are two tabs:
+Below the book list is **History**: passages you opened, the latest at the top. Click a line
+to go back to the passage, or × next to it to remove it. To clear the whole history, click
+**Clear**.
 
-- **History** — passages you opened, the latest at the top. Click a line to go back to the
-  passage, or × next to it to remove it. To clear the whole history, click **Clear**.
-- **Saved** — passages you saved. To save the current passage, click the bookmark icon to
-  the right of the **Preview** label above the monitor. **Export** and **Import** save the
-  list to a file and open it on another computer.
+To keep the current passage for longer, click the bookmark icon to the right of the
+**Preview** label above the monitor. Saved passages are on the right under the monitors, on
+the **Saved** tab; from there you can also add them to the running order. More in [Running
+order](running-order.md#where-the-running-order-is).
 
 ## Study the text
 
