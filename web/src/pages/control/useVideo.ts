@@ -257,6 +257,22 @@ export function useVideo({
       window.removeEventListener('keydown', wake, true);
     };
   }, [soundSrc]);
+  // the hint for the sound wherever the operator is, not only in Медіа → Відео (1.9.10, Mac check:
+  // Safari after a reload with a video on screen — no sound, no word); the first click takes it
+  useEffect(() => {
+    if (!needsClick) {
+      notifications.hide('video-sound');
+      return;
+    }
+    notifications.show({
+      id: 'video-sound',
+      message: tr(
+        'Натисніть будь-де в цьому вікні, щоб увімкнути звук відео: браузер дає звук лише після кліку.',
+      ),
+      color: 'orange',
+      autoClose: false,
+    });
+  }, [needsClick]);
   // the clock changed (pause, seek, a start): the sound follows at once
   const liveVideo = on?.video ?? null;
   useEffect(() => {
