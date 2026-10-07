@@ -35,6 +35,7 @@ const KIND_NAMES: Partial<Record<SeqItem['kind'], string>> = {
   album: N_('альбоми'),
   video: N_('відео'),
   cover: N_('пункти «Заставка»'),
+  countdown: N_('пункти «Відлік»'),
   foreign: N_('пункти новішої версії'),
 };
 

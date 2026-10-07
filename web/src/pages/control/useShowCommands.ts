@@ -8,6 +8,8 @@ import { type NewSeqItem, type SeqImage, type SeqItem } from '../../playlistStor
 import {
   subscribeCommand,
   type Slide,
+  type SlideCountdown,
+  type SlideCover,
   type SlideLine,
   type SlidePicture,
   type SlideStyle,
@@ -26,7 +28,10 @@ import {
   type ShowToggle,
   toggleOf,
 } from '../../lib/commands';
-import { coverOver, pictureSlide, sameContent } from '../../lib/slide';
+import { countdownOver, coverOver, pictureSlide, sameContent } from '../../lib/slide';
+import { itemCountdown } from '../../lib/countdownItem';
+import { timerLook, type CountdownPlace } from '../../lib/countdown';
+import { useSettings } from '../../settingsStore';
 import { albumSlide } from '../../lib/album';
 import { videoSlide } from '../../lib/video';
 import { tr } from '../../i18n';
@@ -45,6 +50,7 @@ export function useShowCommands({
   playlistItems,
   leaderRef,
   liveSlideRef,
+  countdownStart,
   pushLive,
   setLive,
   playlistSetCurrent,
@@ -70,6 +76,8 @@ export function useShowCommands({
 }: {
   /** what is on screen now: a «Заставка» item covers it (1.10.0-beta.2) */
   liveSlideRef: MutableRefObject<Slide>;
+  /** «Відлік» (useTimers): a remote's «Відлік» item starts through it */
+  countdownStart: (countdown: SlideCountdown, place?: CountdownPlace, onCover?: SlideCover) => void;
   advance: (delta: number, previewOnly?: boolean) => Outcome | Promise<Outcome>;
   playlistItems: SeqItem[];
   leaderRef: MutableRefObject<boolean>;
@@ -123,6 +131,20 @@ export function useShowCommands({
       // an item of a newer version (1.9.1) never reaches a remote; as if gone
       const it = playlistItems.find((i) => i.id === args.item && i.kind !== 'foreign');
       if (!it) return { ok: false, reason: tr('Цього елемента вже немає в послідовності') };
+      // «Відлік» as an item (1.10.0-beta.3): started as the operator's own — the look, the corner
+      // cleared, its zero armed (review)
+      if (it.kind === 'countdown' && cmd === 'show') {
+        if (!leaderRef.current)
+          return { ok: false, reason: tr('Показом керує інше вікно керування') };
+        countdownStart(
+          itemCountdown(it, Date.now()),
+          'cover',
+          liveSlideRef.current.cover ?? undefined,
+        );
+        playlistSetCurrent(it.id);
+        setRemoteView({ name: by, target: null, slide: liveSlideRef.current });
+        return { ok: true };
+      }
       // an album (1.8.12) goes on as the operator's own: open here, so «Далі» steps its photos
       if ((it.kind === 'album' || it.kind === 'video') && cmd === 'show') {
         if (!leaderRef.current)
@@ -285,6 +307,20 @@ export function useShowCommands({
     const t = itemTarget(it);
     if (t) return buildRemote(t, by);
     if (it.kind === 'image') return Promise.resolve(pictureSlide(pictureOf(it), slideStyle));
+    // «Відлік» as an item (1.10.0-beta.3): its time on the cover on screen (or the settings' one)
+    if (it.kind === 'countdown') {
+      const a = useSettings.getState().appearance;
+      const now = liveSlideRef.current;
+      return Promise.resolve(
+        countdownOver(
+          now,
+          now.cover ?? { text: a.coverText, image: a.coverImage },
+          { ...itemCountdown(it, Date.now()), ...timerLook(a) },
+          slideStyle,
+          it.label,
+        ),
+      );
+    }
     // «Заставка» as an item (1.10.0-beta.2): its text and picture over what is on screen
     if (it.kind === 'cover')
       return Promise.resolve(
