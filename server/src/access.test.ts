@@ -17,6 +17,21 @@ describe('lanIps: the address phones get first', () => {
     ).toEqual(['10.0.0.23', '192.168.64.1']);
   });
 
+  it('VirtualBox host-only and container bridges go after the real Wi-Fi (1.9.2 review)', () => {
+    expect(lanIps({ vboxnet0: [nic('192.168.56.1')], en0: [nic('10.0.0.23')] })).toEqual([
+      '10.0.0.23',
+      '192.168.56.1',
+    ]);
+    expect(
+      lanIps({
+        lxdbr0: [nic('10.10.10.1')],
+        podman0: [nic('10.88.0.1')],
+        cni0: [nic('10.22.0.1')],
+        wlan0: [nic('172.20.4.7')],
+      }),
+    ).toEqual(['172.20.4.7', '10.10.10.1', '10.88.0.1', '10.22.0.1']);
+  });
+
   it('a Mac: en0 before Parallels’ vnic0 and vnic1', () => {
     expect(
       lanIps({
