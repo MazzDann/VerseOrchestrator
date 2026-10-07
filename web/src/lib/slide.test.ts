@@ -3,6 +3,8 @@ import {
   countdownOver,
   coverOver,
   forAudience,
+  deskFrame,
+  DESK_FRAME_MAX,
   forDesk,
   pictureSlide,
   inPhoneWords,
@@ -184,6 +186,28 @@ describe('«Відлік» (1.5.0)', () => {
     expect(desk.style?.bgImage).toBeNull();
     expect(c.cover?.image).toBe(logo.image); // the screen's own slide is not touched
     expect(forDesk(verse)).toBe(verse); // nothing to strip: the same slide
+  });
+
+  it('a desk frame stays under the hub cap: «Далі» goes first, then the lines are cut', () => {
+    const line = (n: number) => ({
+      translationAbbr: 'UKRK',
+      text: 'Блаженні '.repeat(n),
+      rtl: false,
+    });
+    const small = { ...verse, lines: [line(20)] };
+    expect(deskFrame(small, small).frame.next).toEqual(small);
+    // Psalm 119 in five translations: about 170 KB on screen alone
+    const big = { ...verse, lines: Array.from({ length: 5 }, () => line(2400)) };
+    const bytes = (k: string) => new TextEncoder().encode(k).length;
+    const one = deskFrame(small, big);
+    expect(one.frame.next).toBeNull();
+    expect(one.frame.live).toEqual(small);
+    const two = deskFrame(big, big);
+    expect(two.frame.next).toBeNull();
+    expect(bytes(two.key)).toBeLessThan(DESK_FRAME_MAX);
+    expect(two.frame.live.lines).toHaveLength(5);
+    expect(two.frame.live.lines[0].text.endsWith('…')).toBe(true);
+    expect(two.key).toBe(JSON.stringify(two.frame));
   });
 
   it('a speaker’s timer is for «Сцена»: never on the phones, a change is a new slide (1.8.4)', () => {

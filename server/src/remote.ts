@@ -149,7 +149,7 @@ export function createPairing(
   const p: Pairing = {
     id: randomUUID(),
     // the page names it in its language; this is for a request without a name
-    name: name.trim().slice(0, 40) || `Пульт ${pairings.size + 1}`, // i18n-ignore: a stored name
+    name: uniqueName(name.trim().slice(0, 40) || `Пульт ${pairings.size + 1}`), // i18n-ignore
     kind: asKind(kind),
     tokenHash: hashToken(token),
     allowed: sanitizeAllowed(allowed),
@@ -159,6 +159,20 @@ export function createPairing(
   pairings.set(p.id, p);
   save();
   return { ...p, token };
+}
+
+/**
+ * One name per pairing (1.9.0-beta.1): the operator tells remotes apart by it, and a desk knows
+ * its own slide by it (`source.by`) — «Пульт 2» made again after a revoke becomes «Пульт 2 (2)».
+ */
+function uniqueName(name: string): string {
+  const taken = new Set([...pairings.values()].map((p) => p.name));
+  if (!taken.has(name)) return name;
+  for (let n = 2; ; n++) {
+    const suffix = ` (${n})`;
+    const candidate = name.slice(0, 40 - suffix.length) + suffix;
+    if (!taken.has(candidate)) return candidate;
+  }
 }
 
 /** Issue a new token for an existing pairing (the old one stops working at once). */

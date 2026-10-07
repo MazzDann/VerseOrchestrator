@@ -315,7 +315,8 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     }
     m.role = 'remote';
     m.pairingId = p.id;
-    m.desk = msg.desk === true;
+    // whole slides only for a pairing made for a computer: a phone's link keeps its summaries
+    m.desk = msg.desk === true && p.kind === 'desk';
     touchPairing(p);
     send(ws, { type: 'welcome', role: 'remote', name: p.name, kind: p.kind, allowed: p.allowed });
     send(ws, { type: 'screen', ...screenState });
