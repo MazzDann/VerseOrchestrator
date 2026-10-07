@@ -469,6 +469,8 @@ const AlbumSchema = z.object({
   added: z.string(),
   /** the folder is not there (moved, a drive taken out) */
   missing: z.boolean(),
+  /** added on another computer (a Windows path on a Mac, or back): missing here, kept there */
+  elsewhere: z.boolean().optional(),
   count: z.number(),
   /** HEIC photos left out: browsers can't draw them */
   heic: z.number(),
@@ -519,6 +521,8 @@ const VideoSchema = z.object({
   path: z.string(),
   added: z.string(),
   missing: z.boolean(),
+  /** added on another computer (a Windows path on a Mac, or back): missing here, kept there */
+  elsewhere: z.boolean().optional(),
   size: z.number(),
   /** the file's version a poster is drawn of */
   v: z.string().optional(),

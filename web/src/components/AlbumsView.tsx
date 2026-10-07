@@ -153,9 +153,11 @@ function AlbumList({
                       {a.name}
                     </Text>
                     <Text size="xs" c={a.missing ? 'orange' : 'dimmed'} truncate title={a.path}>
-                      {a.missing
-                        ? tr('Папку не знайдено: {path}', { path: a.path })
-                        : `${trn(a.count, '{n} фото|{n} фото|{n} фото')} · ${a.path}`}
+                      {a.elsewhere
+                        ? tr('Папка з іншого комп’ютера: {path}', { path: a.path })
+                        : a.missing
+                          ? tr('Папку не знайдено: {path}', { path: a.path })
+                          : `${trn(a.count, '{n} фото|{n} фото|{n} фото')} · ${a.path}`}
                     </Text>
                   </span>
                 </button>
@@ -579,6 +581,13 @@ function OpenAlbumView({
       {show.albumError ? (
         <Text size="sm" c="red">
           {tr(show.albumError.message)}
+        </Text>
+      ) : info?.elsewhere ? (
+        <Text size="sm" c="dimmed">
+          {tr(
+            'Папку «{path}» додано на іншому комп’ютері — тут її немає. Відкрийте альбом там або додайте папку цього комп’ютера.',
+            { path: info.path },
+          )}
         </Text>
       ) : info?.missing ? (
         <Text size="sm" c="dimmed">

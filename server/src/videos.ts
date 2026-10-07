@@ -4,12 +4,13 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { readJson, writeJson } from './jsonFile.js';
 import { MAX_SMALL_BYTES, sniff } from './images.js';
-import { badPath, extOf, kindOf, natural, samePath } from './albums.js';
+import { badPath, elsewhere, extOf, kindOf, natural, realPaths, samePath } from './albums.js';
 
 /**
  * Video on screen (1.8.12-beta.3, F1005-14): video files on this computer, picked one by one and
  * read where they are — no copies (the author's call): `data/videos.json` keeps their paths only,
- * so it is not in a backup. A file is served to the output windows only (this machine: «Показ»,
+ * so it is not in a backup (a video another system added is kept as it is, never read — albums.ts
+ * `elsewhere`). A file is served to the output windows only (this machine: «Показ»,
  * «Сцена», the control window's sound and previews), never to the hall — the phones get a frame
  * of it (a poster the control window draws) or a line of words. Typed by its first bytes.
  */
@@ -92,7 +93,8 @@ const isVideo = (x: unknown): x is Video => {
     /^[0-9a-f-]{36}$/.test(v.id) &&
     typeof v.name === 'string' &&
     typeof v.path === 'string' &&
-    path.isAbsolute(v.path) &&
+    // another system's path is kept, never read (Mac check of 1.9.0, albums.ts `elsewhere`)
+    (path.isAbsolute(v.path) || elsewhere(v.path)) &&
     typeof v.added === 'string'
   );
 };
@@ -108,6 +110,8 @@ const writeVideos = (dataDir: string, videos: Video[]) =>
 export async function videoFile(
   file: string,
 ): Promise<{ file: string; type: string; kind: VideoKind; size: number; mtimeMs: number } | null> {
+  // a file of another computer is not here — and its path must never reach the disk
+  if (elsewhere(file)) return null;
   let fh: fsp.FileHandle | undefined;
   try {
     fh = await fsp.open(file, 'r');
@@ -145,9 +149,10 @@ export async function addVideo(
   const st = await fsp.stat(file).catch(() => null);
   if (!st?.isFile()) return { refused: 'missing' };
   if (!(await videoFile(file))) return { refused: 'type' };
+  const reals = await realPaths([file, ...readVideos(dataDir).map((v) => v.path)]);
   // read and written with nothing awaited between: two adds at once can't lose one
   const videos = readVideos(dataDir);
-  const known = videos.find((v) => samePath(v.path, file));
+  const known = videos.find((v) => samePath(v.path, file, reals));
   if (known) return known;
   const given = typeof input.name === 'string' ? input.name.replace(/\s+/g, ' ').trim() : '';
   const video: Video = {
@@ -232,6 +237,8 @@ export async function videoEntry(dataDir: string, video: Video) {
     added: video.added,
     /** the file is not there (or no longer a video) */
     missing: !now,
+    /** added on another computer (another system's path): not here, never read */
+    elsewhere: elsewhere(video.path),
     size: now?.size ?? 0,
     ...(v ? { v } : {}),
     src: `/api/videos/${video.id}/file`,
