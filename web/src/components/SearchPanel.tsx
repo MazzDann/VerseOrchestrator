@@ -25,8 +25,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
+import { searchEnter } from '../lib/quickRef';
 import { isScrolling } from '../lib/scrolling';
 import { useSearchRows } from '../lib/useSearchRows';
+import { useSettings } from '../settingsStore';
 import { tr, useLang } from '../i18n';
 
 export type SearchScope = 'current' | 'all';
@@ -68,7 +70,8 @@ interface Props {
   primaryId: number | null;
   scope: SearchScope;
   onScopeChange: (scope: SearchScope) => void;
-  onPick: (result: SearchResult) => void;
+  /** `show`: picked with ⌘↩ / Ctrl+Enter — and put on screen (Mac check of 1.9.0) */
+  onPick: (result: SearchResult, opts?: { show: boolean }) => void;
   /** the query — the header's field and this panel share it (1.8.12-beta.4) */
   query: string;
   setQuery: (q: string) => void;
@@ -81,7 +84,7 @@ interface Props {
   /** one row per place found in several translations (Налаштування вигляду → Пошук) */
   dedupe: boolean;
   /** Enter with nothing to pick (typing still, numbers in the open book): go as the header does */
-  onEnter: (q: string) => void;
+  onEnter: (q: string, opts: { show: boolean }) => void;
   /** a pick or a jump: the query goes, the scope is the settings' again */
   onDone: () => void;
 }
@@ -180,8 +183,8 @@ export function SearchPanel({
   const pickRef = useRef<(r: SearchResult) => void>(() => undefined);
   const onRowPick = useCallback((r: SearchResult) => pickRef.current(r), []);
 
-  const pick = (r: SearchResult) => {
-    onPick(r);
+  const pick = (r: SearchResult, opts?: { show: boolean }) => {
+    onPick(r, opts);
     onDone();
   };
   pickRef.current = pick;
@@ -199,10 +202,12 @@ export function SearchPanel({
       setHighlight((h) => Math.max(0, h - 1));
       return true;
     }
-    // the results of what is typed now (not of a query the debounce hasn't caught up with)
-    if (e.key === 'Enter' && rows[highlight] && debounced === query) {
+    // the results of what is typed now (not of a query the debounce hasn't caught up with);
+    // ⌘↩ / Ctrl+Enter: the hit on screen too (Mac check of 1.9.0)
+    const enter = searchEnter(e, useSettings.getState().keymap.project);
+    if (enter && rows[highlight] && debounced === query) {
       e.preventDefault();
-      pick(rows[highlight].r);
+      pick(rows[highlight].r, enter);
       return true;
     }
     if (e.key === 'Escape') {
@@ -233,9 +238,12 @@ export function SearchPanel({
             value={query}
             onChange={(e) => setQuery(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (!onKey(e) && e.key === 'Enter') {
+              // the field owns Enter, as the header's does (Mac check of 1.9.0)
+              const enter = searchEnter(e, useSettings.getState().keymap.project);
+              if (enter) e.stopPropagation();
+              if (!onKey(e) && enter) {
                 e.preventDefault();
-                onEnter(query);
+                onEnter(query, enter);
               }
             }}
             placeholder={tr('Пошук: «любов», «Ів 3:16», «"світло життя"», «-темрява», «G2424»')}
