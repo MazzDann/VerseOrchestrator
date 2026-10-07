@@ -40,7 +40,8 @@ in **QR code style on screen**: **Classic**, **Rounded**, or **Dots**.
 ## What the viewers see
 
 A viewer's phone shows the text on screen now, with its reference at the bottom. The text
-changes with the screen. The page's colors follow the phone's light or dark theme.
+changes with the screen. The page's colors follow the phone's light or dark theme, unless
+the viewer chose another (see below).
 
 ![A viewer's phone: John 3:16 on a dark background; at the bottom, the Aa button and the
 reference John 3:16](../img/en/phone-follow.png)
@@ -59,7 +60,9 @@ The viewer doesn't need to reload the page: it connects again by itself.
 
 To read more comfortably, the viewer taps **Aa** on the phone. There they can change the
 text **Size**, turn on **Bolder** or **Easier reading** — the Andika font, wider spacing,
-and text on the left, easier with dyslexia. These settings are kept on that phone only.
+and text on the left, easier with dyslexia — and choose a **Theme**: **As on the phone**
+(the default), **Light**, or **Dark**. These settings are kept on that phone only; the
+chosen theme also applies to the speaker remote if it is open on the same phone.
 
 ## If a phone doesn't open the page
 
