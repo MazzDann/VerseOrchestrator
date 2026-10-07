@@ -37,16 +37,22 @@ describe('one search: one row per place (1.8.12-beta.4)', () => {
       scope: 'current',
       dedupe: true,
       focusOnReturn: false,
+      place: 'start',
     });
-    expect(sanitizeSearch({ scope: 'all', dedupe: false, focusOnReturn: true })).toEqual({
+    expect(
+      sanitizeSearch({ scope: 'all', dedupe: false, focusOnReturn: true, place: 'verses' }),
+    ).toEqual({
       scope: 'all',
       dedupe: false,
       focusOnReturn: true,
+      place: 'verses',
     });
-    expect(sanitizeSearch({ scope: 'x', dedupe: 'yes', focusOnReturn: 1 })).toEqual({
+    // the field's place (1.8.12-beta.9): an unknown one is the start, as before
+    expect(sanitizeSearch({ scope: 'x', dedupe: 'yes', focusOnReturn: 1, place: 'top' })).toEqual({
       scope: 'current',
       dedupe: true,
       focusOnReturn: false,
+      place: 'start',
     });
   });
 });

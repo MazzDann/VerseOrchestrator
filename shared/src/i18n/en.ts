@@ -1827,4 +1827,16 @@ export const EN: Record<string, string> = {
   Темна: 'Dark',
   'Як у телефоні': 'As on the phone',
   'Тема: {name}': 'Theme: {name}',
+  // 1.8.12-beta.9 search on the remote (F1005-01) and the search field's place (A1007-01)
+  'Книга, посилання чи слова…': 'Book, reference, or words…',
+  'Шукаю…': 'Searching…',
+  'Віршів не знайдено': 'No verses found',
+  'У перекладах пульта нічого — знайдено в інших':
+    'Nothing in the remote’s translations — found in others',
+  Вірші: 'Verses',
+  'Де поле пошуку': 'Where the search field is',
+  'Угорі, після режимів': 'At the top, after the modes',
+  'Угорі, посередині': 'At the top, in the middle',
+  'Над віршами (у «Біблії»)': 'Above the verses (in “Bible”)',
+  'Угорі, перед режимами': 'At the top, before the modes',
 };

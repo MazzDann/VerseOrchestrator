@@ -251,14 +251,27 @@ export interface SearchPrefs {
   scope: 'current' | 'all';
   dedupe: boolean;
   focusOnReturn: boolean;
+  /**
+   * Where the field stands (1.8.12-beta.9, A1007-01 — the author's ask): in the header before
+   * the modes (as before), after them, in the middle — or above the verses in «Біблія».
+   */
+  place: SearchPlace;
 }
-export const DEFAULT_SEARCH: SearchPrefs = { scope: 'current', dedupe: true, focusOnReturn: false };
+export type SearchPlace = 'start' | 'afterModes' | 'center' | 'verses';
+const SEARCH_PLACES: readonly SearchPlace[] = ['start', 'afterModes', 'center', 'verses'];
+export const DEFAULT_SEARCH: SearchPrefs = {
+  scope: 'current',
+  dedupe: true,
+  focusOnReturn: false,
+  place: 'start',
+};
 export function sanitizeSearch(raw: unknown): SearchPrefs {
   const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<SearchPrefs>;
   return {
     scope: p.scope === 'all' ? 'all' : 'current',
     dedupe: typeof p.dedupe === 'boolean' ? p.dedupe : DEFAULT_SEARCH.dedupe,
     focusOnReturn: p.focusOnReturn === true,
+    place: SEARCH_PLACES.includes(p.place as SearchPlace) ? (p.place as SearchPlace) : 'start',
   };
 }
 
