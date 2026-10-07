@@ -73,8 +73,12 @@ export function pressAtEdge(
   arm: CrossArm | null,
   key: string,
   now: number,
+  held = false,
 ): { cross: boolean; arm: CrossArm | null } {
-  if (arm && arm.key === key && now <= arm.until) return { cross: true, arm: null };
+  const armed = !!arm && arm.key === key && now <= arm.until;
+  // a key held down repeats: its repeats arm, never cross — a new press does (1.9.5, Mac check)
+  if (held) return { cross: false, arm: armed ? arm : { key, until: now + CROSS_MS } };
+  if (armed) return { cross: true, arm: null };
   return { cross: false, arm: { key, until: now + CROSS_MS } };
 }
 

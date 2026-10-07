@@ -46,7 +46,7 @@ export function useControlHotkeys({
   slideStyle,
 }: {
   keymap: Keymap;
-  advanceAndSay: (delta: number, previewOnly?: boolean) => void;
+  advanceAndSay: (delta: number, previewOnly?: boolean, held?: boolean) => void;
   hideToggle: () => void;
   clearScreen: () => void;
   openSearch: (scope?: SearchScope) => void;
@@ -79,7 +79,9 @@ export function useControlHotkeys({
 }) {
   // Hotkeys are user-rebindable (settingsStore.keymap; defaults in hotkeys.ts).
   // "advanceNext/Prev" default to arrows + PageDown/PageUp (the keys USB clickers emit).
-  useHotkeys(keymap.advanceNext, () => advanceAndSay(1), [
+  // a held key steps on (its repeats), but never across a chapter's edge — and the toggles below
+  // ignore repeats: a held «.» / B / L / T flickered, a held ⇧PageDown walked items (1.9.5, Mac check)
+  useHotkeys(keymap.advanceNext, (e) => advanceAndSay(1, false, e.repeat), [
     keymap.advanceNext,
     pageCount,
     pageIndex,
@@ -95,7 +97,7 @@ export function useControlHotkeys({
     selectedIds,
     currentBook,
   ]);
-  useHotkeys(keymap.advancePrev, () => advanceAndSay(-1), [
+  useHotkeys(keymap.advancePrev, (e) => advanceAndSay(-1, false, e.repeat), [
     keymap.advancePrev,
     pageCount,
     pageIndex,
@@ -129,14 +131,18 @@ export function useControlHotkeys({
     selectedIds,
     currentBook,
   ];
-  useHotkeys(keymap.previewNext, () => advanceAndSay(1, true), { preventDefault: true }, [
+  useHotkeys(
     keymap.previewNext,
-    ...previewDeps,
-  ]);
-  useHotkeys(keymap.previewPrev, () => advanceAndSay(-1, true), { preventDefault: true }, [
+    (e) => advanceAndSay(1, true, e.repeat),
+    { preventDefault: true },
+    [keymap.previewNext, ...previewDeps],
+  );
+  useHotkeys(
     keymap.previewPrev,
-    ...previewDeps,
-  ]);
+    (e) => advanceAndSay(-1, true, e.repeat),
+    { preventDefault: true },
+    [keymap.previewPrev, ...previewDeps],
+  );
   // Alt+↑/↓ scroll the list under the focus (else the verses) by a line — what Ctrl+↑/↓ did
   // before they became the preview's (1.1.0, the operator's ask); Alt+←/→ do nothing rather
   // than the browser's Back and Forward, which would leave the control window mid-show.
@@ -153,12 +159,12 @@ export function useControlHotkeys({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [keymap.previewNext, keymap.previewPrev]);
-  useHotkeys(keymap.blank, () => hideToggle(), [keymap.blank, versePreview, live]);
+  useHotkeys(keymap.blank, (e) => !e.repeat && hideToggle(), [keymap.blank, versePreview, live]);
   // Esc with a floating panel open closes the panel (FloatingPanel) — not the screen too.
   useHotkeys(
     keymap.clear,
     (e) => {
-      if (e.key === 'Escape' && floatingPanelOpen()) return;
+      if (e.repeat || (e.key === 'Escape' && floatingPanelOpen())) return;
       clearScreen();
     },
     [keymap.clear],
@@ -171,7 +177,7 @@ export function useControlHotkeys({
     preventDefault: true,
     enableOnFormTags: true,
   });
-  useHotkeys(keymap.palette, () => setPaletteOpen((o) => !o), {
+  useHotkeys(keymap.palette, (e) => !e.repeat && setPaletteOpen((o) => !o), {
     preventDefault: true,
     enableOnFormTags: true,
   });
@@ -179,7 +185,7 @@ export function useControlHotkeys({
   // project when live-follow is off; harmless while following).
   useHotkeys(
     keymap.project,
-    () => sendAndNotify(),
+    (e) => !e.repeat && sendAndNotify(),
     { preventDefault: true, enableOnFormTags: true },
     [
       keymap.project,
@@ -192,10 +198,18 @@ export function useControlHotkeys({
       appearance.revealPlaceholders,
     ],
   );
-  useHotkeys(keymap.black, () => blackToggle(), [keymap.black, versePreview]);
-  useHotkeys(keymap.cover, () => coverToggle(), [keymap.cover, versePreview, appearance]);
-  useHotkeys(keymap.countdown, () => countdownKey(), [keymap.countdown, appearance, slideStyle]);
-  useHotkeys(keymap.restore, () => restoreRef.current(), { preventDefault: true }, [
+  useHotkeys(keymap.black, (e) => !e.repeat && blackToggle(), [keymap.black, versePreview]);
+  useHotkeys(keymap.cover, (e) => !e.repeat && coverToggle(), [
+    keymap.cover,
+    versePreview,
+    appearance,
+  ]);
+  useHotkeys(keymap.countdown, (e) => !e.repeat && countdownKey(), [
+    keymap.countdown,
+    appearance,
+    slideStyle,
+  ]);
+  useHotkeys(keymap.restore, (e) => !e.repeat && restoreRef.current(), { preventDefault: true }, [
     keymap.restore,
   ]);
   // `/` (1.8.12-beta.4, F1005-07): to the search field where the browser keeps Ctrl+F for itself
@@ -203,10 +217,16 @@ export function useControlHotkeys({
   useHotkeys(keymap.searchFocus, () => openSearch(), { preventDefault: true });
   // the running order item by item (1.8.12-beta.6, F1005-06): Shift+PageDown / PageUp, or ← →
   // under «↑ ↓ вірші, ← → елементи»
-  useHotkeys(keymap.playlistNext, () => playlistStepRef.current(1), { preventDefault: true }, [
+  useHotkeys(
     keymap.playlistNext,
-  ]);
-  useHotkeys(keymap.playlistPrev, () => playlistStepRef.current(-1), { preventDefault: true }, [
+    (e) => !e.repeat && playlistStepRef.current(1),
+    { preventDefault: true },
+    [keymap.playlistNext],
+  );
+  useHotkeys(
     keymap.playlistPrev,
-  ]);
+    (e) => !e.repeat && playlistStepRef.current(-1),
+    { preventDefault: true },
+    [keymap.playlistPrev],
+  );
 }
