@@ -66,6 +66,7 @@ import { useVideo } from './control/useVideo';
 import { type MediaTab } from '../components/ImagesPanel';
 import { usePlaylistActions } from './control/usePlaylistActions';
 import { useRunningOrder } from './control/useRunningOrder';
+import { type PastItem } from '../lib/orderFlow';
 import { useTimers } from './control/useTimers';
 import { useVerseDeck } from './control/useVerseDeck';
 import { useJumps } from './control/useJumps';
@@ -121,6 +122,7 @@ export function Control() {
   const importBookmarks = useSettings((s) => s.importBookmarks);
   const panelPlacement = useSettings((s) => s.panelPlacement);
   const liveFollow = useSettings((s) => s.liveFollow);
+  const orderFlow = useSettings((s) => s.orderFlow);
   const setLiveFollow = useSettings((s) => s.setLiveFollow);
   const followAlong = useSettings((s) => s.followAlong);
   const followQrCorner = useSettings((s) => s.followQrCorner);
@@ -532,6 +534,9 @@ export function Control() {
     });
   // an album in turn (1.8.12): its keys, commands and «Міняти кожні N с» (three effects of its
   // own, independent of the others) — before the takeover, which opens it
+  // the running order's answer past an item's end (1.10.0-beta.1): filled by useRunningOrder, asked
+  // by the album, the verse steps and the songs — the album comes before it
+  const pastItemRef = useRef<PastItem | null>(null);
   const albumShow = useAlbum({
     slideStyle,
     pushLive,
@@ -546,6 +551,7 @@ export function Control() {
     openAlbumsTab,
     keysPaused: paletteOpen || moreShown || toolOpen,
     serverAvailable,
+    pastItemRef,
   });
   // a video (1.8.12-beta.3): the list, the clock on the slide, the sound in the leader, the end and
   // the posters (three effects of its own) — before the running order, which starts one
@@ -599,6 +605,9 @@ export function Control() {
     playlistItems,
     playlistCurrentId,
     playlistNextRef,
+    liveSlideRef,
+    orderFlow,
+    pastItemRef,
   });
   const {
     addCurrentPassage,
@@ -669,6 +678,7 @@ export function Control() {
     setPageIndex,
     leaderRef,
     buildLines,
+    pastItemRef,
   });
   // E17: a takeover restores its page and reveal step — after the steps' reset effects (E12,
   // E16), so it runs after them in the same commit and wins
@@ -1269,6 +1279,9 @@ export function Control() {
               onAddToPlaylist={addSongToPlaylist}
               keysPaused={paletteOpen || moreShown || toolOpen}
               onSongEnd={songEnd}
+              onPastEnd={(dir, songId) =>
+                pastItemRef.current?.(dir, { kind: 'song', songId }) ?? null
+              }
             />
             <TextPanel
               open={textOpen}
