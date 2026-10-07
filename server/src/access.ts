@@ -44,10 +44,11 @@ const VIRTUAL = /(vethernet|virtualbox|vmware|hyper-v|wsl|docker|loopback|defaul
  * vmnet (VMware Fusion), vnic (Parallels), utun (VPNs, iCloud Private Relay), ipsec (the
  * built-in VPN), awdl/llw (AirDrop), anpi, ap (Wi-Fi hotspot), gif, stf, feth. Linux: virbr
  * (libvirt), br-<id> (Docker networks — a plain br0 often carries the real LAN, so not it),
- * veth, and the VPNs tun/tap/wg.
+ * veth, and the VPNs tun/tap/wg. Both: vboxnet (VirtualBox host-only), lxdbr (LXD), podman, cni
+ * (container networks) — the 1.9.2 review.
  */
 const VIRTUAL_UNIT =
-  /^(?:(?:bridge|vmnet|vnic|utun|ipsec|awdl|llw|anpi|ap|gif|stf|feth|virbr|tun|tap|wg)\d+|br-[0-9a-f]+|veth\w+)$/;
+  /^(?:(?:bridge|vmnet|vnic|utun|ipsec|awdl|llw|anpi|ap|gif|stf|feth|virbr|tun|tap|wg|vboxnet|lxdbr|podman|cni)\d+|br-[0-9a-f]+|veth\w+)$/;
 /** A Mac's own Wi-Fi/Ethernet (en0, en5 …); Windows and Linux never name an interface so. */
 const MAC_REAL = /^en\d+$/;
 
