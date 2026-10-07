@@ -26,7 +26,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
 import { isScrolling } from '../lib/scrolling';
-import { groupResults } from '../lib/searchGroups';
+import { alignedPlaces, groupResults } from '../lib/searchGroups';
 import { tr, useLang } from '../i18n';
 
 export type SearchScope = 'current' | 'all';
@@ -129,11 +129,35 @@ export function SearchPanel({
     enabled: open && debounced.trim().length >= 2,
   });
   const abbr = useMemo(() => new Map(translations.map((t) => [t.id, t.abbr])), [translations]);
+  // several translations found: their chapter lengths align the numberings (1.8.12-beta.5), so
+  // Ps 22 of one and Ps 23 of another — the same psalm — are one row; until they come, places
+  // as given
+  const wanted = useMemo(() => {
+    const results = data?.results ?? [];
+    const ids = [...new Set(results.map((r) => r.translationId))];
+    if (!dedupe || ids.length < 2) return null;
+    if (primaryId != null && !ids.includes(primaryId)) ids.push(primaryId);
+    const books = [...new Set(results.map((r) => r.bookNumber))];
+    return { ids: ids.sort((x, y) => x - y), books: books.sort((x, y) => x - y) };
+  }, [data?.results, dedupe, primaryId]);
+  const profiles = useQuery({
+    queryKey: ['profiles', wanted?.ids.join(','), wanted?.books.join(',')],
+    queryFn: () => api.profiles(wanted!.ids, wanted!.books),
+    enabled: !!wanted,
+    staleTime: Infinity,
+  });
+  const placeOf = useMemo(
+    () =>
+      wanted && profiles.data
+        ? alignedPlaces(profiles.data, primaryId, data?.results ?? [])
+        : undefined,
+    [wanted, profiles.data, primaryId, data?.results],
+  );
   // the translations' names worked out once per result list: fresh arrays each render made every
   // memoized row render again on each highlight move (review; the 0.6.5 rule)
   const rows = useMemo(
     () =>
-      groupResults(data?.results ?? [], primaryId, dedupe)
+      groupResults(data?.results ?? [], primaryId, dedupe, placeOf)
         .slice(0, 80)
         .map((row) => {
           const names = row.also.map((id) => abbr.get(id) ?? '').filter(Boolean);
@@ -149,7 +173,7 @@ export function SearchPanel({
                 : '',
           };
         }),
-    [data?.results, primaryId, dedupe, abbr],
+    [data?.results, primaryId, dedupe, abbr, placeOf],
   );
   const suggestions = data?.suggestions ?? [];
   // Words to highlight in text results (strip operators/quotes; ≥2 chars).
