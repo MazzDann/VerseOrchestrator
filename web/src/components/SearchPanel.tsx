@@ -26,7 +26,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
 import { isScrolling } from '../lib/scrolling';
-import { alignedPlaces, groupResults } from '../lib/searchGroups';
+import { useSearchRows } from '../lib/useSearchRows';
 import { tr, useLang } from '../i18n';
 
 export type SearchScope = 'current' | 'all';
@@ -132,56 +132,26 @@ export function SearchPanel({
   // several translations found: their chapter lengths align the numberings (1.8.12-beta.5), so
   // Ps 22 of one and Ps 23 of another — the same psalm — are one row; until they come, places
   // as given
-  const wanted = useMemo(() => {
-    const results = data?.results ?? [];
-    if (!dedupe) return null;
-    // only books found in two translations or more: nothing else can be one row (review — the
-    // lengths read a book's index whole)
-    const byBook = new Map<number, Set<number>>();
-    for (const r of results) {
-      if (!byBook.has(r.bookNumber)) byBook.set(r.bookNumber, new Set());
-      byBook.get(r.bookNumber)!.add(r.translationId);
-    }
-    const books = [...byBook].filter(([, ts]) => ts.size >= 2).map(([b]) => b);
-    if (books.length === 0) return null;
-    const ids = new Set(books.flatMap((b) => [...byBook.get(b)!]));
-    if (primaryId != null) ids.add(primaryId);
-    return { ids: [...ids].sort((x, y) => x - y), books: books.sort((x, y) => x - y) };
-  }, [data?.results, dedupe, primaryId]);
-  const profiles = useQuery({
-    queryKey: ['profiles', wanted?.ids.join(','), wanted?.books.join(',')],
-    queryFn: () => api.profiles(wanted!.ids, wanted!.books),
-    enabled: !!wanted,
-    staleTime: Infinity,
-  });
-  const placeOf = useMemo(
-    () =>
-      wanted && profiles.data
-        ? alignedPlaces(profiles.data, primaryId, data?.results ?? [])
-        : undefined,
-    [wanted, profiles.data, primaryId, data?.results],
-  );
+  const grouped = useSearchRows(data?.results, primaryId, dedupe);
   // the translations' names worked out once per result list: fresh arrays each render made every
   // memoized row render again on each highlight move (review; the 0.6.5 rule)
   const rows = useMemo(
     () =>
-      groupResults(data?.results ?? [], primaryId, dedupe, placeOf)
-        .slice(0, 80)
-        .map((row) => {
-          const names = row.also.map((id) => abbr.get(id) ?? '').filter(Boolean);
-          return {
-            ...row,
-            alsoText:
-              names.length > 4
-                ? `${names.slice(0, 4).join(', ')} +${names.length - 4}`
-                : names.join(', '),
-            ownText:
-              row.also.length > 0 || row.r.translationId !== primaryId
-                ? (abbr.get(row.r.translationId) ?? '')
-                : '',
-          };
-        }),
-    [data?.results, primaryId, dedupe, abbr, placeOf],
+      grouped.slice(0, 80).map((row) => {
+        const names = row.also.map((id) => abbr.get(id) ?? '').filter(Boolean);
+        return {
+          ...row,
+          alsoText:
+            names.length > 4
+              ? `${names.slice(0, 4).join(', ')} +${names.length - 4}`
+              : names.join(', '),
+          ownText:
+            row.also.length > 0 || row.r.translationId !== primaryId
+              ? (abbr.get(row.r.translationId) ?? '')
+              : '',
+        };
+      }),
+    [grouped, primaryId, abbr],
   );
   const suggestions = data?.suggestions ?? [];
   // Words to highlight in text results (strip operators/quotes; ≥2 chars).
