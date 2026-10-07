@@ -77,6 +77,8 @@ interface Props {
    * slide's text (ShowList), given the text — absent, the text alone as before.
    */
   showList?: (text: ReactNode) => ReactNode;
+  /** «Простий вигляд» (1.8.12-beta.7): only the preview — no Стронг / Контекст / Вигляд row */
+  simple?: boolean;
 }
 
 /**
@@ -108,6 +110,7 @@ export function StudyPanels({
   remote,
   suggest,
   showList,
+  simple = false,
 }: Props) {
   useLang();
   // Program/preview monitors (video-switcher tally): when the prepared slide is already
@@ -323,33 +326,35 @@ export function StudyPanels({
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* below the centre the row stays short and the tabs keep their own width (1.4.6) */}
-      <Group p="xs" py={compact ? 4 : undefined} gap="xs" wrap="nowrap">
-        <SegmentedControl
-          flex={compact ? undefined : 1}
-          size="xs"
-          value={mode}
-          onChange={(v) => setMode(v as AsideMode)}
-          data={[
-            { value: 'preview', label: tr('Прев’ю') },
-            ...(primaryHasStrong ? [{ value: 'strong', label: tr('Стронг') }] : []),
-            { value: 'study', label: tr('Контекст') },
-            { value: 'settings', label: tr('Вигляд') },
-          ]}
-        />
-        {!compact && (
-          <Tooltip label={pinned ? tr('Відкріпити прев’ю') : tr('Закріпити прев’ю знизу')}>
-            <ActionIcon
-              variant={pinned ? 'filled' : 'default'}
-              color="brand"
-              onClick={onTogglePin}
-              aria-label={tr('Закріпити прев’ю')}
-            >
-              {pinned ? <IconPinnedOff size={16} /> : <IconPin size={16} />}
-            </ActionIcon>
-          </Tooltip>
-        )}
-      </Group>
-      <Divider />
+      {!simple && (
+        <Group p="xs" py={compact ? 4 : undefined} gap="xs" wrap="nowrap">
+          <SegmentedControl
+            flex={compact ? undefined : 1}
+            size="xs"
+            value={mode}
+            onChange={(v) => setMode(v as AsideMode)}
+            data={[
+              { value: 'preview', label: tr('Прев’ю') },
+              ...(primaryHasStrong ? [{ value: 'strong', label: tr('Стронг') }] : []),
+              { value: 'study', label: tr('Контекст') },
+              { value: 'settings', label: tr('Вигляд') },
+            ]}
+          />
+          {!compact && (
+            <Tooltip label={pinned ? tr('Відкріпити прев’ю') : tr('Закріпити прев’ю знизу')}>
+              <ActionIcon
+                variant={pinned ? 'filled' : 'default'}
+                color="brand"
+                onClick={onTogglePin}
+                aria-label={tr('Закріпити прев’ю')}
+              >
+                {pinned ? <IconPinnedOff size={16} /> : <IconPin size={16} />}
+              </ActionIcon>
+            </Tooltip>
+          )}
+        </Group>
+      )}
+      {!simple && <Divider />}
 
       <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {mode === 'preview' &&

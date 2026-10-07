@@ -343,7 +343,6 @@ export const EN: Record<string, string> = {
   'Текст додано у показ': 'Text added to the running order',
   // «Зображення» (1.5.0)
   Зображення: 'Images',
-  'Картинки на екран і в послідовність показу': 'Pictures on screen and in the running order',
   'Зображення додано у показ': 'Image added to the running order',
   Вписати: 'Fit',
   Заповнити: 'Fill',
@@ -470,7 +469,6 @@ export const EN: Record<string, string> = {
   'Папку не знайдено: {name}': 'Folder not found: {name}',
   'Папку не знайдено: {path}': 'Folder not found: {path}',
   Альбоми: 'Albums',
-  'Зображення, альбоми з папок чи відео': 'Images, albums from folders, or videos',
   'Фото з папок на цьому комп’ютері — без копій: нові фото в папці з’являються самі.':
     'Photos from folders on this computer — no copies: new photos in a folder show up by themselves.',
   'Додати папку…': 'Add a folder…',
@@ -620,9 +618,6 @@ export const EN: Record<string, string> = {
   Навігація: 'Navigation',
   Пошук: 'Search',
   'У поточному перекладі; {combo} — в усіх': 'In the current translation; {combo} — in all',
-  Джерела: 'Sources',
-  'Пошук пісень з .pptx і показ куплетів': 'Find songs from .pptx files and show their stanzas',
-  'Скласти й показати довільний текст': 'Write and show any text',
   Вікна: 'Windows',
   'Вихідне вікно для другого монітора чи проєктора':
     'The output window for a second monitor or a projector',
@@ -1812,4 +1807,18 @@ export const EN: Record<string, string> = {
     'The running order is empty — add items with “+ to the running order”',
   'Це останній елемент показу': 'This is the last item of the running order',
   'Це перший елемент показу': 'This is the first item of the running order',
+  // 1.8.12-beta.7 «Режими» (F1005-12, F1005-15)
+  Режим: 'Mode',
+  Медіа: 'Media',
+  'Переклади, книги й вірші': 'Translations, books, and verses',
+  'Список пісень ліворуч, пісня посередині': 'The song list on the left, the song in the middle',
+  'Зображення, альбоми, відео й власний текст': 'Images, albums, videos, and custom text',
+  'Виберіть пісню ліворуч — знайдіть її за номером чи назвою.':
+    'Choose a song on the left — find it by number or title.',
+  'Простий вигляд': 'Simple view',
+  'простий вигляд': 'simple view',
+  'Сцена, вікна виводу, глядачі, пульт, довідка й тема — у меню «Ще»; праворуч лише прев’ю':
+    'Stage, output windows, viewers, remote, help, and theme go to the “More” menu; only the preview on the right',
+  'Простий вигляд: вимкнути': 'Simple view: off',
+  'Простий вигляд: увімкнути': 'Simple view: on',
 };

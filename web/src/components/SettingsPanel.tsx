@@ -82,6 +82,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const devLabel = useServer((s) => s.devLabel);
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
+  const simpleView = useSettings((s) => s.simpleView);
+  const setSimpleView = useSettings((s) => s.setSimpleView);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
   const { rebuilding, rebuild: rebuildLibrary } = useRebuildLibrary();
@@ -866,6 +868,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             LANG_NAMES[language],
             dataSource === 'local' ? tr('дані в браузері') : tr('дані з сервера'),
             placement === 'aside' ? tr('прев’ю праворуч') : tr('прев’ю внизу'),
+            simpleView && tr('простий вигляд'),
           )}
         >
           <div>
@@ -902,6 +905,15 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               ]}
             />
           </div>
+          {/* 1.8.12-beta.7 (F1005-15): fewer things in sight */}
+          <Switch
+            label={tr('Простий вигляд')}
+            description={tr(
+              'Сцена, вікна виводу, глядачі, пульт, довідка й тема — у меню «Ще»; праворуч лише прев’ю',
+            )}
+            checked={simpleView}
+            onChange={(e) => setSimpleView(e.currentTarget.checked)}
+          />
           <div>
             <Text size="sm" fw={500} mb={2}>
               {tr('Бібліотека модулів')}

@@ -5,6 +5,7 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from 'react';
+import { type ReactNode } from 'react';
 import { Burger, Divider, Group, Text, TextInput } from '@mantine/core';
 import {
   IconAdjustments,
@@ -12,8 +13,8 @@ import {
   IconDeviceMobile,
   IconHelp,
   IconLayoutDashboard,
+  IconBook2,
   IconLayoutSidebarRight,
-  IconLetterT,
   IconLibraryPhoto,
   IconMoonStars,
   IconMusic,
@@ -23,7 +24,8 @@ import {
   IconSun,
 } from '@tabler/icons-react';
 import { type CodeState, type UpdateState } from '../../api';
-import { type PanelPlacement } from '../../settingsStore';
+import { useSettings, type PanelPlacement } from '../../settingsStore';
+import { type Workspace } from '../Control';
 import { NEEDS_SERVER } from '../../serverStore';
 import { formatCombo, type Keymap } from '../../hotkeys';
 import { type SearchScope } from '../../components/SearchPanel';
@@ -64,12 +66,8 @@ export function ControlHeader({
   searchKeysRef,
   focusOnReturn,
   keysBusy,
-  songsOpen,
-  setSongsOpen,
-  textOpen,
-  setTextOpen,
-  imagesOpen,
-  setImagesOpen,
+  workspace,
+  setWorkspace,
   outputWindows,
   outputsOpen,
   setOutputsOpen,
@@ -112,12 +110,9 @@ export function ControlHeader({
   focusOnReturn: boolean;
   /** the palette, «Ще» or a tool owns the keyboard now */
   keysBusy: boolean;
-  songsOpen: boolean;
-  setSongsOpen: Toggle;
-  textOpen: boolean;
-  setTextOpen: Toggle;
-  imagesOpen: boolean;
-  setImagesOpen: Toggle;
+  /** «Біблія / Пісні / Медіа» (1.8.12-beta.7) */
+  workspace: Workspace;
+  setWorkspace: (ws: Workspace) => void;
   outputWindows: TrackedOutput[];
   outputsOpen: boolean;
   setOutputsOpen: Toggle;
@@ -213,27 +208,37 @@ export function ControlHeader({
   // The header's foldable tools, each defined once: the toolbar draws them as buttons, «Ще» as
   // menu items — the same names, icons, hotkeys and states (vo-design §2).
   const rowGap = fold.tight ? 'xs' : 'sm';
-  const songsTool: ToolProps = {
-    label: tr('Пісні'),
-    hint: tr('Пошук пісень з .pptx і показ куплетів'),
-    icon: <IconMusic size={18} stroke={1.5} />,
-    active: songsOpen,
-    onClick: () => setSongsOpen((o) => !o),
-  };
-  const textTool: ToolProps = {
-    label: tr('Власний текст'),
-    hint: tr('Скласти й показати довільний текст'),
-    icon: <IconLetterT size={18} stroke={1.5} />,
-    active: textOpen,
-    onClick: () => setTextOpen((o) => !o),
-  };
-  const imagesTool: ToolProps = {
-    label: tr('Зображення'),
-    hint: tr('Картинки на екран і в послідовність показу'),
-    icon: <IconLibraryPhoto size={18} stroke={1.5} />,
-    active: imagesOpen,
-    onClick: () => setImagesOpen((o) => !o),
-  };
+  // the modes (1.8.12-beta.7, F1005-12 / 15): one workspace at a time — the left column and the
+  // centre change with it; they stand where «Пісні», «Власний текст» and «Зображення» stood
+  const modeTool = (ws: Workspace, label: string, hint: string, icon: ReactNode): ToolProps => ({
+    label,
+    hint,
+    icon,
+    active: workspace === ws,
+    onClick: () => setWorkspace(ws),
+  });
+  const modeTools = [
+    modeTool(
+      'bible',
+      tr('Біблія'),
+      tr('Переклади, книги й вірші'),
+      <IconBook2 size={18} stroke={1.5} />,
+    ),
+    modeTool(
+      'songs',
+      tr('Пісні'),
+      tr('Список пісень ліворуч, пісня посередині'),
+      <IconMusic size={18} stroke={1.5} />,
+    ),
+    modeTool(
+      'media',
+      tr('Медіа'),
+      tr('Зображення, альбоми, відео й власний текст'),
+      <IconLibraryPhoto size={18} stroke={1.5} />,
+    ),
+  ];
+  // «Простий вигляд» (1.8.12-beta.7, F1005-15): the rarely used tools wait in «Ще»
+  const simple = useSettings((s) => s.simpleView);
   const presenterTool: ToolProps = {
     label: tr('Відкрити вікно показу'),
     hint: tr('Вихідне вікно для другого монітора чи проєктора'),
@@ -320,7 +325,7 @@ export function ControlHeader({
     onClick: toggleAside,
   };
   const zoneTools: Record<FoldZone, ToolSection> = {
-    sources: { label: tr('Джерела'), tools: [songsTool, textTool, imagesTool] },
+    sources: { label: tr('Режим'), tools: modeTools },
     windows: {
       label: tr('Вікна'),
       tools: [presenterTool, stageTool, outputsTool, viewersTool, remoteTool],
@@ -330,7 +335,13 @@ export function ControlHeader({
       tools: [settingsTool, helpTool, themeTool, ...(asideToggle ? [panelTool] : [])],
     },
   };
-  const moreSections = fold.folded.map((zone) => zoneTools[zone]);
+  const hiddenWindows = [stageTool, outputsTool, viewersTool, remoteTool];
+  const hiddenApp = [helpTool, themeTool];
+  const moreSections = [
+    ...fold.folded.map((zone) => zoneTools[zone]),
+    ...(simple && !folded('windows') ? [{ label: tr('Вікна'), tools: hiddenWindows }] : []),
+    ...(simple && !folded('app') ? [{ label: tr('Застосунок'), tools: hiddenApp }] : []),
+  ];
   const moreButton = (
     <ToolMore
       label={tr('Ще')}
@@ -400,10 +411,12 @@ export function ControlHeader({
           />
         </ToolZone>
         {!folded('sources') && (
-          <ToolZone label={tr('Джерела')}>
-            <ToolIcon {...songsTool} />
-            <ToolIcon {...textTool} />
-            <ToolIcon {...imagesTool} />
+          <ToolZone label={tr('Режим')}>
+            {/* icons, like every other tool up here (the author: text read as filler); the one
+                on is lit, its name is in the tooltip */}
+            {modeTools.map((t) => (
+              <ToolIcon key={t.label} {...t} />
+            ))}
           </ToolZone>
         )}
       </Group>
@@ -412,10 +425,7 @@ export function ControlHeader({
         {!folded('windows') && (
           <ToolZone label={tr('Вікна')} divider={false}>
             <ToolButton {...presenterTool} text={tr('Вікно показу')} compact={fold.iconsOnly} />
-            <ToolIcon {...stageTool} />
-            <ToolIcon {...outputsTool} />
-            <ToolIcon {...viewersTool} />
-            <ToolIcon {...remoteTool} />
+            {!simple && hiddenWindows.map((t) => <ToolIcon key={t.label} {...t} />)}
           </ToolZone>
         )}
         {moreFirst && moreButton}
@@ -431,8 +441,8 @@ export function ControlHeader({
           <>
             <ToolZone label={tr('Застосунок')}>
               <ToolIcon {...settingsTool} />
-              <ToolIcon {...helpTool} />
-              <ToolIcon {...themeTool} />
+              {!simple && hiddenApp.map((t) => <ToolIcon key={t.label} {...t} />)}
+              {simple && !moreFirst && moreButton}
             </ToolZone>
             {panelPlacement === 'aside' && (
               <Burger
