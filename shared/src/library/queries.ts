@@ -269,6 +269,32 @@ export function createLibrary(db: SqlDriver) {
     return rows.map((r) => r.chapter);
   }
 
+  /**
+   * Chapter lengths (1.8.12-beta.5, versification.ts): each chapter's last verse number, for the
+   * translations and books asked — what aligns their numberings. Empty lists ask for nothing.
+   */
+  async function chapterProfiles(
+    translationIds: number[],
+    bookNumbers: number[],
+  ): Promise<{ translationId: number; bookNumber: number; chapter: number; verses: number }[]> {
+    const ids = translationIds.filter((n) => Number.isInteger(n) && n > 0).slice(0, 64);
+    const books = bookNumbers.filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
+    if (ids.length === 0 || books.length === 0) return [];
+    const rows = await db.all<AnyRow>(
+      `SELECT translation_id, book_number, chapter, MAX(verse) AS verses FROM verses
+        WHERE translation_id IN (${placeholders(ids.length)}) AND book_number IN (${placeholders(books.length)})
+        GROUP BY translation_id, book_number, chapter
+        ORDER BY translation_id, book_number, chapter`,
+      [...ids, ...books],
+    );
+    return rows.map((r) => ({
+      translationId: Number(r.translation_id),
+      bookNumber: Number(r.book_number),
+      chapter: Number(r.chapter),
+      verses: Number(r.verses),
+    }));
+  }
+
   async function getVerses(
     translationId: number,
     bookNumber: number,
@@ -806,6 +832,7 @@ export function createLibrary(db: SqlDriver) {
     getTranslations,
     getBooks,
     getChapters,
+    chapterProfiles,
     getVerses,
     listDictionaries,
     lookupStrong,

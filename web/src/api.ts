@@ -544,6 +544,20 @@ export const api = {
       (l) => l.getChapters(id, book),
       `/api/translations/${id}/books/${book}/chapters`,
     ),
+  /** Chapter lengths that align numberings (1.8.12-beta.5, shared versification.ts). */
+  profiles: (translationIds: number[], books: number[]) =>
+    fromLibrary(
+      z.array(
+        z.object({
+          translationId: z.number(),
+          bookNumber: z.number(),
+          chapter: z.number(),
+          verses: z.number(),
+        }),
+      ),
+      (l) => l.chapterProfiles(translationIds, books),
+      `/api/profiles?translations=${translationIds.join(',')}&books=${books.join(',')}`,
+    ),
   verses: (id: number, book: number, chapter: number) =>
     fromLibrary(
       z.array(VerseSchema),

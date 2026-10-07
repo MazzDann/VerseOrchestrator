@@ -100,6 +100,12 @@ describe('library queries (shared, engine-agnostic)', () => {
     expect((await lib.getTranslations()).map((t) => t.abbr)).toEqual(['KJV', 'UKR']);
     expect((await lib.getBooks(1)).map((b) => b.bookNumber)).toEqual([60, 290, 500]);
     expect(await lib.getChapters(1, 500)).toEqual([3]);
+    // chapter lengths for the versification alignment (1.8.12-beta.5)
+    expect(await lib.chapterProfiles([1, 2], [500])).toEqual([
+      { translationId: 1, bookNumber: 500, chapter: 3, verses: 17 },
+      { translationId: 2, bookNumber: 500, chapter: 3, verses: 16 },
+    ]);
+    expect(await lib.chapterProfiles([], [500])).toEqual([]);
     const vs = await lib.getVerses(1, 500, 3);
     expect(vs.map((v) => v.verse)).toEqual([16, 17]);
     expect(vs[0].textRaw).toContain('<S>');

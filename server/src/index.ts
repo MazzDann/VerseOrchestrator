@@ -861,6 +861,22 @@ app.get(
   ),
 );
 
+/** Chapter lengths for the versification alignment (1.8.12-beta.5): ?translations=1,2&books=230 */
+app.get(
+  '/api/profiles',
+  wrap(async (req, res) => {
+    // Number('') === 0: empty entries go first (as /api/search)
+    const ints = (v: unknown) =>
+      String(v ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s !== '')
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n > 0);
+    res.json(await library().chapterProfiles(ints(req.query.translations), ints(req.query.books)));
+  }),
+);
+
 app.get(
   '/api/translations/:id/books/:book/chapters/:chapter/verses',
   wrap(async (req, res) =>
