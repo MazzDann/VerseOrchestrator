@@ -290,6 +290,12 @@ interface SettingsState {
   /** Interface language (0.11.0). */
   language: Lang;
   setLanguage: (lang: Lang) => void;
+  /**
+   * «Простий вигляд» (1.8.12-beta.7, F1005-15): the rarely used header tools go into «Ще» and the
+   * right column shows only the preview.
+   */
+  simpleView: boolean;
+  setSimpleView: (v: boolean) => void;
   setOutputs: (patch: Partial<OutputSettings>) => void;
   setLiveFollow: (v: boolean) => void;
   setFollowAlong: (v: boolean) => void;
@@ -570,6 +576,8 @@ export const useSettings = create<SettingsState>()(
       outputs: DEFAULT_OUTPUTS,
       language: browserLang(),
       setLanguage: (lang) => set({ language: isLang(lang) ? lang : 'uk' }),
+      simpleView: false,
+      setSimpleView: (v) => set({ simpleView: v === true }),
       setOutputs: (patch) =>
         set((st) => ({ outputs: sanitizeOutputs({ ...st.outputs, ...patch }) })),
       setLiveFollow: (v) => set({ liveFollow: v }),
@@ -723,6 +731,7 @@ export const useSettings = create<SettingsState>()(
           search: sanitizeSearch(p.search),
           // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
+          simpleView: p.simpleView === true,
         };
       },
     },

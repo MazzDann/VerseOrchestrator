@@ -1,6 +1,14 @@
 import { type RefObject } from 'react';
 import { Box, Button, Divider, Group, ScrollArea, Text, TextInput } from '@mantine/core';
-import { IconHistory, IconSearch, IconTrash } from '@tabler/icons-react';
+import {
+  IconAlbum,
+  IconHistory,
+  IconLetterT,
+  IconMovie,
+  IconPhoto,
+  IconSearch,
+  IconTrash,
+} from '@tabler/icons-react';
 import { type Book, type Translation } from '../../api';
 import { type PanelLayout, type RefItem } from '../../settingsStore';
 import { TranslationPicker } from '../../components/TranslationPicker';
@@ -8,6 +16,8 @@ import { VirtualList } from '../../components/VirtualList';
 import { RefList } from '../../components/RefList';
 import { ResizeHandle } from '../../components/ResizeHandle';
 import { type LibraryGap } from '../../components/NoLibrary';
+import { type MediaTab } from '../../components/ImagesPanel';
+import { type Workspace } from '../Control';
 import { tr, useLang } from '../../i18n';
 import type { usePanelResize } from './usePanelResize';
 
@@ -37,6 +47,10 @@ export function ControlNavbar({
   layout,
   jumpTo,
   removeHistory,
+  workspace,
+  songListSlot,
+  mediaTab,
+  onMediaTab,
 }: {
   panelResize: PanelResize['panelResize'];
   translations: Translation[];
@@ -57,18 +71,86 @@ export function ControlNavbar({
   layout: PanelLayout;
   jumpTo: (item: RefItem) => void;
   removeHistory: (item: RefItem) => void;
+  /** the mode (1.8.12-beta.7): «Біблія» — the books, «Пісні» — the song list, «Медіа» — its kinds */
+  workspace: Workspace;
+  /** where SongsPanel draws its search and list in «Пісні» */
+  songListSlot: (el: HTMLElement | null) => void;
+  mediaTab: MediaTab;
+  onMediaTab: (tab: MediaTab) => void;
 }) {
   useLang();
+  const resize = (
+    <Box visibleFrom="sm">
+      <ResizeHandle
+        axis="x"
+        edge="right"
+        label={tr('Ширина бічної панелі')}
+        {...panelResize('navbar')}
+      />
+    </Box>
+  );
+  if (workspace === 'songs')
+    return (
+      <>
+        {resize}
+        <Box
+          ref={songListSlot}
+          style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+        />
+      </>
+    );
+  if (workspace === 'media') {
+    const kinds: { tab: MediaTab; label: string; icon: typeof IconPhoto }[] = [
+      { tab: 'images', label: tr('Зображення'), icon: IconPhoto },
+      { tab: 'albums', label: tr('Альбоми'), icon: IconAlbum },
+      { tab: 'videos', label: tr('Відео'), icon: IconMovie },
+      { tab: 'text', label: tr('Текст на екран'), icon: IconLetterT },
+    ];
+    return (
+      <>
+        {resize}
+        <Box p="xs" role="tablist" aria-orientation="vertical" aria-label={tr('Медіа')}>
+          {kinds.map(({ tab, label, icon: Icon }) => (
+            <Group
+              key={tab}
+              className="vo-list-item"
+              role="tab"
+              tabIndex={0}
+              aria-selected={mediaTab === tab}
+              data-selected={mediaTab === tab ? 'true' : undefined}
+              gap={8}
+              wrap="nowrap"
+              py={7}
+              onClick={() => onMediaTab(tab)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onMediaTab(tab);
+                } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  // a tablist's own arrows: the next kind — not a verse step behind the mode
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const at = kinds.findIndex((k) => k.tab === tab);
+                  const to =
+                    kinds[(at + (e.key === 'ArrowDown' ? 1 : -1) + kinds.length) % kinds.length];
+                  onMediaTab(to.tab);
+                  const rows =
+                    e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('[role=tab]');
+                  rows?.[kinds.indexOf(to)]?.focus();
+                }
+              }}
+            >
+              <Icon size={16} stroke={1.5} />
+              {label}
+            </Group>
+          ))}
+        </Box>
+      </>
+    );
+  }
   return (
     <>
-      <Box visibleFrom="sm">
-        <ResizeHandle
-          axis="x"
-          edge="right"
-          label={tr('Ширина бічної панелі')}
-          {...panelResize('navbar')}
-        />
-      </Box>
+      {resize}
       {/* a short window (Safari's 800×600 in the Mac test) squeezed the books to nothing and
           their hint ran over the history tabs: the books keep a few rows, the rest scrolls */}
       <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>

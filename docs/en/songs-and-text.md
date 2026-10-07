@@ -25,7 +25,8 @@ is running (`start.cmd`, `start.command`, or `./start.sh`).
 
 To import songs:
 
-1. At the top, click the **Songs** icon.
+1. At the top, click **Songs**. The song search and list appear on the left instead of the
+   books.
 2. To the right of the song search, click the **Import songs** icon.
 3. Under **From**, click **.pptx files…** and choose the files, or click **Folder…** and
    choose a folder. Subfolders are read too. Below the buttons you see how many songs were
@@ -40,14 +41,14 @@ its places in [running orders](running-order.md).
 
 Below the song search, “Imported into “…”: … new, … updated” appears with a **Cancel**
 button. It brings the bundle back to how it was before the import, and deletes a bundle the
-import created. You can cancel until you close the song search, import again, rename or
+import created. You can cancel until you switch to another mode, import again, rename or
 delete a bundle, or rescan the modules.
 
 ## Rename or delete a bundle
 
 To rename a bundle:
 
-1. At the top, click the **Songs** icon.
+1. At the top, click **Songs**.
 2. To the right of the song search, click the **Song bundles** icon.
 3. In the bundle's row, click the **Rename** icon, type the new name, and press Enter.
 
@@ -109,14 +110,15 @@ New and changed files in the same folder update that bundle after the rescan.
 
 To show a song:
 
-1. At the top, click the **Songs** icon. The song search appears above the verses.
+1. At the top, click **Songs**. The song search and list appear on the left instead of the
+   books.
 2. Type the song's number or a few letters of its title.
-3. In the list, click the song. Its slides appear: **Title**, the stanzas, and the
-   choruses.
+3. In the list, click the song. Its slides appear in the middle, at the window's full
+   height: **Title**, the stanzas, and the choruses.
 4. Click a slide. It appears on screen at once.
 
 While a song is open, the arrow keys, PageUp, and PageDown step through its slides, not the
-verses. A clicker, the keys in the presentation window, and the speaker remote step through
+verses — unless the caret is in the song search. A clicker, the keys in the presentation window, and the speaker remote step through
 the song too.
 
 To show the chorus at once, press C or click the **To the chorus** icon above the song's
@@ -128,9 +130,10 @@ songs with a chorus.
 After the last stanza, **Next** shows an empty slide: the text disappears, the background
 stays. The **End** line at the end of the list does the same.
 
-To find another song, click **Back to search** — the arrow before the song's title. You can
-also open a song from the command palette: press Ctrl+K (on macOS, ⌘K) and type its number
-or title.
+To open another song, click it in the list on the left. You can also open a song from the
+command palette: press Ctrl+K (on macOS, ⌘K) and type its number or title. To go back to the
+verses, click **Bible** at the top or find a verse in the **Search** field: a verse you pick
+there takes you back to **Bible** by itself.
 
 ## Choose how a song looks
 
@@ -152,8 +155,8 @@ looks the same as the verses.
 
 To show custom text:
 
-1. At the top, click the **Custom text** icon. The **Text to screen** panel appears above
-   the verses.
+1. At the top, click **Media**, then **Text to screen** on the left. The **Text to screen**
+   panel appears in the middle.
 2. If you need a title, type it in the **Title (optional)** field. On the slide it stands
    where the reference stands for verses.
 3. In the field below the title, type the slide's text.

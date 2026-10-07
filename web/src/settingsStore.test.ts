@@ -117,3 +117,17 @@ describe('the display panel below the centre (1.4.6)', () => {
     );
   });
 });
+
+describe('«Простий вигляд» (1.8.12-beta.7)', () => {
+  it('is off unless saved as true, and the setter keeps a boolean', () => {
+    const merge = store.useSettings.persist.getOptions().merge!;
+    const current = store.useSettings.getState();
+    expect(current.simpleView).toBe(false);
+    expect(merge({}, current).simpleView).toBe(false);
+    expect(merge({ simpleView: 'yes' }, current).simpleView).toBe(false);
+    expect(merge({ simpleView: true }, current).simpleView).toBe(true);
+    store.useSettings.getState().setSimpleView(true);
+    expect(store.useSettings.getState().simpleView).toBe(true);
+    store.useSettings.getState().setSimpleView(false);
+  });
+});

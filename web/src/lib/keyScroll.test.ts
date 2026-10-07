@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isResizeKey, resizeKeyStep } from './keyScroll';
+import { isResizeKey, isTextEntry, resizeKeyStep } from './keyScroll';
 
 const key = (k: string, mods: Partial<Record<'ctrlKey' | 'metaKey' | 'altKey', boolean>> = {}) => ({
   key: k,
@@ -41,5 +41,29 @@ describe('a focused resize control’s arrow keys (1.4.6)', () => {
     expect(isResizeKey({ ...key('ArrowDown'), target: null } as unknown as KeyboardEvent)).toBe(
       false,
     );
+  });
+});
+
+describe('isTextEntry (1.8.12-beta.7: the song search beside the song)', () => {
+  const el = (tagName: string, more: Record<string, unknown> = {}) =>
+    ({
+      tagName,
+      isContentEditable: false,
+      readOnly: false,
+      type: 'text',
+      ...more,
+    }) as unknown as EventTarget;
+  it('a text input or area keeps its caret keys', () => {
+    expect(isTextEntry(el('INPUT'))).toBe(true);
+    expect(isTextEntry(el('INPUT', { type: 'search' }))).toBe(true);
+    expect(isTextEntry(el('TEXTAREA'))).toBe(true);
+    expect(isTextEntry(el('DIV', { isContentEditable: true }))).toBe(true);
+  });
+  it('a radio, a checkbox, a Select’s read-only input or a button does not', () => {
+    expect(isTextEntry(el('INPUT', { type: 'radio' }))).toBe(false);
+    expect(isTextEntry(el('INPUT', { type: 'checkbox' }))).toBe(false);
+    expect(isTextEntry(el('INPUT', { readOnly: true }))).toBe(false);
+    expect(isTextEntry(el('BUTTON'))).toBe(false);
+    expect(isTextEntry(null)).toBe(false);
   });
 });
