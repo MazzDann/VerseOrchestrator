@@ -134,11 +134,19 @@ export function SearchPanel({
   // as given
   const wanted = useMemo(() => {
     const results = data?.results ?? [];
-    const ids = [...new Set(results.map((r) => r.translationId))];
-    if (!dedupe || ids.length < 2) return null;
-    if (primaryId != null && !ids.includes(primaryId)) ids.push(primaryId);
-    const books = [...new Set(results.map((r) => r.bookNumber))];
-    return { ids: ids.sort((x, y) => x - y), books: books.sort((x, y) => x - y) };
+    if (!dedupe) return null;
+    // only books found in two translations or more: nothing else can be one row (review — the
+    // lengths read a book's index whole)
+    const byBook = new Map<number, Set<number>>();
+    for (const r of results) {
+      if (!byBook.has(r.bookNumber)) byBook.set(r.bookNumber, new Set());
+      byBook.get(r.bookNumber)!.add(r.translationId);
+    }
+    const books = [...byBook].filter(([, ts]) => ts.size >= 2).map(([b]) => b);
+    if (books.length === 0) return null;
+    const ids = new Set(books.flatMap((b) => [...byBook.get(b)!]));
+    if (primaryId != null) ids.add(primaryId);
+    return { ids: [...ids].sort((x, y) => x - y), books: books.sort((x, y) => x - y) };
   }, [data?.results, dedupe, primaryId]);
   const profiles = useQuery({
     queryKey: ['profiles', wanted?.ids.join(','), wanted?.books.join(',')],

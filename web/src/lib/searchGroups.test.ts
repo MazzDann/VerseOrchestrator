@@ -85,3 +85,14 @@ describe('one row across numberings (1.8.12-beta.5)', () => {
     expect(groupResults(results, 1, true)).toHaveLength(4);
   });
 });
+
+describe('the review of one row across numberings (1.8.12-beta.5)', () => {
+  it('two places of one translation brought to one place stay two rows', () => {
+    const results = [hit(2, 230, 3, 1), hit(2, 230, 3, 2), hit(1, 230, 3, 1)];
+    const placeOf = () => '230-3-1'; // a superscription and its verse 2, both «3:1» in the other numbering
+    const rows = groupResults(results, 1, true, placeOf);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.also.length + 1).reduce((x, y) => x + y)).toBe(3);
+    expect(groupResults([hit(2, 230, 3, 1), hit(2, 230, 3, 1)], 1, true, placeOf)).toHaveLength(1);
+  });
+});
