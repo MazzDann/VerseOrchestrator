@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api, type CodeState, type UpdateState } from '../api';
 import { useServer } from '../serverStore';
+import { FIRST_FOREIGN_SAFE, KIND_SINCE, type SeqItem } from '../playlistStore';
 
 /** Is there a newer version (1.0.0)? Shared by «Оновлення» in the settings and the settings button's dot. */
 export function useUpdateState(): UpdateState | undefined {
@@ -22,6 +23,25 @@ export function useUpdateState(): UpdateState | undefined {
 const BUSY = new Set(['download', 'verify', 'unpack']);
 
 const VERSION = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*))?$/;
+
+/**
+ * The kinds of item in these lists (the running order, the saved programs) that `version` fails
+ * on (1.9.1): before 1.9.1 a kind it doesn't know keeps its control window from opening. In the
+ * order of `KIND_SINCE`; an item of a version newer than this one is `foreign`.
+ */
+export function kindsBreaking(
+  version: string,
+  lists: readonly (readonly SeqItem[])[],
+): SeqItem['kind'][] {
+  if (compareVersions(version, FIRST_FOREIGN_SAFE) >= 0) return [];
+  const found = new Set(lists.flatMap((l) => l.map((it) => it.kind)));
+  const kinds = Object.keys(KIND_SINCE) as (keyof typeof KIND_SINCE)[];
+  const out: SeqItem['kind'][] = kinds.filter(
+    (k) => found.has(k) && compareVersions(version, KIND_SINCE[k]) < 0,
+  );
+  if (found.has('foreign')) out.push('foreign');
+  return out;
+}
 
 /**
  * Negative, zero or positive, like a sort comparator (server/src/updates.ts compareVersions):

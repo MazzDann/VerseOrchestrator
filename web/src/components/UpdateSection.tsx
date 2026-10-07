@@ -15,9 +15,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type CodeState, type GitSync, type UpdateState } from '../api';
 import { useServer, NEEDS_SERVER, shownVersion } from '../serverStore';
-import { fmtDateTime, tr, trn, useLang } from '../i18n';
+import { currentLocale, fmtDateTime, N_, tr, trn, useLang } from '../i18n';
+import { usePlaylist, type SeqItem } from '../playlistStore';
 import {
   compareVersions,
+  kindsBreaking,
   useCodeState,
   useUpdateState,
   waitForRelaunch,
@@ -27,6 +29,45 @@ import { useOutputWindows } from '../lib/outputs';
 import { storeForOlderVersion } from '../presenterBus';
 
 const mb = (bytes: number) => String(Math.max(1, Math.round(bytes / 1048576)));
+
+const KIND_NAMES: Partial<Record<SeqItem['kind'], string>> = {
+  image: N_('пункти із зображеннями'),
+  album: N_('альбоми'),
+  video: N_('відео'),
+  foreign: N_('пункти новішої версії'),
+};
+
+/**
+ * Going to `version` (1.9.1): the kinds of item it would fail on, named — empty when none. Before
+ * 1.9.1 a control window doesn't open while its running order or a saved program holds one.
+ */
+function useBreaking(version: string | null): string {
+  const items = usePlaylist((s) => s.items);
+  const saved = usePlaylist((s) => s.saved);
+  if (!version) return '';
+  const names = kindsBreaking(version, [items, ...saved.map((p) => p.items)])
+    .map((k) => (KIND_NAMES[k] ? tr(KIND_NAMES[k]) : ''))
+    .filter(Boolean);
+  try {
+    // «альбоми і відео» / “albums and videos”
+    return new Intl.ListFormat(currentLocale(), { type: 'conjunction' }).format(names);
+  } catch {
+    return names.join(', ');
+  }
+}
+
+/** The orange line about `breaking` (useBreaking): what to take out before going to `version`. */
+function BreakingNote({ version, breaking }: { version: string; breaking: string }) {
+  if (!breaking) return null;
+  return (
+    <Text size="xs" c="orange" mb="xs">
+      {tr(
+        'Увага: версія {version} не відкриє вікно керування, поки в послідовності показу чи в збережених програмах є {what}. Перш ніж перейти, приберіть їх; програму відкрийте, приберіть пункти й збережіть її знову.',
+        { version, what: breaking },
+      )}
+    </Text>
+  );
+}
 
 /**
  * «Оновлення» (1.0.0): is there a newer version on GitHub? The server asks twice a day at most;
@@ -386,6 +427,7 @@ function Rollback({
   onRollback: () => void;
 }) {
   const [confirm, setConfirm] = useState(false);
+  const breaking = useBreaking(version);
   const wait =
     phase === 'restarting'
       ? tr('Застосунок уже перезапускається')
@@ -433,6 +475,7 @@ function Rollback({
               )}
             </Text>
           )}
+          <BreakingNote version={version} breaking={breaking} />
           <Group gap="xs" justify="flex-end">
             <Button size="xs" variant="default" onClick={() => setConfirm(false)}>
               {tr('Скасувати')}
@@ -612,6 +655,9 @@ function Install({
         ? newest
         : null);
   const chosen = versions.find((v) => v.version === target) ?? null;
+  const older = !!target && compareVersions(target, state.current) < 0;
+  // before 1.9.1 an item kind it doesn't know keeps the control window shut (a hook: above the return)
+  const breaking = useBreaking(older ? target : null);
   if (phase === 'download' || phase === 'verify' || phase === 'unpack') {
     const total = inst?.total || chosen?.size || state.latest?.asset?.size || 0;
     const label =
@@ -635,7 +681,6 @@ function Install({
       </div>
     );
   }
-  const older = !!target && compareVersions(target, state.current) < 0;
   const options = versions.map((v) => ({
     value: v.version,
     label:
@@ -753,6 +798,7 @@ function Install({
           )}
         </Text>
       )}
+      {older && target && <BreakingNote version={target} breaking={breaking} />}
       {older && (
         <Text size="xs" c="dimmed" mb={4}>
           {tr(

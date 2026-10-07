@@ -33,9 +33,10 @@ import {
   IconFolder,
   IconFolderOpen,
   IconArrowBackUp,
+  IconPuzzle,
 } from '@tabler/icons-react';
 import { api } from '../api';
-import { type SeqItem, type SavedProgram } from '../playlistStore';
+import { type SeqItem, type SavedProgram, stepIndex } from '../playlistStore';
 import { useServer } from '../serverStore';
 import { useSettings } from '../settingsStore';
 import { formatCombo } from '../hotkeys';
@@ -73,6 +74,7 @@ const KIND_ICON = {
   image: IconLibraryPhoto,
   album: IconAlbum,
   video: IconMovie,
+  foreign: IconPuzzle,
 } as const;
 
 // Kinds are told apart by their icon; colour stays reserved for live/cue state.
@@ -83,6 +85,7 @@ const KIND_COLOR = {
   image: 'gray',
   album: 'gray',
   video: 'gray',
+  foreign: 'gray',
 } as const;
 
 /**
@@ -137,6 +140,11 @@ export const PlaylistPanel = memo(function PlaylistPanel({
     staleTime: 0,
   });
   const gone = (it: SeqItem): string | null => {
+    // an item a newer version added (1.9.1): kept for it, never shown here
+    if (it.kind === 'foreign')
+      return it.label
+        ? tr('Пункт новішої версії: {name}', { name: it.label })
+        : tr('Пункт новішої версії');
     if (it.kind === 'image' && !!known && !known.has(it.imageId))
       return tr('Зображення видалено: {name}', { name: it.label });
     if (it.kind === 'video') {
@@ -158,9 +166,10 @@ export const PlaylistPanel = memo(function PlaylistPanel({
   const undoDeleteRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const keymap = useSettings((s) => s.keymap);
-  // what «Далі» brings: the item after the current one, the first while none is
-  const at = items.findIndex((it) => it.id === currentId);
-  const nextId = at >= 0 ? (items[at + 1]?.id ?? null) : (items[0]?.id ?? null);
+  // what «Далі» brings: the item after the current one, the first while none is (over items of
+  // a newer version, 1.9.1)
+  const nextAt = stepIndex(items, currentId, 1);
+  const nextId = nextAt == null ? null : items[nextAt].id;
   // the current item in sight as the show goes on (a long list scrolls under the monitors)
   useEffect(() => {
     if (!currentId) return;

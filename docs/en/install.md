@@ -255,7 +255,8 @@ In a few seconds the app runs the previous version, and **Updates** says “Went
 version …”. The version you left stays next to it, so you can go to it with the same button.
 If the previous version doesn't start, the app keeps the one you had. On Windows, the
 confirmation warns when the previous version is older than 1.8.8: before you update from it,
-close the browser completely.
+close the browser completely. It also warns when the running order holds items the previous
+version doesn't know: [remove them](#install-another-version) before you go back.
 
 Versions before 1.4.0 can't go back to another version yet. If you went back to such a
 version, it has no **Go back to version …** button, and **Updates** says “Updated from … to
@@ -286,6 +287,13 @@ it replaces the one downloaded.
 An older version doesn't know what came later: it may reset some settings to their defaults.
 So [save a backup](#save-a-backup) before you switch: after coming back, you can restore
 everything in it.
+
+Versions before 1.9.1 don't open the control window while the running order or a saved
+program holds items they don't know: image items for versions before 1.5.0, albums before
+1.8.12-beta.1, videos before 1.8.12-beta.3, and items a newer version added for all before
+1.9.1. **Updates** warns about it before you switch: remove such items, then switch. To remove
+them from a saved program, open it, remove the items, and save the program again. From 1.9.1 on, the app keeps unknown items, shows them greyed out as
+“An item of a newer version”, and passes over them during the show.
 
 To come back to the version you switched from, click **Go back to version …**. Versions before
 1.4.0 don't have that button yet: from them, you can only update to the newest version, which

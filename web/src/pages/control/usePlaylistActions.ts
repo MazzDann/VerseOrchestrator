@@ -9,6 +9,7 @@ import {
   type SeqItem,
   type SeqPassage,
   type SeqSong,
+  stepIndex,
 } from '../../playlistStore';
 import {
   type Slide,
@@ -206,6 +207,17 @@ export function usePlaylistActions({
   };
 
   const activateItem = (it: SeqItem) => {
+    // an item a newer version added (1.9.1): it stays in the list, nothing goes on screen
+    if (it.kind === 'foreign') {
+      notifications.show({
+        message: tr(
+          'Цей пункт додала новіша версія застосунку — оновіть застосунок, щоб показати його',
+        ),
+        color: 'gray',
+        autoClose: 3000,
+      });
+      return;
+    }
     playlistSetCurrent(it.id);
     followItem(it.kind);
     if (it.kind === 'passage') void activatePassage(it);
@@ -213,19 +225,14 @@ export function usePlaylistActions({
     else if (it.kind === 'image') projectPicture(pictureOf(it));
     else if (it.kind === 'album') void startAlbum(it.albumId, it.fit, it.label);
     else if (it.kind === 'video') void startVideo(it.videoId, it.fit, it.label);
-    else void activateSong(it);
+    else if (it.kind === 'song') void activateSong(it);
   };
 
+  // one item on (or back), over items of a newer version; at an end the edge item again
   const stepPlaylist = (delta: 1 | -1) => {
-    if (playlistItems.length === 0) return;
-    const idx = playlistItems.findIndex((i) => i.id === playlistCurrentId);
-    const next =
-      idx < 0
-        ? delta > 0
-          ? 0
-          : playlistItems.length - 1
-        : Math.min(playlistItems.length - 1, Math.max(0, idx + delta));
-    activateItem(playlistItems[next]);
+    const at = playlistItems.findIndex((i) => i.id === playlistCurrentId);
+    const next = stepIndex(playlistItems, playlistCurrentId, delta) ?? (at >= 0 ? at : null);
+    if (next != null) activateItem(playlistItems[next]);
   };
 
   const addCurrentPassage = () => {

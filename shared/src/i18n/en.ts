@@ -1948,6 +1948,23 @@ export const EN: Record<string, string> = {
   // a step down that can update back (1.9.0, server/src/installer.ts FIRST_SWAP_SAFE)
   'З версій, старіших за 1.8.8, на Windows не вдається оновитися назад':
     'Versions older than 1.8.8 can’t update back on Windows',
+  // 1.9.1: items of a newer version in the running order
+  'Пункт новішої версії': 'An item of a newer version',
+  'Пункт новішої версії: {name}': 'An item of a newer version: {name}',
+  'Цей пункт додала новіша версія застосунку — оновіть застосунок, щоб показати його':
+    'A newer version of the app added this item — update the app to show it',
+  'Далі лише пункти новішої версії — оновіть застосунок, щоб показати їх':
+    'Only items of a newer version come next — update the app to show them',
+  'Перед ним лише пункти новішої версії — оновіть застосунок, щоб показати їх':
+    'Only items of a newer version come before it — update the app to show them',
+  'У послідовності лише пункти новішої версії — оновіть застосунок, щоб показати їх':
+    'The running order holds only items of a newer version — update the app to show them',
+  'пункти із зображеннями': 'image items',
+  альбоми: 'album items',
+  відео: 'video items',
+  'пункти новішої версії': 'items of a newer version',
+  'Увага: версія {version} не відкриє вікно керування, поки в послідовності показу чи в збережених програмах є {what}. Перш ніж перейти, приберіть їх; програму відкрийте, приберіть пункти й збережіть її знову.':
+    'Note: version {version} won’t open the control window while the running order or a saved program holds {what}. Remove them before you switch; for a program, open it, remove the items, and save it again.',
   'Увага: версія {version} на Windows не зможе оновитися назад, поки відкритий браузер, який вона запустить. Коли знадобиться оновитися з неї, закрийте браузер повністю.':
     'Note: on Windows, version {version} can’t update back while a browser it started is open. Before you update from it, close the browser completely.',
   'Версії, старіші за 1.8.8, на Windows недоступні для вибору: з них не вдається оновитися назад, поки відкритий браузер, який вони запустили.':
