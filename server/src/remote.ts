@@ -18,7 +18,7 @@ import { readJson, writeJson } from './jsonFile.js';
  * (to preview with `pick`, to put on screen with `show` + passage, which needs both).
  * `songs` (0.6.3) is a permission, not a command: song stanzas chosen on the phone go
  * the same way (`pick` / `show` + song) — the operator grants it per remote on its own.
- * `cover` and `countdown` (1.9.0-beta.1) are «Заставка» (the L key) and «Відлік» (start /
+ * `cover` and `countdown` (1.9.0-beta.10) are «Заставка» (the L key) and «Відлік» (start /
  * pause / take off) — asked for a control window on another computer (F1005-10).
  */
 export const REMOTE_COMMANDS = [
@@ -59,7 +59,7 @@ export const isRemoteAction = (c: unknown): c is RemoteAction =>
 export const DEFAULT_ALLOWED: RemoteCommand[] = ['next', 'prev', 'blank'];
 
 /**
- * What the operator paired (1.9.0-beta.1): a phone (`/remote`, a QR) or a control window on
+ * What the operator paired (1.9.0-beta.10): a phone (`/remote`, a QR) or a control window on
  * another computer of the LAN (`/desk`, a link). The hub treats both alike — the permissions
  * decide; the kind names the row and the link in «Пульт». Older files have none: a phone.
  */
@@ -162,7 +162,7 @@ export function createPairing(
 }
 
 /**
- * One name per pairing (1.9.0-beta.1): the operator tells remotes apart by it, and a desk knows
+ * One name per pairing (1.9.0-beta.10): the operator tells remotes apart by it, and a desk knows
  * its own slide by it (`source.by`) — «Пульт 2» made again after a revoke becomes «Пульт 2 (2)».
  */
 function uniqueName(name: string): string {
@@ -283,7 +283,7 @@ export function sanitizeSong(raw: unknown): SongPick | null {
 }
 
 /**
- * «Відлік» from a remote (1.9.0-beta.1): `start` a new one — of `seconds` (1 s – 12 h) or the
+ * «Відлік» from a remote (1.9.0-beta.10): `start` a new one — of `seconds` (1 s – 12 h) or the
  * operator's saved length —, `pause` (pause / go on, the T key) or `stop` (take it off).
  */
 export interface CountdownOp {

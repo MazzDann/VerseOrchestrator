@@ -5,7 +5,7 @@ import { deskTokenOf } from '../lib/desk';
 import { tr, useLang } from '../i18n';
 
 /**
- * `/` opened from another computer of the network (1.9.0-beta.1, F1005-10): the control window
+ * `/` opened from another computer of the network (1.9.0-beta.10, F1005-10): the control window
  * works only on the computer with the app (its settings, files and output windows live there).
  * This page says how to control the show from here — a desk link from the operator — and takes
  * one pasted in.

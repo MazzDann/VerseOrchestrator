@@ -8,7 +8,7 @@ import { Monitor } from '../../components/Monitor';
 import { tr, useLang } from '../../i18n';
 
 /**
- * The desk's right column (1.9.0-beta.1): «На екрані» — the slide the operator's output shows,
+ * The desk's right column (1.9.0-beta.10): «На екрані» — the slide the operator's output shows,
  * as the hub's `slides` frame brings it (no images) —, the desk's own «Прев’ю», and the
  * operator's running order when this desk may see it (a row puts its item on screen).
  */

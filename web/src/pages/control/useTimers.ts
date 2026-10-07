@@ -157,7 +157,7 @@ export function useTimers({
     countdownStartSaved();
   };
   /**
-   * «Відлік» from a remote (1.9.0-beta.1: a control window on another computer): a new one — of
+   * «Відлік» from a remote (1.9.0-beta.10: a control window on another computer): a new one — of
    * its length or the saved one, in the operator's look and place —, pause / go on, or off, as
    * «Прибрати відлік» does. What happened goes back to it.
    */

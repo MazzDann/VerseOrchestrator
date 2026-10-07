@@ -18,7 +18,7 @@ export type DeskLink =
   | { kind: 'denied'; reason: string };
 
 /**
- * The desk's line to the hub (1.9.0-beta.1, vo-remote): a remote socket that says `desk: true` —
+ * The desk's line to the hub (1.9.0-beta.10, vo-remote): a remote socket that says `desk: true` —
  * the same token, permissions and acks as a phone's — and hears whole slides for its monitors
  * (`slides`, forDesk on the control window's side). `press` sends a command with an id; a press
  * made while the line is down goes again on reconnect with the same id, so it is applied once.

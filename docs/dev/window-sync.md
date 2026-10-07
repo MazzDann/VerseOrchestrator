@@ -195,7 +195,7 @@ back on screen rejoins in 17 ms.
 ## A control window on another computer: the desk
 
 A remote can be a control window on another computer of the network (`/desk#<token>`,
-1.9.0-beta.1). It is a remote socket that says `desk: true` in its hello: the same token,
+1.9.0-beta.10). It is a remote socket that says `desk: true` in its hello: the same token,
 permissions, retry cache, and real acks as a phone, so the hub keeps one path for commands.
 It never becomes a control socket — output windows live in the operator's browser
 (BroadcastChannel), and only the control window there pushes slides (`pushLive`). Besides the

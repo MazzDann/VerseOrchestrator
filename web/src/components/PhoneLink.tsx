@@ -9,7 +9,7 @@ import { tr, useLang } from '../i18n';
  * A phone-reachable link to one of this app's pages, as a QR + copyable URL. When the
  * operator opened the app on localhost (phones can't reach that), the URL uses this
  * machine's LAN IP instead. Shared by the viewers (/follow) and speaker-remote panels.
- * `computer` (1.9.0-beta.1): a link for another computer (`/desk`) — no QR, its own words.
+ * `computer` (1.9.0-beta.10): a link for another computer (`/desk`) — no QR, its own words.
  */
 export function PhoneLink({
   path,

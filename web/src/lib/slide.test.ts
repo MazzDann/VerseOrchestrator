@@ -176,7 +176,7 @@ describe('«Відлік» (1.5.0)', () => {
     expect(phone.countdown).toEqual(at);
   });
 
-  it('reaches a desk (another computer, 1.9.0-beta.1) as «Заставка» words and time, no images', () => {
+  it('reaches a desk (another computer, 1.9.0-beta.10) as «Заставка» words and time, no images', () => {
     const bg = { ...DEFAULT_STYLE, bgImage: 'data:image/png;base64,BBBB' };
     const c = countdownOver({ ...verse, style: bg }, logo, at, bg, 'Відлік');
     const desk = forDesk(c);

@@ -19,8 +19,8 @@ import { tr } from '../i18n';
  * `show` (0.6.0, remotes): put the preview on screen — the operator's F5 / «На екран»; with
  * a passage (0.6.1), put THAT on screen. `pick` (0.6.1): the speaker's own preview — a
  * passage chosen on the phone (the remote's cursor), not on screen yet. `cover` (1.4.1):
- * «Заставка» on and off, the L key in an output window — and a remote's since 1.9.0-beta.1.
- * `countdown` (1.9.0-beta.1, a remote's): «Відлік» started, paused or taken off (`args.countdown`).
+ * «Заставка» on and off, the L key in an output window — and a remote's since 1.9.0-beta.10.
+ * `countdown` (1.9.0-beta.10, a remote's): «Відлік» started, paused or taken off (`args.countdown`).
  */
 export type ShowCommand =
   | 'next'
@@ -80,7 +80,7 @@ export type RemoteTarget =
   | { kind: 'song'; song: RemoteSong };
 
 /**
- * «Відлік» from a remote (1.9.0-beta.1): `start` one of `seconds` (or the saved length), `pause`
+ * «Відлік» from a remote (1.9.0-beta.10): `start` one of `seconds` (or the saved length), `pause`
  * (pause / go on, the T key on the one showing) or `stop` (take it off).
  */
 export interface RemoteCountdown {

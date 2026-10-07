@@ -40,7 +40,7 @@ const ALL: RemoteCommand[] = [
   'black',
 ];
 /**
- * A computer (`/desk`, 1.9.0-beta.1) may also have «Заставка» and «Відлік»; the phone's page has no
+ * A computer (`/desk`, 1.9.0-beta.10) may also have «Заставка» and «Відлік»; the phone's page has no
  * buttons for them yet (1.10.x), so a phone's row doesn't offer them.
  */
 const abilities = (kind: PairingKind): RemoteCommand[] =>

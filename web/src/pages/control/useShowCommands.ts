@@ -169,7 +169,7 @@ export function useShowCommands({
           })
         : { ok: false, reason: tr('Не вибрано вірш') };
     }
-    // «Відлік» from a remote (1.9.0-beta.1): start, pause / go on, off
+    // «Відлік» from a remote (1.9.0-beta.10): start, pause / go on, off
     if (cmd === 'countdown') {
       return args.countdown
         ? countdownRemote(args.countdown)

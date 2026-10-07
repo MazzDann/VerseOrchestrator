@@ -7,7 +7,7 @@ import { useSearchRows } from '../../lib/useSearchRows';
 import { tr, useLang } from '../../i18n';
 
 /**
- * The desk's one search field (1.9.0-beta.1) — the control window's and the remote's way: a
+ * The desk's one search field (1.9.0-beta.10) — the control window's and the remote's way: a
  * reference («Ів 3:16») or words from the text; the desk's translations first, all of them when
  * nothing is there; one row per verse. A row (or Enter for the first) opens its chapter there.
  */

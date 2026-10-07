@@ -1840,7 +1840,7 @@ export const EN: Record<string, string> = {
   'Угорі, посередині': 'At the top, in the middle',
   'Над віршами (у «Біблії»)': 'Above the verses (in “Bible”)',
   'Угорі, перед режимами': 'At the top, before the modes',
-  // a control window on another computer (1.9.0-beta.1, server/src/live.ts, web/src/pages/Desk.tsx)
+  // a control window on another computer (1.9.0-beta.10, server/src/live.ts, web/src/pages/Desk.tsx)
   'Неправильний відлік': 'Invalid countdown',
   'Відліку на екрані немає': 'There is no countdown on screen',
   'Керувати показом звідси — через пульт для комп’ютера':

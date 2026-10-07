@@ -12,7 +12,7 @@ import { startUiStateSync } from './uiState';
  */
 export async function bootControl(): Promise<void> {
   await probeServer();
-  // Opened from another computer (1.9.0-beta.1): the control window works only on the one with
+  // Opened from another computer (1.9.0-beta.10): the control window works only on the one with
   // the app — `/` shows how to get a desk link instead; no settings sync, no browser library.
   if (useServer.getState().available && !(await onThisComputer())) {
     useServer.setState({ here: false });
