@@ -266,6 +266,8 @@ export type SlideSource =
       by?: string;
       /** the chapter's last verse — «вірш 16 з 36» on «Сцена» (1.9.0-beta.11) */
       total?: number;
+      /** the first and the last verse of the page on screen, when the selection has pages */
+      shown?: [number, number];
     }
   | {
       kind: 'song';

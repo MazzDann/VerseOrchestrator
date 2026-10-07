@@ -73,6 +73,7 @@ import { useShowJumpWhenReady } from './control/useShowJumpWhenReady';
 import { usePublishNext, useAdoptRestore, useLeaderTakeover } from './control/useTakeover';
 import { useShowCommands } from './control/useShowCommands';
 import { useHub } from './control/useHub';
+import { useOrderCurrentMirror } from './control/useOrderCurrentMirror';
 import { ControlHeader } from './control/ControlHeader';
 import { ControlNavbar } from './control/ControlNavbar';
 import { HubBanners } from './control/HubBanners';
@@ -878,6 +879,9 @@ export function Control() {
     liveSlide,
     nextSlide,
   });
+  // «Сцена»'s running-order strip (1.9.0-beta.11): the item on screen, under its own key — after
+  // the hub (E26–E30); it only writes localStorage
+  useOrderCurrentMirror({ isLeader, currentId: playlistCurrentId });
 
   // In-app "what's on screen now" monitor — reflects the actually-published slide.
   const textHidden = liveSlide.blank && !liveSlide.forceBlack;

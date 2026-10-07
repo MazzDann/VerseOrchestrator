@@ -43,6 +43,13 @@ export function stageLook(a: Partial<Appearance>): StageLook {
   };
 }
 
+/**
+ * The running order's item on screen, for «Сцена» (review of 1.9.0-beta.11): the playlist store
+ * keeps `currentId` in memory only (its `partialize`), so the control window in charge mirrors it
+ * here and the stage window of this browser hears the storage event.
+ */
+export const ORDER_CURRENT_KEY = 'vo:playlist-current';
+
 /** The largest the words may grow in «Текст», in vmin of the window: the auto-fit's ceiling. */
 export const STAGE_TEXT_MAX: Record<StageTextSize, number> = { sm: 7, md: 10, lg: 14, xl: 20 };
 
@@ -53,8 +60,9 @@ export const STAGE_TEXT_MAX: Record<StageTextSize, number> = { sm: 7, md: 10, lg
 export function placeWords(src: SlideSource | undefined | null): string {
   if (!src || src.kind === 'video' || !src.total) return '';
   if (src.kind === 'verses') {
-    const first = src.verses[0];
-    const last = src.verses[src.verses.length - 1];
+    // the page on screen when the selection has pages (review), else the selection
+    const first = src.shown?.[0] ?? src.verses[0];
+    const last = src.shown?.[1] ?? src.verses[src.verses.length - 1];
     if (first == null) return '';
     return first === last
       ? tr('вірш {n} з {total}', { n: first, total: src.total })

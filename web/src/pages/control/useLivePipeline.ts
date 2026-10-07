@@ -34,8 +34,8 @@ export function useLivePipeline({
   const stageTimerRef = useRef<StageTimer | null>(freshTimer(liveSlide.stageTimer));
   if (!isLeader) stageTimerRef.current = freshTimer(liveSlide.stageTimer);
   // «Повідомлення на сцену» (1.9.0-beta.11): the same way — the leader's, on every slide it pushes
-  const stageMessageRef = useRef<StageMessage | null>(liveSlide.stageMessage ?? null);
-  if (!isLeader) stageMessageRef.current = liveSlide.stageMessage ?? null;
+  const stageMessageRef = useRef<StageMessage | null>(freshMessage(liveSlide.stageMessage));
+  if (!isLeader) stageMessageRef.current = freshMessage(liveSlide.stageMessage);
   // «Відлік» in a corner (1.8.7): the same way — over whatever is on screen, so it rides along
   const cornerRef = useRef<SlideCountdown | null>(freshTimer(liveSlide.cornerCountdown));
   if (!isLeader) cornerRef.current = freshTimer(liveSlide.cornerCountdown);
@@ -110,6 +110,14 @@ export function useLivePipeline({
     pushLive,
   };
 }
+
+/**
+ * A message kept in the stored slide (`vo:slide`) from hours ago — yesterday's service — doesn't
+ * come back on «Сцена» with a cold start (review of 1.9.0-beta.11). Six hours, as a long event.
+ */
+const MESSAGE_MS = 6 * 3600 * 1000;
+export const freshMessage = (m: StageMessage | null | undefined, now = Date.now()) =>
+  m && Number.isFinite(m.at) && now - m.at < MESSAGE_MS ? m : null;
 
 /**
  * E10 (vo-sync): the phones' relay follows the follow-along switch — the current slide at once
