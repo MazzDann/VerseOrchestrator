@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { readJson, writeJson } from './jsonFile.js';
+import { isUnreadable, readJson, writeJson } from './jsonFile.js';
 
 /**
  * Speaker remotes: phones paired by the operator (QR) that may send a SCOPED set of
@@ -89,16 +89,30 @@ let persist = false;
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const newToken = () => randomBytes(18).toString('base64url');
 
+/**
+ * secrets.json couldn't be read at start (held for a moment — right after an update's restart,
+ * say): it is read again before the pairings are used or saved (1.9.3 review).
+ */
+let unread = false;
+
 /** Read persisted pairings (call once at startup). */
 export function initRemoteStore(opts: { file: string | null; persist: boolean }): void {
   secretsFile = opts.file;
   persist = opts.persist;
   pairings.clear();
+  unread = false;
+  load();
+}
+
+/** The pairings in the file, added to those here (an id already here stays as it is). */
+function load(): void {
   if (!secretsFile || !persist) return;
   const data = readJson<Partial<SecretsFile>>(secretsFile, { version: 1, remotes: [] });
+  unread = isUnreadable(secretsFile);
   for (const raw of Array.isArray(data.remotes) ? data.remotes : []) {
     if (!raw || typeof raw.id !== 'string' || !/^[0-9a-f]{64}$/.test(String(raw.tokenHash)))
       continue;
+    if (pairings.has(raw.id)) continue;
     pairings.set(raw.id, {
       id: raw.id,
       name: String(raw.name ?? 'Пульт').slice(0, 40), // i18n-ignore: a stored name
@@ -111,16 +125,38 @@ export function initRemoteStore(opts: { file: string | null; persist: boolean })
   }
 }
 
+/** Before the pairings are used: the file not read at start is read now, if it can be. */
+const ready = () => {
+  if (unread) load();
+};
+
 /** Turn persistence on/off at runtime (server setting changed). Off also wipes the file. */
 export function setRemotePersistence(on: boolean): void {
+  if (on === persist) return; // another setting saved: secrets.json isn't touched
   persist = on;
+  if (on) ready();
   save();
 }
 
 function save(): void {
   if (!secretsFile) return;
+  ready();
   const remotes = persist ? [...pairings.values()] : [];
-  writeJson(secretsFile, { version: 1, remotes } satisfies SecretsFile, { secret: true });
+  // persistence off wipes the file whatever it held: not made from reading it
+  writeJson(secretsFile, { version: 1, remotes } satisfies SecretsFile, {
+    secret: true,
+    replace: !persist,
+  });
+}
+
+/** A change kept only if it is saved: `undo` puts it back when the file can't be written. */
+function saveOr(undo: () => void): void {
+  try {
+    save();
+  } catch (err) {
+    undo();
+    throw err;
+  }
 }
 
 /** lastSeen changes on every press — batch those writes. */
@@ -129,7 +165,12 @@ function saveSoon(): void {
   if (!persist || !secretsFile || saveTimer) return;
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    save();
+    // only «last seen»: a file that can't be written now waits for the next press
+    try {
+      save();
+    } catch (err) {
+      console.warn('[remote]', (err as Error).message);
+    }
   }, 5000);
   saveTimer.unref?.();
 }
@@ -145,6 +186,7 @@ export function createPairing(
   allowed?: unknown,
   kind?: unknown,
 ): Pairing & { token: string } {
+  ready();
   const token = newToken();
   const p: Pairing = {
     id: randomUUID(),
@@ -157,7 +199,7 @@ export function createPairing(
     lastSeen: null,
   };
   pairings.set(p.id, p);
-  save();
+  saveOr(() => pairings.delete(p.id)); // no remote listed whose token nobody got
   return { ...p, token };
 }
 
@@ -177,11 +219,13 @@ function uniqueName(name: string): string {
 
 /** Issue a new token for an existing pairing (the old one stops working at once). */
 export function reissuePairing(id: string): (Pairing & { token: string }) | null {
+  ready();
   const p = pairings.get(id);
   if (!p) return null;
   const token = newToken();
+  const was = p.tokenHash;
   p.tokenHash = hashToken(token);
-  save();
+  saveOr(() => (p.tokenHash = was));
   return { ...p, token };
 }
 
@@ -194,6 +238,7 @@ export function sanitizeAllowed(raw: unknown): RemoteCommand[] {
 /** Constant-time lookup by hash (don't leak which pairing / prefix matched). */
 export function findByToken(token: unknown): Pairing | null {
   if (typeof token !== 'string' || token.length < 10) return null;
+  ready();
   const h = Buffer.from(hashToken(token), 'hex');
   let found: Pairing | null = null;
   for (const p of pairings.values()) {
@@ -208,25 +253,32 @@ export function findByToken(token: unknown): Pairing | null {
  * stays paired but can only watch.
  */
 export function setPairingAllowed(id: string, allowed: unknown): Pairing | null {
+  ready();
   const p = pairings.get(id);
   if (!p || !Array.isArray(allowed)) return null;
+  const was = p.allowed;
   p.allowed = sanitizeAllowed(allowed);
-  save();
+  saveOr(() => (p.allowed = was));
   return p;
 }
 
 export function revokePairing(id: string): boolean {
-  const ok = pairings.delete(id);
-  if (ok) save();
-  return ok;
+  ready();
+  const p = pairings.get(id);
+  if (!p) return false;
+  pairings.delete(id);
+  saveOr(() => pairings.set(id, p));
+  return true;
 }
 
 export function getPairing(id: string): Pairing | undefined {
+  ready();
   return pairings.get(id);
 }
 
 /** Public view for the control UI — never includes the token or its hash. */
 export function listPairings(online: (id: string) => boolean) {
+  ready();
   return [...pairings.values()].map((p) => ({
     id: p.id,
     name: p.name,
