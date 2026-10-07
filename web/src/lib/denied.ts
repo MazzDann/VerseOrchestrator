@@ -35,3 +35,35 @@ export const addRefusal = (e: unknown, what: 'folder' | 'file'): string =>
   e instanceof ApiFailure && (e.key === FOLDER_DENIED || e.key === FILE_DENIED)
     ? deniedHint(what)
     : tr((e as Error).message);
+
+/**
+ * Why an album's folder or a video's file can't be used, named by `name` — the running order's
+ * mark, a remote's answer, a notice (1.9.4): added on another computer first, then the system's
+ * refusal, then not there; null when it can be used. Before, all three said «не знайдено» there.
+ */
+export function unusable(
+  what: 'folder' | 'file',
+  e: { missing: boolean; denied?: boolean; elsewhere?: boolean },
+  name: string,
+): string | null {
+  if (e.elsewhere)
+    return what === 'folder'
+      ? tr('Папка з іншого комп’ютера: {name}', { name })
+      : tr('Файл з іншого комп’ютера: {name}', { name });
+  if (e.denied)
+    return what === 'folder'
+      ? tr('Немає доступу до папки: {name}', { name })
+      : tr('Немає доступу до файлу: {name}', { name });
+  if (e.missing)
+    return what === 'folder'
+      ? tr('Папку не знайдено: {name}', { name })
+      : tr('Файл не знайдено: {name}', { name });
+  return null;
+}
+
+/** A notice for a folder or file that can't be used: a refusal says where to allow it. */
+export const unusableNotice = (
+  what: 'folder' | 'file',
+  e: { missing: boolean; denied?: boolean; elsewhere?: boolean },
+  path: string,
+): string => (e.denied && !e.elsewhere ? deniedHint(what) : (unusable(what, e, path) ?? ''));
