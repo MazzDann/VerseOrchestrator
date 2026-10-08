@@ -15,6 +15,7 @@ import { albumSlide, photoIndex, type AlbumPhoto } from '../../lib/album';
 import { readImageFit, type ImageFit } from '../../lib/imageFit';
 import { canDrawSmall, drawSmall, smallOrder } from '../../lib/albumSmall';
 import { PRIORITY, useCommandHandler, type Outcome } from '../../lib/commands';
+import { everyMs } from '../../lib/workerClock';
 import { isFormField, isResizeKey } from '../../lib/keyScroll';
 import { stepDirection } from '../../hotkeys';
 import { useSettings } from '../../settingsStore';
@@ -278,11 +279,13 @@ export function useAlbum({
     owns,
   );
 
-  // «Міняти кожні N с»: this window steps the album while it leads and the screen shows it
+  // «Міняти кожні N с»: this window steps the album while it leads and the screen shows it — on a
+  // worker's clock (1.10.1, the Mac's round: a fully covered window's own timers go 1/s, then 1/min
+  // after five minutes, and the photos stopped changing)
   const albumId = album?.id ?? null;
   useEffect(() => {
     if (!playing || !isLeader || !albumId) return;
-    const t = window.setInterval(() => {
+    return everyMs(every * 1000, () => {
       if (!playingRef.current || !leaderRef.current) return;
       const s = liveSlideRef.current;
       if (!albumOnScreen(s, albumId)) {
@@ -295,8 +298,7 @@ export function useAlbum({
         setPlaying(false);
         if (o.reason) notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
       }
-    }, every * 1000);
-    return () => window.clearInterval(t);
+    });
   }, [playing, isLeader, albumId, every, restartAt, liveSlideRef, leaderRef, setPlaying]);
 
   // a window on standby steps nothing: the leader's own timer, if any, goes on there
