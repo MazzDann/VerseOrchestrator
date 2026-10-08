@@ -23,6 +23,7 @@ import {
 import { drawPoster } from '../../lib/videoPoster';
 import { readImageFit } from '../../lib/imageFit';
 import { showsSomething } from '../../lib/slide';
+import { everyMs } from '../../lib/workerClock';
 import { tr } from '../../i18n';
 import { unusable, unusableNotice } from '../../lib/denied';
 import { type VideoEnd, type VideoPhones } from '../../settingsStore';
@@ -353,8 +354,9 @@ export function useVideo({
         endNow.current();
       }
     };
-    const t = window.setInterval(check, 200);
-    return () => window.clearInterval(t);
+    // a worker's clock (1.10.1): a covered window's own timers are held back — the end, and the
+    // running order going on after it, came up to a minute late
+    return everyMs(200, check);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isLeader,
