@@ -113,6 +113,29 @@ describe('«Заставка» (1.4.0)', () => {
     cover: { text: 'Недільне зібрання', image: null },
   };
 
+  it('a remote learns a countdown’s clock — not a cover’s (1.11.0-beta.1)', () => {
+    expect(summarize(cover).countdown).toBeUndefined();
+    const counting = { ...cover, countdown: { until: 90_000, caption: 'Починаємо за' } };
+    expect(summarize(counting)).toMatchObject({ kind: 'countdown', countdown: { until: 90_000 } });
+    const paused = {
+      ...cover,
+      countdown: { until: 0, caption: '', pausedLeft: 30_000, afterZero: 'stop' as const },
+    };
+    expect(summarize(paused).countdown).toEqual({
+      until: 0,
+      pausedLeft: 30_000,
+      afterZero: 'stop',
+    });
+    // in a corner of the verses (review): the phone still sees it
+    const corner: Slide = {
+      ...cover,
+      cover: undefined,
+      lines: [{ translationAbbr: 'KJV', text: 'x', rtl: false }],
+      cornerCountdown: { until: 5_000, caption: '' },
+    };
+    expect(summarize(corner).countdown).toEqual({ until: 5_000 });
+  });
+
   it('counts as something on screen, and «Сховати текст» can hide it', () => {
     expect(summarize(cover)).toMatchObject({ status: 'live', text: 'Заставка', kind: 'cover' });
     const hidden = toggleHidden(cover)!;
