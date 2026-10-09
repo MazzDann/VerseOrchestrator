@@ -184,15 +184,16 @@ describe('window bus v2', () => {
     const presenter = createBus(h.endpoint(), memory());
     const cmds: string[] = [];
     const ids = new Set<string>();
-    control.subscribeCommand((c, id) => {
-      cmds.push(c);
+    control.subscribeCommand((c, id, held) => {
+      cmds.push(held ? `${c} held` : c);
       ids.add(id);
     });
     presenter.sendCommand('next');
+    presenter.sendCommand('next', true); // a held clicker key's repeat (1.10.6)
     presenter.sendCommand('black');
     await flush();
-    expect(cmds).toEqual(['next', 'black']);
-    expect(ids.size).toBe(2); // each press has its own id (the dispatcher applies an id once)
+    expect(cmds).toEqual(['next', 'next held', 'black']);
+    expect(ids.size).toBe(3); // each press has its own id (the dispatcher applies an id once)
   });
 
   it('an identical publish is dropped: no message, no storage write', async () => {

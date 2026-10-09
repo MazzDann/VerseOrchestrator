@@ -15,7 +15,8 @@ export type PastFrom =
   | { kind: 'verses'; selected: number[]; page: number }
   | { kind: 'song'; songId: number }
   | { kind: 'album'; albumId: string };
-export type PastItem = (delta: 1 | -1, from: PastFrom) => Outcome | null;
+/** `held`: a key held down (its repeats) — it stops at the item's end, a new press goes on (1.10.6) */
+export type PastItem = (delta: 1 | -1, from: PastFrom, held?: boolean) => Outcome | null;
 
 /** Does the screen still show this item — not something the operator put there since? */
 export function belongsTo(it: SeqItem, slide: Slide): boolean {
