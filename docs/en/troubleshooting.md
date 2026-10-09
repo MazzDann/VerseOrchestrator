@@ -128,9 +128,11 @@ the presentation window still disappears, turn “Peek” off:
 3. Click OK. If nothing changes, sign out and sign in again.
 
 If the presentation window doesn't come back as soon as you move the pointer away, it was
-minimized: by a click in the far right corner of the taskbar or by Win+D. Press Win+D again —
-the windows come back. Don't click inside the presentation window to bring it forward: a click
-there turns full screen on and off.
+minimized: by a click in the far right corner of the taskbar or by Win+D. If you haven't clicked
+anything since, press Win+D again — the windows come back. Otherwise bring it back with its
+thumbnail on the browser's taskbar button, with Alt+Tab, or with **Go to the window** in its row
+of the **Output windows** panel. Don't click inside the presentation window to bring it forward:
+a click there turns full screen on and off.
 
 ### “Presentation 1: couldn't draw the slide”
 

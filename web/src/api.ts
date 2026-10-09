@@ -712,12 +712,20 @@ export const api = {
    * windows out of Windows «Peek» (server/src/peekGuard.ts). Best-effort: a server without it,
    * «у браузері» without a server — nothing to do.
    */
-  peekGuard: async (): Promise<void> => {
-    await fetch('/api/windows/peek-guard', { method: 'POST', headers: CONTROL_HEADERS }).catch(
-      () => {
-        /* best-effort */
-      },
-    );
+  peekGuard: async (): Promise<'queued' | 'off' | 'gone' | 'retry'> => {
+    try {
+      const res = await fetch('/api/windows/peek-guard', {
+        method: 'POST',
+        headers: CONTROL_HEADERS,
+      });
+      // a server without it (an older one, «у браузері»): ask no more
+      if (res.status === 404 || res.status === 405) return 'gone';
+      if (!res.ok) return 'retry';
+      const body = (await res.json().catch(() => null)) as { state?: unknown } | null;
+      return body?.state === 'off' ? 'off' : 'queued';
+    } catch {
+      return 'retry'; // no answer (the server restarting): the next change asks again
+    }
   },
   // `local` (1.9.0-beta.10): this page runs on the computer with the app (absent before: yes)
   host: () =>

@@ -43,6 +43,7 @@ describe('Windows «Peek» and the output windows (F1005-05)', () => {
     expect(PEEK_GUARD_COMMAND).not.toMatch(/[\r\n]/);
     expect(/^[\x20-\x7e]*$/.test(PEEK_GUARD_COMMAND)).toBe(true);
     expect(PEEK_GUARD_COMMAND).toContain('$env:VO_PEEK_CS');
+    expect(PEEK_GUARD_COMMAND).toContain('[Console]::OutputEncoding = [Text.Encoding]::UTF8');
     expect(PEEK_GUARD_CS).toContain('DwmSetWindowAttribute(h, 12, ref on, 4)');
     expect(PEEK_GUARD_CS).toContain('StartsWith(p, StringComparison.Ordinal)');
   });
@@ -135,6 +136,49 @@ describe('Windows «Peek» and the output windows (F1005-05)', () => {
     ]);
   });
 
+  it('one window that refuses does not switch the guard off for the others (review)', async () => {
+    vi.useFakeTimers();
+    // an elevated browser's window next to ours: refused every time, the other marked
+    const r = fakeRunner(() => ok('906A6 00000000\n40C1C 80070005\n'), 10);
+    const log: string[] = [];
+    const g = createPeekGuard({
+      platform: 'win32',
+      env: {},
+      run: r.run,
+      log: (m) => log.push(m),
+      minIntervalMs: 100,
+    });
+    for (let i = 0; i < MAX_FAILURES + 2; i++) {
+      expect(g.request()).toBe('queued');
+      await vi.advanceTimersByTimeAsync(200);
+    }
+    expect(g.request()).toBe('queued');
+    expect(log).toEqual([
+      'some windows not marked: DwmSetWindowAttribute 0x80070005',
+      'kept out of Windows Peek: 1 window(s)',
+    ]);
+  });
+
+  it('a clock set back never stalls the next run past the interval (review)', async () => {
+    vi.useFakeTimers();
+    let clock = 1_000_000;
+    const r = fakeRunner(() => ok(''), 10);
+    const g = createPeekGuard({
+      platform: 'win32',
+      env: {},
+      run: r.run,
+      log: () => {},
+      now: () => clock,
+    });
+    g.request();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(r.runs).toHaveLength(1);
+    clock -= 3_600_000; // an hour back: time sync after a boot with a fast clock
+    g.request();
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(r.runs).toHaveLength(2);
+  });
+
   it('a runner that throws or PowerShell that is missing counts as a failure, not a crash', async () => {
     vi.useFakeTimers();
     const log: string[] = [];
@@ -161,6 +205,8 @@ describe('Windows «Peek» and the output windows (F1005-05)', () => {
       const log: string[] = [];
       const g = createPeekGuard({
         log: (m) => log.push(m),
+        // the machine's own environment (PowerShell needs PATH, SystemRoot) — without the switch
+        env: { ...process.env, VO_PEEK_GUARD: undefined },
         // a title no window has
         titles: [`VO peek guard test ${process.pid} ${Date.now()}`],
       });

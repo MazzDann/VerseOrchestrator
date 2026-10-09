@@ -289,13 +289,26 @@ function announceWindow(
   };
   retitle();
   const peek = createPeekGuardPoke();
-  peek.poke();
+  // asked while visible since the window last changed: being shown again needs no new request —
+  // one covered and uncovered by turns (a single screen at a rehearsal) would ask every few
+  // seconds for nothing; a window that opened covered asks when it is first shown
+  let asked = false;
+  const ask = () => {
+    if (document.visibilityState !== 'visible') return;
+    asked = true;
+    peek.poke();
+  };
+  ask();
   const changed = () => {
     retitle();
     a.changed();
-    // a hidden window asks when it is shown again: one covered and uncovered by turns (a single
-    // screen at a rehearsal) would ask every few seconds for nothing
-    if (document.visibilityState === 'visible') peek.poke();
+    asked = false;
+    ask();
+  };
+  const shown = () => {
+    retitle();
+    a.changed();
+    if (!asked) ask();
   };
   // Moving a window fires no event: compare the position once a second.
   let last = JSON.stringify(info().bounds);
@@ -308,7 +321,7 @@ function announceWindow(
   }, 1000);
   window.addEventListener('resize', changed);
   document.addEventListener('fullscreenchange', changed);
-  document.addEventListener('visibilitychange', changed);
+  document.addEventListener('visibilitychange', shown);
   const bye = () => a.stop();
   window.addEventListener('pagehide', bye);
   return {
@@ -321,7 +334,7 @@ function announceWindow(
       document.title = titleBefore;
       window.removeEventListener('resize', changed);
       document.removeEventListener('fullscreenchange', changed);
-      document.removeEventListener('visibilitychange', changed);
+      document.removeEventListener('visibilitychange', shown);
       window.removeEventListener('pagehide', bye);
       a.stop();
     },
