@@ -71,7 +71,9 @@ follow along.
 
 If a Bluetooth clicker is connected to the phone, it steps through the show too: →, ↓,
 PageDown, and Space — **Next**; ←, ↑, and PageUp — **Back**; and Enter, with the
-**To screen** permission, — **To screen**.
+**To screen** permission, — **To screen**. In the **Stage** view the clicker steps the
+operator's show (or the speaker's own chosen verse, if that is on screen now), and Enter
+does nothing there.
 
 ## Permissions
 
