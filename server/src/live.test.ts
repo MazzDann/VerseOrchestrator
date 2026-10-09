@@ -212,6 +212,20 @@ describe('speaker remote over the hub', () => {
     remote.ws.close();
   });
 
+  it('a held key’s «Далі» / «Назад» say so, as a plain true (1.10.6)', async () => {
+    const p = createPairing('Стіл');
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const remote = client({ role: 'remote', token: p.token });
+    await remote.next('welcome');
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'next', id: 'h1', held: true }));
+    expect(await control.next('command')).toMatchObject({ cmd: 'next', held: true });
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'prev', id: 'h2', held: 'yes' }));
+    expect((await control.next('command')).held).toBeUndefined();
+    control.ws.close();
+    remote.ws.close();
+  });
+
   it('a retried command id is applied once; the retry gets the same answer', async () => {
     const p = createPairing('Повтор');
     const control = client({ role: 'control' }, origin());

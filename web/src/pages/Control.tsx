@@ -1299,8 +1299,8 @@ export function Control() {
               onAddToPlaylist={addSongToPlaylist}
               keysPaused={paletteOpen || moreShown || toolOpen}
               onSongEnd={songEnd}
-              onPastEnd={(dir, songId) =>
-                pastItemRef.current?.(dir, { kind: 'song', songId }) ?? null
+              onPastEnd={(dir, songId, held) =>
+                pastItemRef.current?.(dir, { kind: 'song', songId }, held) ?? null
               }
             />
             <TextPanel

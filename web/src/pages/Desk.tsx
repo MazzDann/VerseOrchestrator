@@ -310,7 +310,8 @@ export function Desk() {
     }
     const cmd = delta > 0 ? 'next' : 'prev';
     if (!mayPress(allowed, cmd)) return refused();
-    press(cmd);
+    // a held key's repeats say so: they step on, never into another item (1.10.6)
+    press(cmd, held ? { held: true } : {});
   };
   const walkTo = (p: RemotePassage) => {
     set({ mode: 'bible', bookNumber: p.bookNumber, chapter: p.chapter, verses: p.verses });
