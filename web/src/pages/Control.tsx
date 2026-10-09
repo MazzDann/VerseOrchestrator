@@ -244,6 +244,13 @@ export function Control() {
       if (kind === 'passage') toBible();
       else if (kind === 'text') setTextOpen(true);
       else if (kind === 'image') setPlace({ ws: 'media', tab: 'images' });
+      // a «Заставка», «Відлік» or «Цикл» has no panel of its own (1.10.5, the Mac's round): it
+      // leaves «Пісні» and an open album — they kept ←/→, the clicker and the remote, and their next
+      // stanza or photo went over the item instead of the running order moving on
+      else if (kind === 'cover' || kind === 'countdown' || kind === 'loop')
+        setPlace((p) =>
+          p.ws === 'songs' || (p.ws === 'media' && p.tab === 'albums') ? { ...p, ws: 'bible' } : p,
+        );
     },
     [toBible, setTextOpen],
   );
@@ -810,6 +817,7 @@ export function Control() {
   // Show commands from outside the keyboard (E22, E23): an output window's keys and the
   // remotes, through lib/commands.ts — right after the hotkeys, before the takeover and the hub
   useShowCommands({
+    followItem,
     advance,
     playlistItems,
     leaderRef,
