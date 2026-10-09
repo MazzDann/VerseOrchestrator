@@ -134,6 +134,90 @@ export function unpackCommand(platform: string, archive: string, dir: string): [
   return ['tar', ['-xzf', archive, '-C', dir]];
 }
 
+/**
+ * A folder copied to another volume, where no rename reaches (EXDEV — Mac check of 1.10.1): the
+ * modes with it, so a release's `node/bin/node` stays runnable, and links as they are. It goes
+ * into `<to>.part` first and is renamed to `to` on that volume once whole: a copy cut short — an
+ * error, the app closed, the power gone — leaves at most the .part, which nothing offers and the
+ * next try clears. Asynchronous: ~175 MB from a slow flash drive takes seconds, and phones, the
+ * remote and the hub's heartbeat go through this process meanwhile. `stop`: the copy was overtaken
+ * (a rollback, a restart) — its .part goes and `to` isn't made (false). The source stays: it is the
+ * caller's to remove.
+ */
+export async function copyAcross(
+  from: string,
+  to: string,
+  stop: () => boolean = () => false,
+): Promise<boolean> {
+  if (fs.existsSync(to)) throw Object.assign(new Error(`EEXIST: ${to}`), { code: 'EEXIST' });
+  const part = `${to}.part`;
+  const dropPart = () => fs.promises.rm(part, { recursive: true, force: true }).catch(() => {});
+  await fs.promises.rm(part, { recursive: true, force: true });
+  try {
+    await fs.promises.cp(from, part, {
+      recursive: true,
+      preserveTimestamps: true,
+      verbatimSymlinks: true,
+    });
+  } catch (e) {
+    await dropPart(); // a clean-up that fails too mustn't hide why the copy did
+    throw e;
+  }
+  if (stop()) {
+    await dropPart();
+    return false;
+  }
+  // Windows may hold the tree just written for a moment (an antivirus, an indexer, an editor's
+  // watcher — the 1.10.0 update run): tried again as renameSoon does, without blocking the hub;
+  // a rename that never goes leaves no .part behind (review of #159)
+  for (let i = 1; ; i++) {
+    try {
+      fs.renameSync(part, to);
+      return true;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      const held = code === 'EPERM' || code === 'EBUSY' || code === 'EACCES';
+      if (process.platform !== 'win32' || !held || i >= RENAME_TRIES) {
+        await dropPart();
+        throw e;
+      }
+      await new Promise((r) => setTimeout(r, RENAME_PAUSE_MS));
+    }
+  }
+}
+
+/**
+ * Where an update whose archive is `size` bytes finds too little room, or null. On one volume the
+ * archive and the unpacked copy (renamed to app.next) take about four times the archive. With
+ * data/ on another (VO_DATA_DIR on a flash drive or a second disk — Mac check of 1.10.1), the
+ * archive and the unpacked copy take about four times there, and app.next, copied over, three
+ * times next to app/ (docs/install.md: ~70 MB the archive, ~175 MB unpacked — 3.5× and 2.5×, with
+ * a margin): `on` names the folder whose disk is short then.
+ */
+function shortOfRoom(
+  top: string,
+  dataDir: string,
+  updatesDir: string,
+  size: number,
+): { need: number; on?: string } | null {
+  try {
+    const needs: { dir: string; need: number; on?: string }[] =
+      fs.statSync(updatesDir).dev === fs.statSync(top).dev
+        ? [{ dir: top, need: size * 4 }]
+        : [
+            { dir: updatesDir, need: size * 4, on: dataDir },
+            { dir: top, need: size * 3, on: top },
+          ];
+    for (const { dir, need, on } of needs) {
+      const free = fs.statfsSync(dir);
+      if (free.bavail * free.bsize < need) return { need, on };
+    }
+  } catch {
+    /* no statfs here: try anyway */
+  }
+  return null;
+}
+
 const run = (cmd: string, args: string[]) =>
   new Promise<void>((resolve, reject) => {
     const p = spawn(cmd, args, { stdio: 'ignore', windowsHide: true });
@@ -175,7 +259,9 @@ export function createInstaller(o: InstallerOptions) {
         return;
       } catch (e) {
         if (platform !== 'win32' || i >= RENAME_TRIES) throw e;
-        if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw e; // nothing there
+        const code = (e as NodeJS.ErrnoException).code;
+        // nothing there; another volume, which no wait brings nearer (Mac check of 1.10.1)
+        if (code === 'ENOENT' || code === 'EXDEV') throw e;
         // a synchronous pause: no download step runs in between (turn)
         Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, RENAME_PAUSE_MS);
       }
@@ -218,16 +304,16 @@ export function createInstaller(o: InstallerOptions) {
     if (!asset || !latest.sums) return fail(N_('Для цієї системи в релізі немає архіву'));
     fs.rmSync(updatesDir, { recursive: true, force: true });
     fs.mkdirSync(updatesDir, { recursive: true });
-    // room for the archive, the unpacked copy and app.next: about four times the archive
-    try {
-      const free = fs.statfsSync(o.top);
-      const need = asset.size * 4;
-      if (free.bavail * free.bsize < need)
-        return fail(N_('Замало місця на диску: потрібно близько {mb} МБ'), {
-          mb: String(Math.ceil(need / 1048576)),
-        });
-    } catch {
-      /* no statfs here: try anyway */
+    // room for the archive, the unpacked copy and app.next, on each volume they take
+    const short = shortOfRoom(o.top, o.dataDir, updatesDir, asset.size);
+    if (short) {
+      const mb = String(Math.ceil(short.need / 1048576));
+      return short.on
+        ? fail(N_('Замало місця на диску з папкою {path}: потрібно близько {mb} МБ'), {
+            path: short.on,
+            mb,
+          })
+        : fail(N_('Замало місця на диску: потрібно близько {mb} МБ'), { mb });
     }
     const file = path.join(updatesDir, asset.name);
     try {
@@ -269,10 +355,17 @@ export function createInstaller(o: InstallerOptions) {
       if ('error' in found) return fail(found.error);
       const next = path.join(o.top, NEXT_DIR);
       fs.rmSync(next, { recursive: true, force: true });
-      // same disk: data/ is next to app/. Windows may hold the folder just unpacked for a moment —
-      // an antivirus, an indexer, an editor watching the folder (the 1.10 update run: EPERM every
-      // time in a copy inside a VS Code workspace) — so tried again, as the swap's renames are
-      renameSoon(found.app, next);
+      try {
+        // Windows may hold the folder just unpacked for a moment — an antivirus, an indexer, an
+        // editor watching the folder (the 1.10 update run: EPERM every time in a copy inside a
+        // VS Code workspace) — so tried again, as the swap's renames are
+        renameSoon(found.app, next);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e;
+        // data/ on another volume (VO_DATA_DIR): no rename reaches app/ — copied over, while
+        // notNow() keeps a restart and a rollback off (the phase is 'unpack'; Mac check of 1.10.1)
+        if (!(await copyAcross(found.app, next, superseded))) return abandon(file, unpacked);
+      }
       recordNext(latest.version, newest);
       // the start file and the notes: swap.ts puts them next to app/ once the new version runs
       const topFiles = path.join(updatesDir, TOP_FILES_DIR, latest.version);
@@ -280,9 +373,15 @@ export function createInstaller(o: InstallerOptions) {
       const release = path.dirname(found.app);
       for (const e of fs.readdirSync(release, { withFileTypes: true }))
         if (e.isFile()) fs.renameSync(path.join(release, e.name), path.join(topFiles, e.name));
-      fs.rmSync(unpacked, { recursive: true, force: true });
-      fs.rmSync(file, { force: true });
-      state.phase = 'ready';
+      // app.next is whole: what is left of the download (after a copy, the whole unpacked app)
+      // goes, and one the system won't let go of waits for the next download or tidy() — it
+      // doesn't undo the update (Mac check of 1.10.1)
+      await Promise.all(
+        [unpacked, file].map((f) =>
+          fs.promises.rm(f, { recursive: true, force: true }).catch(() => {}),
+        ),
+      );
+      if (!superseded()) state.phase = 'ready';
     } catch {
       if (superseded()) return abandon(file, unpacked);
       fail(N_('Не вдалося розпакувати оновлення'));
@@ -521,6 +620,17 @@ export function createInstaller(o: InstallerOptions) {
         } catch {
           /* still in use (Windows): next time */
         }
+      }
+      // a copy to another volume cut short (the app closed, the power gone) leaves app.next.part
+      // next to app/ — nothing offers it, and the next update may not copy at all (review of #159)
+      const part = path.join(o.top, `${NEXT_DIR}.part`);
+      try {
+        if (fs.existsSync(part)) {
+          fs.rmSync(part, { recursive: true, force: true });
+          gone.push(`${NEXT_DIR}.part`);
+        }
+      } catch {
+        /* still in use (Windows): next time */
       }
       return gone;
     },

@@ -1713,6 +1713,9 @@ export const EN: Record<string, string> = {
   'Оновлення ще не завантажено': 'The update hasn’t been downloaded yet',
   'Для цієї системи в релізі немає архіву': 'The release has no archive for this system',
   'Замало місця на диску: потрібно близько {mb} МБ': 'Not enough disk space: about {mb} MB needed',
+  // Mac check of 1.10.1: data/ on another volume (VO_DATA_DIR) — the disk that is short
+  'Замало місця на диску з папкою {path}: потрібно близько {mb} МБ':
+    'Not enough space on the disk with the folder {path}: about {mb} MB needed',
   'Архів оновлення пошкоджено: контрольна сума не збігається':
     'The update archive is damaged: the checksum doesn’t match',
   'Не вдалося завантажити оновлення: немає зв’язку з GitHub':
