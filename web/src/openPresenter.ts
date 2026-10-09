@@ -110,15 +110,27 @@ function lendNextClick(name: string): void {
   window.addEventListener(
     'click',
     () => {
-      for (const [n, since] of pending) {
-        const w = windowRef(n);
-        if (!w || isFullscreen(w) || Date.now() - since > PENDING_MS) {
-          pending.delete(n);
-          continue;
+      // Lent once the click's own handlers ran: one that opens a file chooser (a FileButton
+      // clicks its hidden input inside this click) needs the gesture for that — lent first, the
+      // chooser was left without one and didn't open (review, 2026-10-10). Then the next click is.
+      let chooser = false;
+      const mark = (e: Event) => {
+        if (e.target instanceof HTMLInputElement && e.target.type === 'file') chooser = true;
+      };
+      document.addEventListener('click', mark, true);
+      setTimeout(() => {
+        document.removeEventListener('click', mark, true);
+        if (chooser) return;
+        for (const [n, since] of pending) {
+          const w = windowRef(n);
+          if (!w || isFullscreen(w) || Date.now() - since > PENDING_MS) {
+            pending.delete(n);
+            continue;
+          }
+          // The window may still be loading, or this click is already lent: next click.
+          if (delegateFullscreen(w, true)) break;
         }
-        // The window may still be loading, or this click is already lent: next click.
-        if (delegateFullscreen(w, true)) break;
-      }
+      }, 0);
     },
     true,
   );
