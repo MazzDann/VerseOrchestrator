@@ -31,9 +31,10 @@ export function usePictures({
 }) {
   // «Зображення» (1.5.0): a picture on screen, as a stanza is — the preview shows it too, and
   // «Наживо» leaves it until the verses are navigated
-  const projectPicture = (picture: SlidePicture) => {
+  const projectPicture = (picture: SlidePicture, quiet = false): Slide => {
     const slide = pictureSlide(picture, slideStyle);
     pushLive(slide);
+    if (quiet) return slide; // a «Цикл» tick (1.10.4): the screen only
     setPreviewOverride(slide);
     setLive(true);
     notifications.show({
@@ -41,6 +42,7 @@ export function usePictures({
       color: 'live',
       autoClose: 1500,
     });
+    return slide;
   };
   // «Вписати / Заповнити» (1.7.1, the user's call): the picture on screen takes the switch at once
   // — quietly, it is the same picture. Only its fit changes: a black screen stays black (the
