@@ -202,8 +202,9 @@ export async function openOutput(
     refs.set(name, w);
     if (screen) place(w, screen); // some browsers ignore left/top in the features
     if (fullscreen) lendNextClick(name);
-    watchOpenedAsTab(kind); // LibreWolf may make it a tab of this window (lib/tabNotice.ts)
   }
+  // LibreWolf may have made it a tab of this window (lib/tabNotice.ts)
+  if (w) watchOpenedAsTab(kind, name);
   return !!w;
 }
 
@@ -238,7 +239,7 @@ async function openSeparate(
     name,
     `${screen ? featuresFor(screen) : `popup,${FALLBACK[kind]}`},noopener`,
   );
-  watchOpenedAsTab(kind);
+  watchOpenedAsTab(kind, name);
   const o = await waitForNewOutput(kind, before, ANNOUNCE_MS);
   // some browsers ignore left/top in the features: put it there by command
   if (o && screen && (o.bounds.x !== screen.x || o.bounds.y !== screen.y)) moveOutput(o, screen);

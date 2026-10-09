@@ -102,10 +102,11 @@ of the address — and open the window again.
 
 ### The presentation window opens as a tab, not a window of its own
 
-LibreWolf does this: it puts even the sized windows a site opens into tabs. The app then says
-“Presentation: a tab, not a window of its own”. A tab can't go to another screen — drag it out
-of the browser window and it becomes a window of its own. To have LibreWolf always open such
-windows separately:
+LibreWolf does this, and so do Firefox with strict privacy settings, Tor Browser, and Mullvad
+Browser: they put even the sized windows a site opens into tabs. So does Safari when its
+settings always open pages in tabs. The app then says “Presentation: a tab, not a window of its
+own”. A tab can't go to another screen — drag it out of the browser window and it becomes a
+window of its own. To have LibreWolf or Firefox always open such windows separately:
 
 1. Open the address `about:config` and accept the warning.
 2. Find `browser.link.open_newwindow.restriction`.
