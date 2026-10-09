@@ -1,6 +1,9 @@
+import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
 import type { AddressInfo } from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { CONTROL_HEADER, createStandby, nodeFirstOnPath, type RunningApp } from './standby';
@@ -185,6 +188,33 @@ describe('standby waiter', () => {
     app.crash();
     await fetch(url('/api/b'));
     expect(app.started).toBe(2);
+  });
+
+  it('names its copy and the browser chosen there, read anew each time (2026-10-09)', async () => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-standby-copy-'));
+    try {
+      const { url } = await waiter({ root: '/copies/old/app', dataDir });
+      const status = async () => (await fetch(url('/__standby'))).json();
+      // no settings.json yet: the system browser, as the launcher would read it
+      expect(await status()).toMatchObject({
+        state: 'waiting',
+        root: '/copies/old/app',
+        launch: { browser: 'system', appWindow: false },
+      });
+      // chosen in the control window while the waiter runs (Налаштування вигляду → Застосунок)
+      fs.writeFileSync(
+        path.join(dataDir, 'settings.json'),
+        JSON.stringify({ launch: { browser: 'opera', appWindow: true } }),
+      );
+      expect(await status()).toMatchObject({ launch: { browser: 'opera', appWindow: true } });
+      // a waiter not told its copy (a test's) says nothing of it
+      const plain = await waiter();
+      const said = await (await fetch(plain.url('/__standby'))).json();
+      expect(said).not.toHaveProperty('root');
+      expect(said).not.toHaveProperty('launch');
+    } finally {
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    }
   });
 
   it('control: status, header required, retire and relaunch', async () => {
