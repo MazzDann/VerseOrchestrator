@@ -36,7 +36,9 @@ To add an item to the running order:
   takes the place of the first of them and, once shown, turns its slides by itself every 8
   seconds, round and round, until you go on. The pencil icon changes the interval (3 to 600
   seconds) and takes the loop apart again; the arrow next to it folds out its slides, and each
-  can be taken out of the loop. While the screen is hidden or black, the loop waits. The arrow
+  can be taken out of the loop. While the screen is hidden or black, the loop waits. Turning by
+  itself, the loop changes only the screen: a preview where you prepare something else stays as
+  it is, and no notice comes with each slide. The arrow
   keys and a clicker turn its slides by hand, and with the **“Next” past an item’s end opens
   the next one** switch, “Next” leaves the loop for the next item.
 

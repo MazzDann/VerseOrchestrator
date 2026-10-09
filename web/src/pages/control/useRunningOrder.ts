@@ -106,8 +106,9 @@ export function useRunningOrder({
     faithful?: SongStyle | null,
     source?: SlideSource,
     look?: SongStyle | null,
-  ) => void;
-  projectPicture: (picture: SlidePicture) => void;
+    quiet?: boolean,
+  ) => Slide | undefined;
+  projectPicture: (picture: SlidePicture, quiet?: boolean) => Slide;
   pictureOf: (it: SeqImage) => SlidePicture;
   startAlbum: (
     albumId: string,
@@ -233,21 +234,31 @@ export function useRunningOrder({
     }
   };
 
-  /** One slide of a «Цикл» on screen (1.10.0-beta.4): a text, a picture or a cover, as their items are. */
-  const showLoopSlide = (x: SeqLoopSlide) => {
-    if (x.kind === 'text') projectText(x.body, x.title.trim());
-    else if (x.kind === 'image') projectPicture(pictureOf(x));
+  /**
+   * One slide of a «Цикл» on screen (1.10.0-beta.4): a text, a picture or a cover, as their items are.
+   * A tick of the loop's clock (`quiet`, 1.10.4 — the Mac's round) changes the screen and only a
+   * preview that shows the loop: no preview pulled back, no «Наживо», no notice every few seconds.
+   */
+  const showLoopSlide = (x: SeqLoopSlide, quiet?: SeqLoop) => {
+    let slide: Slide | undefined;
+    if (x.kind === 'text')
+      slide = projectText(x.body, x.title.trim(), null, undefined, null, !!quiet);
+    else if (x.kind === 'image') slide = projectPicture(pictureOf(x), !!quiet);
     else {
-      const slide = coverOver(
+      slide = coverOver(
         liveSlideRef.current,
         { text: x.text, image: x.image?.src ?? null },
         slideStyle,
         x.label,
       );
       pushLive(slide);
-      setPreviewOverride(slide);
-      setLive(true);
+      if (!quiet) {
+        setPreviewOverride(slide);
+        setLive(true);
+      }
     }
+    const shown = slide;
+    if (quiet && shown) setPreviewOverride((p) => (p && belongsTo(quiet, p) ? shown : p));
   };
   /** The loop's slide `delta` from the one on screen, round and round; its interval starts over. */
   const [loopRestart, setLoopRestart] = useState(0);
@@ -269,7 +280,7 @@ export function useRunningOrder({
       if (showable(loop.items[at])) break;
     }
     if (!showable(loop.items[at])) return;
-    showLoopSlide(loop.items[at]);
+    showLoopSlide(loop.items[at], byHand ? undefined : loop);
     loopAt.current = { loop: loop.id, at };
     if (byHand) setLoopRestart((k) => k + 1);
   };
