@@ -133,20 +133,40 @@ export function screenOf(
   );
 }
 
+type Bounds = { x: number; y: number; w: number; h: number };
+
 /**
- * Where a new output window goes by default: the first secondary screen that no output window is
- * on. With a laptop and a projector, «Сцена» opened while «Показ» was full screen on the
- * projector went to the projector too — over the presentation, which Chromium (Edge, Opera)
- * also took out of full screen for a window opened on its screen (two-screen check on the test
- * Windows, 2026-10-10). None free: undefined — the window opens next to the control window, for
- * the operator to put where it belongs («Вікна виводу» moves it).
+ * Where a new window goes by default (two-screen check on the test Windows, 2026-10-10: with a
+ * laptop and a projector, «Сцена» opened while «Показ» was full screen on the projector went to
+ * the projector too — over the presentation, which Chromium (Edge, Opera) also took out of full
+ * screen for a window opened on its screen):
+ * - a screen no output window is on — a secondary one first; never the one the control window is
+ *   on (`own`); the primary only when the control window is elsewhere;
+ * - «Показ», what the hall sees, when none is free: still a screen that holds no other «Показ» —
+ *   a «Сцена» checked on the projector before the service gives way to it;
+ * - none: undefined — the window opens next to the control window, for the operator to put where
+ *   it belongs («Вікна виводу» moves it).
  */
-export function freeScreen(
+export function pickOutputScreen(
+  kind: 'presenter' | 'stage' | 'other',
   screens: ScreenInfo[],
-  taken: { x: number; y: number; w: number; h: number }[],
+  outputs: { kind: string; bounds: Bounds }[],
+  own?: Bounds,
 ): ScreenInfo | undefined {
-  const busy = new Set(taken.map((b) => screenOf(b, screens)?.key).filter(Boolean));
-  return screens.find((s) => !s.primary && !busy.has(s.key));
+  const mine = own ? screenOf(own, screens)?.key : undefined;
+  const pick = (taken: Bounds[]) => {
+    const busy = new Set(taken.map((b) => screenOf(b, screens)?.key));
+    const ok = screens.filter((s) => !busy.has(s.key) && s.key !== mine);
+    return (
+      ok.find((s) => !s.primary) ?? (mine !== undefined ? ok.find((s) => s.primary) : undefined)
+    );
+  };
+  return (
+    pick(outputs.map((o) => o.bounds)) ??
+    (kind === 'presenter'
+      ? pick(outputs.filter((o) => o.kind === 'presenter').map((o) => o.bounds))
+      : undefined)
+  );
 }
 
 /** window.open features that fill a screen's usable area. */
