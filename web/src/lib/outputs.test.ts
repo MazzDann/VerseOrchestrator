@@ -10,7 +10,7 @@ import {
   type OutputWire,
   type TrackedOutput,
 } from './outputs';
-import { featuresFor, screenOf, type ScreenInfo } from './screens';
+import { featuresFor, freeScreen, screenOf, type ScreenInfo } from './screens';
 
 /** An in-memory BroadcastChannel: a post reaches every OTHER endpoint, asynchronously. */
 function hub() {
@@ -286,5 +286,21 @@ describe('screens', () => {
 
   it('opens a window over a screen’s usable area', () => {
     expect(featuresFor(right)).toBe('popup,left=1440,top=0,width=1920,height=1080');
+  });
+
+  it('a new output window goes to a secondary screen no output is on (2026-10-10)', () => {
+    const third: ScreenInfo = { ...right, key: 'c', label: 'Stage monitor', x: 3360 };
+    const onProjector = { x: 1440, y: 0, w: 1920, h: 1080 }; // «Показ», full screen there
+    // nothing open: the first secondary screen, as before
+    expect(freeScreen([left, right], [])?.key).toBe('b');
+    // a laptop and a projector with «Показ» on it: «Сцена» doesn't go over it — none is free,
+    // so it opens next to the control window
+    expect(freeScreen([left, right], [onProjector])).toBeUndefined();
+    // a third screen: there
+    expect(freeScreen([left, right, third], [onProjector])?.key).toBe('c');
+    // an output on the operator's own screen takes nothing away
+    expect(freeScreen([left, right], [{ x: 100, y: 100, w: 800, h: 600 }])?.key).toBe('b');
+    // one screen only: nothing to choose, as before
+    expect(freeScreen([left], [])).toBeUndefined();
   });
 });

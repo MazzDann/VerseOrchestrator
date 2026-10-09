@@ -133,6 +133,22 @@ export function screenOf(
   );
 }
 
+/**
+ * Where a new output window goes by default: the first secondary screen that no output window is
+ * on. With a laptop and a projector, «Сцена» opened while «Показ» was full screen on the
+ * projector went to the projector too — over the presentation, which Chromium (Edge, Opera)
+ * also took out of full screen for a window opened on its screen (two-screen check on the test
+ * Windows, 2026-10-10). None free: undefined — the window opens next to the control window, for
+ * the operator to put where it belongs («Вікна виводу» moves it).
+ */
+export function freeScreen(
+  screens: ScreenInfo[],
+  taken: { x: number; y: number; w: number; h: number }[],
+): ScreenInfo | undefined {
+  const busy = new Set(taken.map((b) => screenOf(b, screens)?.key).filter(Boolean));
+  return screens.find((s) => !s.primary && !busy.has(s.key));
+}
+
 /** window.open features that fill a screen's usable area. */
 export function featuresFor(s: ScreenInfo): string {
   return `popup,left=${s.x},top=${s.y},width=${s.w},height=${s.h}`;
