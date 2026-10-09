@@ -192,6 +192,9 @@ export function useVideo({
   useEffect(() => {
     if (!soundSrc) {
       audio.current?.pause();
+      // no video on screen, nothing to sound: the «click for sound» notice goes too (1.10.9, the
+      // Mac's round — it stayed after the video left)
+      setNeedsClick(false);
       return;
     }
     // in the page (hidden), so a check can find it: `audio[data-vo-video-sound]` (w-video.mjs)
