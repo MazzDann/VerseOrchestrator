@@ -51,7 +51,9 @@ export function useSongProjection({
     faithful?: SongStyle | null,
     source?: SlideSource,
     look?: SongStyle | null,
-  ) => {
+    // a «Цикл» tick (1.10.4, the Mac's round): the screen only — the caller decides the preview
+    quiet = false,
+  ): Slide | undefined => {
     if (!text.trim()) return;
     let style = slideStyle;
     let template = slideTemplate;
@@ -125,6 +127,7 @@ export function useSongProjection({
       source,
     };
     pushLive(slide);
+    if (quiet) return slide;
     setPreviewOverride(slide);
     setLive(true);
     if (reference) {
@@ -134,6 +137,7 @@ export function useSongProjection({
         autoClose: 1500,
       });
     }
+    return slide;
   };
 
   // Project a free-text slide (announcement / note / custom text) and keep it in recents.
