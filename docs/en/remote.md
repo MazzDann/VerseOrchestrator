@@ -62,6 +62,13 @@ every press.
 At the top right is the theme button. Each press switches between **As on the phone** (the
 default), **Light**, and **Dark**; the choice is kept on that phone.
 
+Next to it is the **Remote / Stage** switch. **Stage** shows what the speaker would see in the
+**Stage** window, with no buttons: the words on screen now in large letters, below them what
+comes **Next**, and with the **Running order** permission the item on screen and the two after
+it. The speaker timer and the message to the stage stay at the top. The choice is kept on the
+phone too. A remote with no permissions at all always shows **Stage**, so the speaker can just
+follow along.
+
 If a Bluetooth clicker is connected to the phone, it steps through the show too: →, ↓,
 PageDown, and Space — **Next**; ←, ↑, and PageUp — **Back**; and Enter, with the
 **To screen** permission, — **To screen**.

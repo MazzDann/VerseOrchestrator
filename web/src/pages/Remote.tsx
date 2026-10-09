@@ -39,6 +39,7 @@ import { RemotePicker } from '../components/RemotePicker';
 import { tr, trn, useLang } from '../i18n';
 import { IconMoon, IconSun, IconSunMoon } from '@tabler/icons-react';
 import { nextPhoneTheme, themeAttr, themeLabel, usePhoneTheme } from '../lib/phoneTheme';
+import { useRemoteView } from '../lib/remoteView';
 
 const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
   !!a && !!b && a.kind === b.kind && a.reference === b.reference && a.text === b.text;
@@ -309,6 +310,12 @@ export function Remote() {
 
   const allowed = state.kind === 'ready' || state.kind === 'offline' ? (state.allowed ?? []) : [];
   const ready = state.kind === 'ready';
+  // «Пульт» or «Сцена» (1.11.0-beta.3), kept on this phone; a pairing allowed nothing only watches
+  const [chosenView, setView] = useRemoteView();
+  // a blip of the connection keeps it (review: it flashed «Пульт» on every reconnect)
+  const watchOnly =
+    (ready || (state.kind === 'offline' && !!state.allowed)) && allowed.length === 0;
+  const view = watchOnly ? 'stage' : chosenView;
 
   const press = (
     cmd: RemoteCommand,
@@ -500,8 +507,8 @@ export function Remote() {
   const running = screenSent?.countdown ?? null;
 
   // A Bluetooth clicker paired to the phone sends arrow / page keys — honour them too.
-  const keysRef = useRef({ walk, showNow, pickerOpen });
-  keysRef.current = { walk, showNow, pickerOpen };
+  const keysRef = useRef({ walk, showNow, pickerOpen, view, press });
+  keysRef.current = { walk, showNow, pickerOpen, view, press };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysRef.current.pickerOpen) return; // the picker's own list / filter
@@ -509,6 +516,16 @@ export function Remote() {
       // the space walked the show)
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]'))
         return;
+      // «Сцена» (1.11.0-beta.3): a clicker in the speaker's hand steps the show as the operator's
+      // «Далі» does — no cursor of its own, no «На екран» of a preview it doesn't show (review)
+      if (keysRef.current.view === 'stage') {
+        if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key))
+          keysRef.current.press('next');
+        else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) keysRef.current.press('prev');
+        else return;
+        e.preventDefault();
+        return;
+      }
       if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) keysRef.current.walk(1);
       else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) keysRef.current.walk(-1);
       else if (e.key === 'Enter') keysRef.current.showNow();
@@ -575,16 +592,17 @@ export function Remote() {
           <span
             aria-hidden
             style={{
+              flex: 'none',
               width: 9,
               height: 9,
               borderRadius: '50%',
               background: ready ? '#2f9e44' : '#e8590c',
             }}
           />
-          <strong>
+          <strong className="vo-remote-head-text">
             {state.kind === 'connecting' ? tr('Підключення…') : (state.name ?? tr('Пульт'))}
           </strong>
-          <span style={{ opacity: 0.6 }}>
+          <span className="vo-remote-head-text" style={{ opacity: 0.6 }}>
             {state.kind === 'offline'
               ? state.off
                 ? tr('· застосунок вимкнено')
@@ -593,6 +611,24 @@ export function Remote() {
                 ? `· ${tr('відповідь {ms} мс', { ms: rtt })}`
                 : ''}
           </span>
+          {!watchOnly && (
+            <div className="vo-remote-views" role="group" aria-label={tr('Вигляд')}>
+              <button
+                type="button"
+                aria-pressed={view === 'remote'}
+                onClick={() => setView('remote')}
+              >
+                {tr('Пульт')}
+              </button>
+              <button
+                type="button"
+                aria-pressed={view === 'stage'}
+                onClick={() => setView('stage')}
+              >
+                {tr('Сцена')}
+              </button>
+            </div>
+          )}
           {/* light / dark of its own (1.8.12-beta.8, F1005-04): one tap goes round «Як у телефоні»,
               «Світла», «Темна» — kept on this phone */}
           <button
@@ -617,359 +653,385 @@ export function Remote() {
             timer={screenSent?.stageTimer ?? null}
             message={screenSent?.stageMessage ?? null}
             offset={offset}
-            can={allowed.includes('timer')}
+            can={view === 'remote' && allowed.includes('timer')}
             ready={ready}
             onTimer={(t) => press('timer', undefined, undefined, undefined, t)}
           />
         )}
 
-        <section className="vo-remote-screen" aria-live="polite">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-            <span
-              aria-hidden
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: onScreen ? 'var(--mantine-color-live-filled)' : 'currentColor',
-                opacity: onScreen ? 1 : 0.35,
-              }}
-            />
-            <span style={{ fontWeight: 600 }}>{tr('На екрані')}</span>
-            <span style={{ opacity: 0.65 }}>{screenLabel}</span>
-          </div>
-          {onScreen && (
-            <p
-              className="vo-remote-text"
-              style={{ fontFamily: screen!.font ?? '"Lora", Georgia, serif' }}
-            >
-              {screen!.text}
-            </p>
-          )}
-        </section>
-
-        {pickerOpen && (
-          <RemotePicker
-            start={cursor ?? screenTarget(screen)}
-            translationIds={
-              passage?.translationIds ??
-              recall<number[]>(TRANSLATIONS_KEY) ??
-              (screen?.source?.kind === 'verses' ? screen.source.translationIds : [])
-            }
-            canShow={canShow}
-            verses={canVerses}
-            songs={canSongs}
-            onPick={(t, show) => {
-              if (t.kind === 'verses') remember(TRANSLATIONS_KEY, t.passage.translationIds);
-              press(show ? 'show' : 'pick', t);
-              setPickerOpen(false);
-            }}
-            onQueue={
-              canPlaylist
-                ? (t) => {
-                    press('queue', t);
-                    setPickerOpen(false);
-                  }
-                : undefined
-            }
-            onClose={() => setPickerOpen(false)}
+        {view === 'stage' ? (
+          <RemoteStageView
+            screen={screen}
+            label={screenLabel}
+            onScreen={onScreen}
+            next={next}
+            playlist={canPlaylist ? playlist : null}
           />
-        )}
+        ) : (
+          <>
+            <section className="vo-remote-screen" aria-live="polite">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                <span
+                  aria-hidden
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: onScreen ? 'var(--mantine-color-live-filled)' : 'currentColor',
+                    opacity: onScreen ? 1 : 0.35,
+                  }}
+                />
+                <span style={{ fontWeight: 600 }}>{tr('На екрані')}</span>
+                <span style={{ opacity: 0.65 }}>{screenLabel}</span>
+              </div>
+              {onScreen && (
+                <p
+                  className="vo-remote-text"
+                  style={{ fontFamily: screen!.font ?? '"Lora", Georgia, serif' }}
+                >
+                  {screen!.text}
+                </p>
+              )}
+            </section>
 
-        {listOpen && playlist && (
-          <RemotePlaylist
-            playlist={playlist}
-            canShow={canShow}
-            onTake={(entry, show) => {
-              press(show ? 'show' : 'pick', undefined, entry);
-              setListOpen(false);
-            }}
-            onClose={() => setListOpen(false)}
-          />
-        )}
-
-        {/* The shared running order (0.6.9): where the show is, and what's next in it. */}
-        {canPlaylist && playlist && playlist.items.length > 0 && (
-          <section className="vo-remote-preview" aria-label={tr('Послідовність')}>
-            <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
-              <span style={{ fontWeight: 600 }}>{tr('Послідовність')}</span>
-              <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>
-                {listCurrent
-                  ? tr('зараз: {item}', { item: listCurrent.label })
-                  : trn(playlist.items.length, '{n} елем.|{n} елем.|{n} елем.')}
-              </span>
-            </div>
-            {listNext && (
-              <p className="vo-remote-text vo-remote-text-small" style={{ margin: 0 }}>
-                {tr('Далі: {item}', { item: listNext.label })}
-              </p>
+            {pickerOpen && (
+              <RemotePicker
+                start={cursor ?? screenTarget(screen)}
+                translationIds={
+                  passage?.translationIds ??
+                  recall<number[]>(TRANSLATIONS_KEY) ??
+                  (screen?.source?.kind === 'verses' ? screen.source.translationIds : [])
+                }
+                canShow={canShow}
+                verses={canVerses}
+                songs={canSongs}
+                onPick={(t, show) => {
+                  if (t.kind === 'verses') remember(TRANSLATIONS_KEY, t.passage.translationIds);
+                  press(show ? 'show' : 'pick', t);
+                  setPickerOpen(false);
+                }}
+                onQueue={
+                  canPlaylist
+                    ? (t) => {
+                        press('queue', t);
+                        setPickerOpen(false);
+                      }
+                    : undefined
+                }
+                onClose={() => setPickerOpen(false)}
+              />
             )}
-            <div className="vo-remote-row">
-              <button
-                type="button"
-                className="vo-remote-btn"
-                disabled={!ready}
-                onClick={() => setListOpen(true)}
-              >
-                {tr('Список…')}
-              </button>
-              {listNext &&
-                (canShow ? (
-                  <button
-                    type="button"
-                    className="vo-remote-btn vo-remote-btn-live"
-                    disabled={!ready}
-                    onClick={() => press('show', undefined, listNext)}
-                  >
-                    {tr('Наступне на екран')}
-                  </button>
-                ) : (
+
+            {listOpen && playlist && (
+              <RemotePlaylist
+                playlist={playlist}
+                canShow={canShow}
+                onTake={(entry, show) => {
+                  press(show ? 'show' : 'pick', undefined, entry);
+                  setListOpen(false);
+                }}
+                onClose={() => setListOpen(false)}
+              />
+            )}
+
+            {/* The shared running order (0.6.9): where the show is, and what's next in it. */}
+            {canPlaylist && playlist && playlist.items.length > 0 && (
+              <section className="vo-remote-preview" aria-label={tr('Послідовність')}>
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 600 }}>{tr('Послідовність')}</span>
+                  <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>
+                    {listCurrent
+                      ? tr('зараз: {item}', { item: listCurrent.label })
+                      : trn(playlist.items.length, '{n} елем.|{n} елем.|{n} елем.')}
+                  </span>
+                </div>
+                {listNext && (
+                  <p className="vo-remote-text vo-remote-text-small" style={{ margin: 0 }}>
+                    {tr('Далі: {item}', { item: listNext.label })}
+                  </p>
+                )}
+                <div className="vo-remote-row">
                   <button
                     type="button"
                     className="vo-remote-btn"
                     disabled={!ready}
-                    onClick={() => press('pick', undefined, listNext)}
+                    onClick={() => setListOpen(true)}
                   >
-                    {tr('Наступне в передпоказ')}
+                    {tr('Список…')}
                   </button>
-                ))}
-            </div>
-          </section>
-        )}
-
-        {/* The operator's suggestion (0.6.4): take it into your preview, show it, or not. */}
-        {suggestion && (
-          <section
-            className="vo-remote-preview vo-remote-suggest"
-            aria-label={tr('Пропозиція оператора')}
-          >
-            <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
-              <span style={{ fontWeight: 600 }}>{tr('Оператор пропонує')}</span>
-              <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>{suggestion.reference}</span>
-              <button
-                type="button"
-                className="vo-remote-chip"
-                onClick={() => setSuggestion(null)}
-                aria-label={tr('Відхилити пропозицію')}
-              >
-                ✕
-              </button>
-            </div>
-            {suggestion.text && (
-              <p className="vo-remote-text vo-remote-text-small" style={{ whiteSpace: 'pre-line' }}>
-                {suggestion.text}
-              </p>
+                  {listNext &&
+                    (canShow ? (
+                      <button
+                        type="button"
+                        className="vo-remote-btn vo-remote-btn-live"
+                        disabled={!ready}
+                        onClick={() => press('show', undefined, listNext)}
+                      >
+                        {tr('Наступне на екран')}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="vo-remote-btn"
+                        disabled={!ready}
+                        onClick={() => press('pick', undefined, listNext)}
+                      >
+                        {tr('Наступне в передпоказ')}
+                      </button>
+                    ))}
+                </div>
+              </section>
             )}
-            <div className="vo-remote-row">
-              <button
-                type="button"
-                className="vo-remote-btn"
-                disabled={!ready}
-                onClick={() => {
-                  press('pick', suggestion.target);
-                  setSuggestion(null);
-                }}
-              >
-                {tr('У передпоказ')}
-              </button>
-              {canShow && (
-                <button
-                  type="button"
-                  className="vo-remote-btn vo-remote-btn-live"
-                  disabled={!ready}
-                  onClick={() => {
-                    press('show', suggestion.target);
-                    setSuggestion(null);
-                  }}
-                >
-                  {tr(REMOTE_LABEL.show)}
-                </button>
-              )}
-            </div>
-          </section>
-        )}
 
-        {/* The speaker's own preview (0.6.1): a verse chosen here — «Далі» walks it. */}
-        {canPick && cursor && (
-          <section className="vo-remote-preview vo-remote-mine" aria-label={tr('Ваш передпоказ')}>
-            <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
-              <span style={{ fontWeight: 600 }}>{tr('Ваш передпоказ')}</span>
-              <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>
-                {mineOnScreen ? tr('на екрані') : cursorRef}
-              </span>
-              <button
-                type="button"
-                className="vo-remote-chip"
-                onClick={() => setCursor(null)}
-                aria-label={tr('Скинути: гортати разом з оператором')}
+            {/* The operator's suggestion (0.6.4): take it into your preview, show it, or not. */}
+            {suggestion && (
+              <section
+                className="vo-remote-preview vo-remote-suggest"
+                aria-label={tr('Пропозиція оператора')}
               >
-                ✕
-              </button>
-            </div>
-            {!mineOnScreen && cursorText && (
-              <p className="vo-remote-text vo-remote-text-small">{cursorText}</p>
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 600 }}>{tr('Оператор пропонує')}</span>
+                  <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>
+                    {suggestion.reference}
+                  </span>
+                  <button
+                    type="button"
+                    className="vo-remote-chip"
+                    onClick={() => setSuggestion(null)}
+                    aria-label={tr('Відхилити пропозицію')}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {suggestion.text && (
+                  <p
+                    className="vo-remote-text vo-remote-text-small"
+                    style={{ whiteSpace: 'pre-line' }}
+                  >
+                    {suggestion.text}
+                  </p>
+                )}
+                <div className="vo-remote-row">
+                  <button
+                    type="button"
+                    className="vo-remote-btn"
+                    disabled={!ready}
+                    onClick={() => {
+                      press('pick', suggestion.target);
+                      setSuggestion(null);
+                    }}
+                  >
+                    {tr('У передпоказ')}
+                  </button>
+                  {canShow && (
+                    <button
+                      type="button"
+                      className="vo-remote-btn vo-remote-btn-live"
+                      disabled={!ready}
+                      onClick={() => {
+                        press('show', suggestion.target);
+                        setSuggestion(null);
+                      }}
+                    >
+                      {tr(REMOTE_LABEL.show)}
+                    </button>
+                  )}
+                </div>
+              </section>
             )}
-            <div className="vo-remote-row">
+
+            {/* The speaker's own preview (0.6.1): a verse chosen here — «Далі» walks it. */}
+            {canPick && cursor && (
+              <section
+                className="vo-remote-preview vo-remote-mine"
+                aria-label={tr('Ваш передпоказ')}
+              >
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 600 }}>{tr('Ваш передпоказ')}</span>
+                  <span style={{ opacity: 0.65, flex: 1, minWidth: 0 }}>
+                    {mineOnScreen ? tr('на екрані') : cursorRef}
+                  </span>
+                  <button
+                    type="button"
+                    className="vo-remote-chip"
+                    onClick={() => setCursor(null)}
+                    aria-label={tr('Скинути: гортати разом з оператором')}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {!mineOnScreen && cursorText && (
+                  <p className="vo-remote-text vo-remote-text-small">{cursorText}</p>
+                )}
+                <div className="vo-remote-row">
+                  <button
+                    type="button"
+                    className="vo-remote-btn"
+                    disabled={!ready}
+                    onClick={() => setPickerOpen(true)}
+                  >
+                    {tr('Вибрати…')}
+                  </button>
+                  {canShow && (
+                    <button
+                      type="button"
+                      className="vo-remote-btn vo-remote-btn-live"
+                      disabled={!ready || mineOnScreen}
+                      onClick={() => press('show', cursor)}
+                    >
+                      {tr(REMOTE_LABEL.show)}
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
+            {canPick && !cursor && (
               <button
                 type="button"
                 className="vo-remote-btn"
                 disabled={!ready}
                 onClick={() => setPickerOpen(true)}
               >
-                {tr('Вибрати…')}
+                {canVerses && canSongs
+                  ? tr('Вибрати вірш або пісню…')
+                  : canSongs
+                    ? tr('Вибрати пісню…')
+                    : tr('Вибрати вірш…')}
               </button>
-              {canShow && (
+            )}
+
+            {/* «На екран» (0.6.0): what the operator's preview holds, if it isn't on screen yet. */}
+            {allowed.includes('show') && !cursor && (
+              <section className="vo-remote-preview" aria-label={tr('Передпоказ')}>
+                <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
+                  <span style={{ fontWeight: 600 }}>{tr('Передпоказ')}</span>
+                  <span style={{ opacity: 0.65 }}>
+                    {previewOnScreen
+                      ? tr('уже на екрані')
+                      : (previewText?.reference ?? tr('порожньо'))}
+                  </span>
+                </div>
+                {previewText && !previewOnScreen && (
+                  <p
+                    className="vo-remote-text vo-remote-text-small"
+                    style={{ fontFamily: previewText.font ?? '"Lora", Georgia, serif' }}
+                  >
+                    {previewText.text}
+                  </p>
+                )}
                 <button
                   type="button"
                   className="vo-remote-btn vo-remote-btn-live"
-                  disabled={!ready || mineOnScreen}
-                  onClick={() => press('show', cursor)}
+                  disabled={!ready || !previewText || previewOnScreen}
+                  onClick={() => press('show')}
                 >
                   {tr(REMOTE_LABEL.show)}
                 </button>
-              )}
-            </div>
-          </section>
+              </section>
+            )}
+
+            {/* What «Далі» will show — so the speaker knows where the next press goes. */}
+            {next && next.text && !cursor && (
+              <section className="vo-remote-next" aria-label={tr('Далі')}>
+                <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
+                  <span style={{ fontWeight: 600 }}>{tr('Далі')}</span>
+                  <span style={{ opacity: 0.65 }}>{next.reference}</span>
+                </div>
+                <p
+                  className="vo-remote-text vo-remote-text-small"
+                  style={{ fontFamily: next.font ?? '"Lora", Georgia, serif' }}
+                >
+                  {next.text}
+                </p>
+              </section>
+            )}
+
+            {allowed.includes('countdown') && (
+              <RemoteCountdownPad
+                running={running}
+                offset={offset}
+                ready={ready}
+                onCountdown={(c) => press('countdown', undefined, undefined, c)}
+              />
+            )}
+            {(allowed.includes('blank') ||
+              allowed.includes('black') ||
+              allowed.includes('cover')) && (
+              <div className="vo-remote-pad vo-remote-pad-small">
+                {allowed.includes('blank') && (
+                  <button
+                    type="button"
+                    className="vo-remote-btn"
+                    disabled={!ready}
+                    onClick={() => press('blank')}
+                  >
+                    {screen?.status === 'blank' ? tr('Показати текст') : tr(REMOTE_LABEL.blank)}
+                  </button>
+                )}
+                {allowed.includes('black') && (
+                  <button
+                    type="button"
+                    className="vo-remote-btn"
+                    disabled={!ready}
+                    onClick={() => press('black')}
+                  >
+                    {screen?.status === 'black' ? tr('Зняти чорне') : tr(REMOTE_LABEL.black)}
+                  </button>
+                )}
+                {allowed.includes('cover') && (
+                  <button
+                    type="button"
+                    className="vo-remote-btn"
+                    disabled={!ready}
+                    onClick={() => press('cover')}
+                  >
+                    {onCover ? tr('Прибрати заставку') : tr(REMOTE_LABEL.cover)}
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         )}
-        {canPick && !cursor && (
-          <button
-            type="button"
-            className="vo-remote-btn"
-            disabled={!ready}
-            onClick={() => setPickerOpen(true)}
+      </div>
+      {view === 'remote' && (
+        <footer className="vo-remote-foot">
+          <p
+            role="status"
+            style={{
+              minHeight: 16,
+              margin: 0,
+              fontSize: 12,
+              lineHeight: '16px',
+              textAlign: 'center',
+              color: 'var(--vo-follow-alert)',
+            }}
           >
-            {canVerses && canSongs
-              ? tr('Вибрати вірш або пісню…')
-              : canSongs
-                ? tr('Вибрати пісню…')
-                : tr('Вибрати вірш…')}
-          </button>
-        )}
-
-        {/* «На екран» (0.6.0): what the operator's preview holds, if it isn't on screen yet. */}
-        {allowed.includes('show') && !cursor && (
-          <section className="vo-remote-preview" aria-label={tr('Передпоказ')}>
-            <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
-              <span style={{ fontWeight: 600 }}>{tr('Передпоказ')}</span>
-              <span style={{ opacity: 0.65 }}>
-                {previewOnScreen ? tr('уже на екрані') : (previewText?.reference ?? tr('порожньо'))}
-              </span>
-            </div>
-            {previewText && !previewOnScreen && (
-              <p
-                className="vo-remote-text vo-remote-text-small"
-                style={{ fontFamily: previewText.font ?? '"Lora", Georgia, serif' }}
-              >
-                {previewText.text}
-              </p>
-            )}
-            <button
-              type="button"
-              className="vo-remote-btn vo-remote-btn-live"
-              disabled={!ready || !previewText || previewOnScreen}
-              onClick={() => press('show')}
-            >
-              {tr(REMOTE_LABEL.show)}
-            </button>
-          </section>
-        )}
-
-        {/* What «Далі» will show — so the speaker knows where the next press goes. */}
-        {next && next.text && !cursor && (
-          <section className="vo-remote-next" aria-label={tr('Далі')}>
-            <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
-              <span style={{ fontWeight: 600 }}>{tr('Далі')}</span>
-              <span style={{ opacity: 0.65 }}>{next.reference}</span>
-            </div>
-            <p
-              className="vo-remote-text vo-remote-text-small"
-              style={{ fontFamily: next.font ?? '"Lora", Georgia, serif' }}
-            >
-              {next.text}
-            </p>
-          </section>
-        )}
-
-        {allowed.includes('countdown') && (
-          <RemoteCountdownPad
-            running={running}
-            offset={offset}
-            ready={ready}
-            onCountdown={(c) => press('countdown', undefined, undefined, c)}
-          />
-        )}
-        {(allowed.includes('blank') || allowed.includes('black') || allowed.includes('cover')) && (
-          <div className="vo-remote-pad vo-remote-pad-small">
-            {allowed.includes('blank') && (
+            {notice ?? ''}
+          </p>
+          <div className="vo-remote-pad">
+            {(allowed.includes('prev') || walks) && (
               <button
                 type="button"
                 className="vo-remote-btn"
                 disabled={!ready}
-                onClick={() => press('blank')}
+                onClick={() => walk(-1)}
               >
-                {screen?.status === 'blank' ? tr('Показати текст') : tr(REMOTE_LABEL.blank)}
+                ← {tr(REMOTE_LABEL.prev)}
               </button>
             )}
-            {allowed.includes('black') && (
+            {(allowed.includes('next') || walks) && (
               <button
                 type="button"
-                className="vo-remote-btn"
+                className="vo-remote-btn vo-remote-btn-primary"
                 disabled={!ready}
-                onClick={() => press('black')}
+                onClick={() => walk(1)}
               >
-                {screen?.status === 'black' ? tr('Зняти чорне') : tr(REMOTE_LABEL.black)}
-              </button>
-            )}
-            {allowed.includes('cover') && (
-              <button
-                type="button"
-                className="vo-remote-btn"
-                disabled={!ready}
-                onClick={() => press('cover')}
-              >
-                {onCover ? tr('Прибрати заставку') : tr(REMOTE_LABEL.cover)}
+                {tr(REMOTE_LABEL.next)} →
               </button>
             )}
           </div>
-        )}
-      </div>
-      <footer className="vo-remote-foot">
-        <p
-          role="status"
-          style={{
-            minHeight: 16,
-            margin: 0,
-            fontSize: 12,
-            lineHeight: '16px',
-            textAlign: 'center',
-            color: 'var(--vo-follow-alert)',
-          }}
-        >
-          {notice ?? ''}
-        </p>
-        <div className="vo-remote-pad">
-          {(allowed.includes('prev') || walks) && (
-            <button
-              type="button"
-              className="vo-remote-btn"
-              disabled={!ready}
-              onClick={() => walk(-1)}
-            >
-              ← {tr(REMOTE_LABEL.prev)}
-            </button>
-          )}
-          {(allowed.includes('next') || walks) && (
-            <button
-              type="button"
-              className="vo-remote-btn vo-remote-btn-primary"
-              disabled={!ready}
-              onClick={() => walk(1)}
-            >
-              {tr(REMOTE_LABEL.next)} →
-            </button>
-          )}
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }
@@ -1143,6 +1205,68 @@ function SpeakerPad({
             {tr('Почати таймер')}
           </button>
         ))}
+    </section>
+  );
+}
+
+/** The screen's words large on «Сцена» (1.11.0-beta.3): shorter text, larger letters. */
+const stageTextSize = (n: number) => (n < 60 ? 34 : n < 160 ? 27 : n < 280 ? 22 : 19);
+
+/**
+ * «Сцена» on the phone (1.11.0-beta.3, the author's call): what the speaker watches, no buttons —
+ * the screen's text large, «Далі» smaller, and the running order around the item on screen when
+ * this remote may see it. The speaker's timer and the message stay above it (SpeakerPad).
+ */
+function RemoteStageView({
+  screen,
+  label,
+  onScreen,
+  next,
+  playlist,
+}: {
+  screen: ScreenSummary | null;
+  label: string;
+  onScreen: boolean;
+  next: ScreenSummary | null;
+  playlist: SharedPlaylist | null;
+}) {
+  const at = playlist ? playlist.items.findIndex((i) => i.id === playlist.currentId) : -1;
+  // nothing of the order on screen yet: its first three (review)
+  const around = playlist ? playlist.items.slice(Math.max(0, at), Math.max(0, at) + 3) : [];
+  return (
+    <section className="vo-remote-stage" aria-live="polite">
+      <div className="vo-remote-stage-label">
+        <span className="vo-remote-stage-dot" data-on={onScreen || undefined} aria-hidden />
+        {tr('На екрані')} · {label}
+      </div>
+      {onScreen && screen ? (
+        <p
+          className="vo-remote-stage-text"
+          style={{
+            fontFamily: screen.font ?? '"Lora", Georgia, serif',
+            fontSize: stageTextSize(screen.text.length),
+          }}
+        >
+          {screen.text}
+        </p>
+      ) : null}
+      {next?.status === 'live' && next.text && (
+        <div className="vo-remote-stage-next">
+          <div className="vo-remote-stage-label">
+            {tr('Далі')} · {next.reference}
+          </div>
+          <p style={{ fontFamily: next.font ?? '"Lora", Georgia, serif' }}>{next.text}</p>
+        </div>
+      )}
+      {around.length > 0 && (
+        <ol className="vo-remote-stage-order" aria-label={tr('Послідовність')}>
+          {around.map((i, k) => (
+            <li key={i.id} data-current={(at >= 0 && k === 0) || undefined}>
+              {i.label}
+            </li>
+          ))}
+        </ol>
+      )}
     </section>
   );
 }
