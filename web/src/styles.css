@@ -713,6 +713,39 @@ body[data-resizing='y'] {
   -webkit-line-clamp: 2;
   opacity: 0.7;
 }
+/* «Відлік» from the phone (1.11.0-beta.1): a length + «Почати відлік», or the time left over its buttons. */
+.vo-remote-countdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+form.vo-remote-countdown {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 10px;
+}
+.vo-remote-countdown-time {
+  margin: 0;
+  text-align: center;
+  font-size: 40px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.vo-remote-input {
+  min-width: 0;
+  min-height: 56px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 18px;
+  padding: 0 14px;
+}
+.vo-remote-input[aria-invalid] {
+  border-color: var(--vo-follow-alert);
+}
 /* «Передпоказ» + «На екран» (0.6.0): the go-live button in the live tally colour. */
 .vo-remote-preview {
   border-radius: 12px;

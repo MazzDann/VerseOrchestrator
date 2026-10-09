@@ -79,8 +79,14 @@ Each permission is turned on separately for each remote:
 | **Choosing verses** | choose a verse on the phone                                                     |
 | **Songs**           | choose a song and a stanza                                                      |
 | **Running order**   | see the running order, show the next item, add the own choice to it             |
-| **Cover**           | turn the cover on and off (a remote on a computer only)                         |
-| **Countdown**       | start a countdown, pause it, remove it (a remote on a computer only)            |
+| **Cover**           | turn the cover on and off                                                       |
+| **Countdown**       | start a countdown, pause it, remove it                                          |
+
+On a phone with **Countdown** there is a length field and **Start the countdown**: type minutes
+(5 or 7:30) or leave the field empty for the length saved in the control window. While the
+countdown runs, the phone shows the time left and **Pause** (or **Resume**) and **Remove the
+countdown**. Its look, caption, and place are the operator's settings. With **Cover**, the
+**Cover** button next to **Black screen** turns it on, and **Remove the cover** turns it off.
 
 ## The speaker's choice
 

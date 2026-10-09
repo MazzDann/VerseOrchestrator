@@ -1897,6 +1897,8 @@ export const EN: Record<string, string> = {
   'Показати прев’ю': 'Show the preview',
   'Попередні вірші того, що ви показали': 'The previous verses of what you showed',
   Почати: 'Start',
+  'Почати відлік': 'Start the countdown',
+  '5 чи 7:30': '5 or 7:30',
   'Пошук: посилання чи слова': 'Search: a reference or words',
   'Пісень у бібліотеці ще немає': 'There are no songs in the library yet',
   'Спершу виберіть, що показати': 'First choose what to show',
