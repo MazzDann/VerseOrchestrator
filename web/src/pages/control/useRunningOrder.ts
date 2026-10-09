@@ -36,7 +36,7 @@ import { joinVerses, redLetterSegments } from './slideText';
 import { asksFor, atItemEdge, belongsTo, stillThere, type PastItem } from '../../lib/orderFlow';
 import { coverOver } from '../../lib/slide';
 import { itemCountdown, zeroIn } from '../../lib/countdownItem';
-import { everyMs } from '../../lib/workerClock';
+import { afterMs, everyMs } from '../../lib/workerClock';
 import { type Outcome } from '../../lib/commands';
 import { ORDER_CURRENT_KEY } from '../../lib/stage';
 import { type CountdownPlace } from '../../lib/countdown';
@@ -410,14 +410,14 @@ export function useRunningOrder({
     if (it?.kind !== 'countdown') return;
     const ms = zeroIn(it, liveSlideRef.current, Date.now());
     if (ms == null) return;
-    const t = window.setTimeout(() => {
+    // a worker's clock (1.10.8): a covered window's own timeout came up to a minute late
+    return afterMs(ms, () => {
       const now = liveSlideRef.current;
       if (!leaderRef.current || zeroIn(it, now, Date.now(), true) == null) return;
       // one batch (1.10.7): with verses browsed during the countdown «Наживо» put them over the
       // next item — the stores rendered ahead of the component state outside React's events
       flushSync(() => orderStepRef.current(1, 'end'));
-    }, ms);
-    return () => window.clearTimeout(t);
+    });
     // the zero is what matters: its time, its pause, its words, the item, the lead
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLeader, playlistCurrentId, playlistItems, cd?.until, cd?.pausedLeft, cd?.item]);

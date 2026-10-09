@@ -30,7 +30,8 @@ To add an item to the running order:
   the length (5, 7:30, or 1:05:00), the caption, and what happens at zero: **Next item** — the
   show goes on to the next item by itself — or, as a plain countdown, **Overtime**,
   **Stop at 0:00**, or **Hide time**. The countdown stands over the cover on screen now —
-  so a cover followed by a countdown in the running order makes one screen.
+  so a cover followed by a countdown in the running order makes one screen. If the computer
+  slept through the zero, the show stays on the countdown when it wakes: go on yourself.
 - An announcement loop: pick texts, images, or covers in the list — click them with Ctrl (⌘ on
   a Mac), and Shift takes everything between two — and click **Gather into a loop**. The loop
   takes the place of the first of them and, once shown, turns its slides by itself every 8
