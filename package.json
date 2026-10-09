@@ -1,6 +1,6 @@
 {
   "name": "verse-orchestrator",
-  "version": "1.10.4",
+  "version": "1.10.5",
   "private": true,
   "description": "Local web app that reads Bible modules and projects verses onto a second screen.",
   "engines": {
