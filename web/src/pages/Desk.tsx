@@ -387,7 +387,7 @@ export function Desk() {
       });
   };
   // a search row opens its chapter at the verse; its own translation leads (its numbering)
-  const openFound = (r: SearchResult) => {
+  const openFound = (r: SearchResult, show: boolean) => {
     const lead =
       ids[0] === r.translationId
         ? ids
@@ -400,6 +400,17 @@ export function Desk() {
       verses: [r.verse],
     });
     scrollTo.current = r.verse;
+    // ⌘↩ in the search (1.10.10): the hit itself on screen — not the selection before it
+    if (show)
+      showTarget({
+        kind: 'verses',
+        passage: {
+          translationIds: lead,
+          bookNumber: r.bookNumber,
+          chapter: r.chapter,
+          verses: [r.verse],
+        },
+      });
   };
   // the chosen verse comes into view: at the start, after a search, a step of «Далі» here
   const scrollTo = useRef<number | null>(chosen[0] ?? null);
