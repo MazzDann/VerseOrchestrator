@@ -3,6 +3,7 @@ import { ActionIcon, Button, Group, NumberInput, Popover, Stack, Tooltip } from 
 import { IconPencil } from '@tabler/icons-react';
 import { type SeqLoop, usePlaylist } from '../playlistStore';
 import { tr, useLang } from '../i18n';
+import { keepEnter } from '../lib/editorKeys';
 
 /** A «Цикл оголошень» item's interval, and taking it apart (1.10.0-beta.4). */
 export function LoopItemEditor({
@@ -47,7 +48,7 @@ export function LoopItemEditor({
           </ActionIcon>
         </Tooltip>
       </Popover.Target>
-      <Popover.Dropdown w={260} onClick={(e) => e.stopPropagation()}>
+      <Popover.Dropdown w={260} onClick={(e) => e.stopPropagation()} onKeyDown={keepEnter}>
         <Stack gap="xs">
           <NumberInput
             size="xs"
