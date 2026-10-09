@@ -163,6 +163,18 @@ export function fullscreenOutput(o: Target, on: boolean): boolean {
   return delegateFullscreen(w, true);
 }
 
+/**
+ * An output window that left full screen behind the operator's back — a file chooser opened here
+ * (lib/chooserWatch.ts): the next click in this window sends it back, as with «Відкривати на
+ * весь екран». False when this page holds no reference to it (another control window's, or
+ * «Окремий процес»): then only F or a click in it does.
+ */
+export function fullscreenOnNextClick(o: Target): boolean {
+  if (!outputRef(o)) return false;
+  lendNextClick(o.name);
+  return true;
+}
+
 /** How long a window opened with `noopener` may take to announce itself (dev build: ~1–3 s). */
 const ANNOUNCE_MS = 10_000;
 
