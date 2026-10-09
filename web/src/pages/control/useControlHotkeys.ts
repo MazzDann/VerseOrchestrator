@@ -10,7 +10,7 @@ import { type Book, type Verse } from '../../api';
 import { type Appearance } from '../../settingsStore';
 import { type Slide, type SlideLine, type SlideStyle } from '../../presenterBus';
 import { matchesCombo, slashTyped, type Keymap } from '../../hotkeys';
-import { isFormField, scrollableAround } from '../../lib/keyScroll';
+import { inOverlay, isFormField, scrollableAround } from '../../lib/keyScroll';
 import { floatingPanelOpen } from '../../lib/panelStack';
 import { type SearchScope } from '../../components/SearchPanel';
 
@@ -86,8 +86,10 @@ export function useControlHotkeys({
   // Hotkeys are user-rebindable (settingsStore.keymap; defaults in hotkeys.ts).
   // "advanceNext/Prev" default to arrows + PageDown/PageUp (the keys USB clickers emit).
   // a held key steps on (its repeats), but never across a chapter's edge — and the toggles below
-  // ignore repeats: a held «.» / B / L / T flickered, a held ⇧PageDown walked items (1.9.5, Mac check)
-  useHotkeys(keymap.advanceNext, (e) => advanceAndSay(1, false, e.repeat), [
+  // ignore repeats: a held «.» / B / L / T flickered, a held ⇧PageDown walked items (1.9.5, Mac check).
+  // Inside an open menu or an item editor the keys are theirs (1.10.5): ← → from the «+» menu stepped
+  // the show
+  useHotkeys(keymap.advanceNext, (e) => !inOverlay(e.target) && advanceAndSay(1, false, e.repeat), [
     keymap.advanceNext,
     pageCount,
     pageIndex,
@@ -103,22 +105,26 @@ export function useControlHotkeys({
     selectedIds,
     currentBook,
   ]);
-  useHotkeys(keymap.advancePrev, (e) => advanceAndSay(-1, false, e.repeat), [
+  useHotkeys(
     keymap.advancePrev,
-    pageCount,
-    pageIndex,
-    primaryVerses,
-    selectedVerses,
-    revealCount,
-    revealUnits,
-    appearance.reveal,
-    previewOverride,
-    chapters,
-    live,
-    liveFollow,
-    selectedIds,
-    currentBook,
-  ]);
+    (e) => !inOverlay(e.target) && advanceAndSay(-1, false, e.repeat),
+    [
+      keymap.advancePrev,
+      pageCount,
+      pageIndex,
+      primaryVerses,
+      selectedVerses,
+      revealCount,
+      revealUnits,
+      appearance.reveal,
+      previewOverride,
+      chapters,
+      live,
+      liveFollow,
+      selectedIds,
+      currentBook,
+    ],
+  );
   // «Прев’ю: далі / назад» (1.1.0): the same step, the screen stays. preventDefault: the
   // browser would scroll the list (Ctrl+↑/↓) or, on a Mac with ⌥, move the caret.
   const previewDeps = [
@@ -139,13 +145,13 @@ export function useControlHotkeys({
   ];
   useHotkeys(
     keymap.previewNext,
-    (e) => advanceAndSay(1, true, e.repeat),
+    (e) => !inOverlay(e.target) && advanceAndSay(1, true, e.repeat),
     { preventDefault: true },
     [keymap.previewNext, ...previewDeps],
   );
   useHotkeys(
     keymap.previewPrev,
-    (e) => advanceAndSay(-1, true, e.repeat),
+    (e) => !inOverlay(e.target) && advanceAndSay(-1, true, e.repeat),
     { preventDefault: true },
     [keymap.previewPrev, ...previewDeps],
   );
@@ -166,11 +172,12 @@ export function useControlHotkeys({
     return () => window.removeEventListener('keydown', onKey);
   }, [keymap.previewNext, keymap.previewPrev]);
   useHotkeys(keymap.blank, (e) => !e.repeat && hideToggle(), [keymap.blank, versePreview, live]);
-  // Esc with a floating panel open closes the panel (FloatingPanel) — not the screen too.
+  // Esc with a floating panel open closes the panel (FloatingPanel) — not the screen too; nor
+  // when it closes a menu, a list or an editor (1.10.5: the «+» menu's Esc cleared the screen)
   useHotkeys(
     keymap.clear,
     (e) => {
-      if (e.repeat || (e.key === 'Escape' && floatingPanelOpen())) return;
+      if (e.repeat || (e.key === 'Escape' && (floatingPanelOpen() || inOverlay(e.target)))) return;
       clearScreen();
     },
     [keymap.clear],
@@ -225,13 +232,13 @@ export function useControlHotkeys({
   // under «↑ ↓ вірші, ← → елементи»
   useHotkeys(
     keymap.playlistNext,
-    (e) => !e.repeat && playlistStepRef.current(1),
+    (e) => !e.repeat && !inOverlay(e.target) && playlistStepRef.current(1),
     { preventDefault: true },
     [keymap.playlistNext],
   );
   useHotkeys(
     keymap.playlistPrev,
-    (e) => !e.repeat && playlistStepRef.current(-1),
+    (e) => !e.repeat && !inOverlay(e.target) && playlistStepRef.current(-1),
     { preventDefault: true },
     [keymap.playlistPrev],
   );

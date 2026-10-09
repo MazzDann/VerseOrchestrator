@@ -83,7 +83,9 @@ On the **Running order** tab:
 To show an item, click its row. The item appears on screen at once and is highlighted in
 the list, and the control window goes to the item's mode: a passage to **Bible**, a song to
 **Songs** with its first slide on screen, a text, an image, an album, or a video to
-**Media**.
+**Media**. A cover, a countdown, and a loop have no mode of their own: from **Songs** or an
+open album the window goes to **Bible**, so the arrows and a clicker go on through the
+running order, not the song or the photos.
 
 To go to the next item, click **Next** at the top of the tab or press Shift+PageDown; to the
 previous one, the **Previous running order item** icon next to it or Shift+PageUp. If
