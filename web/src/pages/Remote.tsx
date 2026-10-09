@@ -8,10 +8,12 @@ import {
   targetArgs,
   type CommandArgs,
   type PlaylistEntry,
+  type RemoteCountdown,
   type RemotePassage,
   type RemoteTarget,
   type SharedPlaylist,
 } from '../lib/commands';
+import { formatTimer, hubOffset, parseDuration, useCountdown } from '../lib/countdown';
 import { RemotePlaylist } from '../components/RemotePlaylist';
 import { inPhoneWords, type ScreenSummary } from '../lib/slide';
 import { formatReference } from '../lib/reference';
@@ -134,6 +136,8 @@ export function Remote() {
   const next = inPhoneWords(nextSent);
   const preview = inPhoneWords(previewSent);
   const [notice, setNotice] = useState<string | null>(null);
+  // how far the computer's clock is ahead of this phone's (1.11.0-beta.1): «Відлік» counts by it
+  const [offset, setOffset] = useState(0);
   const conn = useRef<LiveConnection | null>(null);
   const noticeTimer = useRef<number | undefined>();
   /**
@@ -188,9 +192,13 @@ export function Remote() {
 
   useEffect(() => {
     if (!token) return;
+    // the hub's time: asked on every connect and every few minutes (clocks drift), as /follow does
+    const askClock = () => c.send({ type: 'clock', t: Date.now() });
+    const clock = window.setInterval(askClock, 5 * 60_000);
     const c = connectLive({
       hello: { role: 'remote', token },
-      onStatus: (open) =>
+      onStatus: (open) => {
+        if (open) askClock();
         setState((s) =>
           open || s.kind === 'denied' || s.kind === 'offline'
             ? s
@@ -198,8 +206,13 @@ export function Remote() {
                 kind: 'offline',
                 ...(s.kind === 'ready' ? { name: s.name, allowed: s.allowed } : {}),
               },
-        ),
+        );
+      },
       onMessage: (f: HubFrame) => {
+        if (f.type === 'clock' && typeof f.t === 'number' && typeof f.now === 'number') {
+          setOffset(hubOffset(f.t, f.now, Date.now()));
+          return;
+        }
         if (f.type === 'shutdown') {
           setState((s) =>
             s.kind === 'denied'
@@ -280,13 +293,22 @@ export function Remote() {
       stopOn: (f) => f.type === 'denied' || f.type === 'revoked',
     });
     conn.current = c;
-    return () => c.stop();
+    return () => {
+      window.clearInterval(clock);
+      c.stop();
+    };
   }, [token]);
 
   const allowed = state.kind === 'ready' || state.kind === 'offline' ? (state.allowed ?? []) : [];
   const ready = state.kind === 'ready';
 
-  const press = (cmd: RemoteCommand, target?: RemoteTarget, entry?: PlaylistEntry) => {
+  const press = (
+    cmd: RemoteCommand,
+    target?: RemoteTarget,
+    entry?: PlaylistEntry,
+    /** what a «Відлік» press asks for (1.11.0-beta.1) */
+    countdown?: RemoteCountdown,
+  ) => {
     if (state.kind === 'connecting') return;
     // `pick` / `queue` are allowed by what they carry: verses → «Вибір віршів», a stanza →
     // «Пісні», a running-order item or adding to it → «Послідовність»
@@ -296,7 +318,11 @@ export function Remote() {
     if ((entry || cmd === 'queue') && !allowed.includes('playlist')) return;
     navigator.vibrate?.(12);
     const id = newCommandId();
-    const args: CommandArgs = entry ? { item: entry.id } : targetArgs(target);
+    const args: CommandArgs = countdown
+      ? { countdown }
+      : entry
+        ? { item: entry.id }
+        : targetArgs(target);
     // after an item is taken the speaker's cursor walks it — when they may choose that kind
     const walkable = entry ? entryTarget(entry) : cmd === 'queue' ? undefined : target;
     const cursorAfter =
@@ -457,6 +483,9 @@ export function Remote() {
     }
   };
   const showNow = () => (cursor ? press('show', cursor) : press('show'));
+  // «Заставка» / «Відлік» on screen (1.11.0-beta.1): the buttons say what a press does
+  const onCover = screen?.kind === 'cover' || screen?.kind === 'countdown';
+  const running = screenSent?.countdown ?? null;
 
   // A Bluetooth clicker paired to the phone sends arrow / page keys — honour them too.
   const keysRef = useRef({ walk, showNow, pickerOpen });
@@ -464,6 +493,10 @@ export function Remote() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysRef.current.pickerOpen) return; // the picker's own list / filter
+      // a field's own keys: «Відлік»'s length (1.11.0-beta.1 review — Enter put the preview up,
+      // the space walked the show)
+      if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]'))
+        return;
       if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) keysRef.current.walk(1);
       else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) keysRef.current.walk(-1);
       else if (e.key === 'Enter') keysRef.current.showNow();
@@ -834,7 +867,15 @@ export function Remote() {
           </section>
         )}
 
-        {(allowed.includes('blank') || allowed.includes('black')) && (
+        {allowed.includes('countdown') && (
+          <RemoteCountdownPad
+            running={running}
+            offset={offset}
+            ready={ready}
+            onCountdown={(c) => press('countdown', undefined, undefined, c)}
+          />
+        )}
+        {(allowed.includes('blank') || allowed.includes('black') || allowed.includes('cover')) && (
           <div className="vo-remote-pad vo-remote-pad-small">
             {allowed.includes('blank') && (
               <button
@@ -854,6 +895,16 @@ export function Remote() {
                 onClick={() => press('black')}
               >
                 {screen?.status === 'black' ? tr('Зняти чорне') : tr(REMOTE_LABEL.black)}
+              </button>
+            )}
+            {allowed.includes('cover') && (
+              <button
+                type="button"
+                className="vo-remote-btn"
+                disabled={!ready}
+                onClick={() => press('cover')}
+              >
+                {onCover ? tr('Прибрати заставку') : tr(REMOTE_LABEL.cover)}
               </button>
             )}
           </div>
@@ -897,5 +948,81 @@ export function Remote() {
         </div>
       </footer>
     </div>
+  );
+}
+
+/**
+ * «Відлік» from the phone (1.11.0-beta.1, a permission of its own, as the desk's): a new one of a typed
+ * length — empty: the operator's saved one —, its time left while it counts, pause / go on, off. The
+ * look, the words and the place are the operator's.
+ */
+function RemoteCountdownPad({
+  running,
+  offset,
+  ready,
+  onCountdown,
+}: {
+  running: ScreenSummary['countdown'] | null;
+  /** how far the computer's clock is ahead of this phone's */
+  offset: number;
+  ready: boolean;
+  onCountdown: (c: RemoteCountdown) => void;
+}) {
+  // here, not in the page: only this pad redraws as the seconds go (review)
+  const { left, paused } = useCountdown(running, offset);
+  const [length, setLength] = useState('');
+  const ms = length.trim() ? parseDuration(length) : null;
+  const bad = length.trim() !== '' && ms == null;
+  if (running)
+    return (
+      <section className="vo-remote-countdown" aria-label={tr('Відлік')}>
+        <p className="vo-remote-countdown-time" role="timer">
+          {formatTimer(left)}
+          {paused ? ` · ${tr('пауза')}` : ''}
+        </p>
+        <div className="vo-remote-pad vo-remote-pad-small">
+          <button
+            type="button"
+            className="vo-remote-btn"
+            disabled={!ready}
+            onClick={() => onCountdown({ op: 'pause' })}
+          >
+            {paused ? tr('Продовжити') : tr('Пауза')}
+          </button>
+          <button
+            type="button"
+            className="vo-remote-btn"
+            disabled={!ready}
+            onClick={() => onCountdown({ op: 'stop' })}
+          >
+            {tr('Прибрати відлік')}
+          </button>
+        </div>
+      </section>
+    );
+  return (
+    <form
+      className="vo-remote-countdown"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (bad) return;
+        onCountdown(ms ? { op: 'start', seconds: Math.round(ms / 1000) } : { op: 'start' });
+        setLength('');
+      }}
+    >
+      <input
+        className="vo-remote-input"
+        // «:» for 7:30 is on the text keyboard's symbols (review: a number pad has none)
+        inputMode="text"
+        aria-label={tr('Тривалість')}
+        placeholder={tr('5 чи 7:30')}
+        value={length}
+        aria-invalid={bad || undefined}
+        onChange={(e) => setLength(e.currentTarget.value)}
+      />
+      <button type="submit" className="vo-remote-btn" disabled={!ready || bad}>
+        {tr('Почати відлік')}
+      </button>
+    </form>
   );
 }
