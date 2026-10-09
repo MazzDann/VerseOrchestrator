@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   checksumFor,
+  copyAcross,
   createInstaller,
   findUnpackedApp,
   hasRollback,
@@ -29,6 +30,7 @@ const tempDir = () => {
   return d;
 };
 afterEach(() => {
+  vi.restoreAllMocks();
   // Windows: a file a process only just let go of may stay locked a moment longer
   for (const d of temps.splice(0))
     fs.rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
@@ -759,4 +761,243 @@ setTimeout(() => process.exit(0), 30_000);
     expect(versionIn(top, NEXT_DIR)).toBe('1.4.2');
     expect(versionIn(top, 'app')).toBe('1.3.1');
   }
+});
+
+describe('data/ on another volume than app/ (Mac check of 1.10.1)', () => {
+  /**
+   * VO_DATA_DIR on a flash drive or a second disk: a rename into or out of data/ fails as the
+   * system's does — no real second volume needed.
+   */
+  function dataElsewhere(dataDir: string) {
+    const rename = fs.renameSync;
+    const inData = (p: fs.PathLike) => path.resolve(String(p)).startsWith(dataDir + path.sep);
+    return vi.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      if (inData(from) !== inData(to))
+        throw Object.assign(
+          new Error(`EXDEV: cross-device link not permitted, rename '${String(from)}'`),
+          { code: 'EXDEV' },
+        );
+      rename(from, to);
+    });
+  }
+
+  const posix = process.platform !== 'win32';
+
+  /** The system's unpack, and what a release carries besides: its own Node, runnable, a link. */
+  const unpackWithNode = async (cmd: string, args: string[]) => {
+    expect(spawnSync(cmd, args).status).toBe(0);
+    const into = args[args.length - 1];
+    const bin = path.join(into, fs.readdirSync(into)[0], 'app', 'node', 'bin');
+    fs.mkdirSync(bin, { recursive: true });
+    fs.writeFileSync(path.join(bin, 'node'), '#!/bin/sh\n', { mode: 0o755 });
+    if (posix) fs.symlinkSync('node', path.join(bin, 'npm'));
+  };
+
+  it('the new app is copied over to app.next: runnable, its links kept, nothing left in data/', async () => {
+    const { latest, fetch } = served('1.10.2');
+    const top = tempDir();
+    appFolder(top, 'app', '1.10.1');
+    const dataDir = path.join(top, 'data');
+    const renames = dataElsewhere(dataDir);
+    const inst = createInstaller({ top, dataDir, platform: PLATFORM, fetch, exec: unpackWithNode });
+    expect(inst.start(latest)).toBe(true);
+    await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 15_000 });
+    // 1.10.1: «Не вдалося розпакувати оновлення» every time
+    expect(inst.state()).toMatchObject({ phase: 'ready', version: '1.10.2', error: null });
+    expect(renames).toHaveBeenCalledWith(
+      expect.stringContaining('unpacked'),
+      path.join(top, NEXT_DIR),
+    );
+    expect(inst.readyVersion()).toBe('1.10.2');
+    expect(fs.existsSync(path.join(top, NEXT_DIR, LAYOUT_MARKER))).toBe(true);
+    const bin = path.join(top, NEXT_DIR, 'node', 'bin');
+    expect(fs.readFileSync(path.join(bin, 'node'), 'utf8')).toBe('#!/bin/sh\n');
+    if (posix) {
+      expect(fs.statSync(path.join(bin, 'node')).mode & 0o111).toBe(0o111);
+      expect(fs.readlinkSync(path.join(bin, 'npm'))).toBe('node');
+    }
+    // the unpacked copy went: only the record and the top files wait in data/
+    expect(fs.readdirSync(inst.updatesDir).sort()).toEqual([NEXT_RECORD, TOP_FILES_DIR]);
+    expect(fs.readdirSync(path.join(inst.updatesDir, TOP_FILES_DIR, '1.10.2')).sort()).toEqual([
+      'start.sh',
+      'ЯК ЗАПУСТИТИ.txt',
+    ]);
+  });
+
+  it('a copy that fails halfway leaves no part of app.next — a half that looks whole is never offered', async () => {
+    const { latest, fetch } = served('1.10.2');
+    const top = tempDir();
+    appFolder(top, 'app', '1.10.1');
+    const dataDir = path.join(top, 'data');
+    dataElsewhere(dataDir);
+    // the disk fills up once the first files are over, the marker among them
+    const full = vi.spyOn(fs.promises, 'cp').mockImplementation(async (_from, to) => {
+      appFolder(path.dirname(String(to)), path.basename(String(to)), '1.10.2');
+      throw Object.assign(new Error('ENOSPC: no space left on device, write'), {
+        code: 'ENOSPC',
+      });
+    });
+    const inst = createInstaller({ top, dataDir, platform: PLATFORM, fetch, exec: unpackWithNode });
+    expect(inst.start(latest)).toBe(true);
+    await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 15_000 });
+    expect(inst.state()).toMatchObject({
+      phase: 'error',
+      error: 'Не вдалося розпакувати оновлення',
+    });
+    // into a .part beside app.next, never into app.next itself
+    expect(full).toHaveBeenCalledTimes(1);
+    expect(full.mock.calls[0][1]).toBe(path.join(top, `${NEXT_DIR}.part`));
+    expect(fs.readdirSync(top).sort()).toEqual(['app', 'data']);
+    expect(inst.readyVersion()).toBeNull();
+    expect(inst.waiting('1.10.2')).toBeNull();
+
+    // the copy itself: the error stands — a clean-up that fails too doesn't hide it — the source
+    // stays whole
+    const dir = tempDir();
+    const from = appFolder(dir, 'unpacked', '1.10.2');
+    const to = path.join(dir, NEXT_DIR);
+    const held = vi
+      .spyOn(fs.promises, 'rm')
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(Object.assign(new Error('EBUSY: resource busy'), { code: 'EBUSY' }));
+    await expect(copyAcross(from, to)).rejects.toThrow(/ENOSPC/);
+    expect(held).toHaveBeenCalledTimes(2);
+    held.mockRestore();
+    await expect(copyAcross(from, to)).rejects.toThrow(/ENOSPC/);
+    expect(fs.readdirSync(dir)).toEqual(['unpacked']);
+    expect(versionIn(dir, 'unpacked')).toBe('1.10.2');
+    full.mockRestore();
+    // a folder already there is never mixed into
+    fs.mkdirSync(to);
+    await expect(copyAcross(from, to)).rejects.toThrow(/EEXIST/);
+    expect(fs.readdirSync(to)).toEqual([]);
+    fs.rmdirSync(to);
+    // overtaken (a rollback, a restart): the copy goes, app.next isn't made
+    expect(await copyAcross(from, to, () => true)).toBe(false);
+    expect(fs.readdirSync(dir)).toEqual(['unpacked']);
+    expect(await copyAcross(from, to)).toBe(true);
+    expect(fs.readdirSync(dir).sort()).toEqual([NEXT_DIR, 'unpacked']);
+    expect(versionIn(dir, NEXT_DIR)).toBe('1.10.2');
+  });
+
+  it('a copy cut short — the app closed, the power gone — leaves only app.next.part: nothing offered, cleared next time', async () => {
+    const { latest, fetch } = served('1.10.2');
+    const top = tempDir();
+    appFolder(top, 'app', '1.10.1');
+    const dataDir = path.join(top, 'data');
+    dataElsewhere(dataDir);
+    const part = path.join(top, `${NEXT_DIR}.part`);
+    // package.json and the marker are over, the rest never comes: the process is gone
+    const cp = vi.spyOn(fs.promises, 'cp').mockImplementationOnce((_from, to) => {
+      appFolder(path.dirname(String(to)), path.basename(String(to)), '1.10.2');
+      return new Promise<void>(() => {});
+    });
+    const opts = {
+      top,
+      dataDir,
+      platform: PLATFORM,
+      fetch,
+      exec: unpackWithNode,
+      current: '1.10.1',
+    };
+    createInstaller(opts).start(latest, '1.10.2');
+    await vi.waitFor(() => expect(cp).toHaveBeenCalledTimes(1), { timeout: 15_000 });
+    expect(versionIn(top, `${NEXT_DIR}.part`)).toBe('1.10.2');
+    // the app starts again: no version to restart with (a copy straight into app.next offered it)
+    const again = createInstaller(opts);
+    expect(again.readyVersion()).toBeNull();
+    expect(again.waiting('1.10.2')).toBeNull();
+    // the next download clears the half and puts a whole app.next in place
+    expect(again.start(latest, '1.10.2')).toBe(true);
+    await vi.waitFor(() => expect(again.state().phase).toMatch(/ready|error/), { timeout: 15_000 });
+    expect(again.state().phase).toBe('ready');
+    expect(again.waiting('1.10.2')).toBe('1.10.2');
+    expect(fs.existsSync(part)).toBe(false);
+    expect(fs.existsSync(path.join(top, NEXT_DIR, 'node', 'bin', 'node'))).toBe(true);
+  });
+
+  it('an unpacked copy the system holds on to stays behind: the update is ready all the same', async () => {
+    const { latest, fetch } = served('1.10.2');
+    const top = tempDir();
+    appFolder(top, 'app', '1.10.1');
+    const dataDir = path.join(top, 'data');
+    dataElsewhere(dataDir);
+    // Windows: an antivirus holding the folder just unpacked
+    const rm = fs.promises.rm;
+    vi.spyOn(fs.promises, 'rm').mockImplementation(async (p, opts) => {
+      if (path.basename(String(p)) === 'unpacked')
+        throw Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' });
+      return rm(p, opts);
+    });
+    const inst = createInstaller({ top, dataDir, platform: PLATFORM, fetch, exec: unpackWithNode });
+    expect(inst.start(latest)).toBe(true);
+    await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 15_000 });
+    expect(inst.state()).toMatchObject({ phase: 'ready', version: '1.10.2', error: null });
+    expect(inst.waiting('1.10.2')).toBe('1.10.2');
+    // the record and the top files are there; the leftover waits for the next download or tidy()
+    expect(fs.readdirSync(inst.updatesDir).sort()).toEqual([
+      NEXT_RECORD,
+      TOP_FILES_DIR,
+      'unpacked',
+    ]);
+    expect(fs.readdirSync(path.join(inst.updatesDir, TOP_FILES_DIR, '1.10.2'))).toHaveLength(2);
+  });
+
+  it('checks the room on each volume: the archive and the unpacked copy in data/, app.next by app/', async () => {
+    const { latest, fetch } = served('1.10.2');
+    const size = latest.asset!.size;
+    const top = tempDir();
+    appFolder(top, 'app', '1.10.1');
+    const dataDir = path.join(top, 'data');
+    const updates = path.join(dataDir, 'updates');
+    // where data/ sits: on another volume (another device number) or on app/'s
+    let apart = true;
+    const stat = fs.statSync;
+    vi.spyOn(fs, 'statSync').mockImplementation(((p: fs.PathLike, opts?: fs.StatSyncOptions) => {
+      const s = stat(p, opts) as fs.Stats | undefined;
+      if (s && apart && path.resolve(String(p)) === updates) s.dev += 1;
+      return s;
+    }) as typeof fs.statSync);
+    // the free bytes of each volume
+    const room = new Map<string, number>();
+    vi.spyOn(fs, 'statfsSync').mockImplementation(((p: fs.PathLike) => ({
+      type: 0,
+      bsize: 1,
+      blocks: 0,
+      bfree: 0,
+      bavail: room.get(path.resolve(String(p))) ?? Number.MAX_SAFE_INTEGER,
+      files: 0,
+      ffree: 0,
+    })) as typeof fs.statfsSync);
+    const inst = createInstaller({ top, dataDir, platform: PLATFORM, fetch });
+    const mb = (times: number) => String(Math.ceil((size * times) / 1048576));
+
+    // the flash drive is short, app/'s disk has plenty: refused, naming the data folder
+    room.set(updates, size * 4 - 1).set(top, Number.MAX_SAFE_INTEGER);
+    inst.start(latest);
+    expect(inst.state()).toMatchObject({
+      phase: 'error',
+      error: 'Замало місця на диску з папкою {path}: потрібно близько {mb} МБ',
+      vars: { path: dataDir, mb: mb(4) },
+    });
+    // app/'s disk is short for app.next
+    room.set(updates, Number.MAX_SAFE_INTEGER).set(top, size * 3 - 1);
+    inst.start(latest);
+    expect(inst.state()).toMatchObject({ phase: 'error', vars: { path: top, mb: mb(3) } });
+    expect(fetch).not.toHaveBeenCalled();
+    // room enough on each — four times the archive on data/'s, three on app/'s: it goes on
+    room.set(updates, size * 4).set(top, size * 3);
+    inst.start(latest);
+    await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 15_000 });
+    expect(inst.state().phase).toBe('ready');
+    // one volume: four times the archive on it, as before
+    apart = false;
+    room.set(top, size * 4 - 1);
+    inst.start(latest);
+    expect(inst.state()).toMatchObject({
+      phase: 'error',
+      error: 'Замало місця на диску: потрібно близько {mb} МБ',
+      vars: { mb: mb(4) },
+    });
+  });
 });
