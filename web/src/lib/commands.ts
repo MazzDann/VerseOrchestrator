@@ -123,8 +123,8 @@ export type PlaylistEntry =
   | { id: string; kind: 'video'; label: string }
   /** «Заставка» as an item (1.10.0-beta.2): its own text over the screen, from the control window */
   | { id: string; kind: 'cover'; label: string }
-  /** «Відлік» as an item (1.10.0-beta.3) */
-  | { id: string; kind: 'countdown'; label: string }
+  /** «Відлік» as an item (1.10.0-beta.3); what it does at zero, for «Сцена» on the phone (1.11.0-beta.4) */
+  | { id: string; kind: 'countdown'; label: string; atZero?: 'next' | 'overtime' | 'stop' | 'hide' }
   /** «Цикл оголошень» (1.10.0-beta.4) */
   | { id: string; kind: 'loop'; label: string };
 

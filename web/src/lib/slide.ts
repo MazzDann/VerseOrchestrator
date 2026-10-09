@@ -58,7 +58,7 @@ export interface ScreenSummary {
    * «Відлік» on screen (1.11.0-beta.1) — over «Заставка» or in a corner: its clock, so a remote shows
    * the time left and knows pause from go on — by the computer's clock (the phone asks the hub)
    */
-  countdown?: Pick<SlideCountdown, 'until' | 'pausedLeft' | 'afterZero'>;
+  countdown?: Pick<SlideCountdown, 'until' | 'pausedLeft' | 'afterZero' | 'item'>;
   /**
    * The speaker's timer and «Повідомлення на сцену» (1.11.0-beta.2): a remote is the speaker's —
    * it shows them as «Сцена» does. Only in this summary, which only remotes get (never viewers).
@@ -129,6 +129,8 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
             until: timed.until,
             ...(timed.pausedLeft != null ? { pausedLeft: timed.pausedLeft } : {}),
             ...(timed.afterZero ? { afterZero: timed.afterZero } : {}),
+            // a running-order item's (1.11.0-beta.4): «Сцена» on the phone says what follows it
+            ...(timed.item ? { item: timed.item } : {}),
           },
         }
       : {}),

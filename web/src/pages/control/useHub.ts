@@ -284,14 +284,15 @@ export function useHub({
             }
           : it.kind === 'song'
             ? { id: it.id, kind: 'song', label: it.label, songId: it.songId }
-            : it.kind === 'image' ||
-                it.kind === 'album' ||
-                it.kind === 'video' ||
-                it.kind === 'cover' ||
-                it.kind === 'countdown' ||
-                it.kind === 'loop'
-              ? { id: it.id, kind: it.kind, label: it.label }
-              : { id: it.id, kind: 'text', label: it.label },
+            : it.kind === 'countdown'
+              ? { id: it.id, kind: 'countdown', label: it.label, atZero: it.atZero }
+              : it.kind === 'image' ||
+                  it.kind === 'album' ||
+                  it.kind === 'video' ||
+                  it.kind === 'cover' ||
+                  it.kind === 'loop'
+                ? { id: it.id, kind: it.kind, label: it.label }
+                : { id: it.id, kind: 'text', label: it.label },
       ),
       currentId: playlistCurrentId,
     }),
