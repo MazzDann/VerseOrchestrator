@@ -7,7 +7,7 @@ import {
   type OutputInfo,
   type OutputKind,
 } from './lib/outputs';
-import { featuresFor, listScreens, screenBox, type ScreenInfo } from './lib/screens';
+import { featuresFor, freeScreen, listScreens, screenBox, type ScreenInfo } from './lib/screens';
 import { delegateFullscreen } from './lib/fullscreen';
 import { useSettings } from './settingsStore';
 
@@ -205,9 +205,13 @@ export async function openOutput(
   return !!w;
 }
 
+/** The first secondary screen no output window is on yet (lib/screens.ts freeScreen). */
 async function defaultScreen(): Promise<ScreenInfo | undefined> {
   const { screens } = await listScreens(true);
-  return screens.find((s) => !s.primary);
+  return freeScreen(
+    screens,
+    currentOutputs().map((o) => o.bounds),
+  );
 }
 
 /**
