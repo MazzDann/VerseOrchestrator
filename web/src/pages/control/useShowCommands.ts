@@ -73,7 +73,10 @@ export function useShowCommands({
   liveSlide,
   versePreview,
   send,
+  followItem,
 }: {
+  /** a remote's «Заставка», «Відлік» or «Цикл» item leaves «Пісні» / an album, as the operator's does (1.10.5) */
+  followItem: (kind: SeqItem['kind']) => void;
   /** what is on screen now: a «Заставка» item covers it (1.10.0-beta.2) */
   liveSlideRef: MutableRefObject<Slide>;
   /** «Відлік» (useTimers): a remote's «Відлік» item starts through it */
@@ -142,6 +145,7 @@ export function useShowCommands({
           liveSlideRef.current.cover ?? undefined,
         );
         playlistSetCurrent(it.id);
+        followItem(it.kind);
         setRemoteView({ name: by, target: null, slide: liveSlideRef.current });
         return { ok: true };
       }
@@ -167,6 +171,7 @@ export function useShowCommands({
           pushLive(slide);
           setLive(false);
           playlistSetCurrent(it.id);
+          if (it.kind === 'cover' || it.kind === 'loop') followItem(it.kind);
         }
         setRemoteView({ name: by, target: itemTarget(it), slide });
         return { ok: true };

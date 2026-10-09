@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isResizeKey, isTextEntry, resizeKeyStep } from './keyScroll';
+import { inOverlay, isResizeKey, isTextEntry, resizeKeyStep } from './keyScroll';
 
 const key = (k: string, mods: Partial<Record<'ctrlKey' | 'metaKey' | 'altKey', boolean>> = {}) => ({
   key: k,
@@ -65,5 +65,28 @@ describe('isTextEntry (1.8.12-beta.7: the song search beside the song)', () => {
     expect(isTextEntry(el('INPUT', { readOnly: true }))).toBe(false);
     expect(isTextEntry(el('BUTTON'))).toBe(false);
     expect(isTextEntry(null)).toBe(false);
+  });
+});
+
+describe('inOverlay (1.10.5: a menu’s or a list’s arrows are its own, not the song’s)', () => {
+  const el = (attrs: Record<string, string>, inside: string | null = null) =>
+    ({
+      getAttribute: (n: string) => attrs[n] ?? null,
+      hasAttribute: (n: string) => n in attrs,
+      closest: (sel: string) => (inside && sel.includes(inside) ? {} : null),
+    }) as unknown as EventTarget;
+  it('a menu item, an option, anything in a pop-up editor, an open Select or menu button', () => {
+    expect(inOverlay(el({}, '[role="menu"]'))).toBe(true);
+    expect(inOverlay(el({}, '[role="listbox"]'))).toBe(true);
+    expect(inOverlay(el({}, '.mantine-Popover-dropdown'))).toBe(true);
+    expect(inOverlay(el({ 'data-expanded': 'true', 'aria-haspopup': 'listbox' }))).toBe(true);
+    expect(inOverlay(el({ 'aria-expanded': 'true', 'aria-haspopup': 'menu' }))).toBe(true);
+  });
+  it('not a closed Select, an open accordion, a floating panel’s button, or nothing', () => {
+    expect(inOverlay(el({ 'aria-haspopup': 'listbox' }))).toBe(false);
+    expect(inOverlay(el({ 'aria-expanded': 'false', 'aria-haspopup': 'menu' }))).toBe(false);
+    expect(inOverlay(el({ 'aria-expanded': 'true' }))).toBe(false);
+    expect(inOverlay(el({}, '[role="dialog"]'))).toBe(false);
+    expect(inOverlay(null)).toBe(false);
   });
 });
