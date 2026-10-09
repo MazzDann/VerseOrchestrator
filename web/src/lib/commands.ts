@@ -94,6 +94,8 @@ export interface CommandArgs {
   /** an item of the shared running order, by id (0.6.9) */
   item?: string;
   countdown?: RemoteCountdown;
+  /** «Далі» / «Назад» from a key held down (1.10.6): steps on, never into another item */
+  held?: boolean;
 }
 
 /**

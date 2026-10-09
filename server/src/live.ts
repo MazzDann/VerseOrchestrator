@@ -390,6 +390,8 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   // «Відлік» says what to do with it (1.9.0-beta.10)
   const countdown = cmd === 'countdown' ? sanitizeCountdown(msg.countdown) : null;
   if (cmd === 'countdown' && !countdown) return reject(N_('Неправильний відлік'));
+  // «Далі» / «Назад» from a key held down on a desk (1.10.6): never into another item
+  const held = msg.held === true && (cmd === 'next' || cmd === 'prev');
   // each ability on its own, per remote
   if (passage && !p.allowed.includes('pick')) return reject(N_('Вибір віршів пульту не дозволено'));
   if (song && !p.allowed.includes('songs')) return reject(N_('Пісні пульту не дозволено'));
@@ -432,6 +434,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
       ...(song ? { song } : {}),
       ...(item ? { item } : {}),
       ...(countdown ? { countdown } : {}),
+      ...(held ? { held: true } : {}),
     });
   }
 }

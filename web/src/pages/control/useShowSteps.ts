@@ -34,6 +34,7 @@ import { tr } from '../../i18n';
 import { joinVerses, strongHighlightSegments } from './slideText';
 import { standbyNotice } from './standby';
 import { type PastItem } from '../../lib/orderFlow';
+import { noticeOnce } from '../../lib/noticeOnce';
 
 /**
  * The steps of the show (vo-sync): the verse selection on screen («На екран», Enter on a verse,
@@ -328,9 +329,8 @@ export function useShowSteps({
       });
     }
     void Promise.resolve(advance(delta, previewOnly, held)).then((o) => {
-      if (!o.ok && o.reason) {
-        notifications.show({ message: o.reason, color: 'gray', autoClose: 2500 });
-      }
+      // one notice for the edge, however long the key is held (1.10.6: ~11 piled up)
+      if (!o.ok && o.reason) noticeOnce('show-edge', o.reason);
     });
   };
 
@@ -352,7 +352,7 @@ export function useShowSteps({
     // a text, a picture or a video of the running order: one step past it is the next item, when
     // «Після кінця пункту…» is on (1.10.0-beta.1)
     if (!previewOnly) {
-      const o = pastItemRef.current?.(sign, { kind: 'slide' });
+      const o = pastItemRef.current?.(sign, { kind: 'slide' }, held);
       if (o) return o;
     }
     // Progressive reveal first: step through the verses of the current slide before
@@ -374,11 +374,11 @@ export function useShowSteps({
         // a passage of the running order at its last / first page: the next / previous item
         const o = previewOnly
           ? null
-          : pastItemRef.current?.(sign, {
-              kind: 'verses',
-              selected: selectedVerses,
-              page: safePageIndex,
-            });
+          : pastItemRef.current?.(
+              sign,
+              { kind: 'verses', selected: selectedVerses, page: safePageIndex },
+              held,
+            );
         if (o) return o;
         return {
           ok: false,
@@ -397,11 +397,11 @@ export function useShowSteps({
     // a passage of the running order at its last / first verse: the next / previous item
     const past = previewOnly
       ? null
-      : pastItemRef.current?.(sign, {
-          kind: 'verses',
-          selected: selectedVerses,
-          page: safePageIndex,
-        });
+      : pastItemRef.current?.(
+          sign,
+          { kind: 'verses', selected: selectedVerses, page: safePageIndex },
+          held,
+        );
     if (past) return past;
     const moved = stepVerse(delta, previewOnly, held);
     if (!(moved instanceof Promise) && moved.ok) setRevealCount(1); // same batch as the verse

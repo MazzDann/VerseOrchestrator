@@ -36,6 +36,7 @@ import { asksFor, atItemEdge, belongsTo, stillThere, type PastItem } from '../..
 import { coverOver } from '../../lib/slide';
 import { itemCountdown, zeroIn } from '../../lib/countdownItem';
 import { everyMs } from '../../lib/workerClock';
+import { type Outcome } from '../../lib/commands';
 import { ORDER_CURRENT_KEY } from '../../lib/stage';
 import { type CountdownPlace } from '../../lib/countdown';
 
@@ -440,13 +441,28 @@ export function useRunningOrder({
 
   // «Далі» past an item's last step (1.10.0-beta.1): the next item, while the switch is on and the
   // screen still shows the item (a song or an album asks at its own end — «Кінець», the last photo)
-  pastItemRef.current = (delta, from) => {
+  // a key held down (its repeats) stops at the item's end, as at a chapter's: a new press goes on
+  // (1.10.6, the Mac's round — a held → rode through the whole running order)
+  const heldAtEdge = (delta: 1 | -1): Outcome => {
+    const i = stepIndex(playlistItems, playlistCurrentId, delta);
+    const item = i == null ? '' : playlistItems[i].label;
+    return {
+      ok: false,
+      reason:
+        delta > 0
+          ? tr('Кінець пункту. Натисніть «Далі» ще раз — {item}', { item })
+          : tr('Початок пункту. Натисніть «Назад» ще раз — {item}', { item }),
+    };
+  };
+  pastItemRef.current = (delta, from, held = false) => {
     const it = playlistItems.find((i) => i.id === playlistCurrentId);
     // a «Цикл» on screen (1.10.0-beta.4): «Далі» leaves it with the switch on; without it the
     // arrows turn its slides by hand
     if (it?.kind === 'loop' && from.kind === 'slide' && belongsTo(it, liveSlideRef.current)) {
-      if (orderFlow && stepIndex(playlistItems, playlistCurrentId, delta) != null)
+      if (orderFlow && stepIndex(playlistItems, playlistCurrentId, delta) != null) {
+        if (held) return heldAtEdge(delta);
         return orderStep(delta, 'key') ? { ok: true } : { ok: false };
+      }
       loopStep(it, delta);
       return { ok: true };
     }
@@ -458,6 +474,7 @@ export function useRunningOrder({
       return null;
     // the last item (or the first, going back): the item's own step and words, as before
     if (stepIndex(playlistItems, playlistCurrentId, delta) == null) return null;
+    if (held) return heldAtEdge(delta);
     return orderStep(delta, 'key') ? { ok: true } : { ok: false };
   };
   return { activatePassage, activateItem, stepPlaylist, orderStep, playlistStepRef };

@@ -6,6 +6,7 @@ import { connectLive, type HubFrame, type LiveConnection } from '../../lib/liveS
 import { isSlide } from '../../lib/bus';
 import { newCommandId, type CommandArgs, type SharedPlaylist } from '../../lib/commands';
 import { tr } from '../../i18n';
+import { noticeOnce } from '../../lib/noticeOnce';
 
 /** A press made while offline is resent on reconnect within this window, then dropped (as /remote). */
 const RESEND_MS = 5000;
@@ -110,13 +111,15 @@ export function useDeskHub(token: string) {
             setRtt(Date.now() - p.at);
             p.onDone?.(f.ok === true);
           }
-          // the reason comes in the operator's language or from the server: a key either way
+          // the reason comes in the operator's language or from the server: a key either way —
+          // once, however long a key is held at an edge (1.10.6)
           if (!f.ok)
-            notifications.show({
-              message: f.reason ? tr(String(f.reason)) : tr('Команду не виконано'),
-              color: 'orange',
-              autoClose: 2500,
-            });
+            noticeOnce(
+              'desk-ack',
+              f.reason ? tr(String(f.reason)) : tr('Команду не виконано'),
+              2500,
+              'orange',
+            );
         }
       },
       stopOn: (f) => f.type === 'denied' || f.type === 'revoked',

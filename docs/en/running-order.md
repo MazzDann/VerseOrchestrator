@@ -101,7 +101,8 @@ To let the arrow keys and a clicker go on to the next item when an item is over,
 **Settings** → **Hotkeys** turn on **“Next” past an item’s end opens the next one**. Then
 “Next” after a passage's last verse, a song's “End”, an album's last photo, a text, a
 picture, a video, or a cover opens the next item, and “Back” at the first step opens the
-previous one. If you have shown something else since, “Next” steps as usual.
+previous one. If you have shown something else since, “Next” steps as usual. A key held down
+goes to the item's end and stops there; a new press goes on to the next item.
 
 To step through items with the arrow keys, in **Settings** → **Hotkeys** → **Arrows**
 choose **↑ ↓ verses, ← → items**: ↑ and ↓ go to the neighbouring verse or song slide, ← and →

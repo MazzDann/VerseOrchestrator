@@ -30,7 +30,8 @@ export type Wire =
   | { t: 'asset'; id: string; data: string }
   | { t: 'hello' }
   | { t: 'need'; id: string }
-  | { t: 'cmd'; cmd: PresenterCommand; id: string };
+  // `held`: from a key held down — its repeats step on, never into another item (1.10.6)
+  | { t: 'cmd'; cmd: PresenterCommand; id: string; held?: true };
 
 export interface BusChannel {
   post(msg: Wire): void;
@@ -325,7 +326,7 @@ export function createBus(
     return true;
   };
 
-  const cmdSubs = new Set<(cmd: PresenterCommand, id: string) => void>();
+  const cmdSubs = new Set<(cmd: PresenterCommand, id: string, held: boolean) => void>();
 
   channel?.listen((msg) => {
     switch (msg.t) {
@@ -365,7 +366,8 @@ export function createBus(
       }
       case 'cmd':
         // older windows sent no id — give it one so the dispatcher can still track it
-        for (const cb of cmdSubs) cb(msg.cmd, msg.id ?? `bus-${Date.now()}-${Math.random()}`);
+        for (const cb of cmdSubs)
+          cb(msg.cmd, msg.id ?? `bus-${Date.now()}-${Math.random()}`, msg.held === true);
     }
   });
 
@@ -436,9 +438,9 @@ export function createBus(
       return () => nextSubs.delete(cb);
     },
     /** A command from an output window; `id` makes it apply once (lib/commands.ts). */
-    sendCommand: (cmd: PresenterCommand, id = `${epoch}-${++cmdSeq}`) =>
-      channel?.post({ t: 'cmd', cmd, id }),
-    subscribeCommand(cb: (cmd: PresenterCommand, id: string) => void): () => void {
+    sendCommand: (cmd: PresenterCommand, held = false, id = `${epoch}-${++cmdSeq}`) =>
+      channel?.post({ t: 'cmd', cmd, id, ...(held ? { held: true as const } : {}) }),
+    subscribeCommand(cb: (cmd: PresenterCommand, id: string, held: boolean) => void): () => void {
       cmdSubs.add(cb);
       return () => cmdSubs.delete(cb);
     },

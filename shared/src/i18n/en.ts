@@ -723,6 +723,9 @@ export const EN: Record<string, string> = {
     'End of the chapter. Press “Next” again — {place}',
   'Початок розділу. Натисніть «Назад» ще раз — {place}':
     'Start of the chapter. Press “Back” again — {place}',
+  'Кінець пункту. Натисніть «Далі» ще раз — {item}': 'End of the item. Press “Next” again — {item}',
+  'Початок пункту. Натисніть «Назад» ще раз — {item}':
+    'Start of the item. Press “Back” again — {item}',
   'Це останній вірш перекладу': 'This is the translation’s last verse',
   'Кінець книги. Натисніть «Далі» ще раз — {place}':
     'End of the book. Press “Next” again — {place}',
