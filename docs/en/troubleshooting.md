@@ -110,6 +110,10 @@ screens is denied”. To allow it:
 2. Allow “Window management” for this site.
 3. Reload the control window and open the presentation window again.
 
+A second output window doesn't go over the first: if the other screens are all taken by output
+windows, it opens next to the control window. To open it on a particular screen, click
+**Presentation** or **Stage** in that screen's row of the **Output windows** panel.
+
 Chrome and Edge can open windows on the screen you choose.
 
 ### “Presentation 1: couldn't draw the slide”
