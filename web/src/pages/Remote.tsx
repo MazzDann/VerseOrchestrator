@@ -15,6 +15,7 @@ import {
   type SharedPlaylist,
 } from '../lib/commands';
 import {
+  afterZeroOf,
   formatTimer,
   hubOffset,
   lookOf,
@@ -508,8 +509,8 @@ export function Remote() {
   const running = screenSent?.countdown ?? null;
 
   // A Bluetooth clicker paired to the phone sends arrow / page keys — honour them too.
-  const keysRef = useRef({ walk, showNow, pickerOpen, view, press });
-  keysRef.current = { walk, showNow, pickerOpen, view, press };
+  const keysRef = useRef({ walk, showNow, pickerOpen, view, press, mineOnScreen, canShow });
+  keysRef.current = { walk, showNow, pickerOpen, view, press, mineOnScreen, canShow };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keysRef.current.pickerOpen) return; // the picker's own list / filter
@@ -519,11 +520,17 @@ export function Remote() {
         return;
       // «Сцена» (1.11.0-beta.3): a clicker in the speaker's hand steps the show as the operator's
       // «Далі» does — no cursor of its own, no «На екран» of a preview it doesn't show (review)
-      if (keysRef.current.view === 'stage') {
-        if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key))
-          keysRef.current.press('next');
-        else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) keysRef.current.press('prev');
-        else return;
+      // — but the speaker's own verse on screen walks on as «Пульт» does (1.11.0 review)
+      const k = keysRef.current;
+      if (k.view === 'stage') {
+        const dir = ['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)
+          ? 1
+          : ['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)
+            ? -1
+            : 0;
+        if (!dir) return;
+        if (k.mineOnScreen && k.canShow) k.walk(dir);
+        else k.press(dir > 0 ? 'next' : 'prev');
         e.preventDefault();
         return;
       }
@@ -661,14 +668,33 @@ export function Remote() {
         )}
 
         {view === 'stage' ? (
-          <RemoteStageView
-            screen={screen}
-            label={screenLabel}
-            onScreen={onScreen}
-            next={next}
-            playlist={canPlaylist ? playlist : null}
-            offset={offset}
-          />
+          <>
+            {/* the operator's suggestion: said here too, its buttons are in «Пульт» (1.11.0 review) */}
+            {suggestion && (
+              <button
+                type="button"
+                className="vo-remote-stage-suggest"
+                onClick={() => setView('remote')}
+              >
+                {tr('Оператор пропонує: {ref}', { ref: suggestion.reference })} ·{' '}
+                {tr('відкрити в «Пульті»')}
+              </button>
+            )}
+            <RemoteStageView
+              screen={screen}
+              label={screenLabel}
+              onScreen={onScreen}
+              next={next}
+              playlist={canPlaylist ? playlist : null}
+              offset={offset}
+            />
+            {/* the clicker's answers (a chapter's edge, no connection) — «Пульт» has them in its footer */}
+            {notice && (
+              <p role="status" className="vo-remote-stage-notice">
+                {notice}
+              </p>
+            )}
+          </>
         ) : (
           <>
             <section className="vo-remote-screen" aria-live="polite">
@@ -1056,11 +1082,12 @@ function RemoteCountdownPad({
   onCountdown: (c: RemoteCountdown) => void;
 }) {
   // here, not in the page: only this pad redraws as the seconds go (review)
-  const { left, paused } = useCountdown(running, offset);
+  const { left, paused, counting } = useCountdown(running, offset);
   const [length, setLength] = useState('');
   const ms = length.trim() ? parseDuration(length) : null;
   const bad = length.trim() !== '' && ms == null;
-  if (running)
+  // an ended one whose time went («Прибрати час»): a new one may start (1.11.0 review)
+  if (running && counting)
     return (
       <section className="vo-remote-countdown" aria-label={tr('Відлік')}>
         <p className="vo-remote-countdown-time" role="timer">
@@ -1244,7 +1271,12 @@ function RemoteStageView({
   const cdEntry = cdAt >= 0 ? entries[cdAt] : null;
   const cdWords =
     cdEntry?.kind === 'countdown'
-      ? zeroWords(cdEntry.atZero, entries[cdAt + 1]?.label ?? null)
+      ? // «наступний пункт» is the item's; any other end is the countdown's own on screen — the
+        // operator may have changed «Після нуля» while it runs (1.11.0 review)
+        zeroWords(
+          cdEntry.atZero === 'next' ? 'next' : afterZeroOf(itemCd),
+          entries[cdAt + 1]?.label ?? null,
+        )
       : '';
   const at = playlist ? playlist.items.findIndex((i) => i.id === playlist.currentId) : -1;
   // nothing of the order on screen yet: its first three (review)

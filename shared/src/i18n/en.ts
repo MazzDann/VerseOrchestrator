@@ -917,14 +917,14 @@ export const EN: Record<string, string> = {
   'Таймер на «Сцені»': 'Timer on Stage',
   'На паузі: час на «Сцені» стоїть.': 'Paused: the time on Stage stands still.',
   'Прибрати таймер': 'Remove the timer',
-  'Час бачить лише доповідач у вікні «Сцена»; глядачі його не бачать.':
-    'Only the speaker sees the time, in the Stage window; the audience doesn’t.',
+  'Час бачить лише доповідач — у вікні «Сцена» і на пульті-телефоні; глядачі його не бачать.':
+    'Only the speaker sees the time — in the Stage window and on their phone remote; the audience doesn’t.',
   'Запустити на «Сцені»: {time}': 'Start on Stage: {time}',
   'Запустити на «Сцені»': 'Start on Stage',
   'Тут — те, що бачать глядачі. Таймер доповідача має свій розділ нижче.':
     'This is what the viewers see. The speaker timer has a section of its own below.',
-  'Час, який бачить лише доповідач у вікні «Сцена». Глядачів ці налаштування не стосуються.':
-    'The time only the speaker sees, in the Stage window. These settings don’t touch the viewers.',
+  'Час, який бачить лише доповідач — у вікні «Сцена» і на пульті-телефоні. Глядачів ці налаштування не стосуються.':
+    'The time only the speaker sees — in the Stage window and on their phone remote. These settings don’t touch the viewers.',
   'Час відліку на екрані, у «Сцені» й на телефонах змінює колір перед кінцем і після нуля.':
     'The countdown time on screen, in Stage, and on the phones changes color before the end and past zero.',
   Попередження: 'Warning',
@@ -1899,6 +1899,8 @@ export const EN: Record<string, string> = {
   'Попередні вірші того, що ви показали': 'The previous verses of what you showed',
   Почати: 'Start',
   'Почати відлік': 'Start the countdown',
+  'Оператор пропонує: {ref}': 'The operator suggests: {ref}',
+  'відкрити в «Пульті»': 'open in “Remote”',
   'далі: {item}': 'next: {item}',
   'далі: кінець послідовності': 'next: the end of the running order',
   'далі: рахує в мінус': 'next: counts past zero',
@@ -1946,8 +1948,8 @@ export const EN: Record<string, string> = {
   'застосунок вимкнено': 'the app is switched off',
   'підключаюся…': 'connecting…',
   // «Сцена» (1.9.0-beta.11, web/src/pages/Stage.tsx, StageMessageTool, SettingsPanel)
-  'Enter — показати, Shift+Enter — новий рядок. Глядачі й телефони його не бачать.':
-    'Enter shows it, Shift+Enter starts a new line. Viewers and phones don’t see it.',
+  'Enter — показати, Shift+Enter — новий рядок. Глядачі його не бачать.':
+    'Enter shows it, Shift+Enter starts a new line. The viewers don’t see it.',
   'Вигляд «Сцени»': 'The stage window’s look',
   'Вікно для доповідача: що зараз на екрані, що далі, годинник, таймер і ваші повідомлення. Глядачі його не бачать.':
     'The speaker’s window: what is on screen now, what comes next, the clock, the timer, and your messages. Viewers don’t see it.',
