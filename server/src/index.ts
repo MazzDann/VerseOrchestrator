@@ -38,7 +38,13 @@ import {
   updateServerSettings,
   validStandbyPort,
 } from './serverSettings.js';
-import { currentEntry, isAutostartOn, setAutostart } from './autostart.js';
+import {
+  currentEntry,
+  isAutostartOn,
+  liveNode,
+  refreshAutostart,
+  setAutostart,
+} from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
 import { createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
@@ -682,7 +688,7 @@ app.post(
     for (const k of ['PORT', 'HOST', 'VO_STANDBY', 'VO_STANDBY_PORT', 'VO_STANDBY_LISTEN'])
       delete env[k];
     spawn(
-      process.execPath,
+      liveNode(), // the waiter's Node may be gone after `brew upgrade` (Mac check of 1.10.1)
       [
         '-e',
         RELAUNCH_HELPER,
@@ -719,7 +725,10 @@ if (!process.env.VITEST) {
 // --- Standby waiter (0.5.2): «Запускати застосунок за адресою» in the control window.
 
 const standbyScript = path.join(repoRoot, 'server', 'src', 'standby.ts');
+// the entry's file (on / off); the switch renders it anew with the Node of the moment
 const autostart = currentEntry(repoRoot);
+// an older version's entry may name a Node gone or in Homebrew's Cellar (Mac check of 1.10.1)
+refreshAutostart(autostart, { log: (m) => console.log(`[server] ${m}`) });
 
 function tellWaiter(
   port: number,
@@ -733,7 +742,7 @@ function tellWaiter(
 }
 
 function startWaiter(): void {
-  spawn(process.execPath, ['--disable-warning=ExperimentalWarning', standbyScript], {
+  spawn(liveNode(), ['--disable-warning=ExperimentalWarning', standbyScript], {
     cwd: repoRoot,
     detached: true,
     stdio: 'ignore',
@@ -783,17 +792,19 @@ app.put(
       relaunch = !!running; // a waiter on the old port moves over
     }
     const port = getServerSettings().standby.port;
+    // rendered now: an app that outlived `brew upgrade` names the new Node (Mac check of 1.10.1)
+    const entry = currentEntry(repoRoot);
     if (body.enabled === true) {
       if (!running && !relaunch && !(await portFree(port))) {
         throw new ApiError(409, N_('Порт {port} зайнятий іншою програмою — змініть порт'), {
           port,
         });
       }
-      setAutostart(autostart, true);
+      setAutostart(entry, true);
       if (!running) startWaiter();
       else if (running.retiring) await tellWaiter(before.port, 'resume');
     } else if (body.enabled === false) {
-      setAutostart(autostart, false);
+      setAutostart(entry, false);
       if (running) await tellWaiter(before.port, 'retire'); // exits once the app is idle
       relaunch = false;
     }
