@@ -15,6 +15,7 @@ import { api } from '../api';
 import { type SeqCover, usePlaylist } from '../playlistStore';
 import { useServer } from '../serverStore';
 import { tr, useLang } from '../i18n';
+import { keepEnter } from '../lib/editorKeys';
 import { coverLabel } from '../lib/coverItem';
 
 /**
@@ -82,7 +83,7 @@ export function CoverItemEditor({
           </ActionIcon>
         </Tooltip>
       </Popover.Target>
-      <Popover.Dropdown w={300} onClick={(e) => e.stopPropagation()}>
+      <Popover.Dropdown w={300} onClick={(e) => e.stopPropagation()} onKeyDown={keepEnter}>
         <Stack gap="xs">
           <Textarea
             size="xs"
@@ -105,7 +106,9 @@ export function CoverItemEditor({
               value={imageId}
               onChange={(v) => setImageId(v ?? '')}
               allowDeselect={false}
-              comboboxProps={{ withinPortal: true }}
+              // in the editor's own box (1.10.3, the Mac's round): portaled out, a click on an option was
+              // «outside» the Popover — it closed the editor and the pick was lost
+              comboboxProps={{ withinPortal: false }}
               nothingFoundMessage={tr('Додайте зображення в «Медіа → Зображення»')}
             />
           )}
