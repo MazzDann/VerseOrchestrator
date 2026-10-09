@@ -23,6 +23,7 @@ import {
   useCommandHandler,
   type Outcome,
   type RemoteCountdown,
+  type RemoteTimer,
   type RemotePassage,
   type RemoteSong,
   type RemoteTarget,
@@ -61,6 +62,7 @@ export function useShowCommands({
   blackToggle,
   coverToggle,
   countdownRemote,
+  timerRemote,
   queryClient,
   appearance,
   translations,
@@ -100,6 +102,8 @@ export function useShowCommands({
   blackToggle: () => void;
   coverToggle: () => void;
   countdownRemote: (c: RemoteCountdown) => Outcome;
+  /** the speaker's timer from a remote (1.11.0-beta.2, useTimers) */
+  timerRemote: (t: RemoteTimer) => Outcome;
   queryClient: QueryClient;
   appearance: Appearance;
   translations: Translation[];
@@ -208,6 +212,11 @@ export function useShowCommands({
       return args.countdown
         ? countdownRemote(args.countdown)
         : { ok: false, reason: tr('Неправильний відлік') };
+    }
+    if (cmd === 'timer') {
+      return args.timer
+        ? timerRemote(args.timer)
+        : { ok: false, reason: tr('Неправильний таймер') };
     }
     // the switches: B, «.» and (1.4.1) L pressed in an output window, a remote's buttons —
     // each by name (lib/commands.ts toggleOf), none by default

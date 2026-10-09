@@ -263,6 +263,7 @@ const RemoteCommandSchema = z.enum([
   'queue',
   'cover',
   'countdown',
+  'timer',
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
 /** A phone (`/remote`, a QR) or a control window on another computer (`/desk`, 1.9.0-beta.10). */
@@ -273,7 +274,13 @@ const PairingSchema = z.object({
   name: z.string(),
   // a server before 1.9.0-beta.10 sends none: a phone
   kind: PairingKindSchema.optional().transform((k) => k ?? 'phone'),
-  allowed: z.array(RemoteCommandSchema),
+  // a permission of a newer version (a server updated under an open window) is left out, not a
+  // broken list of remotes (1.11.0-beta.2 review)
+  allowed: z
+    .array(z.string())
+    .transform((a) =>
+      a.filter((c): c is RemoteCommand => RemoteCommandSchema.safeParse(c).success),
+    ),
   createdAt: z.number(),
   lastSeen: z.number().nullable(),
   online: z.boolean(),

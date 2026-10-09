@@ -19,7 +19,8 @@ import { isUnreadable, readJson, writeJson } from './jsonFile.js';
  * `songs` (0.6.3) is a permission, not a command: song stanzas chosen on the phone go
  * the same way (`pick` / `show` + song) — the operator grants it per remote on its own.
  * `cover` and `countdown` (1.9.0-beta.10) are «Заставка» (the L key) and «Відлік» (start /
- * pause / take off) — asked for a control window on another computer (F1005-10).
+ * pause / take off) — asked for a control window on another computer (F1005-10). `timer`
+ * (1.11.0-beta.2) — the speaker's own timer on «Сцена»: start, pause / go on, ±1 хв, off.
  */
 export const REMOTE_COMMANDS = [
   'next',
@@ -32,6 +33,7 @@ export const REMOTE_COMMANDS = [
   'playlist',
   'cover',
   'countdown',
+  'timer',
 ] as const;
 export type RemoteCommand = (typeof REMOTE_COMMANDS)[number];
 
@@ -50,6 +52,7 @@ export const REMOTE_ACTIONS = [
   'queue',
   'cover',
   'countdown',
+  'timer',
 ] as const;
 export type RemoteAction = (typeof REMOTE_ACTIONS)[number];
 export const isRemoteAction = (c: unknown): c is RemoteAction =>
@@ -341,6 +344,29 @@ export function sanitizeSong(raw: unknown): SongPick | null {
 export interface CountdownOp {
   op: 'start' | 'pause' | 'stop';
   seconds?: number;
+}
+
+/** What a remote asks of the speaker's timer (1.11.0-beta.2): start (minutes, else the saved length), pause / go on, ±minutes, off. */
+export interface TimerOp {
+  op: 'start' | 'pause' | 'shift' | 'stop';
+  minutes?: number;
+}
+
+/** A timer request from a remote, or null when it isn't one: whole minutes, ±1…60 to shift, ≤ 12 h to start. */
+export function sanitizeTimer(raw: unknown): TimerOp | null {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  if (r.op === 'pause' || r.op === 'stop') return r.minutes === undefined ? { op: r.op } : null;
+  if (r.op === 'start') {
+    if (r.minutes === undefined) return { op: 'start' };
+    return posInt(r.minutes, 12 * 60) ? { op: 'start', minutes: r.minutes } : null;
+  }
+  if (r.op === 'shift') {
+    const m = r.minutes;
+    return typeof m === 'number' && Number.isInteger(m) && m !== 0 && Math.abs(m) <= 60
+      ? { op: 'shift', minutes: m }
+      : null;
+  }
+  return null;
 }
 
 /** A countdown request from a remote, or null when it isn't one. */

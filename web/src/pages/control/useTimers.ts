@@ -32,7 +32,7 @@ import {
   type StageTimer,
 } from '../../lib/countdown';
 import { countdownOver } from '../../lib/slide';
-import { type Outcome, type RemoteCountdown } from '../../lib/commands';
+import { type Outcome, type RemoteCountdown, type RemoteTimer } from '../../lib/commands';
 import { tr } from '../../i18n';
 import { standbyNotice } from './standby';
 
@@ -256,6 +256,29 @@ export function useTimers({
     const t = stageTimerRef.current;
     if (t) stageTimerSet(shiftCountdown(t, minutes, Date.now()));
   };
+  /**
+   * The speaker's timer from a remote (1.11.0-beta.2, a permission of its own): a new one — of its
+   * minutes or the saved length, the saved end —, pause / go on, ±minutes, or off. What happened goes
+   * back to it.
+   */
+  const timerRemote = (t: RemoteTimer): Outcome => {
+    if (!leaderRef.current) return { ok: false, reason: tr('Показом керує інше вікно керування') };
+    if (t.op === 'start') {
+      stageTimerStart(
+        t.minutes ? t.minutes * 60_000 : savedLength(appearance.stageTimerMinutes),
+        appearance.stageTimerAfterZero,
+      );
+      return { ok: true };
+    }
+    if (t.op === 'stop') {
+      stageTimerSet(null);
+      return { ok: true };
+    }
+    if (!stageTimerRef.current) return { ok: false, reason: tr('Таймер доповідача не запущено') };
+    if (t.op === 'pause') stageTimerPause();
+    else stageTimerShift(t.minutes ?? 0);
+    return { ok: true };
+  };
   const stageTimerAfterZero = (afterZero: AfterZero) => {
     const t = stageTimerRef.current;
     if (t && afterZeroOf(t) !== afterZero) stageTimerSet({ ...t, afterZero });
@@ -281,5 +304,6 @@ export function useTimers({
     stageTimerShift,
     stageTimerAfterZero,
     countdownAfterZero,
+    timerRemote,
   };
 }
