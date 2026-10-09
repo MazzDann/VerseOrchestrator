@@ -40,6 +40,7 @@ import { tr, trn, useLang } from '../i18n';
 import { IconMoon, IconSun, IconSunMoon } from '@tabler/icons-react';
 import { nextPhoneTheme, themeAttr, themeLabel, usePhoneTheme } from '../lib/phoneTheme';
 import { useRemoteView } from '../lib/remoteView';
+import { zeroWords } from '../lib/countdownItem';
 
 const sameSummary = (a: ScreenSummary | null, b: ScreenSummary | null) =>
   !!a && !!b && a.kind === b.kind && a.reference === b.reference && a.text === b.text;
@@ -666,6 +667,7 @@ export function Remote() {
             onScreen={onScreen}
             next={next}
             playlist={canPlaylist ? playlist : null}
+            offset={offset}
           />
         ) : (
           <>
@@ -1223,13 +1225,27 @@ function RemoteStageView({
   onScreen,
   next,
   playlist,
+  offset,
 }: {
   screen: ScreenSummary | null;
   label: string;
   onScreen: boolean;
   next: ScreenSummary | null;
   playlist: SharedPlaylist | null;
+  /** how far the computer's clock is ahead of this phone's */
+  offset: number;
 }) {
+  // a «Відлік» item counting (1.11.0-beta.4): its time large and, when this remote may see the order,
+  // what follows its zero
+  const itemCd = screen?.kind === 'countdown' && screen.countdown?.item ? screen.countdown : null;
+  const cd = useCountdown(itemCd, offset);
+  const entries = playlist?.items ?? [];
+  const cdAt = itemCd ? entries.findIndex((i) => i.id === itemCd.item) : -1;
+  const cdEntry = cdAt >= 0 ? entries[cdAt] : null;
+  const cdWords =
+    cdEntry?.kind === 'countdown'
+      ? zeroWords(cdEntry.atZero, entries[cdAt + 1]?.label ?? null)
+      : '';
   const at = playlist ? playlist.items.findIndex((i) => i.id === playlist.currentId) : -1;
   // nothing of the order on screen yet: its first three (review)
   const around = playlist ? playlist.items.slice(Math.max(0, at), Math.max(0, at) + 3) : [];
@@ -1239,7 +1255,20 @@ function RemoteStageView({
         <span className="vo-remote-stage-dot" data-on={onScreen || undefined} aria-hidden />
         {tr('На екрані')} · {label}
       </div>
-      {onScreen && screen ? (
+      {itemCd ? (
+        <div className="vo-remote-stage-cd">
+          <p
+            className="vo-remote-stage-cd-time"
+            role="timer"
+            // dim under «Чорний екран» / hidden text, as /stage (review)
+            style={{ opacity: !onScreen ? 0.45 : cd.paused ? 0.7 : 1 }}
+          >
+            {cd.counting ? formatTimer(cd.left) : ''}
+            {cd.paused && <span className="vo-remote-timer-note"> · {tr('пауза')}</span>}
+          </p>
+          {cdWords && cd.counting && <p className="vo-remote-stage-cd-then">{cdWords}</p>}
+        </div>
+      ) : onScreen && screen ? (
         <p
           className="vo-remote-stage-text"
           style={{
