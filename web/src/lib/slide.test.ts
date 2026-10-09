@@ -134,6 +134,18 @@ describe('«Заставка» (1.4.0)', () => {
       cornerCountdown: { until: 5_000, caption: '' },
     };
     expect(summarize(corner).countdown).toEqual({ until: 5_000 });
+    // the speaker's timer and the message ride in the remotes' summary (1.11.0-beta.2), not to viewers
+    const staged: Slide = {
+      ...corner,
+      stageTimer: { until: 60_000 },
+      stageMessage: { text: 'Ще 5 хвилин', at: 1 },
+    };
+    expect(summarize(staged)).toMatchObject({
+      stageTimer: { until: 60_000 },
+      stageMessage: { text: 'Ще 5 хвилин', at: 1 },
+    });
+    expect(forAudience(staged).stageTimer).toBeUndefined();
+    expect(forAudience(staged).stageMessage).toBeUndefined();
   });
 
   it('counts as something on screen, and «Сховати текст» can hide it', () => {

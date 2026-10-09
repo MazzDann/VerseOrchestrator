@@ -14,4 +14,5 @@ export const REMOTE_LABEL: Record<RemoteCommand, string> = {
   queue: N_('У послідовність'),
   cover: N_('Заставка'),
   countdown: N_('Відлік'),
+  timer: N_('Таймер доповідача'),
 };

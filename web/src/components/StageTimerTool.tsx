@@ -137,7 +137,12 @@ export function StageTimerTool({
     >
       <Popover.Target>
         <Tooltip
-          label={<Tip label={label} hint={tr('Час для доповідача — лише у вікні «Сцена»')} />}
+          label={
+            <Tip
+              label={label}
+              hint={tr('Час для доповідача — у вікні «Сцена» і на пульті-телефоні')}
+            />
+          }
           withArrow
           openDelay={250}
           multiline

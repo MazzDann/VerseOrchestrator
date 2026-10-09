@@ -134,7 +134,7 @@ Presets keep this look with the rest.
 ## Set up the speaker timer
 
 Only the speaker sees the [speaker timer](show-text.md#give-the-speaker-a-timer), in the **Stage**
-window, so its look is set apart from what the viewers see. The **Speaker timer** section has the
+window and on their phone remote, so its look is set apart from what the viewers see. The **Speaker timer** section has the
 same **Warning** and **Warning color**, **Another color past zero** and **Color past zero**,
 **Time font** (**As the text** — the slides' font), and **Time format** as the countdown. By default they match the countdown's; there
 is no size or words here — Stage has its own. A running timer takes new settings at once. Presets don't change these settings: a preset is the viewers' look.

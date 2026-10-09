@@ -8,6 +8,7 @@ import {
   isRemoteAction,
   sanitizePassage,
   sanitizeCountdown,
+  sanitizeTimer,
   sanitizeSong,
   touchPairing,
   type RemoteAction,
@@ -390,6 +391,9 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   // «Відлік» says what to do with it (1.9.0-beta.10)
   const countdown = cmd === 'countdown' ? sanitizeCountdown(msg.countdown) : null;
   if (cmd === 'countdown' && !countdown) return reject(N_('Неправильний відлік'));
+  // the speaker's timer (1.11.0-beta.2) says what to do with it
+  const timer = cmd === 'timer' ? sanitizeTimer(msg.timer) : null;
+  if (cmd === 'timer' && !timer) return reject(N_('Неправильний таймер'));
   // «Далі» / «Назад» from a key held down on a desk (1.10.6): never into another item
   const held = msg.held === true && (cmd === 'next' || cmd === 'prev');
   // each ability on its own, per remote
@@ -434,6 +438,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
       ...(song ? { song } : {}),
       ...(item ? { item } : {}),
       ...(countdown ? { countdown } : {}),
+      ...(timer ? { timer } : {}),
       ...(held ? { held: true } : {}),
     });
   }
