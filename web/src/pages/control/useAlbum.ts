@@ -149,7 +149,15 @@ export function useAlbum({
    * A photo on screen. By hand it is the preview too and «Наживо» goes on, as a picture's click
    * does; the timer's (`quiet`) changes only the screen and a preview that shows this album.
    */
-  const put = (id: string, list: AlbumPhoto[], index: number, fit: ImageFit, quiet = false) => {
+  const put = (
+    id: string,
+    list: AlbumPhoto[],
+    index: number,
+    fit: ImageFit,
+    quiet = false,
+    /** the way the step went: a photo gone from the folder gives way to the next one this way */
+    dir: 1 | -1 = 1,
+  ) => {
     shown.current = { id, photos: list, index };
     const slide = albumSlide(id, list, index, fit, slideStyle);
     pushLive(slide);
@@ -159,14 +167,71 @@ export function useAlbum({
       setLive(true);
     }
     setAlbum({ id, index, name: list[index].name });
+    checkPhoto(id, list, index, fit, quiet, dir);
     return slide;
   };
-  const showPhoto = (index: number, quiet = false) => {
+  /**
+   * A photo gone from the folder since the album was read — renamed, deleted (1.10.12, the Mac's
+   * round: «Показ» stayed on Firefox's loading dots, Chromium showed it from the copy read ahead, and
+   * nobody said why). Asked of the server with each photo put up; a 404: the operator is told, the
+   * album read again, and the nearest photo still there the way the step went takes its place.
+   */
+  const checkPhoto = (
+    id: string,
+    list: AlbumPhoto[],
+    index: number,
+    fit: ImageFit,
+    quiet: boolean,
+    dir: 1 | -1,
+  ) => {
+    const photo = list[index];
+    const still = () =>
+      shown.current?.id === id && shown.current.photos === list && shown.current.index === index;
+    void fetch(photo.src, { method: 'HEAD', cache: 'no-store' })
+      .then(async (r) => {
+        if (r.status !== 404 || !still()) return;
+        const info = await queryClient.fetchQuery({
+          queryKey: ['album', id],
+          queryFn: () => api.album(id),
+          staleTime: 0,
+        });
+        const now = info.photos ?? [];
+        const there = new Set(now.map((p) => p.name));
+        // still in the folder: not gone — a file that isn't a picture (yet), one just added; left
+        // as it is (review: the same photo put again asked again, round and round)
+        if (there.has(photo.name) || now.length === 0 || !still()) return;
+        // the screen moved on meanwhile (verses, black, hidden): nothing goes over it
+        const s = liveSlideRef.current;
+        if (!albumOnScreen(s, id) || (quiet && (s.blank || s.forceBlack || !s.visible))) return;
+        noticeOnce(
+          'album-gone',
+          tr(
+            'Фото «{name}» уже немає в папці — його перейменували чи видалили. Альбом прочитано знову.',
+            {
+              name: photo.name,
+            },
+          ),
+          5000,
+          'orange',
+        );
+        let k = index + dir;
+        while (k >= 0 && k < list.length && !there.has(list[k].name)) k += dir;
+        const to =
+          k >= 0 && k < list.length
+            ? now.findIndex((p) => p.name === list[k].name)
+            : dir > 0
+              ? now.length - 1
+              : 0;
+        put(id, now, Math.max(0, to), fit, quiet, dir);
+      })
+      .catch(() => {});
+  };
+  const showPhoto = (index: number, quiet = false, dir: 1 | -1 = 1) => {
     if (!album || !photos?.[index]) return;
     // the photo on screen keeps its «Вписати / Заповнити» when it is this album's (a refit sticks)
     const now = liveSlideRef.current;
     const fit = (albumOnScreen(now, album.id) && now.picture?.fit) || readImageFit();
-    put(album.id, photos, index, fit, quiet);
+    put(album.id, photos, index, fit, quiet, dir);
   };
 
   /**
@@ -233,7 +298,7 @@ export function useAlbum({
       if (o) return o;
       return { ok: false, reason: dir > 0 ? tr('Це останнє фото') : tr('Це перше фото') };
     }
-    showPhoto(idx, quiet);
+    showPhoto(idx, quiet, dir);
     return { ok: true };
   };
   const stepRef = useRef(step);
