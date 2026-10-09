@@ -14,6 +14,7 @@ import { type SeqCountdown, usePlaylist } from '../playlistStore';
 import { parseDuration } from '../lib/countdown';
 import { countdownLabel, isItemZero, lengthText } from '../lib/countdownItem';
 import { tr, useLang } from '../i18n';
+import { keepEnter } from '../lib/editorKeys';
 
 /**
  * A «Відлік» item's own length, words and zero (1.10.0-beta.3, the author's call: chosen per item;
@@ -74,7 +75,7 @@ export function CountdownItemEditor({
           </ActionIcon>
         </Tooltip>
       </Popover.Target>
-      <Popover.Dropdown w={280} onClick={(e) => e.stopPropagation()}>
+      <Popover.Dropdown w={280} onClick={(e) => e.stopPropagation()} onKeyDown={keepEnter}>
         <Stack gap="xs">
           <TextInput
             size="xs"
@@ -106,7 +107,9 @@ export function CountdownItemEditor({
             value={atZero}
             onChange={(v) => isItemZero(v) && setAtZero(v)}
             allowDeselect={false}
-            comboboxProps={{ withinPortal: true }}
+            // in the editor's own box (1.10.3, the Mac's round): portaled out, a click on an option was
+            // «outside» the Popover — it closed the editor and the pick was lost
+            comboboxProps={{ withinPortal: false }}
           />
           <Group justify="flex-end" gap="xs">
             <Button size="xs" variant="default" onClick={() => onOpenChange(false)}>
