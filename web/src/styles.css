@@ -48,6 +48,26 @@
   background: var(--mantine-color-brand-light-hover);
 }
 
+/* «Сповіщення» (components/NoticeHistory.tsx): one notice a row, a thin rule between them, the
+   notice's colour as a dot; the words wrap (the list scrolls only up and down) */
+.vo-notice-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 6px 2px;
+}
+.vo-notice-row + .vo-notice-row {
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+.vo-notice-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 50%;
+}
+
 .vo-strong {
   cursor: pointer;
   border-bottom: 1px dotted var(--mantine-color-dimmed);

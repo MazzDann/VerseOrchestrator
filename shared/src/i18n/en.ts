@@ -1796,6 +1796,13 @@ export const EN: Record<string, string> = {
   // 1.1.0 help
   Довідка: 'Help',
   'Посібник користувача — відкривається на GitHub': 'The user guide — opens on GitHub',
+  Сповіщення: 'Notifications',
+  'Сповіщення: {n} нове|Сповіщення: {n} нові|Сповіщення: {n} нових':
+    'Notifications: {n} new|Notifications: {n} new',
+  'Що застосунок повідомляв за цей сеанс — якщо щось промайнуло':
+    'What the app has told you this session — in case something flashed by',
+  'Сповіщення за цей сеанс': 'Notifications this session',
+  'Сповіщень ще не було.': 'No notifications yet.',
   // 1.2.0 feedback
   Відгук: 'Feedback',
   'Помітили помилку чи маєте ідею? Форма відкривається на GitHub (потрібен акаунт), з версією, системою й мовою. Відгук видно всім — не пишіть особистих даних.':

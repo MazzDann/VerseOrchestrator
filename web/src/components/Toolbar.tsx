@@ -81,11 +81,14 @@ export interface ToolProps {
   disabled?: boolean;
   /** Something new behind this button (a newer version behind the settings, 1.0.0). */
   dot?: boolean;
+  /** A fuller name for screen readers than the tooltip's (a count: «Сповіщення: 3 нові»). */
+  ariaLabel?: string;
 }
 
 /**
  * Icon-only toolbar button. `filled`: drawn filled without being a toggle — a go-live text
  * button squeezed to its icon («На екран» in the narrowest header) is no «pressed» panel.
+ * `tipOff`: no tooltip — its pop-up is open under it.
  */
 export function ToolIcon({
   label,
@@ -97,10 +100,16 @@ export function ToolIcon({
   color,
   disabled,
   dot,
+  ariaLabel,
   filled,
-}: ToolProps & { filled?: boolean }) {
+  tipOff,
+}: ToolProps & { filled?: boolean; tipOff?: boolean }) {
   return (
-    <Tooltip label={<Tip label={label} hint={hint} combo={combo} />} {...TIP_PROPS}>
+    <Tooltip
+      label={<Tip label={label} hint={hint} combo={combo} />}
+      {...TIP_PROPS}
+      disabled={tipOff}
+    >
       <Indicator disabled={!dot} size={8} offset={4} color="brand" withBorder>
         <ActionIcon
           variant={active || filled ? 'filled' : 'default'}
@@ -108,7 +117,7 @@ export function ToolIcon({
           size="lg"
           onClick={onClick}
           disabled={disabled}
-          aria-label={label}
+          aria-label={ariaLabel ?? label}
           aria-pressed={active}
         >
           {icon}
@@ -127,7 +136,7 @@ export function ToolButton({
   ...rest
 }: ToolProps & { text: string; compact?: boolean; variant?: 'default' | 'filled' | 'light' }) {
   if (compact) return <ToolIcon label={label} {...rest} filled={variant === 'filled'} />;
-  const { hint, combo, icon, onClick, color, disabled } = rest;
+  const { hint, combo, icon, onClick, color, disabled, ariaLabel } = rest;
   return (
     <Tooltip label={<Tip label={label} hint={hint} combo={combo} />} {...TIP_PROPS}>
       <Button
@@ -137,7 +146,7 @@ export function ToolButton({
         leftSection={icon}
         onClick={onClick}
         disabled={disabled}
-        aria-label={label}
+        aria-label={ariaLabel ?? label}
       >
         {text}
       </Button>
@@ -186,6 +195,7 @@ function ToolMenuItem({
   color,
   disabled,
   dot,
+  ariaLabel,
 }: ToolProps) {
   const chords = chordsOf(combo);
   const small = isValidElement<{ size?: number }>(icon) ? cloneElement(icon, { size: 16 }) : icon;
@@ -196,6 +206,7 @@ function ToolMenuItem({
       color={color}
       disabled={disabled}
       onClick={onClick}
+      aria-label={ariaLabel}
       leftSection={
         <Indicator disabled={!dot} size={6} offset={1} color="brand">
           {small}
