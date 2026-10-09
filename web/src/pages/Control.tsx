@@ -37,6 +37,7 @@ import { useOutputWindows } from '../lib/outputs';
 import { useSlideErrorNotices } from '../lib/slideErrorNotices';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
+import { useNoticeRecorder } from '../lib/noticeHistory';
 import { useControlLeader } from '../lib/leader';
 import { QuickRefPill } from '../components/QuickRefPill';
 import { type RemoteTarget } from '../lib/commands';
@@ -413,7 +414,9 @@ export function Control() {
   const [stageTimerOpen, setStageTimerOpen] = useState(false);
   /** …and «Повідомлення на сцену» (1.9.0-beta.11): its field takes letters the keys use */
   const [stageMessageOpen, setStageMessageOpen] = useState(false);
-  const toolOpen = countdownOpen || stageTimerOpen || stageMessageOpen;
+  /** …and «Сповіщення», the session's notices (its list's keys are its own) */
+  const [noticesOpen, setNoticesOpen] = useState(false);
+  const toolOpen = countdownOpen || stageTimerOpen || stageMessageOpen || noticesOpen;
   // Finding the place (useJumps, vo-search): jumps, the go-to bar, the typed numbers (E3–E5)
   // and the search panel's scope — after toolOpen, which E3 reads
   const {
@@ -954,6 +957,9 @@ export function Control() {
     colorScheme,
     toggleColorScheme,
   });
+  // E34: the session's notices for «Сповіщення» (lib/noticeHistory.ts) — the control window
+  // alone records them; the last call: it reads none of the others' state
+  useNoticeRecorder();
 
   // a bookmark into the running order (1.8.12-beta.6, «Збережене» under the monitors)
   const addBookmarkToShow = (b: RefItem) => {
@@ -1175,6 +1181,8 @@ export function Control() {
             asideToggle={asideToggle}
             moreShown={moreShown}
             setMoreOpen={setMoreOpen}
+            noticesOpen={noticesOpen}
+            setNoticesOpen={setNoticesOpen}
             panelPlacement={panelPlacement}
             live={{
               liveFollow,

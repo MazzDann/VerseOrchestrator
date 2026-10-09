@@ -130,7 +130,8 @@ module with its area — `vo-sync`, `vo-search`, `vo-timer`, `vo-songs`, `vo-med
 React runs a component's passive effects in the order of its hook calls, and several of the
 control window's effects rely on running before or after others in the same commit. So the
 order of the calls in `Control.tsx` is part of its behaviour. A comment at each call names
-its effects (E1–E33; E2 and E7 stay in `Control.tsx`) and what they must follow:
+its effects (E1–E34; E2 and E7 stay in `Control.tsx`; E34, the last call, records the
+session's notices for «Сповіщення» — `lib/noticeHistory.ts`) and what they must follow:
 
 - A takeover's restore of the page and the reveal step (E17) runs after the steps' resets
   (E12, E16), so it wins.
