@@ -707,6 +707,18 @@ export const api = {
       /* best-effort, like livePost */
     });
   },
+  /**
+   * An output window opened, moved or changed full screen (F1005-05): the server keeps the output
+   * windows out of Windows «Peek» (server/src/peekGuard.ts). Best-effort: a server without it,
+   * «у браузері» without a server — nothing to do.
+   */
+  peekGuard: async (): Promise<void> => {
+    await fetch('/api/windows/peek-guard', { method: 'POST', headers: CONTROL_HEADERS }).catch(
+      () => {
+        /* best-effort */
+      },
+    );
+  },
   // `local` (1.9.0-beta.10): this page runs on the computer with the app (absent before: yes)
   host: () =>
     getJson('/api/host', z.object({ ips: z.array(z.string()), local: z.boolean().default(true) })),
