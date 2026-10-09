@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formatTimer, lookOf, TIMER_FONT_CSS, timerColor, useCountdown } from '../lib/countdown';
+import {
+  afterZeroOf,
+  formatTimer,
+  lookOf,
+  TIMER_FONT_CSS,
+  timerColor,
+  useCountdown,
+} from '../lib/countdown';
 import {
   type Slide,
   type SlideVideo,
@@ -164,7 +171,11 @@ export function Stage() {
   const cdAt = cdItem ? order.findIndex((i) => i.id === cdItem.id) : -1;
   const cdWords =
     cdItem?.kind === 'countdown'
-      ? zeroWords(cdItem.atZero, cdAt >= 0 ? (order[cdAt + 1]?.label ?? null) : null)
+      ? // «наступний пункт» is the item's; any other end is the countdown's own on screen (1.11.0 review)
+        zeroWords(
+          cdItem.atZero === 'next' ? 'next' : afterZeroOf(cdOf),
+          cdAt >= 0 ? (order[cdAt + 1]?.label ?? null) : null,
+        )
       : '';
   // Tell the control window this output exists (its «Вікна виводу» list).
   const identify = useAnnounceOutput('stage');
@@ -321,7 +332,7 @@ export function Stage() {
           <section className="vo-stage-current" aria-label={tr('Зараз')}>
             <div className="vo-stage-label">{tr('Зараз')}</div>
             <SlideBox slide={slide} ring="live" />
-            {itemCd && <div className="vo-stage-cd-then">{cdWords}</div>}
+            {itemCd && cd.counting && <div className="vo-stage-cd-then">{cdWords}</div>}
           </section>
           <aside className="vo-stage-side">
             {look.showNext && (

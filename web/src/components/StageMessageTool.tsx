@@ -208,7 +208,7 @@ export function StageMessageTool({
             </Stack>
           )}
           <Text size="xs" c="dimmed">
-            {tr('Enter — показати, Shift+Enter — новий рядок. Глядачі й телефони його не бачать.')}
+            {tr('Enter — показати, Shift+Enter — новий рядок. Глядачі його не бачать.')}
           </Text>
         </Stack>
       </Popover.Dropdown>
