@@ -41,7 +41,11 @@ const ALL: RemoteCommand[] = [
   // a computer's (`/desk`) since 1.9.0-beta.10, a phone's too since 1.11.0-beta.1
   'cover',
   'countdown',
+  // the speaker's timer (1.11.0-beta.2): a phone's — the desk has no buttons for it yet
+  'timer',
 ];
+const abilities = (kind: PairingKind): RemoteCommand[] =>
+  kind === 'desk' ? ALL.filter((c) => c !== 'timer') : ALL;
 /** Without these a computer can't put its own verses on screen: said under the boxes. */
 const DESK_SHOWS: RemoteCommand[] = ['show', 'pick'];
 
@@ -119,7 +123,7 @@ export function RemotePanel() {
     try {
       const r = await api.createRemote(
         name.trim() || tr('Пульт {n}', { n: (remotes.data?.length ?? 0) + 1 }),
-        allowed.filter((c) => ALL.includes(c)),
+        allowed.filter((c) => abilities(kind).includes(c)),
         kind,
       );
       setFresh({ name: r.name, token: r.token, kind: r.kind });
@@ -226,7 +230,7 @@ export function RemotePanel() {
             onChange={(v) => setAllowed(v as RemoteCommand[])}
           >
             <Group gap="sm" mt={4}>
-              {ALL.map((c) => (
+              {abilities(kind).map((c) => (
                 <Checkbox key={c} size="xs" value={c} label={tr(REMOTE_LABEL[c])} />
               ))}
             </Group>
@@ -241,7 +245,7 @@ export function RemotePanel() {
             leftSection={
               kind === 'desk' ? <IconDeviceDesktop size={14} /> : <IconDeviceMobilePlus size={14} />
             }
-            disabled={allowed.filter((c) => ALL.includes(c)).length === 0}
+            disabled={allowed.filter((c) => abilities(kind).includes(c)).length === 0}
             loading={busy}
             onClick={create}
           >
@@ -334,7 +338,7 @@ export function RemotePanel() {
                         onChange={(v) => void setRemoteAllowed(p.id, v as RemoteCommand[])}
                       >
                         <Stack gap={6} mt={6}>
-                          {ALL.map((c) => (
+                          {abilities(p.kind).map((c) => (
                             <Checkbox key={c} size="xs" value={c} label={tr(REMOTE_LABEL[c])} />
                           ))}
                         </Stack>

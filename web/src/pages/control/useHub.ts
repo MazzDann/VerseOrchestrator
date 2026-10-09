@@ -10,6 +10,7 @@ import { connectLive, type LiveConnection } from '../../lib/liveSocket';
 import { REMOTE_LABEL } from '../../lib/remote';
 import {
   asCountdown,
+  asTimer,
   asPassage,
   asSong,
   commands,
@@ -191,13 +192,14 @@ export function useHub({
           const item = typeof f.item === 'string' ? f.item : undefined;
           const countdown = asCountdown(f.countdown);
           const held = f.held === true; // a desk's key held down (1.10.6)
+          const timer = asTimer(f.timer); // the speaker's timer (1.11.0-beta.2)
           // one batch, as an output window's commands (1.10.7, useShowCommands)
           const done = flushSync(() =>
             commands.dispatch(
               id,
               cmd,
               { kind: 'remote', name: from },
-              { passage, song, item, countdown, held },
+              { passage, song, item, countdown, timer, held },
             ),
           );
           void done.then((outcome) => {

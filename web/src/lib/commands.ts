@@ -31,7 +31,8 @@ export type ShowCommand =
   | 'show'
   | 'pick'
   | 'queue'
-  | 'countdown';
+  | 'countdown'
+  | 'timer';
 
 /** The switches of the show in the control window: «Сховати текст», «Чорний екран», «Заставка». */
 export type ShowToggle = 'hide' | 'black' | 'cover';
@@ -56,6 +57,7 @@ export function toggleOf(cmd: ShowCommand): ShowToggle | null {
     case 'pick':
     case 'queue':
     case 'countdown':
+    case 'timer':
       return null;
   }
 }
@@ -88,12 +90,19 @@ export interface RemoteCountdown {
   seconds?: number;
 }
 
+/** The speaker's timer from a remote (1.11.0-beta.2; the server checked it — remote.ts sanitizeTimer). */
+export interface RemoteTimer {
+  op: 'start' | 'pause' | 'shift' | 'stop';
+  minutes?: number;
+}
+
 export interface CommandArgs {
   passage?: RemotePassage;
   song?: RemoteSong;
   /** an item of the shared running order, by id (0.6.9) */
   item?: string;
   countdown?: RemoteCountdown;
+  timer?: RemoteTimer;
   /** «Далі» / «Назад» from a key held down (1.10.6): steps on, never into another item */
   held?: boolean;
 }
@@ -141,6 +150,16 @@ export function asCountdown(raw: unknown): RemoteCountdown | undefined {
   if (r.op !== 'start' && r.op !== 'pause' && r.op !== 'stop') return undefined;
   const seconds = Number.isInteger(r.seconds) && (r.seconds as number) > 0 ? r.seconds : undefined;
   return seconds ? { op: r.op, seconds: seconds as number } : { op: r.op };
+}
+
+/** A timer request as it arrives from the hub (the server already checked it) — or undefined. */
+export function asTimer(raw: unknown): RemoteTimer | undefined {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const m = Number.isInteger(r.minutes) ? (r.minutes as number) : undefined;
+  if (r.op === 'pause' || r.op === 'stop') return { op: r.op };
+  if (r.op === 'start') return m && m > 0 ? { op: 'start', minutes: m } : { op: 'start' };
+  if (r.op === 'shift' && m) return { op: 'shift', minutes: m };
+  return undefined;
 }
 
 const ints = (a: unknown): a is number[] =>

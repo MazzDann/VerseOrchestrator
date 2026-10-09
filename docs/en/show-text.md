@@ -157,8 +157,8 @@ Otherwise the field says “This time has already passed” and the countdown do
 
 ## Give the speaker a timer
 
-The speaker timer is a time that only the speaker sees, in the **Stage** window, at the bottom
-right. The audience's screen and their phones don't show it.
+The speaker timer is a time that only the speaker sees: in the **Stage** window, at the bottom
+right, and on their phone remote. The audience's screen and their phones don't show it.
 
 To start the timer:
 
@@ -174,10 +174,13 @@ While the timer runs, its icon is highlighted. To change the timer, click the ic
 timer's colors, font, and format have a section of their own in the appearance settings, apart
 from what the viewers see: see [Set up the speaker timer](appearance.md#set-up-the-speaker-timer).
 
+The speaker can run the timer from their phone remote too, if you allow them **Speaker timer**:
+see [Speaker remote](remote.md#permissions).
+
 ## Write to the speaker
 
-A message to the stage is a line that only the speaker sees, in the **Stage** window, for
-example “5 minutes left” or “Louder, please”. The viewers and their phones don't see it.
+A message to the stage is a line that only the speaker sees: in the **Stage** window and on
+their phone remote, for example “5 minutes left” or “Louder, please”. The viewers don't see it.
 
 To send a message:
 

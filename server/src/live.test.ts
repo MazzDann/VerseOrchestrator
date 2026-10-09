@@ -212,6 +212,49 @@ describe('speaker remote over the hub', () => {
     remote.ws.close();
   });
 
+  it('the speaker’s timer: its own permission, a checked request forwarded (1.11.0-beta.2)', async () => {
+    const p = createPairing('Доповідач', ['next', 'timer']);
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const remote = client({ role: 'remote', token: p.token });
+    await remote.next('welcome');
+    remote.ws.send(
+      JSON.stringify({
+        type: 'command',
+        cmd: 'timer',
+        id: 't1',
+        timer: { op: 'shift', minutes: 1 },
+      }),
+    );
+    expect(await control.next('command')).toMatchObject({
+      cmd: 'timer',
+      timer: { op: 'shift', minutes: 1 },
+    });
+    remote.ws.send(
+      JSON.stringify({
+        type: 'command',
+        cmd: 'timer',
+        id: 't2',
+        timer: { op: 'shift', minutes: 0 },
+      }),
+    );
+    expect(await remote.next('ack')).toMatchObject({
+      id: 't2',
+      ok: false,
+      reason: 'Неправильний таймер',
+    });
+    const q = createPairing('Інший');
+    const other = client({ role: 'remote', token: q.token });
+    await other.next('welcome');
+    other.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'timer', id: 't3', timer: { op: 'stop' } }),
+    );
+    expect(await other.next('ack')).toMatchObject({ id: 't3', ok: false });
+    control.ws.close();
+    remote.ws.close();
+    other.ws.close();
+  });
+
   it('a held key’s «Далі» / «Назад» say so, as a plain true (1.10.6)', async () => {
     const p = createPairing('Стіл');
     const control = client({ role: 'control' }, origin());

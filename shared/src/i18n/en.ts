@@ -912,7 +912,8 @@ export const EN: Record<string, string> = {
   'Таймер доповідача': 'Speaker timer',
   'Таймер доповідача: {time}': 'Speaker timer: {time}',
   'Таймер доповідача: {time}, пауза': 'Speaker timer: {time}, paused',
-  'Час для доповідача — лише у вікні «Сцена»': 'Time for the speaker — in the Stage window only',
+  'Час для доповідача — у вікні «Сцена» і на пульті-телефоні':
+    'Time for the speaker — in the Stage window and on their phone remote',
   'Таймер на «Сцені»': 'Timer on Stage',
   'На паузі: час на «Сцені» стоїть.': 'Paused: the time on Stage stands still.',
   'Прибрати таймер': 'Remove the timer',
@@ -1898,6 +1899,10 @@ export const EN: Record<string, string> = {
   'Попередні вірші того, що ви показали': 'The previous verses of what you showed',
   Почати: 'Start',
   'Почати відлік': 'Start the countdown',
+  'Почати таймер': 'Start the timer',
+  'Зупинити таймер': 'Stop the timer',
+  'Неправильний таймер': 'Not a timer request',
+  'Таймер доповідача не запущено': 'The speaker timer isn’t running',
   '5 чи 7:30': '5 or 7:30',
   'Пошук: посилання чи слова': 'Search: a reference or words',
   'Пісень у бібліотеці ще немає': 'There are no songs in the library yet',
@@ -1956,8 +1961,8 @@ export const EN: Record<string, string> = {
   'Послідовність показу внизу': 'The running order at the bottom',
   'Розмір тексту': 'Text size',
   'Розмір тексту на «Сцені»': 'Text size on the stage',
-  'Рядок для доповідача — лише у вікні «Сцена»':
-    'A line for the speaker — in the stage window only',
+  'Рядок для доповідача — у вікні «Сцена» і на пульті-телефоні':
+    'A line for the speaker — in the Stage window and on their phone remote',
   'Слайди такі, як на екрані: з фоном і кольорами.':
     'The slides as the screen shows them: with the background and colours.',
   'Слова слайда великим простим шрифтом — читаються здалеку.':

@@ -713,6 +713,48 @@ body[data-resizing='y'] {
   -webkit-line-clamp: 2;
   opacity: 0.7;
 }
+/* The speaker's own on the phone (1.11.0-beta.2): the timer «Сцена» shows, the message, its buttons. */
+.vo-remote-speaker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vo-remote-timer {
+  margin: 0;
+  text-align: center;
+  font-size: 56px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+.vo-remote-timer-note {
+  font-size: 18px;
+  font-weight: 500;
+}
+.vo-remote-message {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 18px;
+  line-height: 1.35;
+  background: color-mix(in srgb, var(--vo-follow-alert) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vo-follow-alert) 45%, transparent);
+  animation: vo-remote-pulse 1.2s ease-out 1;
+}
+@keyframes vo-remote-pulse {
+  0% {
+    background: color-mix(in srgb, var(--vo-follow-alert) 55%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vo-remote-message {
+    animation: none;
+  }
+}
+.vo-remote-pad-timer {
+  height: auto;
+  grid-template-columns: 1fr 1fr;
+}
 /* «Відлік» from the phone (1.11.0-beta.1): a length + «Почати відлік», or the time left over its buttons. */
 .vo-remote-countdown {
   display: flex;
