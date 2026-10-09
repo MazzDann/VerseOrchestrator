@@ -17,6 +17,7 @@ import { canDrawSmall, drawSmall, smallOrder } from '../../lib/albumSmall';
 import { PRIORITY, useCommandHandler, type Outcome } from '../../lib/commands';
 import { everyMs } from '../../lib/workerClock';
 import { isFormField, isResizeKey } from '../../lib/keyScroll';
+import { noticeOnce } from '../../lib/noticeOnce';
 import { stepDirection } from '../../hotkeys';
 import { useSettings } from '../../settingsStore';
 import { tr } from '../../i18n';
@@ -216,7 +217,8 @@ export function useAlbum({
     return { slide: put(id, list, 0, fit) };
   };
 
-  const step = (dir: 1 | -1, quiet = false): Outcome => {
+  /** `held`: a key held down (its repeats) — the next item takes a new press (1.10.6) */
+  const step = (dir: 1 | -1, quiet = false, held = false): Outcome => {
     if (!album) return { ok: false };
     if (!leaderRef.current) return { ok: false, reason: tr('Показом керує інше вікно керування') };
     if (!photos) return { ok: false, reason: tr('Альбом ще завантажується') };
@@ -225,7 +227,9 @@ export function useAlbum({
     const idx = Math.max(0, Math.min(photos.length - 1, (at ?? -1) + dir));
     if (at != null && idx === at) {
       // the running order's next / previous item (1.10.0-beta.1) — never from the slideshow
-      const o = quiet ? null : pastItemRef.current?.(dir, { kind: 'album', albumId: album.id });
+      const o = quiet
+        ? null
+        : pastItemRef.current?.(dir, { kind: 'album', albumId: album.id }, held);
       if (o) return o;
       return { ok: false, reason: dir > 0 ? tr('Це останнє фото') : tr('Це перше фото') };
     }
@@ -242,9 +246,9 @@ export function useAlbum({
     setRestartAt((n) => n + 1);
   };
 
+  // one notice for the album's edge, however long the key is held (1.10.6)
   const say = (o: Outcome) => {
-    if (!o.ok && o.reason)
-      notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
+    if (!o.ok && o.reason) noticeOnce('album-edge', o.reason, 2000);
   };
 
   // ← → / PageUp PageDown step the open album while the panel shows it (capture phase: the
@@ -262,7 +266,7 @@ export function useAlbum({
       e.stopPropagation();
       setPlaying(false);
       if (!leaderRef.current) return standbyNotice();
-      say(stepRef.current(dir));
+      say(stepRef.current(dir, false, e.repeat));
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -270,10 +274,10 @@ export function useAlbum({
 
   // the clicker in an output window and the speakers' remotes: «Далі» / «Назад»
   useCommandHandler(
-    (cmd) => {
+    (cmd, _source, args) => {
       if (cmd !== 'next' && cmd !== 'prev') return null;
       setPlaying(false);
-      return stepRef.current(cmd === 'next' ? 1 : -1);
+      return stepRef.current(cmd === 'next' ? 1 : -1, false, args.held);
     },
     PRIORITY.song,
     owns,

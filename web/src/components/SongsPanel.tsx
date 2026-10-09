@@ -36,6 +36,7 @@ import { SongBundles } from './SongBundles';
 import { tr, useLang } from '../i18n';
 import { formatCombo, matchesCombo, stepDirection } from '../hotkeys';
 import { inOverlay, isFormField, isResizeKey, isTextEntry } from '../lib/keyScroll';
+import { noticeOnce } from '../lib/noticeOnce';
 import { useSettings } from '../settingsStore';
 import { SONG_KEYS } from '../lib/songKeys';
 
@@ -78,7 +79,7 @@ interface Props {
    */
   onSongEnd?: () => Outcome;
   /** past «Кінець» or before the first stanza: the running order's next / previous item, or null */
-  onPastEnd?: (dir: 1 | -1, songId: number) => Outcome | null;
+  onPastEnd?: (dir: 1 | -1, songId: number, held?: boolean) => Outcome | null;
 }
 
 /** A slide's label in the list (1.3.0): «Заголовок», «Куплет 2», «Приспів», «Приспів 2 · 1/2». */
@@ -203,7 +204,9 @@ export function SongsPanel({
 
   // Step to the next/previous stanza and project it.
   const stepStanza = useCallback(
-    (dir: number): Outcome => {
+    /** `held`: a key held down (its repeats) stops at the last stanza — «Кінець» and the next item
+     * take a new press (1.10.6, the Mac's round) */
+    (dir: number, held = false): Outcome => {
       const s = songQuery.data;
       if (!s || s.slides.length === 0) return { ok: false, reason: tr('Пісня ще завантажується') };
       const count = s.slides.length;
@@ -212,10 +215,10 @@ export function SongsPanel({
       // «Назад» from there projects the last stanza again (the clamp below)
       // «Далі» past «Кінець», «Назад» at the first stanza: the running order's item, when the
       // switch is on (1.10.0-beta.1)
-      const past = (d: 1 | -1) => (onPastEnd && s ? onPastEnd(d, s.id) : null);
+      const past = (d: 1 | -1) => (onPastEnd && s ? onPastEnd(d, s.id, held) : null);
       if (dir > 0 && activeStanza != null && cur >= count - 1) {
         if (cur >= count) return past(1) ?? { ok: false, reason: tr('Кінець пісні') };
-        if (!onSongEnd) return { ok: false, reason: tr('Це остання строфа') };
+        if (!onSongEnd || held) return { ok: false, reason: tr('Це остання строфа') };
         const done = onSongEnd();
         if (done.ok) onActiveStanzaChange(count);
         return done;
@@ -243,18 +246,17 @@ export function SongsPanel({
       if (isResizeKey(e)) return;
       // nor the keys of an open menu, list or editor (1.10.5)
       if (inOverlay(e.target)) return;
+      // one notice for the song's edge, however long the key is held (1.10.6)
       const say = (o: Outcome) => {
-        if (!o.ok && o.reason) {
-          notifications.show({ message: o.reason, color: 'gray', autoClose: 2000 });
-        }
+        if (!o.ok && o.reason) noticeOnce('song-edge', o.reason, 2000);
       };
-      // «До приспіву» (1.3.0) — not while typing
+      // «До приспіву» (1.3.0) — not while typing; a held C goes once, not chorus after chorus (1.10.6)
       const keymap = useSettings.getState().keymap;
       const { chorus } = keymap;
       if (chorus && matchesCombo(e, chorus) && !isFormField(e.target)) {
         e.preventDefault();
         e.stopPropagation();
-        say(toChorus());
+        if (!e.repeat) say(toChorus());
         return;
       }
       if (!songQuery.data || songQuery.data.slides.length === 0) return;
@@ -277,7 +279,7 @@ export function SongsPanel({
       e.preventDefault();
       e.stopPropagation();
       // the song's own end says so («Кінець пісні») — like the verses' edges (0.6.23)
-      say(stepStanza(dir));
+      say(stepStanza(dir, e.repeat));
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -287,7 +289,8 @@ export function SongsPanel({
   // remotes (lib/commands.ts): while a song is open it owns next/prev, ahead of the verse
   // navigation, so a song advances instead of being clobbered by it.
   useCommandHandler(
-    (cmd) => (cmd === 'next' ? stepStanza(1) : cmd === 'prev' ? stepStanza(-1) : null),
+    (cmd, _source, args) =>
+      cmd === 'next' ? stepStanza(1, args.held) : cmd === 'prev' ? stepStanza(-1, args.held) : null,
     PRIORITY.song,
     open && songId != null,
   );

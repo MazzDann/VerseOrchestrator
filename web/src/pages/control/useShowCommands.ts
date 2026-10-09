@@ -38,6 +38,7 @@ import { tr } from '../../i18n';
 import { unusable } from '../../lib/denied';
 import { joinVerses, redLetterSegments } from './slideText';
 import { withSecond } from './songSlides';
+import { noticeOnce } from '../../lib/noticeOnce';
 
 /**
  * Show commands from outside the operator's keyboard (vo-sync, vo-remote): the default handler
@@ -81,7 +82,7 @@ export function useShowCommands({
   liveSlideRef: MutableRefObject<Slide>;
   /** «Відлік» (useTimers): a remote's «Відлік» item starts through it */
   countdownStart: (countdown: SlideCountdown, place?: CountdownPlace, onCover?: SlideCover) => void;
-  advance: (delta: number, previewOnly?: boolean) => Outcome | Promise<Outcome>;
+  advance: (delta: number, previewOnly?: boolean, held?: boolean) => Outcome | Promise<Outcome>;
   playlistItems: SeqItem[];
   leaderRef: MutableRefObject<boolean>;
   pushLive: (pushed: Slide, opts?: { audience?: boolean }) => void;
@@ -126,8 +127,8 @@ export function useShowCommands({
   // (lib/commands.ts). This is the default handler; an open song registers a
   // higher-priority one for next/prev (SongsPanel).
   useCommandHandler((cmd, _source, args) => {
-    if (cmd === 'next') return advance(1);
-    if (cmd === 'prev') return advance(-1);
+    if (cmd === 'next') return advance(1, false, args.held);
+    if (cmd === 'prev') return advance(-1, false, args.held);
     const by = _source.name ?? tr('Пульт');
     // an item of the shared running order (0.6.9)
     if (args.item && (cmd === 'show' || cmd === 'pick')) {
@@ -457,14 +458,12 @@ export function useShowCommands({
   }
   useEffect(
     () =>
-      subscribeCommand((cmd, id) => {
+      subscribeCommand((cmd, id, held) => {
         if (!leaderRef.current) return;
-        void commands.dispatch(id, cmd, { kind: 'output' }).then((o) => {
+        void commands.dispatch(id, cmd, { kind: 'output' }, held ? { held } : {}).then((o) => {
           // a clicker at the output window can't see why nothing moved — the operator can
-          // (at a chapter's edge: where a second press goes, 0.6.23)
-          if (!o.ok && !o.duplicate && o.reason) {
-            notifications.show({ message: o.reason, color: 'gray', autoClose: 2500 });
-          }
+          // (at a chapter's edge: where a second press goes, 0.6.23) — once, however long it's held
+          if (!o.ok && !o.duplicate && o.reason) noticeOnce('show-edge', o.reason);
         });
       }),
     // deps as they were in Control, where the rule knew leaderRef (a ref) as stable

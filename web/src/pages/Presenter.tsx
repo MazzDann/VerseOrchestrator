@@ -43,7 +43,8 @@ export function Presenter() {
       // even when this window holds focus on the 2nd monitor (on a Mac it usually does: F or
       // a click here is how it goes fullscreen) — «Заставка» (L) too since 1.4.1.
       e.preventDefault();
-      sendCommand(action);
+      // a held clicker key's repeats say so: they step on, never into another item (1.10.6)
+      sendCommand(action, e.repeat);
     };
     window.addEventListener('keydown', onKey);
     const t = setTimeout(() => setHint(false), 4500);
