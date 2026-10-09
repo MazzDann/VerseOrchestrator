@@ -378,6 +378,8 @@ export const EN: Record<string, string> = {
   'Альбом не знайдено — відкрийте список ще раз': 'Album not found — open the list again',
   'Виберіть папку на цьому комп’ютері': 'Choose a folder on this computer',
   'Фото вже немає в папці': 'The photo is no longer in the folder',
+  'Фото «{name}» уже немає в папці — його перейменували чи видалили. Альбом прочитано знову.':
+    'The photo “{name}” is no longer in the folder — it was renamed or deleted. The album has been read again.',
   'Фото в папці змінилося — відкрийте альбом ще раз':
     'The photo in the folder has changed — open the album again',
   'Мала копія має бути JPEG до 4 МБ': 'A small copy must be a JPEG of up to 4 MB',
