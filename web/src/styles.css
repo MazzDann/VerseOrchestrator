@@ -784,6 +784,23 @@ body[data-resizing='y'] {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* the operator's suggestion and the clicker's answers on the phone's «Сцена» (1.11.0 review) */
+.vo-remote-stage-suggest {
+  border: 1px solid color-mix(in srgb, var(--mantine-color-cue-filled) 60%, transparent);
+  background: color-mix(in srgb, var(--mantine-color-cue-filled) 14%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.vo-remote-stage-notice {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--vo-follow-alert);
+}
 .vo-remote-stage-order {
   margin: 0;
   padding: 10px 0 0;
