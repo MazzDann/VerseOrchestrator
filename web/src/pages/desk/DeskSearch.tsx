@@ -20,7 +20,8 @@ export function DeskSearch({
   translationIds: number[];
   translations: Translation[];
   inputRef: RefObject<HTMLInputElement>;
-  onOpen: (r: SearchResult) => void;
+  /** `show`: and put it on screen (⌘↩ / Ctrl+Enter) */
+  onOpen: (r: SearchResult, show: boolean) => void;
 }) {
   useLang();
   const [text, setText] = useState('');
@@ -45,8 +46,8 @@ export function DeskSearch({
   });
   const rows = useSearchRows(found.data?.results, translationIds[0] ?? null, true).slice(0, 40);
   const abbrOf = (id: number) => translations.find((t) => t.id === id)?.abbr ?? '';
-  const pick = (r: SearchResult) => {
-    onOpen(r);
+  const pick = (r: SearchResult, show = false) => {
+    onOpen(r, show);
     setText('');
     setOpen(false);
     inputRef.current?.blur();
@@ -72,9 +73,15 @@ export function DeskSearch({
           setOpen(true);
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && query && rows[0]) {
-            e.preventDefault();
-            pick(rows[0].r);
+          if (e.key === 'Enter') {
+            // the field owns Enter (1.10.10, the Mac's round — as the control window's): ⌘↩ also
+            // reached the page's «Показати» and put the old selection up; now it opens the first
+            // hit and shows it
+            e.stopPropagation();
+            if (query && rows[0]) {
+              e.preventDefault();
+              pick(rows[0].r, e.ctrlKey || e.metaKey);
+            }
           } else if (e.key === 'Escape') {
             setText('');
             e.currentTarget.blur();
@@ -119,7 +126,8 @@ export function DeskSearch({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    pick(r);
+                    e.stopPropagation(); // ⌘↩ here too: this hit, shown (1.10.10)
+                    pick(r, e.key === 'Enter' && (e.ctrlKey || e.metaKey));
                   } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                     e.preventDefault();
                     e.stopPropagation();
