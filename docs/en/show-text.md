@@ -209,6 +209,12 @@ By default, the stage shows the slide's words in a large plain font, so the spea
 them from afar; you can choose slide previews instead. To change it, see
 [Set up the stage](appearance.md#set-up-the-stage).
 
+While a countdown from the running order is on screen, the stage shows its time in large digits
+instead of the words, and under it what follows its zero: the next item (“next: Announcements”),
+the end of the running order, or what the time does (“next: stops at 0:00”, “next: counts past
+zero”). The **Stage** view on a phone remote shows the same; the “next: …” words appear there if
+the remote is allowed **Running order**.
+
 To open an output window, click **Presentation window** or the **Stage** icon at the top.
 If a second screen is connected, the browser asks for permission to manage windows on all
 your screens; allow it, and the window opens on the second screen.

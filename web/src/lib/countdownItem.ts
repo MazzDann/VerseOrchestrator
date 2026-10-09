@@ -39,6 +39,18 @@ export const itemCountdown = (it: SeqCountdown, now: number): SlideCountdown =>
 export const showsItemCountdown = (it: SeqCountdown, slide: Slide): boolean =>
   !!slide.cover && !!slide.countdown && slide.countdown.item === it.id;
 
+/**
+ * What follows a «Відлік» item's zero, for «Сцена» (1.11.0-beta.4): the next item by its name — or the
+ * end of the order —, or what the time does: holds 0:00, counts past zero, goes.
+ */
+export function zeroWords(atZero: ItemZero | undefined, next: string | null): string {
+  if (atZero === 'next')
+    return next ? tr('далі: {item}', { item: next }) : tr('далі: кінець послідовності');
+  if (atZero === 'overtime') return tr('далі: рахує в мінус');
+  if (atZero === 'hide') return tr('далі: час зникне');
+  return tr('далі: зупиниться на 0:00');
+}
+
 /** How late an armed zero may still move the order on (1.10.8): past that the computer slept. */
 export const ZERO_LATE_MS = 10_000;
 

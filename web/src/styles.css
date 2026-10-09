@@ -804,6 +804,22 @@ body[data-resizing='y'] {
   opacity: 1;
   font-weight: 600;
 }
+/* A «Відлік» item on the phone's «Сцена» (1.11.0-beta.4). */
+.vo-remote-stage-cd {
+  text-align: center;
+}
+.vo-remote-stage-cd-time {
+  margin: 0;
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.vo-remote-stage-cd-then {
+  margin: 6px 0 0;
+  font-size: 18px;
+  opacity: 0.75;
+}
 /* The speaker's own on the phone (1.11.0-beta.2): the timer «Сцена» shows, the message, its buttons. */
 .vo-remote-speaker {
   display: flex;
@@ -1668,6 +1684,38 @@ form.vo-remote-countdown {
   line-height: 1;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+/* A «Відлік» item counting (1.11.0-beta.4): its time where the words would be, what follows its zero. */
+.vo-stage-cd {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2vmin;
+  text-align: center;
+}
+.vo-stage-cd[data-dim='true'] {
+  opacity: 0.45;
+}
+.vo-stage-cd-time {
+  font-size: 22vmin;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.vo-stage[data-theme='light'] .vo-stage-cd-time {
+  filter: brightness(0.6) saturate(1.2);
+}
+.vo-stage-cd-note {
+  font-size: 0.3em;
+  font-weight: 500;
+}
+.vo-stage-cd-then {
+  font-size: 4.5vmin;
+  opacity: 0.75;
 }
 .vo-stage-order {
   flex: none;

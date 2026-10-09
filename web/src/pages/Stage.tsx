@@ -19,6 +19,7 @@ import { showsSomething } from '../lib/slide';
 import { clockWords, ORDER_CURRENT_KEY, placeWords, STAGE_TEXT_MAX, stageLook } from '../lib/stage';
 import { useSettings } from '../settingsStore';
 import { playable, usePlaylist } from '../playlistStore';
+import { zeroWords } from '../lib/countdownItem';
 import { useAutoFit } from '../useAutoFit';
 import { tr, useLang } from '../i18n';
 
@@ -154,6 +155,17 @@ export function Stage() {
   const timer = slide.stageTimer ?? null;
   const { left, counting: timing, paused } = useCountdown(timer);
   const timerLook = lookOf(timer);
+  // a «Відлік» item of the running order counting (1.11.0-beta.4, the author's call): its time
+  // large and what follows its zero — the next item, or what the time does
+  const cdOf = slide.cover && slide.countdown?.item ? slide.countdown : null;
+  const cdItem = cdOf ? items.find((i) => i.id === cdOf.item) : undefined;
+  const itemCd = cdItem?.kind === 'countdown' ? cdOf : null;
+  const cd = useCountdown(itemCd);
+  const cdAt = cdItem ? order.findIndex((i) => i.id === cdItem.id) : -1;
+  const cdWords =
+    cdItem?.kind === 'countdown'
+      ? zeroWords(cdItem.atZero, cdAt >= 0 ? (order[cdAt + 1]?.label ?? null) : null)
+      : '';
   // Tell the control window this output exists (its «Вікна виводу» list).
   const identify = useAnnounceOutput('stage');
 
@@ -261,13 +273,27 @@ export function Stage() {
       {look.layout === 'text' ? (
         <main className="vo-stage-main" data-layout="text">
           <section className="vo-stage-current" aria-label={tr('Зараз')}>
-            <StageWords
-              slide={slide}
-              maxPx={textMax}
-              dim={!!hidden}
-              ring="live"
-              empty={tr('На екрані нічого немає')}
-            />
+            {itemCd ? (
+              <div className="vo-stage-cd" data-dim={hidden ? 'true' : undefined}>
+                <div
+                  className="vo-stage-cd-time"
+                  style={{ color: timerColor(itemCd, cd.left), opacity: cd.paused ? 0.7 : 1 }}
+                >
+                  {cd.counting ? formatTimer(cd.left, lookOf(itemCd).format) : ''}
+                  {cd.paused ? <span className="vo-stage-cd-note"> · {tr('пауза')}</span> : null}
+                </div>
+                {/* its time gone («Прибрати час» past zero): nothing more to say (review) */}
+                {cd.counting && <div className="vo-stage-cd-then">{cdWords}</div>}
+              </div>
+            ) : (
+              <StageWords
+                slide={slide}
+                maxPx={textMax}
+                dim={!!hidden}
+                ring="live"
+                empty={tr('На екрані нічого немає')}
+              />
+            )}
           </section>
           {(look.showNext || timerBlock) && (
             <div className="vo-stage-bottom" data-empty={bottomEmpty ? 'true' : undefined}>
@@ -295,6 +321,7 @@ export function Stage() {
           <section className="vo-stage-current" aria-label={tr('Зараз')}>
             <div className="vo-stage-label">{tr('Зараз')}</div>
             <SlideBox slide={slide} ring="live" />
+            {itemCd && <div className="vo-stage-cd-then">{cdWords}</div>}
           </section>
           <aside className="vo-stage-side">
             {look.showNext && (
