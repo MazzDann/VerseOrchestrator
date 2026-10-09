@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { type SeqCountdown } from '../playlistStore';
 import { type Slide } from '../presenterBus';
-import { countdownLabel, itemCountdown, lengthText, zeroIn } from './countdownItem';
+import { countdownLabel, itemCountdown, lengthText, zeroIn, zeroWords } from './countdownItem';
 
 const item: SeqCountdown = {
   kind: 'countdown',
@@ -45,5 +45,16 @@ describe('a «Відлік» item (1.10.0-beta.3)', () => {
     expect(zeroIn(item, on(10000), 12000, true)).toBe(0); // the armed timer a little late: go
     expect(zeroIn(item, on(10000), 70000, true)).toBeNull(); // a minute late: the computer slept
     expect(zeroIn({ ...item, atZero: 'stop' }, on(10000), 4000)).toBeNull();
+  });
+});
+
+describe('zeroWords (1.11.0-beta.4: what follows a «Відлік» item on «Сцена»)', () => {
+  it('the next item by name, the end of the order, or what the time does', () => {
+    expect(zeroWords('next', 'Оголошення')).toBe('далі: Оголошення');
+    expect(zeroWords('next', null)).toBe('далі: кінець послідовності');
+    expect(zeroWords('overtime', 'x')).toBe('далі: рахує в мінус');
+    expect(zeroWords('stop', 'x')).toBe('далі: зупиниться на 0:00');
+    expect(zeroWords('hide', 'x')).toBe('далі: час зникне');
+    expect(zeroWords(undefined, 'x')).toBe('далі: зупиниться на 0:00');
   });
 });
