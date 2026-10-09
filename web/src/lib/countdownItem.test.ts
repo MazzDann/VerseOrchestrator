@@ -42,7 +42,8 @@ describe('a «Відлік» item (1.10.0-beta.3)', () => {
     // a «Відлік» started by hand with the same words: not the item's (review)
     expect(zeroIn(item, on(10000, { item: undefined }), 4000)).toBeNull();
     // the armed timer firing late (a hidden window): still goes
-    expect(zeroIn(item, on(10000), 70000, true)).toBe(0);
+    expect(zeroIn(item, on(10000), 12000, true)).toBe(0); // the armed timer a little late: go
+    expect(zeroIn(item, on(10000), 70000, true)).toBeNull(); // a minute late: the computer slept
     expect(zeroIn({ ...item, atZero: 'stop' }, on(10000), 4000)).toBeNull();
   });
 });
