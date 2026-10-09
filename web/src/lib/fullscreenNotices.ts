@@ -38,17 +38,25 @@ export function useFullscreenRefusedNotices(): void {
           title: tr('{window}: уже не на весь екран', { window }),
           message: lent
             ? tr(
-                'Браузер так робить, коли тут відкрито вибір файлу. Клацніть будь-де в цьому вікні — і воно знову стане на весь екран (або натисніть F у ньому самому).',
+                'Браузер так робить, коли у вікні керування відкрито вибір файлу. Клацніть будь-де у вікні керування — і «{window}» знову стане на весь екран. Або натисніть F у самому «{window}».',
+                { window },
               )
             : tr(
-                'Браузер так робить, коли тут відкрито вибір файлу. Натисніть F у самому вікні або клацніть у ньому.',
+                'Браузер так робить, коли у вікні керування відкрито вибір файлу. Натисніть F у самому «{window}» або клацніть у ньому.',
+                { window },
               ),
         });
       },
     });
-    // a click on a file input — the buttons that open choosers click their hidden input — opens one
+    // a click on a file input — the buttons that open choosers click their hidden input — opens
+    // one, if the click still has its gesture (a lent one leaves none: no chooser then)
     const onClick = (e: Event) => {
-      if (e.target instanceof HTMLInputElement && e.target.type === 'file') watch.opening();
+      if (!(e.target instanceof HTMLInputElement) || e.target.type !== 'file') return;
+      if (
+        (navigator as { userActivation?: { isActive: boolean } }).userActivation?.isActive === false
+      )
+        return;
+      watch.opening();
     };
     const onInput = (e: Event) => {
       if (e.target instanceof HTMLInputElement && e.target.type === 'file') watch.closed();

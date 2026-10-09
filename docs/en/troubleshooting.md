@@ -133,8 +133,8 @@ click in it.
 
 While a file chooser is open in the control window — you add a picture, import songs, or
 restore a backup — Chrome, Edge, and Opera take the presentation and stage windows out of full
-screen. When the chooser closes, click anywhere in the control window and the windows go full
-screen again. If they don't, press F in the presentation window itself.
+screen. When the chooser closes, click anywhere in the control window: each click puts one
+window back in full screen. If one doesn't come back, press F in that window itself.
 
 ## The control window
 
