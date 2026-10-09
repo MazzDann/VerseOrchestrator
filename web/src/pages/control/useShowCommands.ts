@@ -1,4 +1,5 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { flushSync } from 'react-dom';
 import { type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { markedText } from '@vo/shared';
@@ -460,7 +461,12 @@ export function useShowCommands({
     () =>
       subscribeCommand((cmd, id, held) => {
         if (!leaderRef.current) return;
-        void commands.dispatch(id, cmd, { kind: 'output' }, held ? { held } : {}).then((o) => {
+        // one batch (1.10.7): outside React's own events the stores rendered ahead of the
+        // component state, and «Наживо» re-sent the verses over the text item just put up
+        const done = flushSync(() =>
+          commands.dispatch(id, cmd, { kind: 'output' }, held ? { held } : {}),
+        );
+        void done.then((o) => {
           // a clicker at the output window can't see why nothing moved — the operator can
           // (at a chapter's edge: where a second press goes, 0.6.23) — once, however long it's held
           if (!o.ok && !o.duplicate && o.reason) noticeOnce('show-edge', o.reason);
