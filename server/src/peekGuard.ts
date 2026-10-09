@@ -19,6 +19,8 @@ import { N_, tr } from './lang.js';
  * goes, or sooner than `minIntervalMs` after one began, become ONE more run after it. Anything but
  * Windows: nothing. VO_PEEK_GUARD=0 turns it off; three failed runs in a row turn it off until the
  * app restarts (PowerShell blocked, Add-Type refused by a policy) — each reason logged once.
+ * Marks are never taken off: a window that stops being an output (LibreWolf's control window,
+ * which shows «Показ» as a tab while that tab is in front) only stays on screen during a Peek.
  */
 
 /** The output windows' titles in every interface language — what a browser window's title starts with. */
@@ -67,9 +69,14 @@ public static class VoPeekGuard {
   }
 }`;
 
-/** The one-line PowerShell command: compile, run, print. */
+/**
+ * The one-line PowerShell command: compile, run, print — in UTF-8, so a localized error reaches
+ * the log as words, not «????» (review). Add-Type compiles every run (csc, ≈0.2 s): runs are a few
+ * per service; a cached assembly in data/ would save that — left for when it matters.
+ */
 export const PEEK_GUARD_COMMAND =
   "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue'; " +
+  'try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}; ' +
   'Add-Type -TypeDefinition $env:VO_PEEK_CS; ' +
   '[VoPeekGuard]::Run($env:VO_PEEK_TITLES.Split([char]10), $env:VO_PEEK_CLASSES.Split([char]10))';
 
@@ -182,15 +189,20 @@ export function createPeekGuard(o: PeekGuardOptions = {}) {
           .trim()
           .slice(0, 160);
         failed(why || r.error?.message || `exit ${r.code}`);
-      } else if (windows.some((w) => w.hr !== 0)) {
-        failed(
-          `DwmSetWindowAttribute ${windows.map((w) => `0x${(w.hr >>> 0).toString(16)}`).join(', ')}`,
-        );
       } else {
-        failures = 0;
-        // said when the count changes, not on every move of a window
-        if (windows.length !== marked) log(`kept out of Windows Peek: ${windows.length} window(s)`);
-        marked = windows.length;
+        const bad = windows.filter((w) => w.hr !== 0);
+        const codes = [...new Set(bad.map((w) => `0x${(w.hr >>> 0).toString(16)}`))].join(', ');
+        // a run fails when nothing could be marked; one window refusing (an elevated browser,
+        // one closing meanwhile) must not switch the guard off for the others (review)
+        if (bad.length && bad.length === windows.length) failed(`DwmSetWindowAttribute ${codes}`);
+        else {
+          failures = 0;
+          if (bad.length) once(`some windows not marked: DwmSetWindowAttribute ${codes}`);
+          const ok = windows.length - bad.length;
+          // said when the count changes, not on every move of a window
+          if (ok !== marked) log(`kept out of Windows Peek: ${ok} window(s)`);
+          marked = ok;
+        }
       }
     } catch (err) {
       failed((err as Error).message);
@@ -202,7 +214,8 @@ export function createPeekGuard(o: PeekGuardOptions = {}) {
 
   function schedule(): void {
     if (timer) return;
-    const wait = Math.max(0, lastStart + minIntervalMs - now());
+    // never longer than the interval: a clock set back meanwhile must not stall it (review)
+    const wait = Math.min(minIntervalMs, Math.max(0, lastStart + minIntervalMs - now()));
     timer = setTimeout(() => void start(), wait);
     timer.unref?.();
   }

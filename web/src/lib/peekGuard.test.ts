@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createPeekGuardPoke } from './peekGuard';
+import { createPeekGuardPoke, PEEK_GUARD_DELAY_MS, type PeekGuardAnswer } from './peekGuard';
 import { outputTitle } from './outputs';
 
 afterEach(() => {
@@ -15,23 +15,24 @@ describe('output windows and Windows «Peek» (F1005-05)', () => {
     expect(outputTitle('stage', 'en')).toBe('VerseOrchestrator — Stage');
   });
 
-  it('asks once a window has been quiet a moment: a drag across the screen is one request', async () => {
+  it('a drag across the screen is one request — the position poll pokes once a second', async () => {
     vi.useFakeTimers();
-    const request = vi.fn(async () => undefined);
-    const p = createPeekGuardPoke(request, 800);
-    for (let i = 0; i < 6; i++) {
-      p.poke(); // the position poll, once a second while it moves… faster here
-      await vi.advanceTimersByTimeAsync(300);
+    const request = vi.fn(async (): Promise<PeekGuardAnswer> => 'queued');
+    const p = createPeekGuardPoke(request);
+    expect(PEEK_GUARD_DELAY_MS).toBeGreaterThan(1000);
+    for (let i = 0; i < 5; i++) {
+      p.poke(); // what lib/outputs.ts's 1 s poll does while the window moves
+      await vi.advanceTimersByTimeAsync(1000);
     }
     expect(request).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(PEEK_GUARD_DELAY_MS);
     expect(request).toHaveBeenCalledTimes(1);
     p.poke();
-    await vi.advanceTimersByTimeAsync(900);
+    await vi.advanceTimersByTimeAsync(PEEK_GUARD_DELAY_MS + 100);
     expect(request).toHaveBeenCalledTimes(2);
   });
 
-  it('a closed window asks no more; a failed request is nobody’s business', async () => {
+  it('a closed window asks no more; a failed request is asked again at the next change', async () => {
     vi.useFakeTimers();
     const request = vi.fn(() => Promise.reject(new Error('no server')));
     const p = createPeekGuardPoke(request, 800);
@@ -39,9 +40,33 @@ describe('output windows and Windows «Peek» (F1005-05)', () => {
     await vi.advanceTimersByTimeAsync(900);
     expect(request).toHaveBeenCalledTimes(1); // rejected — and swallowed
     p.poke();
+    await vi.advanceTimersByTimeAsync(900);
+    expect(request).toHaveBeenCalledTimes(2);
+    p.poke();
     p.stop();
     p.poke();
     await vi.advanceTimersByTimeAsync(2000);
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('a server that says «off» or doesn’t know the request is not asked again', async () => {
+    vi.useFakeTimers();
+    for (const answer of ['off', 'gone'] as const) {
+      const request = vi.fn(async (): Promise<PeekGuardAnswer> => answer);
+      const p = createPeekGuardPoke(request, 800);
+      p.poke();
+      await vi.advanceTimersByTimeAsync(900);
+      p.poke();
+      await vi.advanceTimersByTimeAsync(900);
+      expect(request).toHaveBeenCalledTimes(1);
+    }
+    // «retry» (no answer, a restart) keeps asking
+    const request = vi.fn(async (): Promise<PeekGuardAnswer> => 'retry');
+    const p = createPeekGuardPoke(request, 800);
+    p.poke();
+    await vi.advanceTimersByTimeAsync(900);
+    p.poke();
+    await vi.advanceTimersByTimeAsync(900);
+    expect(request).toHaveBeenCalledTimes(2);
   });
 });
