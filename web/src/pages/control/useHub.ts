@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { flushSync } from 'react-dom';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { type Lang } from '@vo/shared';
@@ -190,29 +191,31 @@ export function useHub({
           const item = typeof f.item === 'string' ? f.item : undefined;
           const countdown = asCountdown(f.countdown);
           const held = f.held === true; // a desk's key held down (1.10.6)
-          void commands
-            .dispatch(
+          // one batch, as an output window's commands (1.10.7, useShowCommands)
+          const done = flushSync(() =>
+            commands.dispatch(
               id,
               cmd,
               { kind: 'remote', name: from },
               { passage, song, item, countdown, held },
-            )
-            .then((outcome) => {
-              // The remote is acked with what really happened (server/src/live.ts onCommand).
-              if (typeof f.id === 'string') c.send({ type: 'result', id: f.id, ...outcome });
-              // the speaker walking their own preview isn't news for the operator
-              if (outcome.duplicate || (cmd === 'pick' && outcome.ok)) return;
-              // one notice per remote: a desk's held key no longer piles them up (1.10.6)
-              noticeOnce(
-                `remote-${from}`,
-                tr('Пульт «{remote}»: {command}', {
-                  remote: from,
-                  command: tr(REMOTE_LABEL[cmd]),
-                }) + (outcome.ok ? '' : ` — ${outcome.reason ?? tr('не виконано')}`),
-                1200,
-                outcome.ok ? 'brand' : 'orange',
-              );
-            });
+            ),
+          );
+          void done.then((outcome) => {
+            // The remote is acked with what really happened (server/src/live.ts onCommand).
+            if (typeof f.id === 'string') c.send({ type: 'result', id: f.id, ...outcome });
+            // the speaker walking their own preview isn't news for the operator
+            if (outcome.duplicate || (cmd === 'pick' && outcome.ok)) return;
+            // one notice per remote: a desk's held key no longer piles them up (1.10.6)
+            noticeOnce(
+              `remote-${from}`,
+              tr('Пульт «{remote}»: {command}', {
+                remote: from,
+                command: tr(REMOTE_LABEL[cmd]),
+              }) + (outcome.ok ? '' : ` — ${outcome.reason ?? tr('не виконано')}`),
+              1200,
+              outcome.ok ? 'brand' : 'orange',
+            );
+          });
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
         } else if (f.type === 'ui-state') {

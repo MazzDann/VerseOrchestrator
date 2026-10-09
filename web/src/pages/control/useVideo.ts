@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import {
   useEffect,
   useRef,
@@ -351,7 +352,8 @@ export function useVideo({
       if (!v || `${v.src}|${v.at}|${v.from}` !== key) return;
       if (videoEnded(v, duration)) {
         ended.current = key;
-        endNow.current();
+        // one batch, as the show commands (1.10.7): the next item, not the verses browsed meanwhile
+        flushSync(() => endNow.current());
       }
     };
     // a worker's clock (1.10.1): a covered window's own timers are held back — the end, and the

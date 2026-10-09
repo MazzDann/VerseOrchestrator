@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import {
   useEffect,
   useRef,
@@ -412,7 +413,9 @@ export function useRunningOrder({
     const t = window.setTimeout(() => {
       const now = liveSlideRef.current;
       if (!leaderRef.current || zeroIn(it, now, Date.now(), true) == null) return;
-      orderStepRef.current(1, 'end');
+      // one batch (1.10.7): with verses browsed during the countdown «Наживо» put them over the
+      // next item — the stores rendered ahead of the component state outside React's events
+      flushSync(() => orderStepRef.current(1, 'end'));
     }, ms);
     return () => window.clearTimeout(t);
     // the zero is what matters: its time, its pause, its words, the item, the lead
