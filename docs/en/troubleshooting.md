@@ -100,6 +100,17 @@ window (check the pop-up blocker)” or “The browser blocked the window — al
 this site”. Allow pop-ups for the app's address in the site settings — the icon to the left
 of the address — and open the window again.
 
+### The presentation window opens as a tab, not a window of its own
+
+LibreWolf does this: it puts even the sized windows a site opens into tabs. The app then says
+“Presentation: a tab, not a window of its own”. A tab can't go to another screen — drag it out
+of the browser window and it becomes a window of its own. To have LibreWolf always open such
+windows separately:
+
+1. Open the address `about:config` and accept the warning.
+2. Find `browser.link.open_newwindow.restriction`.
+3. Set it to `2`.
+
 ### The presentation window opens on the wrong screen
 
 To open windows on the screen you choose, the browser needs the “Window management”
