@@ -129,6 +129,13 @@ asked — from the **Output windows** panel or with **Open in full screen**. Thi
 other windows hide the presentation window. Press F in the presentation window itself, or
 click in it.
 
+### “Presentation 1: no longer full screen”
+
+While a file chooser is open in the control window — you add a picture, import songs, or
+restore a backup — Chrome, Edge, and Opera take the presentation and stage windows out of full
+screen. When the chooser closes, click anywhere in the control window and the windows go full
+screen again. If they don't, press F in the presentation window itself.
+
 ## The control window
 
 ### “Another control window runs the show”
