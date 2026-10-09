@@ -39,6 +39,9 @@ export const itemCountdown = (it: SeqCountdown, now: number): SlideCountdown =>
 export const showsItemCountdown = (it: SeqCountdown, slide: Slide): boolean =>
   !!slide.cover && !!slide.countdown && slide.countdown.item === it.id;
 
+/** How late an armed zero may still move the order on (1.10.8): past that the computer slept. */
+export const ZERO_LATE_MS = 10_000;
+
 /**
  * When a «наступний пункт» countdown should move the order on (1.10.0-beta.3): in `ms` from now;
  * null — not this countdown, paused, or its zero passed long ago (a reload, a window that took
@@ -48,13 +51,17 @@ export function zeroIn(
   it: SeqCountdown,
   slide: Slide,
   now: number,
-  /** the armed timer firing (review): a hidden window's timer may come a minute late — still go */
+  /**
+   * the armed timer firing: it may come a little late (a worker's clock since 1.10.8 — a covered
+   * window's own came up to a minute late); much later the computer slept through the zero
+   * (the Mac's round) — the order stays where it is
+   */
   late = false,
 ): number | null {
   if (it.atZero !== 'next' || !showsItemCountdown(it, slide)) return null;
   const c = slide.countdown!;
   if (c.pausedLeft != null) return null;
   const ms = c.until - now;
-  if (late) return ms <= 250 ? 0 : null;
+  if (late) return ms <= 250 && ms >= -ZERO_LATE_MS ? 0 : null;
   return ms < -5000 ? null : Math.max(0, ms);
 }
