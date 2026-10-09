@@ -32,6 +32,7 @@ import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { liveNode } from './autostart.ts';
 import { KeyedError, N_, requestLang, tr, trError, type Lang } from './lang.ts';
 import { applyLayout } from './layout.ts';
 import { needsBuild } from './uiStamp.ts';
@@ -349,11 +350,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
  * Windows keeps `Path`). A waiter started by launchd (a Mac's autostart) has the PATH
  * /usr/bin:/bin:/usr/sbin:/sbin, without npm: the app it started couldn't rescan the modules
  * («npm: command not found», Mac check of 1.9.0). npm lies next to node in a release copy
- * (app/node/bin, app\node), in Homebrew's and nvm's folders and in the nodejs folder on Windows.
+ * (app/node/bin, app\node), in Homebrew's and nvm's folders and in the nodejs folder on Windows
+ * — the folder of the Node a start would take (liveNode: after `brew upgrade`, the new one's).
  */
 export function nodeFirstOnPath(
   env: NodeJS.ProcessEnv,
-  nodeDir = path.dirname(process.execPath),
+  nodeDir = path.dirname(liveNode()),
   delimiter = path.delimiter,
 ): NodeJS.ProcessEnv {
   const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
@@ -440,8 +442,9 @@ export function appProcess(root: string, log: (m: string) => void) {
     // fork() by hand (spawn + an IPC channel) — fork's options don't take windowsHide:
     // a detached waiter has no console, so Windows would give the app a new, VISIBLE one,
     // and closing that window kills the app (exit 0xC000013A).
+    // liveNode: a waiter left running outlives `brew upgrade` and its Node (Mac check of 1.10.1)
     const child = spawn(
-      process.execPath,
+      liveNode(),
       ['--import', 'tsx', path.join(root, 'server', 'src', 'index.ts')],
       {
         cwd: root,
@@ -542,7 +545,7 @@ async function main(): Promise<void> {
     onRetired: () => process.exit(0),
     // A fresh waiter reads the (new) port; this one has already closed its own.
     onRelaunch: () => {
-      spawn(process.execPath, [...process.execArgv, fileURLToPath(import.meta.url)], {
+      spawn(liveNode(), [...process.execArgv, fileURLToPath(import.meta.url)], {
         cwd: repoRoot,
         detached: true,
         stdio: 'ignore',
