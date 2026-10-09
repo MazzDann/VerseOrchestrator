@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type RemoteCommand } from '../api';
 import { connectLive, type HubFrame, type LiveConnection } from '../lib/liveSocket';
@@ -10,10 +10,18 @@ import {
   type PlaylistEntry,
   type RemoteCountdown,
   type RemotePassage,
+  type RemoteTimer,
   type RemoteTarget,
   type SharedPlaylist,
 } from '../lib/commands';
-import { formatTimer, hubOffset, parseDuration, useCountdown } from '../lib/countdown';
+import {
+  formatTimer,
+  hubOffset,
+  lookOf,
+  parseDuration,
+  timerColor,
+  useCountdown,
+} from '../lib/countdown';
 import { RemotePlaylist } from '../components/RemotePlaylist';
 import { inPhoneWords, type ScreenSummary } from '../lib/slide';
 import { formatReference } from '../lib/reference';
@@ -308,6 +316,8 @@ export function Remote() {
     entry?: PlaylistEntry,
     /** what a «Відлік» press asks for (1.11.0-beta.1) */
     countdown?: RemoteCountdown,
+    /** what a press on the speaker's timer asks for (1.11.0-beta.2) */
+    timer?: RemoteTimer,
   ) => {
     if (state.kind === 'connecting') return;
     // `pick` / `queue` are allowed by what they carry: verses → «Вибір віршів», a stanza →
@@ -318,11 +328,13 @@ export function Remote() {
     if ((entry || cmd === 'queue') && !allowed.includes('playlist')) return;
     navigator.vibrate?.(12);
     const id = newCommandId();
-    const args: CommandArgs = countdown
-      ? { countdown }
-      : entry
-        ? { item: entry.id }
-        : targetArgs(target);
+    const args: CommandArgs = timer
+      ? { timer }
+      : countdown
+        ? { countdown }
+        : entry
+          ? { item: entry.id }
+          : targetArgs(target);
     // after an item is taken the speaker's cursor walks it — when they may choose that kind
     const walkable = entry ? entryTarget(entry) : cmd === 'queue' ? undefined : target;
     const cursorAfter =
@@ -599,6 +611,17 @@ export function Remote() {
             )}
           </button>
         </header>
+
+        {(screenSent?.stageMessage || screenSent?.stageTimer || allowed.includes('timer')) && (
+          <SpeakerPad
+            timer={screenSent?.stageTimer ?? null}
+            message={screenSent?.stageMessage ?? null}
+            offset={offset}
+            can={allowed.includes('timer')}
+            ready={ready}
+            onTimer={(t) => press('timer', undefined, undefined, undefined, t)}
+          />
+        )}
 
         <section className="vo-remote-screen" aria-live="polite">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
@@ -1024,5 +1047,102 @@ function RemoteCountdownPad({
         {tr('Почати відлік')}
       </button>
     </form>
+  );
+}
+
+/**
+ * The speaker's own (1.11.0-beta.2): the timer «Сцена» shows — large, in its warning and overtime
+ * colours, by the computer's clock — and «Повідомлення на сцену» as a band that pulses once when new.
+ * With «Таймер доповідача» the speaker runs the timer too: start (the saved length), pause / go on,
+ * ±1 хв, stop.
+ */
+function SpeakerPad({
+  timer,
+  message,
+  offset,
+  can,
+  ready,
+  onTimer,
+}: {
+  timer: ScreenSummary['stageTimer'] | null;
+  message: ScreenSummary['stageMessage'] | null;
+  offset: number;
+  can: boolean;
+  ready: boolean;
+  onTimer: (t: RemoteTimer) => void;
+}) {
+  const { left, counting, paused } = useCountdown(timer, offset);
+  const look = lookOf(timer);
+  const running = !!timer && counting;
+  // nothing to show and nothing to press (an ended timer whose time goes, no message): no gap (review)
+  if (!message && !running && !can) return null;
+  const color = timer ? timerColor(timer, left) : undefined;
+  return (
+    <section className="vo-remote-speaker" aria-label={tr('Таймер доповідача')}>
+      {message && (
+        // a new message (its time) starts the pulse again
+        <p key={message.at} className="vo-remote-message" role="status">
+          {message.text}
+        </p>
+      )}
+      {running && (
+        <p
+          // the warning / past-zero colour darkened on a light phone, as /follow's (review)
+          className={color ? 'vo-remote-timer vo-follow-timer' : 'vo-remote-timer'}
+          role="timer"
+          style={{ '--vo-timer-color': color, opacity: paused ? 0.7 : 1 } as CSSProperties}
+        >
+          {formatTimer(left, look.format)}
+          {paused && <span className="vo-remote-timer-note"> · {tr('пауза')}</span>}
+        </p>
+      )}
+      {can &&
+        // an ended timer whose time goes offers a new one, as the control window's tool (review)
+        (running ? (
+          <div className="vo-remote-pad vo-remote-pad-timer">
+            <button
+              type="button"
+              className="vo-remote-btn"
+              disabled={!ready}
+              onClick={() => onTimer({ op: 'shift', minutes: -1 })}
+            >
+              {tr('−1 хв')}
+            </button>
+            <button
+              type="button"
+              className="vo-remote-btn"
+              disabled={!ready}
+              onClick={() => onTimer({ op: 'pause' })}
+            >
+              {paused ? tr('Продовжити') : tr('Пауза')}
+            </button>
+            <button
+              type="button"
+              className="vo-remote-btn"
+              disabled={!ready}
+              onClick={() => onTimer({ op: 'shift', minutes: 1 })}
+            >
+              {tr('+1 хв')}
+            </button>
+            <button
+              type="button"
+              className="vo-remote-btn"
+              disabled={!ready}
+              onClick={() => onTimer({ op: 'stop' })}
+            >
+              {tr('Зупинити таймер')}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="vo-remote-btn"
+            disabled={!ready}
+            onClick={() => onTimer({ op: 'start' })}
+          >
+            {tr('Почати таймер')}
+          </button>
+        ))}
+    </section>
   );
 }

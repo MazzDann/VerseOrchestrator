@@ -11,6 +11,7 @@ import {
   revokePairing,
   sanitizeAllowed,
   sanitizeCountdown,
+  sanitizeTimer,
   setRemotePersistence,
 } from './remote';
 import { initServerSettings, sanitizeServerSettings, updateServerSettings } from './serverSettings';
@@ -116,9 +117,29 @@ describe('a control window on another computer (1.9.0-beta.10)', () => {
     expect(createPairing(long).name).toBe(`${'Д'.repeat(36)} (2)`);
   });
 
-  it('«Заставка» and «Відлік» are permissions of their own, off by default', () => {
+  it('«Заставка», «Відлік» and (1.11.0-beta.2) the timer are permissions of their own, off by default', () => {
     expect(sanitizeAllowed(undefined)).toEqual(['next', 'prev', 'blank']);
-    expect(sanitizeAllowed(['cover', 'countdown', 'timer'])).toEqual(['cover', 'countdown']);
+    expect(sanitizeAllowed(['cover', 'countdown', 'timer', 'reboot'])).toEqual([
+      'cover',
+      'countdown',
+      'timer',
+    ]);
+  });
+
+  it('a timer request (1.11.0-beta.2): start (≤ 12 h), pause, ±1…60 min, stop — nothing else', () => {
+    expect(sanitizeTimer({ op: 'start' })).toEqual({ op: 'start' });
+    expect(sanitizeTimer({ op: 'start', minutes: 20 })).toEqual({ op: 'start', minutes: 20 });
+    expect(sanitizeTimer({ op: 'start', minutes: 721 })).toBeNull();
+    expect(sanitizeTimer({ op: 'start', minutes: 1.5 })).toBeNull();
+    expect(sanitizeTimer({ op: 'pause' })).toEqual({ op: 'pause' });
+    expect(sanitizeTimer({ op: 'pause', minutes: 3 })).toBeNull();
+    expect(sanitizeTimer({ op: 'shift', minutes: -1 })).toEqual({ op: 'shift', minutes: -1 });
+    expect(sanitizeTimer({ op: 'shift', minutes: 0 })).toBeNull();
+    expect(sanitizeTimer({ op: 'shift', minutes: 61 })).toBeNull();
+    expect(sanitizeTimer({ op: 'shift' })).toBeNull();
+    expect(sanitizeTimer({ op: 'stop' })).toEqual({ op: 'stop' });
+    expect(sanitizeTimer({ op: 'reset' })).toBeNull();
+    expect(sanitizeTimer(null)).toBeNull();
   });
 
   it('a countdown request: start (of any length up to 12 h), pause, stop — nothing else', () => {

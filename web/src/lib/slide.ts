@@ -5,7 +5,9 @@ import {
   type SlidePicture,
   type SlideSource,
   type SlideStyle,
+  type StageMessage,
 } from '../presenterBus';
+import { type StageTimer } from './countdown';
 import { tr } from '../i18n';
 
 /** True when two slides show the same content (used to merge preview into the live monitor). */
@@ -57,6 +59,12 @@ export interface ScreenSummary {
    * the time left and knows pause from go on — by the computer's clock (the phone asks the hub)
    */
   countdown?: Pick<SlideCountdown, 'until' | 'pausedLeft' | 'afterZero'>;
+  /**
+   * The speaker's timer and «Повідомлення на сцену» (1.11.0-beta.2): a remote is the speaker's —
+   * it shows them as «Сцена» does. Only in this summary, which only remotes get (never viewers).
+   */
+  stageTimer?: StageTimer;
+  stageMessage?: StageMessage;
   font?: string;
   /** where it comes from (0.6.1): a remote knows whether its own cursor is on screen */
   source?: SlideSource;
@@ -113,6 +121,8 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
           : slide.video
             ? 'video'
             : undefined,
+    ...(slide.stageTimer ? { stageTimer: slide.stageTimer } : {}),
+    ...(slide.stageMessage ? { stageMessage: slide.stageMessage } : {}),
     ...(timed
       ? {
           countdown: {

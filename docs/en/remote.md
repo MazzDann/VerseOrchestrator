@@ -81,12 +81,19 @@ Each permission is turned on separately for each remote:
 | **Running order**   | see the running order, show the next item, add the own choice to it             |
 | **Cover**           | turn the cover on and off                                                       |
 | **Countdown**       | start a countdown, pause it, remove it                                          |
+| **Speaker timer**   | start their own timer, pause it, add or take a minute, stop it (a phone only)   |
 
 On a phone with **Countdown** there is a length field and **Start the countdown**: type minutes
 (5 or 7:30) or leave the field empty for the length saved in the control window. While the
 countdown runs, the phone shows the time left and **Pause** (or **Resume**) and **Remove the
 countdown**. Its look, caption, and place are the operator's settings. With **Cover**, the
 **Cover** button next to **Black screen** turns it on, and **Remove the cover** turns it off.
+
+When the operator runs the speaker timer or sends a message to the stage, every phone remote
+shows them at the top, as the **Stage** window does: the time in large digits in its colors, and
+the message as a band that flashes when a new one comes. With **Speaker timer**, buttons under
+the time: **Start the timer** (the length saved in the control window), **Pause** or **Resume**,
+**−1 min**, **+1 min**, and **Stop the timer**.
 
 ## The speaker's choice
 

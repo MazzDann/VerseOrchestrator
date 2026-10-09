@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   asCountdown,
+  asTimer,
   createDispatcher,
   DEDUPE_MS,
   PRIORITY,
@@ -90,6 +91,13 @@ describe('the switches a command flips (1.4.1)', () => {
 
   it("a remote's «Відлік» (1.9.0-beta.10) arrives as start / pause / stop, a length only with start", () => {
     expect(asCountdown({ op: 'start', seconds: 450 })).toEqual({ op: 'start', seconds: 450 });
+    // the speaker's timer (1.11.0-beta.2)
+    expect(asTimer({ op: 'start' })).toEqual({ op: 'start' });
+    expect(asTimer({ op: 'start', minutes: 20 })).toEqual({ op: 'start', minutes: 20 });
+    expect(asTimer({ op: 'shift', minutes: -1 })).toEqual({ op: 'shift', minutes: -1 });
+    expect(asTimer({ op: 'shift' })).toBeUndefined();
+    expect(asTimer({ op: 'pause', minutes: 5 })).toEqual({ op: 'pause' });
+    expect(asTimer({ op: 'reset' })).toBeUndefined();
     expect(asCountdown({ op: 'pause' })).toEqual({ op: 'pause' });
     expect(asCountdown({ op: 'stop', seconds: 'x' })).toEqual({ op: 'stop' });
     expect(asCountdown({ op: 'reset' })).toBeUndefined();
