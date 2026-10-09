@@ -578,6 +578,28 @@ describe('going back, and what a swap leaves behind (1.4.1)', () => {
     return { inst, dir };
   }
 
+  it('tidies a copy to another volume cut short: app.next.part next to app/ (review of #159)', () => {
+    const now = Date.now();
+    const { inst } = afterSwap({ at: now - 25 * HOUR });
+    const top = path.dirname(path.dirname(inst.updatesDir));
+    fs.mkdirSync(path.join(top, `${NEXT_DIR}.part`, 'app'), { recursive: true });
+    expect(inst.tidy(now)).toContain(`${NEXT_DIR}.part`);
+    expect(fs.existsSync(path.join(top, `${NEXT_DIR}.part`))).toBe(false);
+  });
+
+  it('a copy whose last rename can’t be made leaves no .part (review of #159)', async () => {
+    const dir = tempDir();
+    const from = appFolder(dir, 'unpacked', '1.10.2');
+    const to = path.join(dir, NEXT_DIR);
+    // not a held file (no retry): it fails at once, and the copy it would have named goes
+    const rename = vi.spyOn(fs, 'renameSync').mockImplementationOnce(() => {
+      throw Object.assign(new Error('ENOTEMPTY: directory not empty'), { code: 'ENOTEMPTY' });
+    });
+    await expect(copyAcross(from, to)).rejects.toThrow(/ENOTEMPTY/);
+    rename.mockRestore();
+    expect(fs.readdirSync(dir)).toEqual(['unpacked']);
+  });
+
   it('tidies up after a finished swap however long ago; says how it went for a day', () => {
     const now = Date.now();
     // the next start a day and more later (1.4.0 kept everything, 120 MB of Node, for good)

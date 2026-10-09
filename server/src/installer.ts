@@ -167,8 +167,23 @@ export async function copyAcross(
     await dropPart();
     return false;
   }
-  fs.renameSync(part, to);
-  return true;
+  // Windows may hold the tree just written for a moment (an antivirus, an indexer, an editor's
+  // watcher — the 1.10.0 update run): tried again as renameSoon does, without blocking the hub;
+  // a rename that never goes leaves no .part behind (review of #159)
+  for (let i = 1; ; i++) {
+    try {
+      fs.renameSync(part, to);
+      return true;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      const held = code === 'EPERM' || code === 'EBUSY' || code === 'EACCES';
+      if (process.platform !== 'win32' || !held || i >= RENAME_TRIES) {
+        await dropPart();
+        throw e;
+      }
+      await new Promise((r) => setTimeout(r, RENAME_PAUSE_MS));
+    }
+  }
 }
 
 /**
@@ -605,6 +620,17 @@ export function createInstaller(o: InstallerOptions) {
         } catch {
           /* still in use (Windows): next time */
         }
+      }
+      // a copy to another volume cut short (the app closed, the power gone) leaves app.next.part
+      // next to app/ — nothing offers it, and the next update may not copy at all (review of #159)
+      const part = path.join(o.top, `${NEXT_DIR}.part`);
+      try {
+        if (fs.existsSync(part)) {
+          fs.rmSync(part, { recursive: true, force: true });
+          gone.push(`${NEXT_DIR}.part`);
+        }
+      } catch {
+        /* still in use (Windows): next time */
       }
       return gone;
     },
