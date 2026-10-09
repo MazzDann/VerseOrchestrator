@@ -52,6 +52,11 @@ export interface ScreenSummary {
    * `countdown` (1.5.0): «Заставка» with «Відлік» (an older page names it «Заставка»).
    */
   kind?: 'qr' | 'cover' | 'countdown' | 'picture' | 'video';
+  /**
+   * «Відлік» on screen (1.11.0-beta.1) — over «Заставка» or in a corner: its clock, so a remote shows
+   * the time left and knows pause from go on — by the computer's clock (the phone asks the hub)
+   */
+  countdown?: Pick<SlideCountdown, 'until' | 'pausedLeft' | 'afterZero'>;
   font?: string;
   /** where it comes from (0.6.1): a remote knows whether its own cursor is on screen */
   source?: SlideSource;
@@ -72,6 +77,8 @@ export function showsSomething(s: Slide): boolean {
 
 export function summarize(slide: Slide | null | undefined): ScreenSummary {
   if (!slide) return { status: 'empty', reference: '', text: '' };
+  // «Відлік» over «Заставка», or in the corner of what is on screen (review: the corner's was missed)
+  const timed = (slide.cover && slide.countdown) || slide.cornerCountdown || null;
   const status: ScreenSummary['status'] = slide.forceBlack
     ? 'black'
     : slide.blank
@@ -106,6 +113,15 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
           : slide.video
             ? 'video'
             : undefined,
+    ...(timed
+      ? {
+          countdown: {
+            until: timed.until,
+            ...(timed.pausedLeft != null ? { pausedLeft: timed.pausedLeft } : {}),
+            ...(timed.afterZero ? { afterZero: timed.afterZero } : {}),
+          },
+        }
+      : {}),
   };
 }
 
