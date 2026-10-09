@@ -17,6 +17,22 @@ export function isTextEntry(target: EventTarget | null): boolean {
   return !input.readOnly && /^(text|search|number|email|url|tel|password)$/.test(input.type);
 }
 
+/**
+ * Inside an open menu, list or pop-up (1.10.5, the Mac's round): its arrows are its own — the «+»
+ * menu's items, a Select's options, an item editor — not the open song's stanzas.
+ */
+export function inOverlay(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el?.closest) return false;
+  // an open Select says so by `data-expanded` (Mantine's Combobox has no aria-expanded there)
+  const open =
+    el.getAttribute('aria-expanded') === 'true' || el.getAttribute('data-expanded') != null;
+  return (
+    (open && el.hasAttribute('aria-haspopup')) ||
+    !!el.closest('[role="menu"], [role="listbox"], .mantine-Popover-dropdown')
+  );
+}
+
 /** A resize control's step for one arrow key press, in px. */
 export const RESIZE_KEY_STEP = 16;
 
