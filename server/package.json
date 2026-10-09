@@ -1,6 +1,6 @@
 {
   "name": "@vo/server",
-  "version": "1.10.12",
+  "version": "1.11.0-beta.1",
   "private": true,
   "type": "module",
   "scripts": {
