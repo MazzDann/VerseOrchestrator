@@ -30,7 +30,7 @@ const lightest = (widths: number[], available: number) => {
 const WIDTHS = [92.1, 84, 76.5, 58.8, 53, 39.3, 31.5, 27.5, 26.3];
 
 describe('header fold steps', () => {
-  it('give way least useful first: title, text, go-to, then app, windows, sources', () => {
+  it('give way least useful first: title, text, the app zone, the search field, then windows, sources', () => {
     expect(FOLD_STEPS).toHaveLength(WIDTHS.length);
     expect(FOLD_STEPS[0]).toEqual({
       noTitle: false,
@@ -45,7 +45,7 @@ describe('header fold steps', () => {
       [],
       [],
       [],
-      [],
+      ['app'],
       ['app'],
       ['windows', 'app'],
       ['sources', 'windows', 'app'],
@@ -54,7 +54,9 @@ describe('header fold steps', () => {
     ]);
     expect(FOLD_STEPS[1].noTitle && !FOLD_STEPS[1].iconsOnly).toBe(true);
     expect(FOLD_STEPS[2].iconsOnly && !FOLD_STEPS[2].noGoTo).toBe(true);
-    expect(FOLD_STEPS[3].noGoTo && FOLD_STEPS[3].folded.length === 0).toBe(true);
+    // the search field stays until the app zone has gone into «Ще» (1.12.0 sweep)
+    expect(!FOLD_STEPS[3].noGoTo && FOLD_STEPS[3].folded.includes('app')).toBe(true);
+    expect(FOLD_STEPS[4].noGoTo && FOLD_STEPS[4].folded.length === 1).toBe(true);
     // «На екран» keeps its text until everything that may fold has folded
     expect(FOLD_STEPS.findIndex((f) => f.projectIconOnly)).toBe(7);
     expect(FOLD_STEPS[LAST_FOLD].tight).toBe(true);
