@@ -120,6 +120,7 @@ import {
   startChange,
   undoRestore,
 } from './backup.js';
+import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 
 const app = express();
 const json = express.json({ limit: '1mb' });
@@ -1387,6 +1388,9 @@ const restored = () => {
   lastImport = null;
   notifyUiStateRestored();
   refreshSongs(bundlesDir(dataDir));
+  // an import (1.12.0-beta.2) and its undo change the start settings and the pairings too
+  const settings = getServerSettings();
+  initRemoteStore({ file: path.join(dataDir, 'secrets.json'), persist: settings.remotes.persist });
 };
 
 /** A backup refused in words: too big, or not one of this app / damaged (review of #47). */
@@ -1480,6 +1484,83 @@ app.post(
     }
     if (!undone) throw new ApiError(409, N_('Повертати вже нічого'));
     console.log('[server] backup: back to the state before the last restore');
+    res.json({ ok: true });
+  }),
+);
+
+// ── «Перенести з іншої копії…» (1.12.0-beta.2, otherCopy.ts) ──────────────────────────────
+
+/** The other copies of this computer: the one that runs on the port, the ones beside this one. */
+app.get(
+  '/api/copies',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    const copies = await findCopies({
+      root: repoRoot,
+      dataDir,
+      port: getServerSettings().standby.port,
+      app: appVersion,
+    });
+    res.json({ copies });
+  }),
+);
+
+/** A folder the operator named: its copy, or why not. */
+const copyAt = (raw: unknown) => {
+  const found = typeof raw === 'string' && raw.trim() ? resolveCopy(raw.trim()) : null;
+  if (!found)
+    throw new ApiError(
+      404,
+      N_('Тут немає даних VerseOrchestrator. Виберіть папку копії — ту, де лежать app і data.'),
+    );
+  if (sameFolder(found.dataDir, dataDir))
+    throw new ApiError(400, N_('Це папка цієї копії. Виберіть іншу.'));
+  return found;
+};
+
+app.get(
+  '/api/copies/describe',
+  requireLocalControl,
+  wrap((req, res) => {
+    res.json(describeCopy(copyAt(req.query.path), appVersion));
+  }),
+);
+
+app.post(
+  '/api/copies/import',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const from = copyAt(req.body?.path);
+    const parts = {
+      things: req.body?.things === true,
+      launch: req.body?.launch === true,
+      pairings: req.body?.pairings === true,
+    };
+    if (!parts.things && !parts.launch && !parts.pairings)
+      throw new ApiError(400, N_('Позначте, що перенести'));
+    const started = Date.now();
+    try {
+      await oneAtATime(async () => {
+        notDuringRebuild();
+        return importCopy(dataDir, from, parts, appVersion, new Date(), restored);
+      });
+    } catch (e) {
+      throw backupRefusal(
+        movesFailed(
+          e,
+          N_(
+            'Не вдалося перенести: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.',
+          ),
+        ),
+      );
+    }
+    console.log(
+      `[server] copies: carried over from ${from.dataDir} (${Object.entries(parts)
+        .filter(([, on]) => on)
+        .map(([k]) => k)
+        .join(', ')}; ${Date.now() - started} ms)`,
+    );
     res.json({ ok: true });
   }),
 );

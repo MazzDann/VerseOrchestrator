@@ -56,6 +56,7 @@ import {
 } from './standby.ts';
 import { needsBuild } from './uiStamp.ts';
 import { versionLabel } from './versionLabel.ts';
+import { copyFolderOf, dataChanged, siblingCopies, type FoundCopy } from './copyFinder.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -533,6 +534,22 @@ function openBrowser(
   child.unref();
 }
 
+/** A data folder with none of the operator's settings yet: a copy that never ran. */
+export const freshData = (dataDir: string) =>
+  !['settings.json', 'ui-state.json'].some((n) => fs.existsSync(path.join(dataDir, n)));
+
+/** Of the copies found, the one whose data changed last. */
+export const newestCopy = (copies: FoundCopy[]): FoundCopy | null =>
+  copies.map((c) => ({ c, t: dataChanged(c.dataDir) ?? 0 })).sort((a, b) => b.t - a.t)[0]?.c ??
+  null;
+
+/** The console's pointer to «Перенести з іншої копії…» for a fresh copy beside another one. */
+export const otherCopyHint = (folder: string) =>
+  tr(
+    'Поруч є інша копія застосунку з даними: {folder}.\n  Щоб перенести з неї вигляд, пісні, налаштування й пульти — Налаштування вигляду →\n  Застосунок → «Перенести з іншої копії…».',
+    { folder },
+  );
+
 async function main(argv: string[]): Promise<number> {
   const dataDir = process.env.VO_DATA_DIR ?? path.join(root, 'data');
   // the console speaks the interface language chosen in the control window (0.11.7)
@@ -635,6 +652,13 @@ async function main(argv: string[]): Promise<number> {
       // in the browser chosen in the copy that runs — maybe not this one (runningLaunch)
       openBrowser(`${local}/`, dataDir, opts.app, await runningLaunch(port, waiter));
     return 0;
+  }
+
+  // A fresh copy beside one that holds the operator's data (1.12.0-beta.2): the user's case of
+  // 2026-10-10 — a new zip unpacked next to an old copy started empty, and nothing said so
+  if (freshData(dataDir)) {
+    const other = newestCopy(siblingCopies(root, dataDir));
+    if (other) say(`! ${otherCopyHint(copyFolderOf(other))}`);
   }
 
   // 1. Dependencies (npm ci on a fresh copy — needs the internet once)
