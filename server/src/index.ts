@@ -1397,6 +1397,8 @@ app.delete(
 
 /** The downloads being sent (their files go once sent; one a crash left goes at the next). */
 const DOWNLOAD = /^download-\d+-\d+\.zip(?:\.\d+\.tmp)?$/;
+/** A download file older than this is one nobody sends any more (another save may be packing). */
+const DOWNLOAD_STALE_MS = 10 * 60 * 1000;
 
 /**
  * The operator's backup — local control only: it holds their programs, songs, pictures.
@@ -1412,11 +1414,25 @@ app.get(
     const started = Date.now();
     const now = new Date();
     const pictures = req.query.pictures !== '0';
+    // the window may go while the copy is packed (a reload): then the file goes, nothing is sent
+    // (review of 1.12.0-beta.4 — a listener added after the packing never heard it)
+    let gone = false;
+    res.once('close', () => {
+      gone = true;
+    });
     const dir = backupsDir(dataDir);
     await fsp.mkdir(dir, { recursive: true });
-    // what an earlier download left (the app stopped while it was sent)
-    for (const name of await fsp.readdir(dir).catch(() => [] as string[]))
-      if (DOWNLOAD.test(name)) await fsp.rm(path.join(dir, name), { force: true }).catch(() => {});
+    // what an earlier download left (the app stopped while it was sent) — by age: another save
+    // may be packing its own right now
+    for (const name of await fsp.readdir(dir).catch(() => [] as string[])) {
+      if (!DOWNLOAD.test(name)) continue;
+      const file = path.join(dir, name);
+      const stale = await fsp.stat(file).then(
+        (st) => Date.now() - st.mtimeMs > DOWNLOAD_STALE_MS,
+        () => false,
+      );
+      if (stale) await fsp.rm(file, { force: true }).catch(() => {});
+    }
     const file = path.join(dir, `download-${process.pid}-${now.getTime()}.zip`);
     let size: number;
     try {
@@ -1431,7 +1447,20 @@ app.get(
       );
     } catch (e) {
       await fsp.rm(file, { force: true }).catch(() => {});
+      // a full disk said in words: the copy is packed under data/ before it is sent
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'ENOSPC' || code === 'EDQUOT')
+        throw new ApiError(
+          507,
+          N_(
+            'На диску з застосунком не вистачає місця для копії. Звільніть місце й спробуйте ще раз.',
+          ),
+        );
       throw backupRefusal(e);
+    }
+    if (gone) {
+      await fsp.rm(file, { force: true }).catch(() => {});
+      return;
     }
     console.log(
       `[server] backup: ${Math.round(size / 1024)} KB in ${Date.now() - started} ms${pictures ? '' : ' (without the pictures)'}`,
@@ -1446,7 +1475,7 @@ app.get(
     // sent or abandoned
     const stream = fs.createReadStream(file);
     const drop = () => void fsp.rm(file, { force: true }).catch(() => {});
-    res.on('close', () => {
+    res.once('close', () => {
       stream.destroy();
       drop();
     });
@@ -1548,6 +1577,10 @@ app.post(
       : undefined;
     if (parts && !Object.values(parts).some(Boolean))
       throw new ApiError(400, N_('Позначте, що відновити'));
+    const nothing = (e: unknown) =>
+      e instanceof BackupError && e.message === 'nothing'
+        ? new ApiError(409, N_('Відновлювати нічого: у копії немає того, що позначено.'))
+        : e;
     let summary;
     try {
       summary = await oneAtATime(async () => {
@@ -1557,7 +1590,7 @@ app.post(
     } catch (e) {
       throw backupRefusal(
         movesFailed(
-          e,
+          nothing(e),
           N_(
             'Не вдалося відновити: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.',
           ),
