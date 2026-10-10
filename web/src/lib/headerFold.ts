@@ -9,11 +9,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
  * grows everything (Mantine sizes are rem).
  *
  * So the header measures itself and gives way one step at a time, the least useful thing
- * first: the title; the text of «Вікно показу» and «Сховати текст»; the go-to field and the
- * «Наживо» caption; then whole zones go into one «Ще» menu — the app zone, the windows,
- * the sources. The go-live zone («На екран», «Сховати текст», «Чорний екран», «Заставка») and
- * the navigation (the menu button, «Пошук») never fold; at the very end «На екран» keeps only
- * its icon and the gaps get tighter.
+ * first: the title; the text of «Вікно показу» and «Сховати текст»; the app zone into one «Ще»
+ * menu; the search field and the «Наживо» caption; then the windows and the sources into «Ще»
+ * too. The go-live zone («На екран», «Сховати текст», «Чорний екран», «Заставка») and the
+ * navigation (the menu button, «Пошук») never fold; at the very end «На екран» keeps only its
+ * icon and the gaps get tighter. The search field — the one way in since 1.8.12-beta.4 — goes
+ * after the app zone (the 1.12.0 sweep: the bell «Сповіщення» tipped a 1300 px window into
+ * hiding the field while settings, help and the theme stayed).
  */
 
 /** Header zones that can fold into «Ще» — in toolbar order (vo-design §2). */
@@ -49,14 +51,18 @@ export const FOLD_ORDER: readonly FoldZone[] = ['app', 'windows', 'sources'];
 
 const TOOLBAR_ORDER: readonly FoldZone[] = ['sources', 'windows', 'app'];
 
+/** A zone into «Ще», with those folded before it (in toolbar order). */
+const foldZone = (zone: FoldZone) => (f: HeaderFold) => ({
+  folded: TOOLBAR_ORDER.filter((z) => z === zone || f.folded.includes(z)),
+});
+
 /** Each step adds one change to the step before it. */
 const CHANGES: ((f: HeaderFold) => Partial<HeaderFold>)[] = [
   () => ({ noTitle: true }),
   () => ({ iconsOnly: true }),
+  foldZone(FOLD_ORDER[0]),
   () => ({ noGoTo: true }),
-  ...FOLD_ORDER.map((zone) => (f: HeaderFold) => ({
-    folded: TOOLBAR_ORDER.filter((z) => z === zone || f.folded.includes(z)),
-  })),
+  ...FOLD_ORDER.slice(1).map(foldZone),
   () => ({ projectIconOnly: true }),
   () => ({ tight: true }),
 ];
