@@ -53,6 +53,15 @@ export function groupResults(
 }
 
 /**
+ * The translations with `id` leading (1.13.0-beta.2, F1010-08: the words found open where they
+ * are): it moves to the front, the others keep their order, and the last gives way past `max`.
+ * The control window (Ctrl+Enter on a hit), the desk and the remote.
+ */
+export function leadWith(ids: readonly number[], id: number, max = 5): number[] {
+  return [id, ...ids.filter((x) => x !== id)].slice(0, max);
+}
+
+/**
  * Places in one numbering per book (1.8.12-beta.5, shared versification.ts): the main
  * translation's when it has the book, else the numbering of the first hit there. `profiles` are
  * the chapter lengths of the translations and books found (`api.profiles`). A place that has no

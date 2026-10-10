@@ -43,6 +43,13 @@ export interface SlideLine {
    * part, 1.3.0). Otherwise they are words, joined with spaces.
    */
   exact?: boolean;
+  /**
+   * This translation's own place where its numbering differs from the slide's reference
+   * (1.13.0-beta.2, F1010-07: Гижа «14:1–2» beside Огієнко's Пс 15:1–2) — drawn by the
+   * abbreviation; `approx`: moved by a module's own quirk, not a classic difference («≈»).
+   */
+  ownRef?: string;
+  approx?: boolean;
 }
 
 export type PadUnit = 'px' | '%';

@@ -7,6 +7,9 @@ import { refVerses, useSettings } from '../../settingsStore';
 import { type SearchScope } from '../../components/SearchPanel';
 import { parseQuickRef, placeKey, quickKeydown } from '../../lib/quickRef';
 import { chapterName } from '../../lib/chapterCross';
+import { leadWith } from '../../lib/searchGroups';
+import { profilesQuery } from '../../lib/passageLines';
+import { remapPlace } from '../../lib/remapPlace';
 import { isFormField } from '../../lib/keyScroll';
 import { tr } from '../../i18n';
 
@@ -108,23 +111,51 @@ export function useJumps({
   // keep the focus.
   // `show`: ⌘↩ / Ctrl+Enter in the search (Mac check of 1.9.0) — the verse on screen once it is in
   const focusJump = useRef(false);
-  const jumpTo = (r: Jumpable, opts?: { focus?: boolean; show?: boolean }) => {
+  /** the jump asked last: a slower one (its lengths still loading) never lands after it */
+  const jumpTurn = useRef(0);
+  /**
+   * `lead` (1.13.0-beta.2, users' report F1010-08 — the author: «лише Ctrl+Enter»): the words found
+   * in another translation open there — it becomes the main one, in its own numbering. Otherwise
+   * a place of another translation (a search hit, history, the concordance's «Усі») opens in the
+   * main one at the SAME text: its number converted (F1010-07-b / 08b — Гижа Пс 14:1 is Огієнко
+   * Пс 15:1), by the books' chapter lengths; where the main one hasn't the book, that translation
+   * joins (or the verses pane stays empty — review of 1.8.12).
+   */
+  const jumpTo = (r: Jumpable, opts?: { focus?: boolean; show?: boolean; lead?: boolean }) => {
     const verses = refVerses(r);
-    if (opts?.show) showWhenReady(placeKey(r.bookNumber, r.chapter, verses));
-    if (selectedIds.length === 0) setTranslations([r.translationId]);
-    // a hit from another translation (the fallback, «Усі») in a book the main one hasn't (an NT
-    // only): that translation joins, or the verses pane stays empty (review)
-    else if (!selectedIds.includes(r.translationId)) {
+    const mine = ++jumpTurn.current;
+    const land = (chapter: number, at: number[], ids?: number[]) => {
+      if (mine !== jumpTurn.current) return;
+      if (opts?.show) showWhenReady(placeKey(r.bookNumber, chapter, at));
+      if (ids) setTranslations(ids);
+      selectBook(r.bookNumber);
+      selectChapter(chapter);
+      setSelectedVerses(at);
+      setScrollTarget(at[0]);
+      focusJump.current = !!opts?.focus;
+      toBible();
+    };
+    if (selectedIds.length === 0) return land(r.chapter, verses, [r.translationId]);
+    if (r.translationId === primaryId || primaryId == null) return land(r.chapter, verses);
+    if (opts?.lead) return land(r.chapter, verses, leadWith(selectedIds, r.translationId));
+    const join = () => {
       const books = queryClient.getQueryData<Book[]>(['books', primaryId]);
-      if (books && !books.some((b) => b.bookNumber === r.bookNumber))
-        setTranslations([...selectedIds, r.translationId]);
-    }
-    selectBook(r.bookNumber);
-    selectChapter(r.chapter);
-    setSelectedVerses(verses);
-    setScrollTarget(verses[0]);
-    focusJump.current = !!opts?.focus;
-    toBible();
+      return books && !books.some((b) => b.bookNumber === r.bookNumber)
+        ? [...selectedIds, r.translationId]
+        : undefined;
+    };
+    const from = r.translationId;
+    const place = { bookNumber: r.bookNumber, chapter: r.chapter, verses };
+    void queryClient.fetchQuery(profilesQuery([primaryId, from], r.bookNumber)).then(
+      (rows) => {
+        const to = remapPlace(rows, from, primaryId, place);
+        if (to === 'no-book')
+          land(r.chapter, verses, selectedIds.includes(from) ? undefined : [...selectedIds, from]);
+        else if (to && to.verses.length > 0) land(to.chapter, to.verses);
+        else land(r.chapter, verses, join());
+      },
+      () => land(r.chapter, verses, join()),
+    );
   };
 
   // Quick jump bar: resolve a reference/text query and jump to the first hit.
