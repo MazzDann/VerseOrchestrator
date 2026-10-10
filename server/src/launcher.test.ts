@@ -37,6 +37,7 @@ import {
   browserLaunch,
   controlWindowLaunch,
   controlWindows,
+  copyFolder,
   depsState,
   headerLine,
   healthAt,
@@ -45,9 +46,12 @@ import {
   NPM_CI,
   openControlWindowLines,
   nodeVersionOk,
+  otherCopyNote,
   parseArgs,
   phoneUrl,
+  runningLaunch,
   runningNote,
+  sameFolder,
   switchOff,
   writeDepsRecord,
 } from './launcher';
@@ -491,6 +495,111 @@ describe('launcher', () => {
       expect(decided).toEqual([]);
     } finally {
       await new Promise<void>((r) => app.close(() => r()));
+    }
+  });
+
+  it('says when the waiter on the port is another copy of the app (2026-10-09)', () => {
+    const win = 'D:\\VerseOrchestrator\\VerseOrchestrator\\app';
+    const status = (root?: string) => ({ state: 'waiting', ...(root ? { root } : {}) });
+    // this copy, in any letter case (Windows, macOS), with or without a trailing slash
+    expect(sameFolder(win, 'd:\\verseorchestrator\\VERSEORCHESTRATOR\\app\\', 'win32')).toBe(true);
+    expect(sameFolder('/Users/u/VO', '/users/u/vo/', 'darwin')).toBe(true);
+    expect(sameFolder('/home/u/VO', '/home/u/vo', 'linux')).toBe(false);
+    expect(otherCopyNote(win, status(win.toUpperCase()), 'win32')).toBeNull();
+    // a waiter before 1.11.1 doesn't say whose it is: nothing to say
+    expect(otherCopyNote(win, status(), 'win32')).toBeNull();
+    // another copy: the user's case — a release unpacked beside an older one the autostart starts;
+    // named by the folder people see (around app/), and how to make this one run
+    const old = project({
+      'app/.vo-portable': JSON.stringify({ data: '../data', modules: '../modules' }),
+    });
+    const note = otherCopyNote(win, status(path.join(old, 'app')), 'win32');
+    expect(note).toContain(`Працює інша копія застосунку: ${old}.`);
+    expect(note).toContain('--off');
+    // a project checkout has no app/ around it: its own folder
+    const checkout = project({ 'package.json': '{}' });
+    expect(copyFolder(checkout)).toBe(checkout);
+    expect(copyFolder(path.join(old, 'app'))).toBe(old);
+  });
+
+  it('opens the control window in the browser chosen in the copy that runs (2026-10-09)', async () => {
+    // a waiter of 1.11.1+ names the choice: nothing else is asked
+    let asked = 0;
+    let answer: unknown = { version: 1, launch: { browser: 'opera', appWindow: true } };
+    const app = http.createServer((req, res) => {
+      asked++;
+      if (req.url !== '/api/server-settings') return void res.writeHead(404).end();
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify(answer));
+    });
+    await new Promise<void>((r) => app.listen(0, '127.0.0.1', r));
+    const port = (app.address() as AddressInfo).port;
+    try {
+      const named = { state: 'waiting', launch: { browser: 'librewolf', appWindow: false } };
+      expect(await runningLaunch(port, named)).toEqual({ browser: 'librewolf', appWindow: false });
+      // … and a hand-edited one is taken the way the launcher takes its own (sanitizeLaunch)
+      expect(
+        await runningLaunch(port, { state: 'waiting', launch: { browser: 'netscape' } }),
+      ).toEqual({ browser: 'system', appWindow: false });
+      expect(asked).toBe(0);
+      // an older waiter (the user's: 1.11.0, started by the autostart): its app is asked
+      expect(await runningLaunch(port, { state: 'waiting' })).toEqual({
+        browser: 'opera',
+        appWindow: true,
+      });
+      expect(asked).toBe(1);
+      // an app before the choice (no `launch`), or not ours: this copy's own, as before
+      answer = { version: 1 };
+      expect(await runningLaunch(port, { state: 'running' })).toBeNull();
+      answer = '<!doctype html>';
+      expect(await runningLaunch(port, { state: 'running' })).toBeNull();
+    } finally {
+      await new Promise<void>((r) => app.close(() => r()));
+    }
+    // nobody answers in time: this copy's own
+    expect(await runningLaunch(port, { state: 'waiting' }, 300)).toBeNull();
+
+    // what the launcher then opens: Opera as an app window, marked — not the system browser (Edge)
+    const opera: InstalledBrowser = {
+      id: 'opera',
+      name: 'Opera',
+      appWindow: true,
+      bundleId: null,
+      program: 'C:\\Program Files\\Opera\\opera.exe',
+    };
+    const url = 'http://localhost:4747/';
+    expect(
+      browserLaunch('win32', url, { browser: 'opera', appWindow: true }, false, (id) =>
+        id === 'opera' ? opera : undefined,
+      ).cmd,
+    ).toEqual([opera.program, ['--app=http://localhost:4747/?browser=opera']]);
+  });
+
+  it('a real waiter of another copy: its folder and choice reach the launcher (2026-10-09)', async () => {
+    const old = project({
+      'app/.vo-portable': JSON.stringify({ data: '../data', modules: '../modules' }),
+      'data/settings.json': JSON.stringify({ launch: { browser: 'opera', appWindow: true } }),
+    });
+    const w = createStandby({
+      port: 0,
+      host: '127.0.0.1',
+      idleMs: 60_000,
+      startApp: async () => {
+        throw new Error('the launcher must not start the app to ask');
+      },
+      root: path.join(old, 'app'),
+      dataDir: path.join(old, 'data'),
+    });
+    const port = await w.listen();
+    try {
+      const status = await waiterAt(port);
+      expect(status).not.toBeNull();
+      expect(await runningLaunch(port, status!)).toEqual({ browser: 'opera', appWindow: true });
+      const fresh = path.join(project({ 'app/.vo-portable': '{}' }), 'app');
+      expect(otherCopyNote(fresh, status!)).toContain(old);
+      expect(otherCopyNote(path.join(old, 'app'), status!)).toBeNull();
+    } finally {
+      await w.close();
     }
   });
 });
