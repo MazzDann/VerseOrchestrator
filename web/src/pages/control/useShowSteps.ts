@@ -31,17 +31,19 @@ import {
 } from '../../lib/chapterCross';
 import { type Outcome } from '../../lib/commands';
 import { tr } from '../../i18n';
-import { joinVerses, strongHighlightSegments } from './slideText';
+import { joinVerses, numbersOn, strongHighlightSegments } from './slideText';
 import { standbyNotice } from './standby';
 import { type PastItem } from '../../lib/orderFlow';
 import { noticeOnce } from '../../lib/noticeOnce';
+import { type PickWalk, walkStep } from '../../lib/pickWalk';
 
 /**
  * The steps of the show (vo-sync): the verse selection on screen («На екран», Enter on a verse,
  * a Strong slide), live-follow, and one step forward or back — reveal → page → verse → across a
- * chapter's or book's edge (two presses). Effects: E9 (a held screen let go when «Наживо»
- * switches), E11 (live-follow), E12 (the preview back to the verses on navigation), E16 (the
- * reveal back to its first step).
+ * chapter's or book's edge (two presses). A pick collected with Ctrl / ⌘ / Shift waits in the
+ * preview for Enter (1.13.0-beta.1) and «Далі» walks it. Effects: E9 (a held screen let go when
+ * «Наживо» switches), E11 (live-follow), E12 (the preview back to the verses on navigation), E16
+ * (the reveal back to its first step).
  */
 export function useShowSteps({
   liveFollow,
@@ -69,6 +71,8 @@ export function useShowSteps({
   chapter,
   primaryVerses,
   setSelectedVerses,
+  toggleVerse,
+  pickBeforeEnter,
   chapters,
   books,
   queryClient,
@@ -117,6 +121,9 @@ export function useShowSteps({
   chapter: number | null;
   primaryVerses: Verse[];
   setSelectedVerses: (verses: number[]) => void;
+  toggleVerse: (verse: number) => void;
+  /** «Кілька віршів — на екран після Enter» (1.13.0-beta.1) */
+  pickBeforeEnter: boolean;
   chapters: number[];
   books: Book[];
   queryClient: QueryClient;
@@ -140,10 +147,37 @@ export function useShowSteps({
    * «Прев’ю: далі / назад» (Alt+arrows, 1.1.0): the preview walked ahead and the screen stays,
    * though «Наживо» is on — until «На екран», a plain step, or «Наживо» switched.
    */
-  const [screenHeld, setScreenHeld] = useState(false);
-  useEffect(() => setScreenHeld(false), [liveFollow]);
+  /**
+   * …and a pick being collected (1.13.0-beta.1, users' report F1010-05: «перед тим ще ентер
+   * натиснути»): verses added with Ctrl / ⌘ / Shift gather in the preview until Enter, «На екран»
+   * or «Далі» shows them together.
+   */
+  const [hold, setHold] = useState<'preview' | 'pick' | null>(null);
+  const screenHeld = hold !== null;
+  useEffect(() => setHold(null), [liveFollow]);
+  /**
+   * The pick collected last (Ctrl / ⌘ / Shift) and the one «Далі» walks once it is on screen: all
+   * together, one by one, then on after the last (1.13.0-beta.1).
+   */
+  const picked = useRef<PickWalk | null>(null);
+  const walk = useRef<PickWalk | null>(null);
+  const walkKey = `${primaryId}:${bookNumber}:${chapter}`;
+  const isPicked = (verses: number[]) => {
+    const p = picked.current;
+    return (
+      !!p &&
+      p.key === walkKey &&
+      verses.length > 1 &&
+      p.verses.length === verses.length &&
+      p.verses.every((v, i) => v === verses[i])
+    );
+  };
 
   const send = (overrides?: Partial<Slide>) => {
+    // a collected pick goes on screen: «Далі» walks it from here
+    if (!overrides && isPicked(selectedVerses)) {
+      walk.current = { key: walkKey, verses: selectedVerses };
+    }
     const slide: Slide = {
       lines: slideLines,
       reference: pageReference,
@@ -160,7 +194,40 @@ export function useShowSteps({
     // Projecting the verse selection ends any song/text/Strong override, so the
     // preview and live-follow track the verses again (no preview/screen desync).
     setPreviewOverride(null);
-    setScreenHeld(false); // the screen shows the preview: it follows again
+    setHold(null); // the screen shows the preview: it follows again
+  };
+
+  /** Ctrl / ⌘ + a verse: in or out of the pick — held in the preview while the screen follows. */
+  const pickVerse = (verse: number) => {
+    holdPick();
+    const next = selectedVerses.includes(verse)
+      ? selectedVerses.filter((v) => v !== verse)
+      : [...selectedVerses, verse].sort((a, b) => a - b);
+    picked.current = { key: walkKey, verses: next };
+    toggleVerse(verse);
+  };
+  /** Shift + a verse: the pick becomes this range (or grows by it with Ctrl too). */
+  const pickVerses = (verses: number[]) => {
+    holdPick();
+    const next = [...new Set(verses)].sort((a, b) => a - b);
+    picked.current = { key: walkKey, verses: next };
+    setSelectedVerses(next);
+  };
+  /** A plain click: one verse, and the screen follows it again. */
+  const selectVerses = (verses: number[]) => {
+    if (hold === 'pick') setHold(null);
+    picked.current = null;
+    setSelectedVerses(verses);
+  };
+  const holdPick = () => {
+    if (!pickBeforeEnter || !liveFollow || !live || hold === 'pick') return;
+    setHold('pick');
+    notifications.show({
+      id: 'screen-held',
+      message: tr('Вірші збираються в прев’ю. Показати — Enter або «На екран».'),
+      color: 'cue',
+      autoClose: 3000,
+    });
   };
 
   // Project the Strong-bearing (primary) translation only, with a "word — gloss"
@@ -170,14 +237,10 @@ export function useShowSteps({
   const projectStrong = (subline: string, strong: string) => {
     const t = translations.find((x) => x.id === primaryId);
     const pageStrongVerses = selectedPrimaryVerses.filter((v) => pageVerses.includes(v.verse));
-    const text = joinVerses(pageStrongVerses, pageVerses, appearance.showVerseNumbers);
+    const num = numbersOn(appearance.verseNumbers, pageVerses.length);
+    const text = joinVerses(pageStrongVerses, pageVerses, num);
     if (!text.trim()) return;
-    const segments = strongHighlightSegments(
-      pageStrongVerses,
-      pageVerses,
-      appearance.showVerseNumbers,
-      strong,
-    );
+    const segments = strongHighlightSegments(pageStrongVerses, pageVerses, num, strong);
     const slide: Slide = {
       lines: [{ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments }],
       reference: pageReference,
@@ -236,6 +299,15 @@ export function useShowSteps({
     held = false,
   ): Outcome | Promise<Outcome> => {
     if (primaryVerses.length === 0) return { ok: false, reason: tr('Спершу виберіть розділ') };
+    // a pick shown together: its verses one by one, then on after the last (1.13.0-beta.1)
+    const w = walk.current;
+    const inWalk = w && w.key === walkKey ? walkStep(w, selectedVerses, delta) : null;
+    if (inWalk) {
+      crossArm.current = null;
+      setSelectedVerses(inWalk);
+      return { ok: true };
+    }
+    walk.current = null;
     const all = primaryVerses.map((v) => v.verse);
     const current = selectedVerses.length ? selectedVerses[selectedVerses.length - 1] : all[0] - 1;
     const idx = all.indexOf(current);
@@ -347,7 +419,12 @@ export function useShowSteps({
     /** a key held down (its repeats): steps on, never across a chapter's edge (1.9.5) */
     held = false,
   ): Outcome | Promise<Outcome> => {
-    setScreenHeld(previewOnly && liveFollow && live);
+    // «Далі» while a pick is collected: first the pick, all together (the user, 2026-10-11)
+    if (hold === 'pick' && delta > 0 && !previewOnly) {
+      send();
+      return { ok: true };
+    }
+    setHold(previewOnly && liveFollow && live ? 'preview' : null);
     const sign: 1 | -1 = delta > 0 ? 1 : -1;
     // a text, a picture or a video of the running order: one step past it is the next item, when
     // «Після кінця пункту…» is on (1.10.0-beta.1)
@@ -432,7 +509,9 @@ export function useShowSteps({
   // select just this verse and push it directly (built from the loaded chapter, so we
   // don't wait for the selection-derived slideLines to recompute).
   const projectVerseOnEnter = (verseNum: number) => {
-    if (selectedVerses.includes(verseNum)) {
+    if (!leaderRef.current) return standbyNotice();
+    // a collected pick goes on screen whole, whichever row has the focus (1.13.0-beta.1)
+    if (hold === 'pick' || selectedVerses.includes(verseNum)) {
       sendAndNotify();
       return;
     }
@@ -461,6 +540,11 @@ export function useShowSteps({
 
   return {
     screenHeld,
+    /** a pick waits in the preview for Enter (1.13.0-beta.1) */
+    pickHeld: hold === 'pick',
+    pickVerse,
+    pickVerses,
+    selectVerses,
     send,
     sendAndNotify,
     projectStrong,

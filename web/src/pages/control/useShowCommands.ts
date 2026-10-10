@@ -38,7 +38,7 @@ import { albumSlide } from '../../lib/album';
 import { videoSlide } from '../../lib/video';
 import { tr } from '../../i18n';
 import { unusable } from '../../lib/denied';
-import { joinVerses, redLetterSegments } from './slideText';
+import { joinVerses, numbersOn, redLetterSegments } from './slideText';
 import { withSecond } from './songSlides';
 import { noticeOnce } from '../../lib/noticeOnce';
 
@@ -246,10 +246,18 @@ export function useShowCommands({
         queryFn: () => api.verses(id, p.bookNumber, p.chapter),
       });
       total ??= verses.length > 0 ? verses[verses.length - 1].verse : undefined;
-      const text = joinVerses(verses, p.verses, appearance.showVerseNumbers);
+      const text = joinVerses(
+        verses,
+        p.verses,
+        numbersOn(appearance.verseNumbers, p.verses.length),
+      );
       if (!text.trim()) continue;
       const t = translations.find((x) => x.id === id);
-      const segments = redLetterSegments(verses, p.verses, appearance.showVerseNumbers);
+      const segments = redLetterSegments(
+        verses,
+        p.verses,
+        numbersOn(appearance.verseNumbers, p.verses.length),
+      );
       lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
     }
     if (lines.length === 0) throw new Error(tr('Уривок недоступний'));

@@ -17,7 +17,7 @@ import { type LibraryGap } from '../../components/NoLibrary';
 import { formatReference } from '../../lib/reference';
 import { useServer } from '../../serverStore';
 import { useStore } from '../../store';
-import { joinVerses, redLetterSegments } from './slideText';
+import { joinVerses, numbersOn, redLetterSegments } from './slideText';
 
 const EMPTY_ARRAY: never[] = [];
 
@@ -178,14 +178,15 @@ export function useVerseDeck({
         .map((id) => {
           const t = translations.find((x) => x.id === id);
           const verses = versesByTranslation.get(id) ?? [];
-          const text = joinVerses(verses, verseNums, appearance.showVerseNumbers);
+          const num = numbersOn(appearance.verseNumbers, verseNums.length);
+          const text = joinVerses(verses, verseNums, num);
           if (!text.trim()) return null;
-          const segments = redLetterSegments(verses, verseNums, appearance.showVerseNumbers);
+          const segments = redLetterSegments(verses, verseNums, num);
           return { translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments } as SlideLine;
         })
         .filter((x): x is SlideLine => x !== null);
     },
-    [selectedIds, versesByTranslation, translations, appearance.showVerseNumbers],
+    [selectedIds, versesByTranslation, translations, appearance.verseNumbers],
   );
   const slideLines = useMemo(() => buildLines(pageVerses), [buildLines, pageVerses]);
 
@@ -196,7 +197,8 @@ export function useVerseDeck({
       align: appearance.textAlign,
       bgColor: appearance.bgColor,
       bgImage: appearance.bgImage,
-      showVerseNumbers: appearance.showVerseNumbers,
+      // the bus field of 0.x; no window reads it (the numbers are in the text)
+      showVerseNumbers: appearance.verseNumbers === 'always',
       padTop: appearance.padTop,
       padRight: appearance.padRight,
       padBottom: appearance.padBottom,
@@ -220,12 +222,13 @@ export function useVerseDeck({
     const verses = primaryId != null ? (versesByTranslation.get(primaryId) ?? []) : [];
     const byNum = new Map(verses.map((v) => [v.verse, v]));
     const units: string[] = [];
+    const num = numbersOn(appearance.verseNumbers, pageVerses.length);
     for (const n of pageVerses) {
       const t = (byNum.get(n)?.text ?? '').trim();
-      if (t) units.push(`${appearance.showVerseNumbers ? `${n} ` : ''}${t}`);
+      if (t) units.push(`${num ? `${n} ` : ''}${t}`);
     }
     return units.length ? units : null;
-  }, [appearance.reveal, appearance.showVerseNumbers, primaryId, versesByTranslation, pageVerses]);
+  }, [appearance.reveal, appearance.verseNumbers, primaryId, versesByTranslation, pageVerses]);
 
   const revealForSlide: SlideReveal | undefined =
     appearance.reveal && revealUnits
@@ -234,6 +237,7 @@ export function useVerseDeck({
           count: Math.min(Math.max(1, revealCount), revealUnits.length),
           mode: appearance.revealSpotlight ? 'spotlight' : 'accumulate',
           placeholders: appearance.revealPlaceholders,
+          ...(numbersOn(appearance.verseNumbers, pageVerses.length) ? { numbered: true } : {}),
         }
       : undefined;
 

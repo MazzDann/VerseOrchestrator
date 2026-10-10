@@ -13,12 +13,26 @@ import { useCallback, useEffect, useRef, type DependencyList } from 'react';
  * refs are attached — a plain ref-object container would still be null when the
  * child content ref fires, leaving the new content at its inherited font size).
  */
-export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: number) {
+export function useAutoFit(
+  deps: DependencyList,
+  min = 6,
+  max = 240,
+  maxCqh?: number,
+  /**
+   * A pick that grew on screen (1.13.0-beta.1): the new size is reached over this many ms, so
+   * the shown lines shrink with the added verse coming in instead of jumping.
+   */
+  settleMs?: number | null,
+) {
   const containerEl = useRef<HTMLDivElement | null>(null);
   const contentEl = useRef<HTMLElement | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const rafRef = useRef(0);
   const timerRef = useRef(0);
+  const settle = useRef(settleMs ?? null);
+  settle.current = settleMs ?? null;
+  const settling = useRef<Animation | null>(null);
+  const fitAgain = useRef(false);
 
   const fit = useCallback(() => {
     const container = containerEl.current;
@@ -27,6 +41,13 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
     // A slide that is fading out keeps its size (SlideFade marks it): refitting it by the
     // NEXT slide's limits made a leaving song title jump 96 → 100 px (0.6.10).
     if (content.closest('[data-leaving]')) return;
+    // the font is still settling (it would measure the animated size): fit once it is done
+    const a0 = settling.current;
+    if (a0?.playState === 'running' && (a0.effect as KeyframeEffect | null)?.target === content) {
+      fitAgain.current = true;
+      return;
+    }
+    const before = parseFloat(content.style.fontSize) || 0;
     let lo = min;
     // Cap the upper bound at `maxCqh`% of the SLIDE height when given (faithful pptx
     // songs: never exceed the original font size — shrink to fit like PowerPoint).
@@ -53,7 +74,29 @@ export function useAutoFit(deps: DependencyList, min = 6, max = 240, maxCqh?: nu
       }
     }
     content.style.fontSize = `${best}px`;
+    const ms = settle.current;
+    if (ms && before > 0 && before !== best && typeof content.animate === 'function') {
+      // the end value is already set: nothing snaps back when it ends (SlideFade's way)
+      const a = content.animate([{ fontSize: `${before}px` }, { fontSize: `${best}px` }], {
+        duration: ms,
+        easing: 'ease-out',
+      });
+      settling.current = a;
+      a.finished.then(
+        () => {
+          if (settling.current !== a) return;
+          settling.current = null;
+          if (fitAgain.current) {
+            fitAgain.current = false;
+            fitRef.current();
+          }
+        },
+        () => undefined,
+      );
+    }
   }, [min, max, maxCqh]);
+  const fitRef = useRef(fit);
+  fitRef.current = fit;
 
   // Fit next frame (refs attached) AND again shortly after, because on initial mount
   // the box can be measured before its final size settles (percentage heights under

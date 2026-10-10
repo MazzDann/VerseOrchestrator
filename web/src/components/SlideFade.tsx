@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { SlideTransition } from '../presenterBus';
-import { fadeTiming, planSlideChange } from '../lib/slideFade';
+import { fadeTiming, inFrames, planSlideChange } from '../lib/slideFade';
 
 /**
  * The slide change on every output (0.6.10, Mac test): the shown slide fades out, then the
@@ -65,12 +65,13 @@ export function SlideFade({
     [layerRef],
   );
 
-  // A new layer fades in (before its first paint: layout effects run ahead of it).
+  // A new layer fades in (before its first paint: layout effects run ahead of it); «Наплив»
+  // rises as it comes (1.13.0-beta.1)
   useLayoutEffect(() => {
     const e = el.current;
     const t = fadeTiming(latest.current.mode, 'in');
     if (!e || shown === null || !t) return;
-    const a = e.animate([{ opacity: 0 }, { opacity: 1 }], t);
+    const a = e.animate(inFrames(latest.current.mode), t);
     return () => a.cancel();
   }, [shown]);
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { type Verse } from '../../api';
-import { GAP, joinVerses, redLetterSegments, strongHighlightSegments } from './slideText';
+import {
+  GAP,
+  joinVerses,
+  numbersOn,
+  redLetterSegments,
+  strongHighlightSegments,
+} from './slideText';
 
 const verse = (n: number, text: string, textRaw?: string): Verse => ({
   translationId: 1,
@@ -43,18 +49,18 @@ describe('redLetterSegments', () => {
       verse(3, 'Слова.', '<J>Слова.</J>'),
     ];
     expect(redLetterSegments(verses, [1, 3], true)).toEqual([
-      { text: '1' },
-      { text: 'Сказав:' },
-      { text: 'Я є шлях.', jesus: true },
+      { text: '1', v: 1, num: true },
+      { text: 'Сказав:', v: 1 },
+      { text: 'Я є шлях.', jesus: true, v: 1 },
       { text: GAP },
-      { text: '3' },
-      { text: 'Слова.', jesus: true },
+      { text: '3', v: 3, num: true },
+      { text: 'Слова.', jesus: true, v: 3 },
     ]);
   });
 
   it('falls back to the plain text without markup', () => {
     expect(redLetterSegments([verse(7, 'Просто текст.')], [7], false)).toEqual([
-      { text: 'Просто текст.' },
+      { text: 'Просто текст.', v: 7 },
     ]);
   });
 });
@@ -63,17 +69,26 @@ describe('strongHighlightSegments', () => {
   it('emphasises the words that carry the Strong number', () => {
     const verses = [verse(1, 'На початку Бог', 'На початку<S>7225</S> Бог<S>430</S>')];
     expect(strongHighlightSegments(verses, [1], true, '430')).toEqual([
-      { text: '1' },
-      { text: 'На початку' },
-      { text: 'Бог', hot: true },
+      { text: '1', v: 1, num: true },
+      { text: 'На початку', v: 1 },
+      { text: 'Бог', hot: true, v: 1 },
     ]);
   });
 
   it('shows the plain text of a verse with no Strong markup, and a gap for a skip', () => {
     const verses = [verse(1, ' Перший. '), verse(2, 'Другий.'), verse(3, '')];
     expect(strongHighlightSegments(verses, [1, 3], false, '430')).toEqual([
-      { text: 'Перший.' },
+      { text: 'Перший.', v: 1 },
       { text: GAP },
     ]);
+  });
+});
+
+describe('numbersOn (1.13.0-beta.1)', () => {
+  it('«Коли віршів кілька» numbers two verses and more; «Завжди» one too; «Ні» none', () => {
+    expect(numbersOn('multi', 1)).toBe(false);
+    expect(numbersOn('multi', 2)).toBe(true);
+    expect(numbersOn('always', 1)).toBe(true);
+    expect(numbersOn('off', 5)).toBe(false);
   });
 });

@@ -32,7 +32,7 @@ import {
 } from '../../presenterBus';
 import { findSong } from '../../lib/songLink';
 import { tr } from '../../i18n';
-import { joinVerses, redLetterSegments } from './slideText';
+import { joinVerses, numbersOn, redLetterSegments } from './slideText';
 import { asksFor, atItemEdge, belongsTo, stillThere, type PastItem } from '../../lib/orderFlow';
 import { coverOver } from '../../lib/slide';
 import { itemCountdown, zeroIn } from '../../lib/countdownItem';
@@ -161,10 +161,18 @@ export function useRunningOrder({
           queryFn: () => api.verses(id, it.bookNumber, it.chapter),
         });
         total ??= verses.length > 0 ? verses[verses.length - 1].verse : undefined;
-        const text = joinVerses(verses, it.verses, appearance.showVerseNumbers);
+        const text = joinVerses(
+          verses,
+          it.verses,
+          numbersOn(appearance.verseNumbers, it.verses.length),
+        );
         if (!text.trim()) continue;
         const t = translations.find((x) => x.id === id);
-        const segments = redLetterSegments(verses, it.verses, appearance.showVerseNumbers);
+        const segments = redLetterSegments(
+          verses,
+          it.verses,
+          numbersOn(appearance.verseNumbers, it.verses.length),
+        );
         lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
       } catch {
         /* skip a translation that fails to load */
