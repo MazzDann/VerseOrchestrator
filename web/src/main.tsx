@@ -56,7 +56,12 @@ if (window.location.pathname === '/') {
   // «Відкрити в … зараз» (lib/handover.ts): the one-time token — and the start file's browser
   // mark — out of the address before anything (the router, a reload, a restored tab) reads it
   takeHandover();
-  setBoot(import('./lib/controlBoot').then((m) => m.bootControl()));
+  // a server found only after the start (1.12.5): every query asks it now
+  setBoot(
+    import('./lib/controlBoot').then((m) =>
+      m.bootControl(() => void queryClient.invalidateQueries()),
+    ),
+  );
 }
 
 // no hover flashes on rows passing under a still pointer while a list scrolls (0.6.5)
