@@ -223,7 +223,8 @@ const hasModules = (dir: string) => {
 /**
  * A library file with its tables — not one a first build left empty when it was stopped or broke
  * before its commit (1.12.4 review): that one is built again. Node's own SQLite (the launcher runs
- * before `npm ci`, without better-sqlite3); anything it can't tell counts as a library, as before.
+ * before `npm ci`, without better-sqlite3), and only on a real SQLite file — a short or foreign one
+ * reads differently on Linux (CI); anything it can't tell counts as a library, as before.
  */
 function holdsLibrary(file: string): boolean {
   const sqlite = process.getBuiltinModule?.('node:sqlite') as
@@ -231,6 +232,14 @@ function holdsLibrary(file: string): boolean {
     | undefined;
   if (!sqlite) return true;
   try {
+    const head = Buffer.alloc(16);
+    const fd = fs.openSync(file, 'r');
+    try {
+      fs.readSync(fd, head, 0, 16, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+    if (head.toString('latin1') !== 'SQLite format 3\0') return true;
     const db = new sqlite.DatabaseSync(file, { readOnly: true });
     try {
       return !!db
