@@ -15,6 +15,7 @@ import { useStore } from '../store';
 import {
   useSettings,
   refKey,
+  refVerses,
   videoEndOf,
   videoPhonesOf,
   videoVolumeOf,
@@ -72,6 +73,7 @@ import { type PastItem } from '../lib/orderFlow';
 import { useTimers } from './control/useTimers';
 import { useVerseDeck } from './control/useVerseDeck';
 import { useJumps } from './control/useJumps';
+import { useTranslationSwitch } from './control/useTranslationSwitch';
 import { useShowSteps } from './control/useShowSteps';
 import { useShowJumpWhenReady } from './control/useShowJumpWhenReady';
 import { usePublishNext, useAdoptRestore, useLeaderTakeover } from './control/useTakeover';
@@ -103,7 +105,9 @@ export function Control() {
   const selectedVerses = useStore((s) => s.selectedVerses);
   const live = useStore((s) => s.live);
   const setTranslations = useStore((s) => s.setTranslations);
-  const makePrimary = useStore((s) => s.makePrimary);
+  // the operator's own change of translations keeps the place, in the new main one's numbering
+  // (1.12.6); jumps that bring their translations and place keep `setTranslations`
+  const switchTranslations = useTranslationSwitch();
   const selectBook = useStore((s) => s.selectBook);
   const openBook = useStore((s) => s.openBook);
   const selectChapter = useStore((s) => s.selectChapter);
@@ -973,7 +977,7 @@ export function Control() {
       translationIds: selectedIds.length ? selectedIds : [b.translationId],
       bookNumber: b.bookNumber,
       chapter: b.chapter,
-      verses: [b.verse],
+      verses: refVerses(b),
     });
     notifications.show({
       message: tr('Додано у показ: {item}', { item: b.refShort || b.ref }),
@@ -1022,6 +1026,8 @@ export function Control() {
           bookNumber,
           chapter,
           verse: selectedVerses[0],
+          // the whole pick (1.12.6): a saved «Ів 3:16–18» opens as it was
+          ...(selectedVerses.length > 1 ? { verses: [...selectedVerses] } : {}),
         }
       : null;
   const isSaved = currentRef ? bookmarks.some((b) => refKey(b) === refKey(currentRef)) : false;
@@ -1228,8 +1234,8 @@ export function Control() {
             panelResize={panelResize}
             translations={translations}
             selectedIds={selectedIds}
-            setTranslations={setTranslations}
-            makePrimary={makePrimary}
+            setTranslations={switchTranslations}
+            makePrimary={(id) => switchTranslations([id, ...selectedIds.filter((x) => x !== id)])}
             bookFilter={bookFilter}
             setBookFilter={setBookFilter}
             filteredBooks={filteredBooks}

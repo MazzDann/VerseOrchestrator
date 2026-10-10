@@ -228,7 +228,8 @@ export function Follow() {
                         opacity,
                         visibility: hidden ? 'hidden' : 'visible',
                       }}
-                      className="vo-follow-line"
+                      // «Без анімації» reaches the phones' revealed lines too (1.12.6)
+                      className={slide!.style?.transition === 'none' ? undefined : 'vo-follow-line'}
                     >
                       {u}
                     </p>

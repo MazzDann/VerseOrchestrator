@@ -3,14 +3,21 @@ import { type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type Book } from '../../api';
 import { useStore } from '../../store';
-import { useSettings } from '../../settingsStore';
+import { refVerses, useSettings } from '../../settingsStore';
 import { type SearchScope } from '../../components/SearchPanel';
 import { parseQuickRef, placeKey, quickKeydown } from '../../lib/quickRef';
 import { chapterName } from '../../lib/chapterCross';
 import { isFormField } from '../../lib/keyScroll';
 import { tr } from '../../i18n';
 
-type Jumpable = { translationId: number; bookNumber: number; chapter: number; verse: number };
+type Jumpable = {
+  translationId: number;
+  bookNumber: number;
+  chapter: number;
+  verse: number;
+  /** several picked verses («Історія», «Збережене» since 1.12.6); `verse` alone otherwise */
+  verses?: number[];
+};
 
 /**
  * Finding the place (vo-search): a jump to a verse (search, history, concordance, «Перейти»),
@@ -102,7 +109,8 @@ export function useJumps({
   // `show`: ⌘↩ / Ctrl+Enter in the search (Mac check of 1.9.0) — the verse on screen once it is in
   const focusJump = useRef(false);
   const jumpTo = (r: Jumpable, opts?: { focus?: boolean; show?: boolean }) => {
-    if (opts?.show) showWhenReady(placeKey(r.bookNumber, r.chapter, [r.verse]));
+    const verses = refVerses(r);
+    if (opts?.show) showWhenReady(placeKey(r.bookNumber, r.chapter, verses));
     if (selectedIds.length === 0) setTranslations([r.translationId]);
     // a hit from another translation (the fallback, «Усі») in a book the main one hasn't (an NT
     // only): that translation joins, or the verses pane stays empty (review)
@@ -113,8 +121,8 @@ export function useJumps({
     }
     selectBook(r.bookNumber);
     selectChapter(r.chapter);
-    setSelectedVerses([r.verse]);
-    setScrollTarget(r.verse);
+    setSelectedVerses(verses);
+    setScrollTarget(verses[0]);
     focusJump.current = !!opts?.focus;
     toBible();
   };

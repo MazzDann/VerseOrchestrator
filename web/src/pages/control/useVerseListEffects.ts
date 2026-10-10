@@ -78,6 +78,8 @@ export function useVerseListEffects({
         bookNumber,
         chapter,
         verse: selectedVerses[0],
+        // the whole pick (1.12.6): «Ів 3:16–18» opens as it was
+        ...(selectedVerses.length > 1 ? { verses: [...selectedVerses] } : {}),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

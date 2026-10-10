@@ -41,3 +41,13 @@ export function fadeTiming(
   if (mode === 'fast') return phase === 'in' ? { duration: 150, easing: 'ease-out' } : null;
   return { duration: 350, easing: 'ease-in-out' };
 }
+
+/**
+ * A reveal step's fade (1.12.6, users' report F1010-12b: «Без анімації» changed the slides but
+ * the lines of a progressive reveal still faded in): 0.25 s; «Швидкий» 0.15 s; «Без анімації»
+ * none — the line is there at once.
+ */
+export function revealTransition(mode: SlideTransition | undefined): string | undefined {
+  if (mode === 'none') return undefined;
+  return mode === 'fast' ? 'opacity 0.15s ease-out' : 'opacity 0.25s ease';
+}
