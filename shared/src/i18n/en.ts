@@ -1758,8 +1758,8 @@ export const EN: Record<string, string> = {
   'Перезапускаю застосунок з версією {version}…': 'Restarting the app with version {version}…',
   'Сторінка оновиться сама, щойно застосунок відповість. Телефони під’єднаються знову.':
     'The page reloads by itself as soon as the app answers. Phones reconnect.',
-  'Раз на 12 годин застосунок питає GitHub про нові версії. Завантажує й установлює лише тоді, коли ви натиснете кнопку.':
-    'Every 12 hours the app asks GitHub about new versions. It downloads and installs only when you click the button.',
+  'Щогодини й щоразу, як ви відкриваєте цей розділ, застосунок питає GitHub про нові версії. Завантажує й установлює лише тоді, коли ви натиснете кнопку.':
+    'Every hour, and each time you open this section, the app asks GitHub about new versions. It downloads and installs only when you click the button.',
   'Оновлено з {from} до {to} ({when}).': 'Updated from {from} to {to} ({when}).',
   'Оновлення до {to} не вдалося.': 'The update to {to} failed.',
   'Подробиці — у data/updates/swap.log.': 'Details are in data/updates/swap.log.',

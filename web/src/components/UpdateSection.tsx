@@ -21,6 +21,7 @@ import {
   compareVersions,
   kindsBreaking,
   useCodeState,
+  useFreshUpdate,
   useUpdateState,
   waitForRelaunch,
   waitForRestart,
@@ -73,7 +74,8 @@ function BreakingNote({ version, breaking }: { version: string; breaking: string
 }
 
 /**
- * «Оновлення» (1.0.0): is there a newer version on GitHub? The server asks twice a day at most;
+ * «Оновлення» (1.0.0): is there a newer version on GitHub? The server asks every hour, and when
+ * this section comes into sight on an answer over ten minutes old (1.12.3; twice a day before);
  * «Перевірити зараз» asks at once. A copy from a release archive installs it on request:
  * download → check → unpack next to the running one (the show goes on), then «Перезапустити й
  * оновити» swaps the folders and comes back as the new version — or as the old one, if the new
@@ -86,6 +88,7 @@ export function UpdateSection() {
   const devLabel = useServer((s) => s.devLabel);
   const queryClient = useQueryClient();
   const state = useUpdateState();
+  const freshRef = useFreshUpdate();
   // a copy of the repository whose code changed under it (upd2, 1.6.0)
   const code = useCodeState();
   const outputs = useOutputWindows();
@@ -259,7 +262,7 @@ export function UpdateSection() {
     });
 
   return (
-    <div>
+    <div ref={freshRef}>
       <Text size="sm" fw={500} mb={2}>
         {tr('Оновлення')}
       </Text>
@@ -369,7 +372,7 @@ export function UpdateSection() {
       </Text>
       <Text size="xs" c="dimmed" mt={6}>
         {tr(
-          'Раз на 12 годин застосунок питає GitHub про нові версії. Завантажує й установлює лише тоді, коли ви натиснете кнопку.',
+          'Щогодини й щоразу, як ви відкриваєте цей розділ, застосунок питає GitHub про нові версії. Завантажує й установлює лише тоді, коли ви натиснете кнопку.',
         )}
       </Text>
     </div>
