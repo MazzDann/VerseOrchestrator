@@ -1061,6 +1061,16 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return z.object({ trashed: z.string(), name: z.string() }).parse(await res.json());
   },
+  /** «Перейменувати» (1.14.0-beta.1): the app's name of a picture, an album or a video */
+  renameMedia: async (kind: 'images' | 'albums' | 'videos', id: string, name: string) => {
+    const res = await request(`/api/${kind}/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { ...CONTROL_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ name: z.string() }).parse(await res.json());
+  },
   restoreImage: async (trashed: string) => {
     const res = await request('/api/images/restore', {
       method: 'POST',
@@ -1075,6 +1085,26 @@ export const api = {
   /** An album with its photos, read from the folder now (new photos are there). */
   album: (id: string) => getJson(`/api/albums/${encodeURIComponent(id)}`, AlbumSchema),
   /** The folder picker: the starting points (no path) or a folder's subfolders. */
+  /** A folder dropped on the window (1.14.0-beta.1): where it is on this computer */
+  locateAlbum: async (name: string, files: { name: string; size: number }[]) => {
+    const res = await request('/api/albums/locate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ name, files }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ found: z.array(z.string()) }).parse(await res.json());
+  },
+  /** A video dropped on the window (1.14.0-beta.1): where the file is on this computer */
+  locateVideo: async (name: string, size: number) => {
+    const res = await request('/api/videos/locate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ name, size }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ found: z.array(z.string()) }).parse(await res.json());
+  },
   browseFolders: async (path?: string, files?: 'video') => {
     const params = new URLSearchParams();
     if (path) params.set('path', path);

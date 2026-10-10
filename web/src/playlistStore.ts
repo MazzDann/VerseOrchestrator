@@ -335,6 +335,11 @@ interface PlaylistState {
    */
   relinkSong: (oldId: number, label: string, newId: number, bundle?: string) => void;
   /**
+   * A picture, an album or a video got a new name (1.14.0-beta.1): its items here and in the saved
+   * programs that still carry the old name take the new one (an item named otherwise keeps it).
+   */
+  renameMedia: (kind: 'image' | 'album' | 'video', id: string, from: string, to: string) => void;
+  /**
    * The program «Видалити програму» took away last and where it stood (0.9.1), so
    * «Скасувати» can put it back. Saving a program forgets it; not saved.
    */
@@ -520,6 +525,19 @@ export const usePlaylist = create<PlaylistState>()(
                 ? { ...it, songId: newId, ...(bundle ? { bundle } : {}) }
                 : it,
             );
+          return {
+            items: fix(s.items),
+            saved: s.saved.map((p) => ({ ...p, items: fix(p.items) })),
+          };
+        }),
+      renameMedia: (kind, id, from, to) =>
+        set((s) => {
+          const ofIt = (it: SeqItem) =>
+            (it.kind === 'image' && kind === 'image' && it.imageId === id) ||
+            (it.kind === 'album' && kind === 'album' && it.albumId === id) ||
+            (it.kind === 'video' && kind === 'video' && it.videoId === id);
+          const fix = (list: SeqItem[]) =>
+            list.map((it) => (ofIt(it) && it.label === from ? { ...it, label: to } : it));
           return {
             items: fix(s.items),
             saved: s.saved.map((p) => ({ ...p, items: fix(p.items) })),

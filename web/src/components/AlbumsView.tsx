@@ -37,6 +37,8 @@ import type { useAlbum } from '../pages/control/useAlbum';
 import { EVERY_MAX, EVERY_MIN } from '../pages/control/useAlbum';
 import { usePlaylist, type SeqItem } from '../playlistStore';
 import { tr, trn, useLang } from '../i18n';
+import { RenameButton } from './RenameButton';
+import { parentOf, useDrop } from '../lib/drop';
 
 type AlbumShow = ReturnType<typeof useAlbum>;
 
@@ -58,12 +60,20 @@ export function AlbumsView({
   onAddToPlaylist: (album: AlbumInfo) => void;
 }) {
   useLang();
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState<{ start?: string } | null>(null);
+  // a dropped folder not found on disk (1.14.0-beta.1): the picker, at a folder found if any
+  const asked = useDrop((s) => (s.pick?.kind === 'album' ? s.pick : null));
+  useEffect(() => {
+    if (!asked) return;
+    setPicking({ start: asked.start ? parentOf(asked.start) : undefined });
+    useDrop.getState().pickerOpened();
+  }, [asked]);
   if (picking)
     return (
       <FolderPicker
         mode="album"
-        onDone={() => setPicking(false)}
+        start={picking.start}
+        onDone={() => setPicking(null)}
         onAdded={(id) => show.openAlbum(id)}
       />
     );
@@ -71,7 +81,7 @@ export function AlbumsView({
     return <OpenAlbumView show={show} onScreen={onScreen} onAddToPlaylist={onAddToPlaylist} />;
   return (
     <AlbumList
-      onPick={() => setPicking(true)}
+      onPick={() => setPicking({})}
       openAlbum={(id) => show.openAlbum(id)}
       onAddToPlaylist={onAddToPlaylist}
     />
@@ -182,6 +192,15 @@ function AlbumList({
                       <IconPlaylistAdd size={14} />
                     </ActionIcon>
                   </Tooltip>
+                  <RenameButton
+                    name={a.name}
+                    variant="subtle"
+                    onRename={async (name) => {
+                      const done = await api.renameMedia('albums', a.id, name);
+                      usePlaylist.getState().renameMedia('album', a.id, a.name, done.name);
+                      await queryClient.invalidateQueries({ queryKey: ['albums'] });
+                    }}
+                  />
                   <Popover
                     opened={asking === a.id}
                     onChange={(o) => !o && setAsking(null)}
@@ -247,6 +266,7 @@ export function FolderPicker({
   onDone,
   onAdded,
   onPick,
+  start,
 }: {
   /** «copy» (1.12.0-beta.2): a folder of another copy of the app, given to `onPick` */
   mode: 'album' | 'video' | 'copy';
@@ -254,10 +274,12 @@ export function FolderPicker({
   /** the album or the video just added */
   onAdded?: (id: string) => void;
   onPick?: (path: string) => void;
+  /** the folder to show first (a dropped folder's best guess, 1.14.0-beta.1) */
+  start?: string;
 }) {
   useLang();
   const queryClient = useQueryClient();
-  const [path, setPath] = useState<string | undefined>(undefined);
+  const [path, setPath] = useState<string | undefined>(start);
   const [adding, setAdding] = useState(false);
   const folders = useQuery<FolderList>({
     queryKey: ['folders', path ?? '', mode],

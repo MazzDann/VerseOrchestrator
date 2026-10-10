@@ -1828,3 +1828,24 @@ form.vo-remote-countdown {
 ::highlight(vo-find) {
   background-color: var(--mantine-color-yellow-light);
 }
+
+/* Files dragged over the control window (1.14.0-beta.1, DropOverlay): what a drop does. The
+   overlay never takes the pointer — the window's own handlers get the drop. */
+.vo-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--mantine-color-body) 70%, transparent);
+  outline: 3px dashed var(--mantine-color-brand-filled);
+  outline-offset: -12px;
+}
+.vo-drop-card {
+  padding: var(--mantine-spacing-lg) var(--mantine-spacing-xl);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+  box-shadow: var(--mantine-shadow-md);
+}
