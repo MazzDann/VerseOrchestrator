@@ -51,7 +51,7 @@ import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
-import { useRebuildLibrary } from '../lib/rebuild';
+import { rebuildProgress, useRebuildLibrary } from '../lib/rebuild';
 import { StandbySection } from './StandbySection';
 import { UpdateSection } from './UpdateSection';
 import { BackupSection } from './BackupSection';
@@ -91,7 +91,12 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const setSimpleView = useSettings((s) => s.setSimpleView);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
-  const { rebuilding, rebuild: rebuildLibrary } = useRebuildLibrary();
+  const {
+    rebuilding,
+    job: rebuildJob,
+    rebuild: rebuildLibrary,
+    stop: stopRebuild,
+  } = useRebuildLibrary();
   // Which groups are expanded — a per-viewer convenience, remembered locally.
   const [openSections, setOpenSectionsState] = useState<string[]>(() => {
     try {
@@ -1032,17 +1037,30 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             <Text size="xs" c="dimmed" mb={8}>
               {tr('Перебудувати з папок modules/ і songs/ після додавання перекладу чи пісні.')}
             </Text>
-            <Button
-              variant="light"
-              fullWidth
-              leftSection={<IconDatabaseImport size={16} />}
-              loading={rebuilding}
-              disabled={serverAvailable === false}
-              title={serverAvailable === false ? tr(NEEDS_SERVER) : undefined}
-              onClick={rebuildLibrary}
-            >
-              {tr('Пересканувати модулі')}
-            </Button>
+            <Group gap="xs" wrap="nowrap">
+              <Button
+                variant="light"
+                style={{ flex: 1 }}
+                leftSection={<IconDatabaseImport size={16} />}
+                loading={rebuilding}
+                disabled={serverAvailable === false}
+                title={serverAvailable === false ? tr(NEEDS_SERVER) : undefined}
+                onClick={() => void rebuildLibrary()}
+              >
+                {tr('Пересканувати модулі')}
+              </Button>
+              {/* the build is the server's job (1.12.4): it can be stopped, the library stays */}
+              {rebuildJob?.phase === 'running' && (
+                <Button variant="default" onClick={() => void stopRebuild()}>
+                  {tr('Зупинити')}
+                </Button>
+              )}
+            </Group>
+            {rebuildJob?.phase === 'running' && (
+              <Text size="xs" c="dimmed" mt={4} aria-live="polite">
+                {rebuildProgress(rebuildJob)}
+              </Text>
+            )}
           </div>
           <UpdateSection />
           <BackupSection />
