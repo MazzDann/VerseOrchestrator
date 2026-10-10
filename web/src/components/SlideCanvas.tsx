@@ -1,8 +1,18 @@
-import { Component, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  Component,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import {
   type Slide,
   type SlideLine,
+  type SlideSource,
   type SlideStyle,
+  type TextSpan,
   type SlideReveal,
   type SlideCover,
   type SlideCountdown,
@@ -22,7 +32,7 @@ import {
 } from '../lib/countdown';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
-import { revealTransition } from '../lib/slideFade';
+import { addedVerses, growTiming, revealTransition, riseAnimation } from '../lib/slideFade';
 import { SlideFade } from './SlideFade';
 import { QrCard } from './QrCard';
 import { reportSlideError } from '../lib/slideErrors';
@@ -39,52 +49,98 @@ const COVER_TEXT_CQH = 7;
 const LOGO_PX_PER_CQW = 9.6;
 const VALIGN_ITEMS = { top: 'flex-start', middle: 'center', bottom: 'flex-end' } as const;
 
+/** A verse number on the slide (1.13.0-beta.1, F1010-04): small and raised, the text's colour. */
+const NUM_STYLE: CSSProperties = {
+  fontSize: '0.55em',
+  verticalAlign: 'super',
+  lineHeight: 0,
+  opacity: 0.7,
+  fontWeight: 600,
+};
+
+/**
+ * What a grown pick brings in (1.13.0-beta.1): the added verses rise in (styles.css `vo-rise-in`)
+ * while the shown ones stay; the numbers come in too when the slide had none before.
+ */
+interface Grown {
+  verses: number[];
+  numbers: boolean;
+  animation: string;
+}
+
+const isAdded = (s: TextSpan, grown: Grown | null | undefined) =>
+  !!grown && s.v != null && (grown.verses.includes(s.v) || (!!s.num && grown.numbers));
+
 /** The verse line(s) with red-letter / highlighted-word colouring — shared by both layouts. */
-function QuoteLines({ lines, style }: { lines: SlideLine[]; style: SlideStyle }) {
+function QuoteLines({
+  lines,
+  style,
+  grown,
+}: {
+  lines: SlideLine[];
+  style: SlideStyle;
+  grown?: Grown | null;
+}) {
   return (
     <>
-      {lines.map((line, i) => (
-        <p
-          key={i}
-          dir={line.rtl ? 'rtl' : 'ltr'}
-          style={{
-            margin: 0,
-            fontSize: '1em',
-            fontWeight: style.bold ? 700 : 500,
-            whiteSpace: 'pre-line',
-          }}
-        >
-          {lines.length > 1 && (
-            <span style={{ opacity: 0.5, fontSize: '0.5em', marginRight: '0.6em' }}>
-              {line.translationAbbr}
-            </span>
-          )}
-          {line.segments
-            ? line.segments.map((s, j) => (
-                <span
-                  key={j}
-                  style={{
-                    // Words of Jesus / highlighted words render as a *tint* of the
-                    // base text colour toward the chosen accent, not a flat colour. A song's
-                    // second part (1.3.0) takes the file's colour, or goes dimmer.
-                    color:
-                      s.color ??
-                      (s.hot
-                        ? mixHex(style.color, style.highlightColor ?? '#ffd43b', 0.55)
-                        : s.jesus && style.redLetter
-                          ? mixHex(style.color, style.jesusColor ?? '#ff6b6b', 0.5)
-                          : undefined),
-                    fontWeight: s.hot ? 700 : undefined,
-                    opacity: s.soft ? 0.6 : undefined,
-                  }}
-                >
-                  {s.text}
-                  {!line.exact && j < line.segments!.length - 1 ? ' ' : ''}
-                </span>
-              ))
-            : line.text}
-        </p>
-      ))}
+      {lines.map((line, i) => {
+        // keyed by the verse (1.13.0-beta.1): a verse added in the middle mounts on its own, the
+        // pieces after it stay the same elements
+        const seen = new Map<number, number>();
+        return (
+          <p
+            key={i}
+            dir={line.rtl ? 'rtl' : 'ltr'}
+            style={{
+              margin: 0,
+              fontSize: '1em',
+              fontWeight: style.bold ? 700 : 500,
+              whiteSpace: 'pre-line',
+            }}
+          >
+            {lines.length > 1 && (
+              <span style={{ opacity: 0.5, fontSize: '0.5em', marginRight: '0.6em' }}>
+                {line.translationAbbr}
+              </span>
+            )}
+            {line.segments
+              ? line.segments.map((s, j) => {
+                  let key: string | number = j;
+                  if (s.v != null) {
+                    const k = seen.get(s.v) ?? 0;
+                    seen.set(s.v, k + 1);
+                    key = `${s.v}.${k}`;
+                  }
+                  const added = isAdded(s, grown);
+                  return (
+                    <span
+                      key={key}
+                      style={{
+                        // Words of Jesus / highlighted words render as a *tint* of the
+                        // base text colour toward the chosen accent, not a flat colour. A song's
+                        // second part (1.3.0) takes the file's colour, or goes dimmer.
+                        color:
+                          s.color ??
+                          (s.hot
+                            ? mixHex(style.color, style.highlightColor ?? '#ffd43b', 0.55)
+                            : s.jesus && style.redLetter
+                              ? mixHex(style.color, style.jesusColor ?? '#ff6b6b', 0.5)
+                              : undefined),
+                        fontWeight: s.hot ? 700 : undefined,
+                        opacity: s.soft ? 0.6 : undefined,
+                        ...(s.num ? NUM_STYLE : null),
+                        ...(added ? { position: 'relative', animation: grown!.animation } : null),
+                      }}
+                    >
+                      {s.text}
+                      {!line.exact && j < line.segments!.length - 1 ? ' ' : ''}
+                    </span>
+                  );
+                })
+              : line.text}
+          </p>
+        );
+      })}
     </>
   );
 }
@@ -130,12 +186,71 @@ function RevealLines({
               transition: calm ? undefined : revealTransition(style.transition),
             }}
           >
-            {u}
+            {reveal.numbered ? <NumberedUnit unit={u} /> : u}
           </p>
         );
       })}
     </>
   );
+}
+
+/** A reveal unit «16 text» with its number drawn small (1.13.0-beta.1). */
+function NumberedUnit({ unit }: { unit: string }) {
+  const m = /^(\d+) ([\s\S]*)$/.exec(unit);
+  if (!m) return <>{unit}</>;
+  return (
+    <>
+      <span style={NUM_STYLE}>{m[1]} </span>
+      {m[2]}
+    </>
+  );
+}
+
+/**
+ * The layer a text slide is drawn in, and what it adds when it grows (1.13.0-beta.1, the user:
+ * «коли 4 додається, не переспавн, а як слайд ін»): a slide that shows the verses on screen and
+ * more keeps their layer — no fade of the whole — and only the added verses come in, by the
+ * mode; «Без анімації» changes the text in place at once. Decided against the slide drawn last,
+ * so a re-render of the same slide (a corner countdown's tick) keeps its decision.
+ */
+function useGrowth(
+  textKey: string | null,
+  source: SlideSource | undefined,
+  lines: SlideLine[],
+  mode: SlideStyle['transition'],
+  can: boolean,
+): { layerKey: string | null; grown: Grown | null } {
+  const last = useRef<{
+    key: string | null;
+    layerKey: string | null;
+    source: SlideSource | undefined;
+    numbers: boolean;
+    grown: Grown | null;
+    can: boolean;
+  }>({ key: null, layerKey: null, source: undefined, numbers: false, grown: null, can: false });
+  const numbers = lines.some((l) => l.segments?.some((s) => s.num));
+  const c = last.current;
+  let layerKey = textKey;
+  let grown: Grown | null = null;
+  if (textKey !== null && textKey === c.key) {
+    layerKey = c.layerKey;
+    grown = c.grown;
+  } else if (textKey !== null && c.key !== null && can && c.can && addedVerses(c.source, source)) {
+    // both plain verse text: a reveal turning into the whole text is another slide (review)
+    layerKey = c.layerKey;
+    const animation = riseAnimation(mode);
+    if (animation) {
+      grown = {
+        verses: addedVerses(c.source, source)!,
+        numbers: numbers && !c.numbers,
+        animation,
+      };
+    }
+  }
+  useLayoutEffect(() => {
+    last.current = { key: textKey, layerKey, source, numbers, grown, can };
+  });
+  return { layerKey, grown };
 }
 
 /**
@@ -547,11 +662,23 @@ function DrawnSlide({
   const quoteMaxCqh = slide.template?.objects.find((o) => o.kind === 'quote')?.size ?? 0;
   // «Заставка» (1.4.1) fits too, never past its 1.4.0 size: text 7 cqh (CoverContent)
   const maxCqh = slide.cover ? COVER_TEXT_CQH : quoteMaxCqh > 0 ? quoteMaxCqh : undefined;
+  // a pick that grows keeps its layer and brings the added verses in (1.13.0-beta.1)
+  const plainText =
+    show && !slide.picture && !slide.video && !slide.qr && !slide.cover && !slide.reveal;
+  const { layerKey, grown } = useGrowth(
+    show && !slide.picture && !slide.video ? slideKey : null,
+    slide.source,
+    slide.lines,
+    transition,
+    plainText,
+  );
   const { containerRef, contentRef, refit } = useAutoFit(
     [slideKey, style.font, style.align],
     6,
     240,
     maxCqh,
+    // the font settles along with the added verse instead of jumping (the user: «не переспавн»)
+    grown ? growTiming(transition) : null,
   );
   // A picture is drawn in the layout of the last text slide: the text layer leaving for it keeps
   // its place and fades out — a layout switch unmounted it at once (review of #46: a faithful
@@ -591,7 +718,7 @@ function DrawnSlide({
   // A video (1.8.12-beta.3) takes the same layer: text, pictures and videos fade into each other
   const picture = show ? (slide.picture ?? null) : null;
   const video = show && !picture ? (slide.video ?? null) : null;
-  const textKey = picture || video ? null : show ? slideKey : null;
+  const textKey = picture || video ? null : show ? layerKey : null;
   const pictureLayer = (
     <SlideFade
       slideKey={picture || video ? slideKey : null}
@@ -675,7 +802,7 @@ function DrawnSlide({
                     {slide.reveal ? (
                       <RevealLines reveal={slide.reveal} style={style} calm={calm} />
                     ) : (
-                      <QuoteLines lines={slide.lines} style={style} />
+                      <QuoteLines lines={slide.lines} style={style} grown={grown} />
                     )}
                   </div>
                 </div>
@@ -758,7 +885,7 @@ function DrawnSlide({
           ) : slide.reveal ? (
             <RevealLines reveal={slide.reveal} style={style} calm={calm} />
           ) : (
-            <QuoteLines lines={slide.lines} style={style} />
+            <QuoteLines lines={slide.lines} style={style} grown={grown} />
           )}
           {!slide.qr && !slide.cover && slide.subline && (
             <div

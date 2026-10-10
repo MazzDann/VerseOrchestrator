@@ -20,6 +20,15 @@ export function formatVerseList(verses: number[]): string {
   return runs.join(',');
 }
 
+/**
+ * The same runs for reading (1.13.0-beta.1, users' report F1010-04): an en dash and «, » —
+ * [16,17,18,20] → «16–18, 20». References on slides, in history and the running order keep
+ * `formatVerseList`.
+ */
+export function formatVerseListDisplay(verses: number[]): string {
+  return formatVerseList(verses).replace(/-/g, '–').replace(/,/g, ', ');
+}
+
 /** «Євангелія від Івана 3:16» — or the short book name with `short`. */
 export function formatReference(
   book: Book | null,

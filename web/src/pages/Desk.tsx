@@ -55,7 +55,7 @@ import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { TranslationPicker } from '../components/TranslationPicker';
 import { VirtualList } from '../components/VirtualList';
 import { VerseList } from './control/VerseList';
-import { joinVerses, redLetterSegments } from './control/slideText';
+import { joinVerses, numbersOn, redLetterSegments } from './control/slideText';
 import { useDesk } from './desk/deskStore';
 import { useDeskHub } from './desk/useDeskHub';
 import { DeskSearch } from './desk/DeskSearch';
@@ -210,10 +210,18 @@ export function Desk() {
     ids.forEach((id, i) => {
       const vs = verseQueries[i]?.data;
       if (!vs) return;
-      const text = joinVerses(vs, chosen, DEFAULT_APPEARANCE.showVerseNumbers);
+      const text = joinVerses(
+        vs,
+        chosen,
+        numbersOn(DEFAULT_APPEARANCE.verseNumbers, chosen.length),
+      );
       if (!text.trim()) return;
       const t = translations.data?.find((x) => x.id === id);
-      const segments = redLetterSegments(vs, chosen, DEFAULT_APPEARANCE.showVerseNumbers);
+      const segments = redLetterSegments(
+        vs,
+        chosen,
+        numbersOn(DEFAULT_APPEARANCE.verseNumbers, chosen.length),
+      );
       lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
     });
     if (lines.length === 0) return null;

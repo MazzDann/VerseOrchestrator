@@ -1,4 +1,4 @@
-import { type RefObject } from 'react';
+import { useRef, type RefObject } from 'react';
 import { ScrollArea, Stack, Text } from '@mantine/core';
 import { parseRedLetter } from '@vo/shared';
 import { type Book, type Verse } from '../../api';
@@ -10,8 +10,9 @@ import { type StrongPickRef } from '../../components/StrongView';
 import { tr, useLang } from '../../i18n';
 
 /**
- * The open chapter's verses (click, Space, Enter, modifiers extend the selection) and the
- * concordance beside them; an empty chapter says what to do.
+ * The open chapter's verses (click, Space, Enter; Ctrl / ⌘ adds or takes out one verse, Shift a
+ * range from the last one clicked) and the concordance beside them; an empty chapter says what
+ * to do.
  */
 export function VerseList({
   panelPlacement,
@@ -20,6 +21,7 @@ export function VerseList({
   selectedVerses,
   toggleVerse,
   setSelectedVerses,
+  pickRange = setSelectedVerses,
   keymap,
   projectVerseOnEnter,
   appearance,
@@ -39,6 +41,8 @@ export function VerseList({
   selectedVerses: number[];
   toggleVerse: (verse: number) => void;
   setSelectedVerses: (verses: number[]) => void;
+  /** Shift: the verses from the last one clicked to this one (1.13.0-beta.1, F1010-05b) */
+  pickRange?: (verses: number[]) => void;
   keymap: Keymap;
   projectVerseOnEnter: (verseNum: number) => void;
   appearance: Appearance;
@@ -53,6 +57,35 @@ export function VerseList({
   setConcordanceStrong: (strong: string | null) => void;
 }) {
   useLang();
+  // where a Shift range starts: the verse clicked, Space'd or Ctrl-added last
+  const anchor = useRef<number | null>(null);
+  const one = (v: number) => {
+    anchor.current = v;
+    setSelectedVerses([v]);
+  };
+  const toggle = (v: number) => {
+    if (!selectedVerses.includes(v)) anchor.current = v;
+    toggleVerse(v);
+  };
+  const range = (v: number, add: boolean) => {
+    // from the verse clicked last while it is still chosen, else from the chosen verse nearest
+    // to this one (stepping and jumps move the selection, not the anchor — review)
+    const nearest = [...selectedVerses].sort((a, b) => Math.abs(a - v) - Math.abs(b - v))[0];
+    const from =
+      anchor.current != null && selectedVerses.includes(anchor.current) ? anchor.current : nearest;
+    const nums = primaryVerses.map((x) => x.verse);
+    if (from == null || !nums.includes(from)) return one(v);
+    const [a, b] = from < v ? [from, v] : [v, from];
+    const run = nums.filter((n) => n >= a && n <= b);
+    pickRange(add ? [...new Set([...selectedVerses, ...run])].sort((x, y) => x - y) : run);
+  };
+  /** Ctrl / ⌘ adds or takes out one verse, Shift a range (with Ctrl too: added to the pick). */
+  const pick = (v: number, e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
+    if (e.shiftKey) range(v, e.ctrlKey || e.metaKey);
+    else if (e.ctrlKey || e.metaKey) toggle(v);
+    else return false;
+    return true;
+  };
   return (
     <div
       style={{
@@ -75,17 +108,13 @@ export function VerseList({
               tabIndex={0}
               data-verse={v.verse}
               data-selected={selectedVerses.includes(v.verse) ? 'true' : undefined}
-              onClick={(e) =>
-                e.ctrlKey || e.metaKey || e.shiftKey
-                  ? toggleVerse(v.verse)
-                  : setSelectedVerses([v.verse])
-              }
+              onClick={(e) => {
+                if (!pick(v.verse, e)) one(v.verse);
+              }}
               onKeyDown={(e) => {
-                const mod = e.ctrlKey || e.metaKey || e.shiftKey;
                 if (e.key === ' ') {
                   e.preventDefault();
-                  if (mod) toggleVerse(v.verse);
-                  else setSelectedVerses([v.verse]);
+                  if (!pick(v.verse, e)) one(v.verse);
                 } else if (e.key === 'Enter') {
                   // bound to «На екран» (⌘↩ on a Mac): that hotkey projects
                   if (matchesCombo(e.nativeEvent, keymap.project)) return;
@@ -94,8 +123,10 @@ export function VerseList({
                   if (e.repeat) return;
                   // Enter projects to the screen immediately (no need to enable
                   // live-follow or press F5); modifier+Enter extends the selection.
-                  if (mod) toggleVerse(v.verse);
-                  else projectVerseOnEnter(v.verse);
+                  if (!pick(v.verse, e)) {
+                    anchor.current = v.verse;
+                    projectVerseOnEnter(v.verse);
+                  }
                 }
               }}
             >

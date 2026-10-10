@@ -36,7 +36,11 @@ export interface Appearance {
   textAlign: TextAlign;
   bgColor: string;
   bgImage: string | null; // data URL
-  showVerseNumbers: boolean;
+  /**
+   * «Номери віршів на екрані» (1.13.0-beta.1, users' report F1010-04): «Коли віршів кілька» by
+   * default, drawn small; replaces the 0.x switch `showVerseNumbers` (on → «Завжди»).
+   */
+  verseNumbers: VerseNumbers;
   padTop: number; // edge insets from the screen edges, in padUnit
   padRight: number;
   padBottom: number;
@@ -319,6 +323,13 @@ interface SettingsState {
    */
   orderFlow: boolean;
   setOrderFlow: (v: boolean) => void;
+  /**
+   * «Кілька віршів — на екран після Enter» (1.13.0-beta.1, users' report F1010-05): while the
+   * screen follows the selection, verses added with Ctrl / ⌘ / Shift gather in the preview and go
+   * on screen together on Enter, «На екран» or «Далі». On by default.
+   */
+  pickBeforeEnter: boolean;
+  setPickBeforeEnter: (v: boolean) => void;
   /** When true, mirror the live slide to the server so phones can follow along. */
   followAlong: boolean;
   /** The viewers' QR in a corner of the output while follow-along is on (0.6.16). */
@@ -381,7 +392,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   textAlign: 'center',
   bgColor: '#000000',
   bgImage: null,
-  showVerseNumbers: false,
+  verseNumbers: 'multi',
   padTop: 4,
   padRight: 4,
   padBottom: 4,
@@ -481,7 +492,16 @@ export const refKey = (i: RefItem) => `${i.translationId}-${i.bookNumber}-${i.ch
 export const textKey = (t: TextItem) => `${t.title}\n${t.body}`;
 
 const ALIGNS: TextAlign[] = ['left', 'center', 'right'];
-const TRANSITIONS: SlideTransition[] = ['smooth', 'fast', 'none'];
+const TRANSITIONS: SlideTransition[] = ['smooth', 'fast', 'rise', 'none'];
+
+export type VerseNumbers = 'off' | 'multi' | 'always';
+const VERSE_NUMBERS: VerseNumbers[] = ['off', 'multi', 'always'];
+/** A stored look's numbers: its own, or the old switch — on = «Завжди», off = the new default. */
+function verseNumbersOf(ap: Record<string, unknown>): VerseNumbers {
+  const v = ap.verseNumbers as VerseNumbers;
+  if (VERSE_NUMBERS.includes(v)) return v;
+  return ap.showVerseNumbers === true ? 'always' : DEFAULT_APPEARANCE.verseNumbers;
+}
 const PAD_UNITS: PadUnit[] = ['px', '%'];
 const PAD_LINKS: PadLink[] = ['all', 'axis', 'none'];
 const STRONG_SUBLINES: StrongSubline[] = ['lemma', 'full'];
@@ -504,7 +524,7 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
     textAlign: ALIGNS.includes(m.textAlign) ? m.textAlign : DEFAULT_APPEARANCE.textAlign,
     bgColor: strOr(m.bgColor, DEFAULT_APPEARANCE.bgColor),
     bgImage: null,
-    showVerseNumbers: !!m.showVerseNumbers,
+    verseNumbers: verseNumbersOf(ap),
     padTop: numOr(m.padTop, DEFAULT_APPEARANCE.padTop),
     padRight: numOr(m.padRight, DEFAULT_APPEARANCE.padRight),
     padBottom: numOr(m.padBottom, DEFAULT_APPEARANCE.padBottom),
@@ -630,6 +650,8 @@ export const useSettings = create<SettingsState>()(
       liveFollow: true,
       orderFlow: false,
       setOrderFlow: (v) => set({ orderFlow: v === true }),
+      pickBeforeEnter: true,
+      setPickBeforeEnter: (v) => set({ pickBeforeEnter: v !== false }),
       followAlong: false,
       followQrCorner: false,
       followQrStyle: 'rounded',
@@ -787,10 +809,17 @@ export const useSettings = create<SettingsState>()(
       // (Additive change — no version bump/migrate needed; merge backfills.)
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>;
+        // the 0.x switch «Показувати номери віршів» became «Номери віршів на екрані» (1.13.0-beta.1)
+        const { showVerseNumbers: _old, ...ap } = (p.appearance ?? {}) as Record<string, unknown>;
+        void _old;
         return {
           ...current,
           ...p,
-          appearance: { ...current.appearance, ...(p.appearance ?? {}) },
+          appearance: {
+            ...current.appearance,
+            ...ap,
+            verseNumbers: verseNumbersOf((p.appearance ?? {}) as Record<string, unknown>),
+          },
           // Backfill missing actions + drop any non-string/garbage values so every
           // consumer (.split in useHotkeys / settings UI) always gets a valid chord.
           keymap: sanitizeKeymap(p.keymap),
@@ -800,6 +829,7 @@ export const useSettings = create<SettingsState>()(
           // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
           simpleView: p.simpleView === true,
+          pickBeforeEnter: p.pickBeforeEnter !== false,
         };
       },
     },

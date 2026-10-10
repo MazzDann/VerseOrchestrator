@@ -44,8 +44,9 @@ Other keys of the control window:
   then Enter; ⌘↩ (Ctrl+Enter) or **To screen** goes there and shows it at once; Esc
   cancels. More in [Find a text](find-text.md).
 - Enter on a verse in the list — show that verse on screen.
-- Space on a verse — choose it; Ctrl+Space, Shift+Space, Ctrl+Enter, or Shift+Enter — add
-  the verse to the selection or remove it from it.
+- Space on a verse — choose it; Ctrl+Space or Ctrl+Enter — add the verse to the selection or
+  remove it from it; Shift+Space or Shift+Enter — choose the verses from the one chosen last to
+  this one. The same with the mouse: Ctrl+click and Shift+click.
 - Ctrl+Enter (on macOS, ⌘↩) in the **Text to screen** panel — show the custom text.
 - Alt+↑ and Alt+↓ scroll the list you are in (otherwise the verse list) without changing
   the selection. On macOS, ⌥ with the arrows is **Preview: next** and **Preview: back**.

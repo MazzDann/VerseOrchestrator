@@ -157,3 +157,23 @@ describe('history and bookmarks keep the whole pick (1.12.6)', () => {
     expect(kept[1]).not.toHaveProperty('verses');
   });
 });
+
+describe('«Номери віршів на екрані» (1.13.0-beta.1, F1010-04)', () => {
+  const preset = (appearance: Record<string, unknown>) =>
+    store.coercePreset({ $type: 'verseorchestrator-preset', name: 'x', appearance })!.appearance;
+
+  it('the old switch on becomes «Завжди»; off or none takes «Коли віршів кілька»', () => {
+    expect(preset({ showVerseNumbers: true }).verseNumbers).toBe('always');
+    expect(preset({ showVerseNumbers: false }).verseNumbers).toBe('multi');
+    expect(preset({}).verseNumbers).toBe('multi');
+  });
+
+  it('a stored value wins, a strange one falls back', () => {
+    expect(preset({ verseNumbers: 'off', showVerseNumbers: true }).verseNumbers).toBe('off');
+    expect(preset({ verseNumbers: 'loud' }).verseNumbers).toBe('multi');
+  });
+
+  it('«Наплив» is a transition of its own; presets leave the transition alone', () => {
+    expect(preset({ transition: 'rise' }).transition).toBe('rise');
+  });
+});

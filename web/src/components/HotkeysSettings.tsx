@@ -70,6 +70,8 @@ export function HotkeysSettings() {
   const scheme = arrowScheme(keymap);
   const orderFlow = useSettings((s) => s.orderFlow);
   const setOrderFlow = useSettings((s) => s.setOrderFlow);
+  const pickBeforeEnter = useSettings((s) => s.pickBeforeEnter);
+  const setPickBeforeEnter = useSettings((s) => s.setPickBeforeEnter);
   const pickScheme = (v: string | null) => {
     if (!v) return;
     const next = withArrowScheme(keymap, v as ArrowScheme);
@@ -102,6 +104,15 @@ export function HotkeysSettings() {
         )}
         checked={orderFlow}
         onChange={(e) => setOrderFlow(e.currentTarget.checked)}
+      />
+      <Switch
+        size="xs"
+        label={tr('Кілька віршів — на екран після Enter')}
+        description={tr(
+          'Поки «Наживо» увімкнено, вірші, додані з Ctrl (⌘) чи Shift, збираються в прев’ю. Enter, «На екран» чи «Далі» показують їх разом, а далі «Далі» веде по одному.',
+        )}
+        checked={pickBeforeEnter}
+        onChange={(e) => setPickBeforeEnter(e.currentTarget.checked)}
       />
       {IS_MAC && (
         <Text size="xs" c="dimmed">
