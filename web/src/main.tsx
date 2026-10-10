@@ -29,8 +29,15 @@ const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m
 const Bench = lazy(() => import('./pages/Bench').then((m) => ({ default: m.Bench })));
 const BenchPeer = lazy(() => import('./pages/BenchPeer').then((m) => ({ default: m.BenchPeer })));
 
+// networkMode 'always' (1.12.2): the library is on this computer (the server or the browser),
+// so the browser's «offline» — a Wi-Fi that dropped for a moment, a sleep — must not pause the
+// queries: a paused search said «Нічого не знайдено» until the tab was reloaded (users' report
+// F1010-02)
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false, networkMode: 'always' },
+    mutations: { networkMode: 'always' },
+  },
 });
 
 // Cross-window live sync: a `storage` event fires in OTHER windows when one writes
