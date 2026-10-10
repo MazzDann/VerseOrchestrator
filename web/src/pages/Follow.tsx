@@ -261,6 +261,7 @@ export function Follow() {
                     {slide!.lines.length > 1 && line.translationAbbr && (
                       <span style={{ opacity: 0.45, fontSize: '0.6em', marginRight: '0.5em' }}>
                         {line.translationAbbr}
+                        {line.ownRef && ` ${line.approx ? '≈' : ''}${line.ownRef}`}
                       </span>
                     )}
                     {line.exact && line.segments ? (

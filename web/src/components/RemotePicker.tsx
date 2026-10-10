@@ -5,6 +5,7 @@ import { useSearchRows } from '../lib/useSearchRows';
 import { onlyChapter, stepBackFromVerses, stepOverChapters } from '../lib/bookPick';
 import type { RemoteTarget } from '../lib/commands';
 import { tr, useLang } from '../i18n';
+import { leadWith } from '../lib/searchGroups';
 
 type Step = 'translations' | 'books' | 'chapters' | 'verses' | 'songs' | 'stanzas';
 
@@ -118,9 +119,7 @@ export function RemotePicker({
     // Ps 23 of another), and in a book the remote's first one lacks (an NT only) the verses
     // would be empty otherwise (review)
     if (ids[0] !== r.translationId)
-      setIds((cur) =>
-        [r.translationId, ...cur.filter((id) => id !== r.translationId)].slice(0, MAX_TRANSLATIONS),
-      );
+      setIds((cur) => leadWith(cur, r.translationId, MAX_TRANSLATIONS));
     // the chosen number comes into view again, also in a chapter already scrolled to (review)
     scrolledTo.current = null;
     setBook(r.bookNumber);

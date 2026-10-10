@@ -38,7 +38,8 @@ import { albumSlide } from '../../lib/album';
 import { videoSlide } from '../../lib/video';
 import { tr } from '../../i18n';
 import { unusable } from '../../lib/denied';
-import { joinVerses, numbersOn, redLetterSegments } from './slideText';
+import { numbersOn } from './slideText';
+import { passageLines } from '../../lib/passageLines';
 import { withSecond } from './songSlides';
 import { noticeOnce } from '../../lib/noticeOnce';
 
@@ -237,29 +238,17 @@ export function useShowCommands({
    * not touched. Throws «Уривок недоступний» when none of its translations has it.
    */
   async function remoteSlide(p: RemotePassage, by: string): Promise<Slide> {
-    const lines: SlideLine[] = [];
-    /** the first translation's last verse: «вірш 16 з 36» on «Сцена» (1.9.0-beta.11) */
-    let total: number | undefined;
-    for (const id of p.translationIds) {
-      const verses = await queryClient.fetchQuery({
-        queryKey: ['verses', id, p.bookNumber, p.chapter],
-        queryFn: () => api.verses(id, p.bookNumber, p.chapter),
-      });
-      total ??= verses.length > 0 ? verses[verses.length - 1].verse : undefined;
-      const text = joinVerses(
-        verses,
-        p.verses,
-        numbersOn(appearance.verseNumbers, p.verses.length),
-      );
-      if (!text.trim()) continue;
-      const t = translations.find((x) => x.id === id);
-      const segments = redLetterSegments(
-        verses,
-        p.verses,
-        numbersOn(appearance.verseNumbers, p.verses.length),
-      );
-      lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
-    }
+    // each translation aligned to the first one's numbering (1.13.0-beta.2); `total`: the first
+    // translation's last verse — «вірш 16 з 36» on «Сцена» (1.9.0-beta.11)
+    const { lines, total } = await passageLines(
+      queryClient,
+      translations,
+      p.translationIds,
+      p.bookNumber,
+      p.chapter,
+      p.verses,
+      numbersOn(appearance.verseNumbers, p.verses.length),
+    );
     if (lines.length === 0) throw new Error(tr('Уривок недоступний'));
     const first = p.translationIds[0];
     const bookList = await queryClient.fetchQuery({

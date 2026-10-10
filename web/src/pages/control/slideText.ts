@@ -35,15 +35,18 @@ export function redLetterSegments(
   verses: Verse[],
   selected: number[],
   showNum: boolean,
+  /** the main translation's verse a piece stands for (an aligned line, 1.13.0-beta.2) */
+  keyOf?: (v: Verse) => number | undefined,
 ): TextSpan[] {
   const out: TextSpan[] = [];
   let prev: number | null = null;
   for (const v of verses) {
     if (!selected.includes(v.verse)) continue;
     if (prev != null && v.verse > prev + 1) out.push({ text: GAP });
-    if (showNum) out.push({ text: String(v.verse), v: v.verse, num: true });
+    const k = keyOf?.(v) ?? v.verse;
+    if (showNum) out.push({ text: String(v.verse), v: k, num: true });
     for (const s of parseRedLetter(v.textRaw ?? v.text ?? '')) {
-      out.push(s.jesus ? { text: s.text, jesus: true, v: v.verse } : { text: s.text, v: v.verse });
+      out.push(s.jesus ? { text: s.text, jesus: true, v: k } : { text: s.text, v: k });
     }
     prev = v.verse;
   }

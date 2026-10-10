@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { NO_LIBRARY } from '@vo/shared';
-import { api, ApiFailure, type Verse } from '../../api';
+import { api, ApiFailure } from '../../api';
 import { type Appearance } from '../../settingsStore';
 import {
   type QrStyle,
@@ -17,7 +17,9 @@ import { type LibraryGap } from '../../components/NoLibrary';
 import { formatReference } from '../../lib/reference';
 import { useServer } from '../../serverStore';
 import { useStore } from '../../store';
-import { joinVerses, numbersOn, redLetterSegments } from './slideText';
+import { numbersOn } from './slideText';
+import { alignedLine } from '../../lib/passageLines';
+import { useAlignedVerses } from '../../lib/useAlignedVerses';
 
 const EMPTY_ARRAY: never[] = [];
 
@@ -106,24 +108,23 @@ export function useVerseDeck({
   });
   const chapters = chaptersQuery.data ?? EMPTY_ARRAY;
 
-  const verseQueries = useQueries({
-    queries: selectedIds.map((id) => ({
-      queryKey: ['verses', id, bookNumber, chapter],
-      queryFn: () => api.verses(id, bookNumber!, chapter!),
-      enabled: bookNumber != null && chapter != null,
-    })),
-  });
-  const versesByTranslation = useMemo(() => {
-    const map = new Map<number, Verse[]>();
-    selectedIds.forEach((id, i) => map.set(id, verseQueries[i]?.data ?? []));
-    return map;
-  }, [selectedIds, verseQueries]);
+  // parallel translations in their own numbering (1.13.0-beta.2, lib/useAlignedVerses.ts)
+  const {
+    versesById: versesByTranslation,
+    alignments,
+    ready: alignReady,
+    queries: verseQueries,
+  } = useAlignedVerses(selectedIds, bookNumber, chapter);
   const primaryVerses = useMemo(
-    () => (primaryId != null ? (versesByTranslation.get(primaryId) ?? []) : []),
-    [primaryId, versesByTranslation],
+    () =>
+      primaryId != null
+        ? (versesByTranslation.get(primaryId) ?? []).filter((v) => v.chapter === chapter)
+        : [],
+    [primaryId, versesByTranslation, chapter],
   );
   /** The open chapter's verses still on their way: the list says nothing about them yet. */
-  const versesLoading = bookNumber != null && chapter != null && !!verseQueries[0]?.isPending;
+  const versesLoading =
+    bookNumber != null && chapter != null && (!!verseQueries[0]?.isPending || !alignReady);
 
   const currentBook = books.find((b) => b.bookNumber === bookNumber) ?? null;
   const reference = useMemo(
@@ -173,20 +174,30 @@ export function useVerseDeck({
   // (shared by the live slide and the stage "next" preview).
   const buildLines = useCallback(
     (verseNums: number[]): SlideLine[] => {
-      if (verseNums.length === 0) return [];
+      if (verseNums.length === 0 || chapter == null || !alignReady) return [];
+      const num = numbersOn(appearance.verseNumbers, verseNums.length);
       return selectedIds
-        .map((id) => {
-          const t = translations.find((x) => x.id === id);
-          const verses = versesByTranslation.get(id) ?? [];
-          const num = numbersOn(appearance.verseNumbers, verseNums.length);
-          const text = joinVerses(verses, verseNums, num);
-          if (!text.trim()) return null;
-          const segments = redLetterSegments(verses, verseNums, num);
-          return { translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments } as SlideLine;
-        })
+        .map((id) =>
+          alignedLine(
+            translations.find((x) => x.id === id),
+            versesByTranslation.get(id) ?? [],
+            chapter,
+            verseNums,
+            alignments.get(id) ?? null,
+            num,
+          ),
+        )
         .filter((x): x is SlideLine => x !== null);
     },
-    [selectedIds, versesByTranslation, translations, appearance.verseNumbers],
+    [
+      selectedIds,
+      versesByTranslation,
+      translations,
+      appearance.verseNumbers,
+      chapter,
+      alignReady,
+      alignments,
+    ],
   );
   const slideLines = useMemo(() => buildLines(pageVerses), [buildLines, pageVerses]);
 

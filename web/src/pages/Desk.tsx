@@ -27,7 +27,7 @@ import {
   IconSquareOff,
   IconSun,
 } from '@tabler/icons-react';
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type RemoteCommand, type SearchResult, type Verse } from '../api';
 import { DEFAULT_STYLE, type Slide, type SlideLine } from '../presenterBus';
@@ -55,7 +55,10 @@ import { ToolButton, ToolIcon, ToolZone } from '../components/Toolbar';
 import { TranslationPicker } from '../components/TranslationPicker';
 import { VirtualList } from '../components/VirtualList';
 import { VerseList } from './control/VerseList';
-import { joinVerses, numbersOn, redLetterSegments } from './control/slideText';
+import { numbersOn } from './control/slideText';
+import { alignedLine } from '../lib/passageLines';
+import { leadWith } from '../lib/searchGroups';
+import { useAlignedVerses } from '../lib/useAlignedVerses';
 import { useDesk } from './desk/deskStore';
 import { useDeskHub } from './desk/useDeskHub';
 import { DeskSearch } from './desk/DeskSearch';
@@ -126,14 +129,14 @@ export function Desk() {
     queryFn: () => api.chapters(primary!, bookNumber!),
     enabled: primary != null && bookNumber != null,
   });
-  const verseQueries = useQueries({
-    queries: ids.map((id) => ({
-      queryKey: ['verses', id, bookNumber, chapter],
-      queryFn: () => api.verses(id, bookNumber!, chapter!),
-      enabled: bookNumber != null && chapter != null,
-    })),
-  });
-  const primaryVerses = verseQueries[0]?.data ?? NO_VERSES;
+  // each translation in its own numbering, aligned to the first (1.13.0-beta.2): the same lines
+  // the control window builds from the desk's pick
+  const aligned = useAlignedVerses(ids, bookNumber, chapter);
+  const verseQueries = aligned.queries;
+  const primaryVerses = useMemo(
+    () => (aligned.versesById.get(ids[0]) ?? NO_VERSES).filter((v) => v.chapter === chapter),
+    [aligned.versesById, ids, chapter],
+  );
   const currentBook = books.data?.find((b) => b.bookNumber === bookNumber) ?? null;
   const [bookFilter, setBookFilter] = useState('');
   const shownBooks = useMemo(() => {
@@ -206,24 +209,19 @@ export function Desk() {
       };
     }
     if (chosen.length === 0 || !currentBook) return null;
+    if (!aligned.ready || chapter == null) return null;
     const lines: SlideLine[] = [];
-    ids.forEach((id, i) => {
-      const vs = verseQueries[i]?.data;
-      if (!vs) return;
-      const text = joinVerses(
-        vs,
+    for (const id of ids) {
+      const line = alignedLine(
+        translations.data?.find((x) => x.id === id),
+        aligned.versesById.get(id) ?? NO_VERSES,
+        chapter,
         chosen,
+        aligned.alignments.get(id) ?? null,
         numbersOn(DEFAULT_APPEARANCE.verseNumbers, chosen.length),
       );
-      if (!text.trim()) return;
-      const t = translations.data?.find((x) => x.id === id);
-      const segments = redLetterSegments(
-        vs,
-        chosen,
-        numbersOn(DEFAULT_APPEARANCE.verseNumbers, chosen.length),
-      );
-      lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
-    });
+      if (line) lines.push(line);
+    }
     if (lines.length === 0) return null;
     return {
       lines,
@@ -396,10 +394,7 @@ export function Desk() {
   };
   // a search row opens its chapter at the verse; its own translation leads (its numbering)
   const openFound = (r: SearchResult, show: boolean) => {
-    const lead =
-      ids[0] === r.translationId
-        ? ids
-        : [r.translationId, ...ids.filter((id) => id !== r.translationId)].slice(0, 5);
+    const lead = ids[0] === r.translationId ? ids : leadWith(ids, r.translationId);
     set({
       mode: 'bible',
       translationIds: lead,

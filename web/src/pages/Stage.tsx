@@ -145,7 +145,10 @@ function StageWords({
         {slide.lines.map((l, i) => (
           <p key={i} dir={l.rtl ? 'rtl' : undefined}>
             {several && l.translationAbbr && (
-              <span className="vo-stage-abbr">{l.translationAbbr}</span>
+              <span className="vo-stage-abbr">
+                {l.translationAbbr}
+                {l.ownRef && ` ${l.approx ? '≈' : ''}${l.ownRef}`}
+              </span>
             )}
             <GrownWords text={l.text} cut={words.cuts?.[i]} ms={growTiming(mode)} />
           </p>
