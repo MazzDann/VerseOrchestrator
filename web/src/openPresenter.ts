@@ -7,7 +7,13 @@ import {
   type OutputInfo,
   type OutputKind,
 } from './lib/outputs';
-import { featuresFor, listScreens, screenBox, type ScreenInfo } from './lib/screens';
+import {
+  featuresFor,
+  listScreens,
+  pickOutputScreen,
+  screenBox,
+  type ScreenInfo,
+} from './lib/screens';
 import { delegateFullscreen } from './lib/fullscreen';
 import { watchOpenedAsTab } from './lib/tabNotice';
 import { useSettings } from './settingsStore';
@@ -111,15 +117,27 @@ function lendNextClick(name: string): void {
   window.addEventListener(
     'click',
     () => {
-      for (const [n, since] of pending) {
-        const w = windowRef(n);
-        if (!w || isFullscreen(w) || Date.now() - since > PENDING_MS) {
-          pending.delete(n);
-          continue;
+      // Lent once the click's own handlers ran: one that opens a file chooser (a FileButton
+      // clicks its hidden input inside this click) needs the gesture for that — lent first, the
+      // chooser was left without one and didn't open (review, 2026-10-10). Then the next click is.
+      let chooser = false;
+      const mark = (e: Event) => {
+        if (e.target instanceof HTMLInputElement && e.target.type === 'file') chooser = true;
+      };
+      document.addEventListener('click', mark, true);
+      setTimeout(() => {
+        document.removeEventListener('click', mark, true);
+        if (chooser) return;
+        for (const [n, since] of pending) {
+          const w = windowRef(n);
+          if (!w || isFullscreen(w) || Date.now() - since > PENDING_MS) {
+            pending.delete(n);
+            continue;
+          }
+          // The window may still be loading, or this click is already lent: next click.
+          if (delegateFullscreen(w, true)) break;
         }
-        // The window may still be loading, or this click is already lent: next click.
-        if (delegateFullscreen(w, true)) break;
-      }
+      }, 0);
     },
     true,
   );
@@ -164,13 +182,26 @@ export function fullscreenOutput(o: Target, on: boolean): boolean {
   return delegateFullscreen(w, true);
 }
 
+/**
+ * An output window that left full screen behind the operator's back — a file chooser opened here
+ * (lib/chooserWatch.ts): the next click in this window sends it back, as with «Відкривати на
+ * весь екран». False when this page holds no reference to it (another control window's, or
+ * «Окремий процес»): then only F or a click in it does.
+ */
+export function fullscreenOnNextClick(o: Target): boolean {
+  if (!outputRef(o)) return false;
+  lendNextClick(o.name);
+  return true;
+}
+
 /** How long a window opened with `noopener` may take to announce itself (dev build: ~1–3 s). */
 const ANNOUNCE_MS = 10_000;
 
 /**
  * Open an output window; resolves to whether it opened (false: the browser blocked it).
- * `screen` — where (default: the first secondary screen, if the browser tells us about
- * screens; asking may show its permission prompt, so call this from a user action).
+ * `screen` — where (default: a screen no output is on, «Показ» first — lib/screens.ts
+ * pickOutputScreen — if the browser tells us about screens; asking may show its permission
+ * prompt, so call this from a user action).
  * `another` — a new window even if one of this kind is open; otherwise the open one is
  * brought forward (and moved, when a screen is given). `fullscreen` (default: the
  * «Відкривати на весь екран» setting) — an open window is asked at once; a new one gets
@@ -192,7 +223,9 @@ export async function openOutput(
     if (fullscreen && !isFullscreen(open)) delegateFullscreen(open, true);
     return true;
   }
-  const screen = opts.screen ?? (await defaultScreen());
+  const { screen, several } = opts.screen
+    ? { screen: opts.screen, several: true }
+    : await defaultScreen(kind);
   const w = window.open(
     `${location.origin}${PATH[kind]}`,
     name,
@@ -201,16 +234,38 @@ export async function openOutput(
   if (w) {
     refs.set(name, w);
     if (screen) place(w, screen); // some browsers ignore left/top in the features
-    if (fullscreen) lendNextClick(name);
+    // no screen of its own among several: it opened next to the control window — lent the next
+    // click it would go full screen over it (review, 2026-10-10); with one screen, as before
+    if (fullscreen && (screen || !several)) lendNextClick(name);
   }
   // LibreWolf may have made it a tab of this window (lib/tabNotice.ts)
   if (w) watchOpenedAsTab(kind, name);
   return !!w;
 }
 
-async function defaultScreen(): Promise<ScreenInfo | undefined> {
+/**
+ * Screens just given to a window that hasn't announced itself yet: a second window opened at once
+ * must not take the same one (review, 2026-10-10). Kept until it should have announced itself.
+ */
+const claimed: { kind: OutputKind; bounds: ScreenBounds; until: number }[] = [];
+type ScreenBounds = { x: number; y: number; w: number; h: number };
+
+/** Where a new output window goes (lib/screens.ts pickOutputScreen); `several` screens known. */
+async function defaultScreen(
+  kind: OutputKind | 'other',
+): Promise<{ screen: ScreenInfo | undefined; several: boolean }> {
   const { screens } = await listScreens(true);
-  return screens.find((s) => !s.primary);
+  const now = Date.now();
+  for (let i = claimed.length - 1; i >= 0; i--) if (claimed[i].until <= now) claimed.splice(i, 1);
+  const own = { x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight };
+  const screen = pickOutputScreen(kind, screens, [...currentOutputs(), ...claimed], own);
+  if (screen && kind !== 'other')
+    claimed.push({
+      kind,
+      bounds: { x: screen.x, y: screen.y, w: screen.w, h: screen.h },
+      until: now + ANNOUNCE_MS,
+    });
+  return { screen, several: screens.length > 1 };
 }
 
 /**
@@ -232,7 +287,7 @@ async function openSeparate(
     focusOutput(open);
     return true;
   }
-  const screen = opts.screen ?? (await defaultScreen());
+  const screen = opts.screen ?? (await defaultScreen(kind)).screen;
   const before = new Set(currentOutputs().map((o) => o.id));
   window.open(
     `${location.origin}${PATH[kind]}`,
@@ -302,7 +357,8 @@ export async function openSettingsWindow(from?: DOMRect): Promise<Window | null>
     const b = screenBox(from);
     features = `popup,width=${b.width},height=${b.height},left=${b.left},top=${b.top}`;
   } else {
-    const s = (await listScreens(true)).screens.find((x) => !x.primary);
+    // a screen no output is on — not the projector under «Показ» (review, 2026-10-10)
+    const s = (await defaultScreen('other')).screen;
     if (s) features += `,left=${s.x},top=${s.y}`;
   }
   settingsWin = window.open(`${location.origin}/settings`, 'vo-settings', features);

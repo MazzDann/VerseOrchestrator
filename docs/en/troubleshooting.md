@@ -122,7 +122,33 @@ screens is denied”. To allow it:
 2. Allow “Window management” for this site.
 3. Reload the control window and open the presentation window again.
 
+A second output window doesn't go over the first: if the other screens are all taken by output
+windows, it opens next to the control window. To open it on a particular screen, click
+**Presentation** or **Stage** in that screen's row of the **Output windows** panel.
+
 Chrome and Edge can open windows on the screen you choose.
+
+### The presentation window disappears when you point at the Windows taskbar
+
+When the pointer rests on a window thumbnail above a taskbar button, Windows shows only that
+window and hides all the others — on every screen. This is the Windows “Peek” feature. The
+projector then shows the desktop until the pointer moves away. It happens most often when you
+go to the control window through the browser's thumbnails: the control, presentation and stage
+windows are windows of one browser, so they share one taskbar button.
+
+On Windows the app itself asks the system not to hide the presentation and stage windows. If
+the presentation window still disappears, turn “Peek” off:
+
+1. Press Win+R, type `SystemPropertiesPerformance`, and press Enter.
+2. On the **Visual Effects** tab, clear **Enable Peek**.
+3. Click OK. If nothing changes, sign out and sign in again.
+
+If the presentation window doesn't come back as soon as you move the pointer away, it was
+minimized: by a click in the far right corner of the taskbar or by Win+D. If you haven't clicked
+anything since, press Win+D again — the windows come back. Otherwise bring it back with its
+thumbnail on the browser's taskbar button, with Alt+Tab, or with **Go to the window** in its row
+of the **Output windows** panel. Don't click inside the presentation window to bring it forward:
+a click there turns full screen on and off.
 
 ### “Presentation 1: couldn't draw the slide”
 
@@ -140,6 +166,13 @@ The browser didn't let the presentation window go full screen when the control w
 asked — from the **Output windows** panel or with **Open in full screen**. This happens when
 other windows hide the presentation window. Press F in the presentation window itself, or
 click in it.
+
+### “Presentation 1: no longer full screen”
+
+While a file chooser is open in the control window — you add a picture, import songs, or
+restore a backup — Chrome, Edge, and Opera take the presentation and stage windows out of full
+screen. When the chooser closes, click anywhere in the control window: each click puts one
+window back in full screen. If one doesn't come back, press F in that window itself.
 
 ## The control window
 

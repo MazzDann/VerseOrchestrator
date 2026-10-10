@@ -139,9 +139,10 @@ this computer. The choice works from the next start: the start file and the shor
 control window there.
 
 To open the control window as a separate window — without tabs or an address bar — turn on
-**As a separate window**. Browsers built on Chromium can: Chrome, Edge, Brave, Arc, Opera,
-Vivaldi, and Chromium. Firefox, Zen, and Safari open the control window as a regular window,
-so the switch is off there. A separate window has one tab, so a second start brings exactly
+**As a separate window**. Browsers built on Chromium can: Chrome, Edge, Brave, Arc, Vivaldi,
+and Chromium. Firefox, Zen, and Safari open the control window as a regular window, so the
+switch is off there. Opera is built on Chromium too but doesn't open a separate window — it
+shows an empty one — so with Opera the control window opens as a regular window as well. A separate window has one tab, so a second start brings exactly
 that window forward more reliably.
 
 To move to the other browser at once, without waiting for the next start, click **Open in …
@@ -161,6 +162,12 @@ as with **System browser** — in the system browser, and from the shortcut in C
 a separate window — and says so in the start window. The choice is kept in
 `data/settings.json` → `launch`.
 
+The choice belongs to the copy of the app in whose control window it was made. If the computer
+has two copies — say, a new one unpacked beside an older one that **Start on open** runs — the
+new one's start file opens the control window of the older one, which is already running, in
+the browser chosen there, and the start window says which copy is running. To run the new one,
+switch the older one off (**Switch off completely…**) and start the new one's start file.
+
 Under the field you see the app's version — the same one stands at the top of **Settings**. A
 copy from the repository says `dev` and the branch there, for example
 `dev 1.4.4.try3 (feat/x · 36f9ddd)`.
@@ -169,8 +176,8 @@ copy from the repository says `dev` and the branch there, for example
 
 The shortcut starts the app and opens the control window as a window of its own — without
 tabs or an address bar: in the browser chosen in **Open the control window in…** if it is
-built on Chromium; with **System browser**, in Chrome or Edge. Firefox, Zen, and Safari open
-it as a regular window.
+built on Chromium; with **System browser**, in Chrome or Edge. Firefox, Zen, Safari, and Opera
+open it as a regular window.
 
 To create a shortcut, open **Settings** → **App** in the control window and click
 **Create shortcut**. The shortcut appears on the desktop; on Linux, in the applications menu
