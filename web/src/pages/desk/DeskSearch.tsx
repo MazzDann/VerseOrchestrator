@@ -108,7 +108,12 @@ export function DeskSearch({
               {tr('У ваших перекладах нічого — знайдено в інших')}
             </Text>
           )}
-          {rows.length === 0 ? (
+          {rows.length === 0 && !found.isFetching && found.error ? (
+            // a failed search says so, not «Нічого не знайдено» (1.12.2, F1010-02)
+            <Text size="sm" c="red" p="sm">
+              {tr('Пошук не вдався: {error}', { error: found.error.message })}
+            </Text>
+          ) : rows.length === 0 ? (
             <Text size="sm" c="dimmed" p="sm">
               {found.isFetching ? tr('Шукаю…') : tr('Нічого не знайдено за «{query}»', { query })}
             </Text>
