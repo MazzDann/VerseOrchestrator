@@ -380,6 +380,42 @@ back: click **Go back to how it was** in the **Backup** section and confirm with
 
 A backup can be up to 1 GB. If the images take more, the app says so and makes no backup.
 
+## Carry data over from another copy
+
+If the computer has an older or another copy of the app — say, an old folder that updated
+itself and a new one unpacked next to it — carry over what you set up there. A new copy starts
+with an empty `data/` folder, and without the carry-over it has no chosen browser, no
+remotes, and no songs.
+
+1. In the new copy's control window, open **Settings** → **App**, and in the
+   **Another copy** section click **Carry over from another copy…**.
+2. Choose the copy from the list. The app shows the copy running at the same address and the
+   copies in the folders next to this one, with the version, the time of the last change,
+   and what they hold. If the copy you need isn't there, click **Choose a folder…**, open
+   its folder — the one that holds `app` and `data` — and click **Choose this folder**.
+3. Tick what to carry over:
+   - **Look, programs, songs, pictures, albums and videos** — what a backup holds, plus the
+     album and video lists;
+   - **Start settings** — the browser, the address and the idle time, updates. The choice of
+     modules stays this copy's;
+   - **Speaker remotes** — the app names them; they are added to this copy's remotes, so the
+     phones need no pairing again. A remote paired after the carry-over stays paired after
+     **Go back to how it was** too.
+4. Click **Carry over**. If you carried over the look and songs, the control window reloads.
+
+The other copy stays as it is. The app keeps the state of this copy that the carry-over
+replaced in `data/backups/`, and for a day you can bring it back with **Go back to how it
+was** in the **Backup** section. New start settings take effect at the next start.
+
+Remotes are carried over only this way, from an app copy's folder on this computer: a `.zip`
+backup doesn't hold them, so phones never pair with a computer they haven't seen. For a folder
+you chose yourself, **Speaker remotes** starts unticked — tick it if the copy is yours. If the copy is
+newer than this one, the app warns that this version may not read some of its data — better
+update this copy first.
+
+When a new copy starts for the first time next to another one that holds data, the start
+window names that copy and points to **Carry over from another copy…**.
+
 ## Make a portable copy
 
 A portable copy is a folder with the app and Node.js inside. You run it on another computer

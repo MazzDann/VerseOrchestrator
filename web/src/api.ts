@@ -564,6 +564,34 @@ const BackupSummarySchema = z.object({
 });
 export type BackupSummary = z.infer<typeof BackupSummarySchema>;
 
+/** Another copy of the app on this computer (1.12.0-beta.2, server/src/otherCopy.ts `CopyInfo`). */
+const CopyInfoSchema = z.object({
+  folder: z.string(),
+  dataDir: z.string(),
+  version: z.string().nullable(),
+  /** an app folder is there: only then are its pairings offered */
+  app: z.boolean(),
+  running: z.boolean(),
+  newer: z.boolean(),
+  changed: z.number().nullable(),
+  browser: z.string().nullable(),
+  settings: z.boolean(),
+  look: z.boolean(),
+  pairings: z.number(),
+  pairingNames: z.array(z.string()),
+  bundles: z.number(),
+  pictures: z.number(),
+  programs: z.number(),
+  albums: z.number(),
+  videos: z.number(),
+});
+export type CopyInfo = z.infer<typeof CopyInfoSchema>;
+export interface CopyParts {
+  things: boolean;
+  launch: boolean;
+  pairings: boolean;
+}
+
 export const api = {
   // --- Library reads: server or browser engine (see fromLibrary) ---
   translations: () =>
@@ -891,12 +919,49 @@ export const api = {
     getJson(
       '/api/backup/state',
       z.object({
-        lastRestore: z.object({ created: z.string(), at: z.string(), undo: z.string() }).nullable(),
+        lastRestore: z
+          .object({
+            created: z.string(),
+            at: z.string(),
+            undo: z.string(),
+            /** an import from another copy (1.12.0-beta.2): its folder */
+            from: z.string().optional(),
+          })
+          .nullable(),
       }),
     ),
+  /** «Перенести з іншої копії…» (1.12.0-beta.2): the other copies of this computer. */
+  copies: async () => {
+    const res = await request('/api/copies', { headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return z.object({ copies: z.array(CopyInfoSchema) }).parse(await res.json()).copies;
+  },
+  /** A folder the operator picked, as a copy (or why not). */
+  describeCopy: async (path: string) => {
+    const res = await request(`/api/copies/describe?${new URLSearchParams({ path })}`, {
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return CopyInfoSchema.parse(await res.json());
+  },
+  importCopy: async (path: string, parts: CopyParts) => {
+    const res = await request('/api/copies/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ path, ...parts }),
+    });
+    if (!res.ok) throw await failure(res);
+    // `warning`: the carry-over stands, a step after it failed (the pairings' file held)
+    return z.object({ warning: z.string().optional() }).parse(await res.json());
+  },
+  /**
+   * «Повернути як було»; `uiCleared` (1.12.0-beta.2): the copy had no UI state before the import,
+   * so the page drops its own and starts from the defaults.
+   */
   undoRestore: async () => {
     const res = await request('/api/backup/undo', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);
+    return z.object({ uiCleared: z.boolean().optional() }).parse(await res.json());
   },
   uiState: () => getJson('/api/ui-state', UiStateSchema),
   saveUiState: async (key: keyof UiState, value: string, at: number) => {

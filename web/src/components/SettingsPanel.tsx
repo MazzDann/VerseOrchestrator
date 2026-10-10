@@ -55,6 +55,7 @@ import { useRebuildLibrary } from '../lib/rebuild';
 import { StandbySection } from './StandbySection';
 import { UpdateSection } from './UpdateSection';
 import { BackupSection } from './BackupSection';
+import { CopyImportSection } from './CopyImportSection';
 import { FeedbackSection } from './FeedbackSection';
 import { ShutdownSection } from './ShutdownSection';
 import { ShortcutSection } from './ShortcutSection';
@@ -1045,6 +1046,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
           </div>
           <UpdateSection />
           <BackupSection />
+          <CopyImportSection />
           <FeedbackSection />
           <StandbySection active={openSections.includes('app')} />
           <BrowserSection active={openSections.includes('app')} />

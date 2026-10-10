@@ -112,20 +112,69 @@ function load(): void {
   if (!secretsFile || !persist) return;
   const data = readJson<Partial<SecretsFile>>(secretsFile, { version: 1, remotes: [] });
   unread = isUnreadable(secretsFile);
-  for (const raw of Array.isArray(data.remotes) ? data.remotes : []) {
-    if (!raw || typeof raw.id !== 'string' || !/^[0-9a-f]{64}$/.test(String(raw.tokenHash)))
-      continue;
-    if (pairings.has(raw.id)) continue;
-    pairings.set(raw.id, {
-      id: raw.id,
-      name: String(raw.name ?? 'Пульт').slice(0, 40), // i18n-ignore: a stored name
-      kind: asKind(raw.kind),
-      tokenHash: raw.tokenHash,
-      allowed: sanitizeAllowed(raw.allowed),
-      createdAt: Number(raw.createdAt) || Date.now(),
-      lastSeen: typeof raw.lastSeen === 'number' ? raw.lastSeen : null,
-    });
+  for (const raw of Array.isArray(data.remotes) ? data.remotes : []) adopt(raw);
+}
+
+/**
+ * One stored pairing, checked: added unless its id is here already (that one stays as it is).
+ * `name` makes its name: an import from another copy keeps names apart (uniqueName).
+ */
+function adopt(raw: unknown, name = (n: string) => n): Pairing | null {
+  const r = raw as Partial<Record<keyof Pairing, unknown>> | null;
+  if (!r || typeof r.id !== 'string' || !/^[0-9a-f]{64}$/.test(String(r.tokenHash))) return null;
+  if (pairings.has(r.id)) return null;
+  const p: Pairing = {
+    id: r.id,
+    name: name(String(r.name ?? 'Пульт').slice(0, 40)), // i18n-ignore: a stored name
+    kind: asKind(r.kind),
+    tokenHash: String(r.tokenHash),
+    allowed: sanitizeAllowed(r.allowed),
+    createdAt: Number(r.createdAt) || Date.now(),
+    lastSeen: typeof r.lastSeen === 'number' ? r.lastSeen : null,
+  };
+  pairings.set(p.id, p);
+  return p;
+}
+
+/** A pairing with this id or token is here already: an import from another copy adds only new ones. */
+export function knownPairing(id: string, tokenHash: string): boolean {
+  ready();
+  if (pairings.has(id)) return true;
+  for (const p of pairings.values()) if (p.tokenHash === tokenHash) return true;
+  return false;
+}
+
+/**
+ * Pairings carried over from another copy of the app («Перенести з іншої копії…», 1.12.0-beta.2):
+ * added as that copy had them — permissions, kind; a name taken here gets « (2)» —, and saved
+ * (persistence is on by then: the import turns it on). Returns the ids added.
+ */
+export function adoptPairings(list: unknown[]): string[] {
+  ready();
+  const added: string[] = [];
+  for (const raw of list) {
+    const r = raw as { id?: unknown; tokenHash?: unknown } | null;
+    if (!r || knownPairing(String(r.id), String(r.tokenHash))) continue;
+    const p = adopt(raw, uniqueName);
+    if (p) added.push(p.id);
   }
+  if (added.length)
+    saveOr(() => {
+      for (const id of added) pairings.delete(id);
+    });
+  return added;
+}
+
+/** The pairings an import added, dropped again by its «Повернути як було»; returns those dropped. */
+export function dropPairings(ids: string[]): string[] {
+  ready();
+  const gone = ids.map((id) => pairings.get(id)).filter((p): p is Pairing => !!p);
+  for (const p of gone) pairings.delete(p.id);
+  if (gone.length)
+    saveOr(() => {
+      for (const p of gone) pairings.set(p.id, p);
+    });
+  return gone.map((p) => p.id);
 }
 
 /** Before the pairings are used: the file not read at start is read now, if it can be. */

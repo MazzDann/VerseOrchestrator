@@ -152,23 +152,23 @@ You pass options to the start file in a terminal, in the app's folder, for examp
 
 Everything the app remembers is in its folder:
 
-| Path                 | What's there                                                                                        |
-| -------------------- | --------------------------------------------------------------------------------------------------- |
-| `modules/`           | MyBible modules (`*.SQLite3`) the library is built from                                             |
-| `songs/`             | songs in presentations (`*.pptx`) that the app moves into a bundle                                  |
-| `data/songs/`        | song bundles (`*.vosongs`)                                                                          |
-| `data/images/`       | images to show: two files for each and `index.json`; in `.trash/`, the last twenty deleted          |
-| `data/albums.json`   | albums: the paths of photo folders (the photos stay in the folders; not in a backup)                |
-| `data/album-cache/`  | small copies of album photos for phones (the app makes them again; not in a backup)                 |
-| `data/videos.json`   | videos: the paths of the files (the files stay where they are; not in a backup)                     |
-| `data/video-cache/`  | frames of videos for phones (the app makes them again; not in a backup)                             |
-| `data/backups/`      | the state that restoring a backup or **Go back to how it was** replaced                             |
-| `data/library.db`    | the library: translations, dictionaries, commentaries, songs, and the search index                  |
-| `data/ui-state.json` | appearance settings, presets, hotkeys, the running order, and programs                              |
-| `data/settings.json` | server options: the port and the waiting time (`standby`), remotes (`remotes`), modules (`library`) |
-| `data/secrets.json`  | hashes of the remotes' codes                                                                        |
-| `data/standby.log`   | the address waiter's log                                                                            |
-| `portable/`          | portable copies made with `npm run portable`                                                        |
+| Path                 | What's there                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `modules/`           | MyBible modules (`*.SQLite3`) the library is built from                                                  |
+| `songs/`             | songs in presentations (`*.pptx`) that the app moves into a bundle                                       |
+| `data/songs/`        | song bundles (`*.vosongs`)                                                                               |
+| `data/images/`       | images to show: two files for each and `index.json`; in `.trash/`, the last twenty deleted               |
+| `data/albums.json`   | albums: the paths of photo folders (the photos stay in the folders; not in a backup)                     |
+| `data/album-cache/`  | small copies of album photos for phones (the app makes them again; not in a backup)                      |
+| `data/videos.json`   | videos: the paths of the files (the files stay where they are; not in a backup)                          |
+| `data/video-cache/`  | frames of videos for phones (the app makes them again; not in a backup)                                  |
+| `data/backups/`      | the state that restoring a backup, a carry-over from another copy, or **Go back to how it was** replaced |
+| `data/library.db`    | the library: translations, dictionaries, commentaries, songs, and the search index                       |
+| `data/ui-state.json` | appearance settings, presets, hotkeys, the running order, and programs                                   |
+| `data/settings.json` | server options: the port and the waiting time (`standby`), remotes (`remotes`), modules (`library`)      |
+| `data/secrets.json`  | hashes of the remotes' codes                                                                             |
+| `data/standby.log`   | the address waiter's log                                                                                 |
+| `portable/`          | portable copies made with `npm run portable`                                                             |
 
 The paths in `data/albums.json` and `data/videos.json` are this computer's. When the app folder
 is carried to a computer with another system (from Windows to a Mac, or back), the albums and
