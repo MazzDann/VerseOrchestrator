@@ -23,30 +23,32 @@ export function useMediaDrop({
 }) {
   const queryClient = useQueryClient();
   const [dragging, setDragging] = useState(false);
-  const depth = useRef(0);
+  // the overlay goes when no dragover came for a moment: an enter / leave count stuck when a node
+  // under the pointer went away mid-drag, or Esc ended the drag outside (review)
+  const quiet = useRef(0);
   const live = useRef({ openMedia, enabled });
   live.current = { openMedia, enabled };
 
   useEffect(() => {
     const files = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
-    const enter = (e: DragEvent) => {
-      if (!files(e) || !live.current.enabled) return;
-      depth.current += 1;
-      setDragging(true);
-    };
-    const leave = (e: DragEvent) => {
-      if (!files(e)) return;
-      depth.current = Math.max(0, depth.current - 1);
-      if (depth.current === 0) setDragging(false);
+    const hide = () => {
+      window.clearTimeout(quiet.current);
+      setDragging(false);
     };
     const over = (e: DragEvent) => {
       if (!files(e) || !live.current.enabled) return;
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      setDragging(true);
+      window.clearTimeout(quiet.current);
+      quiet.current = window.setTimeout(hide, 400);
+    };
+    // the pointer left the window: at once
+    const leave = (e: DragEvent) => {
+      if (e.relatedTarget === null) hide();
     };
     const drop = (e: DragEvent) => {
-      depth.current = 0;
-      setDragging(false);
+      hide();
       if (!files(e) || e.defaultPrevented || !live.current.enabled) return;
       e.preventDefault();
       // the entries now: the drop's items are gone once the handler returns
@@ -55,15 +57,18 @@ export function useMediaDrop({
         .map((i) => ({ entry: i.webkitGetAsEntry?.() ?? null, file: i.getAsFile() }));
       void take(entries);
     };
-    window.addEventListener('dragenter', enter);
-    window.addEventListener('dragleave', leave);
+    window.addEventListener('dragenter', over);
     window.addEventListener('dragover', over);
+    window.addEventListener('dragleave', leave);
     window.addEventListener('drop', drop);
+    window.addEventListener('dragend', hide);
     return () => {
-      window.removeEventListener('dragenter', enter);
-      window.removeEventListener('dragleave', leave);
+      window.removeEventListener('dragenter', over);
       window.removeEventListener('dragover', over);
+      window.removeEventListener('dragleave', leave);
       window.removeEventListener('drop', drop);
+      window.removeEventListener('dragend', hide);
+      window.clearTimeout(quiet.current);
     };
     // the handlers read the props through a ref
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -143,8 +148,9 @@ export function useMediaDrop({
     const { openMedia } = live.current;
     openMedia('videos');
     try {
-      const { found } = await api.locateVideo(file.name, file.size);
-      if (found.length === 1) {
+      // a name and a size alone: added at once only when the search looked everywhere (review)
+      const { found, complete } = await api.locateVideo(file.name, file.size);
+      if (found.length === 1 && complete) {
         const video = await api.addVideo(found[0]);
         await queryClient.invalidateQueries({ queryKey: ['videos'] });
         notifications.show({

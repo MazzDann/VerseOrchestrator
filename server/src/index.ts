@@ -1408,9 +1408,12 @@ app.post(
       throw new ApiError(400, N_('Не вдалося прочитати перетягнуту папку'));
     const near = readAlbums(dataDir).map((a) => path.dirname(a.path));
     const started = Date.now();
-    const found = await locateFolder(name, files, usualRoots(undefined, near));
-    console.log(`[server] albums: «${name}» found ${found.length} (${Date.now() - started} ms)`);
-    res.json({ found });
+    const done = await locateFolder(name, files, usualRoots(undefined, near));
+    const cut = done.complete ? '' : ', the time ran out';
+    console.log(
+      `[server] albums: «${name}» found ${done.found.length}${cut} (${Date.now() - started} ms)`,
+    );
+    res.json(done);
   }),
 );
 
@@ -1532,11 +1535,12 @@ app.post(
     if (!file) throw new ApiError(400, N_('Не вдалося прочитати перетягнутий файл'));
     const near = readVideos(dataDir).map((v) => path.dirname(v.path));
     const started = Date.now();
-    const found = await locateFile(file, usualRoots(undefined, near));
+    const done = await locateFile(file, usualRoots(undefined, near));
+    const cut = done.complete ? '' : ', the time ran out';
     console.log(
-      `[server] videos: «${file.name}» found ${found.length} (${Date.now() - started} ms)`,
+      `[server] videos: «${file.name}» found ${done.found.length}${cut} (${Date.now() - started} ms)`,
     );
-    res.json({ found });
+    res.json(done);
   }),
 );
 

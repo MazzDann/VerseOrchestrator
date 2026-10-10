@@ -52,23 +52,42 @@ async function sizesMatch(dir: string, files: readonly SeenFile[]): Promise<bool
   return true;
 }
 
+/** What a search found, and whether it looked everywhere it meant to (the time ran out first). */
+export interface Located {
+  found: string[];
+  complete: boolean;
+}
+
+/** One key per folder on disk: its real path (a redirected Documents is OneDrive's), cased by the system. */
+async function keyOf(dir: string): Promise<string> {
+  let real = path.resolve(dir);
+  try {
+    real = await fsp.realpath(dir);
+  } catch {
+    /* gone: its own path */
+  }
+  return process.platform === 'linux' ? real : real.toLowerCase();
+}
+
 /**
  * Walk `roots` breadth first, at most `DEPTH` levels, until `deadline`: `pick(dir, entries)` names
- * what in a folder answers. Each folder once (roots overlap: home holds Pictures).
+ * what in a folder answers. Each folder once (roots overlap: home holds Pictures; a known folder
+ * may be redirected — review), each match once.
  */
 async function walk(
   roots: readonly string[],
   deadline: number,
   pick: (dir: string, names: string[], folders: string[]) => Promise<string[]>,
-): Promise<string[]> {
-  const found = new Set<string>();
+): Promise<Located> {
+  const found = new Map<string, string>();
   const seen = new Set<string>();
+  const result = (complete: boolean) => ({ found: [...found.values()], complete });
   let level = [...roots];
   for (let depth = 0; depth <= DEPTH && level.length > 0; depth++) {
     const next: string[] = [];
     for (const dir of level) {
-      if (Date.now() > deadline) return [...found];
-      const key = path.resolve(dir).toLowerCase();
+      if (Date.now() > deadline) return result(false);
+      const key = await keyOf(dir);
       if (seen.has(key)) continue;
       seen.add(key);
       let entries;
@@ -81,12 +100,15 @@ async function walk(
         .filter((e) => e.isDirectory() && !SKIP.test(e.name))
         .map((e) => e.name);
       const files = entries.filter((e) => e.isFile()).map((e) => e.name);
-      for (const p of await pick(dir, files, folders)) found.add(p);
+      for (const p of await pick(dir, files, folders)) {
+        const k = await keyOf(p);
+        if (!found.has(k)) found.set(k, p);
+      }
       next.push(...folders.map((f) => path.join(dir, f)));
     }
     level = next;
   }
-  return [...found];
+  return result(true);
 }
 
 /** Folders named `name` holding `files` at their sizes (at most 20 checked). */
@@ -95,7 +117,7 @@ export async function locateFolder(
   files: readonly SeenFile[],
   roots: readonly string[],
   ms = LOCATE_MS,
-): Promise<string[]> {
+): Promise<Located> {
   const sample = files.slice(0, 20);
   return walk(roots, Date.now() + ms, async (dir, _files, folders) => {
     const out: string[] = [];
@@ -113,7 +135,7 @@ export async function locateFile(
   file: SeenFile,
   roots: readonly string[],
   ms = LOCATE_MS,
-): Promise<string[]> {
+): Promise<Located> {
   return walk(roots, Date.now() + ms, async (dir, files) => {
     const out: string[] = [];
     for (const f of files) {

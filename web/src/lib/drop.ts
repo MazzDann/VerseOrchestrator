@@ -72,7 +72,8 @@ export const useDrop = create<DropState>((set, get) => ({
     if (files.length > 0) set({ images: [] });
     return files;
   },
-  openPicker: (kind, start) => set({ pick: { kind, start } }),
+  // the first one asked keeps the picker: several not found at once each say so in a notice (review)
+  openPicker: (kind, start) => set((s) => (s.pick ? s : { pick: { kind, start } })),
   pickerOpened: () => set({ pick: null }),
 }));
 

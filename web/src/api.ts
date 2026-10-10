@@ -1093,7 +1093,9 @@ export const api = {
       body: JSON.stringify({ name, files }),
     });
     if (!res.ok) throw await failure(res);
-    return z.object({ found: z.array(z.string()) }).parse(await res.json());
+    return z
+      .object({ found: z.array(z.string()), complete: z.boolean().default(true) })
+      .parse(await res.json());
   },
   /** A video dropped on the window (1.14.0-beta.1): where the file is on this computer */
   locateVideo: async (name: string, size: number) => {
@@ -1103,7 +1105,9 @@ export const api = {
       body: JSON.stringify({ name, size }),
     });
     if (!res.ok) throw await failure(res);
-    return z.object({ found: z.array(z.string()) }).parse(await res.json());
+    return z
+      .object({ found: z.array(z.string()), complete: z.boolean().default(true) })
+      .parse(await res.json());
   },
   browseFolders: async (path?: string, files?: 'video') => {
     const params = new URLSearchParams();
