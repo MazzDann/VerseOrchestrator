@@ -17,7 +17,7 @@ export function useAlignedVerses(ids: number[], book: number | null, chapter: nu
     ...profilesQuery(ids, book ?? 0),
     enabled: ids.length > 1 && book != null,
   });
-  const ready = ids.length < 2 || !profiles.isPending || profiles.isError;
+  const lengthsIn = ids.length < 2 || !profiles.isPending || profiles.isError;
   const alignments = useMemo(
     () =>
       profiles.data && mainId != null && book != null
@@ -47,11 +47,17 @@ export function useAlignedVerses(ids: number[], book: number | null, chapter: nu
       enabled: book != null && chapter != null,
     })),
   });
+  // by the data's own times: useQueries gives a new array every render (review)
+  const stamp = queries.map((q) => q.dataUpdatedAt).join(',');
   const versesById = useMemo(() => {
     const map = new Map<number, Verse[]>();
     for (const id of ids) map.set(id, []);
     keys.forEach(([id], i) => map.get(id)?.push(...(queries[i]?.data ?? [])));
     return map;
-  }, [ids, keys, queries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids, keys, stamp]);
+  // every translation's chapters in too: a line half-loaded (Гижа 114 without 115) or missing must
+  // not reach the screen first (review); a failed one counts as done
+  const ready = lengthsIn && queries.every((q) => !q.isPending);
   return { versesById, alignments, ready, queries };
 }

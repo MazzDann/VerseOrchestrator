@@ -146,15 +146,29 @@ export function useJumps({
     };
     const from = r.translationId;
     const place = { bookNumber: r.bookNumber, chapter: r.chapter, verses };
+    // the lengths may take a moment: a click or a change of translations meanwhile wins (review)
+    const was = useStore.getState();
+    const moved = () => {
+      const now = useStore.getState();
+      return (
+        now.selectedTranslationIds !== was.selectedTranslationIds ||
+        now.bookNumber !== was.bookNumber ||
+        now.chapter !== was.chapter ||
+        now.selectedVerses !== was.selectedVerses
+      );
+    };
     void queryClient.fetchQuery(profilesQuery([primaryId, from], r.bookNumber)).then(
       (rows) => {
+        if (moved()) return;
         const to = remapPlace(rows, from, primaryId, place);
         if (to === 'no-book')
           land(r.chapter, verses, selectedIds.includes(from) ? undefined : [...selectedIds, from]);
         else if (to && to.verses.length > 0) land(to.chapter, to.verses);
         else land(r.chapter, verses, join());
       },
-      () => land(r.chapter, verses, join()),
+      () => {
+        if (!moved()) land(r.chapter, verses, join());
+      },
     );
   };
 
@@ -173,7 +187,12 @@ export function useJumps({
       let res = await api.search(query, [primaryId]);
       if (res.results.length === 0) res = await api.search(query, []);
       if (res.results.length > 0) {
-        jumpTo(res.results[0], { focus: true, show: opts?.show });
+        // ⌘↩ / Ctrl+Enter on words found elsewhere: there, as from the results (1.13.0-beta.2)
+        jumpTo(res.results[0], {
+          focus: true,
+          show: opts?.show,
+          lead: !!opts?.show && res.kind === 'text',
+        });
         clearSearch();
       } else {
         notifications.show({
