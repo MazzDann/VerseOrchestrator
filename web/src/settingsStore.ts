@@ -140,7 +140,23 @@ export interface RefItem {
   bookNumber: number;
   chapter: number;
   verse: number;
+  /**
+   * All the picked verses when there were several (1.12.6, users' reports F1010-06b / 09: «Ів
+   * 3:16–18» in «Історія» opened 3:16 alone); `verse` is the first. Kept only for two or more —
+   * one verse, and everything saved before 1.12.6, has `verse` alone. The key stays the first verse.
+   */
+  verses?: number[];
 }
+
+/** The verses a place picks: its own list, sorted and once each, or its one verse. */
+export const refVerses = (i: Pick<RefItem, 'verse' | 'verses'>): number[] =>
+  i.verses?.length ? [...new Set(i.verses)].sort((x, y) => x - y) : [i.verse];
+
+/** `verses` as kept: two or more positive whole numbers, else none (a damaged or hand-made file). */
+const keptVerses = (v: unknown): number[] | undefined =>
+  Array.isArray(v) && v.length > 1 && v.every((n) => Number.isInteger(n) && n > 0)
+    ? (v as number[])
+    : undefined;
 
 export type PanelPlacement = 'aside' | 'bottom';
 
@@ -665,7 +681,9 @@ export const useSettings = create<SettingsState>()(
           for (const it of items) {
             if (it && it.translationId != null && it.bookNumber != null && !seen.has(refKey(it))) {
               seen.add(refKey(it));
-              merged.push(it);
+              const { verses, ...place } = it;
+              const kept = keptVerses(verses);
+              merged.push(kept ? { ...place, verses: kept } : place);
             }
           }
           return { bookmarks: merged.slice(0, 200) };

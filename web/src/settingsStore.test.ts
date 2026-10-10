@@ -131,3 +131,29 @@ describe('«Простий вигляд» (1.8.12-beta.7)', () => {
     store.useSettings.getState().setSimpleView(false);
   });
 });
+
+describe('history and bookmarks keep the whole pick (1.12.6)', () => {
+  const place = { ref: 'Ів 3:16–18', translationId: 1, bookNumber: 500, chapter: 3, verse: 16 };
+
+  it('the verses a place picks: its list sorted and once each, or its one verse', () => {
+    expect(store.refVerses({ verse: 16 })).toEqual([16]);
+    expect(store.refVerses({ verse: 16, verses: [18, 16, 17, 17] })).toEqual([16, 17, 18]);
+    expect(store.refVerses({ verse: 16, verses: [] })).toEqual([16]);
+  });
+
+  it('the key stays the first verse: one pick of 3:16 and one of 3:16–18 are one entry', () => {
+    expect(store.refKey({ ...place, verses: [16, 17, 18] })).toBe(store.refKey(place));
+  });
+
+  it('an imported list keeps good verse lists and drops damaged ones', () => {
+    store.useSettings.setState({ bookmarks: [] });
+    store.useSettings.getState().importBookmarks([
+      { ...place, verses: [16, 17, 18] },
+      { ...place, chapter: 4, verse: 1, verses: ['x', 2] as never },
+      { ...place, chapter: 5, verse: 1, verses: [1] },
+    ]);
+    const kept = store.useSettings.getState().bookmarks;
+    expect(kept.map((b) => b.verses)).toEqual([[16, 17, 18], undefined, undefined]);
+    expect(kept[1]).not.toHaveProperty('verses');
+  });
+});

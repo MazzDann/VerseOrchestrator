@@ -15,6 +15,7 @@ import { useStore } from '../store';
 import {
   useSettings,
   refKey,
+  refVerses,
   videoEndOf,
   videoPhonesOf,
   videoVolumeOf,
@@ -976,7 +977,7 @@ export function Control() {
       translationIds: selectedIds.length ? selectedIds : [b.translationId],
       bookNumber: b.bookNumber,
       chapter: b.chapter,
-      verses: [b.verse],
+      verses: refVerses(b),
     });
     notifications.show({
       message: tr('Додано у показ: {item}', { item: b.refShort || b.ref }),
@@ -1025,6 +1026,8 @@ export function Control() {
           bookNumber,
           chapter,
           verse: selectedVerses[0],
+          // the whole pick (1.12.6): a saved «Ів 3:16–18» opens as it was
+          ...(selectedVerses.length > 1 ? { verses: [...selectedVerses] } : {}),
         }
       : null;
   const isSaved = currentRef ? bookmarks.some((b) => refKey(b) === refKey(currentRef)) : false;
