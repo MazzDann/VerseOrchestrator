@@ -116,6 +116,20 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
     [finding, found],
   );
   const rootRef = useRef<HTMLDivElement>(null);
+  const [findOpen, setFindOpen] = useState<string[] | null>(null);
+  useEffect(() => setFindOpen(shown ? [...shown] : null), [shown]);
+  // a search ends with the panel: it opens clean next time (Ctrl+K types its own before it opens);
+  // a tick later, so StrictMode's trial unmount doesn't wipe the palette's query
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      window.setTimeout(() => {
+        if (!mounted.current) useSettingsFind.getState().setQuery('');
+      }, 0);
+    };
+  }, []);
   const {
     rebuilding,
     job: rebuildJob,
@@ -256,8 +270,10 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
       <FindContext.Provider value={shown}>
         <Accordion
           multiple
-          value={shown ? [...shown] : openSections}
-          onChange={setOpenSections}
+          // while searching, the sections open and close for the search only: the ones kept
+          // open between sessions stay as they were (review)
+          value={shown ? (findOpen ?? [...shown]) : openSections}
+          onChange={shown ? setFindOpen : setOpenSections}
           variant="default"
           chevronPosition="right"
           styles={{ content: { paddingInline: 0 }, control: { paddingInline: 0 } }}
@@ -1196,7 +1212,9 @@ function SettingsHits({
     for (const m of el.querySelectorAll('[data-vo-hit]')) m.removeAttribute('data-vo-hit');
     if (HIGHLIGHTS) CSS.highlights.delete('vo-find');
     if (!query) return;
+    let scrolled = false;
     const mark = () => {
+      for (const m of el.querySelectorAll('[data-vo-hit]')) m.removeAttribute('data-vo-hit');
       let first: Element | null = null;
       const ranges: Range[] = [];
       const q = query.trim().toLocaleLowerCase();
@@ -1218,11 +1236,26 @@ function SettingsHits({
         } else parent.setAttribute('data-vo-hit', '');
       }
       if (HIGHLIGHTS) CSS.highlights.set('vo-find', new Highlight(...ranges));
-      first?.scrollIntoView({ block: 'nearest' });
+      // the first match comes into view once, not again with every change under the marks
+      if (!scrolled && first) {
+        first.scrollIntoView({ block: 'nearest' });
+        scrolled = true;
+      }
     };
     // the sections open over a short collapse: their words are in the page from its start
-    const t = window.setTimeout(mark, 60);
-    return () => window.clearTimeout(t);
+    let t = window.setTimeout(mark, 60);
+    // the words change under the marks (a summary after a setting, a section that loads): again
+    const seen = new MutationObserver(() => {
+      window.clearTimeout(t);
+      t = window.setTimeout(mark, 120);
+    });
+    seen.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => {
+      window.clearTimeout(t);
+      seen.disconnect();
+      if (HIGHLIGHTS) CSS.highlights.delete('vo-find');
+      for (const m of el.querySelectorAll('[data-vo-hit]')) m.removeAttribute('data-vo-hit');
+    };
   }, [root, query, sections]);
   return null;
 }
