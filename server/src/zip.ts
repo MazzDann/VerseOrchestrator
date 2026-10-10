@@ -1,3 +1,4 @@
+import fsp from 'node:fs/promises';
 import { promisify } from 'node:util';
 import zlib from 'node:zlib';
 
@@ -35,6 +36,67 @@ function dosTime(d: Date): [number, number] {
 }
 
 /**
+ * One entry packed: its local header, name and body (what goes at `offset`) and its central
+ * directory record. Deflated unless `store` says it is compressed already or deflating makes it
+ * larger.
+ */
+async function packEntry(
+  entryName: string,
+  data: Buffer,
+  storeIt: boolean,
+  [time, date]: [number, number],
+  offset: number,
+): Promise<{ local: Buffer[]; central: Buffer[]; bytes: number }> {
+  const name = Buffer.from(entryName, 'utf8');
+  const deflated = storeIt ? null : await deflateRaw(data, { level: 6 });
+  if (!deflated) await breathe();
+  const store = !deflated || deflated.length >= data.length;
+  const body = store ? data : deflated;
+  const crc = zlib.crc32(data);
+  const head = Buffer.alloc(30);
+  head.writeUInt32LE(LOCAL, 0);
+  head.writeUInt16LE(20, 4); // version needed: 2.0
+  head.writeUInt16LE(UTF8, 6);
+  head.writeUInt16LE(store ? 0 : 8, 8);
+  head.writeUInt16LE(time, 10);
+  head.writeUInt16LE(date, 12);
+  head.writeUInt32LE(crc, 14);
+  head.writeUInt32LE(body.length, 18);
+  head.writeUInt32LE(data.length, 22);
+  head.writeUInt16LE(name.length, 26);
+  head.writeUInt16LE(0, 28);
+  const dir = Buffer.alloc(46);
+  dir.writeUInt32LE(CENTRAL, 0);
+  dir.writeUInt16LE(20, 4); // made by: 2.0
+  dir.writeUInt16LE(20, 6);
+  dir.writeUInt16LE(UTF8, 8);
+  dir.writeUInt16LE(store ? 0 : 8, 10);
+  dir.writeUInt16LE(time, 12);
+  dir.writeUInt16LE(date, 14);
+  dir.writeUInt32LE(crc, 16);
+  dir.writeUInt32LE(body.length, 20);
+  dir.writeUInt32LE(data.length, 24);
+  dir.writeUInt16LE(name.length, 28);
+  dir.writeUInt32LE(offset, 42);
+  return {
+    local: [head, name, body],
+    central: [dir, name],
+    bytes: head.length + name.length + body.length,
+  };
+}
+
+/** The end of central directory record. */
+function endRecord(count: number, dirBytes: number, offset: number): Buffer {
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(END, 0);
+  end.writeUInt16LE(count, 8);
+  end.writeUInt16LE(count, 10);
+  end.writeUInt32LE(dirBytes, 12);
+  end.writeUInt32LE(offset, 16);
+  return end;
+}
+
+/**
  * A .zip of `entries`: each deflated unless `stored(name)` says it is compressed already (a
  * JPEG, a PNG: deflating them costs CPU and saves nothing) or deflating makes it larger.
  */
@@ -43,54 +105,55 @@ export async function zip(
   when = new Date(),
   stored: (name: string) => boolean = () => false,
 ): Promise<Buffer> {
-  const [time, date] = dosTime(when);
+  const at = dosTime(when);
   const parts: Buffer[] = [];
   const central: Buffer[] = [];
   let offset = 0;
   for (const e of entries) {
-    const name = Buffer.from(e.name, 'utf8');
-    const deflated = stored(e.name) ? null : await deflateRaw(e.data, { level: 6 });
-    if (!deflated) await breathe();
-    const store = !deflated || deflated.length >= e.data.length;
-    const body = store ? e.data : deflated;
-    const crc = zlib.crc32(e.data);
-    const head = Buffer.alloc(30);
-    head.writeUInt32LE(LOCAL, 0);
-    head.writeUInt16LE(20, 4); // version needed: 2.0
-    head.writeUInt16LE(UTF8, 6);
-    head.writeUInt16LE(store ? 0 : 8, 8);
-    head.writeUInt16LE(time, 10);
-    head.writeUInt16LE(date, 12);
-    head.writeUInt32LE(crc, 14);
-    head.writeUInt32LE(body.length, 18);
-    head.writeUInt32LE(e.data.length, 22);
-    head.writeUInt16LE(name.length, 26);
-    head.writeUInt16LE(0, 28);
-    parts.push(head, name, body);
-    const dir = Buffer.alloc(46);
-    dir.writeUInt32LE(CENTRAL, 0);
-    dir.writeUInt16LE(20, 4); // made by: 2.0
-    dir.writeUInt16LE(20, 6);
-    dir.writeUInt16LE(UTF8, 8);
-    dir.writeUInt16LE(store ? 0 : 8, 10);
-    dir.writeUInt16LE(time, 12);
-    dir.writeUInt16LE(date, 14);
-    dir.writeUInt32LE(crc, 16);
-    dir.writeUInt32LE(body.length, 20);
-    dir.writeUInt32LE(e.data.length, 24);
-    dir.writeUInt16LE(name.length, 28);
-    dir.writeUInt32LE(offset, 42);
-    central.push(dir, name);
-    offset += head.length + name.length + body.length;
+    const p = await packEntry(e.name, e.data, stored(e.name), at, offset);
+    parts.push(...p.local);
+    central.push(...p.central);
+    offset += p.bytes;
   }
   const dirBytes = central.reduce((n, b) => n + b.length, 0);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(END, 0);
-  end.writeUInt16LE(entries.length, 8);
-  end.writeUInt16LE(entries.length, 10);
-  end.writeUInt32LE(dirBytes, 12);
-  end.writeUInt32LE(offset, 16);
-  return Buffer.concat([...parts, ...central, end]);
+  return Buffer.concat([...parts, ...central, endRecord(entries.length, dirBytes, offset)]);
+}
+
+/**
+ * A .zip written to `file` one entry at a time (1.12.0-beta.3, the automatic backups): an entry
+ * given by its `file` is read only when its turn comes, so memory holds one picture, never the
+ * whole backup — it runs in the server, next to the hub, every day. Written to a temp file and
+ * renamed: never half a backup under its name. Returns the size written.
+ */
+export async function zipToFile(
+  file: string,
+  entries: { name: string; data?: Buffer; file?: string }[],
+  when = new Date(),
+  stored: (name: string) => boolean = () => false,
+): Promise<number> {
+  const at = dosTime(when);
+  const tmp = `${file}.${process.pid}.tmp`;
+  const out = await fsp.open(tmp, 'w');
+  const central: Buffer[] = [];
+  let offset = 0;
+  try {
+    for (const e of entries) {
+      const data = e.data ?? (e.file ? await fsp.readFile(e.file) : Buffer.alloc(0));
+      const p = await packEntry(e.name, data, stored(e.name), at, offset);
+      for (const b of p.local) await out.write(b);
+      central.push(...p.central);
+      offset += p.bytes;
+    }
+    const dirBytes = central.reduce((n, b) => n + b.length, 0);
+    for (const b of [...central, endRecord(entries.length, dirBytes, offset)]) await out.write(b);
+    await out.close();
+    await fsp.rename(tmp, file);
+    return offset + dirBytes + 22;
+  } catch (e) {
+    await out.close().catch(() => undefined);
+    await fsp.rm(tmp, { force: true });
+    throw e;
+  }
 }
 
 /** Why a file isn't a zip this reader takes. */

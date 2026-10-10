@@ -352,9 +352,9 @@ button: stop the app and run the start file again.
 
 A backup is one `.zip` file of what you set up and gathered in the app: the slide look,
 presets, hotkeys, bookmarks and history, the running order and saved programs, song bundles,
-and images. Modules and the library aren't in it: their large files are in the `modules/`
-folder. Neither are the speaker remotes or this computer's start settings: the port, the
-browser, and the choice of modules.
+and images, plus the start settings: the browser, the port, and updates. Modules and the
+library aren't in it: their large files are in the `modules/` folder. Neither are the speaker
+remotes or the choice of modules.
 
 To save a backup, in the control window open **Settings** → **App**, and in the **Backup**
 section click **Save a backup**. The browser downloads a file such as
@@ -379,6 +379,17 @@ back: click **Go back to how it was** in the **Backup** section and confirm with
 **Bring back**. What was changed after the restore is kept in `data/backups/` too.
 
 A backup can be up to 1 GB. If the images take more, the app says so and makes no backup.
+
+### Automatic backups
+
+The app makes a backup by itself once a day, at the first start, and before every version
+change: an update, **Go back to version …**, or installing another version. The backups are in
+`data/backups/auto/`; the last 7 daily ones and the last 3 made before a version change are
+kept. If the images don't fit in 1 GB, an automatic backup is made without them.
+
+To restore an automatic backup, in the **Backup** section click **Restore…** next to it and then
+**Restore**, as for a backup file. A backup without images leaves the images there are as they
+are. To stop the app from making backups by itself, turn off **Make backups automatically**.
 
 ## Carry data over from another copy
 

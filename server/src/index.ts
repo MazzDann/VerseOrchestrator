@@ -125,6 +125,7 @@ import {
   type Undone,
 } from './backup.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
+import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
 
 const app = express();
 const json = express.json({ limit: '1mb' });
@@ -563,6 +564,23 @@ function startSwap(
   }, 300);
 }
 
+/**
+ * Before a version change (1.12.0-beta.3): an automatic backup, when the operator keeps them on.
+ * It never blocks the change — one that fails is logged, and the swap goes on.
+ */
+async function backupBeforeSwap(to: string): Promise<void> {
+  if (!getServerSettings().backups.auto) return;
+  const started = Date.now();
+  try {
+    const b = await oneAtATime(() => makeAutoBackup(dataDir, appVersion, 'update', { to }));
+    console.log(
+      `[server] backup: before ${appVersion} → ${to}: ${b.name} (${Math.round(b.size / 1024)} KB, ${Date.now() - started} ms)`,
+    );
+  } catch (e) {
+    console.warn(`[server] backup: none before the version change: ${(e as Error).message}`);
+  }
+}
+
 app.post(
   '/api/update/restart',
   requireLocalControl,
@@ -572,6 +590,8 @@ app.post(
     const version = installer?.waiting(updates.state().latest?.version ?? null);
     if (!installer || !version || version === appVersion)
       throw new ApiError(409, N_('Оновлення ще не завантажено'));
+    await backupBeforeSwap(version);
+    if (installer) refuseIfNotNow(installer); // something may have started meanwhile
     startSwap(installer, version, 'update', res);
   }),
 );
@@ -587,6 +607,8 @@ app.post(
     refuseIfNotNow(installer);
     const version = installer.previousVersion();
     if (!version) throw new ApiError(409, N_('Попередньої версії немає'));
+    await backupBeforeSwap(version);
+    refuseIfNotNow(installer); // something may have started meanwhile
     startSwap(installer, version, 'rollback', res);
   }),
 );
@@ -1479,6 +1501,34 @@ app.post(
   }),
 );
 
+/** The automatic backups (1.12.0-beta.3), newest first. */
+app.get(
+  '/api/backup/auto',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    res.json({ backups: await listAutoBackups(dataDir) });
+  }),
+);
+
+/** An automatic backup to restore: read and kept as the pending one, what it holds said back. */
+app.post(
+  '/api/backup/auto/check',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const buf = await readAutoBackup(dataDir, req.body?.name);
+    if (!buf) throw new ApiError(404, N_('Цієї копії вже немає'));
+    try {
+      const summary = await oneAtATime(async () => {
+        const { summary } = await readBackup(buf);
+        return { ...summary, id: await keepPending(dataDir, buf) };
+      });
+      res.json(summary);
+    } catch (e) {
+      throw backupRefusal(e);
+    }
+  }),
+);
+
 app.get('/api/backup/state', requireLocal, (_req, res) => {
   res.json({ lastRestore: lastRestore(dataDir) });
 });
@@ -1920,6 +1970,31 @@ if (fs.existsSync(path.join(webDist, 'index.html'))) {
     res.sendFile(path.join(webDist, 'index.html'));
   });
 }
+
+/**
+ * The daily automatic backup (1.12.0-beta.3): at the first start of a day — half a minute after
+ * it, so the start isn't slowed —, and checked every hour for an app that runs for days. Not while
+ * the library rebuilds (it writes the songs), not when the operator turned them off.
+ */
+const AUTO_FIRST_MS = 30_000;
+const AUTO_EVERY_MS = 60 * 60 * 1000;
+async function dailyBackup(): Promise<void> {
+  if (!getServerSettings().backups.auto || rebuilding) return;
+  try {
+    if (!dailyDue(await listAutoBackups(dataDir))) return;
+    const started = Date.now();
+    const b = await oneAtATime(() => makeAutoBackup(dataDir, appVersion, 'daily'));
+    console.log(
+      `[server] backup: daily ${b.name} (${Math.round(b.size / 1024)} KB, ${Date.now() - started} ms)`,
+    );
+  } catch (e) {
+    console.warn(`[server] backup: no daily copy now: ${(e as Error).message}`);
+  }
+}
+setTimeout(() => {
+  void dailyBackup();
+  setInterval(() => void dailyBackup(), AUTO_EVERY_MS).unref();
+}, AUTO_FIRST_MS).unref();
 
 const server = app.listen(PORT, HOST, () => {
   const port = (server.address() as AddressInfo).port;

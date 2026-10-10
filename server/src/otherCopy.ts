@@ -15,7 +15,7 @@ import {
 } from './copyFinder.js';
 import { assertWritable, readJson } from './jsonFile.js';
 import { knownPairing } from './remote.js';
-import { sanitizeServerSettings } from './serverSettings.js';
+import { carriedSettings } from './serverSettings.js';
 import { compareVersions, parseVersion } from './updates.js';
 
 /**
@@ -185,17 +185,8 @@ export async function findCopies(o: {
   );
 }
 
-/**
- * This copy's start settings with the other copy's browser, port and idle stop, and updates. The
- * modules to build stay this copy's (they name its own modules/ files), and so does its remote
- * persistence — off there would wipe this copy's pairings at the next save (review of
- * 1.12.0-beta.2) — and anything else the file holds (the builder writes there too).
- */
-export function mergedSettings(ours: unknown, theirs: unknown): Record<string, unknown> {
-  const t = sanitizeServerSettings(theirs);
-  const base = ours && typeof ours === 'object' ? (ours as Record<string, unknown>) : {};
-  return { ...base, version: 1, standby: t.standby, updates: t.updates, launch: t.launch };
-}
+/** This copy's start settings with the other copy's (serverSettings.ts carriedSettings). */
+export const mergedSettings = carriedSettings;
 
 const json = (v: unknown) => Buffer.from(JSON.stringify(v, null, 2) + '\n');
 
