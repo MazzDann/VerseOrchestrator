@@ -138,7 +138,11 @@ function AlbumList({
           {tr('Альбомів ще немає. Натисніть «Додати папку…» і виберіть папку з фото.')}
         </Text>
       ) : (
-        <ScrollArea.Autosize mah="var(--vo-cap, min(320px, 30vh))">
+        <ScrollArea.Autosize
+          mah="var(--vo-cap, min(320px, 30vh))"
+          scrollbars="y"
+          className="vo-scroll-fit"
+        >
           {list.map((a) => {
             const use = usesOf(a.id);
             return (
@@ -359,7 +363,12 @@ export function FolderPicker({
           {tr((folders.error as Error).message)}
         </Text>
       ) : (
-        <ScrollArea.Autosize mah="var(--vo-cap, min(260px, 28vh))" mb={6}>
+        <ScrollArea.Autosize
+          mah="var(--vo-cap, min(260px, 28vh))"
+          mb={6}
+          scrollbars="y"
+          className="vo-scroll-fit"
+        >
           {here?.denied ? (
             <Text size="sm" c="dimmed">
               {deniedHint('folder', 'pick')}
@@ -644,7 +653,12 @@ function OpenAlbumView({
               {info.truncated && ` ${tr('Показано перші 5 000 фото.')}`}
             </Text>
           )}
-          <ScrollArea.Autosize mah="var(--vo-cap, min(320px, 30vh))" viewportRef={viewport}>
+          <ScrollArea.Autosize
+            mah="var(--vo-cap, min(320px, 30vh))"
+            viewportRef={viewport}
+            scrollbars="y"
+            className="vo-scroll-fit"
+          >
             <div className="vo-image-grid">
               {photos.map((p, i) => (
                 <div

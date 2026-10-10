@@ -10,6 +10,8 @@ import { Box, Burger, Divider, Group, Text } from '@mantine/core';
 import {
   IconAdjustments,
   IconAppWindow,
+  IconBell,
+  IconBellRinging,
   IconDeviceMobile,
   IconHelp,
   IconLayoutDashboard,
@@ -41,7 +43,9 @@ import { type FoldZone } from '../../lib/headerFold';
 import type { useHeaderFold } from '../../lib/headerFold';
 import { type TrackedOutput } from '../../lib/outputs';
 import { docsUrl } from '../../lib/docs';
-import { tr, useLang } from '../../i18n';
+import { unseenCount, useNoticeHistory } from '../../lib/noticeHistory';
+import { NoticeHistoryPopover } from '../../components/NoticeHistory';
+import { tr, trn, useLang } from '../../i18n';
 import { openPresenter, openStage } from './outputWindows';
 import { SearchField } from './SearchField';
 import { LiveZone, type LiveZoneProps } from './LiveZone';
@@ -91,6 +95,8 @@ export function ControlHeader({
   asideToggle,
   moreShown,
   setMoreOpen,
+  noticesOpen,
+  setNoticesOpen,
   panelPlacement,
   live,
 }: {
@@ -139,6 +145,9 @@ export function ControlHeader({
   asideToggle: boolean;
   moreShown: boolean;
   setMoreOpen: (opened: boolean) => void;
+  /** «Сповіщення» (the session's notices) open: its own keys, like the tools' (Control's toolOpen) */
+  noticesOpen: boolean;
+  setNoticesOpen: Toggle;
   panelPlacement: PanelPlacement;
   /** the go-live zone's own props, passed through to `LiveZone` */
   live: LiveZoneProps;
@@ -286,6 +295,24 @@ export function ControlHeader({
     active: settingsOpen,
     onClick: () => setSettingsOpen((o) => !o),
   };
+  // «Сповіщення» (the user's ask, 2026-10-09): the notices of this session, a dot for new ones
+  const unseen = useNoticeHistory(unseenCount);
+  const noticesTool: ToolProps = {
+    label: tr('Сповіщення'),
+    ariaLabel: unseen
+      ? trn(unseen, 'Сповіщення: {n} нове|Сповіщення: {n} нові|Сповіщення: {n} нових')
+      : undefined,
+    hint: tr('Що застосунок повідомляв за цей сеанс — якщо щось промайнуло'),
+    icon: unseen ? <IconBellRinging size={18} stroke={1.5} /> : <IconBell size={18} stroke={1.5} />,
+    dot: unseen > 0,
+    active: noticesOpen,
+    popup: true,
+    onClick: () => setNoticesOpen((o) => !o),
+  };
+  // «Ще» opening over the list it anchors (the app zone folded): the list makes way
+  useEffect(() => {
+    if (moreShown) setNoticesOpen(false);
+  }, [moreShown, setNoticesOpen]);
   const helpTool: ToolProps = {
     label: tr('Довідка'),
     hint: tr('Посібник користувача — відкривається на GitHub'),
@@ -317,7 +344,7 @@ export function ControlHeader({
     },
     app: {
       label: tr('Застосунок'),
-      tools: [settingsTool, helpTool, themeTool, ...(asideToggle ? [panelTool] : [])],
+      tools: [settingsTool, noticesTool, helpTool, themeTool, ...(asideToggle ? [panelTool] : [])],
     },
   };
   const hiddenWindows = [stageTool, outputsTool, viewersTool, remoteTool];
@@ -335,6 +362,14 @@ export function ControlHeader({
       opened={moreShown}
       onChange={setMoreOpen}
     />
+  );
+  // the app zone folded: «Сповіщення» is an item in «Ще», and its list opens under «Ще»
+  const moreAnchor = folded('app') ? (
+    <NoticeHistoryPopover opened={noticesOpen} onChange={setNoticesOpen}>
+      {moreButton}
+    </NoticeHistoryPopover>
+  ) : (
+    moreButton
   );
   // even the last step is too wide (a very large root font in a small window): what runs off
   // the right edge must not be «Ще», the only way to the folded tools — it goes before the
@@ -407,19 +442,22 @@ export function ControlHeader({
             {!simple && hiddenWindows.map((t) => <ToolIcon key={t.label} {...t} />)}
           </ToolZone>
         )}
-        {moreFirst && moreButton}
+        {moreFirst && moreAnchor}
         <LiveZone {...live} divider={!folded('windows') || moreFirst} fold={fold} keymap={keymap} />
         {folded('app') ? (
           !moreFirst && (
             <>
               <Divider orientation="vertical" h={24} style={{ alignSelf: 'center' }} />
-              {moreButton}
+              {moreAnchor}
             </>
           )
         ) : (
           <>
             <ToolZone label={tr('Застосунок')}>
               <ToolIcon {...settingsTool} />
+              <NoticeHistoryPopover opened={noticesOpen} onChange={setNoticesOpen}>
+                <ToolIcon {...noticesTool} tipOff={noticesOpen} />
+              </NoticeHistoryPopover>
               {!simple && hiddenApp.map((t) => <ToolIcon key={t.label} {...t} />)}
               {simple && !moreFirst && moreButton}
             </ToolZone>

@@ -1065,6 +1065,9 @@ export const EN: Record<string, string> = {
     'Opened from another control window: F or a click in the window itself makes it full screen',
   'Вікно не озвалося — можливо, браузер його заблокував: дозвольте спливні вікна для цього сайту':
     "The window didn't answer — the browser may have blocked it: allow pop-ups for this site",
+  '{window}: вкладка, а не окреме вікно': '{window}: a tab, not a window of its own',
+  'Браузер відкрив його вкладкою цього вікна, тож на інший екран його не перенести. Перетягніть вкладку за межі вікна браузера — вона стане окремим вікном. У LibreWolf і Firefox можна відкривати такі вікна окремо завжди: about:config → browser.link.open_newwindow.restriction = 2.':
+    "The browser opened it as a tab of this window, so it can't go to another screen. Drag the tab out of the browser window — it becomes a window of its own. In LibreWolf and Firefox you can always get such windows separately: about:config → browser.link.open_newwindow.restriction = 2.",
   'Браузер заблокував вікно — дозвольте спливні вікна для цього сайту':
     'The browser blocked the window — allow pop-ups for this site',
   'Цей браузер не передає жест іншому вікну — натисніть F у самому вікні':
@@ -1072,6 +1075,11 @@ export const EN: Record<string, string> = {
   '{window}: не вдалося перейти на весь екран': "{window}: couldn't go full screen",
   'Браузер не дозволив. Натисніть F у самому вікні або клацніть у ньому.':
     'The browser refused. Press F in the window itself, or click in it.',
+  '{window}: уже не на весь екран': '{window}: no longer full screen',
+  'Браузер так робить, коли у вікні керування відкрито вибір файлу. Клацніть будь-де у вікні керування — і «{window}» знову стане на весь екран. Або натисніть F у самому «{window}».':
+    'The browser does this while a file chooser is open in the control window. Click anywhere in the control window and “{window}” goes full screen again. Or press F in “{window}” itself.',
+  'Браузер так робить, коли у вікні керування відкрито вибір файлу. Натисніть F у самому «{window}» або клацніть у ньому.':
+    'The browser does this while a file chooser is open in the control window. Press F in “{window}” itself, or click in it.',
   '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну':
     "{window} didn't close — the browser won't let it be closed from here. Close it by hand",
   'Розкладку збережено: {n} вікно|Розкладку збережено: {n} вікна|Розкладку збережено: {n} вікон':
@@ -1798,6 +1806,13 @@ export const EN: Record<string, string> = {
   // 1.1.0 help
   Довідка: 'Help',
   'Посібник користувача — відкривається на GitHub': 'The user guide — opens on GitHub',
+  Сповіщення: 'Notifications',
+  'Сповіщення: {n} нове|Сповіщення: {n} нові|Сповіщення: {n} нових':
+    'Notifications: {n} new|Notifications: {n} new',
+  'Що застосунок повідомляв за цей сеанс — якщо щось промайнуло':
+    'What the app has told you this session — in case something flashed by',
+  'Сповіщення за цей сеанс': 'Notifications this session',
+  'Сповіщень ще не було.': 'No notifications yet.',
   // 1.2.0 feedback
   Відгук: 'Feedback',
   'Помітили помилку чи маєте ідею? Форма відкривається на GitHub (потрібен акаунт), з версією, системою й мовою. Відгук видно всім — не пишіть особистих даних.':
