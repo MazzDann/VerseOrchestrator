@@ -161,6 +161,12 @@ as with **System browser** — in the system browser, and from the shortcut in C
 a separate window — and says so in the start window. The choice is kept in
 `data/settings.json` → `launch`.
 
+The choice belongs to the copy of the app in whose control window it was made. If the computer
+has two copies — say, a new one unpacked beside an older one that **Start on open** runs — the
+new one's start file opens the control window of the older one, which is already running, in
+the browser chosen there, and the start window says which copy is running. To run the new one,
+switch the older one off (**Switch off completely…**) and start the new one's start file.
+
 Under the field you see the app's version — the same one stands at the top of **Settings**. A
 copy from the repository says `dev` and the branch there, for example
 `dev 1.4.4.try3 (feat/x · 36f9ddd)`.
