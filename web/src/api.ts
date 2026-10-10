@@ -557,6 +557,8 @@ const BackupSummarySchema = z.object({
   app: z.string(),
   created: z.string(),
   settings: z.boolean(),
+  /** 1.12.0-beta.4: the running order and the programs are there (a part of their own) */
+  playlist: z.boolean().optional(),
   programs: z.number(),
   items: z.number(),
   bundles: z.array(z.string()),
@@ -569,6 +571,15 @@ const BackupSummarySchema = z.object({
   id: z.string().optional(),
 });
 export type BackupSummary = z.infer<typeof BackupSummarySchema>;
+
+/** The parts a restore puts in place (1.12.0-beta.4, server/src/backup.ts `RestoreParts`). */
+export interface RestoreParts {
+  look: boolean;
+  programs: boolean;
+  songs: boolean;
+  pictures: boolean;
+  start: boolean;
+}
 
 /** An automatic backup (1.12.0-beta.3, server/src/autoBackup.ts `AutoBackup`). */
 const AutoBackupSchema = z.object({
@@ -905,8 +916,11 @@ export const api = {
     return z.object({ from: z.string(), to: z.string() }).parse(await res.json());
   },
   /** «Резервна копія» (1.5.0): the backup .zip and the name the server gives it. */
-  downloadBackup: async () => {
-    const res = await request('/api/backup', { headers: CONTROL_HEADERS });
+  /** `pictures: false` (1.12.0-beta.4): without the pictures — when they'd pass 1 GB. */
+  downloadBackup: async (pictures = true) => {
+    const res = await request(pictures ? '/api/backup' : '/api/backup?pictures=0', {
+      headers: CONTROL_HEADERS,
+    });
     if (!res.ok) throw await failure(res);
     const name =
       /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ??
@@ -924,11 +938,12 @@ export const api = {
     return BackupSummarySchema.parse(await res.json());
   },
   /** Restore the checked file `id` (checkBackup); another one checked since is refused. */
-  restoreBackup: async (id: string) => {
+  /** `parts` (1.12.0-beta.4): what to put in place; none given: all of it. */
+  restoreBackup: async (id: string, parts?: RestoreParts) => {
     const res = await request('/api/backup/restore', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify(parts ? { id, parts } : { id }),
     });
     if (!res.ok) throw await failure(res);
     return BackupSummarySchema.parse(await res.json());
