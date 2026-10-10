@@ -1,4 +1,5 @@
 import { isLoopbackHost, lookAgain, probe, useServer } from '../serverStore';
+import { useDataSource } from '../dataSourceStore';
 import { localEngine } from './engine';
 import { restoreLocalSegments } from './engine/restore';
 import { startUiStateSync, watchLocalEdits } from './uiState';
@@ -15,7 +16,7 @@ import { startUiStateSync, watchLocalEdits } from './uiState';
  * the window does what this start would have done with it, and `onServerBack` has every query
  * ask it.
  */
-export async function bootControl(onServerBack: () => void = () => {}): Promise<void> {
+export async function bootControl(reread: () => void = () => {}): Promise<void> {
   const found = await probe();
   if (found === 'up') {
     if (!(await settleHere())) return;
@@ -29,19 +30,35 @@ export async function bootControl(onServerBack: () => void = () => {}): Promise<
     else {
       // what is changed here meanwhile is newer than data/'s copy: sent, not taken, at the sync
       watchLocalEdits();
-      lookAgain(() => void serverBack(onServerBack));
+      lookAgain(
+        () => void serverBack(reread),
+        () => void browserLibrary(reread),
+      );
     }
   }
+  // «у браузері» chosen: its segments now; else (the server being looked for) a no-op
   restoreLocalSegments();
   await localEngine.whenReady();
 }
 
 /** The server answered after all (1.12.5): what the start would have done, then fresh reads. */
-async function serverBack(onServerBack: () => void): Promise<void> {
+async function serverBack(reread: () => void): Promise<void> {
   console.info('[control] the server answered — reading the library from it again');
   if (!(await settleHere())) return;
   void startUiStateSync();
-  onServerBack();
+  reread();
+}
+
+/**
+ * No server after the minute (1.12.5): the browser's library, as the start does without one —
+ * its segments restored, then the reads that failed meanwhile asked again (their keys don't
+ * name the source, so nothing else would ask them — review).
+ */
+async function browserLibrary(reread: () => void): Promise<void> {
+  // the start restored them only with «у браузері» chosen (the server was still awaited)
+  if (useDataSource.getState().source !== 'local') restoreLocalSegments();
+  await localEngine.whenReady();
+  reread();
 }
 
 /**

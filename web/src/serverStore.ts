@@ -23,8 +23,8 @@ interface ServerState {
   here: boolean | null;
   /**
    * The control window's server didn't answer at its start — starting, the laptop waking, a
-   * network that dropped — and is being looked for again (1.12.5, `lookAgain`). Meanwhile the
-   * choices that depend on the library (the ticked translations) are kept for its return.
+   * network that dropped — and is being looked for again (1.12.5, `lookAgain`). For its first
+   * minute (`available` null) the ticked translations are kept for its return.
    */
   lost: boolean;
 }
@@ -107,10 +107,12 @@ export async function probeServer(): Promise<boolean> {
  * 2 s for a minute (it may be starting, the laptop waking), the library reads meanwhile asking
  * it and saying they failed; after the minute the browser's library, as before 1.12.5, and a look
  * whenever the browser is online again or the window comes back into sight. `onBack` once it
- * answers; an address that turns out to have no server stops the looking. Returns the stop.
+ * answers; `onBrowser` when the browser's library takes over — after the minute, or at once for
+ * an address that turns out to have no server (which stops the looking). Returns the stop.
  */
 export function lookAgain(
   onBack: () => void,
+  onBrowser: () => void = () => {},
   o: { everyMs?: number; forMs?: number } = {},
 ): () => void {
   const everyMs = o.everyMs ?? 2000;
@@ -137,7 +139,9 @@ export function lookAgain(
         onBack();
       } else if (found === 'absent') {
         stop();
+        const waiting = useServer.getState().available === null;
         useServer.setState({ available: false, lost: false });
+        if (waiting) onBrowser();
       }
     });
   };
@@ -145,7 +149,9 @@ export function lookAgain(
     if (Date.now() - started < forMs) return look();
     window.clearInterval(timer);
     // a minute without it: the browser's library meanwhile (still looked for on the events)
-    if (useServer.getState().available === null) useServer.setState({ available: false });
+    if (useServer.getState().available !== null) return;
+    useServer.setState({ available: false });
+    onBrowser();
   }, everyMs);
   window.addEventListener('online', look);
   window.addEventListener('focus', look);
