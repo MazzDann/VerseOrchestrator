@@ -83,13 +83,13 @@ the speaker's phone are described in [Speaker remote](remote.md#what-the-speaker
 
 The buttons at the top of the control window are grouped from left to right:
 
-| Group                | Buttons                                                                                               |
-| -------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Navigation**       | the navigation menu (in a narrow window), **Search**, the **Search** field                            |
-| **Mode**             | **Bible**, **Songs**, **Media**                                                                       |
-| **Windows**          | **Presentation window**, **Stage**, **Output windows**, **Viewers**, **Speaker remote**               |
-| **Output to screen** | **Live**, **To screen**, **Hide text**, **Black screen**, **Cover**, **Countdown**, **Speaker timer** |
-| **App**              | **Settings**, **Help**, **Light theme** or **Dark theme**, **Preview panel** (in a narrow window)     |
+| Group                | Buttons                                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Navigation**       | the navigation menu (in a narrow window), **Search**, the **Search** field                                           |
+| **Mode**             | **Bible**, **Songs**, **Media**                                                                                      |
+| **Windows**          | **Presentation window**, **Stage**, **Output windows**, **Viewers**, **Speaker remote**                              |
+| **Output to screen** | **Live**, **To screen**, **Hide text**, **Black screen**, **Cover**, **Countdown**, **Speaker timer**                |
+| **App**              | **Settings**, **Notifications**, **Help**, **Light theme** or **Dark theme**, **Preview panel** (in a narrow window) |
 
 The mode chooses what you work with: **Bible** — the translations and books on the left, the
 verses in the middle; **Songs** — the song search and list on the left, the open song in the
@@ -97,11 +97,14 @@ middle; **Media** — **Images**, **Albums**, **Videos**, and **Text to screen**
 the chosen one in the middle. A verse picked in the search, the history, or the saved
 passages takes you back to **Bible**; a running order item opens its mode.
 
+**Notifications** (the bell) keeps the app's messages from this session — in case one
+flashed by while you looked at another window; a dot on the bell means new ones.
+
 In the **Simple view** (**Settings** → **App** → **Simple view**), the top keeps the modes,
-**Presentation window**, the **Output to screen** group, and **Settings**; **Stage**,
-**Output windows**, **Viewers**, **Speaker remote**, **Help**, and the theme go to the
-**More** menu. The right column then has only the monitors and the running order, without
-**Strong's**, **Context**, and **Appearance**.
+**Presentation window**, the **Output to screen** group, **Settings**, and
+**Notifications**; **Stage**, **Output windows**, **Viewers**, **Speaker remote**,
+**Help**, and the theme go to the **More** menu. The right column then has only the
+monitors and the running order, without **Strong's**, **Context**, and **Appearance**.
 
 When the buttons don't all fit in the window, they make room one step at a time:
 
