@@ -80,7 +80,10 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
   **Застосунок** → **Оновлення** (`server/src/versionLabel.ts`, `label` in `GET /api/health`).
   A release shows `VerseOrchestrator X.Y.Z` there. When the app is already running, the start file asks it for its label
   and says «Працює інша збірка: …» if it differs — for example, the app was started before
-  you switched branches. Then run `--off` and start again. A dev copy started by the start
+  you switched branches. Then run `--off` and start again. A waiter from another folder (a
+  release copy beside the clone) names itself in `GET /__standby` → `root`, and the start file
+  says «Працює інша копія застосунку: …» instead; it opens that copy's control window in the
+  browser chosen there (`launch` in the same answer — `runningLaunch` in launcher.ts). A dev copy started by the start
   file also notices new code by itself (1.6.0, `server/src/codeChange.ts`): once the
   checked-out commit is not the one it started with, **Оновлення** offers **Перезапустити**,
   which starts the launcher again in the background (`--after PID`: it waits for the old
