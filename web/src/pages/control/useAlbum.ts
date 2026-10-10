@@ -11,7 +11,8 @@ import { notifications } from '@mantine/notifications';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type AlbumInfo } from '../../api';
 import { type Slide, type SlideStyle } from '../../presenterBus';
-import { albumSlide, photoIndex, type AlbumPhoto } from '../../lib/album';
+import { albumSlide, photoIndex, photoReady, type AlbumPhoto } from '../../lib/album';
+import { heicToJpeg } from '../../lib/heic';
 import { readImageFit, type ImageFit } from '../../lib/imageFit';
 import { canDrawSmall, drawSmall, smallOrder } from '../../lib/albumSmall';
 import { PRIORITY, useCommandHandler, type Outcome } from '../../lib/commands';
@@ -228,6 +229,23 @@ export function useAlbum({
   };
   const showPhoto = (index: number, quiet = false, dir: 1 | -1 = 1) => {
     if (!album || !photos?.[index]) return;
+    // an HEIC still converting (1.14.0-beta.2): the screen keeps what it shows; the photo goes up
+    // once its view copy is made — converted first
+    if (!photoReady(photos[index])) {
+      waitFor.current = { id: album.id, name: photos[index].name, quiet, dir };
+      setAlbum({ id: album.id, index, name: photos[index].name });
+      setConvertNow((n) => n + 1);
+      noticeOnce(
+        'album-heic',
+        tr('Фото «{name}» ще перетворюється — покажу, щойно буде готове.', {
+          name: photos[index].name,
+        }),
+        3000,
+        'cue',
+      );
+      return;
+    }
+    waitFor.current = null;
     // the photo on screen keeps its «Вписати / Заповнити» when it is this album's (a refit sticks)
     const now = liveSlideRef.current;
     const fit = (albumOnScreen(now, album.id) && now.picture?.fit) || readImageFit();
@@ -289,7 +307,9 @@ export function useAlbum({
     if (!photos) return { ok: false, reason: tr('Альбом ще завантажується') };
     if (photos.length === 0) return { ok: false, reason: tr('В альбомі немає фото') };
     const at = place();
-    const idx = Math.max(0, Math.min(photos.length - 1, (at ?? -1) + dir));
+    let idx = Math.max(0, Math.min(photos.length - 1, (at ?? -1) + dir));
+    // the slideshow's own steps go past HEIC photos still converting (1.14.0-beta.2)
+    if (quiet) while (idx > 0 && idx < photos.length - 1 && !photoReady(photos[idx])) idx += dir;
     if (at != null && idx === at) {
       // the running order's next / previous item (1.10.0-beta.1) — never from the slideshow
       const o = quiet
@@ -410,6 +430,64 @@ export function useAlbum({
       stopped = true;
     };
   }, [isLeader, albumId, photos, serverAvailable]);
+
+  // HEIC photos of the open album (1.14.0-beta.2, the author's Q15): the leader makes a view copy
+  // of each in the HEIC worker — the one waited for first, then the photo on screen and the next
+  // two, then the rest; each once per window. The album is read again after each, so it shows.
+  const waitFor = useRef<{ id: string; name: string; quiet: boolean; dir: 1 | -1 } | null>(null);
+  const [convertNow, setConvertNow] = useState(0);
+  const converted = useRef(new Set<string>());
+  const putRef = useRef(put);
+  putRef.current = put;
+  useEffect(() => {
+    if (!isLeader || !albumId || !photos || serverAvailable === false) return;
+    let stopped = false;
+    const key = (name: string) => `${albumId}|${name}`;
+    const due = (i: number) =>
+      !photoReady(photos[i]) && !!photos[i].v && !converted.current.has(key(photos[i].name));
+    void (async () => {
+      while (!stopped) {
+        const wanted = waitFor.current?.id === albumId ? waitFor.current.name : null;
+        const w = wanted
+          ? photos.findIndex((p) => p.name === wanted && due(photos.indexOf(p)))
+          : -1;
+        const order = w >= 0 ? [w] : smallOrder(photos.length, currentRef.current, due);
+        if (order.length === 0) return;
+        const p = photos[order[0]];
+        converted.current.add(key(p.name));
+        try {
+          const raw = await api.albumRaw(albumId, p.name);
+          const { blob } = await heicToJpeg(raw, 3840, 0.9);
+          await api.putAlbumView(albumId, p.name, p.v!, blob);
+        } catch {
+          /* left as it is: the album says it still converts; a next opening tries again */
+          continue;
+        }
+        if (stopped) return;
+        const info = await queryClient
+          .fetchQuery({
+            queryKey: ['album', albumId],
+            queryFn: () => api.album(albumId),
+            staleTime: 0,
+          })
+          .catch(() => null);
+        const wait = waitFor.current;
+        const list = info?.photos ?? [];
+        const at = list.findIndex((x) => x.name === wait?.name);
+        if (wait && wait.id === albumId && at >= 0 && photoReady(list[at])) {
+          waitFor.current = null;
+          const now = liveSlideRef.current;
+          const fit = (albumOnScreen(now, albumId) && now.picture?.fit) || readImageFit();
+          putRef.current(albumId, list, at, fit, wait.quiet, wait.dir);
+        }
+        // the new listing restarts this loop with it
+        return;
+      }
+    })();
+    return () => {
+      stopped = true;
+    };
+  }, [isLeader, albumId, photos, serverAvailable, convertNow, queryClient, liveSlideRef]);
 
   const setEvery = (n: number) => {
     const v = Math.max(EVERY_MIN, Math.min(EVERY_MAX, Math.round(n) || EVERY_MIN));

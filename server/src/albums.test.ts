@@ -15,6 +15,7 @@ import {
   listPhotos,
   pastedPath,
   putSmall,
+  putView,
   smallCopies,
   smallFile,
   MAX_PHOTOS,
@@ -127,13 +128,16 @@ describe('albums: folders of photos (1.8.12)', () => {
     fs.mkdirSync(path.join(photos, 'more.jpg'));
     const listing = (await listPhotos(photos))!;
     // Ukrainian order on every machine: Cyrillic first
+    // an HEIC is listed too since 1.14.0-beta.2, marked: shown once the control window converted it
     expect(listing.photos.map((p) => p.name)).toEqual([
       'а.avif',
       'Б.webp',
       'img_1.png',
       'IMG_2.JPG',
+      'IMG_3.HEIC',
       'IMG_10.jpg',
     ]);
+    expect(listing.photos.find((p) => p.name === 'IMG_3.HEIC')?.heic).toBe(true);
     expect(listing.heic).toBe(1);
     expect(listing.truncated).toBe(false);
   });
@@ -543,7 +547,7 @@ describe('albums: folders of photos (1.8.12)', () => {
     expect(start.folders[0]).toMatchObject({ path: os.homedir(), kind: 'home' });
     expect(start.folders.some((f) => f.kind === 'drive')).toBe(true);
     const here = (await browse(photos))!;
-    expect(here).toMatchObject({ path: photos, parent: root, photos: 1, heic: 1 });
+    expect(here).toMatchObject({ path: photos, parent: root, photos: 2, heic: 1 });
     expect(here.folders.map((f) => f.name)).toEqual(['Літо 2', 'Літо 10']);
     expect(here.folders[0].path).toBe(path.join(photos, 'Літо 2'));
     expect((await browse(path.parse(photos).root))!.parent).toBeNull();
@@ -607,5 +611,45 @@ describe('albums: folders of photos (1.8.12)', () => {
     await dropSmalls(data, album.id);
     expect(fs.existsSync(path.join(data, 'album-cache', album.id))).toBe(false);
     expect(fs.existsSync(path.join(photos, 'big.jpg'))).toBe(true);
+  });
+});
+
+describe('HEIC in an album (1.14.0-beta.2)', () => {
+  it('waits for its view copy, then shows it — screen, phones — and a small copy keeps it', async () => {
+    const { photos, data } = folder({ 'IMG_1.HEIC': HEIC, 'a.jpg': JPG });
+    const album = await added(data, { path: photos });
+    const page = async () =>
+      Object.fromEntries(
+        albumEntry(
+          album,
+          await listPhotos(album.path, true),
+          true,
+          await smallCopies(data, album.id),
+        ).photos!.map((p) => [p.name, p]),
+      );
+    const before = (await page())['IMG_1.HEIC'];
+    expect(before).toMatchObject({ heic: true, ready: false, needsSmall: false });
+    expect((await photoFile(album.path, 'IMG_1.HEIC'))?.heic).toBe(true);
+    // phones get nothing before the view copy: never HEIC
+    expect(await smallFile(data, album, 'IMG_1.HEIC')).toBeNull();
+    const view = Buffer.concat([JPG, Buffer.from('view')]);
+    expect(await putView(data, album, 'IMG_1.HEIC', 'nope', view)).toEqual({ refused: 'changed' });
+    expect(await putView(data, album, 'a.jpg', before.v!, view)).toEqual({ refused: 'photo' });
+    expect(await putView(data, album, 'IMG_1.HEIC', before.v!, HEIC)).toEqual({ refused: 'type' });
+    expect(await putView(data, album, 'IMG_1.HEIC', before.v!, view)).toEqual({
+      bytes: view.length,
+    });
+    const after = (await page())['IMG_1.HEIC'];
+    expect(after).toMatchObject({ heic: true, ready: true });
+    expect(after.src).toMatch(/\?c=/);
+    const sent = (await smallFile(data, album, 'IMG_1.HEIC'))!;
+    expect(sent.type).toBe('image/jpeg');
+    expect(fs.readFileSync(sent.file).equals(view)).toBe(true);
+    // a small copy of it never takes the view copy with it
+    const small = Buffer.concat([JPG, Buffer.from('small')]);
+    expect(await putSmall(data, album, 'IMG_1.HEIC', before.v!, small)).toEqual({
+      bytes: small.length,
+    });
+    expect(fs.readdirSync(path.join(data, 'album-cache', album.id)).sort()).toHaveLength(2);
   });
 });

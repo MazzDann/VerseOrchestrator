@@ -9,3 +9,22 @@ import { N_ } from './i18n/index.js';
  */
 export const FOLDER_DENIED = N_('Система не дає відкрити цю папку — перевірте права доступу.');
 export const FILE_DENIED = N_('Система не дає відкрити цей файл — перевірте права доступу.');
+
+/** HEIF's brands — an iPhone's photos are `heic` — and AVIF's, which browsers do read. */
+const HEIF_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs']);
+const AVIF_BRANDS = new Set(['avif', 'avis']);
+
+/**
+ * An HEIC/HEIF photo by its first bytes (1.7.0; shared since 1.14.0-beta.2, the albums read it on
+ * the server too): an `ftyp` box whose brands — the major one and the compatible ones — are
+ * HEIF's (`mif1` alone is either; AVIF's make it AVIF).
+ */
+export function isHeic(b: Uint8Array): boolean {
+  const text = (at: number) => String.fromCharCode(...b.subarray(at, at + 4));
+  if (b.length < 12 || text(4) !== 'ftyp') return false;
+  const size = Math.min(b.length, ((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]) >>> 0);
+  const brands = [text(8)];
+  for (let at = 16; at + 4 <= size; at += 4) brands.push(text(at));
+  if (brands.some((x) => AVIF_BRANDS.has(x))) return false;
+  return brands.some((x) => HEIF_BRANDS.has(x)) || ['mif1', 'msf1'].includes(brands[0]);
+}
