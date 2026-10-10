@@ -2,7 +2,7 @@
  * A desktop shortcut and the control window as an app window (0.7.5). The shortcut starts the
  * app with `--app`: the launcher then opens the control window in Chrome or Edge as a window of
  * its own — no tabs, no address bar — or in the default browser when neither is there.
- *   Windows: VerseOrchestrator.lnk on the desktop (made by PowerShell's WScript.Shell),
+ *   Windows: VerseOrchestrator.lnk on the desktop (filled in by PowerShell's Shell.Application),
  *   macOS: VerseOrchestrator.command on the desktop (a Finder alias needs the Finder),
  *   Linux: verseorchestrator.desktop on the desktop and in the applications menu.
  *
@@ -110,6 +110,22 @@ Categories=Office;
 `;
 };
 
+/**
+ * An empty Windows shortcut: the 76-byte header of a Shell Link (MS-SHLLINK 2.1) and nothing else.
+ * Shell.Application opens it (GetLink) and saves a whole one. WScript.Shell, which made the file
+ * before, passes every path through the ANSI code page: on a Windows whose code page has no
+ * Cyrillic (the test Windows of 2026-10-09: system locale en-GB, 1252) a Cyrillic folder became
+ * «????» — the shortcut started nothing, and a Cyrillic desktop (a Cyrillic user name) could not
+ * take it at all — while the start window said ✓.
+ */
+export function emptyShellLink(): Buffer {
+  const head = Buffer.alloc(0x4c);
+  head.writeUInt32LE(0x4c, 0); // HeaderSize
+  Buffer.from('0114020000000000c000000000000046', 'hex').copy(head, 4); // LinkCLSID
+  head.writeUInt32LE(1, 60); // ShowCommand: SW_SHOWNORMAL
+  return head;
+}
+
 /** Make the shortcut; returns the file(s) made. */
 export function createShortcut(
   root: string,
@@ -118,29 +134,39 @@ export function createShortcut(
   const desktop = desktopDir(platform);
   fs.mkdirSync(desktop, { recursive: true });
   if (platform === 'win32') {
-    const file = path.join(desktop, 'VerseOrchestrator.lnk');
-    // the paths go in through the environment: no quoting of Cyrillic or spaces in a command
-    execFileSync(
-      'powershell',
-      [
-        '-NoProfile',
-        '-Command',
-        '$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:VO_LNK); ' +
-          '$s.TargetPath = $env:VO_TARGET; $s.Arguments = "--app"; ' +
-          '$s.WorkingDirectory = $env:VO_ROOT; $s.IconLocation = $env:VO_ICON; ' +
-          '$s.Description = "VerseOrchestrator"; $s.Save()',
-      ],
-      {
-        windowsHide: true,
-        env: {
-          ...process.env,
-          VO_LNK: file,
-          VO_TARGET: path.join(root, 'start.cmd'),
-          VO_ROOT: root,
-          VO_ICON: path.join(root, 'web', 'public', 'icon.ico'),
+    const name = 'VerseOrchestrator.lnk';
+    const file = path.join(desktop, name);
+    fs.writeFileSync(file, emptyShellLink());
+    // the paths go in through the environment: no quoting of Cyrillic or spaces in a command;
+    // Shell.Application's link object is Unicode all the way (emptyShellLink), and a failure
+    // stops the script — the start window then says so instead of ✓
+    try {
+      execFileSync(
+        'powershell',
+        [
+          '-NoProfile',
+          '-Command',
+          "$ErrorActionPreference = 'Stop'; " +
+            '$l = (New-Object -ComObject Shell.Application).NameSpace($env:VO_DIR).ParseName($env:VO_NAME).GetLink; ' +
+            '$l.Path = $env:VO_TARGET; $l.Arguments = "--app"; $l.WorkingDirectory = $env:VO_ROOT; ' +
+            '$l.SetIconLocation($env:VO_ICON, 0); $l.Description = "VerseOrchestrator"; $l.Save()',
+        ],
+        {
+          windowsHide: true,
+          env: {
+            ...process.env,
+            VO_DIR: desktop,
+            VO_NAME: name,
+            VO_TARGET: path.join(root, 'start.cmd'),
+            VO_ROOT: root,
+            VO_ICON: path.join(root, 'web', 'public', 'icon.ico'),
+          },
         },
-      },
-    );
+      );
+    } catch (err) {
+      fs.rmSync(file, { force: true }); // no empty shortcut left on the desktop
+      throw err;
+    }
     return [file];
   }
   if (platform === 'darwin') {
