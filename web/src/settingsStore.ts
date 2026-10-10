@@ -219,14 +219,44 @@ export interface OutputSettings {
    */
   separate: boolean;
   layout: SavedOutput[];
+  /**
+   * «Співвідношення сторін» (1.14.0-beta.3, the author's answer): the slide in a 16:9 or 4:3 box
+   * on black — as a projector that takes 4:3 shows it —, or the window's own shape
+   */
+  aspect: OutputAspect;
+  /** «Трансляція» (1.14.0-beta.3): the text over a live camera — OBS / vMix or a keyer */
+  broadcast: BroadcastLook;
 }
+
+export type OutputAspect = 'screen' | '16:9' | '4:3';
+export interface BroadcastLook {
+  /** «Нижня третина» — the text in a band at the bottom; «Як на показі» — the whole slide */
+  look: 'lower' | 'full';
+  /** transparent for OBS / vMix's browser source; green or black for a key over HDMI */
+  bg: 'transparent' | 'green' | 'black';
+  /** a dark band under the text (reads over any picture; off for a luma key) */
+  band: boolean;
+}
+export const DEFAULT_BROADCAST: BroadcastLook = { look: 'lower', bg: 'transparent', band: true };
 
 export const DEFAULT_OUTPUTS: OutputSettings = {
   multiple: false,
   fullscreen: false,
   separate: false,
   layout: [],
+  aspect: 'screen',
+  broadcast: DEFAULT_BROADCAST,
 };
+
+/** A broadcast look from anywhere (the store, an address's query): the defaults fill the rest. */
+export function sanitizeBroadcast(raw: unknown): BroadcastLook {
+  const r = (raw ?? {}) as Partial<Record<keyof BroadcastLook, unknown>>;
+  return {
+    look: r.look === 'full' ? 'full' : 'lower',
+    bg: r.bg === 'green' || r.bg === 'black' ? r.bg : 'transparent',
+    band: r.band !== false,
+  };
+}
 
 export function sanitizeOutputs(raw: unknown): OutputSettings {
   const r = (raw ?? {}) as Partial<Record<keyof OutputSettings, unknown>>;
@@ -243,6 +273,8 @@ export function sanitizeOutputs(raw: unknown): OutputSettings {
         .map(({ kind, screenKey, screenLabel }) => ({ kind, screenKey, screenLabel }))
     : [];
   return {
+    aspect: r.aspect === '16:9' || r.aspect === '4:3' ? r.aspect : 'screen',
+    broadcast: sanitizeBroadcast(r.broadcast),
     multiple: r.multiple === true,
     fullscreen: r.fullscreen === true,
     separate: r.separate === true,

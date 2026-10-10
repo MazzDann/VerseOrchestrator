@@ -676,6 +676,22 @@ describe('speaker remote over the hub', () => {
     await until(() => controlWindows().open === 0);
   });
 
+  it('«Трансляція» (this computer) hears whole slides, follow-along or not; it is no viewer (1.14.0-beta.3)', async () => {
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const before = viewerCount();
+    const key = client({ role: 'key' });
+    expect(await key.next('welcome')).toMatchObject({ role: 'key' });
+    expect(await key.next('slides')).toMatchObject({ type: 'slides' });
+    // counted while it said nothing, no more once it said what it is
+    await until(() => viewerCount() === before);
+    const live = { lines: [{ text: 'Господь — мій Пастир' }], reference: 'Пс 23:1' };
+    control.ws.send(JSON.stringify({ type: 'slides', live, next: null }));
+    expect(await key.next('slides')).toEqual({ type: 'slides', live, next: null });
+    for (const c of [control, key]) c.ws.close();
+    await until(() => controlWindows().open === 0);
+  });
+
   it('«Заставка» and «Відлік» need their own permission; a countdown says what to do', async () => {
     const p = createPairing('Ноутбук помічника', [...DEFAULT_ALLOWED, 'cover'], 'desk');
     const control = client({ role: 'control' }, origin());
