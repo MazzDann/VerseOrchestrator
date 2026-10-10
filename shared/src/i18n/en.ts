@@ -813,6 +813,7 @@ export const EN: Record<string, string> = {
   'Фото «{name}» ще перетворюється — покажу, щойно буде готове.':
     'The photo «{name}» is still converting — it goes on screen once it is ready.',
   'Копія фото HEIC має бути JPEG до 20 МБ': 'The HEIC photo’s copy must be a JPEG of up to 20 MB',
+  'Не вдалося перетворити фото HEIC «{name}»': 'Could not convert the HEIC photo «{name}»',
   'Не вдалося перейменувати: {error}': 'Could not rename: {error}',
   'Бандл із такою назвою вже є': 'A bundle with this name already exists',
   'Бандл «{bundle}» повернуто': 'The bundle “{bundle}” is back',

@@ -135,6 +135,7 @@ export function useAlbum({
     (id: string | null, at?: { index: number; name?: string }) => {
       // opened at a place (a takeover): from there, not from what this window showed before
       shown.current = null;
+      waitFor.current = null;
       setAlbum(id ? { id, index: at?.index ?? null, name: at?.name } : null);
       if (id) openAlbumsTab();
       setPlaying(false);
@@ -232,7 +233,13 @@ export function useAlbum({
     // an HEIC still converting (1.14.0-beta.2): the screen keeps what it shows; the photo goes up
     // once its view copy is made — converted first
     if (!photoReady(photos[index])) {
-      waitFor.current = { id: album.id, name: photos[index].name, quiet, dir };
+      waitFor.current = {
+        id: album.id,
+        name: photos[index].name,
+        quiet,
+        dir,
+        over: liveSlideRef.current,
+      };
       setAlbum({ id: album.id, index, name: photos[index].name });
       setConvertNow((n) => n + 1);
       noticeOnce(
@@ -434,7 +441,14 @@ export function useAlbum({
   // HEIC photos of the open album (1.14.0-beta.2, the author's Q15): the leader makes a view copy
   // of each in the HEIC worker — the one waited for first, then the photo on screen and the next
   // two, then the rest; each once per window. The album is read again after each, so it shows.
-  const waitFor = useRef<{ id: string; name: string; quiet: boolean; dir: 1 | -1 } | null>(null);
+  const waitFor = useRef<{
+    id: string;
+    name: string;
+    quiet: boolean;
+    dir: 1 | -1;
+    /** the screen when it was asked: a screen changed meanwhile isn't covered by it (review) */
+    over: Slide;
+  } | null>(null);
   const [convertNow, setConvertNow] = useState(0);
   const converted = useRef(new Set<string>());
   const putRef = useRef(put);
@@ -460,10 +474,17 @@ export function useAlbum({
           const { blob } = await heicToJpeg(raw, 3840, 0.9);
           await api.putAlbumView(albumId, p.name, p.v!, blob);
         } catch {
-          /* left as it is: the album says it still converts; a next opening tries again */
+          // left as it is (a next opening tries again); the photo waited for says so (review)
+          if (waitFor.current?.id === albumId && waitFor.current.name === p.name) {
+            waitFor.current = null;
+            notifications.show({
+              message: tr('Не вдалося перетворити фото HEIC «{name}»', { name: p.name }),
+              color: 'red',
+            });
+          }
           continue;
         }
-        if (stopped) return;
+        // read again even when this loop was stopped meanwhile: its photo must show as ready (review)
         const info = await queryClient
           .fetchQuery({
             queryKey: ['album', albumId],
@@ -476,9 +497,12 @@ export function useAlbum({
         const at = list.findIndex((x) => x.name === wait?.name);
         if (wait && wait.id === albumId && at >= 0 && photoReady(list[at])) {
           waitFor.current = null;
+          // only over the screen it was asked over: verses, a song or black since then stay
           const now = liveSlideRef.current;
-          const fit = (albumOnScreen(now, albumId) && now.picture?.fit) || readImageFit();
-          putRef.current(albumId, list, at, fit, wait.quiet, wait.dir);
+          if (now === wait.over && leaderRef.current) {
+            const fit = (albumOnScreen(now, albumId) && now.picture?.fit) || readImageFit();
+            putRef.current(albumId, list, at, fit, wait.quiet, wait.dir);
+          }
         }
         // the new listing restarts this loop with it
         return;
@@ -487,7 +511,16 @@ export function useAlbum({
     return () => {
       stopped = true;
     };
-  }, [isLeader, albumId, photos, serverAvailable, convertNow, queryClient, liveSlideRef]);
+  }, [
+    isLeader,
+    albumId,
+    photos,
+    serverAvailable,
+    convertNow,
+    queryClient,
+    liveSlideRef,
+    leaderRef,
+  ]);
 
   const setEvery = (n: number) => {
     const v = Math.max(EVERY_MIN, Math.min(EVERY_MAX, Math.round(n) || EVERY_MIN));
