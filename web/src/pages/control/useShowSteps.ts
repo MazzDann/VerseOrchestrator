@@ -152,16 +152,20 @@ export function useShowSteps({
    * натиснути»): verses added with Ctrl / ⌘ / Shift gather in the preview until Enter, «На екран»
    * or «Далі» shows them together.
    */
-  const [hold, setHold] = useState<'preview' | 'pick' | null>(null);
+  const walkKey = `${primaryId}:${bookNumber}:${chapter}`;
+  // a pick belongs to its chapter: another chapter, book or main translation lets it go (review)
+  const [held, setHeld] = useState<{ kind: 'preview' | 'pick'; key: string } | null>(null);
+  const hold = held && (held.kind === 'preview' || held.key === walkKey) ? held.kind : null;
+  const setHold = (kind: 'preview' | 'pick' | null) =>
+    setHeld(kind ? { kind, key: walkKey } : null);
   const screenHeld = hold !== null;
-  useEffect(() => setHold(null), [liveFollow]);
+  useEffect(() => setHeld(null), [liveFollow]);
   /**
    * The pick collected last (Ctrl / ⌘ / Shift) and the one «Далі» walks once it is on screen: all
    * together, one by one, then on after the last (1.13.0-beta.1).
    */
   const picked = useRef<PickWalk | null>(null);
   const walk = useRef<PickWalk | null>(null);
-  const walkKey = `${primaryId}:${bookNumber}:${chapter}`;
   const isPicked = (verses: number[]) => {
     const p = picked.current;
     return (
@@ -200,6 +204,7 @@ export function useShowSteps({
   /** Ctrl / ⌘ + a verse: in or out of the pick — held in the preview while the screen follows. */
   const pickVerse = (verse: number) => {
     holdPick();
+    walk.current = null;
     const next = selectedVerses.includes(verse)
       ? selectedVerses.filter((v) => v !== verse)
       : [...selectedVerses, verse].sort((a, b) => a - b);
@@ -209,6 +214,7 @@ export function useShowSteps({
   /** Shift + a verse: the pick becomes this range (or grows by it with Ctrl too). */
   const pickVerses = (verses: number[]) => {
     holdPick();
+    walk.current = null;
     const next = [...new Set(verses)].sort((a, b) => a - b);
     picked.current = { key: walkKey, verses: next };
     setSelectedVerses(next);
@@ -216,7 +222,9 @@ export function useShowSteps({
   /** A plain click: one verse, and the screen follows it again. */
   const selectVerses = (verses: number[]) => {
     if (hold === 'pick') setHold(null);
+    // a plain click starts afresh: no walk through an earlier pick (review)
     picked.current = null;
+    walk.current = null;
     setSelectedVerses(verses);
   };
   const holdPick = () => {

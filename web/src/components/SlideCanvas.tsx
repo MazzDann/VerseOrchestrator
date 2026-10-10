@@ -226,7 +226,8 @@ function useGrowth(
     source: SlideSource | undefined;
     numbers: boolean;
     grown: Grown | null;
-  }>({ key: null, layerKey: null, source: undefined, numbers: false, grown: null });
+    can: boolean;
+  }>({ key: null, layerKey: null, source: undefined, numbers: false, grown: null, can: false });
   const numbers = lines.some((l) => l.segments?.some((s) => s.num));
   const c = last.current;
   let layerKey = textKey;
@@ -234,7 +235,8 @@ function useGrowth(
   if (textKey !== null && textKey === c.key) {
     layerKey = c.layerKey;
     grown = c.grown;
-  } else if (textKey !== null && c.key !== null && can && addedVerses(c.source, source)) {
+  } else if (textKey !== null && c.key !== null && can && c.can && addedVerses(c.source, source)) {
+    // both plain verse text: a reveal turning into the whole text is another slide (review)
     layerKey = c.layerKey;
     const animation = riseAnimation(mode);
     if (animation) {
@@ -246,7 +248,7 @@ function useGrowth(
     }
   }
   useLayoutEffect(() => {
-    last.current = { key: textKey, layerKey, source, numbers, grown };
+    last.current = { key: textKey, layerKey, source, numbers, grown, can };
   });
   return { layerKey, grown };
 }
