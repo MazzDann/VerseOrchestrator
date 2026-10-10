@@ -217,9 +217,31 @@ describe('the browsers on this computer (2026-10-01)', () => {
       ['firefox', here[2], false],
       ['zen', here[3], false],
       ['edge', here[1], true],
-      ['opera', here[4], true],
+      // built on Chromium, but `--app` gives an empty window there (2026-10-10): a page instead
+      ['opera', here[4], false],
     ]);
     expect(found.every((b) => b.bundleId === null)).toBe(true);
+  });
+
+  it('Opera with «Окремим вікном» saved: the control window opens as a page, not an empty window', () => {
+    const opera = detectBrowsers({
+      platform: 'win32',
+      env: { ProgramFiles: 'C:\\Program Files' },
+      home: 'C:\\Users\\Op',
+      isFile: (p) => p === 'C:\\Program Files\\Opera\\opera.exe',
+    }).find((b) => b.id === 'opera')!;
+    const url = 'http://localhost:4747/?browser=opera';
+    // the user's case: launch {opera, appWindow: true} from before — and the shortcut's --app
+    expect(openInCommand('win32', opera, url, true)).toEqual([
+      'C:\\Program Files\\Opera\\opera.exe',
+      [url],
+    ]);
+    expect(browserListing([opera]).find((b) => b.id === 'opera')).toMatchObject({
+      installed: true,
+      appWindow: false,
+    });
+    // not installed: still not offered
+    expect(browserListing([]).find((b) => b.id === 'opera')?.appWindow).toBe(false);
   });
 
   it('Linux: the programs on PATH', () => {
