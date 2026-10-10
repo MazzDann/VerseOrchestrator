@@ -1906,6 +1906,7 @@ export const EN: Record<string, string> = {
   'Не дозволено оператором': 'Not allowed by the operator',
   'Немає пісень за «{query}»': 'No songs for “{query}”',
   'Нічого не знайдено за «{query}»': 'Nothing found for “{query}”',
+  'Пошук не вдався: {error}': 'The search failed: {error}',
   'Оператор ще нічого не додав.': 'The operator hasn’t added anything yet.',
   'Показати прев’ю': 'Show the preview',
   'Попередні вірші того, що ви показали': 'The previous verses of what you showed',

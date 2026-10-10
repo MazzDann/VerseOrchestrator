@@ -118,7 +118,7 @@ export function SearchPanel({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const current = scope === 'current' && primaryId != null;
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, error, refetch } = useQuery({
     queryKey: ['search', debounced, scope, primaryId],
     queryFn: async () => {
       const first = await api.search(debounced, current ? [primaryId] : []);
@@ -319,7 +319,18 @@ export function SearchPanel({
                 onPoint={setHighlight}
               />
             ))}
-            {debounced.trim().length >= 2 && rows.length === 0 && !isFetching && (
+            {debounced.trim().length >= 2 && rows.length === 0 && !isFetching && error && (
+              // a failed search says so — «Нічого не знайдено» sent users to other words (F1010-02)
+              <Group gap="xs" p="sm" wrap="nowrap">
+                <Text size="sm" c="red" style={{ flex: 1, minWidth: 0 }}>
+                  {tr('Пошук не вдався: {error}', { error: error.message })}
+                </Text>
+                <Button size="compact-xs" variant="light" onClick={() => void refetch()}>
+                  {tr('Спробувати ще раз')}
+                </Button>
+              </Group>
+            )}
+            {debounced.trim().length >= 2 && rows.length === 0 && !isFetching && !error && (
               <Text size="sm" c="dimmed" p="sm">
                 {tr('Нічого не знайдено')}
               </Text>
