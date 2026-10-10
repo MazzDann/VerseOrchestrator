@@ -771,8 +771,8 @@ app.post(
   }),
 );
 
-// the first look a little after the start, then twice a day (check() skips a fresh answer);
-// never from the tests
+// the first look a little after the start, then every hour (check() skips a fresh answer — twice
+// a day before 1.12.3); never from the tests
 if (!process.env.VITEST) {
   // …and a copy of the repository fetches its upstream as often, with the switch on (1.6.1)
   const look = () => {

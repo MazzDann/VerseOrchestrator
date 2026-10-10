@@ -166,7 +166,9 @@ computer.
 | Browser Cache Storage and IndexedDB | segment cache and PGlite snapshots for the in-browser engines                                                                                         |
 
 Server data follows `VO_DATA_DIR` (default `data/`). The server asks GitHub's releases API
-about newer versions (`server/src/updates.ts`, at most every 12 hours, switch
+about newer versions (`server/src/updates.ts`: an hourly look that skips an answer under
+50 minutes old, `GET /api/update?fresh=1` from an open «Оновлення» on one over ten minutes,
+each request with the last ETag so an unchanged list is a 304; switch
 `updates.check` in `settings.json`; `VO_UPDATE_URL` points it elsewhere — a test can pass a
 `data:` URL). A copy in the release layout installs a newer release on request:
 `server/src/installer.ts` downloads this system's archive into `data/updates/`, checks it
