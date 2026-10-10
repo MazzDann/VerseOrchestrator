@@ -1,4 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIntersection } from '@mantine/hooks';
 import { api, type CodeState, type UpdateState } from '../api';
 import { useServer } from '../serverStore';
 import { FIRST_FOREIGN_SAFE, KIND_SINCE, type SeqItem } from '../playlistStore';
@@ -8,12 +10,13 @@ export function useUpdateState(): UpdateState | undefined {
   const serverAvailable = useServer((s) => s.available);
   return useQuery({
     queryKey: ['update'],
-    queryFn: api.update,
+    queryFn: () => api.update(),
     enabled: serverAvailable === true,
     staleTime: 60 * 60 * 1000,
-    // every second while an update downloads, checks or unpacks
+    // every second while an update downloads, checks or unpacks; else hourly, as the server
+    // looks (1.12.3 — six hours before)
     refetchInterval: (q) =>
-      BUSY.has(q.state.data?.installer?.phase ?? 'idle') ? 1000 : 6 * 60 * 60 * 1000,
+      BUSY.has(q.state.data?.installer?.phase ?? 'idle') ? 1000 : 60 * 60 * 1000,
     // a download goes on while the operator looks elsewhere: back here, it isn't stuck at 1 MB
     refetchIntervalInBackground: true,
     retry: false,
@@ -21,6 +24,26 @@ export function useUpdateState(): UpdateState | undefined {
 }
 
 const BUSY = new Set(['download', 'verify', 'unpack']);
+
+/**
+ * «Оновлення» in sight (1.12.3): the server asks GitHub again when its answer is older than ten
+ * minutes — a release out this morning shows now, not at the next look (users' report F1010-01b:
+ * «У вас остання версія», checked hours before a fix came out). The ref goes on the section.
+ */
+export function useFreshUpdate() {
+  const serverAvailable = useServer((s) => s.available);
+  const queryClient = useQueryClient();
+  const { ref, entry } = useIntersection<HTMLDivElement>();
+  const inSight = !!entry?.isIntersecting;
+  useEffect(() => {
+    if (!inSight || serverAvailable !== true) return;
+    api.update(true).then(
+      (s) => queryClient.setQueryData(['update'], s),
+      () => {}, // the hourly look tries again
+    );
+  }, [inSight, serverAvailable, queryClient]);
+  return ref;
+}
 
 const VERSION = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*))?$/;
 
