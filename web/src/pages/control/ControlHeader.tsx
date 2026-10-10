@@ -306,6 +306,7 @@ export function ControlHeader({
     icon: unseen ? <IconBellRinging size={18} stroke={1.5} /> : <IconBell size={18} stroke={1.5} />,
     dot: unseen > 0,
     active: noticesOpen,
+    popup: true,
     onClick: () => setNoticesOpen((o) => !o),
   };
   // «Ще» opening over the list it anchors (the app zone folded): the list makes way

@@ -83,6 +83,8 @@ export interface ToolProps {
   dot?: boolean;
   /** A fuller name for screen readers than the tooltip's (a count: «Сповіщення: 3 нові»). */
   ariaLabel?: string;
+  /** It opens a pop-up under it (the notices' list), not a panel: said as expanded, not pressed. */
+  popup?: boolean;
 }
 
 /**
@@ -101,6 +103,7 @@ export function ToolIcon({
   disabled,
   dot,
   ariaLabel,
+  popup,
   filled,
   tipOff,
 }: ToolProps & { filled?: boolean; tipOff?: boolean }) {
@@ -118,7 +121,9 @@ export function ToolIcon({
           onClick={onClick}
           disabled={disabled}
           aria-label={ariaLabel ?? label}
-          aria-pressed={active}
+          aria-pressed={popup ? undefined : active}
+          aria-haspopup={popup ? 'dialog' : undefined}
+          aria-expanded={popup ? !!active : undefined}
         >
           {icon}
         </ActionIcon>
