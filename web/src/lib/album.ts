@@ -17,7 +17,13 @@ export interface AlbumPhoto {
   needsSmall?: boolean;
   /** the version a small copy is drawn of */
   v?: string;
+  /** an iPhone photo (1.14.0-beta.2): shown once `ready` (its view copy made) */
+  heic?: boolean;
+  ready?: boolean;
 }
+
+/** A photo that can go on screen now: any but an HEIC still converting (1.14.0-beta.2). */
+export const photoReady = (p: AlbumPhoto) => !p.heic || !!p.ready;
 
 /** The name without its extension: what the monitors, the remotes and the phones say. */
 export const photoTitle = (name: string) => name.replace(/\.[^.]{1,5}$/, '') || name;

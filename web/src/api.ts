@@ -486,7 +486,7 @@ const AlbumSchema = z.object({
   /** added on another computer (a Windows path on a Mac, or back): missing here, kept there */
   elsewhere: z.boolean().optional(),
   count: z.number(),
-  /** HEIC photos left out: browsers can't draw them */
+  /** HEIC photos among them: shown once the control window converted each (1.14.0-beta.2) */
   heic: z.number(),
   /** more than 5 000 photos: the rest left out */
   truncated: z.boolean(),
@@ -502,6 +502,9 @@ const AlbumSchema = z.object({
         needsSmall: z.boolean().optional(),
         /** the photo's version the copy is drawn of (sent back with it) */
         v: z.string().optional(),
+        /** an iPhone photo (1.14.0-beta.2): `ready` once its view copy is made */
+        heic: z.boolean().optional(),
+        ready: z.boolean().optional(),
       }),
     )
     .optional(),
@@ -1131,6 +1134,22 @@ export const api = {
   putAlbumSmall: async (id: string, name: string, version: string, jpeg: Blob) => {
     const res = await request(
       `/api/albums/${encodeURIComponent(id)}/small/${encodeURIComponent(name)}?v=${encodeURIComponent(version)}`,
+      { method: 'PUT', headers: { 'Content-Type': 'image/jpeg', ...CONTROL_HEADERS }, body: jpeg },
+    );
+    if (!res.ok) throw await failure(res);
+  },
+  /** An HEIC photo as it is (1.14.0-beta.2), for the HEIC worker */
+  albumRaw: async (id: string, name: string) => {
+    const res = await request(
+      `/api/albums/${encodeURIComponent(id)}/raw/${encodeURIComponent(name)}`,
+    );
+    if (!res.ok) throw await failure(res);
+    return res.blob();
+  },
+  /** The view copy the HEIC worker made of an album's photo (a JPEG ≤ 20 MB) */
+  putAlbumView: async (id: string, name: string, version: string, jpeg: Blob) => {
+    const res = await request(
+      `/api/albums/${encodeURIComponent(id)}/view/${encodeURIComponent(name)}?v=${encodeURIComponent(version)}`,
       { method: 'PUT', headers: { 'Content-Type': 'image/jpeg', ...CONTROL_HEADERS }, body: jpeg },
     );
     if (!res.ok) throw await failure(res);

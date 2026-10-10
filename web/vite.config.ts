@@ -106,7 +106,8 @@ export default defineConfig({
   optimizeDeps: {
     // The official SQLite WASM build and PGlite load their .wasm (and PGlite its data
     // bundle) relative to their own module files — pre-bundling would move the JS away.
-    exclude: ['@sqlite.org/sqlite-wasm', '@electric-sql/pglite'],
+    // libheif (1.14.0-beta.2) is loaded only by the HEIC worker, at the first HEIC: as it is
+    exclude: ['@sqlite.org/sqlite-wasm', '@electric-sql/pglite', 'libheif-js'],
     include: [
       'react',
       'react-dom',

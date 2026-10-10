@@ -429,7 +429,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               </Text>
               <Group gap="xs">
                 <FileButton
-                  accept="image/png,image/jpeg,image/webp"
+                  accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
                   onChange={(f) => void putImage('coverImage', f, fileToLogoDataUrl)}
                 >
                   {(props) => (
@@ -885,7 +885,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               </Text>
               <Group gap="xs">
                 <FileButton
-                  accept="image/png,image/jpeg,image/webp"
+                  accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
                   onChange={(f) =>
                     void putImage('bgImage', f, (file) => fileToDownscaledDataUrl(file))
                   }

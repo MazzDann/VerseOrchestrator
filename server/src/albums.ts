@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readJson, writeJson } from './jsonFile.js';
 import { CONTENT_TYPE, MAX_SMALL_BYTES, sniff } from './images.js';
+import { isHeic } from '@vo/shared';
 
 /**
  * Albums (1.8.12, F1005-13): folders of photos on this computer, shown in turn. The server
@@ -24,8 +25,11 @@ import { CONTENT_TYPE, MAX_SMALL_BYTES, sniff } from './images.js';
 export const ALBUMS_FILE = 'albums.json';
 /** What a folder's listing shows: the types browsers draw. */
 export const PHOTO_EXTS: readonly string[] = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'];
-/** iPhone photos browsers can't draw — counted, so the album can say why they are not there */
-const HEIC_EXTS: readonly string[] = ['heic', 'heif'];
+/**
+ * iPhone photos browsers can't draw: listed as «waiting» — the control window makes a view copy
+ * of each in its HEIC worker (1.14.0-beta.2, the author's Q15), shown from then on
+ */
+const HEIC_EXTS: readonly string[] = ['heic', 'heif', 'hif'];
 /** a folder's listing stops here (the album says so) */
 export const MAX_PHOTOS = 5000;
 /** how long a listing answers the file requests (a grid of thumbnails asks for many at once) */
@@ -51,6 +55,8 @@ export interface AlbumPhoto {
   /** bytes and last change, when the listing asked (`listPhotos(…, true)`): the photo's version */
   size?: number;
   mtime?: number;
+  /** an HEIC photo: shown from its view copy, once the control window made one (1.14.0-beta.2) */
+  heic?: true;
 }
 
 /**
@@ -70,13 +76,16 @@ export const versionOf = (st: { size: number; mtimeMs: number }) =>
 const smallBase = (name: string) =>
   crypto.createHash('sha1').update(name.normalize('NFC')).digest('hex');
 const smallName = (name: string, version: string) => `${smallBase(name)}-${version}.jpg`;
+/** An HEIC photo's view copy (1.14.0-beta.2): a JPEG ≤ 3840 px, kept with the small copies. */
+export const viewName = (name: string, version: string) => `${smallBase(name)}-${version}.view.jpg`;
+export const MAX_VIEW_BYTES = 20 * 1024 * 1024;
 /** Needs no copy of its own: small already, or a GIF that would lose its frames. */
 export const smallAsIs = (name: string, size: number) =>
   size <= SMALL_AS_IS_BYTES || extOf(name) === 'gif';
 
 export interface Listing {
   photos: AlbumPhoto[];
-  /** HEIC / HEIF files left out */
+  /** HEIC / HEIF photos among them (shown once converted, 1.14.0-beta.2) */
   heic: number;
   /** more than MAX_PHOTOS pictures: the rest are left out */
   truncated: boolean;
@@ -347,7 +356,7 @@ export async function listPhotos(folder: string, withStats = false): Promise<Lis
     // Mac check of 1.9.0: a folder macOS keeps from the app was «not found — plug the drive in»
     return isDenied(e) ? { photos: [], heic: 0, truncated: false, denied: true } : null;
   }
-  const found: { name: string; file: string }[] = [];
+  const found: { name: string; file: string; heic?: true }[] = [];
   let heic = 0;
   for (const e of entries) {
     if (e.name.startsWith('.')) continue;
@@ -356,7 +365,10 @@ export async function listPhotos(folder: string, withStats = false): Promise<Lis
     if (!photo && !HEIC_EXTS.includes(ext)) continue;
     if ((await kindOf(folder, e)) !== 'file') continue;
     if (photo) found.push({ name: e.name.normalize('NFC'), file: e.name });
-    else heic++;
+    else if (e.name.length > ext.length + 1) {
+      found.push({ name: e.name.normalize('NFC'), file: e.name, heic: true });
+      heic++;
+    }
   }
   found.sort((a, b) => natural.compare(a.name, b.name) || (a.name < b.name ? -1 : 1));
   const kept = found.slice(0, MAX_PHOTOS);
@@ -441,6 +453,13 @@ export async function smallFile(
   name: string,
 ): Promise<{ file: string; type: string } | null> {
   const photo = await photoFile(album.path, name);
+  if (photo?.heic) {
+    // an HEIC: its small copy, else its view copy, else nothing yet (phones never get HEIC)
+    const copy = path.join(smallDir(dataDir, album.id), smallName(name, versionOf(photo)));
+    if (await fsp.stat(copy).catch(() => null)) return { file: copy, type: 'image/jpeg' };
+    const view = await viewFile(dataDir, album, photo, name);
+    return view ? { file: view, type: 'image/jpeg' } : null;
+  }
   if (!photo || smallAsIs(name, photo.size)) return photo;
   const copy = path.join(smallDir(dataDir, album.id), smallName(name, versionOf(photo)));
   return (await fsp.stat(copy).catch(() => null)) ? { file: copy, type: 'image/jpeg' } : photo;
@@ -473,9 +492,55 @@ export async function putSmall(
   await fsp.writeFile(tmp, bytes);
   await fsp.rename(tmp, to);
   for (const old of await fsp.readdir(dir).catch(() => [] as string[]))
-    if (old.startsWith(`${base}-`) && old.endsWith('.jpg') && path.join(dir, old) !== to)
+    if (
+      old.startsWith(`${base}-`) &&
+      old.endsWith('.jpg') &&
+      // a small copy never takes the view copy with it (1.14.0-beta.2)
+      !old.endsWith('.view.jpg') &&
+      path.join(dir, old) !== to
+    )
       await fsp.rm(path.join(dir, old), { force: true });
   return { bytes: bytes.length };
+}
+
+/**
+ * Keep the view copy of an HEIC photo the control window made (1.14.0-beta.2): a JPEG of at most
+ * 20 MB, of the version it read; older view copies of the photo go.
+ */
+export async function putView(
+  dataDir: string,
+  album: Album,
+  name: string,
+  version: string,
+  bytes: Buffer,
+): Promise<{ bytes: number } | { refused: SmallRefusal }> {
+  const photo = await photoFile(album.path, name);
+  if (!photo || !photo.heic) return { refused: 'photo' };
+  if (versionOf(photo) !== version) return { refused: 'changed' };
+  if (bytes.length > MAX_VIEW_BYTES) return { refused: 'size' };
+  if (sniff(bytes) !== 'jpg') return { refused: 'type' };
+  const dir = smallDir(dataDir, album.id);
+  await fsp.mkdir(dir, { recursive: true });
+  const base = smallBase(name);
+  const to = path.join(dir, viewName(name, version));
+  const tmp = `${to}.${crypto.randomUUID()}.tmp`;
+  await fsp.writeFile(tmp, bytes);
+  await fsp.rename(tmp, to);
+  for (const old of await fsp.readdir(dir).catch(() => [] as string[]))
+    if (old.startsWith(`${base}-`) && old.endsWith('.view.jpg') && path.join(dir, old) !== to)
+      await fsp.rm(path.join(dir, old), { force: true });
+  return { bytes: bytes.length };
+}
+
+/** An HEIC photo's view copy of its present version, if the control window made one. */
+export async function viewFile(
+  dataDir: string,
+  album: Album,
+  photo: { size: number; mtimeMs: number },
+  name: string,
+): Promise<string | null> {
+  const file = path.join(smallDir(dataDir, album.id), viewName(name, versionOf(photo)));
+  return (await fsp.stat(file).catch(() => null)) ? file : null;
 }
 
 /** An album's small copies go with it (the folder stays as it is). */
@@ -489,7 +554,14 @@ export const dropSmalls = (dataDir: string, albumId: string) =>
 export async function photoFile(
   folder: string,
   name: string,
-): Promise<{ file: string; type: string; size: number; mtimeMs: number } | null> {
+): Promise<{
+  file: string;
+  type: string;
+  size: number;
+  mtimeMs: number;
+  /** an HEIC photo (its bytes said so): served from its view copy */
+  heic?: boolean;
+} | null> {
   const listing = await cachedListing(folder);
   const nfc = name.normalize('NFC');
   const photo = listing?.photos.find((p) => p.name === nfc);
@@ -505,6 +577,10 @@ export async function photoFile(
     if (!st.isFile()) return null;
     const head = Buffer.alloc(64);
     const { bytesRead } = await fh.read(head, 0, head.length, 0);
+    if (photo.heic)
+      return isHeic(head.subarray(0, bytesRead))
+        ? { file: real, type: 'image/heic', size: st.size, mtimeMs: st.mtimeMs, heic: true }
+        : null;
     const ext = sniffPhoto(head.subarray(0, bytesRead));
     return ext ? { file: real, type: PHOTO_TYPE[ext], size: st.size, mtimeMs: st.mtimeMs } : null;
   } catch {
@@ -656,13 +732,18 @@ export function albumEntry(
               p.size != null && p.mtime != null
                 ? versionOf({ size: p.size, mtimeMs: p.mtime })
                 : null;
+            // an HEIC: ready once its view copy is there — its address then names the version,
+            // so a window that tried it before reads it again (1.14.0-beta.2)
+            const ready = !p.heic || (!!v && copies.has(viewName(p.name, v)));
             return {
               name: p.name,
-              src: src(p.name),
+              src: p.heic && v && ready ? `${src(p.name)}?c=${v}` : src(p.name),
               small: small(p.name),
               // the version the copy is drawn of (sent back with it); asked without stats: none
               ...(v ? { v } : {}),
-              needsSmall: !!v && !smallAsIs(p.name, p.size!) && !copies.has(smallName(p.name, v)),
+              ...(p.heic ? { heic: true, ready } : {}),
+              needsSmall:
+                !!v && ready && !smallAsIs(p.name, p.size!) && !copies.has(smallName(p.name, v)),
             };
           }),
         }

@@ -199,3 +199,9 @@ An npm-workspaces monorepo on Node.js 24 and TypeScript:
 
 VerseOrchestrator is licensed under the GNU General Public License v3.0. See
 [LICENSE](LICENSE).
+
+iPhone HEIC photos are decoded with [libheif](https://github.com/strukturag/libheif) (with
+libde265), built for the browser by [libheif-js](https://github.com/catdad-experiments/libheif-js)
+1.23.2, under the GNU Lesser General Public License v3.0: it ships unmodified as a separate
+module the app loads only for an HEIC photo; its license text is in
+`web/public/third-party/libheif-LICENSE.txt` (in a release: `app/web/dist/third-party/`).

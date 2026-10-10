@@ -31,7 +31,7 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { api, type AlbumInfo, type FolderList } from '../api';
-import { photoTitle } from '../lib/album';
+import { photoReady, photoTitle } from '../lib/album';
 import { addRefusal, deniedHint } from '../lib/denied';
 import type { useAlbum } from '../pages/control/useAlbum';
 import { EVERY_MAX, EVERY_MIN } from '../pages/control/useAlbum';
@@ -470,7 +470,7 @@ export function FolderPicker({
                 : tr('У цій папці немає фото — відкрийте папку, де вони лежать.')
               : ''}
           {mode === 'album' && here?.path && here.heic > 0
-            ? ` ${trn(here.heic, '{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.')}`
+            ? ` ${trn(here.heic, 'З них {n} фото HEIC — застосунок перетворить їх для показу.|З них {n} фото HEIC — застосунок перетворить їх для показу.|З них {n} фото HEIC — застосунок перетворить їх для показу.')}`
             : ''}
         </Text>
         <Group gap="xs" wrap="nowrap">
@@ -518,6 +518,8 @@ function OpenAlbumView({
 }) {
   const info = show.albumInfo;
   const photos = show.photos ?? [];
+  // HEIC photos still converting in the background (1.14.0-beta.2)
+  const waiting = photos.filter((p) => !photoReady(p)).length;
   const viewport = useRef<HTMLDivElement>(null);
   const tiles = useRef<(HTMLButtonElement | null)[]>([]);
   // the photo stepped to stays in sight
@@ -665,12 +667,12 @@ function OpenAlbumView({
         </Text>
       ) : (
         <>
-          {info && (info.heic > 0 || info.truncated) && (
+          {info && (waiting > 0 || info.truncated) && (
             <Text size="xs" c="dimmed" mb={4}>
-              {info.heic > 0 &&
+              {waiting > 0 &&
                 trn(
-                  info.heic,
-                  '{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.',
+                  waiting,
+                  'Перетворюю {n} фото HEIC…|Перетворюю {n} фото HEIC…|Перетворюю {n} фото HEIC…',
                 )}
               {info.truncated && ` ${tr('Показано перші 5 000 фото.')}`}
             </Text>
@@ -699,7 +701,14 @@ function OpenAlbumView({
                     aria-label={tr('Показати «{name}»', { name: photoTitle(p.name) })}
                     aria-current={i === show.current || undefined}
                   >
-                    <LazyThumb src={p.small ?? p.src} root={viewport} />
+                    {photoReady(p) ? (
+                      <LazyThumb src={p.small ?? p.src} root={viewport} />
+                    ) : (
+                      // an HEIC still converting (1.14.0-beta.2)
+                      <Text size="xs" c="dimmed" className="vo-thumb-wait">
+                        {tr('перетворюю…')}
+                      </Text>
+                    )}
                   </button>
                   <Text size="xs" truncate title={p.name} px={4} py={2}>
                     {photoTitle(p.name)}

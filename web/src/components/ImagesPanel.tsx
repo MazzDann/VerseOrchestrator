@@ -32,9 +32,13 @@ import { AlbumsView } from './AlbumsView';
 import { VideosView } from './VideosView';
 import { RenameButton } from './RenameButton';
 import { useDrop } from '../lib/drop';
+import { cancelHeic } from '../lib/heic';
 
 /** What «Зображення» shows: pictures, albums (1.8.12) or videos (1.8.12-beta.3). */
 /** «Медіа» (1.8.12-beta.7): pictures, albums, videos and own text («Текст» joined them). */
+/** An iPhone photo by its name: the progress says «Перетворюю…» for it */
+const HEIC_NAME = /[.](heic|heif|hif)$/i;
+
 export type MediaTab = 'images' | 'albums' | 'videos' | 'text';
 
 type Fit = ImageFit;
@@ -102,7 +106,9 @@ export function ImagesPanel({
     storeImageFit(f);
     onRefit(f);
   };
-  const [adding, setAdding] = useState<{ done: number; of: number } | null>(null);
+  const [adding, setAdding] = useState<{ done: number; of: number; heic?: boolean } | null>(null);
+  /** «Скасувати» while adding: the rest are left, an HEIC converting stops (1.14.0-beta.2) */
+  const stopAdding = useRef(false);
   // the picture whose deletion asks first (1.7.2)
   const [asking, setAsking] = useState<string | null>(null);
   const order = usePlaylist((s) => s.items);
@@ -149,8 +155,10 @@ export function ImagesPanel({
     if (files.length === 0) return;
     setFailed([]);
     const bad: string[] = [];
+    stopAdding.current = false;
     for (let i = 0; i < files.length; i++) {
-      setAdding({ done: i, of: files.length });
+      if (stopAdding.current) break;
+      setAdding({ done: i, of: files.length, heic: HEIC_NAME.test(files[i].name) });
       try {
         await api.addImage(await fileToPicture(files[i]));
       } catch (e) {
@@ -340,7 +348,8 @@ export function ImagesPanel({
           {tab === 'images' && (
             <FileButton
               onChange={(files) => void add(files)}
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              // HEIC too since 1.14.0-beta.2: made into JPEG in a background worker (lib/heic.ts)
+              accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
               multiple
               resetRef={resetPicker}
               disabled={serverAvailable === false || !!adding}
@@ -375,9 +384,24 @@ export function ImagesPanel({
       ) : (
         <>
           {adding && (
-            <Text size="xs" c="dimmed" mb={4}>
-              {tr('Додаю {n} з {of}…', { n: adding.done + 1, of: adding.of })}
-            </Text>
+            <Group gap="xs" wrap="nowrap" mb={4}>
+              <Text size="xs" c="dimmed">
+                {adding.heic
+                  ? tr('Перетворюю фото HEIC… ({n} з {of})', { n: adding.done + 1, of: adding.of })
+                  : tr('Додаю {n} з {of}…', { n: adding.done + 1, of: adding.of })}
+              </Text>
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                color="gray"
+                onClick={() => {
+                  stopAdding.current = true;
+                  cancelHeic();
+                }}
+              >
+                {tr('Скасувати')}
+              </Button>
+            </Group>
           )}
           {failed.length > 0 && (
             <Text size="xs" c="red" mb={4} style={{ whiteSpace: 'pre-line' }}>
