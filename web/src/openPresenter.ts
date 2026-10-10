@@ -116,15 +116,27 @@ function lendNextClick(name: string): void {
   window.addEventListener(
     'click',
     () => {
-      for (const [n, since] of pending) {
-        const w = windowRef(n);
-        if (!w || isFullscreen(w) || Date.now() - since > PENDING_MS) {
-          pending.delete(n);
-          continue;
+      // Lent once the click's own handlers ran: one that opens a file chooser (a FileButton
+      // clicks its hidden input inside this click) needs the gesture for that — lent first, the
+      // chooser was left without one and didn't open (review, 2026-10-10). Then the next click is.
+      let chooser = false;
+      const mark = (e: Event) => {
+        if (e.target instanceof HTMLInputElement && e.target.type === 'file') chooser = true;
+      };
+      document.addEventListener('click', mark, true);
+      setTimeout(() => {
+        document.removeEventListener('click', mark, true);
+        if (chooser) return;
+        for (const [n, since] of pending) {
+          const w = windowRef(n);
+          if (!w || isFullscreen(w) || Date.now() - since > PENDING_MS) {
+            pending.delete(n);
+            continue;
+          }
+          // The window may still be loading, or this click is already lent: next click.
+          if (delegateFullscreen(w, true)) break;
         }
-        // The window may still be loading, or this click is already lent: next click.
-        if (delegateFullscreen(w, true)) break;
-      }
+      }, 0);
     },
     true,
   );
@@ -167,6 +179,18 @@ export function fullscreenOutput(o: Target, on: boolean): boolean {
   if (!w) return false;
   w.focus();
   return delegateFullscreen(w, true);
+}
+
+/**
+ * An output window that left full screen behind the operator's back — a file chooser opened here
+ * (lib/chooserWatch.ts): the next click in this window sends it back, as with «Відкривати на
+ * весь екран». False when this page holds no reference to it (another control window's, or
+ * «Окремий процес»): then only F or a click in it does.
+ */
+export function fullscreenOnNextClick(o: Target): boolean {
+  if (!outputRef(o)) return false;
+  lendNextClick(o.name);
+  return true;
 }
 
 /** How long a window opened with `noopener` may take to announce itself (dev build: ~1–3 s). */
