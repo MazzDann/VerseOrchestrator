@@ -224,7 +224,9 @@ html[data-scrolling] .vo-list-item:hover:not([data-selected='true']) {
    keeps min-width:auto, so one long unbreakable line (a truncated row) widened the body past
    the panel and its overflow:auto box scrolled sideways (0.6.0, «Пульт доповідача»).
    .vo-scroll-fit: the same for a ScrollArea.Autosize list inside a panel (the programs in
-   «Послідовність показу», 0.9.1: a long name, or «Видалено: …», scrolled sideways). */
+   «Послідовність показу», 0.9.1: a long name, or «Видалено: …», scrolled sideways) and for the
+   «Медіа» lists (1.11.x, the Mac: an album's folder path made the row 925 px in a ~380 px centre;
+   Firefox drew the sideways scrollbar over the path — now it shortens with «…»). */
 .vo-panel-body > div,
 .vo-scroll-fit > div {
   min-width: 0;
@@ -1344,6 +1346,8 @@ form.vo-remote-countdown {
   gap: var(--mantine-spacing-xs);
   padding: var(--mantine-spacing-sm);
   overflow-y: auto;
+  /* never wider than the centre column: a long line inside shortens instead (1.11.x) */
+  min-width: 0;
   --vo-cap: calc(100vh - var(--app-shell-header-height, 3.5rem) - 9rem);
 }
 

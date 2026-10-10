@@ -10,7 +10,7 @@ import {
   type OutputWire,
   type TrackedOutput,
 } from './outputs';
-import { featuresFor, screenOf, type ScreenInfo } from './screens';
+import { featuresFor, pickOutputScreen, screenOf, type ScreenInfo } from './screens';
 
 /** An in-memory BroadcastChannel: a post reaches every OTHER endpoint, asynchronously. */
 function hub() {
@@ -286,5 +286,51 @@ describe('screens', () => {
 
   it('opens a window over a screen’s usable area', () => {
     expect(featuresFor(right)).toBe('popup,left=1440,top=0,width=1920,height=1080');
+  });
+
+  it('a new output window goes to a screen no output is on (2026-10-10)', () => {
+    const third: ScreenInfo = { ...right, key: 'c', label: 'Stage monitor', x: 3360 };
+    const projector = { x: 1440, y: 0, w: 1920, h: 1080 }; // full screen there
+    const control = { x: 40, y: 40, w: 1300, h: 800 }; // the operator's window, on the laptop
+    const show = { kind: 'presenter', bounds: projector };
+    const pick = pickOutputScreen;
+    // nothing open: the first secondary screen, as before
+    expect(pick('presenter', [left, right], [], control)?.key).toBe('b');
+    // a laptop and a projector with «Показ» on it: «Сцена» doesn't go over it — none is free,
+    // so it opens next to the control window
+    expect(pick('stage', [left, right], [show], control)).toBeUndefined();
+    // a third screen: there
+    expect(pick('stage', [left, right, third], [show], control)?.key).toBe('c');
+    // an output on the operator's own screen takes nothing away
+    expect(pick('stage', [left, right], [{ kind: 'stage', bounds: control }], control)?.key).toBe(
+      'b',
+    );
+    // one screen only: nothing to choose, as before
+    expect(pick('presenter', [left], [], control)).toBeUndefined();
+  });
+
+  it('«Показ» takes the projector a «Сцена» was checked on; never over the control window', () => {
+    const projector = { x: 1440, y: 0, w: 1920, h: 1080 };
+    const laptop = { x: 40, y: 40, w: 1300, h: 800 };
+    const stage = { kind: 'stage', bounds: projector };
+    // «Сцена» opened first took the projector: «Показ» still goes there, a second «Сцена» doesn't
+    expect(pickOutputScreen('presenter', [left, right], [stage], laptop)?.key).toBe('b');
+    expect(pickOutputScreen('stage', [left, right], [stage], laptop)).toBeUndefined();
+    // a «Показ» already there: a second one opens next to the control window
+    expect(
+      pickOutputScreen(
+        'presenter',
+        [left, right],
+        [{ kind: 'presenter', bounds: projector }],
+        laptop,
+      ),
+    ).toBeUndefined();
+    // the control window on the secondary screen: an output goes to the primary, not over it
+    const onRight = { x: 1500, y: 40, w: 1300, h: 800 };
+    expect(pickOutputScreen('presenter', [left, right], [], onRight)?.key).toBe('a');
+    // a window just opened, not announced yet, counts (openPresenter keeps it as claimed)
+    expect(
+      pickOutputScreen('stage', [left, right], [{ kind: 'presenter', bounds: projector }], laptop),
+    ).toBeUndefined();
   });
 });

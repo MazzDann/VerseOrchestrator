@@ -218,8 +218,8 @@ export const EN: Record<string, string> = {
   '{browser} (не знайдено)': '{browser} (not found)',
   'Окремим вікном': 'As a separate window',
   'Без вкладок і адресного рядка.': 'No tabs, no address bar.',
-  'Окремим вікном відкривають браузери на основі Chromium: Chrome, Edge, Brave, Arc, Opera, Vivaldi. Виберіть один із них угорі.':
-    'Browsers built on Chromium open it as a separate window: Chrome, Edge, Brave, Arc, Opera, Vivaldi. Choose one of them above.',
+  'Окремим вікном відкривають браузери на основі Chromium: Chrome, Edge, Brave, Arc, Vivaldi. Виберіть один із них угорі.':
+    'Browsers built on Chromium open it as a separate window: Chrome, Edge, Brave, Arc, Vivaldi. Choose one of them above.',
   '{browser} на цьому комп’ютері не знайдено — файл запуску відкриє вікно керування, як із «Браузер системи».':
     '{browser} was not found on this computer — the start file will open the control window as with “System browser”.',
   'У {browser} вікно керування відкривається звичайним вікном.':
@@ -1065,6 +1065,9 @@ export const EN: Record<string, string> = {
     'Opened from another control window: F or a click in the window itself makes it full screen',
   'Вікно не озвалося — можливо, браузер його заблокував: дозвольте спливні вікна для цього сайту':
     "The window didn't answer — the browser may have blocked it: allow pop-ups for this site",
+  '{window}: вкладка, а не окреме вікно': '{window}: a tab, not a window of its own',
+  'Браузер відкрив його вкладкою цього вікна, тож на інший екран його не перенести. Перетягніть вкладку за межі вікна браузера — вона стане окремим вікном. У LibreWolf і Firefox можна відкривати такі вікна окремо завжди: about:config → browser.link.open_newwindow.restriction = 2.':
+    "The browser opened it as a tab of this window, so it can't go to another screen. Drag the tab out of the browser window — it becomes a window of its own. In LibreWolf and Firefox you can always get such windows separately: about:config → browser.link.open_newwindow.restriction = 2.",
   'Браузер заблокував вікно — дозвольте спливні вікна для цього сайту':
     'The browser blocked the window — allow pop-ups for this site',
   'Цей браузер не передає жест іншому вікну — натисніть F у самому вікні':
@@ -1072,6 +1075,11 @@ export const EN: Record<string, string> = {
   '{window}: не вдалося перейти на весь екран': "{window}: couldn't go full screen",
   'Браузер не дозволив. Натисніть F у самому вікні або клацніть у ньому.':
     'The browser refused. Press F in the window itself, or click in it.',
+  '{window}: уже не на весь екран': '{window}: no longer full screen',
+  'Браузер так робить, коли у вікні керування відкрито вибір файлу. Клацніть будь-де у вікні керування — і «{window}» знову стане на весь екран. Або натисніть F у самому «{window}».':
+    'The browser does this while a file chooser is open in the control window. Click anywhere in the control window and “{window}” goes full screen again. Or press F in “{window}” itself.',
+  'Браузер так робить, коли у вікні керування відкрито вибір файлу. Натисніть F у самому «{window}» або клацніть у ньому.':
+    'The browser does this while a file chooser is open in the control window. Press F in “{window}” itself, or click in it.',
   '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну':
     "{window} didn't close — the browser won't let it be closed from here. Close it by hand",
   'Розкладку збережено: {n} вікно|Розкладку збережено: {n} вікна|Розкладку збережено: {n} вікон':
@@ -1350,6 +1358,8 @@ export const EN: Record<string, string> = {
   'Застосунок уже працює: {url}': 'The app is already running: {url}',
   'Працює інша збірка: {label}. Щоб запустити цю, вимкніть застосунок («Вимкнути повністю…» або --off) і запустіть знову.':
     'Another build is running: {label}. To run this one, switch the app off (“Switch off completely…” or --off) and start it again.',
+  'Працює інша копія застосунку: {folder}. Вікно керування відкриється в ній — з її даними й налаштуваннями (і браузером, вибраним у ній). Щоб працювала ця копія, вимкніть ту («Вимкнути повністю…» або --off) і запустіть цей файл знову.':
+    'Another copy of the app is running: {folder}. The control window opens in it — with its data and settings (and the browser chosen there). To run this copy, switch that one off (“Switch off completely…” or --off) and start this file again.',
   'Залежності на місці': 'Dependencies in place',
   'Залежності: не встановлено (npm ci)': 'Dependencies: not installed (npm ci)',
   'Залежності: встановлено для іншої системи (npm ci)':
