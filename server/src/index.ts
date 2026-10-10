@@ -50,7 +50,7 @@ import {
 } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
-import { createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
+import { OPEN_FRESH_MS, createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
 import { readLayout } from './layout.js';
 import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
@@ -416,8 +416,8 @@ function adoptPin(last: { ok: boolean; to: string; pin?: Pin | null } | null) {
     updateServerSettings({ updates: { pin: last.pin } });
 }
 
-async function updateAnswer(force: boolean) {
-  const s = await updates.check(force);
+async function updateAnswer(force: boolean, maxAge?: number) {
+  const s = await updates.check(force, maxAge);
   const lastUpdate = installer?.lastSwap(appVersion) ?? null;
   adoptPin(lastUpdate);
   let install = installer?.state() ?? null;
@@ -484,7 +484,10 @@ function refuseIfNotNow(inst: NonNullable<typeof installer>) {
 app.get(
   '/api/update',
   requireLocal,
-  wrap(async (_req, res) => res.json(await updateAnswer(false))),
+  // `?fresh=1`: «Оновлення» is open — an answer older than ten minutes is asked again (1.12.3)
+  wrap(async (req, res) =>
+    res.json(await updateAnswer(false, req.query.fresh === '1' ? OPEN_FRESH_MS : undefined)),
+  ),
 );
 
 app.post(
@@ -768,8 +771,8 @@ app.post(
   }),
 );
 
-// the first look a little after the start, then twice a day (check() skips a fresh answer);
-// never from the tests
+// the first look a little after the start, then every hour (check() skips a fresh answer — twice
+// a day before 1.12.3); never from the tests
 if (!process.env.VITEST) {
   // …and a copy of the repository fetches its upstream as often, with the switch on (1.6.1)
   const look = () => {

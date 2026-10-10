@@ -3,9 +3,13 @@ import { releaseAsset } from './layout.js';
 
 /**
  * Is there a newer version (1.0.0)? The server asks GitHub for the project's releases now and
- * then — twice a day at most, quietly, never while it has nothing to go on (offline is just
- * «not checked») — and the control window says so. Installing is installer.ts and swap.ts;
- * nothing here changes the app.
+ * then — every hour, and when «Оновлення» is opened on an answer older than ten minutes (1.12.3;
+ * twice a day before it), quietly, never while it has nothing to go on (offline is just «not
+ * checked») — and the control window says so. Installing is installer.ts and swap.ts; nothing
+ * here changes the app.
+ *
+ * An unchanged list comes back as a short 304 «Not Modified» (1.12.3): the request carries the
+ * last answer's ETag. At most seven requests an hour — GitHub gives an address 60 unsigned ones.
  *
  * Two channels (1.8.11): «Стабільний» takes regular releases only, «Бета» pre-releases too —
  * versions like `1.8.12-beta.1`, published as GitHub pre-releases. The operator chooses in
@@ -19,8 +23,14 @@ import { releaseAsset } from './layout.js';
 export const RELEASES_URL =
   process.env.VO_UPDATE_URL ??
   'https://api.github.com/repos/MazzDann/VerseOrchestrator/releases?per_page=100';
-/** How long an answer counts as fresh. */
-export const CHECK_EVERY_MS = 12 * 60 * 60 * 1000;
+/**
+ * How long an answer counts as fresh: a little under the hourly look (index.ts), which would
+ * otherwise find it a few seconds too young and wait another hour (12 hours before 1.12.3 — a
+ * copy said its version was the newest for hours after a fix was out, users' report F1010-01b).
+ */
+export const CHECK_EVERY_MS = 50 * 60 * 1000;
+/** «Оновлення» opened (1.12.3): an answer older than this is asked again. */
+export const OPEN_FRESH_MS = 10 * 60 * 1000;
 const TIMEOUT_MS = 8000;
 
 export type Channel = 'stable' | 'beta';
@@ -223,6 +233,8 @@ export function createUpdateChecker(o: CheckerOptions) {
   let checkedAt: number | null = null;
   // GitHub's last answer as it came: a change of channel picks from it again, no new request
   let answer: unknown = null;
+  // …and its ETag: the next request asks «changed since?» (1.12.3)
+  let etag: string | null = null;
   let error: string | null = null;
   let inflight: Promise<void> | null = null;
 
@@ -248,11 +260,15 @@ export function createUpdateChecker(o: CheckerOptions) {
         headers: {
           Accept: 'application/vnd.github+json',
           'User-Agent': `VerseOrchestrator/${o.current}`,
+          ...(etag && answer !== null ? { 'If-None-Match': etag } : {}),
         },
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      answer = await res.json();
+      if (res.status !== 304) {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        answer = await res.json();
+        etag = res.headers.get('etag');
+      }
       error = null;
     } catch {
       // offline, GitHub down or rate-limited: say so, keep what the last answer said
@@ -264,12 +280,13 @@ export function createUpdateChecker(o: CheckerOptions) {
   return {
     state,
     /**
-     * Ask GitHub unless the last answer is fresh (`force`: ask anyway — the «Перевірити зараз»
-     * button, which also works with the switch off). Concurrent calls share one request.
+     * Ask GitHub unless the last answer is younger than `maxAge` (`force`: ask anyway — the
+     * «Перевірити зараз» button, which also works with the switch off). Concurrent calls share
+     * one request.
      */
-    async check(force = false): Promise<UpdateState> {
+    async check(force = false, maxAge = CHECK_EVERY_MS): Promise<UpdateState> {
       if (!force && !o.isEnabled()) return state();
-      if (!force && checkedAt !== null && now() - checkedAt < CHECK_EVERY_MS) return state();
+      if (!force && checkedAt !== null && now() - checkedAt < maxAge) return state();
       inflight ??= ask().finally(() => {
         inflight = null;
       });
