@@ -12,7 +12,7 @@ import { N_, tr } from '../i18n';
  *
  * Since 1.12.4 the build is the server's job (server/src/rebuildJob.ts; users' report F1010-01:
  * the button spun for good on one long request): the button starts it and is free at once; the
- * state comes every second while it builds — and to control windows through the hub
+ * state comes every second while it builds — and to the control window in charge through the hub
  * (useHub → `noteRebuild`), so a build started in another window shows here too.
  */
 export function useRebuildLibrary(): {
@@ -24,15 +24,18 @@ export function useRebuildLibrary(): {
   const serverAvailable = useServer((s) => s.available);
   const queryClient = useQueryClient();
   const [starting, setStarting] = useState(false);
-  const job = useQuery({
+  const query = useQuery({
     queryKey: ['rebuild'],
     queryFn: () => api.rebuildState(),
     enabled: serverAvailable === true,
     // every second while it builds; else now and then — a window without the hub (a separate
-    // settings window) learns of a build started elsewhere
+    // settings window, a control window not in charge) learns of a build started elsewhere
     refetchInterval: (q) => (q.state.data?.phase === 'running' ? 1000 : 15_000),
     retry: false,
-  }).data;
+  });
+  // a server that stopped answering: its last «running» is not shown as going on, with a
+  // «Зупинити» that can't reach it (review)
+  const job = query.isError ? undefined : query.data;
   useEffect(() => {
     if (job) noteRebuild(queryClient, job);
   }, [job, queryClient]);

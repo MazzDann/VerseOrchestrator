@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { DatabaseSync } from 'node:sqlite';
 
 /**
  * The launcher opens browsers: no test here may (`open`, osascript, xdg-open, `cmd /c start` or a
@@ -161,6 +162,14 @@ describe('launcher', () => {
 
   it('finds the texts: the library, modules to build it from, the browser segments, or none', () => {
     expect(libraryState(project({ 'data/library.db': 'x' }), {}).kind).toBe('ready');
+    // a first build stopped before its commit left a file without tables: built again (1.12.4)
+    const stopped = project({ 'modules/KJV+.SQLite3': 'x', 'data/settings.json': '{}' });
+    new DatabaseSync(path.join(stopped, 'data/library.db')).close();
+    expect(libraryState(stopped, {}).kind).toBe('build');
+    const built = new DatabaseSync(path.join(stopped, 'data/library.db'));
+    built.exec('CREATE TABLE translations (id INTEGER)');
+    built.close();
+    expect(libraryState(stopped, {}).kind).toBe('ready');
     const modules = project({ 'modules/KJV+.SQLite3': 'x' });
     expect(libraryState(modules, {})).toEqual({
       kind: 'build',
