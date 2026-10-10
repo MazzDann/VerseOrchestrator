@@ -119,6 +119,14 @@ function buildOnce(): void {
   const notBibles: string[] = [];
   let totalVerses = 0;
 
+  // How far it is, for «Пересканувати модулі» (1.12.4): the server reads these lines
+  // (server/src/rebuildJob.ts) — one before each module, the songs, and the end (VACUUM).
+  const steps = files.length + dictFiles.length + xrefFiles.length + commentaryFiles.length + 2;
+  let at = 0;
+  const step = (name: string) => console.log(`[builder] step ${++at}/${steps} ${name}`);
+  const moduleName = (file: string) =>
+    path.basename(file).replace(/(\.(dictionary|commentaries|crossreferences))?\.SQLite3$/i, '');
+
   const run = db.transaction(() => {
     // Create the schema first, then prepare statements against the new tables.
     // Everything runs inside one transaction so readers (the server) keep seeing
@@ -154,6 +162,7 @@ function buildOnce(): void {
     );
 
     for (const file of files) {
+      step(moduleName(file));
       const name = path.basename(file);
       let mod;
       try {
@@ -249,6 +258,7 @@ function buildOnce(): void {
     );
     let dictId = 0;
     for (const file of dictFiles) {
+      step(moduleName(file));
       const dictName = path.basename(file).replace(/\.dictionary\.SQLite3$/i, '');
       let dict;
       try {
@@ -287,6 +297,7 @@ function buildOnce(): void {
        VALUES (@book, @chapter, @verse, @bookTo, @chapterTo, @verseToStart, @verseToEnd)`,
     );
     for (const file of xrefFiles) {
+      step(moduleName(file));
       const name = path.basename(file);
       try {
         const xrefs = readCrossrefs(file);
@@ -303,6 +314,7 @@ function buildOnce(): void {
        VALUES (@source, @book, @chapterFrom, @verseFrom, @chapterTo, @verseTo, @marker, @text)`,
     );
     for (const file of commentaryFiles) {
+      step(moduleName(file));
       const source = path.basename(file).replace(/\.commentaries\.SQLite3$/i, '');
       try {
         const entries = readCommentaries(file);
@@ -325,6 +337,7 @@ function buildOnce(): void {
     }
 
     // Songs from the bundles (one slide = one stanza), with stable ids.
+    step('songs');
     const songsIn = writeLibrarySongs(db, bundles);
     if (songsIn > 0) {
       const names = bundles.map((b) => `«${b.meta.name}» ${b.songs.length}`).join(', ');
@@ -334,6 +347,7 @@ function buildOnce(): void {
 
   const started = Date.now();
   run();
+  step('finish');
   // VACUUM needs exclusive access; skip it quietly if a reader (the server) is
   // attached. The data is already committed by this point regardless.
   try {
