@@ -1350,6 +1350,8 @@ export const EN: Record<string, string> = {
   'Застосунок уже працює: {url}': 'The app is already running: {url}',
   'Працює інша збірка: {label}. Щоб запустити цю, вимкніть застосунок («Вимкнути повністю…» або --off) і запустіть знову.':
     'Another build is running: {label}. To run this one, switch the app off (“Switch off completely…” or --off) and start it again.',
+  'Працює інша копія застосунку: {folder}. Вікно керування відкриється в ній — з її даними й налаштуваннями (і браузером, вибраним у ній). Щоб працювала ця копія, вимкніть ту («Вимкнути повністю…» або --off) і запустіть цей файл знову.':
+    'Another copy of the app is running: {folder}. The control window opens in it — with its data and settings (and the browser chosen there). To run this copy, switch that one off (“Switch off completely…” or --off) and start this file again.',
   'Залежності на місці': 'Dependencies in place',
   'Залежності: не встановлено (npm ci)': 'Dependencies: not installed (npm ci)',
   'Залежності: встановлено для іншої системи (npm ci)':
