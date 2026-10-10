@@ -6,6 +6,8 @@ import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
 import { outputKeyAction } from '../lib/outputKeys';
 import { useWakeLock } from '../lib/wakeLock';
+import { aspectBox } from '../lib/aspect';
+import { useSettings } from '../settingsStore';
 import { tr, useLang } from '../i18n';
 
 /** Fullscreen needs a user gesture in this window — or one lent by the control window. */
@@ -19,6 +21,7 @@ export function Presenter() {
   const [cursorHidden, setCursorHidden] = useState(false);
   // Tell the control window this output exists (its «Вікна виводу» list).
   const identify = useAnnounceOutput('presenter');
+  const aspect = useSettings((s) => s.outputs.aspect);
   useWakeLock(); // an open «Показ» is a show: the projector must not sleep (Mac check of 1.9.0)
 
   useEffect(() => {
@@ -89,7 +92,10 @@ export function Presenter() {
         cursor: cursorHidden ? 'none' : 'auto',
       }}
     >
-      <SlideCanvas slide={slide} prefetch />
+      {/* «Співвідношення сторін» (1.14.0-beta.3): a 16:9 or 4:3 box on black, or the whole window */}
+      <div style={aspectBox(aspect)}>
+        <SlideCanvas slide={slide} prefetch />
+      </div>
       <IdentifyOverlay label={identify} />
       {hint && (
         <div
