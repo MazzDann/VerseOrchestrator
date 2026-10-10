@@ -302,6 +302,8 @@ function sameOrigin(req: IncomingMessage): boolean {
 }
 
 function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<string, unknown>) {
+  // a socket says what it is once: a control window doesn't turn into a broadcast page (review)
+  if (m.role !== 'viewer') return;
   if (msg.role === 'control') {
     if (!isLocalRequest(req) || !sameOrigin(req)) {
       send(ws, { type: 'denied', reason: N_('Керування доступне лише з цього комп’ютера') });

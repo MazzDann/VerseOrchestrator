@@ -12,6 +12,9 @@ import { useAutoFit } from '../useAutoFit';
 import { sanitizeBroadcast, useSettings, type BroadcastLook } from '../settingsStore';
 import { tr, useLang } from '../i18n';
 
+/** After a bus message the hub's copy of the same slide (a moment later, without images) waits. */
+const BUS_FIRST_MS = 2000;
+
 /** The key colours: a broadcast green for a chroma key, black for a luma key. */
 const KEY_BG: Record<BroadcastLook['bg'], string> = {
   transparent: 'transparent',
@@ -41,14 +44,15 @@ export function Broadcast() {
         })
       : stored;
   const [slide, setSlide] = useState<Slide>(EMPTY_SLIDE);
-  // a window of this browser hears the bus; the hub only serves a page the bus never reached (OBS)
-  const viaBus = useRef(false);
+  // a window of this browser hears the bus first; the hub serves a page the bus doesn't reach (OBS)
+  // — and this one too once its bus went quiet (its control window now in another browser; review)
+  const busAt = useRef(0);
   useWakeLock();
 
   useEffect(() => {
     setSlide(readSlide());
     return subscribeSlide((s) => {
-      viaBus.current = true;
+      busAt.current = Date.now();
       setSlide(s);
     });
   }, []);
@@ -56,7 +60,7 @@ export function Broadcast() {
     const conn = connectLive({
       hello: { role: 'key' },
       onMessage: (f) => {
-        if (f.type !== 'slides' || viaBus.current) return;
+        if (f.type !== 'slides' || Date.now() - busAt.current < BUS_FIRST_MS) return;
         setSlide(isSlide(f.live) ? f.live : EMPTY_SLIDE);
       },
       stopOn: (f) => f.type === 'denied',
