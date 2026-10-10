@@ -164,7 +164,12 @@ describe('launcher', () => {
     expect(libraryState(project({ 'data/library.db': 'x' }), {}).kind).toBe('ready');
     // a first build stopped before its commit left a file without tables: built again (1.12.4)
     const stopped = project({ 'modules/KJV+.SQLite3': 'x', 'data/settings.json': '{}' });
-    new DatabaseSync(path.join(stopped, 'data/library.db')).close();
+    new DatabaseSync(path.join(stopped, 'data/library.db')).close(); // 0 bytes: never begun
+    expect(libraryState(stopped, {}).kind).toBe('build');
+    const begun = new DatabaseSync(path.join(stopped, 'data/library.db'));
+    begun.exec('PRAGMA user_version = 1'); // a header page and no tables, as a killed build leaves
+    begun.close();
+    expect(fs.statSync(path.join(stopped, 'data/library.db')).size).toBeGreaterThan(0);
     expect(libraryState(stopped, {}).kind).toBe('build');
     const built = new DatabaseSync(path.join(stopped, 'data/library.db'));
     built.exec('CREATE TABLE translations (id INTEGER)');

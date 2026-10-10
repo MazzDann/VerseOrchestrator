@@ -232,6 +232,8 @@ function holdsLibrary(file: string): boolean {
     | undefined;
   if (!sqlite) return true;
   try {
+    // an empty file is a database not begun yet
+    if (fs.statSync(file).size === 0) return false;
     const head = Buffer.alloc(16);
     const fd = fs.openSync(file, 'r');
     try {
