@@ -388,8 +388,10 @@ change: an update, **Go back to version …**, or installing another version. Th
 kept. If the images don't fit in 1 GB, an automatic backup is made without them.
 
 To restore an automatic backup, in the **Backup** section click **Restore…** next to it and then
-**Restore**, as for a backup file. A backup without images leaves the images there are as they
-are. To stop the app from making backups by itself, turn off **Make backups automatically**.
+**Restore**, as for a backup file. The three newest are shown; **Show all** shows the rest. A
+backup without images leaves the images there are as they are; versions of the app older than
+the one that made it don't accept such a backup. To stop the app from making backups by itself,
+turn off **Make backups automatically**.
 
 ## Carry data over from another copy
 

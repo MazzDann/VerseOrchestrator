@@ -733,7 +733,8 @@ function Install({
             value={target}
             onChange={setPick}
             allowDeselect={false}
-            disabled={phase === 'restarting'}
+            // also while the restart waits for its automatic backup (1.12.0-beta.3)
+            disabled={phase === 'restarting' || restartPending}
             comboboxProps={{ withinPortal: true }}
           />
         )}

@@ -65,6 +65,17 @@ export interface BackupManifest {
  */
 export const START_KEY = 'vo:start-settings';
 
+/**
+ * In a copy made without the pictures: a file no version before 1.12.0-beta.3 accepts, so they
+ * refuse the whole copy — they ignore `manifest.pictures`, and their restore would move this
+ * copy's pictures aside and put none back (review of 1.12.0-beta.3).
+ */
+const NO_PICTURES = 'no-pictures.txt';
+// the marker file's own text, in both languages: someone opening the .zip reads it
+const NO_PICTURES_TEXT =
+  'Ця копія зроблена без зображень (вони займали б понад 1 ГБ). Відновлення лишає зображення, які є.\n' + // i18n-ignore
+  'This backup was made without the images (they would take over 1 GB). A restore keeps the images there are.\n';
+
 /** What a backup holds, for the operator to see before restoring it. */
 export interface BackupSummary {
   app: string;
@@ -168,21 +179,28 @@ export async function backupEntries(
   // the UI state, with the start settings as one more entry (START_KEY); a file held by another
   // program fails the backup as before (read as bytes), one that isn't JSON goes in as it is
   const uiFile = files.find(([name]) => name === UI_FILE)?.[1];
-  const raw = uiFile ? await fsp.readFile(uiFile) : null;
-  let ui: Record<string, unknown> | null = null;
+  // a file held a moment (an antivirus, the indexer) is tried again; one held longer fails the
+  // backup, as before (review of 1.12.0-beta.3)
+  const raw = uiFile ? await held(() => fsp.readFile(uiFile)) : null;
+  let ui: Record<string, unknown> | null = {};
   try {
     const parsed: unknown = raw ? JSON.parse(raw.toString('utf8').replace(/^\uFEFF/, '')) : {};
     ui = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
   } catch {
     ui = null;
   }
+  // a UI state that isn't JSON stays out — the songs and pictures stay restorable; with it in,
+  // every restore of the copy was refused as damaged (review of 1.12.0-beta.3)
+  if (raw && !ui)
+    console.warn(`[server] backup: ${UI_FILE} is not valid JSON — the backup goes without it`);
   const start = startSettings(dataDir);
   if (ui && (raw || start)) {
     const state = { ...ui };
     delete state[START_KEY];
     if (start) state[START_KEY] = { value: JSON.stringify(start), at: now.getTime() };
     out.push({ name: UI_FILE, data: Buffer.from(JSON.stringify(state)) });
-  } else if (raw) out.push({ name: UI_FILE, data: raw });
+  }
+  if (!pictures) out.push({ name: NO_PICTURES, data: Buffer.from(NO_PICTURES_TEXT) });
   for (const [name, p] of files) if (name !== UI_FILE) out.push({ name, file: p });
   return out;
 }
@@ -274,6 +292,7 @@ const ALLOWED = [
   /^ui-state\.json$/,
   /^songs\/[^/\\.][^/\\]*\.vosongs$/,
   /^images\/[^/\\.][^/\\]*$/,
+  /^no-pictures\.txt$/,
 ];
 const allowed = (name: string) =>
   !name.includes('..') && !name.includes('\0') && ALLOWED.some((r) => r.test(name));
@@ -360,7 +379,7 @@ export function summarize(entries: StateEntry[], manifest: Partial<BackupManifes
     items,
     bundles,
     pictures,
-    withPictures: manifest.pictures !== false,
+    withPictures: manifest.pictures !== false && !entries.some((e) => e.name === NO_PICTURES),
     // the browser by the name the settings list it under («system» stays: the page says it)
     start: launch
       ? {
@@ -535,6 +554,18 @@ function countState(folder: string): number {
 }
 
 const stamp = (now: Date) => now.toISOString().replace(/[:.]/g, '-');
+
+/** `work` tried again while the file is held a moment (HELD), for a second at most. */
+async function held<T>(work: () => Promise<T>): Promise<T> {
+  for (let tries = 1; ; tries++) {
+    try {
+      return await work();
+    } catch (e) {
+      if (!HELD.has((e as NodeJS.ErrnoException).code ?? '') || tries >= 10) throw e;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+}
 
 /** What Windows answers for a file another program holds a moment (an antivirus, the indexer). */
 const HELD = new Set(['EBUSY', 'EPERM', 'EACCES']);

@@ -461,9 +461,17 @@ async function updateAnswer(force: boolean) {
  * library rebuilds (1.8.8): its npm child runs from app/ and outlives this process — the swap would
  * fail with app/ in use, and the rebuild would stop halfway.
  */
+/**
+ * A version change is under way: its automatic backup is being made (1.12.0-beta.3). Set before
+ * that wait, so a second «Оновити» from another window, or a download, is refused meanwhile — the
+ * installer itself marks the swap only once the helper starts (review of 1.12.0-beta.3).
+ */
+let swapPending = false;
+
 function refuseIfNotNow(inst: NonNullable<typeof installer>) {
   if (rebuilding)
     throw new ApiError(409, N_('Бібліотека саме перебудовується — спробуйте за хвилину'));
+  if (swapPending) throw new ApiError(409, N_('Застосунок саме готується до зміни версії'));
   const why = inst.notNow();
   if (why) throw new ApiError(409, why);
 }
@@ -496,6 +504,8 @@ app.post(
     const s = updates.state();
     if (!installer)
       throw new ApiError(409, N_('Оновлювати сам уміє лише застосунок з архіву релізу'));
+    // a version change waiting for its backup: a download now would empty data/updates under it
+    if (swapPending) throw new ApiError(409, N_('Застосунок саме готується до зміни версії'));
     // the version picked in the dropdown (1.6.2), newer or older; none: the newest
     const wanted = typeof req.body?.version === 'string' ? req.body.version : null;
     if (!wanted && (!s.available || !s.latest)) throw new ApiError(409, N_('Новішої версії немає'));
@@ -571,6 +581,7 @@ function startSwap(
 async function backupBeforeSwap(to: string): Promise<void> {
   if (!getServerSettings().backups.auto) return;
   const started = Date.now();
+  swapPending = true;
   try {
     const b = await oneAtATime(() => makeAutoBackup(dataDir, appVersion, 'update', { to }));
     console.log(
@@ -578,6 +589,9 @@ async function backupBeforeSwap(to: string): Promise<void> {
     );
   } catch (e) {
     console.warn(`[server] backup: none before the version change: ${(e as Error).message}`);
+  } finally {
+    // cleared right before the swap's own checks: nothing awaits between them and startSwap
+    swapPending = false;
   }
 }
 
@@ -591,7 +605,10 @@ app.post(
     if (!installer || !version || version === appVersion)
       throw new ApiError(409, N_('Оновлення ще не завантажено'));
     await backupBeforeSwap(version);
-    if (installer) refuseIfNotNow(installer); // something may have started meanwhile
+    refuseIfNotNow(installer); // something may have started meanwhile
+    // the version waiting now: the same one, or this answer says why not
+    if (installer.waiting(updates.state().latest?.version ?? null) !== version)
+      throw new ApiError(409, N_('Оновлення ще не завантажено'));
     startSwap(installer, version, 'update', res);
   }),
 );
@@ -609,6 +626,8 @@ app.post(
     if (!version) throw new ApiError(409, N_('Попередньої версії немає'));
     await backupBeforeSwap(version);
     refuseIfNotNow(installer); // something may have started meanwhile
+    if (installer.previousVersion() !== version)
+      throw new ApiError(409, N_('Попередньої версії немає'));
     startSwap(installer, version, 'rollback', res);
   }),
 );
@@ -1983,7 +2002,12 @@ async function dailyBackup(): Promise<void> {
   try {
     if (!dailyDue(await listAutoBackups(dataDir))) return;
     const started = Date.now();
-    const b = await oneAtATime(() => makeAutoBackup(dataDir, appVersion, 'daily'));
+    const b = await oneAtATime(async () => {
+      // a rebuild may have started while this waited its turn (it writes the songs)
+      if (rebuilding) return null;
+      return makeAutoBackup(dataDir, appVersion, 'daily');
+    });
+    if (!b) return;
     console.log(
       `[server] backup: daily ${b.name} (${Math.round(b.size / 1024)} KB, ${Date.now() - started} ms)`,
     );
