@@ -101,6 +101,8 @@ function QuoteLines({
             {lines.length > 1 && (
               <span style={{ opacity: 0.5, fontSize: '0.5em', marginRight: '0.6em' }}>
                 {line.translationAbbr}
+                {/* its own place where its numbering differs (1.13.0-beta.2): «GYZ 14:1–2» */}
+                {line.ownRef && ` ${line.approx ? '≈' : ''}${line.ownRef}`}
               </span>
             )}
             {line.segments

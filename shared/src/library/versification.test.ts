@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   alignChapters,
   isIdentity,
+  KNOWN_RENUMBERED,
+  mapSelection,
   PSALMS,
   profilesOf,
   versificationMap,
@@ -104,5 +106,63 @@ describe('the review of the alignment (1.8.12-beta.5)', () => {
     expect(versificationMap(a, tail, 660)(2, 18)).toBeNull();
     const greek = prof(20, 97, 30); // Daniel 3 with the Greek additions inside
     expect(versificationMap(prof(20, 30, 30), greek, 340)(2, 50)).toEqual([2, 50]);
+  });
+});
+
+describe('a selection in another numbering (1.13.0-beta.2, F1010-07)', () => {
+  // the Psalms' chapter lengths of Гижа (GYZ, the Synodal numbering) and Огієнко 1962 (UBIO'62,
+  // the Hebrew one) in the PC's library
+  const GYZ = prof(
+    ...[6, 12, 9, 9, 13, 11, 18, 10, 39, 7, 9, 6, 7, 5, 11, 15, 51, 15, 10, 14, 32, 6, 10, 22, 12],
+    ...[14, 9, 11, 13, 25, 11, 22, 23, 28, 13, 40, 23, 14, 18, 14, 12, 5, 27, 18, 12, 10, 15, 21],
+    ...[23, 21, 11, 7, 9, 24, 14, 12, 12, 18, 14, 9, 13, 12, 11, 14, 20, 8, 36, 37, 6, 24, 20, 28],
+    ...[
+      23, 11, 13, 21, 72, 13, 20, 17, 8, 19, 13, 14, 17, 7, 19, 53, 17, 16, 16, 5, 23, 11, 13, 12,
+    ],
+    ...[9, 9, 5, 8, 29, 22, 35, 45, 48, 43, 14, 31, 7, 10, 10, 9, 26, 9, 10, 2, 29, 176, 7, 8, 9],
+    ...[4, 8, 5, 6, 5, 6, 8, 8, 3, 18, 3, 3, 21, 26, 9, 8, 24, 14, 10, 7, 12, 15, 21, 10, 11, 9],
+    ...[14, 9, 6],
+  );
+  const UBIO62 = prof(
+    ...[6, 12, 9, 9, 13, 11, 17, 10, 21, 18, 7, 9, 7, 7, 5, 11, 15, 51, 15, 10, 14, 32, 6, 10, 22],
+    ...[12, 14, 9, 11, 13, 25, 11, 22, 23, 28, 13, 40, 23, 14, 18, 14, 12, 5, 27, 18, 12, 10, 15],
+    ...[21, 23, 21, 11, 7, 9, 24, 14, 12, 12, 18, 14, 9, 13, 12, 11, 14, 20, 8, 36, 37, 6, 24, 20],
+    ...[
+      28, 23, 11, 13, 21, 72, 13, 20, 17, 8, 19, 13, 14, 17, 7, 19, 53, 17, 16, 16, 5, 23, 11, 13,
+    ],
+    ...[12, 9, 9, 5, 8, 29, 22, 35, 45, 48, 43, 14, 31, 7, 10, 10, 9, 8, 18, 19, 2, 29, 176, 7, 8],
+    ...[
+      9, 4, 8, 5, 6, 5, 6, 8, 8, 3, 18, 3, 3, 21, 26, 9, 8, 24, 14, 10, 8, 12, 15, 21, 10, 20, 14,
+    ],
+    ...[9, 6],
+  );
+
+  it('Огієнко Пс 15 is Гижа 14; a pick across Гижа’s chapter edge comes in order', () => {
+    // UBIO'62's places in GYZ's numbering
+    const toGyz = versificationMap(GYZ, UBIO62, PSALMS);
+    expect(mapSelection(toGyz, 15, [1, 2])).toEqual([
+      { chapter: 14, verse: 1, of: 1 },
+      { chapter: 14, verse: 2, of: 2 },
+    ]);
+    expect(mapSelection(toGyz, 116, [8, 9, 10, 11]).map((p) => `${p.chapter}:${p.verse}`)).toEqual([
+      '114:8',
+      '114:9',
+      '115:1',
+      '115:2',
+    ]);
+  });
+
+  it('each place once, additions left out', () => {
+    const twoToOne = (c: number, v: number): [number, number] | null =>
+      v === 9 ? null : [c, Math.max(1, v - 1)];
+    expect(mapSelection(twoToOne, 22, [2, 1, 9, 3])).toEqual([
+      { chapter: 22, verse: 1, of: 1 },
+      { chapter: 22, verse: 2, of: 3 },
+    ]);
+  });
+
+  it('the known renumbered books: the Psalms, Malachi, Joel — not John', () => {
+    expect([230, 460, 360].every((b) => KNOWN_RENUMBERED.has(b))).toBe(true);
+    expect(KNOWN_RENUMBERED.has(500)).toBe(false);
   });
 });

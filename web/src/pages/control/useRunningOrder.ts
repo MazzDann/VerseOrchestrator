@@ -24,7 +24,6 @@ import {
   type Slide,
   type SlideCountdown,
   type SlideCover,
-  type SlideLine,
   type SlidePicture,
   type SlideSource,
   type SlideStyle,
@@ -32,7 +31,8 @@ import {
 } from '../../presenterBus';
 import { findSong } from '../../lib/songLink';
 import { tr } from '../../i18n';
-import { joinVerses, numbersOn, redLetterSegments } from './slideText';
+import { numbersOn } from './slideText';
+import { passageLines } from '../../lib/passageLines';
 import { asksFor, atItemEdge, belongsTo, stillThere, type PastItem } from '../../lib/orderFlow';
 import { coverOver } from '../../lib/slide';
 import { itemCountdown, zeroIn } from '../../lib/countdownItem';
@@ -152,32 +152,16 @@ export function useRunningOrder({
     selectChapter(it.chapter);
     setSelectedVerses(it.verses);
     setScrollTarget(it.verses[0] ?? null);
-    const lines: SlideLine[] = [];
-    let total: number | undefined;
-    for (const id of it.translationIds) {
-      try {
-        const verses = await queryClient.fetchQuery({
-          queryKey: ['verses', id, it.bookNumber, it.chapter],
-          queryFn: () => api.verses(id, it.bookNumber, it.chapter),
-        });
-        total ??= verses.length > 0 ? verses[verses.length - 1].verse : undefined;
-        const text = joinVerses(
-          verses,
-          it.verses,
-          numbersOn(appearance.verseNumbers, it.verses.length),
-        );
-        if (!text.trim()) continue;
-        const t = translations.find((x) => x.id === id);
-        const segments = redLetterSegments(
-          verses,
-          it.verses,
-          numbersOn(appearance.verseNumbers, it.verses.length),
-        );
-        lines.push({ translationAbbr: t?.abbr ?? '', text, rtl: !!t?.rtl, segments });
-      } catch {
-        /* skip a translation that fails to load */
-      }
-    }
+    // each translation aligned to the first one's numbering (1.13.0-beta.2)
+    const { lines, total } = await passageLines(
+      queryClient,
+      translations,
+      it.translationIds,
+      it.bookNumber,
+      it.chapter,
+      it.verses,
+      numbersOn(appearance.verseNumbers, it.verses.length),
+    );
     if (lines.length === 0) {
       // Every translation failed to load (e.g. ids changed after a library rebuild).
       notifications.show({
