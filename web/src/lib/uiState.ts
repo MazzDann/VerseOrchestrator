@@ -116,6 +116,21 @@ export async function takeServerUiState(): Promise<boolean> {
   return true;
 }
 
+/**
+ * «Повернути як було» after an import into a copy that had no UI state of its own (1.12.0-beta.2):
+ * data/ has none now, so this browser drops its copy too and the page starts from the defaults at
+ * its reload — nothing is sent meanwhile.
+ */
+export function dropUiState(): void {
+  if (running) for (const key of KEYS) window.clearTimeout(running.timers[key]);
+  taking++;
+  try {
+    for (const key of [...KEYS, AT_KEY]) localStorage.removeItem(key);
+  } catch {
+    /* storage blocked: nothing kept to drop */
+  }
+}
+
 /** Start syncing (the control window, once the server is there). */
 export async function startUiStateSync(): Promise<void> {
   let remote: UiState;

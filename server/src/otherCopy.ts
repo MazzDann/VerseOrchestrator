@@ -1,11 +1,11 @@
-import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { collect, replaceState, summarize, type BackupSummary, type Extra } from './backup.js';
+import { replaceState, stateEntries, summarize, type BackupSummary, type Extra } from './backup.js';
+import { KNOWN_BROWSERS, sanitizeLaunch } from './browsers.js';
 import {
   bundlesIn,
   copyFolderOf,
   dataChanged,
-  isFile,
   peek,
   resolveCopy,
   sameFolder,
@@ -13,7 +13,7 @@ import {
   UI_FILE,
   type FoundCopy,
 } from './copyFinder.js';
-import { KNOWN_BROWSERS } from './browsers.js';
+import { knownPairing } from './remote.js';
 import { sanitizeServerSettings } from './serverSettings.js';
 import { compareVersions, parseVersion } from './updates.js';
 
@@ -26,10 +26,11 @@ import { compareVersions, parseVersion } from './updates.js';
  * What it carries, in three parts the operator picks: the operator's things (the UI state, the
  * song bundles, the pictures, the albums' and videos' lists — what a backup carries, plus the
  * lists), the start settings (browser, port and idle stop, updates; not the modules to build —
- * they name this copy's own modules/ files) and the speaker remotes' pairings (only here: from a
- * folder on this computer, merged with this copy's; never through a .zip). It goes through the
- * restore's machinery (backup.ts replaceState): the state it replaces is kept, «Повернути як
- * було» brings it back, the UI state is stamped as the newest.
+ * they name this copy's own modules/ files — nor this copy's remote persistence) and the speaker
+ * remotes' pairings (only here, only from a real copy — an app folder with its data —, added to
+ * this copy's by the remote store; never through a .zip). It goes through the restore's
+ * machinery (backup.ts replaceState): the state it replaces is kept, «Повернути як було» brings
+ * it back — and drops just the pairings it added —, the UI state is stamped as the newest.
  */
 
 /** Another copy as the operator sees it before carrying anything over. */
@@ -39,6 +40,8 @@ export interface CopyInfo {
   dataDir: string;
   /** its version (app/package.json), null when only a data folder was named */
   version: string | null;
+  /** an app folder is there (package.json of this app): only then are its pairings offered */
+  app: boolean;
   /** its waiter holds this copy's port: it is the one that runs */
   running: boolean;
   /** newer than this copy: some of its data this version may not read */
@@ -50,6 +53,8 @@ export interface CopyInfo {
   settings: boolean;
   look: boolean;
   pairings: number;
+  /** the pairings' names, for the operator to see what comes over (the first ones) */
+  pairingNames: string[];
   bundles: number;
   pictures: number;
   programs: number;
@@ -68,50 +73,75 @@ export interface CopyParts {
 }
 
 const count = (v: unknown) => (Array.isArray(v) ? v.length : 0);
+const NAMES_SHOWN = 8;
+
+interface StoredPairing {
+  id: string;
+  name?: unknown;
+  tokenHash: string;
+}
+/** The pairings a secrets.json lists, those that look like pairings. */
+const pairingsOf = (raw: unknown): StoredPairing[] => {
+  const list = (raw as { remotes?: unknown } | null)?.remotes;
+  return (Array.isArray(list) ? (list as StoredPairing[]) : []).filter(
+    (p) => p && typeof p.id === 'string' && /^[0-9a-f]{64}$/.test(String(p.tokenHash ?? '')),
+  );
+};
 
 /** What a copy holds, for the operator to see before carrying it over. */
-export function describeCopy(found: FoundCopy, app: string, running = false): CopyInfo {
+export async function describeCopy(
+  found: FoundCopy,
+  app: string,
+  running = false,
+): Promise<CopyInfo> {
   const { root, dataDir } = found;
   const at = (n: string) => path.join(dataDir, n);
-  const version = root
-    ? ((peek(path.join(root, 'package.json')) as { version?: unknown } | null)?.version ?? null)
-    : null;
-  const settings = peek(at('settings.json')) as { launch?: { browser?: unknown } } | null;
-  const secrets = peek(at('secrets.json')) as { remotes?: unknown } | null;
-  const ui = peek(at(UI_FILE)) as Record<string, { value?: unknown }> | null;
+  const [pkg, settings, secrets, ui, index, albums, videos, bundles, changed] = await Promise.all([
+    root ? peek(path.join(root, 'package.json')) : null,
+    peek(at('settings.json')),
+    peek(at('secrets.json')),
+    peek(at(UI_FILE)),
+    peek(at(path.join('images', 'index.json'))),
+    peek(at('albums.json')),
+    peek(at('videos.json')),
+    bundlesIn(dataDir),
+    dataChanged(dataDir),
+  ]);
+  const state = ui as Record<string, { value?: unknown }> | null;
   let programs = 0;
   try {
-    const playlist = JSON.parse(String(ui?.['vo:playlist']?.value ?? '{}')) as {
+    const playlist = JSON.parse(String(state?.['vo:playlist']?.value ?? '{}')) as {
       state?: { saved?: unknown };
     };
     programs = count(playlist.state?.saved);
   } catch {
     /* none */
   }
-  const index = peek(at(path.join('images', 'index.json'))) as { images?: unknown } | null;
-  const bundles = bundlesIn(dataDir);
-  const changed = dataChanged(dataDir);
+  const version = (pkg as { version?: unknown } | null)?.version;
   const v = typeof version === 'string' && parseVersion(version) ? version : null;
-  const browser = settings?.launch?.browser;
+  const browser = settings ? sanitizeLaunch((settings as { launch?: unknown }).launch).browser : '';
+  const pairings = pairingsOf(secrets);
   return {
     folder: copyFolderOf(found),
     dataDir,
     version: v,
+    app: root !== null,
     running,
     newer: v !== null && parseVersion(app) !== null && compareVersions(v, app) > 0,
     changed,
     browser:
-      typeof browser === 'string' && browser !== 'system'
+      browser && browser !== 'system'
         ? (KNOWN_BROWSERS.find((b) => b.id === browser)?.name ?? browser)
         : null,
     settings: settings !== null,
-    look: typeof ui?.['vo:settings']?.value === 'string',
-    pairings: count(secrets?.remotes),
+    look: typeof state?.['vo:settings']?.value === 'string',
+    pairings: pairings.length,
+    pairingNames: pairings.slice(0, NAMES_SHOWN).map((p) => String(p.name ?? '').slice(0, 40)),
     bundles: bundles.length,
-    pictures: count(index?.images),
+    pictures: count((index as { images?: unknown } | null)?.images),
     programs,
-    albums: count((peek(at('albums.json')) as { albums?: unknown } | null)?.albums),
-    videos: count((peek(at('videos.json')) as { videos?: unknown } | null)?.videos),
+    albums: count((albums as { albums?: unknown } | null)?.albums),
+    videos: count((videos as { videos?: unknown } | null)?.videos),
   };
 }
 
@@ -130,8 +160,8 @@ export async function waiterRoot(port: number, timeoutMs = 1500): Promise<string
 
 /**
  * The other copies of this computer: the one whose waiter holds `port` (it runs), the ones
- * beside this copy (siblings of its folder, one level down for a nested «Extract All»). Never
- * this copy's own data. The running one first, then the most recently changed.
+ * beside this copy (copyFinder.siblingCopies). Never this copy's own data. The running one
+ * first, then the most recently changed.
  */
 export async function findCopies(o: {
   root: string;
@@ -139,64 +169,47 @@ export async function findCopies(o: {
   port: number;
   app: string;
 }): Promise<CopyInfo[]> {
-  const found = new Map<string, CopyInfo>();
-  const add = (where: FoundCopy | null, running = false) => {
-    if (!where || sameFolder(where.dataDir, o.dataDir)) return;
-    const key = path.resolve(where.dataDir).toLowerCase();
-    if (!found.has(key)) found.set(key, describeCopy(where, o.app, running));
-  };
-  const running = await waiterRoot(o.port);
-  if (running) add(resolveCopy(running), true);
-  for (const c of siblingCopies(o.root, o.dataDir)) add(c);
-  return [...found.values()].sort(
+  const [runningRoot, beside] = await Promise.all([
+    waiterRoot(o.port),
+    siblingCopies(o.root, o.dataDir),
+  ]);
+  const running = runningRoot ? await resolveCopy(runningRoot) : null;
+  const all: [FoundCopy, boolean][] = [];
+  if (running?.root && !sameFolder(running.dataDir, o.dataDir)) all.push([running, true]);
+  for (const c of beside)
+    if (!all.some(([f]) => sameFolder(f.dataDir, c.dataDir))) all.push([c, false]);
+  const copies = await Promise.all(all.map(([c, r]) => describeCopy(c, o.app, r)));
+  return copies.sort(
     (a, b) => Number(b.running) - Number(a.running) || (b.changed ?? 0) - (a.changed ?? 0),
   );
 }
 
 /**
- * This copy's start settings with the other copy's browser, port and idle stop, updates and
- * remote persistence. The modules to build stay this copy's (they name its own modules/ files),
- * and so does anything else the file holds (the builder writes there too).
+ * This copy's start settings with the other copy's browser, port and idle stop, and updates. The
+ * modules to build stay this copy's (they name its own modules/ files), and so does its remote
+ * persistence — off there would wipe this copy's pairings at the next save (review of
+ * 1.12.0-beta.2) — and anything else the file holds (the builder writes there too).
  */
 export function mergedSettings(ours: unknown, theirs: unknown): Record<string, unknown> {
   const t = sanitizeServerSettings(theirs);
   const base = ours && typeof ours === 'object' ? (ours as Record<string, unknown>) : {};
-  return {
-    ...base,
-    version: 1,
-    remotes: t.remotes,
-    standby: t.standby,
-    updates: t.updates,
-    launch: t.launch,
-  };
-}
-
-interface StoredPairing {
-  id: string;
-  tokenHash: string;
-}
-const pairingsOf = (raw: unknown): StoredPairing[] =>
-  ((raw as { remotes?: unknown } | null)?.remotes instanceof Array
-    ? ((raw as { remotes: unknown[] }).remotes as StoredPairing[])
-    : []
-  ).filter(
-    (p) => p && typeof p.id === 'string' && /^[0-9a-f]{64}$/.test(String(p.tokenHash ?? '')),
-  );
-
-/** This copy's pairings and the other copy's (one already here — by id or token — stays). */
-export function mergedPairings(ours: unknown, theirs: unknown): { version: 1; remotes: unknown[] } {
-  const kept = pairingsOf(ours);
-  const ids = new Set(kept.map((p) => p.id));
-  const hashes = new Set(kept.map((p) => p.tokenHash));
-  const added = pairingsOf(theirs).filter((p) => !ids.has(p.id) && !hashes.has(p.tokenHash));
-  return { version: 1, remotes: [...kept, ...added] };
+  return { ...base, version: 1, standby: t.standby, updates: t.updates, launch: t.launch };
 }
 
 const json = (v: unknown) => Buffer.from(JSON.stringify(v, null, 2) + '\n');
 
+/** What importCopy did, for the caller. */
+export interface Imported {
+  /** what the operator's things held (the summary a restore says), null when not carried */
+  summary: BackupSummary | null;
+  /** the other copy's pairings to add (the remote store adds them: remote.ts adoptPairings) */
+  pairings: unknown[];
+}
+
 /**
- * Carry the parts over from the copy whose data is in `from` into `dataDir`. Returns what the
- * operator's things held (the summary a restore says), or null when they weren't carried.
+ * Carry the parts over from the copy whose data is in `from` into `dataDir`. The settings are
+ * made when they are written (after the songs and pictures went in), from what this copy has
+ * then; the pairings are left to `applied` — the remote store adds them, it owns their file.
  */
 export async function importCopy(
   dataDir: string,
@@ -204,44 +217,63 @@ export async function importCopy(
   parts: CopyParts,
   app: string,
   now = new Date(),
-  applied?: () => void,
-): Promise<BackupSummary | null> {
-  const extras: Partial<Record<Extra, Buffer>> = {};
-  const own = (n: string) => peek(path.join(dataDir, n));
-  const theirs = (n: string) => peek(path.join(from.dataDir, n));
-  let settings: Record<string, unknown> | null = null;
-  if (parts.launch) settings = mergedSettings(own('settings.json'), theirs('settings.json'));
-  if (parts.pairings) {
-    extras['secrets.json'] = json(mergedPairings(own('secrets.json'), theirs('secrets.json')));
-    // pairings carried over are kept across restarts, whatever this copy had chosen
-    settings ??= { ...((own('settings.json') as object | null) ?? {}) };
-    settings.remotes = { persist: true };
-  }
-  if (settings) extras['settings.json'] = json(settings);
-  const info = describeCopy(from, app);
-  const made = {
-    app: info.version ?? '',
-    created: new Date(info.changed ?? now.getTime()).toISOString(),
+  applied?: (pairings: unknown[]) => void,
+): Promise<Imported> {
+  const [info, theirSettings, theirSecrets] = await Promise.all([
+    describeCopy(from, app),
+    peek(path.join(from.dataDir, 'settings.json')),
+    peek(path.join(from.dataDir, 'secrets.json')),
+  ]);
+  // only from a real copy (an app folder with its data): a folder that merely holds a
+  // secrets.json gives no one a remote here (review of 1.12.0-beta.2)
+  const pairings =
+    parts.pairings && from.root
+      ? pairingsOf(theirSecrets).filter((p) => !knownPairing(p.id, p.tokenHash))
+      : [];
+  // a copy without start settings has none to give: the defaults would replace this copy's
+  const launch = parts.launch && theirSettings !== null;
+  const ownSettings = async () => {
+    try {
+      return JSON.parse(await fsp.readFile(path.join(dataDir, 'settings.json'), 'utf8')) as unknown;
+    } catch {
+      return null;
+    }
   };
+  // read now, written later: the file of this copy as it is when the extras go in
+  const ours = launch || pairings.length ? await ownSettings() : null;
+  const extras: Partial<Record<Extra, () => Buffer | null>> = {};
+  if (launch || pairings.length)
+    extras['settings.json'] = () => {
+      const base = (ours && typeof ours === 'object' ? ours : {}) as Record<string, unknown>;
+      const next = launch ? mergedSettings(base, theirSettings) : { ...base };
+      // pairings carried over are kept across restarts
+      if (pairings.length) next.remotes = { persist: true };
+      return json(next);
+    };
   let entries = null;
   if (parts.things) {
-    // nothing packed: the files are read straight from the other folder, no size limit
-    entries = (await collect(from.dataDir, app, now, Infinity)).filter(
-      (e) => e.name !== 'manifest.json',
+    // nothing packed or held in memory: the songs and pictures are copied from the other folder
+    entries = await stateEntries(from.dataDir);
+    const lists = await Promise.all(
+      (['albums.json', 'videos.json'] as const).map(async (n) => {
+        const data = await fsp.readFile(path.join(from.dataDir, n)).catch(() => null);
+        return [n, data] as const;
+      }),
     );
-    for (const n of ['albums.json', 'videos.json'] as const) {
-      const file = path.join(from.dataDir, n);
-      if (isFile(file)) extras[n] = fs.readFileSync(file);
-    }
+    for (const [n, data] of lists) if (data) extras[n] = () => data;
   }
-  const summary = summarize(entries ?? [], made);
+  const summary = summarize(entries ?? [], {
+    app: info.version ?? '',
+    created: new Date(info.changed ?? now.getTime()).toISOString(),
+  });
   await replaceState(dataDir, entries, summary, now, {
     kind: 'import',
-    applied,
     from: info.folder,
     extras,
+    pairings: pairings.map((p) => p.id),
+    applied: () => applied?.(pairings),
   });
-  return entries ? summary : null;
+  return { summary: entries ? summary : null, pairings };
 }
 
 export { resolveCopy, sameFolder };

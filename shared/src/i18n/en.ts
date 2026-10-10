@@ -2047,7 +2047,6 @@ export const EN: Record<string, string> = {
   'Повернеться стан до перенесення. Те, що змінено після нього, буде замінено, але збережеться окремо в папці data/backups/.':
     'The state before the carry-over comes back. What changed since is replaced, but kept separately in the data/backups/ folder.',
   'вигляд і клавіші': 'look and keys',
-  '{n} файл пісень|{n} файли пісень|{n} файлів пісень': '{n} song file|{n} song files',
   '{n} альбом чи відео|{n} альбоми чи відео|{n} альбомів чи відео':
     '{n} album or video|{n} albums or videos',
   '{n} пульт|{n} пульти|{n} пультів': '{n} remote|{n} remotes',
@@ -2092,4 +2091,13 @@ export const EN: Record<string, string> = {
     'Couldn’t carry over: {error}. Close the programs holding files in data/ and try again.',
   'Поруч є інша копія застосунку з даними: {folder}.\n  Щоб перенести з неї вигляд, пісні, налаштування й пульти — Налаштування вигляду →\n  Застосунок → «Перенести з іншої копії…».':
     'Another copy of the app with data is next to this one: {folder}.\n  To carry over its look, songs, settings and remotes — Settings →\n  App → “Carry over from another copy…”.',
+  '{n} бандл пісень|{n} бандли пісень|{n} бандлів пісень': '{n} song bundle|{n} song bundles',
+  'лише з папки копії застосунку — тієї, де лежать app і data':
+    'only from an app copy’s folder — the one that holds app and data',
+  '{names} — додаються до пультів цієї копії, телефони не треба зв’язувати знову':
+    '{names} — added to this copy’s remotes, the phones need no pairing again',
+  'Папка не відповідає. Перевірте диск і спробуйте ще раз.':
+    'The folder doesn’t answer. Check the drive and try again.',
+  'У тій копії пошкоджено файл налаштувань вигляду чи список зображень — їх не перенести.':
+    'In that copy, the look’s settings file or the pictures’ list is damaged — they can’t be carried over.',
 };
