@@ -85,10 +85,13 @@ import {
   imagesDir,
   isImageFile,
   listImages,
+  renameImage,
   restoreImage,
   trashImage,
   type ImageExt,
 } from './images.js';
+import { givenName } from './mediaName.js';
+import { locateFile, locateFolder, seenFiles, usualRoots } from './locate.js';
 import {
   addAlbum,
   albumEntry,
@@ -99,6 +102,7 @@ import {
   putSmall,
   readAlbums,
   removeAlbum,
+  renameAlbum,
   smallCopies,
   smallFile,
 } from './albums.js';
@@ -109,6 +113,7 @@ import {
   putPoster,
   readVideos,
   removeVideo,
+  renameVideo,
   videoEntry,
   videoFile,
 } from './videos.js';
@@ -1232,6 +1237,23 @@ app.delete(
   }),
 );
 
+// «Перейменувати» (1.14.0-beta.1, the author's Q16): the app's name of a picture, an album, a video
+const nameOf = (body: unknown) => {
+  const name = givenName((body as { name?: unknown } | null)?.name);
+  if (!name) throw new ApiError(400, N_('Введіть назву'));
+  return name;
+};
+
+app.patch(
+  '/api/images/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const done = renameImage(imagesDir(dataDir), String(req.params.id), nameOf(req.body));
+    if (!done) throw new ApiError(404, N_('Зображення не знайдено — відкрийте список ще раз'));
+    res.json(imageEntry(done));
+  }),
+);
+
 app.post(
   '/api/images/restore',
   requireLocalControl,
@@ -1374,6 +1396,37 @@ app.post(
   }),
 );
 
+// a folder dropped on the control window (1.14.0-beta.1, the author's Q14): where it is on disk —
+// the browser names it and its files, never its path
+app.post(
+  '/api/albums/locate',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const name = typeof req.body?.name === 'string' ? req.body.name : '';
+    const files = seenFiles(req.body?.files);
+    if (!name || /[\\/]/.test(name) || !files || files.length === 0)
+      throw new ApiError(400, N_('Не вдалося прочитати перетягнуту папку'));
+    const near = readAlbums(dataDir).map((a) => path.dirname(a.path));
+    const started = Date.now();
+    const done = await locateFolder(name, files, usualRoots(undefined, near));
+    const cut = done.complete ? '' : ', the time ran out';
+    console.log(
+      `[server] albums: «${name}» found ${done.found.length}${cut} (${Date.now() - started} ms)`,
+    );
+    res.json(done);
+  }),
+);
+
+app.patch(
+  '/api/albums/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const done = renameAlbum(dataDir, String(req.params.id), nameOf(req.body));
+    if (!done) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
+    res.json({ id: done.id, name: done.name });
+  }),
+);
+
 app.delete(
   '/api/albums/:id',
   requireLocalControl,
@@ -1470,6 +1523,34 @@ app.post(
       throw new ApiError(400, N_('Виберіть файл на цьому комп’ютері'));
     }
     res.status(201).json(await videoEntry(dataDir, done));
+  }),
+);
+
+// a video dropped on the control window (1.14.0-beta.1): where the file is on disk
+app.post(
+  '/api/videos/locate',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const file = seenFiles([req.body])?.[0];
+    if (!file) throw new ApiError(400, N_('Не вдалося прочитати перетягнутий файл'));
+    const near = readVideos(dataDir).map((v) => path.dirname(v.path));
+    const started = Date.now();
+    const done = await locateFile(file, usualRoots(undefined, near));
+    const cut = done.complete ? '' : ', the time ran out';
+    console.log(
+      `[server] videos: «${file.name}» found ${done.found.length}${cut} (${Date.now() - started} ms)`,
+    );
+    res.json(done);
+  }),
+);
+
+app.patch(
+  '/api/videos/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const done = renameVideo(dataDir, String(req.params.id), nameOf(req.body));
+    if (!done) throw new ApiError(404, N_('Відео не знайдено — відкрийте список ще раз'));
+    res.json({ id: done.id, name: done.name });
   }),
 );
 

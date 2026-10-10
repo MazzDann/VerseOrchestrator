@@ -281,6 +281,19 @@ export async function addAlbum(
   return album;
 }
 
+/** Rename an album (1.14.0-beta.1): the app's name only — the folder keeps its own. */
+export function renameAlbum(dataDir: string, id: string, name: string): Album | null {
+  const albums = readAlbums(dataDir);
+  const album = albums.find((a) => a.id === id);
+  if (!album) return null;
+  const renamed = { ...album, name };
+  writeAlbums(
+    dataDir,
+    albums.map((a) => (a.id === id ? renamed : a)),
+  );
+  return renamed;
+}
+
 /** Forget an album (the folder stays as it is). */
 export function removeAlbum(dataDir: string, id: string): Album | null {
   const albums = readAlbums(dataDir);

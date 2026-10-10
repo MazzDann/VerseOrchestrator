@@ -787,6 +787,23 @@ export const EN: Record<string, string> = {
   Заголовок: 'Title',
   'Куплет {n}': 'Stanza {n}',
   'Введіть назву': 'Type a name',
+  'Перейменувати «{name}»': 'Rename «{name}»',
+  'Відпустіть, щоб додати': 'Drop to add',
+  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео».':
+    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео».',
+  'Не зображення й не відео — не додано: {names}': 'Not a picture or a video — not added: {names}',
+  'Папка «{name}» порожня': 'The folder «{name}» is empty',
+  'Папку «{name}» не знайдено на диску — виберіть її.':
+    'The folder «{name}» was not found on the disk — choose it.',
+  'Знайдено {n} папку «{name}» — виберіть потрібну.|Знайдено {n} папки «{name}» — виберіть потрібну.|Знайдено {n} папок «{name}» — виберіть потрібну.':
+    'Found {n} folder «{name}» — choose the right one.|Found {n} folders «{name}» — choose the right one.',
+  'Не вдалося додати альбом: {error}': 'Could not add the album: {error}',
+  'Відео «{name}» не знайдено на диску — виберіть його.':
+    'The video «{name}» was not found on the disk — choose it.',
+  'Не вдалося додати відео: {error}': 'Could not add the video: {error}',
+  'Не вдалося прочитати перетягнуту папку': 'Could not read the dropped folder',
+  'Не вдалося прочитати перетягнутий файл': 'Could not read the dropped file',
+  'Не вдалося перейменувати: {error}': 'Could not rename: {error}',
   'Бандл із такою назвою вже є': 'A bundle with this name already exists',
   'Бандл «{bundle}» повернуто': 'The bundle “{bundle}” is back',
   'Цей бандл наповнює папка «{folder}»: поки там лежать файли .pptx, він з’явиться знову під час наступного запуску.':

@@ -75,6 +75,8 @@ import { useVerseDeck } from './control/useVerseDeck';
 import { useJumps } from './control/useJumps';
 import { useTranslationSwitch } from './control/useTranslationSwitch';
 import { useShowSteps } from './control/useShowSteps';
+import { useMediaDrop } from './control/useMediaDrop';
+import { DropOverlay } from '../components/DropOverlay';
 import { useSettingsFind } from '../lib/settingsSearch';
 import { formatReference } from '../lib/reference';
 import { useShowJumpWhenReady } from './control/useShowJumpWhenReady';
@@ -1157,8 +1159,16 @@ export function Control() {
     />
   );
 
+  // files and folders dropped on the window (1.14.0-beta.1): pictures, albums, videos — the last
+  // hook: it starts no effect the others wait for
+  const { dragging } = useMediaDrop({
+    openMedia: (tab) => setPlace({ ws: 'media', tab }),
+    enabled: isLeader && serverAvailable !== false,
+  });
+
   return (
     <>
+      {dragging && <DropOverlay />}
       <AppShell
         header={{ height: 56 }}
         navbar={{ width: layout.navWidth, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}

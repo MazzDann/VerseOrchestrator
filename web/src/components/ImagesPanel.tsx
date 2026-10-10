@@ -30,6 +30,8 @@ import type { useAlbum } from '../pages/control/useAlbum';
 import type { useVideo } from '../pages/control/useVideo';
 import { AlbumsView } from './AlbumsView';
 import { VideosView } from './VideosView';
+import { RenameButton } from './RenameButton';
+import { useDrop } from '../lib/drop';
 
 /** What «Зображення» shows: pictures, albums (1.8.12) or videos (1.8.12-beta.3). */
 /** «Медіа» (1.8.12-beta.7): pictures, albums, videos and own text («Текст» joined them). */
@@ -132,6 +134,14 @@ export function ImagesPanel({
     }
   }, [open]);
 
+  // pictures dropped on the window (1.14.0-beta.1, lib/drop.ts) are added here, as by «Додати…»
+  const dropped = useDrop((s) => s.images.length);
+  const addRef = useRef<(files: File[]) => Promise<void>>(async () => undefined);
+  useEffect(() => {
+    if (!open || tab !== 'images' || dropped === 0 || adding) return;
+    void addRef.current(useDrop.getState().takeImages());
+  }, [open, tab, dropped, adding]);
+
   if (!open) return null;
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['images'] });
@@ -159,6 +169,7 @@ export function ImagesPanel({
         autoClose: 1500,
       });
   };
+  addRef.current = add;
   const remove = async (img: ImageInfo, at: number) => {
     try {
       const r = await api.deleteImage(img.id);
@@ -209,6 +220,14 @@ export function ImagesPanel({
               <IconPlaylistAdd size={14} />
             </ActionIcon>
           </Tooltip>
+          <RenameButton
+            name={img.name}
+            onRename={async (name) => {
+              const done = await api.renameMedia('images', img.id, name);
+              usePlaylist.getState().renameMedia('image', img.id, img.name, done.name);
+              refresh();
+            }}
+          />
           <Popover
             opened={asking === img.id}
             onChange={(o) => !o && setAsking(null)}
