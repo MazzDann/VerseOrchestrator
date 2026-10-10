@@ -21,6 +21,7 @@ import {
   compareVersions,
   kindsBreaking,
   useCodeState,
+  useFreshUpdate,
   useUpdateState,
   waitForRelaunch,
   waitForRestart,
@@ -86,6 +87,7 @@ export function UpdateSection() {
   const devLabel = useServer((s) => s.devLabel);
   const queryClient = useQueryClient();
   const state = useUpdateState();
+  const freshRef = useFreshUpdate();
   // a copy of the repository whose code changed under it (upd2, 1.6.0)
   const code = useCodeState();
   const outputs = useOutputWindows();
@@ -259,7 +261,7 @@ export function UpdateSection() {
     });
 
   return (
-    <div>
+    <div ref={freshRef}>
       <Text size="sm" fw={500} mb={2}>
         {tr('Оновлення')}
       </Text>
