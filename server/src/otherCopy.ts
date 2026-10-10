@@ -13,6 +13,7 @@ import {
   UI_FILE,
   type FoundCopy,
 } from './copyFinder.js';
+import { assertWritable, readJson } from './jsonFile.js';
 import { knownPairing } from './remote.js';
 import { sanitizeServerSettings } from './serverSettings.js';
 import { compareVersions, parseVersion } from './updates.js';
@@ -122,7 +123,7 @@ export async function describeCopy(
   const browser = settings ? sanitizeLaunch((settings as { launch?: unknown }).launch).browser : '';
   const pairings = pairingsOf(secrets);
   return {
-    folder: copyFolderOf(found),
+    folder: await copyFolderOf(found),
     dataDir,
     version: v,
     app: root !== null,
@@ -204,6 +205,11 @@ export interface Imported {
   summary: BackupSummary | null;
   /** the other copy's pairings to add (the remote store adds them: remote.ts adoptPairings) */
   pairings: unknown[];
+  /**
+   * Nothing ticked had anything new (the pairings all here already, no start settings there):
+   * nothing was changed — the last restore's way back stays offered (review of 1.12.0-beta.2).
+   */
+  nothing?: boolean;
 }
 
 /**
@@ -232,18 +238,17 @@ export async function importCopy(
       : [];
   // a copy without start settings has none to give: the defaults would replace this copy's
   const launch = parts.launch && theirSettings !== null;
-  const ownSettings = async () => {
-    try {
-      return JSON.parse(await fsp.readFile(path.join(dataDir, 'settings.json'), 'utf8')) as unknown;
-    } catch {
-      return null;
-    }
-  };
-  // read now, written later: the file of this copy as it is when the extras go in
-  const ours = launch || pairings.length ? await ownSettings() : null;
+  if (!parts.things && !launch && pairings.length === 0)
+    return { summary: null, pairings, nothing: true };
   const extras: Partial<Record<Extra, () => Buffer | null>> = {};
   if (launch || pairings.length)
     extras['settings.json'] = () => {
+      // this copy's file as it is now — after the songs and pictures went in —, read the way the
+      // app reads it (a byte-order mark, a file held a moment); one it can't read now is never
+      // written over: the import stops and puts everything back (jsonFile.ts, 1.9.3)
+      const file = path.join(dataDir, 'settings.json');
+      const ours = readJson<unknown>(file, {});
+      assertWritable(file);
       const base = (ours && typeof ours === 'object' ? ours : {}) as Record<string, unknown>;
       const next = launch ? mergedSettings(base, theirSettings) : { ...base };
       // pairings carried over are kept across restarts

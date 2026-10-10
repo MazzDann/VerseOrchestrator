@@ -931,6 +931,8 @@ export const api = {
       body: JSON.stringify({ path, ...parts }),
     });
     if (!res.ok) throw await failure(res);
+    // `warning`: the carry-over stands, a step after it failed (the pairings' file held)
+    return z.object({ warning: z.string().optional() }).parse(await res.json());
   },
   /**
    * «Повернути як було»; `uiCleared` (1.12.0-beta.2): the copy had no UI state before the import,

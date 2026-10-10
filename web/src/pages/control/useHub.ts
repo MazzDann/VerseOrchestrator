@@ -19,7 +19,7 @@ import {
   type SharedPlaylist,
 } from '../../lib/commands';
 import { deskFrame, forAudience, summarize } from '../../lib/slide';
-import { takeServerUiState } from '../../lib/uiState';
+import { dropUiState, takeServerUiState } from '../../lib/uiState';
 import { SONG_KEYS } from '../../lib/songKeys';
 import {
   applyHandoverFrame,
@@ -220,6 +220,12 @@ export function useHub({
           });
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
+        } else if (f.type === 'ui-state' && f.cleared === true) {
+          // an import undone in a copy that had no look of its own (1.12.0-beta.2): data/ holds
+          // none now — this window drops its copy and starts from the defaults, or its next
+          // change would send the carried look back
+          dropUiState();
+          window.location.reload();
         } else if (f.type === 'ui-state') {
           // a backup restored or undone (1.5.0), maybe from another window: its state, now
           void takeServerUiState().then((ok) => {

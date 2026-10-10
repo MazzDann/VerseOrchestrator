@@ -92,7 +92,14 @@ const bundleFile = (n: string) => own(n) && n.endsWith(BUNDLE_EXT);
 async function ownFiles(dataDir: string): Promise<[string, string][]> {
   const files: [string, string][] = [];
   const ui = path.join(dataDir, UI_FILE);
-  if (fs.existsSync(ui)) files.push([UI_FILE, ui]);
+  // asynchronous: another copy's folder may be on a slow or sleeping drive (stateEntries)
+  if (
+    await fsp.stat(ui).then(
+      (s) => s.isFile(),
+      () => false,
+    )
+  )
+    files.push([UI_FILE, ui]);
   const songs = path.join(dataDir, SONGS);
   for (const f of await filesIn(songs, bundleFile))
     files.push([`${SONGS}/${f}`, path.join(songs, f)]);

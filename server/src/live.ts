@@ -216,10 +216,13 @@ export function isRemoteOnline(pairingId: string): boolean {
 
 /**
  * A backup was restored or undone (1.5.0): every control window takes data/'s UI state now,
- * dropping what it had not sent yet (web/src/lib/uiState.ts takeServerUiState).
+ * dropping what it had not sent yet (web/src/lib/uiState.ts takeServerUiState). `cleared`
+ * (1.12.0-beta.2): an undo took data/'s UI state away (the copy had none before an import) —
+ * every window drops its own and reloads, or one would send the carried look back.
  */
-export function notifyUiStateRestored(): void {
-  for (const c of sockets('control')) send(c, { type: 'ui-state' });
+export function notifyUiStateRestored(cleared = false): void {
+  for (const c of sockets('control'))
+    send(c, { type: 'ui-state', ...(cleared ? { cleared } : {}) });
 }
 
 /** Tell control windows to refetch the remote list (pairing added/removed/connected). */

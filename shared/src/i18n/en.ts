@@ -2100,4 +2100,7 @@ export const EN: Record<string, string> = {
     'The folder doesn’t answer. Check the drive and try again.',
   'У тій копії пошкоджено файл налаштувань вигляду чи список зображень — їх не перенести.':
     'In that copy, the look’s settings file or the pictures’ list is damaged — they can’t be carried over.',
+  'Переносити нічого: те, що позначено, тут уже є.':
+    'Nothing to carry over: what you ticked is here already.',
+  'Перенесено, але не все: {error}': 'Carried over, but not all of it: {error}',
 };

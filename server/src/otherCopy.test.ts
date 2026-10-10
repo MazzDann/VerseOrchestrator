@@ -431,4 +431,87 @@ describe('«Перенести з іншої копії…» (1.12.0-beta.2)', (
     const old = releaseCopy(top, 'Old', '1.11.0', 'old');
     expect(await holdsContent(old.data)).toBe(true);
   });
+
+  it('a setting saved while the pictures go in is kept: the settings are read when they are written', async () => {
+    const top = tmp();
+    const here = releaseCopy(top, 'VerseOrchestrator', '1.12.0', 'new');
+    const old = releaseCopy(top, 'Old', '1.11.0', 'old');
+    startRemotes(here.data);
+    const copyFile = fsp.copyFile.bind(fsp);
+    let once = false;
+    vi.spyOn(fsp, 'copyFile').mockImplementation(async (a, b, mode) => {
+      if (!once && String(a).endsWith('old.png')) {
+        once = true; // the builder (or another window) changes the file meanwhile
+        const file = path.join(here.data, 'settings.json');
+        write(file, { ...read(file), library: { files: ['mid.SQLite3'] } });
+      }
+      return copyFile(a, b, mode);
+    });
+    await importCopy(
+      here.data,
+      (await resolveCopy(old.folder))!,
+      { things: true, launch: true, pairings: false },
+      '1.12.0',
+    );
+    expect(once).toBe(true);
+    const settings = read(path.join(here.data, 'settings.json'));
+    expect(settings.library).toEqual({ files: ['mid.SQLite3'] });
+    expect(settings.launch.browser).toBe('opera');
+  });
+
+  it('a settings file this copy can’t read now is never written over: the import stops and puts everything back', async () => {
+    const top = tmp();
+    const here = releaseCopy(top, 'VerseOrchestrator', '1.12.0', 'new');
+    const old = releaseCopy(top, 'Old', '1.11.0', 'old');
+    startRemotes(here.data);
+    const file = path.join(here.data, 'settings.json');
+    const before = fs.readFileSync(file, 'utf8');
+    const readFileSync = fs.readFileSync.bind(fs);
+    vi.spyOn(fs, 'readFileSync').mockImplementation(((p: fs.PathOrFileDescriptor, o?: unknown) => {
+      if (String(p) === file)
+        throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+      return readFileSync(p, o as BufferEncoding);
+    }) as typeof fs.readFileSync);
+    await expect(
+      importCopy(
+        here.data,
+        (await resolveCopy(old.folder))!,
+        { things: true, launch: true, pairings: false },
+        '1.12.0',
+      ),
+    ).rejects.toThrow();
+    vi.restoreAllMocks();
+    expect(fs.readFileSync(file, 'utf8')).toBe(before);
+    expect(tagOf(here.data)).toBe('new');
+    expect(fs.readdirSync(path.join(here.data, 'songs'))).toEqual(['ПС-new.vosongs']);
+    expect(lastRestore(here.data)).toBeNull();
+  });
+
+  it('an import with nothing new changes nothing and leaves the last restore’s way back', async () => {
+    const top = tmp();
+    const here = releaseCopy(top, 'VerseOrchestrator', '1.12.0', 'new');
+    const old = releaseCopy(top, 'Old', '1.11.0', 'old');
+    startRemotes(here.data);
+    const at = new Date('2026-10-10T12:00:00Z');
+    // a first carry-over (the pairing comes over), then the same pairings again
+    await importCopy(
+      here.data,
+      (await resolveCopy(old.folder))!,
+      { things: true, launch: false, pairings: true },
+      '1.12.0',
+      at,
+      adopt(here.data),
+    );
+    const first = lastRestore(here.data, at.getTime());
+    const again = await importCopy(
+      here.data,
+      (await resolveCopy(old.folder))!,
+      { things: false, launch: false, pairings: true },
+      '1.12.0',
+      new Date(at.getTime() + 1000),
+      adopt(here.data),
+    );
+    expect(again.nothing).toBe(true);
+    expect(lastRestore(here.data, at.getTime())).toEqual(first);
+  });
 });

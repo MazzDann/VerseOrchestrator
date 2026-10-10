@@ -673,8 +673,12 @@ async function main(argv: string[]): Promise<number> {
   // A fresh copy beside one that holds the operator's data (1.12.0-beta.2): the user's case of
   // 2026-10-10 — a new zip unpacked next to an old copy started empty, and nothing said so
   if (freshData(dataDir)) {
-    const other = await newestCopy(await siblingCopies(root, dataDir));
-    if (other) say(`! ${otherCopyHint(copyFolderOf(other))}`);
+    // a drive that doesn't answer must not hold the start up: 3 s, then on without the hint
+    const other = await Promise.race([
+      siblingCopies(root, dataDir).then(newestCopy),
+      new Promise<null>((done) => setTimeout(() => done(null), 3000).unref()),
+    ]);
+    if (other) say(`! ${otherCopyHint(await copyFolderOf(other))}`);
   }
 
   // 1. Dependencies (npm ci on a fresh copy — needs the internet once)

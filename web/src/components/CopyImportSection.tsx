@@ -58,6 +58,8 @@ export function CopyImportSection() {
     queryFn: api.copies,
     enabled: open && !off,
     staleTime: 0,
+    // a folder that doesn't answer is said at once (the server gives it 8 s), not after retries
+    retry: false,
   });
   const fail = (e: unknown) =>
     notifications.show({ message: tr((e as Error).message), color: 'red' });
@@ -87,7 +89,13 @@ export function CopyImportSection() {
     if (!chosen) return;
     setBusy(true);
     try {
-      await api.importCopy(chosen.folder, parts);
+      const { warning } = await api.importCopy(chosen.folder, parts);
+      if (warning)
+        notifications.show({
+          message: tr('Перенесено, але не все: {error}', { error: tr(warning) }),
+          color: 'orange',
+          autoClose: false,
+        });
       if (parts.things) {
         // the carried look here first (and in this browser's other windows), then the reload —
         // as a restore does (BackupSection)

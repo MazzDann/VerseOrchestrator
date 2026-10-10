@@ -1,6 +1,6 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { readLayout } from './layout.ts';
+import { LAYOUT_MARKER } from './layout.ts';
 
 /**
  * Other copies of the app on this computer, found by their folders (1.12.0-beta.2): what
@@ -92,7 +92,12 @@ async function isAppRoot(dir: string): Promise<boolean> {
   return pkg?.name === 'verse-orchestrator';
 }
 
-const dataOf = (root: string) => readLayout(root)?.data ?? path.join(root, 'data');
+/** A release copy's layout (layout.ts readLayout, read without blocking): its data folder. */
+async function layoutData(root: string): Promise<string | null> {
+  const m = (await peek(path.join(root, LAYOUT_MARKER))) as { data?: unknown } | null;
+  return typeof m?.data === 'string' ? path.resolve(root, m.data) : null;
+}
+const dataOf = async (root: string) => (await layoutData(root)) ?? path.join(root, 'data');
 
 /** Two paths name one folder (case-insensitive where the system is). */
 export function sameFolder(a: string, b: string, platform = process.platform): boolean {
@@ -117,7 +122,7 @@ export async function resolveCopy(folder: string): Promise<FoundCopy | null> {
   const dir = path.resolve(folder);
   for (const root of [path.join(dir, 'app'), dir]) {
     if (await isAppRoot(root)) {
-      const dataDir = dataOf(root);
+      const dataDir = await dataOf(root);
       return (await holdsData(dataDir)) ? { root, dataDir } : null;
     }
   }
@@ -125,13 +130,14 @@ export async function resolveCopy(folder: string): Promise<FoundCopy | null> {
   // a data folder: its copy's app beside it, when there is one
   const top = path.dirname(dir);
   for (const root of [path.join(top, 'app'), top])
-    if ((await isAppRoot(root)) && sameFolder(dataOf(root), dir)) return { root, dataDir: dir };
+    if ((await isAppRoot(root)) && sameFolder(await dataOf(root), dir))
+      return { root, dataDir: dir };
   return { root: null, dataDir: dir };
 }
 
 /** The copy's folder shown to the operator: the release folder around app/, or the clone. */
-export const copyFolderOf = (c: FoundCopy) =>
-  c.root ? (readLayout(c.root) ? path.dirname(c.root) : c.root) : c.dataDir;
+export const copyFolderOf = async (c: FoundCopy) =>
+  c.root ? ((await layoutData(c.root)) ? path.dirname(c.root) : c.root) : c.dataDir;
 
 /** A copy's own folders: never a copy themselves. */
 const SKIP = new Set(['app', 'data', 'modules', 'node_modules', 'app.previous', 'app.next']);
@@ -163,7 +169,7 @@ export async function siblingCopies(
   dataDir: string,
   limit = 200,
 ): Promise<FoundCopy[]> {
-  const top = readLayout(root) ? path.dirname(root) : root;
+  const top = (await layoutData(root)) ? path.dirname(root) : root;
   const parent = path.dirname(top);
   const near = await foldersIn(parent, limit);
   const lone = near.length === 1 && sameFolder(near[0], top);
