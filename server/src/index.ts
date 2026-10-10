@@ -71,6 +71,7 @@ import { FILE_DENIED, FOLDER_DENIED, keyedError, N_, sameBundleName } from '@vo/
 import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
 import { handoverRoutes, spawnBrowser } from './handover.js';
+import { createPeekGuard } from './peekGuard.js';
 import { CONTROL_HEADER, nodeFirstOnPath, portFree, waiterAt } from './standby.js';
 import {
   addImage,
@@ -374,6 +375,13 @@ const updates = createUpdateChecker({
 // Is a control window open on this machine? The start file and the shortcut then open no
 // second one (1.1.0, launcher.ts) — on a Mac they bring forward the browser it is in.
 app.get('/api/control-windows', requireLocal, controlWindowsRoute);
+
+// F1005-05: an output window opened, moved or went full screen — keep the output windows out of
+// Windows «Peek», which otherwise hides them, the projector's too (peekGuard.ts; Windows only)
+const peekGuard = createPeekGuard({ log: (m) => console.log(`[peek] ${m}`) });
+app.post('/api/windows/peek-guard', requireLocalControl, (_req, res) => {
+  res.status(202).json({ state: peekGuard.request() });
+});
 
 // Installing (1.0.0): only a copy in the release layout, whose app/ can be replaced
 const release = readLayout(repoRoot);
