@@ -29,6 +29,8 @@ import { usePlaylist, type SeqItem } from '../playlistStore';
 import { useSettings, videoVolumeOf } from '../settingsStore';
 import { FolderPicker } from './AlbumsView';
 import { tr, useLang } from '../i18n';
+import { RenameButton } from './RenameButton';
+import { parentOf, useDrop } from '../lib/drop';
 
 type VideoShow = ReturnType<typeof useVideo>;
 
@@ -47,12 +49,26 @@ export function VideosView({
 }) {
   useLang();
   const queryClient = useQueryClient();
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState<{ start?: string } | null>(null);
+  // a dropped video not found on disk (1.14.0-beta.1): the picker, at its folder if one was found
+  const asked = useDrop((s) => (s.pick?.kind === 'video' ? s.pick : null));
+  useEffect(() => {
+    if (!asked) return;
+    setPicking({ start: asked.start ? parentOf(asked.start) : undefined });
+    useDrop.getState().pickerOpened();
+  }, [asked]);
   const [asking, setAsking] = useState<string | null>(null);
   const order = usePlaylist((s) => s.items);
   const programs = usePlaylist((s) => s.saved);
   if (picking)
-    return <FolderPicker mode="video" onDone={() => setPicking(false)} onAdded={() => {}} />;
+    return (
+      <FolderPicker
+        mode="video"
+        start={picking.start}
+        onDone={() => setPicking(null)}
+        onAdded={() => {}}
+      />
+    );
   const uses = (id: string) => {
     const n = (list: SeqItem[]) =>
       list.filter((it) => it.kind === 'video' && it.videoId === id).length;
@@ -97,7 +113,7 @@ export function VideosView({
             size="xs"
             variant="light"
             leftSection={<IconMovie size={14} />}
-            onClick={() => setPicking(true)}
+            onClick={() => setPicking({})}
           >
             {tr('Додати відео…')}
           </Button>
@@ -173,6 +189,14 @@ export function VideosView({
                       <IconPlaylistAdd size={14} />
                     </ActionIcon>
                   </Tooltip>
+                  <RenameButton
+                    name={v.name}
+                    onRename={async (name) => {
+                      const done = await api.renameMedia('videos', v.id, name);
+                      usePlaylist.getState().renameMedia('video', v.id, v.name, done.name);
+                      await queryClient.invalidateQueries({ queryKey: ['videos'] });
+                    }}
+                  />
                   <Popover
                     opened={asking === v.id}
                     onChange={(o) => !o && setAsking(null)}
