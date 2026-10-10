@@ -4,9 +4,12 @@ import { IconArchive, IconArrowBackUp, IconUpload } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type BackupSummary } from '../api';
-import { takeServerUiState } from '../lib/uiState';
+import { dropUiState, takeServerUiState } from '../lib/uiState';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { fmtDateTime, tr, trn, useLang } from '../i18n';
+
+/** The last part of a folder's path, the whole path in its title. */
+const shortName = (folder: string) => folder.split(/[\\/]/).filter(Boolean).pop() ?? folder;
 
 const when = (iso: string) => {
   const t = Date.parse(iso);
@@ -81,13 +84,17 @@ export function BackupSection() {
       resetPicker.current?.();
     }
   };
-  const reloadAfter = async (act: () => Promise<unknown>, message: string) => {
+  const reloadAfter = async (
+    act: () => Promise<{ uiCleared?: boolean } | unknown>,
+    message: string,
+  ) => {
     setBusy(true);
     try {
-      await act();
+      const done = (await act()) as { uiCleared?: boolean } | undefined;
+      if (done?.uiCleared) dropUiState();
       // the restored state here first (and in this browser's other windows), then the reload:
       // nothing of the old state is left to send back (review of #47)
-      await takeServerUiState();
+      else await takeServerUiState();
       notifications.show({ message, color: 'green', autoClose: 2000 });
       window.setTimeout(() => window.location.reload(), 700);
     } catch (e) {
@@ -203,11 +210,11 @@ export function BackupSection() {
           {last && !pending && (
             <div>
               <Group gap="xs" wrap="nowrap" justify="space-between">
-                <Text size="xs" c="dimmed" style={{ minWidth: 0 }}>
+                <Text size="xs" c="dimmed" style={{ minWidth: 0 }} title={last.from}>
                   {last.from
                     ? tr('Перенесено {at} з копії {folder}.', {
                         at: when(last.at),
-                        folder: last.from,
+                        folder: shortName(last.from),
                       })
                     : tr('Відновлено {at} з копії від {when}.', {
                         at: when(last.at),

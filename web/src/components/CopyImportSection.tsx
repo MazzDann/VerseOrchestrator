@@ -17,7 +17,7 @@ function holds(c: CopyInfo, pairings = true): string {
   const parts = [
     c.look ? tr('вигляд і клавіші') : null,
     c.programs > 0 ? trn(c.programs, '{n} програма|{n} програми|{n} програм') : null,
-    c.bundles > 0 ? trn(c.bundles, '{n} файл пісень|{n} файли пісень|{n} файлів пісень') : null,
+    c.bundles > 0 ? trn(c.bundles, '{n} бандл пісень|{n} бандли пісень|{n} бандлів пісень') : null,
     c.pictures > 0 ? trn(c.pictures, '{n} зображення|{n} зображення|{n} зображень') : null,
     c.albums + c.videos > 0
       ? trn(c.albums + c.videos, '{n} альбом чи відео|{n} альбоми чи відео|{n} альбомів чи відео')
@@ -62,19 +62,23 @@ export function CopyImportSection() {
   const fail = (e: unknown) =>
     notifications.show({ message: tr((e as Error).message), color: 'red' });
 
-  const choose = (c: CopyInfo) => {
+  /**
+   * A copy picked: a part it has nothing of starts unticked, and so do the pairings of a folder
+   * picked by hand — one found beside this copy is as trusted as this copy's own folder, a folder
+   * from elsewhere (a flash drive) is not: its remotes come over only when ticked (review).
+   */
+  const choose = (c: CopyInfo, byHand = false) => {
     setChosen(c);
     setPicking(false);
-    // a part the copy has nothing of starts unticked
     setParts({
       things: c.look || c.programs + c.bundles + c.pictures + c.albums + c.videos > 0,
       launch: c.settings,
-      pairings: c.pairings > 0,
+      pairings: c.app && c.pairings > 0 && !byHand,
     });
   };
   const picked = async (path: string) => {
     try {
-      choose(await api.describeCopy(path));
+      choose(await api.describeCopy(path), true);
     } catch (e) {
       fail(e);
     }
@@ -179,15 +183,26 @@ export function CopyImportSection() {
             <Checkbox
               size="xs"
               checked={parts.pairings}
-              disabled={chosen.pairings === 0}
+              disabled={chosen.pairings === 0 || !chosen.app}
               onChange={(e) => setParts({ ...parts, pairings: e.currentTarget.checked })}
               label={trn(
                 chosen.pairings,
                 'Пульти доповідача ({n})|Пульти доповідача ({n})|Пульти доповідача ({n})',
               )}
-              description={tr(
-                'додаються до пультів цієї копії — телефони не треба зв’язувати знову',
-              )}
+              description={
+                !chosen.app
+                  ? tr('лише з папки копії застосунку — тієї, де лежать app і data')
+                  : chosen.pairingNames.length > 0
+                    ? tr(
+                        '{names} — додаються до пультів цієї копії, телефони не треба зв’язувати знову',
+                        {
+                          names:
+                            chosen.pairingNames.join(', ') +
+                            (chosen.pairings > chosen.pairingNames.length ? '…' : ''),
+                        },
+                      )
+                    : tr('додаються до пультів цієї копії — телефони не треба зв’язувати знову')
+              }
             />
           </Stack>
           {chosen.newer && (

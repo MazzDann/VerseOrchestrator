@@ -273,7 +273,7 @@ describe('«Резервна копія» (1.5.0)', () => {
     expect(lastRestore(to, at.getTime() + 25 * 3600_000)).toBeNull();
     // a change after the restore…
     fs.writeFileSync(path.join(to, 'songs', 'Нові.vosongs'), 'made after the restore');
-    expect(await undoRestore(to, new Date(at.getTime() + 60_000))).toBe(true);
+    expect(await undoRestore(to, new Date(at.getTime() + 60_000))).toBeTruthy();
     expect(
       fs.readdirSync(path.join(to, 'songs')).filter((f) => /^[^.].*\.vosongs$/.test(f)),
     ).toEqual(['ПС-b.vosongs']);
@@ -288,7 +288,7 @@ describe('«Резервна копія» (1.5.0)', () => {
     ]);
     expect(fs.existsSync(was)).toBe(false);
     expect(lastRestore(to, at.getTime())).toBeNull();
-    expect(await undoRestore(to)).toBe(false);
+    expect(await undoRestore(to)).toBeNull();
     // …is kept in the state going back replaced
     const kept = fs
       .readdirSync(path.join(to, 'backups'))
@@ -354,7 +354,7 @@ describe('«Резервна копія» (1.5.0)', () => {
     fs.rmSync(path.join(to, 'images', 'c.png'), { recursive: true });
     expect(state(to).songs).toEqual(['ПС-a.vosongs']);
     expect(lastRestore(to, second.getTime())?.undo).toBe(was);
-    expect(await undoRestore(to, second)).toBe(true);
+    expect(await undoRestore(to, second)).toBeTruthy();
     expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
   });
 
@@ -394,10 +394,10 @@ describe('«Резервна копія» (1.5.0)', () => {
       return rm(p, o);
     });
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    expect(await undoRestore(to, at)).toBe(true);
+    expect(await undoRestore(to, at)).toBeTruthy();
     expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
     expect(lastRestore(to, at.getTime())).toBeNull();
-    expect(await undoRestore(to, at)).toBe(false);
+    expect(await undoRestore(to, at)).toBeNull();
   });
 
   it('a move that fails puts back what it moved: a restore changes nothing, no way back is offered', async () => {
@@ -445,7 +445,7 @@ describe('«Резервна копія» (1.5.0)', () => {
     );
     // and going back again works
     vi.restoreAllMocks();
-    expect(await undoRestore(to, at)).toBe(true);
+    expect(await undoRestore(to, at)).toBeTruthy();
     expect(state(to)).toEqual({ songs: ['ПС-b.vosongs'], images: ['b.png', 'index.json'] });
   });
 
@@ -484,7 +484,7 @@ describe('«Резервна копія» (1.5.0)', () => {
       false,
     );
     const was = lastRestore(to, at.getTime())!.undo;
-    expect(await undoRestore(to, at, fail)).toBe(true);
+    expect(await undoRestore(to, at, fail)).toBeTruthy();
     expect(state(to).songs).toEqual(['ПС-b.vosongs']);
     expect(fs.existsSync(path.join(to, 'backups', was))).toBe(false);
   });

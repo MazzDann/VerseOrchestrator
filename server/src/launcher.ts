@@ -56,7 +56,13 @@ import {
 } from './standby.ts';
 import { needsBuild } from './uiStamp.ts';
 import { versionLabel } from './versionLabel.ts';
-import { copyFolderOf, dataChanged, siblingCopies, type FoundCopy } from './copyFinder.ts';
+import {
+  copyFolderOf,
+  dataChanged,
+  holdsContent,
+  siblingCopies,
+  type FoundCopy,
+} from './copyFinder.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -538,10 +544,20 @@ function openBrowser(
 export const freshData = (dataDir: string) =>
   !['settings.json', 'ui-state.json'].some((n) => fs.existsSync(path.join(dataDir, n)));
 
-/** Of the copies found, the one whose data changed last. */
-export const newestCopy = (copies: FoundCopy[]): FoundCopy | null =>
-  copies.map((c) => ({ c, t: dataChanged(c.dataDir) ?? 0 })).sort((a, b) => b.t - a.t)[0]?.c ??
-  null;
+/**
+ * Of the copies found, the one with the operator's own content (songs, pictures, a look — not a
+ * settings file every start writes) whose data changed last (review of 1.12.0-beta.2).
+ */
+export async function newestCopy(copies: FoundCopy[]): Promise<FoundCopy | null> {
+  const rated = await Promise.all(
+    copies.map(async (c) => ({
+      c,
+      content: await holdsContent(c.dataDir),
+      t: (await dataChanged(c.dataDir)) ?? 0,
+    })),
+  );
+  return rated.filter((r) => r.content).sort((a, b) => b.t - a.t)[0]?.c ?? null;
+}
 
 /** The console's pointer to «Перенести з іншої копії…» for a fresh copy beside another one. */
 export const otherCopyHint = (folder: string) =>
@@ -657,7 +673,7 @@ async function main(argv: string[]): Promise<number> {
   // A fresh copy beside one that holds the operator's data (1.12.0-beta.2): the user's case of
   // 2026-10-10 — a new zip unpacked next to an old copy started empty, and nothing said so
   if (freshData(dataDir)) {
-    const other = newestCopy(siblingCopies(root, dataDir));
+    const other = await newestCopy(await siblingCopies(root, dataDir));
     if (other) say(`! ${otherCopyHint(copyFolderOf(other))}`);
   }
 

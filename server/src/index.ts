@@ -29,6 +29,8 @@ import {
   listPairings,
   reissuePairing,
   revokePairing,
+  adoptPairings,
+  dropPairings,
   setPairingAllowed,
   setRemotePersistence,
 } from './remote.js';
@@ -119,6 +121,7 @@ import {
   restorePending,
   startChange,
   undoRestore,
+  type Undone,
 } from './backup.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 
@@ -1388,9 +1391,6 @@ const restored = () => {
   lastImport = null;
   notifyUiStateRestored();
   refreshSongs(bundlesDir(dataDir));
-  // an import (1.12.0-beta.2) and its undo change the start settings and the pairings too
-  const settings = getServerSettings();
-  initRemoteStore({ file: path.join(dataDir, 'secrets.json'), persist: settings.remotes.persist });
 };
 
 /** A backup refused in words: too big, or not one of this app / damaged (review of #47). */
@@ -1466,11 +1466,17 @@ app.post(
   requireLocalControl,
   wrap(async (_req, res) => {
     notDuringRebuild();
-    let undone: boolean;
+    let undone: Undone | null;
     try {
       undone = await oneAtATime(async () => {
         notDuringRebuild();
-        return undoRestore(dataDir, new Date(), restored);
+        return undoRestore(dataDir, new Date(), ({ pairings }) => {
+          restored();
+          // an import's way back (1.12.0-beta.2): the pairings it added go — their phones lose
+          // control now —, a phone paired since stays; the persistence it turned on goes back
+          for (const id of dropPairings(pairings)) dropRemote(id);
+          setRemotePersistence(getServerSettings().remotes.persist);
+        });
       });
     } catch (e) {
       throw backupRefusal(
@@ -1484,30 +1490,47 @@ app.post(
     }
     if (!undone) throw new ApiError(409, N_('Повертати вже нічого'));
     console.log('[server] backup: back to the state before the last restore');
-    res.json({ ok: true });
+    // the copy had no UI state before: the page drops its own (BackupSection)
+    res.json({ ok: true, uiCleared: undone.uiCleared });
   }),
 );
 
 // ── «Перенести з іншої копії…» (1.12.0-beta.2, otherCopy.ts) ──────────────────────────────
+
+/** A folder that doesn't answer in this long (a sleeping share) is reported, not waited for. */
+const COPY_WAIT_MS = 8000;
+const inTime = <T>(work: Promise<T>): Promise<T> =>
+  Promise.race([
+    work,
+    new Promise<T>((_, fail) =>
+      setTimeout(
+        () =>
+          fail(new ApiError(504, N_('Папка не відповідає. Перевірте диск і спробуйте ще раз.'))),
+        COPY_WAIT_MS,
+      ).unref(),
+    ),
+  ]);
 
 /** The other copies of this computer: the one that runs on the port, the ones beside this one. */
 app.get(
   '/api/copies',
   requireLocalControl,
   wrap(async (_req, res) => {
-    const copies = await findCopies({
-      root: repoRoot,
-      dataDir,
-      port: getServerSettings().standby.port,
-      app: appVersion,
-    });
+    const copies = await inTime(
+      findCopies({
+        root: repoRoot,
+        dataDir,
+        port: getServerSettings().standby.port,
+        app: appVersion,
+      }),
+    );
     res.json({ copies });
   }),
 );
 
 /** A folder the operator named: its copy, or why not. */
-const copyAt = (raw: unknown) => {
-  const found = typeof raw === 'string' && raw.trim() ? resolveCopy(raw.trim()) : null;
+const copyAt = async (raw: unknown) => {
+  const found = typeof raw === 'string' && raw.trim() ? await resolveCopy(raw.trim()) : null;
   if (!found)
     throw new ApiError(
       404,
@@ -1521,8 +1544,8 @@ const copyAt = (raw: unknown) => {
 app.get(
   '/api/copies/describe',
   requireLocalControl,
-  wrap((req, res) => {
-    res.json(describeCopy(copyAt(req.query.path), appVersion));
+  wrap(async (req, res) => {
+    res.json(await inTime(copyAt(req.query.path).then((c) => describeCopy(c, appVersion))));
   }),
 );
 
@@ -1531,7 +1554,7 @@ app.post(
   requireLocalControl,
   wrap(async (req, res) => {
     notDuringRebuild();
-    const from = copyAt(req.body?.path);
+    const from = await inTime(copyAt(req.body?.path));
     const parts = {
       things: req.body?.things === true,
       launch: req.body?.launch === true,
@@ -1543,9 +1566,22 @@ app.post(
     try {
       await oneAtATime(async () => {
         notDuringRebuild();
-        return importCopy(dataDir, from, parts, appVersion, new Date(), restored);
+        return importCopy(dataDir, from, parts, appVersion, new Date(), (pairings) => {
+          restored();
+          // carried pairings are kept across restarts (the settings say so by now), then added
+          setRemotePersistence(getServerSettings().remotes.persist);
+          adoptPairings(pairings);
+        });
       });
     } catch (e) {
+      // the other copy's UI state or pictures' index can't be read: said as that, not as a backup
+      if (e instanceof BackupError)
+        throw new ApiError(
+          400,
+          N_(
+            'У тій копії пошкоджено файл налаштувань вигляду чи список зображень — їх не перенести.',
+          ),
+        );
       throw backupRefusal(
         movesFailed(
           e,

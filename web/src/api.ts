@@ -569,6 +569,8 @@ const CopyInfoSchema = z.object({
   folder: z.string(),
   dataDir: z.string(),
   version: z.string().nullable(),
+  /** an app folder is there: only then are its pairings offered */
+  app: z.boolean(),
   running: z.boolean(),
   newer: z.boolean(),
   changed: z.number().nullable(),
@@ -576,6 +578,7 @@ const CopyInfoSchema = z.object({
   settings: z.boolean(),
   look: z.boolean(),
   pairings: z.number(),
+  pairingNames: z.array(z.string()),
   bundles: z.number(),
   pictures: z.number(),
   programs: z.number(),
@@ -929,9 +932,14 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
   },
+  /**
+   * «Повернути як було»; `uiCleared` (1.12.0-beta.2): the copy had no UI state before the import,
+   * so the page drops its own and starts from the defaults.
+   */
   undoRestore: async () => {
     const res = await request('/api/backup/undo', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);
+    return z.object({ uiCleared: z.boolean().optional() }).parse(await res.json());
   },
   uiState: () => getJson('/api/ui-state', UiStateSchema),
   saveUiState: async (key: keyof UiState, value: string, at: number) => {
