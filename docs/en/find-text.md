@@ -114,13 +114,15 @@ choose a line with the arrow keys and Enter.
 
 ## Go back to something recent
 
-Below the book list is **History**: passages you opened, the latest at the top. Click a line
-to go back to the passage, or × next to it to remove it. To clear the whole history, click
-**Clear**.
+Below the book list is **History**: passages you opened, the latest at the top. Under each
+reference is a pale line of its text; point at the line or reach it with Tab, and a tooltip
+shows the whole chosen text and its translation. Click a line to go back to the passage, or ×
+next to it to remove it. To clear the whole history, click **Clear**.
 
 To keep the current passage for longer, click the bookmark icon to the right of the
 **Preview** label above the monitor. Saved passages are on the right under the monitors, on
-the **Saved** tab; from there you can also add them to the running order. More in [Running
+the **Saved** tab; from there you can also add them to the running order. “John 3:16” and
+“John 3:16–18” are two different bookmarks. More in [Running
 order](running-order.md#where-the-running-order-is).
 
 ## Study the text
