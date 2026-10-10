@@ -16,7 +16,7 @@ export type RebuildPhase = 'idle' | 'running' | 'done' | 'failed' | 'stopped';
 export type RebuildError = { key: string; vars?: Record<string, string> } | { text: string };
 
 export interface RebuildState {
-  /** counts the jobs since the start: a window tells a new job from the one it saw end */
+  /** grows with every job, across restarts too: a window tells a new job from one it saw end */
   id: number;
   phase: RebuildPhase;
   /** what the builder is reading — a module's name, or `songs` / `finish` (build.ts `step()`) */
@@ -117,7 +117,9 @@ export function createRebuildJob(o: RebuildJobOptions) {
       if (state.phase === 'running') return state;
       stderr = '';
       set({
-        id: state.id + 1,
+        // from the clock, so a restarted server's jobs still count up: a window open across the
+        // restart would take its job 1 for one it announced already (review)
+        id: Math.max(state.id + 1, now()),
         phase: 'running',
         current: null,
         step: 0,

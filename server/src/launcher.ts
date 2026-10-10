@@ -221,6 +221,30 @@ const hasModules = (dir: string) => {
 };
 
 /**
+ * A library file with its tables — not one a first build left empty when it was stopped or broke
+ * before its commit (1.12.4 review): that one is built again. Node's own SQLite (the launcher runs
+ * before `npm ci`, without better-sqlite3); anything it can't tell counts as a library, as before.
+ */
+function holdsLibrary(file: string): boolean {
+  const sqlite = process.getBuiltinModule?.('node:sqlite') as
+    | typeof import('node:sqlite')
+    | undefined;
+  if (!sqlite) return true;
+  try {
+    const db = new sqlite.DatabaseSync(file, { readOnly: true });
+    try {
+      return !!db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'translations'")
+        .get();
+    } finally {
+      db.close();
+    }
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Where the texts come from: the server library, or MyBible modules to build it from (the
  * builder's order — builder/src/build.ts resolveModulesDir), or the segments the browser
  * engines read on their own («у браузері»), or nothing yet.
@@ -228,7 +252,7 @@ const hasModules = (dir: string) => {
 export function libraryState(dir: string, env: NodeJS.ProcessEnv = process.env): LibraryState {
   const dataDir = env.VO_DATA_DIR ?? path.join(dir, 'data');
   const db = env.LIBRARY_DB ?? path.join(dataDir, 'library.db');
-  if (fs.existsSync(db)) return { kind: 'ready', file: db };
+  if (fs.existsSync(db) && holdsLibrary(db)) return { kind: 'ready', file: db };
   const candidates = [
     env.MODULES_DIR,
     path.join(dir, 'modules'),

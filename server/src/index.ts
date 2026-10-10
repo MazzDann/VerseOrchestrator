@@ -189,16 +189,17 @@ const rebuilding = () => rebuild.running();
 
 /**
  * The builder (`npm run build:library`) as rebuildJob.ts wants it: lines out, a kill that stops
- * the whole tree — npm → tsx → node. `shell: true` so `npm` resolves to npm.cmd on Windows, where
- * taskkill /T stops the tree; elsewhere it gets a group of its own to stop at once (gitSync.ts).
+ * the whole tree — npm → tsx → node. On Windows `shell: true` resolves `npm` to npm.cmd and
+ * taskkill /T stops the tree. Elsewhere npm runs without a shell, in the server's own process
+ * group as before — a Ctrl+C in the terminal still reaches it (review: a group of its own cut it
+ * off) — and SIGTERM goes down the chain: npm and tsx pass it on to the builder.
  */
 function startBuilder(): BuilderProcess {
   const posix = process.platform !== 'win32';
   const child = spawn('npm', ['run', 'build:library'], {
     cwd: repoRoot,
-    shell: true,
+    shell: !posix,
     windowsHide: true,
-    detached: posix,
   });
   const lines = (
     stream: NodeJS.ReadableStream | null,
@@ -206,10 +207,12 @@ function startBuilder(): BuilderProcess {
     cb: (l: string, e: boolean) => void,
   ) => {
     let carry = '';
-    stream?.on('data', (d: Buffer) => {
+    // whole characters: a module named «Танах» may fall across two chunks
+    stream?.setEncoding('utf8');
+    stream?.on('data', (d: string) => {
       // the server's own log keeps what the builder says, as before (standby.log)
       (err ? process.stderr : process.stdout).write(d);
-      const parts = (carry + d.toString()).split(/\r?\n/);
+      const parts = (carry + d).split(/\r?\n/);
       carry = parts.pop() ?? '';
       for (const l of parts) if (l) cb(l, err);
     });
@@ -227,12 +230,18 @@ function startBuilder(): BuilderProcess {
     onExit: (cb) => child.on('close', (code) => cb(code)),
     kill: () => {
       try {
-        if (child.pid && posix) process.kill(-child.pid, 'SIGKILL');
-        else if (child.pid)
+        if (child.pid && !posix)
           spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
             windowsHide: true,
             stdio: 'ignore',
           });
+        else if (child.pid) {
+          child.kill('SIGTERM');
+          // npm that didn't pass it on in five seconds: at least npm goes
+          setTimeout(() => {
+            if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+          }, 5000).unref();
+        }
       } catch {
         /* gone already */
       }
@@ -1514,15 +1523,17 @@ app.get(
     const file = path.join(dir, `download-${process.pid}-${now.getTime()}.zip`);
     let size: number;
     try {
-      // one that could never be restored is not made (review of #47)
-      size = await oneAtATime(async () =>
-        zipToFile(
+      // one that could never be restored is not made (review of #47); not while the builder
+      // rewrites the songs it holds — a rebuild runs in the background since 1.12.4 (review)
+      size = await oneAtATime(async () => {
+        notDuringRebuild();
+        return zipToFile(
           file,
           await backupEntries(dataDir, appVersion, now, { pictures }),
           now,
           compressed,
-        ),
-      );
+        );
+      });
     } catch (e) {
       await fsp.rm(file, { force: true }).catch(() => {});
       // a full disk said in words: the copy is packed under data/ before it is sent
@@ -2074,6 +2085,15 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
           N_('Зачекайте, доки збережеться чи відновиться резервна копія, і спробуйте ще раз'),
         ),
       );
+    return;
+  }
+  // …nor while the app changes its version: a swap refuses a rebuild, and now the other way
+  // round too (review of 1.12.4 — the builder would run from app/ the swap replaces)
+  const why = swapPending
+    ? N_('Застосунок саме готується до зміни версії')
+    : (installer?.notNow() ?? null);
+  if (why) {
+    res.status(409).json(keyedError(why));
     return;
   }
   lastImport = null; // a rescan rewrites the folder-fed bundle: an old snapshot would undo it

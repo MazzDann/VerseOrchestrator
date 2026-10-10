@@ -122,14 +122,29 @@ describe('the library rebuild as the server’s job (1.12.4)', () => {
         }
         return fakeBuilder().process;
       },
+      now: () => 5,
       setTimer: () => null,
       clearTimer: () => {},
     });
     expect(j.start()).toMatchObject({
+      id: 5,
       phase: 'failed',
       error: { vars: { error: 'spawn npm ENOENT' } },
     });
-    expect(j.start()).toMatchObject({ id: 2, phase: 'running' });
+    expect(j.start()).toMatchObject({ id: 6, phase: 'running' });
+  });
+
+  it('a restarted server’s jobs still count up — from the clock (review)', () => {
+    const at = (t: number) =>
+      createRebuildJob({
+        start: () => fakeBuilder().process,
+        now: () => t,
+        setTimer: () => null,
+        clearTimer: () => {},
+      });
+    const before = at(1_000).start().id;
+    const after = at(2_000).start().id; // the next server, a second later
+    expect(after).toBeGreaterThan(before);
   });
 
   it('every change reaches the windows, ending with the outcome', () => {
