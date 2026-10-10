@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -112,18 +113,22 @@ import {
 import {
   BackupError,
   backupBusy,
+  backupEntries,
   backupName,
+  backupsDir,
+  compressed,
   MAX_BACKUP_BYTES,
   keepPending,
   lastRestore,
-  makeBackup,
   oneAtATime,
   readBackup,
   restorePending,
   startChange,
   undoRestore,
   type Undone,
+  type RestoreParts,
 } from './backup.js';
+import { zipToFile } from './zip.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
 
@@ -1390,29 +1395,63 @@ app.delete(
 
 // ── «Резервна копія» (1.5.0, backup.ts): one .zip of the operator's own things ───────────
 
-/** The operator's backup — local control only: it holds their programs, songs, pictures. */
+/** The downloads being sent (their files go once sent; one a crash left goes at the next). */
+const DOWNLOAD = /^download-\d+-\d+\.zip(?:\.\d+\.tmp)?$/;
+
+/**
+ * The operator's backup — local control only: it holds their programs, songs, pictures.
+ * `?pictures=0` (1.12.0-beta.4): without the pictures — what «Зберегти без зображень» asks for when
+ * they'd pass 1 GB. Streamed (1.12.0-beta.4): the .zip is written to data/backups/ one file at a
+ * time and sent from there — the in-memory one held the whole backup (1084 MB for 500 MB of
+ * pictures, measured for beta.3).
+ */
 app.get(
   '/api/backup',
   requireLocalControl,
-  wrap(async (_req, res) => {
+  wrap(async (req, res) => {
     const started = Date.now();
     const now = new Date();
-    let buf: Buffer;
+    const pictures = req.query.pictures !== '0';
+    const dir = backupsDir(dataDir);
+    await fsp.mkdir(dir, { recursive: true });
+    // what an earlier download left (the app stopped while it was sent)
+    for (const name of await fsp.readdir(dir).catch(() => [] as string[]))
+      if (DOWNLOAD.test(name)) await fsp.rm(path.join(dir, name), { force: true }).catch(() => {});
+    const file = path.join(dir, `download-${process.pid}-${now.getTime()}.zip`);
+    let size: number;
     try {
       // one that could never be restored is not made (review of #47)
-      buf = await oneAtATime(() => makeBackup(dataDir, appVersion, now));
+      size = await oneAtATime(async () =>
+        zipToFile(
+          file,
+          await backupEntries(dataDir, appVersion, now, { pictures }),
+          now,
+          compressed,
+        ),
+      );
     } catch (e) {
+      await fsp.rm(file, { force: true }).catch(() => {});
       throw backupRefusal(e);
     }
     console.log(
-      `[server] backup: ${Math.round(buf.length / 1024)} KB in ${Date.now() - started} ms`,
+      `[server] backup: ${Math.round(size / 1024)} KB in ${Date.now() - started} ms${pictures ? '' : ' (without the pictures)'}`,
     );
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${backupName(now)}"`);
-    res.setHeader('Content-Length', buf.length);
-    // not res.send: it hashes the whole body for an ETag — a 200 MB backup stalled the hub
-    // for a third of a second (review of #47)
-    res.end(buf);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${backupName(now).replace(/\.zip$/, pictures ? '.zip' : '-no-pictures.zip')}"`,
+    );
+    res.setHeader('Content-Length', size);
+    // not res.send: it hashes the whole body for an ETag (review of #47); the file goes once
+    // sent or abandoned
+    const stream = fs.createReadStream(file);
+    const drop = () => void fsp.rm(file, { force: true }).catch(() => {});
+    res.on('close', () => {
+      stream.destroy();
+      drop();
+    });
+    stream.on('error', () => res.destroy());
+    stream.pipe(res);
   }),
 );
 
@@ -1496,11 +1535,24 @@ app.post(
     const started = Date.now();
     // the file the page's card shows (review of #47)
     const id = typeof req.body?.id === 'string' ? req.body.id : '';
+    // the parts chosen (1.12.0-beta.4); none sent: all of them (an older page)
+    const raw = req.body?.parts as Partial<Record<keyof RestoreParts, unknown>> | undefined;
+    const parts: RestoreParts | undefined = raw
+      ? {
+          look: raw.look === true,
+          programs: raw.programs === true,
+          songs: raw.songs === true,
+          pictures: raw.pictures === true,
+          start: raw.start === true,
+        }
+      : undefined;
+    if (parts && !Object.values(parts).some(Boolean))
+      throw new ApiError(400, N_('Позначте, що відновити'));
     let summary;
     try {
       summary = await oneAtATime(async () => {
         notDuringRebuild(); // one may have started while this waited
-        return restorePending(dataDir, appVersion, new Date(), { id, applied: restored });
+        return restorePending(dataDir, appVersion, new Date(), { id, applied: restored, parts });
       });
     } catch (e) {
       throw backupRefusal(
