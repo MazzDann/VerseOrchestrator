@@ -15,7 +15,7 @@
  *
  * Control (the app talks to it — only from this machine, with the X-VO-Control header,
  * which a web page elsewhere can't send without a CORS preflight):
- *   GET /__standby            status (state, app port, …)
+ *   GET /__standby            status (state, app port, …, the copy's folder and browser choice)
  *   POST /__standby/retire    exit once the app has stopped;  /resume  cancels that
  *   POST /__standby/relaunch  stop the app, close, start a fresh waiter (new port)
  *   POST /__standby/shutdown  stop the app and close now («Вимкнути повністю», 0.7.1)
@@ -33,6 +33,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { liveNode } from './autostart.ts';
+import { readLaunchSettings } from './browsers.ts';
 import { KeyedError, N_, requestLang, tr, trError, type Lang } from './lang.ts';
 import { applyLayout } from './layout.ts';
 import { needsBuild } from './uiStamp.ts';
@@ -68,6 +69,16 @@ export interface StandbyOptions {
   onRetired?: (why: ShutdownReason) => void;
   /** called after a relaunch request closed this waiter (the CLI starts a fresh one) */
   onRelaunch?: () => void;
+  /**
+   * The copy this waiter serves (its code folder) and that copy's data folder. GET /__standby
+   * names the folder and the browser chosen there (settings.json → launch): the start file of
+   * ANOTHER copy that finds this waiter on the port says whose app it opens and opens the control
+   * window in the browser chosen HERE, where the user chose it — not in its own copy's (the
+   * user's report, 2026-10-09: two copies on one Windows, the old one's waiter started by the
+   * autostart; the new copy's start file opened Edge whatever was chosen).
+   */
+  root?: string;
+  dataDir?: string;
 }
 
 export const CONTROL_HEADER = 'x-vo-control';
@@ -212,6 +223,10 @@ export function createStandby(o: StandbyOptions) {
     retiring,
     /** the waiter's own memory (the app is a separate process) */
     rssBytes: process.memoryUsage().rss,
+    // whose app this is and where its control window opens (StandbyOptions.root) — read now: the
+    // choice changes while the waiter runs
+    ...(o.root ? { root: o.root } : {}),
+    ...(o.dataDir ? { launch: readLaunchSettings(o.dataDir) } : {}),
   });
 
   function control(req: http.IncomingMessage, res: http.ServerResponse): boolean {
@@ -542,6 +557,8 @@ async function main(): Promise<void> {
     idleMs: settings.idleMinutes * 60_000,
     startApp: appProcess(repoRoot, log),
     log,
+    root: repoRoot,
+    dataDir,
     onRetired: () => process.exit(0),
     // A fresh waiter reads the (new) port; this one has already closed its own.
     onRelaunch: () => {
