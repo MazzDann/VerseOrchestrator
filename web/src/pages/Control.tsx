@@ -14,7 +14,7 @@ import { IconAdjustments, IconQrcode, IconDeviceMobile, IconAppWindow } from '@t
 import { useStore } from '../store';
 import {
   useSettings,
-  refKey,
+  bookmarkKey,
   refVerses,
   videoEndOf,
   videoPhonesOf,
@@ -75,6 +75,7 @@ import { useVerseDeck } from './control/useVerseDeck';
 import { useJumps } from './control/useJumps';
 import { useTranslationSwitch } from './control/useTranslationSwitch';
 import { useShowSteps } from './control/useShowSteps';
+import { useSettingsFind } from '../lib/settingsSearch';
 import { formatReference } from '../lib/reference';
 import { useShowJumpWhenReady } from './control/useShowJumpWhenReady';
 import { usePublishNext, useAdoptRestore, useLeaderTakeover } from './control/useTakeover';
@@ -1039,7 +1040,9 @@ export function Control() {
           ...(selectedVerses.length > 1 ? { verses: [...selectedVerses] } : {}),
         }
       : null;
-  const isSaved = currentRef ? bookmarks.some((b) => refKey(b) === refKey(currentRef)) : false;
+  const isSaved = currentRef
+    ? bookmarks.some((b) => bookmarkKey(b) === bookmarkKey(currentRef))
+    : false;
 
   const renderStudyPanels = (compact: boolean) => (
     <StudyPanels
@@ -1506,6 +1509,10 @@ export function Control() {
           setSongsOpen(true);
         }}
         onGoReference={(q) => void goTo(q)}
+        onSetting={(label) => {
+          useSettingsFind.getState().setQuery(tr(label));
+          setSettingsOpen(true);
+        }}
       />
     </>
   );

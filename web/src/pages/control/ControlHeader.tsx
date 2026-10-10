@@ -289,7 +289,8 @@ export function ControlHeader({
         ? tr('Доступна версія {version} — див. «Застосунок» → «Оновлення»', {
             version: newer,
           })
-        : tr('Шрифт, кольори, шаблон слайда, пресети, клавіші'),
+        : // the settings can be searched now (1.13.0-beta.3, F1010-11/12)
+          tr('Шрифт, кольори, переходи, шаблон слайда, пресети, клавіші — з пошуком угорі'),
     icon: <IconAdjustments size={18} stroke={1.5} />,
     dot: !!newer || !!code?.changed,
     active: settingsOpen,
