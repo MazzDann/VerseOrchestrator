@@ -488,6 +488,29 @@ describe('song bundles on disk', () => {
   });
   afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
+  it('a bundle whose write was cut off (a hot journal) is rolled back, not dropped (1.12.4)', () => {
+    const legacy = path.join(tmp, 'ПС укр 1-477');
+    fs.mkdirSync(legacy, { recursive: true });
+    fs.writeFileSync(path.join(legacy, '1. Боже Вічний.pptx'), pptx(['Боже Вічний']));
+    const dir = path.join(tmp, 'data', 'songs');
+    const made = syncFolderBundle(dir, legacy)!;
+    // a writer stopped mid-commit (a stopped rebuild): the file and its journal as it left them
+    const file = path.join(dir, made.file);
+    const writer = new Database(file);
+    writer.pragma('cache_size = 10');
+    writer.exec('BEGIN; CREATE TABLE junk (x BLOB)');
+    const put = writer.prepare('INSERT INTO junk VALUES (?)');
+    for (let i = 0; i < 200; i++) put.run(Buffer.alloc(64 * 1024, i)); // spills to the file
+    const cut = path.join(tmp, 'cut');
+    fs.mkdirSync(cut);
+    fs.copyFileSync(file, path.join(cut, made.file));
+    fs.copyFileSync(`${file}-journal`, path.join(cut, `${made.file}-journal`));
+    writer.exec('ROLLBACK');
+    writer.close();
+    expect(listBundles(cut).map((b) => [b.meta.name, b.count])).toEqual([['ПС', 1]]);
+    expect(fs.existsSync(path.join(cut, `${made.file}-journal`))).toBe(false);
+  });
+
   it('a .pptx folder feeds its own bundle; imports add to one or make new ones', () => {
     const legacy = path.join(tmp, 'ПС укр 1-477');
     fs.mkdirSync(path.join(legacy, '1-100'), { recursive: true });
