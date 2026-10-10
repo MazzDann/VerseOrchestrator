@@ -1,21 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { api } from '../../api';
+import { useQueryClient } from '@tanstack/react-query';
+import { profilesQuery } from '../../lib/passageLines';
 import { remapPlace } from '../../lib/remapPlace';
 import { useStore } from '../../store';
 
 const same = (a: readonly number[], b: readonly number[]) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
-
-/** The chapter lengths of `ids` in `book` — the search's key (useSearchRows): one cache. */
-const lengths = (queryClient: QueryClient, ids: readonly number[], book: number) => {
-  const sorted = [...new Set(ids)].sort((x, y) => x - y);
-  return {
-    queryKey: ['profiles', sorted.join(','), String(book)],
-    queryFn: () => api.profiles(sorted, [book]),
-    staleTime: Infinity,
-  } as const;
-};
 
 /**
  * The operator changes the translations (1.12.6, users' report F1010-10: the picked verses and
@@ -34,7 +24,7 @@ export function useTranslationSwitch(): (ids: number[]) => void {
   const turn = useRef(0);
   useEffect(() => {
     if (ticked.length >= 2 && book != null)
-      void queryClient.prefetchQuery(lengths(queryClient, ticked, book));
+      void queryClient.prefetchQuery(profilesQuery(ticked, book));
   }, [queryClient, ticked, book]);
 
   return useCallback(
@@ -48,8 +38,7 @@ export function useTranslationSwitch(): (ids: number[]) => void {
         useStore.setState({ selectedTranslationIds: ids });
         return;
       }
-      const ask = lengths(
-        queryClient,
+      const ask = profilesQuery(
         s.selectedTranslationIds.includes(to) ? s.selectedTranslationIds : [from, to],
         bookNumber,
       );

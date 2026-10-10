@@ -70,8 +70,12 @@ interface Props {
   primaryId: number | null;
   scope: SearchScope;
   onScopeChange: (scope: SearchScope) => void;
-  /** `show`: picked with ⌘↩ / Ctrl+Enter — and put on screen (Mac check of 1.9.0) */
-  onPick: (result: SearchResult, opts?: { show: boolean }) => void;
+  /**
+   * `show`: picked with ⌘↩ / Ctrl+Enter — and put on screen (Mac check of 1.9.0); `words`: a hit
+   * of the words searched (not a reference, not a «Можливо» guess) — it may open in its own
+   * translation (1.13.0-beta.2)
+   */
+  onPick: (result: SearchResult, opts?: { show: boolean; words?: boolean }) => void;
   /** the query — the header's field and this panel share it (1.8.12-beta.4) */
   query: string;
   setQuery: (q: string) => void;
@@ -184,7 +188,7 @@ export function SearchPanel({
   const onRowPick = useCallback((r: SearchResult) => pickRef.current(r), []);
 
   const pick = (r: SearchResult, opts?: { show: boolean }) => {
-    onPick(r, opts);
+    onPick(r, opts && { ...opts, words: data?.kind === 'text' });
     onDone();
   };
   pickRef.current = pick;

@@ -16,7 +16,9 @@ You choose translations in the **Translations** list at the top left:
   search, and the verse list follow it. To make another translation the main one, click
   the star next to it.
 - The other selected translations stand on the slide below the main one, each with its own
-  label.
+  label. If a translation numbers the verses differently, the slide shows the same text, and
+  its own place stands by the label: Ohienko's Ps 15:1–2 beside Hyzha's **GYZ 14:1–2**. A **≈**
+  before the number means a difference only this module has: check the text.
 - The letter **S** next to a name means the translation has Strong's numbers.
 - To find a translation in a long list quickly, type part of its name in the
   **Filter translations…** field.
@@ -62,6 +64,11 @@ To find a word or a phrase:
    highlighted. If the main translation has nothing, the app searches the others and says so.
 3. Click a result, or choose it with ↓ and ↑ and press Enter. The results close, and the verse
    you found becomes the selection.
+
+If the words were found in another translation, Enter opens the same place in the main one,
+with its number (Hyzha's Ps 14:1 is Ohienko's Ps 15:1). Ctrl+Enter (⌘↩ on macOS) opens the
+translation where the words are: it becomes the main one, and the verse appears on screen at
+once.
 
 The first Esc closes the results, the second clears the field. You can also switch where to
 search above the results: **Current (F3)** or **All (F4)**. When you search all translations,

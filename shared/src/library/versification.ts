@@ -195,6 +195,46 @@ export function versificationMap(
   };
 }
 
+/**
+ * Books whose numbering differs between the classic traditions — the Hebrew (MT), the Greek (LXX,
+ * the Synodal) and the English (KJV) — by known edges: Gen 31:55 / 32:1, Ex 8:1 / 7:26, Lev 6:1 /
+ * 5:20, Num 16:36 / 17:1, Deut 12:32 / 13:1, Josh 21:36–37, 1–2 Sam, 1–2 Kings, 1–2 Chron, Neh 4,
+ * Esther's additions, Job 41, the Psalms, Proverbs (the LXX order), Eccl 5:1, Song 6:13 / 7:1, Isa
+ * 9:1 / 64:1, Jer (the LXX order), Ezek 20:45 / 21:1, Daniel (3:31, the additions), Hos, Joel 3 / 4,
+ * Jonah 1:17 / 2:1, Mic 5:1, Nah 1:15, Zech 1:18 / 2:1, Mal 4 / 3:19; Acts 19:41, Rom 16:25 / 14:24,
+ * 2 Cor 13:13, 3 John 15, Rev 12:18 / 13:1. An alignment that moves places elsewhere follows a
+ * module's own quirk: the slide marks it (1.13.0-beta.2, the author: «невідомі — вирівнювати
+ * також, але позначати»).
+ */
+export const KNOWN_RENUMBERED: ReadonlySet<number> = new Set([
+  10, 20, 30, 40, 50, 60, 90, 100, 110, 120, 130, 140, 160, 190, 220, 230, 240, 250, 260, 290, 300,
+  330, 340, 350, 360, 390, 400, 410, 450, 460, 510, 520, 540, 710, 730,
+]);
+
+/**
+ * The places of a selection of B (`chapter`, `verses`) in A's numbering, as `map` (B → A) puts
+ * them: in order, each once, the additions left out — one selection may fall across a chapter's
+ * edge (Огієнко Пс 116:8–11 = Гижа 114:8–9 + 115:1–2). `of` says which of B's verses each place
+ * came from first.
+ */
+export function mapSelection(
+  map: (chapter: number, verse: number) => [number, number] | null,
+  chapter: number,
+  verses: readonly number[],
+): { chapter: number; verse: number; of: number }[] {
+  const seen = new Set<string>();
+  const out: { chapter: number; verse: number; of: number }[] = [];
+  for (const v of [...verses].sort((x, y) => x - y)) {
+    const at = map(chapter, v);
+    if (!at) continue;
+    const key = `${at[0]}:${at[1]}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ chapter: at[0], verse: at[1], of: v });
+  }
+  return out.sort((x, y) => x.chapter - y.chapter || x.verse - y.verse);
+}
+
 /** Profiles from rows of (translation, book, chapter, max verse), by `${translation}-${book}`. */
 export function profilesOf(
   rows: readonly { translationId: number; bookNumber: number; chapter: number; verses: number }[],

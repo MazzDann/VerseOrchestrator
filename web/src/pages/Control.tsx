@@ -1311,7 +1311,11 @@ export function Control() {
               primaryId={primaryId}
               scope={searchScope}
               onScopeChange={setSearchScope}
-              onPick={(r, opts) => jumpTo(r, { focus: true, show: opts?.show })}
+              // Ctrl+Enter on words found in another translation opens them there; Enter keeps the
+              // main one, the number converted (1.13.0-beta.2, the author: «лише Ctrl+Enter»)
+              onPick={(r, opts) =>
+                jumpTo(r, { focus: true, show: opts?.show, lead: !!opts?.show && opts.words })
+              }
               query={goToValue}
               setQuery={setGoToValue}
               ownField={header.fold.noGoTo && !fieldInCentre}
