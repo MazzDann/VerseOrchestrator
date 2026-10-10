@@ -218,8 +218,8 @@ export const EN: Record<string, string> = {
   '{browser} (не знайдено)': '{browser} (not found)',
   'Окремим вікном': 'As a separate window',
   'Без вкладок і адресного рядка.': 'No tabs, no address bar.',
-  'Окремим вікном відкривають браузери на основі Chromium: Chrome, Edge, Brave, Arc, Opera, Vivaldi. Виберіть один із них угорі.':
-    'Browsers built on Chromium open it as a separate window: Chrome, Edge, Brave, Arc, Opera, Vivaldi. Choose one of them above.',
+  'Окремим вікном відкривають браузери на основі Chromium: Chrome, Edge, Brave, Arc, Vivaldi. Виберіть один із них угорі.':
+    'Browsers built on Chromium open it as a separate window: Chrome, Edge, Brave, Arc, Vivaldi. Choose one of them above.',
   '{browser} на цьому комп’ютері не знайдено — файл запуску відкриє вікно керування, як із «Браузер системи».':
     '{browser} was not found on this computer — the start file will open the control window as with “System browser”.',
   'У {browser} вікно керування відкривається звичайним вікном.':
