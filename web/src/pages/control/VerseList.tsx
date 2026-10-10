@@ -67,8 +67,9 @@ export function VerseList({
             <div
               // keyed by the place, not the number alone: a focused row of the last chapter must not
               // stay focused as another verse of this one — Enter put «Ів 3:28» on screen after a jump
-              // from «Рим 8:28» (users' report F1010-03, reproduced in 1.12.0)
-              key={`${currentBook?.bookNumber}-${chapter}-${v.verse}`}
+              // from «Рим 8:28» (users' report F1010-03, reproduced in 1.12.0). The verse's own book:
+              // the books list may come after the verses (review)
+              key={`${v.bookNumber}-${v.chapter}-${v.verse}`}
               className="vo-verse-item vo-verse-row"
               role="button"
               tabIndex={0}
@@ -89,6 +90,8 @@ export function VerseList({
                   // bound to «На екран» (⌘↩ on a Mac): that hotkey projects
                   if (matchesCombo(e.nativeEvent, keymap.project)) return;
                   e.preventDefault();
+                  // a held Enter projects once, not on every repeat (held keys, as since 1.9.5)
+                  if (e.repeat) return;
                   // Enter projects to the screen immediately (no need to enable
                   // live-follow or press F5); modifier+Enter extends the selection.
                   if (mod) toggleVerse(v.verse);
