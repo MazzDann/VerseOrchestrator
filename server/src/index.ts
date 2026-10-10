@@ -19,6 +19,7 @@ import {
   isRemoteOnline,
   notifyAllowed,
   notifyRemotesChanged,
+  notifyRebuild,
   notifyUiStateRestored,
   publishLive,
   viewerCount,
@@ -50,6 +51,7 @@ import {
 } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
+import { createRebuildJob, type BuilderProcess } from './rebuildJob.js';
 import { createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
 import { readLayout } from './layout.js';
 import { isDevCopy, versionLabel } from './versionLabel.js';
@@ -165,8 +167,78 @@ try {
   console.warn(`[server] songs: ${(err as Error).message}`);
 }
 
-/** A library rebuild (builder process) is in flight — guard against overlapping runs. */
-let rebuilding = false;
+/**
+ * «Пересканувати модулі» — the builder process as the server's job (1.12.4, rebuildJob.ts): one at
+ * a time, its state for every window, «Зупинити», a watchdog. Declared here, before the routes
+ * that refuse to run under it; started by POST /api/rebuild.
+ */
+const rebuild = createRebuildJob({
+  start: startBuilder,
+  onSettled: () => closeDb(), // the next read opens the new library
+  onChange: (s) => {
+    notifyRebuild(s);
+    if (s.phase === 'running' && s.step === 0) console.log(`[server] rebuild ${s.id}: started`);
+    else if (s.phase !== 'running')
+      console.log(
+        `[server] rebuild ${s.id}: ${s.phase} in ${(s.endedAt ?? 0) - (s.startedAt ?? 0)} ms` +
+          (s.error ? ` — ${'text' in s.error ? s.error.text.split('\n').pop() : s.error.key}` : ''),
+      );
+  },
+});
+const rebuilding = () => rebuild.running();
+
+/**
+ * The builder (`npm run build:library`) as rebuildJob.ts wants it: lines out, a kill that stops
+ * the whole tree — npm → tsx → node. `shell: true` so `npm` resolves to npm.cmd on Windows, where
+ * taskkill /T stops the tree; elsewhere it gets a group of its own to stop at once (gitSync.ts).
+ */
+function startBuilder(): BuilderProcess {
+  const posix = process.platform !== 'win32';
+  const child = spawn('npm', ['run', 'build:library'], {
+    cwd: repoRoot,
+    shell: true,
+    windowsHide: true,
+    detached: posix,
+  });
+  const lines = (
+    stream: NodeJS.ReadableStream | null,
+    err: boolean,
+    cb: (l: string, e: boolean) => void,
+  ) => {
+    let carry = '';
+    stream?.on('data', (d: Buffer) => {
+      // the server's own log keeps what the builder says, as before (standby.log)
+      (err ? process.stderr : process.stdout).write(d);
+      const parts = (carry + d.toString()).split(/\r?\n/);
+      carry = parts.pop() ?? '';
+      for (const l of parts) if (l) cb(l, err);
+    });
+    stream?.on('end', () => {
+      if (carry) cb(carry, err);
+      carry = '';
+    });
+  };
+  return {
+    onOutput: (cb) => {
+      lines(child.stdout, false, cb);
+      lines(child.stderr, true, cb);
+    },
+    onError: (cb) => child.on('error', cb),
+    onExit: (cb) => child.on('close', (code) => cb(code)),
+    kill: () => {
+      try {
+        if (child.pid && posix) process.kill(-child.pid, 'SIGKILL');
+        else if (child.pid)
+          spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+            windowsHide: true,
+            stdio: 'ignore',
+          });
+      } catch {
+        /* gone already */
+      }
+    },
+  };
+}
 
 function asInt(value: unknown, name: string): number {
   const n = Number(value);
@@ -474,7 +546,7 @@ async function updateAnswer(force: boolean) {
 let swapPending = false;
 
 function refuseIfNotNow(inst: NonNullable<typeof installer>) {
-  if (rebuilding)
+  if (rebuilding())
     throw new ApiError(409, N_('Бібліотека саме перебудовується — спробуйте за хвилину'));
   if (swapPending) throw new ApiError(409, N_('Застосунок саме готується до зміни версії'));
   const why = inst.notNow();
@@ -883,6 +955,12 @@ app.post(
   '/api/shutdown',
   requireLocalControl,
   wrap(async (_req, res) => {
+    // the builder would go on writing the library with nothing to stop it (1.12.4)
+    if (rebuilding())
+      throw new ApiError(
+        409,
+        N_('Бібліотека саме перебудовується — дочекайтеся кінця або зупиніть перебудову'),
+      );
     const autostartRemoved = isAutostartOn(autostart);
     if (autostartRemoved) setAutostart(autostart, false);
     const ours =
@@ -1048,7 +1126,7 @@ app.post(
   requireLocalControl,
   express.json({ limit: '64mb' }),
   wrap(async (req, res) => {
-    if (rebuilding)
+    if (rebuilding())
       throw new ApiError(409, N_('Бібліотека саме перебудовується — спробуйте за хвилину'));
     const { target, songs } = parseSongImport(req.body);
     const dir = bundlesDir(dataDir);
@@ -1804,7 +1882,7 @@ function refreshSongs(dir: string): number | null {
 }
 
 const notDuringRebuild = () => {
-  if (rebuilding)
+  if (rebuilding())
     throw new ApiError(409, N_('Бібліотека саме перебудовується — спробуйте за хвилину'));
 };
 
@@ -1978,12 +2056,13 @@ app.get(
 
 /**
  * Rebuild the merged library from the modules folder (re-runs the builder process).
- * Lets an operator add a translation/song and refresh without a terminal. The builder
- * rebuilds in place; on success we drop the cached connection so reads see fresh data.
+ * Lets an operator add a translation/song and refresh without a terminal. Since 1.12.4 the job
+ * is the server's: this starts it and answers at once (202) with its state — or, with one
+ * already running, that one's (a second window joins it); GET says how far it is, /stop stops it.
  */
 app.post('/api/rebuild', requireLocalControl, (_req, res) => {
-  if (rebuilding) {
-    res.status(409).json({ error: N_('Перебудова вже триває') });
+  if (rebuild.running()) {
+    res.status(202).json(rebuild.state());
     return;
   }
   // the builder reads and writes data/songs: not under a backup's feet (review of #47)
@@ -1997,44 +2076,17 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
       );
     return;
   }
-  rebuilding = true;
   lastImport = null; // a rescan rewrites the folder-fed bundle: an old snapshot would undo it
-  let stderr = '';
-  let done = false;
-  const finish = (status: number, body: object) => {
-    if (done) return;
-    done = true;
-    rebuilding = false;
-    res.status(status).json(body);
-  };
+  res.status(202).json(rebuild.start());
+});
 
-  // shell:true so `npm` resolves to npm.cmd on Windows.
-  const child = spawn('npm', ['run', 'build:library'], {
-    cwd: repoRoot,
-    shell: true,
-    windowsHide: true,
-  });
-  child.stderr?.on('data', (d) => {
-    stderr += d.toString();
-  });
-  child.stdout?.on('data', (d) => process.stdout.write(d));
-  child.on('error', (err) =>
-    finish(500, keyedError(N_('Не вдалося запустити збірку: {error}'), { error: err.message })),
-  );
-  child.on('close', (code) => {
-    if (code === 0) {
-      closeDb();
-      finish(200, { ok: true });
-    } else {
-      const tail = stderr.trim().slice(-500);
-      finish(
-        500,
-        tail
-          ? { error: tail }
-          : keyedError(N_('Збірка завершилась з кодом {code}'), { code: String(code) }),
-      );
-    }
-  });
+app.get('/api/rebuild', requireLocal, (_req, res) => {
+  res.json(rebuild.state());
+});
+
+/** «Зупинити» (1.12.4): before the builder's commit the library stays as it was. */
+app.post('/api/rebuild/stop', requireLocalControl, (_req, res) => {
+  res.json(rebuild.stop());
 });
 
 /**
@@ -2083,13 +2135,13 @@ if (fs.existsSync(path.join(webDist, 'index.html'))) {
 const AUTO_FIRST_MS = 30_000;
 const AUTO_EVERY_MS = 60 * 60 * 1000;
 async function dailyBackup(): Promise<void> {
-  if (!getServerSettings().backups.auto || rebuilding) return;
+  if (!getServerSettings().backups.auto || rebuilding()) return;
   try {
     if (!dailyDue(await listAutoBackups(dataDir))) return;
     const started = Date.now();
     const b = await oneAtATime(async () => {
       // a rebuild may have started while this waited its turn (it writes the songs)
-      if (rebuilding) return null;
+      if (rebuilding()) return null;
       return makeAutoBackup(dataDir, appVersion, 'daily');
     });
     if (!b) return;

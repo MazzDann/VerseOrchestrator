@@ -3,7 +3,8 @@ import { flushSync } from 'react-dom';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { type Lang } from '@vo/shared';
-import { api, type RemoteCommand, type Pairing } from '../../api';
+import { api, RebuildStateSchema, type RemoteCommand, type Pairing } from '../../api';
+import { noteRebuild } from '../../lib/rebuild';
 import { playable, type SeqItem } from '../../playlistStore';
 import { type Slide, type SlideSource } from '../../presenterBus';
 import { connectLive, type LiveConnection } from '../../lib/liveSocket';
@@ -220,6 +221,14 @@ export function useHub({
           });
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
+        } else if (f.type === 'rebuild') {
+          // «Пересканувати модулі» moved on, maybe from another window (1.12.4): its progress
+          // here, and at its end this window reads the new library
+          const job = RebuildStateSchema.safeParse(f.job);
+          if (job.success) {
+            queryClient.setQueryData(['rebuild'], job.data);
+            noteRebuild(queryClient, job.data);
+          }
         } else if (f.type === 'ui-state' && f.cleared === true) {
           // an import undone in a copy that had no look of its own (1.12.0-beta.2): data/ holds
           // none now — this window drops its copy and starts from the defaults, or its next
