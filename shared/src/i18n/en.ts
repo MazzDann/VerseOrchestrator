@@ -49,6 +49,13 @@ export const EN: Record<string, string> = {
   'Коли віршів кілька': 'When there are several verses',
   Завжди: 'Always',
   'Перехід між слайдами': 'Slide transition',
+  'Переходи й анімація': 'Transitions and animation',
+  'плавний перехід': 'smooth transition',
+  'Якщо в системі ввімкнено зменшення руху, монітори у вікні керування змінюють слайд без анімації, а вікна показу лишають вибраний перехід.':
+    'If the system is set to reduce motion, the monitors in the control window change the slide without animation, while the presentation windows keep the chosen transition.',
+  'Пошук у налаштуваннях': 'Search the settings',
+  Налаштування: 'Settings',
+  'Нічого не знайдено. Спробуйте інше слово.': 'Nothing found. Try another word.',
   'Плавний: старий слайд згасає, новий проявляється (новий текст — за ~0,4 с). Швидкий: новий одразу, коротке проявлення. Наплив: новий текст піднімається на своє місце. Без анімації: миттєва заміна — і для рядків поступового розкриття. Вірш, доданий до показаних, з’являється сам, а показані стоять на місці.':
     'Smooth: the old slide fades out and the new one fades in (new text in about 0.4 s). Fast: the new one at once, with a short fade-in. Rise: the new text rises into place. No animation: an instant swap — for the lines of a progressive reveal too. A verse added to the ones shown comes in alone; the shown ones stay in place.',
   Плавний: 'Smooth',
@@ -671,7 +678,8 @@ export const EN: Record<string, string> = {
   'Повернути той самий слайд': 'Bring the same slide back',
   'Зняти чорний екран': 'Turn off black screen',
   'Повернути те, що було': 'Bring back what was there',
-  'Шрифт, кольори, шаблон слайда, пресети, клавіші': 'Font, colors, slide template, presets, keys',
+  'Шрифт, кольори, переходи, шаблон слайда, пресети, клавіші — з пошуком угорі':
+    'Font, colors, transitions, slide template, presets, keys — with a search at the top',
   'Панель показу': 'Preview panel',
   Ще: 'More',
   'Кнопки, які не вмістилися у вікні': "Buttons that don't fit in the window",

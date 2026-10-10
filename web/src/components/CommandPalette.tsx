@@ -3,9 +3,17 @@ import { createPortal } from 'react-dom';
 import { Paper, TextInput, Text, Box, Group, Loader } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
-import { IconSearch, IconBook, IconMusic, IconArrowRight, IconBolt } from '@tabler/icons-react';
+import {
+  IconAdjustments,
+  IconSearch,
+  IconBook,
+  IconMusic,
+  IconArrowRight,
+  IconBolt,
+} from '@tabler/icons-react';
 import { api, type Book } from '../api';
 import { tr, trn, useLang } from '../i18n';
+import { findSettings, SECTION_TITLES } from '../lib/settingsSearch';
 
 /** A static operator action exposed in the palette. */
 export interface CommandItem {
@@ -25,6 +33,8 @@ interface Props {
   onJumpBook: (bookNumber: number) => void;
   onOpenSong: (songId: number) => void;
   onGoReference: (q: string) => void;
+  /** a setting found by its name (1.13.0-beta.3): the settings panel opens on it */
+  onSetting?: (label: string) => void;
 }
 
 /** One navigable row, flattened across sections (the section is just a display label). */
@@ -52,6 +62,7 @@ export function CommandPalette({
   onJumpBook,
   onOpenSong,
   onGoReference,
+  onSetting,
 }: Props) {
   useLang();
   const [query, setQuery] = useState('');
@@ -108,6 +119,19 @@ export function CommandPalette({
       });
     }
 
+    // Settings by their names (1.13.0-beta.3, the author's Q9b) — only with a query, like the books
+    if (q && onSetting) {
+      for (const s of findSettings(q).slice(0, 8)) {
+        out.push({
+          key: `set:${s.section}:${s.label}`,
+          section: tr('Налаштування'),
+          label: `${tr(SECTION_TITLES[s.section])} → ${tr(s.label)}`,
+          icon: <IconAdjustments size={16} />,
+          run: () => onSetting(s.label),
+        });
+      }
+    }
+
     // Books (only when there's a query, to avoid a 66-row dump).
     if (q) {
       const matched = books
@@ -142,7 +166,17 @@ export function CommandPalette({
     }
 
     return out;
-  }, [query, debounced, commands, books, songsQuery.data, onGoReference, onJumpBook, onOpenSong]);
+  }, [
+    query,
+    debounced,
+    commands,
+    books,
+    songsQuery.data,
+    onGoReference,
+    onJumpBook,
+    onOpenSong,
+    onSetting,
+  ]);
 
   // Keep the selected index in range as the result set changes.
   useEffect(() => {

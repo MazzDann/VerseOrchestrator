@@ -253,7 +253,8 @@ export function sanitizeOutputs(raw: unknown): OutputSettings {
 export const DEFAULT_LAYOUT: PanelLayout = {
   navWidth: 300,
   asideWidth: 380,
-  recentHeight: 170,
+  // a line of text under each place (1.13.0-beta.3, Q8a): taller than the 170 of before
+  recentHeight: 240,
   bottomHeight: 280,
 };
 
@@ -489,6 +490,12 @@ export const FONT_OPTIONS = [
 ];
 
 export const refKey = (i: RefItem) => `${i.translationId}-${i.bookNumber}-${i.chapter}-${i.verse}`;
+/**
+ * A bookmark's key: the place and the whole pick — «Ів 3:16» and «Ів 3:16–18» are two bookmarks
+ * (1.13.0-beta.3, the author's Q8c); «Історія» keeps one row per place (`refKey`).
+ */
+export const bookmarkKey = (i: RefItem) =>
+  `${refKey(i)}${i.verses && i.verses.length > 1 ? `:${i.verses.join(',')}` : ''}`;
 export const textKey = (t: TextItem) => `${t.title}\n${t.body}`;
 
 const ALIGNS: TextAlign[] = ['left', 'center', 'right'];
@@ -688,24 +695,26 @@ export const useSettings = create<SettingsState>()(
       clearHistory: () => set({ history: [] }),
       toggleBookmark: (item) =>
         set((s) => {
-          const k = refKey(item);
-          const exists = s.bookmarks.some((b) => refKey(b) === k);
+          const k = bookmarkKey(item);
+          const exists = s.bookmarks.some((b) => bookmarkKey(b) === k);
           return {
             bookmarks: exists
-              ? s.bookmarks.filter((b) => refKey(b) !== k)
+              ? s.bookmarks.filter((b) => bookmarkKey(b) !== k)
               : [item, ...s.bookmarks].slice(0, 200),
           };
         }),
       importBookmarks: (items) =>
         set((s) => {
-          const seen = new Set(s.bookmarks.map(refKey));
+          const seen = new Set(s.bookmarks.map(bookmarkKey));
           const merged = [...s.bookmarks];
           for (const it of items) {
-            if (it && it.translationId != null && it.bookNumber != null && !seen.has(refKey(it))) {
-              seen.add(refKey(it));
+            if (it && it.translationId != null && it.bookNumber != null) {
               const { verses, ...place } = it;
               const kept = keptVerses(verses);
-              merged.push(kept ? { ...place, verses: kept } : place);
+              const b = kept ? { ...place, verses: kept } : place;
+              if (seen.has(bookmarkKey(b))) continue;
+              seen.add(bookmarkKey(b));
+              merged.push(b);
             }
           }
           return { bookmarks: merged.slice(0, 200) };
@@ -823,7 +832,10 @@ export const useSettings = create<SettingsState>()(
           // Backfill missing actions + drop any non-string/garbage values so every
           // consumer (.split in useHotkeys / settings UI) always gets a valid chord.
           keymap: sanitizeKeymap(p.keymap),
-          layout: clampLayout(p.layout),
+          // the old default 170 grows to the new 240 with the history's text lines (1.13.0-beta.3)
+          layout: clampLayout(
+            p.layout?.recentHeight === 170 ? { ...p.layout, recentHeight: 240 } : p.layout,
+          ),
           outputs: sanitizeOutputs(p.outputs),
           search: sanitizeSearch(p.search),
           // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language

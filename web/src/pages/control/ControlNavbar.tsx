@@ -14,6 +14,7 @@ import { type PanelLayout, type RefItem } from '../../settingsStore';
 import { TranslationPicker } from '../../components/TranslationPicker';
 import { VirtualList } from '../../components/VirtualList';
 import { RefList } from '../../components/RefList';
+import { useHistoryTexts } from './useHistoryTexts';
 import { ResizeHandle } from '../../components/ResizeHandle';
 import { type LibraryGap } from '../../components/NoLibrary';
 import { type MediaTab } from '../../components/ImagesPanel';
@@ -79,6 +80,8 @@ export function ControlNavbar({
   onMediaTab: (tab: MediaTab) => void;
 }) {
   useLang();
+  // «Історія» shows each place's text (1.13.0-beta.3, F1010-09)
+  const historyTexts = useHistoryTexts(history, translations);
   const resize = (
     <Box visibleFrom="sm">
       <ResizeHandle
@@ -220,6 +223,7 @@ export function ControlNavbar({
                 items={history}
                 onPick={jumpTo}
                 onRemove={removeHistory}
+                texts={historyTexts}
                 empty={tr('Тут з’являтимуться місця, які ви відкривали')}
               />
             </ScrollArea>
