@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   CHECK_EVERY_MS,
+  OPEN_FRESH_MS,
   channelFor,
   compareVersions,
   createUpdateChecker,
@@ -225,18 +226,61 @@ describe('update check (1.0.0)', () => {
     return { c, fetch, later: (ms: number) => (t += ms) };
   };
 
-  it('says whether a newer version is out, and asks GitHub again only after 12 hours', async () => {
+  it('says whether a newer version is out, and asks GitHub again within the hour (1.12.3)', async () => {
     const { c, fetch, later } = checker({ current: '0.14.1' });
     const s = await c.check();
     expect(s).toMatchObject({ available: true, channel: 'beta', error: null });
     expect(s.latest?.version).toBe('0.14.2');
     await c.check();
     expect(fetch).toHaveBeenCalledTimes(1);
+    // the hourly look finds the last answer old enough — not a few seconds too young
+    expect(CHECK_EVERY_MS).toBeLessThan(60 * 60 * 1000);
     later(CHECK_EVERY_MS);
     await c.check();
     expect(fetch).toHaveBeenCalledTimes(2);
     await c.check(true); // «Перевірити зараз»
     expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('«Оновлення» in sight asks again on an answer over ten minutes old (1.12.3)', async () => {
+    const { c, fetch, later } = checker({ current: '0.14.1' });
+    await c.check();
+    later(OPEN_FRESH_MS - 1);
+    await c.check(false, OPEN_FRESH_MS);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    later(1);
+    await c.check(false, OPEN_FRESH_MS);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    // …but not with the switch off
+    const off = checker({ current: '0.14.1', enabled: false });
+    await off.c.check(false, OPEN_FRESH_MS);
+    expect(off.fetch).not.toHaveBeenCalled();
+  });
+
+  it('asks «changed since?» with the last ETag; a 304 keeps the list (1.12.3)', async () => {
+    let t = 0;
+    const seen: (string | null)[] = [];
+    const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const asked = new Headers(init.headers).get('If-None-Match');
+      seen.push(asked);
+      if (asked === 'W/"a"') return new Response(null, { status: 304 });
+      return Response.json([release('v0.14.2')], { headers: { ETag: 'W/"a"' } });
+    });
+    const c = createUpdateChecker({
+      current: '0.14.1',
+      install: 'release',
+      isEnabled: () => true,
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      now: () => t,
+      platform: 'win32',
+      arch: 'x64',
+    });
+    await c.check();
+    t += CHECK_EVERY_MS;
+    const s = await c.check();
+    expect(seen).toEqual([null, 'W/"a"']);
+    expect(s).toMatchObject({ available: true, error: null, checkedAt: CHECK_EVERY_MS });
+    expect(s.latest?.version).toBe('0.14.2');
   });
 
   it('the newest version itself is up to date; a preview install sees 1.0.0 once it is out', async () => {
