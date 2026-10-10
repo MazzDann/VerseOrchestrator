@@ -1849,3 +1849,12 @@ form.vo-remote-countdown {
   background: var(--mantine-color-body);
   box-shadow: var(--mantine-shadow-md);
 }
+
+/* An HEIC photo of an album still converting (1.14.0-beta.2, AlbumsView): the tile says so. */
+.vo-thumb-wait {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}

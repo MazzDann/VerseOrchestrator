@@ -100,11 +100,13 @@ import {
   listPhotos,
   photoFile,
   putSmall,
+  putView,
   readAlbums,
   removeAlbum,
   renameAlbum,
   smallCopies,
   smallFile,
+  viewFile,
 } from './albums.js';
 import {
   addVideo,
@@ -1322,7 +1324,13 @@ app.get(
   '/api/albums/:id/file/:name',
   wrap(async (req, res) => {
     const album = readAlbums(dataDir).find((a) => a.id === String(req.params.id));
-    const photo = album ? await photoFile(album.path, String(req.params.name)) : null;
+    const name = String(req.params.name);
+    let photo = album ? await photoFile(album.path, name) : null;
+    // an HEIC: its view copy (1.14.0-beta.2); none yet — a 404, the control window waits for it
+    if (photo?.heic) {
+      const view = await viewFile(dataDir, album!, photo, name);
+      photo = view ? { ...photo, file: view, type: 'image/jpeg' } : null;
+    }
     if (!photo) {
       res.status(404).end();
       return;
@@ -1357,6 +1365,49 @@ app.get(
     res.sendFile(photo.file, { dotfiles: 'allow' }, (err) => {
       if (err && !res.headersSent) res.status(404).end();
     });
+  }),
+);
+
+/**
+ * An HEIC photo as it is (1.14.0-beta.2), for the control window's worker to convert: this
+ * computer only — the hall never gets HEIC.
+ */
+app.get(
+  '/api/albums/:id/raw/:name',
+  requireLocal,
+  wrap(async (req, res) => {
+    const album = readAlbums(dataDir).find((a) => a.id === String(req.params.id));
+    const photo = album ? await photoFile(album.path, String(req.params.name)) : null;
+    if (!photo?.heic) {
+      res.status(404).end();
+      return;
+    }
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Cache-Control', 'no-store');
+    res.sendFile(photo.file, { dotfiles: 'allow' }, (err) => {
+      if (err && !res.headersSent) res.status(404).end();
+    });
+  }),
+);
+
+/** The view copy of an HEIC photo the control window made (a JPEG ≤ 20 MB, the body itself). */
+app.put(
+  '/api/albums/:id/view/:name',
+  requireLocalControl,
+  express.raw({ type: () => true, limit: '20mb' }),
+  wrap(async (req, res) => {
+    const album = readAlbums(dataDir).find((a) => a.id === String(req.params.id));
+    if (!album) throw new ApiError(404, N_('Альбом не знайдено — відкрийте список ще раз'));
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const version = typeof req.query.v === 'string' ? req.query.v : '';
+    const done = await putView(dataDir, album, String(req.params.name), version, body);
+    if ('refused' in done) {
+      if (done.refused === 'photo') throw new ApiError(404, N_('Фото вже немає в папці'));
+      if (done.refused === 'changed')
+        throw new ApiError(409, N_('Фото в папці змінилося — відкрийте альбом ще раз'));
+      throw new ApiError(400, N_('Копія фото HEIC має бути JPEG до 20 МБ'));
+    }
+    res.json(done);
   }),
 );
 

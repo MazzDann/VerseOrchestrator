@@ -531,8 +531,6 @@ export const EN: Record<string, string> = {
     'This folder has {n} photo|This folder has {n} photos',
   'У цій папці немає фото — відкрийте папку, де вони лежать.':
     'This folder has no photos — open the folder they are in.',
-  '{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.|{n} фото HEIC не покажуться — браузери їх не відкривають.':
-    "{n} HEIC photo won't show — browsers can't open them.|{n} HEIC photos won't show — browsers can't open them.",
   'Додати цю папку': 'Add this folder',
   'До альбомів': 'Back to albums',
   Альбом: 'Album',
@@ -753,8 +751,6 @@ export const EN: Record<string, string> = {
   'Початок книги. Натисніть «Назад» ще раз — {place}':
     'Start of the book. Press “Back” again — {place}',
   'Це перший вірш перекладу': 'This is the translation’s first verse',
-  'Це фото HEIC (так знімає iPhone), і браузер його не відкриває: збережіть його як JPEG і додайте ще раз':
-    'This is a HEIC photo (iPhones take them), and the browser can’t open it: save it as JPEG and add it again',
   'Не вдалося прочитати зображення': "Couldn't read the image",
   'сервер недоступний. Перевірте вікно, де запущено застосунок (start.cmd, start.sh або npm run dev)':
     "the server can't be reached. Check the window where the app runs (start.cmd, start.sh, or npm run dev)",
@@ -803,6 +799,20 @@ export const EN: Record<string, string> = {
   'Не вдалося додати відео: {error}': 'Could not add the video: {error}',
   'Не вдалося прочитати перетягнуту папку': 'Could not read the dropped folder',
   'Не вдалося прочитати перетягнутий файл': 'Could not read the dropped file',
+  'З них {n} фото HEIC — застосунок перетворить їх для показу.|З них {n} фото HEIC — застосунок перетворить їх для показу.|З них {n} фото HEIC — застосунок перетворить їх для показу.':
+    'Of them, {n} HEIC photo — the app converts it for showing.|Of them, {n} HEIC photos — the app converts them for showing.',
+  'Перетворюю {n} фото HEIC…|Перетворюю {n} фото HEIC…|Перетворюю {n} фото HEIC…':
+    'Converting {n} HEIC photo…|Converting {n} HEIC photos…',
+  'перетворюю…': 'converting…',
+  'Перетворюю фото HEIC… ({n} з {of})': 'Converting HEIC photos… ({n} of {of})',
+  'Перетворення HEIC скасовано': 'HEIC conversion cancelled',
+  'Фото HEIC перетворювалося задовго — спробуйте ще раз або збережіть його як JPEG':
+    'The HEIC photo took too long to convert — try again or save it as JPEG',
+  'Не вдалося перетворити фото HEIC: збережіть його як JPEG і додайте ще раз':
+    'Could not convert the HEIC photo: save it as JPEG and add it again',
+  'Фото «{name}» ще перетворюється — покажу, щойно буде готове.':
+    'The photo «{name}» is still converting — it goes on screen once it is ready.',
+  'Копія фото HEIC має бути JPEG до 20 МБ': 'The HEIC photo’s copy must be a JPEG of up to 20 MB',
   'Не вдалося перейменувати: {error}': 'Could not rename: {error}',
   'Бандл із такою назвою вже є': 'A bundle with this name already exists',
   'Бандл «{bundle}» повернуто': 'The bundle “{bundle}” is back',
