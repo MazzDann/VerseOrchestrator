@@ -82,6 +82,8 @@ export interface BackupSummary {
   created: string;
   /** the UI state is there (appearance, hotkeys, bookmarks, history) */
   settings: boolean;
+  /** the running order and the saved programs are there (1.12.0-beta.4: a part of its own) */
+  playlist?: boolean;
   /** saved programs */
   programs: number;
   /** items of the running order */
@@ -218,6 +220,18 @@ export async function collect(
   return out;
 }
 
+/** The UI entries a backup's entries hold (not the start settings). */
+function uiEntries(entries: StateEntry[]): string[] {
+  const ui = entries.find((e) => e.name === UI_FILE)?.data;
+  if (!ui) return [];
+  try {
+    const state = JSON.parse(ui.toString('utf8')) as Record<string, { value?: unknown }>;
+    return Object.keys(state).filter((k) => k !== START_KEY && typeof state[k]?.value === 'string');
+  } catch {
+    return [];
+  }
+}
+
 /** The start settings a backup's entries carry (START_KEY inside the UI state), or null. */
 export function startOf(entries: StateEntry[]): Record<string, unknown> | null {
   const ui = entries.find((e) => e.name === UI_FILE)?.data;
@@ -343,6 +357,7 @@ export async function readBackup(
 /** What backup entries hold (readBackup; another copy's data, otherCopy.ts). */
 export function summarize(entries: StateEntry[], manifest: Partial<BackupManifest>): BackupSummary {
   let settings = false;
+  let playlist = false;
   let programs = 0;
   let items = 0;
   const ui = entries.find((e) => e.name === UI_FILE)?.data;
@@ -350,11 +365,12 @@ export function summarize(entries: StateEntry[], manifest: Partial<BackupManifes
     try {
       const state = JSON.parse(ui.toString('utf8')) as Record<string, { value?: string }>;
       settings = typeof state['vo:settings']?.value === 'string';
-      const playlist = JSON.parse(state['vo:playlist']?.value ?? '{}') as {
+      playlist = typeof state['vo:playlist']?.value === 'string';
+      const order = JSON.parse(state['vo:playlist']?.value ?? '{}') as {
         state?: { items?: unknown; saved?: unknown };
       };
-      programs = count(playlist.state?.saved);
-      items = count(playlist.state?.items);
+      programs = count(order.state?.saved);
+      items = count(order.state?.items);
     } catch {
       throw new BackupError('damaged');
     }
@@ -375,6 +391,7 @@ export function summarize(entries: StateEntry[], manifest: Partial<BackupManifes
     app: String(manifest.app ?? ''),
     created: String(manifest.created ?? ''),
     settings,
+    playlist,
     programs,
     items,
     bundles,
@@ -422,9 +439,12 @@ export async function applyBackup(
   entries: StateEntry[],
   beforeUi?: () => Promise<void>,
   subs: readonly Sub[] = BOTH,
+  uiKeys?: readonly string[],
 ): Promise<number> {
+  // the songs only when they are restored (1.12.0-beta.4: a part the operator may leave out)
   const songs = path.join(dataDir, SONGS);
-  for (const f of await filesIn(songs, bundleFile)) await fsp.rm(path.join(songs, f));
+  if (subs.includes(SONGS))
+    for (const f of await filesIn(songs, bundleFile)) await fsp.rm(path.join(songs, f));
   // a backup made without the pictures leaves this copy's as they are (1.12.0-beta.3)
   const images = path.join(dataDir, IMAGES);
   if (subs.includes(IMAGES))
@@ -440,19 +460,33 @@ export async function applyBackup(
   const ui = entries.find((e) => e.name === UI_FILE)?.data;
   const state = ui ? (JSON.parse(ui.toString('utf8')) as Record<string, { value?: unknown }>) : {};
   delete state[START_KEY];
+  // only the parts chosen (1.12.0-beta.4): the other entries of this copy's file stay
+  if (uiKeys) for (const key of Object.keys(state)) if (!uiKeys.includes(key)) delete state[key];
   // a UI state that held only the start settings is none: this copy's stays as it is
-  return Object.keys(state).length > 0 ? writeUiState(dataDir, state) : Date.now();
+  return Object.keys(state).length > 0 ? writeUiState(dataDir, state, !!uiKeys) : Date.now();
 }
 
 /** The UI state written, stamped with the time it is written; returns that time. */
-function writeUiState(dataDir: string, state: Record<string, { value?: unknown }>): number {
+function writeUiState(
+  dataDir: string,
+  state: Record<string, { value?: unknown }>,
+  merge = false,
+  remove: readonly string[] = [],
+): number {
   const at = Date.now();
-  const fresh: Record<string, { value: string; at: number }> = {};
+  const file = path.join(dataDir, UI_FILE);
+  // a part of the UI state (1.12.0-beta.4): this copy's other entries stay as they are — read the
+  // way the app reads it, and a file it can't read now is never written over (1.9.3 rule; the
+  // restore stops and puts everything back — review of 1.12.0-beta.4)
+  const fresh: Record<string, unknown> = merge ? { ...readJson<object>(file, {}) } : {};
+  if (merge) assertWritable(file);
+  delete fresh[START_KEY];
+  for (const key of remove) delete fresh[key];
   for (const [key, entry] of Object.entries(state))
     if (key !== START_KEY && entry && typeof entry.value === 'string')
       fresh[key] = { value: entry.value, at };
-  // a restore's own content, not made from reading the file it replaces
-  writeJson(path.join(dataDir, UI_FILE), fresh, { replace: true });
+  // a restore's own content, not made from reading the file it replaces (a merge read it above)
+  writeJson(file, fresh, { replace: true });
   return at;
 }
 
@@ -474,6 +508,8 @@ export async function keepPending(dataDir: string, buf: Buffer): Promise<string>
 export interface RestoreOptions {
   /** the checked file's id (keepPending): another one pending means nothing is restored */
   id?: string;
+  /** the parts restored (1.12.0-beta.4); absent: all of them */
+  parts?: RestoreParts;
   /**
    * Called right after the UI state is written, before the slow cleanup: the windows must take
    * the restored state before any of them sends its old one back (review of #47).
@@ -496,6 +532,13 @@ export interface LastRestore {
   state?: false;
   /** the folders moved when not both (a backup made without the pictures: songs only) */
   subs?: string[];
+  /** a restore that left the UI state alone (1.12.0-beta.4): its undo leaves it alone too */
+  ui?: false;
+  /**
+   * The UI entries a partial restore put in place (1.12.0-beta.4): its undo puts back just these —
+   * an entry edited since that the restore never touched stays as it is (review).
+   */
+  uiKeys?: string[];
   /**
    * Files of data/ itself the import wrote (EXTRAS): «Повернути як було» puts back the ones kept
    * in the folder and removes the ones this copy didn't have.
@@ -689,8 +732,21 @@ async function prune(dataDir: string, kind: Kind, keep: string): Promise<void> {
       .filter((e) => e.isDirectory() && e.name.startsWith(`before-${kind}-`) && e.name !== keep)
       .map((e) => e.name)
       .sort();
-    for (const old of others.slice(0, Math.max(0, others.length - (KEEP - 1))))
-      await fsp.rm(path.join(dir, old), { recursive: true, force: true });
+    // a restore of the look alone keeps only a UI state: such folders never push out one that
+    // holds songs or pictures — five of each kind stay (review of 1.12.0-beta.4)
+    // «light»: a UI state and nothing else (what a restore of the look alone keeps)
+    const isLight = async (name: string) =>
+      (await stateFiles(path.join(dir, name))).length === 0 &&
+      fs.existsSync(path.join(dir, name, UI_FILE));
+    const keepLight = await isLight(keep);
+    const full: string[] = [];
+    const light: string[] = [];
+    for (const name of others) ((await isLight(name)) ? light : full).push(name);
+    const drop = [
+      ...full.slice(0, Math.max(0, full.length - (KEEP - (keepLight ? 0 : 1)))),
+      ...light.slice(0, Math.max(0, light.length - (KEEP - (keepLight ? 1 : 0)))),
+    ];
+    for (const old of drop) await fsp.rm(path.join(dir, old), { recursive: true, force: true });
   } catch (e) {
     console.warn(`[server] backup: an old kept state stays for now: ${(e as Error).message}`);
   }
@@ -755,22 +811,63 @@ export async function startChange(): Promise<() => void> {
  * current state back — only when even that fails does the note stay, offering «Повернути як
  * було» (review of #47). Null: nothing pending.
  */
+/**
+ * The parts of a backup a restore puts in place (1.12.0-beta.4, «Відновити» with check boxes): the
+ * look and keys (`vo:settings`), the running order and programs (`vo:playlist`), the songs, the
+ * pictures, the start settings. A part the backup lacks changes nothing.
+ */
+export interface RestoreParts {
+  look: boolean;
+  programs: boolean;
+  songs: boolean;
+  pictures: boolean;
+  start: boolean;
+}
+export const ALL_PARTS: RestoreParts = {
+  look: true,
+  programs: true,
+  songs: true,
+  pictures: true,
+  start: true,
+};
+
 export async function restorePending(
   dataDir: string,
   app: string,
   now = new Date(),
-  { id, applied }: RestoreOptions = {},
+  { id, applied, parts = ALL_PARTS }: RestoreOptions = {},
 ): Promise<BackupSummary | null> {
   const dir = backupsDir(dataDir);
   const pending = path.join(dir, PENDING);
   if (!fs.existsSync(pending)) return null;
   if (id !== undefined && readText(path.join(dir, PENDING_ID)) !== id) return null;
   const { entries, summary } = await readBackup(await fsp.readFile(pending));
-  const start = startOf(entries);
-  await replaceState(dataDir, entries, summary, now, {
+  const start = parts.start ? startOf(entries) : null;
+  const uiKeys = [parts.look && 'vo:settings', parts.programs && 'vo:playlist'].filter(
+    (k): k is string => !!k,
+  );
+  // a part the backup holds nothing of changes nothing: a backup without songs leaves the songs
+  const subs = BOTH.filter((sub) =>
+    sub === SONGS
+      ? parts.songs && summary.bundles.length > 0
+      : parts.pictures &&
+        summary.withPictures &&
+        entries.some((e) => e.name.startsWith(`${IMAGES}/`)),
+  );
+  // the UI entries the backup holds of those chosen: an entry it lacks is never touched
+  const held = uiEntries(entries);
+  const keys = uiKeys.filter((k) => held.includes(k));
+  const whole = keys.length === held.length && subs.length === BOTH.length && keys.length > 0;
+  // the start settings alone: nothing of the songs, pictures or UI state is moved (state: false)
+  const only = !keys.length && !subs.length;
+  // nothing chosen that the backup holds: nothing changes, the last restore's way back stays and
+  // the checked file too (review of 1.12.0-beta.4)
+  if (only && !start) throw new BackupError('nothing');
+  await replaceState(dataDir, only ? null : entries, summary, now, {
     kind: 'restore',
     applied,
-    subs: summary.withPictures ? BOTH : [SONGS],
+    subs,
+    ...(whole ? {} : { uiKeys: keys }),
     extras: start ? { 'settings.json': () => carriedStart(dataDir, start) } : {},
   });
   for (const f of [pending, path.join(dir, PENDING_ID)])
@@ -806,6 +903,8 @@ export interface ReplaceOptions {
   pairings?: string[];
   /** the folders the new state has: songs and pictures, or songs alone (pictures: false) */
   subs?: readonly Sub[];
+  /** the UI state's entries restored (1.12.0-beta.4); absent: all of them */
+  uiKeys?: readonly string[];
 }
 
 /**
@@ -820,7 +919,7 @@ export async function replaceState(
   entries: StateEntry[] | null,
   summary: BackupSummary,
   now: Date,
-  { kind, applied, from, extras = {}, pairings = [], subs = BOTH }: ReplaceOptions,
+  { kind, applied, from, extras = {}, pairings = [], subs = BOTH, uiKeys }: ReplaceOptions,
 ): Promise<void> {
   const dir = backupsDir(dataDir);
   const kept = await keepFolder(dataDir, kind, now);
@@ -844,6 +943,8 @@ export async function replaceState(
   if (pairings.length) note.pairings = pairings;
   if (!entries) note.state = false;
   if (subs.length !== BOTH.length) note.subs = [...subs];
+  if (uiKeys && uiKeys.length === 0) note.ui = false;
+  if (uiKeys && uiKeys.length > 0) note.uiKeys = [...uiKeys];
   // the files of data/ itself written so far: a failure puts back only these
   const written: Extra[] = [];
   const writeExtras = async () => {
@@ -867,7 +968,7 @@ export async function replaceState(
   try {
     writeJson(last, note, { replace: true }); // this restore's note, whatever the last one was
     // the UI state stays the last step: the extras go in between (applyBackup's beforeUi)
-    if (entries) await applyBackup(dataDir, entries, writeExtras, subs);
+    if (entries) await applyBackup(dataDir, entries, writeExtras, subs, uiKeys);
     else await writeExtras();
   } catch (e) {
     // the songs and pictures first — moving them back needs no free space, the extras' writes
@@ -947,6 +1048,16 @@ export async function undoRestore(
   const extras = (last.extras ?? []).filter(isExtra);
   // an import of the settings or the pairings alone left the songs, pictures and UI state alone
   const state = last.state !== false;
+  // a partial UI restore (1.12.0-beta.4): only its entries go back, into this copy's file — which
+  // must be readable now, before anything moves (the way back is spent once the files are back)
+  const partialUi =
+    Array.isArray(last.uiKeys) && last.uiKeys.length > 0
+      ? last.uiKeys.filter((k): k is string => typeof k === 'string')
+      : null;
+  if (state && last.ui !== false && partialUi) {
+    readJson<object>(path.join(dataDir, UI_FILE), {});
+    assertWritable(path.join(dataDir, UI_FILE));
+  }
   // a restore of a backup without the pictures moved the songs only (1.12.0-beta.3)
   const subs = Array.isArray(last.subs) ? BOTH.filter((s) => last.subs!.includes(s)) : BOTH;
   const kept = await keepFolder(dataDir, 'undo', now, extras);
@@ -979,7 +1090,19 @@ export async function undoRestore(
   // move what just came back out (review of #47)
   await fsp.rm(path.join(dir, LAST), { force: true });
   let uiCleared = false;
-  if (state) {
+  if (state && last.ui !== false && partialUi) {
+    const before = path.join(from, UI_FILE);
+    const kept = readJson<Record<string, { value?: unknown }> | null>(before, null);
+    if (kept && typeof kept === 'object') {
+      const back: Record<string, { value?: unknown }> = {};
+      const gone: string[] = [];
+      for (const key of partialUi)
+        if (typeof kept[key]?.value === 'string') back[key] = kept[key];
+        else gone.push(key); // this copy hadn't it before: it goes
+      writeUiState(dataDir, back, true, gone);
+    } else if (!fs.existsSync(before)) writeUiState(dataDir, {}, true, partialUi);
+    // a kept copy that can't be read now: the entries stay as they are (it is in data/backups/)
+  } else if (state && last.ui !== false) {
     const before = path.join(from, UI_FILE);
     const ui = readJson<Record<string, { value?: unknown }> | null>(before, null);
     if (ui && typeof ui === 'object') writeUiState(dataDir, ui);

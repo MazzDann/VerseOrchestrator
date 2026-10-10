@@ -146,6 +146,7 @@ describe('«Резервна копія» (1.5.0)', () => {
       app: '1.5.0',
       created: '2026-10-01T10:00:00.000Z',
       settings: true,
+      playlist: true,
       programs: 1,
       items: 3,
       bundles: ['ПС-a'],
