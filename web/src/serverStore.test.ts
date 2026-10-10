@@ -131,7 +131,8 @@ describe('a server not up yet is looked for again (1.12.5)', () => {
     page();
     vi.stubGlobal('fetch', answers(['down', 'proxy', 'up']));
     const back = vi.fn();
-    lookAgain(back);
+    const browser = vi.fn();
+    lookAgain(back, browser);
     expect(useServer.getState()).toMatchObject({ available: null, lost: true });
     await vi.advanceTimersByTimeAsync(4000);
     expect(back).not.toHaveBeenCalled();
@@ -140,6 +141,7 @@ describe('a server not up yet is looked for again (1.12.5)', () => {
     expect(useServer.getState()).toMatchObject({ available: true, lost: false });
     await vi.advanceTimersByTimeAsync(10_000);
     expect(back).toHaveBeenCalledTimes(1);
+    expect(browser).not.toHaveBeenCalled();
   });
 
   it('after the minute the browser’s library; the server back online or in sight is found', async () => {
@@ -148,9 +150,14 @@ describe('a server not up yet is looked for again (1.12.5)', () => {
     const fetch = answers(['down']);
     vi.stubGlobal('fetch', fetch);
     const back = vi.fn();
-    lookAgain(back, { everyMs: 2000, forMs: 10_000 });
-    await vi.advanceTimersByTimeAsync(12_000);
+    const browser = vi.fn();
+    lookAgain(back, browser, { everyMs: 2000, forMs: 10_000 });
+    await vi.advanceTimersByTimeAsync(9_000);
+    expect(browser).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(3_000);
     expect(useServer.getState()).toMatchObject({ available: false, lost: true });
+    // the browser's library takes over: its segments, the failed reads again (review)
+    expect(browser).toHaveBeenCalledTimes(1);
     const asked = fetch.mock.calls.length;
     await vi.advanceTimersByTimeAsync(60_000);
     expect(fetch.mock.calls.length).toBe(asked); // no more polling
@@ -173,9 +180,11 @@ describe('a server not up yet is looked for again (1.12.5)', () => {
     const fetch = answers(['down', 'html']);
     vi.stubGlobal('fetch', fetch);
     const back = vi.fn();
-    lookAgain(back);
+    const browser = vi.fn();
+    lookAgain(back, browser);
     await vi.advanceTimersByTimeAsync(4000);
     expect(useServer.getState()).toMatchObject({ available: false, lost: false });
+    expect(browser).toHaveBeenCalledTimes(1);
     const asked = fetch.mock.calls.length;
     await vi.advanceTimersByTimeAsync(20_000);
     expect(fetch.mock.calls.length).toBe(asked);
