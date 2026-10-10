@@ -861,7 +861,8 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return z.object({ valid: z.boolean() }).parse(await res.json());
   },
-  update: () => getJson('/api/update', UpdateStateSchema),
+  /** `fresh`: «Оновлення» is in sight — the server asks GitHub on an answer over ten minutes old (1.12.3) */
+  update: (fresh = false) => getJson(`/api/update${fresh ? '?fresh=1' : ''}`, UpdateStateSchema),
   /** «Перевірити зараз»: the releases — and, for a copy of the repository, its upstream (1.6.1). */
   checkUpdate: async () => {
     const res = await request('/api/update/check', { method: 'POST', headers: CONTROL_HEADERS });

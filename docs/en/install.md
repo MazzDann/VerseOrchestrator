@@ -198,8 +198,8 @@ starting with `start.cmd`, `start.command`, or `./start.sh`.
 
 ## Update the app
 
-The app finds out about new versions itself: every 12 hours it asks GitHub whether a newer
-one is out. When there is one, a dot appears on the **Settings** button, and in
+The app finds out about new versions itself: every hour, and when you open **Updates**, it
+asks GitHub whether a newer one is out. When there is one, a dot appears on the **Settings** button, and in
 **Settings** → **App** → **Updates** you see the new version's number and a **What’s new**
 link. **Check now** asks at once. To keep the app from contacting GitHub, turn off
 **Check for updates**. The app downloads and installs a new version only when you click the
