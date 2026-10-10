@@ -1,7 +1,7 @@
 import { Button, Group, Stack, Text } from '@mantine/core';
 import { IconAdjustments, IconDatabaseImport } from '@tabler/icons-react';
 import { tr, useLang } from '../i18n';
-import { useRebuildLibrary } from '../lib/rebuild';
+import { rebuildProgress, useRebuildLibrary } from '../lib/rebuild';
 
 /**
  * Why there is nothing to read, and what to do (0.13.1): `missing` — the server has no
@@ -18,7 +18,7 @@ export function NoLibrary({
   onOpenSettings: () => void;
 }) {
   useLang();
-  const { rebuilding, rebuild } = useRebuildLibrary();
+  const { rebuilding, job, rebuild, stop } = useRebuildLibrary();
   const server = gap !== 'local';
   return (
     <Stack gap="xs" p="sm" maw={560}>
@@ -57,6 +57,11 @@ export function NoLibrary({
             {tr('Пересканувати модулі')}
           </Button>
         )}
+        {server && job?.phase === 'running' && (
+          <Button size="sm" variant="default" onClick={() => void stop()}>
+            {tr('Зупинити')}
+          </Button>
+        )}
         <Button
           size="sm"
           variant="default"
@@ -66,6 +71,11 @@ export function NoLibrary({
           {tr('Джерело даних…')}
         </Button>
       </Group>
+      {server && job?.phase === 'running' && (
+        <Text size="xs" c="dimmed" aria-live="polite">
+          {rebuildProgress(job)}
+        </Text>
+      )}
     </Stack>
   );
 }

@@ -70,13 +70,34 @@ function freeBundleFile(dir: string, name: string, own?: string): string {
 }
 
 function withBundle<T>(file: string, readonly: boolean, fn: (db: Database.Database) => T): T {
-  const db = new Database(file, { readonly, fileMustExist: readonly });
+  let db = new Database(file, { readonly, fileMustExist: readonly });
   try {
+    if (readonly) {
+      try {
+        db.prepare(FIRST_READ).get();
+      } catch (e) {
+        // A write cut off midway — a stopped rebuild (1.12.4), a crash — leaves a hot journal a
+        // read-only open can't roll back: the bundle read as «not a bundle», dropped out, and the
+        // next folder sync made a second one (review). Opened for writing once, SQLite rolls it
+        // back. (Here, before `fn`: the readers take any failure for «not a bundle».)
+        if ((e as { code?: string }).code !== 'SQLITE_READONLY_ROLLBACK') throw e;
+        db.close();
+        const rw = new Database(file, { fileMustExist: true });
+        try {
+          rw.prepare(FIRST_READ).get();
+        } finally {
+          rw.close();
+        }
+        db = new Database(file, { readonly: true, fileMustExist: true });
+      }
+    }
     return fn(db);
   } finally {
     db.close();
   }
 }
+
+const FIRST_READ = 'SELECT count(*) FROM sqlite_master';
 
 /** The bundles in `dir` (unreadable files skipped), by name. */
 export function listBundles(dir: string): BundleFile[] {

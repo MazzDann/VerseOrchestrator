@@ -225,6 +225,11 @@ export function notifyUiStateRestored(cleared = false): void {
     send(c, { type: 'ui-state', ...(cleared ? { cleared } : {}) });
 }
 
+/** «Пересканувати модулі» moved on (1.12.4, rebuildJob.ts): every control window shows how far. */
+export function notifyRebuild(job: object): void {
+  for (const c of sockets('control')) send(c, { type: 'rebuild', job });
+}
+
 /** Tell control windows to refetch the remote list (pairing added/removed/connected). */
 export function notifyRemotesChanged(): void {
   for (const c of sockets('control')) send(c, { type: 'remotes' });

@@ -71,7 +71,10 @@ The app reads texts from MyBible modules — `*.SQLite3` files. To add texts:
    `data/library.db` file.
 
 To add modules later, copy them into `modules/`, then in the control window open
-**Settings** → **App** and click **Rescan modules**.
+**Settings** → **App** and click **Rescan modules**. Below the button you see which module the
+app is building and how many are left (for example, **Building… UKRK, 18 of 29**); every control
+window shows the rebuild. To interrupt it, click **Stop** — the library stays as it was before
+the rebuild.
 
 Put only the modules you need in `modules/`. If there are more than 60 modules of one kind,
 for example a whole MyBible catalog, the app doesn't take them into the library until you
