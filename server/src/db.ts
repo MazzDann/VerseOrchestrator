@@ -28,11 +28,23 @@ function getDb(): Database.Database {
     // a dictionary key, like every server message (0.13.1: it was an English sentence)
     throw new LibraryError(503, NO_LIBRARY);
   }
-  db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
-  db.pragma('busy_timeout = 3000');
-  tuneReadOnly(db);
+  const conn = new Database(DB_PATH, { readonly: true, fileMustExist: true });
+  conn.pragma('busy_timeout = 3000');
+  // A first build stopped (1.12.4) or broken before its commit leaves a file without tables:
+  // that is no library yet — «Бібліотеки ще немає» with «Пересканувати модулі» — not a library
+  // whose every read fails (review of 1.12.4)
+  if (!conn.prepare(HAS_LIBRARY).get()) {
+    conn.close();
+    throw new LibraryError(503, NO_LIBRARY);
+  }
+  tuneReadOnly(conn);
+  db = conn;
   return db;
 }
+
+/** Does a library file hold the library's tables — one the builder committed? */
+export const HAS_LIBRARY =
+  "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'translations'";
 
 /**
  * Read-only tuning for the served library — chosen by measurement (npm run bench:db),

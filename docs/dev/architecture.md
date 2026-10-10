@@ -71,8 +71,13 @@ Both paths run the same queries from `shared/src/library/queries.ts` against a s
 `SqlDriver` interface, and `web/src/api.ts` routes every read to the server or to the
 local engine through the same response schemas. The data source is a setting
 (**Джерело даних**), and the app falls back to the browser engine when there is no
-server. The library API is read-only; `POST /api/rebuild` runs the builder as a separate
-process, and the server picks up the new file without a restart. A song import is the
+server. The library API is read-only; `POST /api/rebuild` starts the builder as a separate
+process and answers `202` at once (`server/src/rebuildJob.ts`): `GET /api/rebuild` reports the
+step the builder prints (`[builder] step N/TOTAL NAME`), the hub sends control windows a
+`rebuild` frame on each change, `POST /api/rebuild/stop` stops the process tree, and a
+builder silent for 10 minutes is stopped (the longest silence measured: 9.2 s of 45.9 s for
+20 Bibles). The builder writes in one transaction, so a stopped build leaves the library as it
+was; the server picks up the new file without a restart. A song import is the
 one write outside the builder: the browser reads the `.pptx` files, and
 `POST /api/song-bundles/import` writes them into a bundle file and replaces the songs in
 `data/library.db` (about 0.2 s for 479 songs). Segments are rebuilt only by

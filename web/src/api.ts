@@ -1245,9 +1245,34 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
   },
-  rebuild: async (): Promise<{ ok: boolean }> => {
+  /** «Пересканувати модулі» (1.12.4): starts the server's job — or joins the one running — at once */
+  rebuild: async (): Promise<RebuildState> => {
     const res = await request('/api/rebuild', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);
-    return res.json() as Promise<{ ok: boolean }>;
+    return RebuildStateSchema.parse(await res.json());
+  },
+  rebuildState: () => getJson('/api/rebuild', RebuildStateSchema),
+  stopRebuild: async (): Promise<RebuildState> => {
+    const res = await request('/api/rebuild/stop', { method: 'POST', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return RebuildStateSchema.parse(await res.json());
   },
 };
+
+/** The library rebuild as the server's job (1.12.4, server/src/rebuildJob.ts). */
+export const RebuildStateSchema = z.object({
+  id: z.number(),
+  phase: z.enum(['idle', 'running', 'done', 'failed', 'stopped']),
+  current: z.string().nullable(),
+  step: z.number(),
+  total: z.number(),
+  startedAt: z.number().nullable(),
+  endedAt: z.number().nullable(),
+  error: z
+    .union([
+      z.object({ key: z.string(), vars: z.record(z.string()).optional() }),
+      z.object({ text: z.string() }),
+    ])
+    .nullable(),
+});
+export type RebuildState = z.infer<typeof RebuildStateSchema>;

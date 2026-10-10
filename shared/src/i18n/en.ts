@@ -1281,9 +1281,20 @@ export const EN: Record<string, string> = {
   'Бандл не знайдено — відкрийте імпорт ще раз': 'Bundle not found — open the import again',
   'Бандл «{bundle}» уже є — виберіть його в списку':
     'The bundle “{bundle}” already exists — choose it in the list',
-  'Перебудова вже триває': 'A rebuild is already running',
   'Не вдалося запустити збірку: {error}': "Couldn't start the build: {error}",
   'Збірка завершилась з кодом {code}': 'The build ended with code {code}',
+  'Збирач мовчав {minutes} хв — його зупинено. Спробуйте ще раз':
+    'The builder was silent for {minutes} min and was stopped. Try again',
+  'Бібліотека саме перебудовується — дочекайтеся кінця або зупиніть перебудову':
+    'The library is being rebuilt — wait for the end or stop the rebuild',
+  Зупинити: 'Stop',
+  'Не вдалося зупинити перебудову: {error}': "Couldn't stop the rebuild: {error}",
+  'Перебудову зупинено': 'Rebuild stopped',
+  'Перебудову зупинено — бібліотека лишилася як була': 'Rebuild stopped — the library is as it was',
+  'Готую перебудову…': 'Preparing the rebuild…',
+  'Завершую перебудову…': 'Finishing the rebuild…',
+  'Збираю… {module}, {step} з {total}': 'Building… {module}, {step} of {total}',
+  пісні: 'songs',
   'Імпорт пісень: незрозумілий вигляд слайда': 'Song import: a slide style that makes no sense',
   'Імпорт пісень: вкажіть бандл або назву нового': 'Song import: name a bundle or a new one',
   'Імпорт пісень: немає пісень': 'Song import: no songs',
