@@ -21,7 +21,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lanIps } from './access.ts';
-import { applyLayout } from './layout.ts';
+import { applyLayout, readLayout } from './layout.ts';
 import { consoleLang, setLang, tr, trError } from './lang.ts';
 import { currentEntry, isAutostartOn, setAutostart, type AutostartEntry } from './autostart.ts';
 import {
@@ -30,6 +30,7 @@ import {
   markBrowser,
   openInCommand,
   readLaunchSettings,
+  sanitizeLaunch,
   SYSTEM_BROWSER,
   type InstalledBrowser,
   type LaunchSettings,
@@ -51,6 +52,7 @@ import {
   readStandbySettings,
   run,
   waiterAt,
+  type WaiterStatus,
 } from './standby.ts';
 import { needsBuild } from './uiStamp.ts';
 import { versionLabel } from './versionLabel.ts';
@@ -409,6 +411,70 @@ export function runningNote(label: string, health: unknown): string | null {
   );
 }
 
+/** Two paths name the same folder — in any letter case on Windows and macOS, as their disks do. */
+export function sameFolder(
+  a: string,
+  b: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  const p = platform === 'win32' ? path.win32 : path.posix;
+  const norm = (s: string) => (platform === 'linux' ? p.resolve(s) : p.resolve(s).toLowerCase());
+  return norm(a) === norm(b);
+}
+
+/** The folder people know a copy by: a release's own folder around app/, else the code's. */
+export function copyFolder(root: string): string {
+  return readLayout(root) ? path.dirname(root) : root;
+}
+
+/**
+ * The waiter on the port serves ANOTHER copy of the app — another folder: an older release the
+ * autostart starts, a test copy — so the control window opens there, with that copy's data, its
+ * settings and the browser chosen in it (the user's report, 2026-10-09: a fresh copy unpacked
+ * beside an updated one; its start file opened the old one's app, in Edge). Null for this copy, or
+ * a waiter that doesn't say (before 1.11.1).
+ */
+export function otherCopyNote(
+  root: string,
+  waiter: WaiterStatus,
+  platform: NodeJS.Platform = process.platform,
+): string | null {
+  if (typeof waiter.root !== 'string' || sameFolder(root, waiter.root, platform)) return null;
+  return tr(
+    'Працює інша копія застосунку: {folder}. Вікно керування відкриється в ній — з її даними й налаштуваннями (і браузером, вибраним у ній). Щоб працювала ця копія, вимкніть ту («Вимкнути повністю…» або --off) і запустіть цей файл знову.',
+    { folder: copyFolder(waiter.root) },
+  );
+}
+
+/**
+ * The browser choice for a control window of the app that runs already: that of the copy whose
+ * waiter holds the port — the user made it in that copy's control window — not this copy's own.
+ * The user's report (2026-10-09, Windows 11): Opera chosen, Edge opened every time — the new
+ * copy's start file read its own data/ (no choice there: the system browser, Edge) while the
+ * choice sat in the data/ of the old copy, whose waiter the autostart had started. A waiter of
+ * 1.11.1+ names the choice (GET /__standby); an older one is asked through its app (GET
+ * /api/server-settings — it starts a stopped app, as the browser opening next would anyway).
+ * Null when neither says: then this copy's own, as before.
+ */
+export async function runningLaunch(
+  port: number,
+  waiter: WaiterStatus,
+  timeoutMs = 15_000,
+): Promise<LaunchSettings | null> {
+  if (waiter.launch && typeof waiter.launch === 'object') return sanitizeLaunch(waiter.launch);
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/server-settings`, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const body: unknown = r.ok ? await r.json() : null;
+    return body && typeof body === 'object' && 'launch' in body
+      ? sanitizeLaunch(body.launch)
+      : null;
+  } catch {
+    return null; // not ours, or no answer in time: this copy's choice
+  }
+}
+
 /**
  * The control windows connected to the app on `port` and the browser of the one in charge, or
  * null when it can't say. Asked only of a running app.
@@ -439,9 +505,17 @@ export async function openControlWindowLines(
   return open && open.open > 0 ? lines(open.active, port) : null;
 }
 
-function openBrowser(url: string, dataDir: string, asApp = false): void {
-  // the chosen browser (as an app window if asked and it can), else as before (browserLaunch)
-  const launch = controlWindowLaunch(dataDir, process.platform, url, asApp);
+function openBrowser(
+  url: string,
+  dataDir: string,
+  asApp = false,
+  running: LaunchSettings | null = null,
+): void {
+  // the chosen browser (as an app window if asked and it can), else as before (browserLaunch) —
+  // chosen in the copy that runs when it said (runningLaunch), else in this one's data/
+  const launch = running
+    ? browserLaunch(process.platform, url, running, asApp)
+    : controlWindowLaunch(dataDir, process.platform, url, asApp);
   const { cmd } = launch;
   const missing = missingBrowserLine(launch);
   if (missing) say(`  ${missing}`);
@@ -490,11 +564,14 @@ async function main(argv: string[]): Promise<number> {
   const settings = readStandbySettings(dataDir);
   const port = opts.port ?? settings.port;
   const local = `http://localhost:${port}`;
-  // an app already there: the header named these files, so say when another build is serving
-  // (only a running app is asked — the question would wake a stopped one)
-  const alreadyRunning = async (state: string): Promise<void> => {
+  // an app already there: the header named these files, so say when another copy (its waiter
+  // names its folder) or another build is serving (only a running app is asked — the question
+  // would wake a stopped one)
+  const alreadyRunning = async (w: WaiterStatus): Promise<void> => {
     say(`✓ ${tr('Застосунок уже працює: {url}', { url: local })}`);
-    const note = state === 'running' ? runningNote(label, await healthAt(port)) : null;
+    const note =
+      otherCopyNote(root, w) ??
+      (w.state === 'running' ? runningNote(label, await healthAt(port)) : null);
     if (note) say(`  ${note}`);
   };
 
@@ -545,7 +622,7 @@ async function main(argv: string[]): Promise<number> {
   // on a Mac too since the user's ask of 2026-10-01).
   const waiter = await waiterAt(port);
   if (waiter && !opts.check) {
-    await alreadyRunning(waiter.state);
+    await alreadyRunning(waiter);
     const lines =
       opts.browser && !opts.newWindow ? await openControlWindowLines(port, waiter.state) : null;
     if (lines) {
@@ -554,7 +631,9 @@ async function main(argv: string[]): Promise<number> {
       // Firefox or a browser built on it, the one connected at `port` comes forward), or where
       // to find it
       for (const line of lines) say(`  ${line}`);
-    } else if (opts.browser) openBrowser(`${local}/`, dataDir, opts.app);
+    } else if (opts.browser)
+      // in the browser chosen in the copy that runs — maybe not this one (runningLaunch)
+      openBrowser(`${local}/`, dataDir, opts.app, await runningLaunch(port, waiter));
     return 0;
   }
 
@@ -657,7 +736,7 @@ async function main(argv: string[]): Promise<number> {
 
   // 5. The address
   if (waiter) {
-    await alreadyRunning(waiter.state);
+    await alreadyRunning(waiter);
     return 0;
   }
   if (!(await portFree(port))) {
@@ -684,6 +763,8 @@ async function main(argv: string[]): Promise<number> {
       idleMs: settings.idleMinutes * 60_000,
       startApp: appProcess(root, log),
       log: echo,
+      root,
+      dataDir,
       // closed: by Ctrl+C / the window (stop below), «Запуск за адресою» turned off, or
       // «Вимкнути повністю» (0.7.1)
       onRetired: (why) => {

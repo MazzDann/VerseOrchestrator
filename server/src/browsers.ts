@@ -32,6 +32,12 @@ export interface KnownBrowser {
   win: readonly string[];
   /** Linux: its program's names on PATH */
   linux: readonly string[];
+  /**
+   * Built on Chromium, but `--app=` opens no app window: Opera 136 (the test Windows, 2026-10-10)
+   * ignored it — an empty window with its Speed Dial came up instead of the control window, a
+   * fresh profile or the running one alike — while the plain address opened the app.
+   */
+  noAppWindow?: true;
 }
 
 /** In the order the list shows them: the common ones first. */
@@ -93,6 +99,7 @@ export const KNOWN_BROWSERS: readonly KnownBrowser[] = [
     mac: ['com.operasoftware.Opera'],
     win: ['Programs\\Opera\\opera.exe', 'Opera\\opera.exe'],
     linux: ['opera'],
+    noAppWindow: true,
   },
   {
     id: 'vivaldi',
@@ -130,6 +137,9 @@ export const KNOWN_BROWSERS: readonly KnownBrowser[] = [
 
 export const knownBrowser = (id: string): KnownBrowser | undefined =>
   KNOWN_BROWSERS.find((b) => b.id === id);
+
+/** It opens a page as an app window (`--app`): Chromium's, but not Opera. */
+export const hasAppWindow = (b: KnownBrowser): boolean => b.engine === 'chromium' && !b.noAppWindow;
 
 /** A browser found on this computer. */
 export interface InstalledBrowser {
@@ -254,8 +264,9 @@ export function detectBrowsers(own: Partial<BrowserProbe> = {}): InstalledBrowse
   const found = new Map<string, InstalledBrowser>();
   const add = (b: KnownBrowser, bundleId: string | null, program: string | null) => {
     if (found.has(b.id)) return;
-    // an app window needs the program itself (a Mac's `open` passes no flags to a running app)
-    const appWindow = b.engine === 'chromium' && !!program;
+    // an app window needs the program itself (a Mac's `open` passes no flags to a running app),
+    // and a browser that keeps `--app` (KnownBrowser.noAppWindow)
+    const appWindow = hasAppWindow(b) && !!program;
     found.set(b.id, { id: b.id, name: b.name, appWindow, bundleId, program });
   };
   if (probe.platform === 'darwin') {
@@ -312,7 +323,7 @@ export function browserListing(installed: readonly InstalledBrowser[]): BrowserL
       id: b.id,
       name: b.name,
       installed: !!here,
-      appWindow: here ? here.appWindow : b.engine === 'chromium',
+      appWindow: here ? here.appWindow : hasAppWindow(b),
     };
   });
 }
