@@ -537,8 +537,8 @@ export const EN: Record<string, string> = {
   'Показано перші 5 000 фото.': 'The first 5,000 photos are shown.',
   // «Резервна копія» (1.5.0)
   'Резервна копія': 'Backup',
-  'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення. Модулі, бібліотека й пульти в нього не входять.':
-    "One .zip file: the slide look, presets, hotkeys, bookmarks and history, the running order and programs, songs, and images. Modules, the library, and remotes aren't in it.",
+  'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення, налаштування запуску. Модулі, бібліотека й пульти в нього не входять.':
+    "One .zip file: the slide look, presets, hotkeys, bookmarks and history, the running order and programs, songs and images, the start settings. Modules, the library, and remotes aren't in it.",
   'Зберегти копію': 'Save a backup',
   'Копію збережено: {name}': 'Backup saved: {name}',
   'Відновити з копії…': 'Restore from a backup…',
@@ -2118,4 +2118,20 @@ export const EN: Record<string, string> = {
   'Переносити нічого: те, що позначено, тут уже є.':
     'Nothing to carry over: what you ticked is here already.',
   'Перенесено, але не все: {error}': 'Carried over, but not all of it: {error}',
+  // automatic backups (1.12.0-beta.3)
+  щодня: 'daily',
+  'перед переходом на {version}': 'before moving to {version}',
+  'перед зміною версії': 'before a version change',
+  'Робити копії автоматично': 'Make backups automatically',
+  'Щодня й перед кожною зміною версії. Зберігаються останні 7 щоденних і 3 перед змінами версії — у data/backups/auto.':
+    'Daily and before every version change. The last 7 daily ones and 3 made before version changes are kept — in data/backups/auto.',
+  'Автоматичні копії': 'Automatic backups',
+  'без зображень': 'without pictures',
+  'Відновити…': 'Restore…',
+  'Показати менше': 'Show fewer',
+  'Показати всі ({n})|Показати всі ({n})|Показати всі ({n})': 'Show all ({n})|Show all ({n})',
+  'без зображень — ваші лишаться як є': 'no pictures — yours stay as they are',
+  'налаштування запуску: браузер «{browser}», порт {port}':
+    'start settings: browser “{browser}”, port {port}',
+  'Цієї копії вже немає': 'That backup is gone',
 };

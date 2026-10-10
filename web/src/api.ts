@@ -331,6 +331,8 @@ const ServerSettingsSchema = z.object({
     channel: z.enum(['stable', 'beta']).optional(),
   }),
   launch: LaunchSchema.catch(DEFAULT_LAUNCH),
+  /** «Робити копії автоматично» (1.12.0-beta.3); an older server has none: on */
+  backups: z.object({ auto: z.boolean() }).catch({ auto: true }),
 });
 
 /** The browsers the server knows, and which of them are on this computer (GET /api/browsers). */
@@ -559,10 +561,26 @@ const BackupSummarySchema = z.object({
   items: z.number(),
   bundles: z.array(z.string()),
   pictures: z.number(),
+  /** 1.12.0-beta.3: false — made without the pictures; this copy's stay as they are */
+  withPictures: z.boolean().optional(),
+  /** 1.12.0-beta.3: the start settings it carries */
+  start: z.object({ browser: z.string(), port: z.number() }).nullable().optional(),
   /** the checked file's id: the restore names it */
   id: z.string().optional(),
 });
 export type BackupSummary = z.infer<typeof BackupSummarySchema>;
+
+/** An automatic backup (1.12.0-beta.3, server/src/autoBackup.ts `AutoBackup`). */
+const AutoBackupSchema = z.object({
+  name: z.string(),
+  kind: z.enum(['daily', 'update']),
+  created: z.string(),
+  app: z.string(),
+  to: z.string().optional(),
+  size: z.number(),
+  pictures: z.boolean(),
+});
+export type AutoBackup = z.infer<typeof AutoBackupSchema>;
 
 /** Another copy of the app on this computer (1.12.0-beta.2, server/src/otherCopy.ts `CopyInfo`). */
 const CopyInfoSchema = z.object({
@@ -915,6 +933,22 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return BackupSummarySchema.parse(await res.json());
   },
+  /** The automatic backups, newest first (1.12.0-beta.3). */
+  autoBackups: async () => {
+    const res = await request('/api/backup/auto', { headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
+    return z.object({ backups: z.array(AutoBackupSchema) }).parse(await res.json()).backups;
+  },
+  /** An automatic backup checked for a restore: what it holds, and the id the restore names. */
+  checkAutoBackup: async (name: string) => {
+    const res = await request('/api/backup/auto/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw await failure(res);
+    return BackupSummarySchema.parse(await res.json());
+  },
   backupState: () =>
     getJson(
       '/api/backup/state',
@@ -1178,6 +1212,7 @@ export const api = {
     remotes?: { persist?: boolean };
     updates?: { check?: boolean; channel?: 'stable' | 'beta' };
     launch?: Partial<LaunchSettings>;
+    backups?: { auto?: boolean };
   }) => {
     const res = await request('/api/server-settings', {
       method: 'PUT',

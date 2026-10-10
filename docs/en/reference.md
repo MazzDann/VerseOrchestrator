@@ -163,6 +163,7 @@ Everything the app remembers is in its folder:
 | `data/videos.json`   | videos: the paths of the files (the files stay where they are; not in a backup)                          |
 | `data/video-cache/`  | frames of videos for phones (the app makes them again; not in a backup)                                  |
 | `data/backups/`      | the state that restoring a backup, a carry-over from another copy, or **Go back to how it was** replaced |
+| `data/backups/auto/` | the automatic backups: daily ones and those made before a version change                                 |
 | `data/library.db`    | the library: translations, dictionaries, commentaries, songs, and the search index                       |
 | `data/ui-state.json` | appearance settings, presets, hotkeys, the running order, and programs                                   |
 | `data/settings.json` | server options: the port and the waiting time (`standby`), remotes (`remotes`), modules (`library`)      |

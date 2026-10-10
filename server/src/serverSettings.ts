@@ -33,6 +33,8 @@ export interface ServerSettings {
    * open the control window in, and whether as an app window (browsers.ts; the launcher reads it).
    */
   launch: LaunchSettings;
+  /** «Робити копії автоматично» (1.12.0-beta.3): daily and before a version change (autoBackup.ts) */
+  backups: { auto: boolean };
 }
 
 export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
@@ -41,6 +43,7 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   standby: { port: 4747, idleMinutes: 15 },
   updates: { check: true },
   launch: DEFAULT_LAUNCH,
+  backups: { auto: true },
 };
 
 /** The app's own ports (web dev server, API / single-process app) — not for the waiter. */
@@ -71,6 +74,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
       pin?: { version?: unknown; skip?: unknown } | null;
     };
     launch?: unknown;
+    backups?: { auto?: unknown };
   };
   const idle = Number(r.standby?.idleMinutes);
   const out: ServerSettings = {
@@ -95,6 +99,12 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
           : DEFAULT_SERVER_SETTINGS.updates.check,
     },
     launch: sanitizeLaunch(r.launch),
+    backups: {
+      auto:
+        typeof r.backups?.auto === 'boolean'
+          ? r.backups.auto
+          : DEFAULT_SERVER_SETTINGS.backups.auto,
+    },
   };
   const channel = r.updates?.channel;
   if (channel === 'stable' || channel === 'beta') out.updates.channel = channel;
@@ -110,6 +120,19 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
   const library = sanitizeLibrarySelection(r.library);
   if (library) out.library = library;
   return out;
+}
+
+/**
+ * This copy's settings file with the start settings another copy or a backup carries
+ * (1.12.0-beta.2/3): their browser, port and idle stop, and updates. The modules to build stay
+ * this copy's (they name its own modules/ files), and so do its remote persistence — off there
+ * would wipe this copy's pairings at the next save — and anything else the file holds (the
+ * builder writes there too).
+ */
+export function carriedSettings(ours: unknown, theirs: unknown): Record<string, unknown> {
+  const t = sanitizeServerSettings(theirs);
+  const base = ours && typeof ours === 'object' ? (ours as Record<string, unknown>) : {};
+  return { ...base, version: 1, standby: t.standby, updates: t.updates, launch: t.launch };
 }
 
 /** Load from disk (call once at startup). Without a file path, settings stay in memory. */
@@ -131,13 +154,14 @@ export function getServerSettings(): ServerSettings {
   return current;
 }
 
-/** Apply a patch to the server-owned keys (remotes, standby, updates, launch). `library` is edited by the builder / by hand. */
+/** Apply a patch to the server-owned keys (remotes, standby, updates, launch, backups). `library` is edited by the builder / by hand. */
 export function updateServerSettings(patch: unknown): ServerSettings {
   const p = (patch ?? {}) as {
     remotes?: object;
     standby?: object;
     updates?: object;
     launch?: object;
+    backups?: object;
   };
   const base = getServerSettings();
   current = sanitizeServerSettings({
@@ -146,6 +170,7 @@ export function updateServerSettings(patch: unknown): ServerSettings {
     standby: { ...base.standby, ...p.standby },
     updates: { ...base.updates, ...p.updates },
     launch: { ...base.launch, ...p.launch },
+    backups: { ...base.backups, ...p.backups },
   });
   if (file) writeJson(file, current);
   return current;
