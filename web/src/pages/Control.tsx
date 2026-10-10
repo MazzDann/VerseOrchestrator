@@ -454,6 +454,10 @@ export function Control() {
     setSearchOpen,
     toBible,
   });
+  // A place picked in «Історія» or «Збережене» hands the keyboard to its verse, as a search pick
+  // does: Enter then puts it on screen (users' reports F1010-03 / 06 — a click opened the place,
+  // Enter showed nothing or another verse)
+  const pickPlace = (r: RefItem) => jumpTo(r, { focus: true });
 
   const filteredBooks = useMemo(() => {
     const q = bookFilter.trim().toLowerCase();
@@ -1117,7 +1121,7 @@ export function Control() {
           }
           saved={{
             items: bookmarks,
-            onPick: jumpTo,
+            onPick: pickPlace,
             onAdd: addBookmarkToShow,
             onRemove: toggleBookmark,
             onExport: exportBookmarks,
@@ -1238,7 +1242,7 @@ export function Control() {
             clearHistory={clearHistory}
             recentBoxRef={recentBoxRef}
             layout={layout}
-            jumpTo={jumpTo}
+            jumpTo={pickPlace}
             removeHistory={removeHistory}
             workspace={workspace}
             songListSlot={setSongListSlot}
