@@ -30,6 +30,7 @@ import {
   bundleIdOf,
   CONTROL_TITLES,
   createShortcut,
+  emptyShellLink,
   GECKO_ENGINE,
   geckoAppsConnectedTo,
   linuxDesktopEntry,
@@ -95,20 +96,26 @@ describe('app window and desktop shortcut (0.7.5)', () => {
   it.runIf(process.platform === 'win32')(
     'makes a Windows shortcut: start.cmd --app, in the app folder, with its icon',
     () => {
-      const desktop = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-desktop-'));
+      // a Cyrillic desktop too (a Cyrillic user name), whatever the system's ANSI code page:
+      // WScript.Shell turned both into «????» on a Windows with code page 1252 (2026-10-09)
+      const desktop = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-desktop-тест-'));
       dirs.push(desktop);
       process.env.VO_DESKTOP_DIR = desktop;
       const root = 'C:\\VerseOrchestrator тест';
+      fs.writeFileSync(path.join(desktop, 'VerseOrchestrator.lnk'), 'an older shortcut');
       const [lnk] = createShortcut(root, 'win32');
       expect(lnk).toBe(path.join(desktop, 'VerseOrchestrator.lnk'));
+      // read back by Unicode means (Shell.Application), the output as UTF-8
       const read = execFileSync(
         'powershell',
         [
           '-NoProfile',
           '-Command',
-          '[Console]::OutputEncoding = [Text.Encoding]::UTF8; $s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:VO_LNK); "$($s.TargetPath)|$($s.Arguments)|$($s.WorkingDirectory)|$($s.IconLocation)"',
+          '[Console]::OutputEncoding = [Text.Encoding]::UTF8; ' +
+            '$l = (New-Object -ComObject Shell.Application).NameSpace($env:VO_DIR).ParseName("VerseOrchestrator.lnk").GetLink; ' +
+            '$icon = ""; $i = $l.GetIconLocation([ref]$icon); "$($l.Path)|$($l.Arguments)|$($l.WorkingDirectory)|$icon,$i"',
         ],
-        { encoding: 'utf8', env: { ...process.env, VO_LNK: lnk }, windowsHide: true },
+        { encoding: 'utf8', env: { ...process.env, VO_DIR: desktop }, windowsHide: true },
       ).trim();
       expect(read.split('|')).toEqual([
         `${root}\\start.cmd`,
@@ -118,6 +125,16 @@ describe('app window and desktop shortcut (0.7.5)', () => {
       ]);
     },
   );
+
+  it('an empty Windows shortcut is a Shell Link header and nothing else', () => {
+    const head = emptyShellLink();
+    expect(head.length).toBe(0x4c);
+    expect(head.readUInt32LE(0)).toBe(0x4c);
+    // {00021401-0000-0000-C000-000000000046}, as the format stores it
+    expect(head.subarray(4, 20).toString('hex')).toBe('0114020000000000c000000000000046');
+    expect(head.readUInt32LE(20)).toBe(0); // no flags: no target, no strings yet
+    expect(head.readUInt32LE(60)).toBe(1); // SW_SHOWNORMAL
+  });
 });
 
 /** A runner that answers from a script of replies and records what was asked: nothing spawns. */

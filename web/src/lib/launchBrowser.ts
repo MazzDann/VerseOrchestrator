@@ -40,7 +40,7 @@ export function appWindowState(
     return {
       can: false,
       hint: tr(
-        'Окремим вікном відкривають браузери на основі Chromium: Chrome, Edge, Brave, Arc, Opera, Vivaldi. Виберіть один із них угорі.',
+        'Окремим вікном відкривають браузери на основі Chromium: Chrome, Edge, Brave, Arc, Vivaldi. Виберіть один із них угорі.',
       ),
     };
   if (!chosen.installed)
