@@ -204,10 +204,15 @@ export function BackupSection() {
             <div>
               <Group gap="xs" wrap="nowrap" justify="space-between">
                 <Text size="xs" c="dimmed" style={{ minWidth: 0 }}>
-                  {tr('Відновлено {at} з копії від {when}.', {
-                    at: when(last.at),
-                    when: when(last.created),
-                  })}
+                  {last.from
+                    ? tr('Перенесено {at} з копії {folder}.', {
+                        at: when(last.at),
+                        folder: last.from,
+                      })
+                    : tr('Відновлено {at} з копії від {when}.', {
+                        at: when(last.at),
+                        when: when(last.created),
+                      })}
                 </Text>
                 {!confirmUndo && (
                   <Button
@@ -224,9 +229,13 @@ export function BackupSection() {
               {confirmUndo && (
                 <Paper withBorder p="xs" radius="md" mt={6}>
                   <Text size="xs" mb={6}>
-                    {tr(
-                      'Повернеться стан до відновлення. Те, що змінено після нього, буде замінено, але збережеться окремо в папці data/backups/.',
-                    )}
+                    {last.from
+                      ? tr(
+                          'Повернеться стан до перенесення. Те, що змінено після нього, буде замінено, але збережеться окремо в папці data/backups/.',
+                        )
+                      : tr(
+                          'Повернеться стан до відновлення. Те, що змінено після нього, буде замінено, але збережеться окремо в папці data/backups/.',
+                        )}
                   </Text>
                   <Group gap="xs">
                     <Button

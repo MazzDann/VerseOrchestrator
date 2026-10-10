@@ -2041,4 +2041,55 @@ export const EN: Record<string, string> = {
     'Note: on Windows, version {version} can’t update back while a browser it started is open. Before you update from it, close the browser completely.',
   'Версії, старіші за 1.8.8, на Windows недоступні для вибору: з них не вдається оновитися назад, поки відкритий браузер, який вони запустили.':
     'Versions older than 1.8.8 can’t be picked on Windows: they can’t update back while a browser they started is open.',
+  // «Перенести з іншої копії…» (1.12.0-beta.2)
+  'Вибрати цю папку': 'Choose this folder',
+  'Перенесено {at} з копії {folder}.': 'Carried over {at} from the copy {folder}.',
+  'Повернеться стан до перенесення. Те, що змінено після нього, буде замінено, але збережеться окремо в папці data/backups/.':
+    'The state before the carry-over comes back. What changed since is replaced, but kept separately in the data/backups/ folder.',
+  'вигляд і клавіші': 'look and keys',
+  '{n} файл пісень|{n} файли пісень|{n} файлів пісень': '{n} song file|{n} song files',
+  '{n} альбом чи відео|{n} альбоми чи відео|{n} альбомів чи відео':
+    '{n} album or video|{n} albums or videos',
+  '{n} пульт|{n} пульти|{n} пультів': '{n} remote|{n} remotes',
+  'версія {version}': 'version {version}',
+  'змінено {when}': 'changed {when}',
+  'Перенесено. Вікно перезавантажується…': 'Carried over. The window reloads…',
+  'Перенесено. Нові налаштування запуску діятимуть з наступного запуску.':
+    'Carried over. The new start settings take effect at the next start.',
+  'Перенесено.': 'Carried over.',
+  'Інша копія': 'Another copy',
+  'Якщо поруч є старіша чи інша копія застосунку, перенесіть з неї вигляд, програми, пісні, зображення, налаштування запуску й пульти.':
+    'If an older or another copy of the app is on this computer, carry over its look, programs, songs, pictures, start settings and remotes.',
+  'Перенести з іншої копії…': 'Carry over from another copy…',
+  'Перенести з іншої копії': 'Carry over from another copy',
+  'Вигляд, програми, пісні, зображення, альбоми й відео':
+    'Look, programs, songs, pictures, albums and videos',
+  'Налаштування запуску': 'Start settings',
+  'браузер ({browser}), адреса, оновлення; модулі лишаються цієї копії':
+    'browser ({browser}), address, updates; the modules stay this copy’s',
+  'браузер, адреса, оновлення; модулі лишаються цієї копії':
+    'browser, address, updates; the modules stay this copy’s',
+  'Пульти доповідача ({n})|Пульти доповідача ({n})|Пульти доповідача ({n})':
+    'Speaker remotes ({n})|Speaker remotes ({n})',
+  'додаються до пультів цієї копії — телефони не треба зв’язувати знову':
+    'added to this copy’s remotes — the phones need no pairing again',
+  'Та копія новіша ({version}): частину її даних ця версія може не прочитати. Краще спершу оновіть цю копію.':
+    'That copy is newer ({version}): this version may not read some of its data. Better update this copy first.',
+  'Позначене замінить поточне в цій копії. Поточне збережеться окремо — його можна буде повернути в «Резервна копія». Та копія лишиться як є.':
+    'What you tick replaces the current state of this copy. The current state is kept separately — you can bring it back in “Backup”. The other copy stays as it is.',
+  Перенести: 'Carry over',
+  'Шукаю інші копії…': 'Looking for other copies…',
+  'Поруч з цією копією інших не знайдено. Виберіть папку іншої копії вручну.':
+    'No other copies found next to this one. Choose another copy’s folder yourself.',
+  працює: 'running',
+  'даних немає': 'no data',
+  'Вибрати папку…': 'Choose a folder…',
+  'Тут немає даних VerseOrchestrator. Виберіть папку копії — ту, де лежать app і data.':
+    'No VerseOrchestrator data here. Choose a copy’s folder — the one that holds app and data.',
+  'Це папка цієї копії. Виберіть іншу.': 'This is this copy’s folder. Choose another one.',
+  'Позначте, що перенести': 'Tick what to carry over',
+  'Не вдалося перенести: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.':
+    'Couldn’t carry over: {error}. Close the programs holding files in data/ and try again.',
+  'Поруч є інша копія застосунку з даними: {folder}.\n  Щоб перенести з неї вигляд, пісні, налаштування й пульти — Налаштування вигляду →\n  Застосунок → «Перенести з іншої копії…».':
+    'Another copy of the app with data is next to this one: {folder}.\n  To carry over its look, songs, settings and remotes — Settings →\n  App → “Carry over from another copy…”.',
 };
