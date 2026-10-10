@@ -325,7 +325,13 @@ export function SearchPanel({
                 <Text size="sm" c="red" style={{ flex: 1, minWidth: 0 }}>
                   {tr('Пошук не вдався: {error}', { error: error.message })}
                 </Text>
-                <Button size="compact-xs" variant="light" onClick={() => void refetch()}>
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  // the keyboard stays in the field: the button goes as the search starts again (review)
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => void refetch()}
+                >
                   {tr('Спробувати ще раз')}
                 </Button>
               </Group>
