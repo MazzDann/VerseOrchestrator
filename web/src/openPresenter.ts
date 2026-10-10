@@ -15,6 +15,7 @@ import {
   type ScreenInfo,
 } from './lib/screens';
 import { delegateFullscreen } from './lib/fullscreen';
+import { watchOpenedAsTab } from './lib/tabNotice';
 import { useSettings } from './settingsStore';
 
 /**
@@ -237,6 +238,8 @@ export async function openOutput(
     // click it would go full screen over it (review, 2026-10-10); with one screen, as before
     if (fullscreen && (screen || !several)) lendNextClick(name);
   }
+  // LibreWolf may have made it a tab of this window (lib/tabNotice.ts)
+  if (w) watchOpenedAsTab(kind, name);
   return !!w;
 }
 
@@ -291,6 +294,7 @@ async function openSeparate(
     name,
     `${screen ? featuresFor(screen) : `popup,${FALLBACK[kind]}`},noopener`,
   );
+  watchOpenedAsTab(kind, name);
   const o = await waitForNewOutput(kind, before, ANNOUNCE_MS);
   // some browsers ignore left/top in the features: put it there by command
   if (o && screen && (o.bounds.x !== screen.x || o.bounds.y !== screen.y)) moveOutput(o, screen);
