@@ -16,6 +16,7 @@ import {
   oneAtATime,
   readBackup,
   restorePending,
+  START_KEY,
   startChange,
   undoRestore,
 } from './backup';
@@ -124,16 +125,20 @@ describe('zip (1.5.0)', () => {
 });
 
 describe('«Резервна копія» (1.5.0)', () => {
-  it('holds the UI state, the song bundles and the pictures — not the library, secrets, settings or dot files', async () => {
+  it('holds the UI state, the song bundles and the pictures — not the library, secrets or dot files; the start settings ride in the UI state', async () => {
     const d = dataDir('a');
-    const names = (await collect(d, '1.5.0')).map((e) => e.name);
-    expect(names).toEqual([
+    const entries = await collect(d, '1.5.0');
+    expect(entries.map((e) => e.name)).toEqual([
       'manifest.json',
       'ui-state.json',
       'songs/ПС-a.vosongs',
       'images/a.png',
       'images/index.json',
     ]);
+    // 1.12.0-beta.3: no settings.json of its own — an older version refuses unknown files
+    const ui = JSON.parse(entries[1].data.toString('utf8'));
+    expect(Object.keys(ui).sort()).toEqual(['vo:playlist', 'vo:settings', START_KEY]);
+    expect(JSON.parse(ui[START_KEY].value)).toMatchObject({ standby: { port: 4747 } });
     const { summary } = await readBackup(
       await makeBackup(d, '1.5.0', new Date('2026-10-01T10:00:00Z')),
     );
@@ -145,6 +150,8 @@ describe('«Резервна копія» (1.5.0)', () => {
       items: 3,
       bundles: ['ПС-a'],
       pictures: 1,
+      withPictures: true,
+      start: { browser: 'system', port: 4747 },
     });
   });
 

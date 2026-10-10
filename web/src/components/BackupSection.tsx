@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
-import { Button, FileButton, Group, Paper, Stack, Text } from '@mantine/core';
+import { Button, FileButton, Group, Paper, Stack, Switch, Text } from '@mantine/core';
 import { IconArchive, IconArrowBackUp, IconUpload } from '@tabler/icons-react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { api, type BackupSummary } from '../api';
+import { api, type AutoBackup, type BackupSummary } from '../api';
 import { dropUiState, takeServerUiState } from '../lib/uiState';
 import { useServer, NEEDS_SERVER } from '../serverStore';
-import { fmtDateTime, tr, trn, useLang } from '../i18n';
+import { fmtDateTime, fmtNumber, tr, trn, useLang } from '../i18n';
 
 /** The last part of a folder's path, the whole path in its title. */
 const shortName = (folder: string) => folder.split(/[\\/]/).filter(Boolean).pop() ?? folder;
@@ -15,6 +15,114 @@ const when = (iso: string) => {
   const t = Date.parse(iso);
   return Number.isFinite(t) ? fmtDateTime(t) : iso;
 };
+
+/** The browser a backup names (by its name; «system» — the system's). */
+const browserName = (name: string) => (name === 'system' ? tr('Браузер системи') : name);
+
+/** «2,4 МБ» */
+const mb = (bytes: number) =>
+  bytes < 1048576
+    ? tr('менше 1 МБ')
+    : tr('{n} МБ', {
+        n: fmtNumber(bytes / 1048576, { maximumFractionDigits: bytes < 10 * 1048576 ? 1 : 0 }),
+      });
+
+/** Why an automatic copy was made: «щодня», «перед переходом на 1.12.1». */
+const why = (b: AutoBackup) =>
+  b.kind === 'daily'
+    ? tr('щодня')
+    : b.to
+      ? tr('перед переходом на {version}', { version: b.to })
+      : tr('перед зміною версії');
+
+/** How many automatic copies show before «Показати всі». */
+const SHOWN = 3;
+
+/**
+ * «Автоматичні копії» (1.12.0-beta.3, server/src/autoBackup.ts): the switch, and the copies the
+ * app made — once a day and before a version change — each with «Відновити…», which checks it
+ * the way a picked file is checked (the same card, the same restore).
+ */
+function AutoBackups({
+  disabled,
+  onPicked,
+  onFail,
+}: {
+  disabled: boolean;
+  onPicked: (summary: BackupSummary) => void;
+  onFail: (e: unknown) => void;
+}) {
+  const qc = useQueryClient();
+  const [all, setAll] = useState(false);
+  const [checking, setChecking] = useState<string | null>(null);
+  const settings = useQuery({ queryKey: ['server-settings'], queryFn: api.serverSettings });
+  const list = useQuery({ queryKey: ['backup-auto'], queryFn: api.autoBackups });
+  const toggle = useMutation({
+    mutationFn: (auto: boolean) => api.updateServerSettings({ backups: { auto } }),
+    onSuccess: (next) => qc.setQueryData(['server-settings'], next),
+    onError: onFail,
+  });
+  const on = settings.data?.backups.auto ?? true;
+  const backups = list.data ?? [];
+  const shown = all ? backups : backups.slice(0, SHOWN);
+  const check = async (b: AutoBackup) => {
+    setChecking(b.name);
+    try {
+      onPicked(await api.checkAutoBackup(b.name));
+    } catch (e) {
+      onFail(e);
+      void list.refetch();
+    } finally {
+      setChecking(null);
+    }
+  };
+  return (
+    <div>
+      <Switch
+        size="sm"
+        checked={on}
+        disabled={toggle.isPending || settings.isLoading}
+        onChange={(e) => toggle.mutate(e.currentTarget.checked)}
+        label={tr('Робити копії автоматично')}
+        description={tr(
+          'Щодня й перед кожною зміною версії. Зберігаються останні 7 щоденних і 3 перед змінами версії — у data/backups/auto.',
+        )}
+      />
+      {backups.length > 0 && (
+        <Stack gap={4} mt={8}>
+          <Stack gap={4} role="list" aria-label={tr('Автоматичні копії')}>
+            {shown.map((b) => (
+              <Group key={b.name} gap="xs" wrap="nowrap" justify="space-between" role="listitem">
+                <Text size="xs" c="dimmed" style={{ minWidth: 0 }} truncate="end" title={b.name}>
+                  {[fmtDateTime(Date.parse(b.created)), why(b), b.app, mb(b.size)]
+                    .concat(b.pictures ? [] : [tr('без зображень')])
+                    .join(' · ')}
+                </Text>
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  style={{ flexShrink: 0 }}
+                  loading={checking === b.name}
+                  disabled={disabled || (checking !== null && checking !== b.name)}
+                  onClick={() => void check(b)}
+                >
+                  {tr('Відновити…')}
+                </Button>
+              </Group>
+            ))}
+          </Stack>
+          {backups.length > SHOWN && (
+            <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setAll(!all)}>
+              {all
+                ? tr('Показати менше')
+                : trn(backups.length, 'Показати всі ({n})|Показати всі ({n})|Показати всі ({n})')}
+            </Button>
+          )}
+        </Stack>
+      )}
+    </div>
+  );
+}
 
 /** Save a blob under a name, as a download. */
 function saveAs(blob: Blob, name: string) {
@@ -115,7 +223,7 @@ export function BackupSection() {
       </Text>
       <Text size="xs" c="dimmed" mb={8}>
         {tr(
-          'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення. Модулі, бібліотека й пульти в нього не входять.',
+          'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення, налаштування запуску. Модулі, бібліотека й пульти в нього не входять.',
         )}
       </Text>
       {off ? (
@@ -154,6 +262,7 @@ export function BackupSection() {
               )}
             </FileButton>
           </Group>
+          <AutoBackups disabled={busy || checking} onPicked={setPending} onFail={fail} />
           {pending && (
             <Paper withBorder p="xs" radius="md" role="group" aria-label={tr('Відновити з копії')}>
               <Text size="xs" fw={500} mb={4}>
@@ -176,7 +285,19 @@ export function BackupSection() {
                     ? tr('пісні: {bundles}', { bundles: pending.bundles.join(', ') })
                     : tr('пісень немає')}
                 </li>
-                <li>{trn(pending.pictures, '{n} зображення|{n} зображення|{n} зображень')}</li>
+                <li>
+                  {pending.withPictures === false
+                    ? tr('без зображень — ваші лишаться як є')
+                    : trn(pending.pictures, '{n} зображення|{n} зображення|{n} зображень')}
+                </li>
+                {pending.start && (
+                  <li>
+                    {tr('налаштування запуску: браузер «{browser}», порт {port}', {
+                      browser: browserName(pending.start.browser),
+                      port: pending.start.port,
+                    })}
+                  </li>
+                )}
               </Text>
               <Text size="xs" c="dimmed" mt={6} mb={6}>
                 {tr(

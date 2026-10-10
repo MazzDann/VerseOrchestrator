@@ -2,7 +2,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { readJson, writeJson } from './jsonFile.js';
+import { assertWritable, readJson, writeJson } from './jsonFile.js';
+import { KNOWN_BROWSERS } from './browsers.js';
+import { carriedSettings, sanitizeServerSettings } from './serverSettings.js';
 import { unzip, zip, type ZipEntry } from './zip.js';
 
 /**
@@ -49,7 +51,30 @@ export interface BackupManifest {
   app: string;
   /** ISO time */
   created: string;
+  /**
+   * false: made without the pictures (1.12.0-beta.3 — an automatic copy whose pictures would pass
+   * 1 GB); a restore then leaves this copy's pictures as they are. Absent: they are in it.
+   */
+  pictures?: false;
 }
+
+/**
+ * The start settings (browser, port and idle stop, updates — 1.12.0-beta.3) ride inside the
+ * backup's UI state as one more entry: a version before it restores the file as it always did
+ * (it refuses any file name it doesn't know, but keeps an unknown UI entry), and ignores it.
+ */
+export const START_KEY = 'vo:start-settings';
+
+/**
+ * In a copy made without the pictures: a file no version before 1.12.0-beta.3 accepts, so they
+ * refuse the whole copy — they ignore `manifest.pictures`, and their restore would move this
+ * copy's pictures aside and put none back (review of 1.12.0-beta.3).
+ */
+const NO_PICTURES = 'no-pictures.txt';
+// the marker file's own text, in both languages: someone opening the .zip reads it
+const NO_PICTURES_TEXT =
+  'Ця копія зроблена без зображень (вони займали б понад 1 ГБ). Відновлення лишає зображення, які є.\n' + // i18n-ignore
+  'This backup was made without the images (they would take over 1 GB). A restore keeps the images there are.\n';
 
 /** What a backup holds, for the operator to see before restoring it. */
 export interface BackupSummary {
@@ -64,6 +89,10 @@ export interface BackupSummary {
   /** song bundles, by name of file */
   bundles: string[];
   pictures: number;
+  /** the pictures are in it (false: made without them — this copy's stay as they are) */
+  withPictures: boolean;
+  /** the start settings it carries (1.12.0-beta.3): the browser chosen and the port */
+  start: { browser: string; port: number } | null;
 }
 
 /**
@@ -89,7 +118,7 @@ async function filesIn(dir: string, keep: (name: string) => boolean): Promise<st
 const bundleFile = (n: string) => own(n) && n.endsWith(BUNDLE_EXT);
 
 /** The operator's files of a data folder: [name in a backup, path] — UI state, songs, pictures. */
-async function ownFiles(dataDir: string): Promise<[string, string][]> {
+async function ownFiles(dataDir: string, pictures = true): Promise<[string, string][]> {
   const files: [string, string][] = [];
   const ui = path.join(dataDir, UI_FILE);
   // asynchronous: another copy's folder may be on a slow or sleeping drive (stateEntries)
@@ -104,27 +133,103 @@ async function ownFiles(dataDir: string): Promise<[string, string][]> {
   for (const f of await filesIn(songs, bundleFile))
     files.push([`${SONGS}/${f}`, path.join(songs, f)]);
   const images = path.join(dataDir, IMAGES);
-  for (const f of await filesIn(images, own)) files.push([`${IMAGES}/${f}`, path.join(images, f)]);
+  if (pictures)
+    for (const f of await filesIn(images, own))
+      files.push([`${IMAGES}/${f}`, path.join(images, f)]);
   return files;
 }
 
-/** What goes into a backup of `dataDir`, the manifest first; over 1 GB is BackupError('too big'). */
-export async function collect(dataDir: string, app: string, now = new Date()): Promise<ZipEntry[]> {
+/**
+ * The start settings a backup carries: this copy's browser, port and idle stop, updates — not its
+ * modules (they name its own modules/ files) nor its remote persistence. Null: no settings file.
+ */
+function startSettings(dataDir: string): Record<string, unknown> | null {
+  const raw = readJson<unknown>(path.join(dataDir, 'settings.json'), null);
+  if (!raw || typeof raw !== 'object') return null;
+  const s = sanitizeServerSettings(raw);
+  return { standby: s.standby, updates: s.updates, launch: s.launch };
+}
+
+/**
+ * What goes into a backup of `dataDir`, the manifest first, the songs and pictures by their files
+ * (read when packed — an automatic copy streams them, zip.ts zipToFile); over 1 GB is
+ * BackupError('too big'). `pictures: false` leaves the pictures out (an automatic copy that
+ * would pass 1 GB, 1.12.0-beta.3). The UI state carries the start settings too (START_KEY).
+ */
+export async function backupEntries(
+  dataDir: string,
+  app: string,
+  now = new Date(),
+  { pictures = true }: { pictures?: boolean } = {},
+): Promise<StateEntry[]> {
   const manifest: BackupManifest = {
     format: BACKUP_FORMAT,
     version: 1,
     app,
     created: now.toISOString(),
   };
-  const files = await ownFiles(dataDir);
+  if (!pictures) manifest.pictures = false;
+  const files = await ownFiles(dataDir, pictures);
   let total = 0;
   for (const [, p] of files) total += (await fsp.stat(p)).size;
   if (total > MAX_BACKUP_BYTES) throw new BackupError('too big');
-  const out: ZipEntry[] = [
+  const out: StateEntry[] = [
     { name: MANIFEST, data: Buffer.from(JSON.stringify(manifest, null, 2) + '\n') },
   ];
-  for (const [name, p] of files) out.push({ name, data: await fsp.readFile(p) });
+  // the UI state, with the start settings as one more entry (START_KEY); a file held by another
+  // program fails the backup as before (read as bytes), one that isn't JSON goes in as it is
+  const uiFile = files.find(([name]) => name === UI_FILE)?.[1];
+  // a file held a moment (an antivirus, the indexer) is tried again; one held longer fails the
+  // backup, as before (review of 1.12.0-beta.3)
+  const raw = uiFile ? await held(() => fsp.readFile(uiFile)) : null;
+  let ui: Record<string, unknown> | null = {};
+  try {
+    const parsed: unknown = raw ? JSON.parse(raw.toString('utf8').replace(/^\uFEFF/, '')) : {};
+    ui = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    ui = null;
+  }
+  // a UI state that isn't JSON stays out — the songs and pictures stay restorable; with it in,
+  // every restore of the copy was refused as damaged (review of 1.12.0-beta.3)
+  if (raw && !ui)
+    console.warn(`[server] backup: ${UI_FILE} is not valid JSON — the backup goes without it`);
+  const start = startSettings(dataDir);
+  if (ui && (raw || start)) {
+    const state = { ...ui };
+    delete state[START_KEY];
+    if (start) state[START_KEY] = { value: JSON.stringify(start), at: now.getTime() };
+    out.push({ name: UI_FILE, data: Buffer.from(JSON.stringify(state)) });
+  }
+  if (!pictures) out.push({ name: NO_PICTURES, data: Buffer.from(NO_PICTURES_TEXT) });
+  for (const [name, p] of files) if (name !== UI_FILE) out.push({ name, file: p });
   return out;
+}
+
+/** A backup's entries with their bytes, for the .zip made in memory (`Зберегти копію`). */
+export async function collect(
+  dataDir: string,
+  app: string,
+  now = new Date(),
+  opts: { pictures?: boolean } = {},
+): Promise<ZipEntry[]> {
+  const out: ZipEntry[] = [];
+  for (const e of await backupEntries(dataDir, app, now, opts))
+    out.push({ name: e.name, data: e.data ?? (await fsp.readFile(e.file!)) });
+  return out;
+}
+
+/** The start settings a backup's entries carry (START_KEY inside the UI state), or null. */
+export function startOf(entries: StateEntry[]): Record<string, unknown> | null {
+  const ui = entries.find((e) => e.name === UI_FILE)?.data;
+  if (!ui) return null;
+  try {
+    const state = JSON.parse(ui.toString('utf8')) as Record<string, { value?: unknown }>;
+    const value = state[START_KEY]?.value;
+    const start = typeof value === 'string' ? (JSON.parse(value) as unknown) : null;
+    return start && typeof start === 'object' ? (start as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -174,7 +279,8 @@ export async function stateEntries(dataDir: string): Promise<StateEntry[]> {
 }
 
 /** A picture's file is compressed already: stored as it is (deflate would only cost time). */
-const compressed = (name: string) => name.startsWith(`${IMAGES}/`) && !name.endsWith('.json');
+export const compressed = (name: string) =>
+  name.startsWith(`${IMAGES}/`) && !name.endsWith('.json');
 
 export async function makeBackup(dataDir: string, app: string, now = new Date()): Promise<Buffer> {
   return zip(await collect(dataDir, app, now), now, compressed);
@@ -186,6 +292,7 @@ const ALLOWED = [
   /^ui-state\.json$/,
   /^songs\/[^/\\.][^/\\]*\.vosongs$/,
   /^images\/[^/\\.][^/\\]*$/,
+  /^no-pictures\.txt$/,
 ];
 const allowed = (name: string) =>
   !name.includes('..') && !name.includes('\0') && ALLOWED.some((r) => r.test(name));
@@ -262,6 +369,8 @@ export function summarize(entries: StateEntry[], manifest: Partial<BackupManifes
   } catch {
     throw new BackupError('damaged');
   }
+  const start = startOf(entries);
+  const launch = start ? sanitizeServerSettings(start) : null;
   return {
     app: String(manifest.app ?? ''),
     created: String(manifest.created ?? ''),
@@ -270,6 +379,16 @@ export function summarize(entries: StateEntry[], manifest: Partial<BackupManifes
     items,
     bundles,
     pictures,
+    withPictures: manifest.pictures !== false && !entries.some((e) => e.name === NO_PICTURES),
+    // the browser by the name the settings list it under («system» stays: the page says it)
+    start: launch
+      ? {
+          browser:
+            KNOWN_BROWSERS.find((b) => b.id === launch.launch.browser)?.name ??
+            launch.launch.browser,
+          port: launch.standby.port,
+        }
+      : null,
   };
 }
 
@@ -302,20 +421,27 @@ export async function applyBackup(
   dataDir: string,
   entries: StateEntry[],
   beforeUi?: () => Promise<void>,
+  subs: readonly Sub[] = BOTH,
 ): Promise<number> {
   const songs = path.join(dataDir, SONGS);
   for (const f of await filesIn(songs, bundleFile)) await fsp.rm(path.join(songs, f));
+  // a backup made without the pictures leaves this copy's as they are (1.12.0-beta.3)
   const images = path.join(dataDir, IMAGES);
-  for (const f of await filesIn(images, own)) await fsp.rm(path.join(images, f));
+  if (subs.includes(IMAGES))
+    for (const f of await filesIn(images, own)) await fsp.rm(path.join(images, f));
   for (const e of entries) {
-    if (!e.name.startsWith(`${SONGS}/`) && !e.name.startsWith(`${IMAGES}/`)) continue;
+    const sub = e.name.split('/')[0];
+    if (e.name === sub || !subs.includes(sub as Sub)) continue;
     const to = path.join(dataDir, ...e.name.split('/'));
     if (e.data) await put(to, e.data);
     else if (e.file) await put(to, { from: e.file });
   }
   await beforeUi?.();
   const ui = entries.find((e) => e.name === UI_FILE)?.data;
-  return ui ? writeUiState(dataDir, JSON.parse(ui.toString('utf8'))) : Date.now();
+  const state = ui ? (JSON.parse(ui.toString('utf8')) as Record<string, { value?: unknown }>) : {};
+  delete state[START_KEY];
+  // a UI state that held only the start settings is none: this copy's stays as it is
+  return Object.keys(state).length > 0 ? writeUiState(dataDir, state) : Date.now();
 }
 
 /** The UI state written, stamped with the time it is written; returns that time. */
@@ -323,7 +449,8 @@ function writeUiState(dataDir: string, state: Record<string, { value?: unknown }
   const at = Date.now();
   const fresh: Record<string, { value: string; at: number }> = {};
   for (const [key, entry] of Object.entries(state))
-    if (entry && typeof entry.value === 'string') fresh[key] = { value: entry.value, at };
+    if (key !== START_KEY && entry && typeof entry.value === 'string')
+      fresh[key] = { value: entry.value, at };
   // a restore's own content, not made from reading the file it replaces
   writeJson(path.join(dataDir, UI_FILE), fresh, { replace: true });
   return at;
@@ -367,6 +494,8 @@ export interface LastRestore {
   from?: string;
   /** an import without the operator's things: the songs, pictures and UI state stayed as they were */
   state?: false;
+  /** the folders moved when not both (a backup made without the pictures: songs only) */
+  subs?: string[];
   /**
    * Files of data/ itself the import wrote (EXTRAS): «Повернути як було» puts back the ones kept
    * in the folder and removes the ones this copy didn't have.
@@ -426,6 +555,18 @@ function countState(folder: string): number {
 
 const stamp = (now: Date) => now.toISOString().replace(/[:.]/g, '-');
 
+/** `work` tried again while the file is held a moment (HELD), for a second at most. */
+async function held<T>(work: () => Promise<T>): Promise<T> {
+  for (let tries = 1; ; tries++) {
+    try {
+      return await work();
+    } catch (e) {
+      if (!HELD.has((e as NodeJS.ErrnoException).code ?? '') || tries >= 10) throw e;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+}
+
 /** What Windows answers for a file another program holds a moment (an antivirus, the indexer). */
 const HELD = new Set(['EBUSY', 'EPERM', 'EACCES']);
 
@@ -453,10 +594,17 @@ async function move(from: string, to: string): Promise<void> {
 }
 
 /** The song bundles and the pictures of a data folder (or a kept state): [folder, name]. */
-async function stateFiles(dir: string): Promise<[string, string][]> {
+type Sub = typeof SONGS | typeof IMAGES;
+const BOTH: readonly Sub[] = [SONGS, IMAGES];
+
+async function stateFiles(dir: string, subs: readonly Sub[] = BOTH): Promise<[string, string][]> {
   return [
-    ...(await filesIn(path.join(dir, SONGS), bundleFile)).map((f): [string, string] => [SONGS, f]),
-    ...(await filesIn(path.join(dir, IMAGES), own)).map((f): [string, string] => [IMAGES, f]),
+    ...(subs.includes(SONGS) ? await filesIn(path.join(dir, SONGS), bundleFile) : []).map(
+      (f): [string, string] => [SONGS, f],
+    ),
+    ...(subs.includes(IMAGES) ? await filesIn(path.join(dir, IMAGES), own) : []).map(
+      (f): [string, string] => [IMAGES, f],
+    ),
   ];
 }
 
@@ -466,10 +614,10 @@ async function stateFiles(dir: string): Promise<[string, string][]> {
  * state half moved was neither the old one nor the new one, and the way back lost files
  * (review of #47).
  */
-async function moveState(from: string, to: string): Promise<number> {
+async function moveState(from: string, to: string, subs: readonly Sub[] = BOTH): Promise<number> {
   const moved: [string, string][] = [];
   try {
-    for (const [sub, f] of await stateFiles(from)) {
+    for (const [sub, f] of await stateFiles(from, subs)) {
       const a = path.join(from, sub, f);
       const b = path.join(to, sub, f);
       await move(a, b);
@@ -618,10 +766,28 @@ export async function restorePending(
   if (!fs.existsSync(pending)) return null;
   if (id !== undefined && readText(path.join(dir, PENDING_ID)) !== id) return null;
   const { entries, summary } = await readBackup(await fsp.readFile(pending));
-  await replaceState(dataDir, entries, summary, now, { kind: 'restore', applied });
+  const start = startOf(entries);
+  await replaceState(dataDir, entries, summary, now, {
+    kind: 'restore',
+    applied,
+    subs: summary.withPictures ? BOTH : [SONGS],
+    extras: start ? { 'settings.json': () => carriedStart(dataDir, start) } : {},
+  });
   for (const f of [pending, path.join(dir, PENDING_ID)])
     await fsp.rm(f, { force: true }).catch(() => undefined);
   return summary;
+}
+
+/**
+ * This copy's settings file with the start settings a backup or another copy carries: its own
+ * modules, remote persistence and other keys stay. Read when written, the way the app reads it;
+ * one it can't read now is never written over — the restore stops and puts everything back.
+ */
+export function carriedStart(dataDir: string, start: unknown): Buffer {
+  const file = path.join(dataDir, 'settings.json');
+  const ours = readJson<unknown>(file, {});
+  assertWritable(file);
+  return Buffer.from(JSON.stringify(carriedSettings(ours, start), null, 2) + '\n');
 }
 
 /** What replaceState is told besides the state. */
@@ -638,6 +804,8 @@ export interface ReplaceOptions {
   extras?: Partial<Record<Extra, () => Buffer | null>>;
   /** an import: the ids of the pairings it adds (`applied` adds them), for the note */
   pairings?: string[];
+  /** the folders the new state has: songs and pictures, or songs alone (pictures: false) */
+  subs?: readonly Sub[];
 }
 
 /**
@@ -652,13 +820,13 @@ export async function replaceState(
   entries: StateEntry[] | null,
   summary: BackupSummary,
   now: Date,
-  { kind, applied, from, extras = {}, pairings = [] }: ReplaceOptions,
+  { kind, applied, from, extras = {}, pairings = [], subs = BOTH }: ReplaceOptions,
 ): Promise<void> {
   const dir = backupsDir(dataDir);
   const kept = await keepFolder(dataDir, kind, now);
   let files: number;
   try {
-    files = entries ? await moveState(dataDir, kept) : 0;
+    files = entries ? await moveState(dataDir, kept, subs) : 0;
   } catch (e) {
     await dropFolder(kept).catch(() => undefined);
     throw e;
@@ -675,6 +843,7 @@ export async function replaceState(
   if (from) note.from = from;
   if (pairings.length) note.pairings = pairings;
   if (!entries) note.state = false;
+  if (subs.length !== BOTH.length) note.subs = [...subs];
   // the files of data/ itself written so far: a failure puts back only these
   const written: Extra[] = [];
   const writeExtras = async () => {
@@ -698,7 +867,7 @@ export async function replaceState(
   try {
     writeJson(last, note, { replace: true }); // this restore's note, whatever the last one was
     // the UI state stays the last step: the extras go in between (applyBackup's beforeUi)
-    if (entries) await applyBackup(dataDir, entries, writeExtras);
+    if (entries) await applyBackup(dataDir, entries, writeExtras, subs);
     else await writeExtras();
   } catch (e) {
     // the songs and pictures first — moving them back needs no free space, the extras' writes
@@ -708,9 +877,9 @@ export async function replaceState(
     if (entries)
       try {
         // what of the backup went in goes (it is still in the file), what was there comes back
-        for (const [sub, f] of await stateFiles(dataDir))
+        for (const [sub, f] of await stateFiles(dataDir, subs))
           await fsp.rm(path.join(dataDir, sub, f), { force: true });
-        await moveState(kept, dataDir);
+        await moveState(kept, dataDir, subs);
       } catch {
         failed = true;
       }
@@ -778,17 +947,19 @@ export async function undoRestore(
   const extras = (last.extras ?? []).filter(isExtra);
   // an import of the settings or the pairings alone left the songs, pictures and UI state alone
   const state = last.state !== false;
+  // a restore of a backup without the pictures moved the songs only (1.12.0-beta.3)
+  const subs = Array.isArray(last.subs) ? BOTH.filter((s) => last.subs!.includes(s)) : BOTH;
   const kept = await keepFolder(dataDir, 'undo', now, extras);
   try {
-    if (state) await moveState(dataDir, kept);
+    if (state) await moveState(dataDir, kept, subs);
   } catch (e) {
     await dropFolder(kept).catch(() => undefined);
     throw e;
   }
   try {
-    if (state) await moveState(from, dataDir);
+    if (state) await moveState(from, dataDir, subs);
   } catch (e) {
-    await moveState(kept, dataDir).catch(() => undefined);
+    await moveState(kept, dataDir, subs).catch(() => undefined);
     await dropFolder(kept).catch(() => undefined);
     throw e;
   }
@@ -797,8 +968,8 @@ export async function undoRestore(
   } catch (e) {
     // as it was before the undo: the songs and pictures first, then the extras
     if (state) {
-      await moveState(dataDir, from).catch(() => undefined);
-      await moveState(kept, dataDir).catch(() => undefined);
+      await moveState(dataDir, from, subs).catch(() => undefined);
+      await moveState(kept, dataDir, subs).catch(() => undefined);
     }
     await putBackExtras(dataDir, kept, extras).catch(() => undefined);
     await dropFolder(kept).catch(() => undefined);
