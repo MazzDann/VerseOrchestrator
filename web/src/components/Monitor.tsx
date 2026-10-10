@@ -3,6 +3,7 @@ import { Group, Text } from '@mantine/core';
 import { useReducedMotion } from '@mantine/hooks';
 import { type Slide } from '../presenterBus';
 import { SlideCanvas } from './SlideCanvas';
+import { AspectFrame } from './AspectFrame';
 
 /**
  * Tally state of a monitor, as on a video switcher: `live` = this is what the audience
@@ -70,7 +71,9 @@ export function Monitor({
           boxShadow: `0 0 0 ${state === 'idle' ? 1 : 2}px ${TALLY_VAR[state]}`,
         }}
       >
-        <SlideCanvas slide={slide} calm={calm} />
+        <AspectFrame>
+          <SlideCanvas slide={slide} calm={calm} />
+        </AspectFrame>
       </div>
     </div>
   );

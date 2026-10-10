@@ -278,6 +278,34 @@ The switches at the bottom of the panel:
   the control window and the other windows (Chrome, Edge). Such a window goes full screen
   with the F key or a click in the window itself.
 
+## Set the aspect ratio
+
+If the projector or the broadcast has another shape than the presentation window, open
+**Output windows** and choose the **Aspect ratio**: **As the screen** (the default — the slide
+fills the window), **16:9**, or **4:3**. The slide then stands in the middle of the window in a
+frame of that shape, and the rest stays black. The monitors in the control window show the
+slide in the same shape, so the text fits the same way.
+
+## Show text over the camera
+
+To lay text over the camera picture (a broadcast, a recording), open **Output windows** and
+set up the **Broadcast**:
+
+- **Lower third** — the text in a band at the bottom of the frame; **As on the show** — the
+  whole slide.
+- **Background**: **Transparent** — for OBS or vMix; **Green** or **Black** — for a key on a
+  video mixer.
+- **A band under the text** — a dark strip the text reads on over any picture. Turn it off for
+  a luma key (black background).
+
+In OBS or vMix, add a **Browser** source with the **Address for OBS / vMix** (the button next to
+it copies it) at 1920×1080. The address works only on the computer where the app runs. To feed
+the text to a mixer over HDMI, click **Open the broadcast window**, drag the window to the
+screen connected to the mixer, and press F for full screen.
+
+Only words go into the lower third — verses, songs, your own text; pictures, videos, the
+**Cover**, and **Black screen** leave it empty.
+
 ## If several control windows are open
 
 Only one control window runs the show. The others show a strip at the top: “Another

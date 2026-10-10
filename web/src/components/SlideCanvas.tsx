@@ -34,6 +34,7 @@ import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
 import { addedVerses, growTiming, revealTransition, riseAnimation } from '../lib/slideFade';
 import { SlideFade } from './SlideFade';
+import { AspectFrame } from './AspectFrame';
 import { QrCard } from './QrCard';
 import { reportSlideError } from '../lib/slideErrors';
 
@@ -72,7 +73,7 @@ const isAdded = (s: TextSpan, grown: Grown | null | undefined) =>
   !!grown && s.v != null && (grown.verses.includes(s.v) || (!!s.num && grown.numbers));
 
 /** The verse line(s) with red-letter / highlighted-word colouring — shared by both layouts. */
-function QuoteLines({
+export function QuoteLines({
   lines,
   style,
   grown,
@@ -485,7 +486,9 @@ export function SlidePreview({ slide, maxWidth }: { slide: Slide; maxWidth?: num
         marginInline: maxWidth ? 'auto' : undefined,
       }}
     >
-      <SlideCanvas slide={slide} />
+      <AspectFrame>
+        <SlideCanvas slide={slide} />
+      </AspectFrame>
     </div>
   );
 }
