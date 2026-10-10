@@ -76,6 +76,26 @@ let running: {
   timers: Partial<Record<Key, number>>;
 } | null = null;
 
+/** watchLocalEdits' subscriptions, ended once the sync starts (it stamps its own). */
+let watching: (() => void)[] = [];
+
+/**
+ * The server isn't there yet (1.12.5, controlBoot): a change made meanwhile is stamped with its
+ * time, so the sync that starts once the server answers sends it — data/'s older copy isn't
+ * taken over it (planSync: the newer wins).
+ */
+export function watchLocalEdits(): void {
+  if (running || watching.length > 0) return;
+  watching = KEYS.map((key) =>
+    STORES[key].subscribe(() => {
+      if (running || taking > 0) return;
+      const at = readAt();
+      at[key] = Date.now();
+      writeAt(at);
+    }),
+  );
+}
+
 /**
  * A backup was restored or undone (1.5.0, server/src/backup.ts): take data/'s UI state now — in
  * the window that restored it, and in every other control window the hub tells — dropping the
@@ -139,6 +159,9 @@ export async function startUiStateSync(): Promise<void> {
   } catch {
     return; // no server, or another machine: the browser's copy is all there is
   }
+  // from here the sync stamps the changes itself
+  for (const off of watching) off();
+  watching = [];
   const at = readAt();
   /** What was last in step with data/, so an unchanged re-save isn't sent again. */
   const sent: Partial<Record<Key, string>> = {};

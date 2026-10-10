@@ -21,6 +21,12 @@ interface ServerState {
    * null until then. Without a server (a static build) there is nothing to control: true.
    */
   here: boolean | null;
+  /**
+   * The control window's server didn't answer at its start — starting, the laptop waking, a
+   * network that dropped — and is being looked for again (1.12.5, `lookAgain`). Meanwhile the
+   * choices that depend on the library (the ticked translations) are kept for its return.
+   */
+  lost: boolean;
 }
 
 /** localhost (and *.localhost), 127.x.x.x, [::1]: the browser runs on the computer with the app. */
@@ -31,6 +37,7 @@ export const useServer = create<ServerState>()(() => ({
   available: null,
   devLabel: null,
   here: typeof window === 'undefined' || isLoopbackHost(window.location.hostname) ? true : null,
+  lost: false,
 }));
 
 interface Health {
@@ -63,18 +70,87 @@ export const versionHeading = (devLabel: string | null, version: string): string
 export const versionText = (devLabel: string | null, version: string): string =>
   devLabel ?? version;
 
-/** One quick health check (≤1.5 s). */
-export async function probeServer(): Promise<boolean> {
-  let health: Health | null = null;
+/**
+ * What one health check found (1.12.5): the app's server (`up`, and the store says so), no server
+ * at this address (`absent` — an answer that isn't the app's: a static build), or no answer yet
+ * (`unreachable` — starting, asleep, a dropped network; the dev proxy's 5xx while the API process
+ * is down). Before 1.12.5 the last two were one: a tab that met a server not up yet ran on the
+ * browser's library until it was reloaded (users' report F1010-02b).
+ */
+export type Probe = 'up' | 'absent' | 'unreachable';
+
+export async function probe(): Promise<Probe> {
   try {
-    const res = await fetch('/api/health', { signal: AbortSignal.timeout(1500) });
-    if (res.ok) health = (await res.json().catch(() => null)) as Health | null;
+    const res = await fetch('/api/health', {
+      signal: AbortSignal.timeout(1500),
+      cache: 'no-store',
+    });
+    if (res.status >= 500) return 'unreachable';
+    const health = res.ok ? ((await res.json().catch(() => null)) as Health | null) : null;
+    if (health?.ok !== true) return 'absent';
+    useServer.setState({ available: true, devLabel: devLabelOf(health), lost: false });
+    return 'up';
   } catch {
-    health = null;
+    return 'unreachable';
   }
-  const ok = health?.ok === true;
-  useServer.setState(ok ? { available: true, devLabel: devLabelOf(health) } : { available: false });
-  return ok;
+}
+
+/** One quick health check (≤1.5 s): the server there or not. */
+export async function probeServer(): Promise<boolean> {
+  const found = await probe();
+  if (found !== 'up') useServer.setState({ available: false });
+  return found === 'up';
+}
+
+/**
+ * The control window's server didn't answer at its start (1.12.5): look for it again — every
+ * 2 s for a minute (it may be starting, the laptop waking), the library reads meanwhile asking
+ * it and saying they failed; after the minute the browser's library, as before 1.12.5, and a look
+ * whenever the browser is online again or the window comes back into sight. `onBack` once it
+ * answers; an address that turns out to have no server stops the looking. Returns the stop.
+ */
+export function lookAgain(
+  onBack: () => void,
+  o: { everyMs?: number; forMs?: number } = {},
+): () => void {
+  const everyMs = o.everyMs ?? 2000;
+  const forMs = o.forMs ?? 60_000;
+  const started = Date.now();
+  let stopped = false;
+  let asking = false;
+  useServer.setState({ available: null, lost: true });
+  const stop = () => {
+    stopped = true;
+    window.clearInterval(timer);
+    window.removeEventListener('online', look);
+    window.removeEventListener('focus', look);
+    document.removeEventListener('visibilitychange', look);
+  };
+  const look = () => {
+    if (stopped || asking || document.visibilityState === 'hidden') return;
+    asking = true;
+    void probe().then((found) => {
+      asking = false;
+      if (stopped) return;
+      if (found === 'up') {
+        stop();
+        onBack();
+      } else if (found === 'absent') {
+        stop();
+        useServer.setState({ available: false, lost: false });
+      }
+    });
+  };
+  const timer = window.setInterval(() => {
+    if (Date.now() - started < forMs) return look();
+    window.clearInterval(timer);
+    // a minute without it: the browser's library meanwhile (still looked for on the events)
+    if (useServer.getState().available === null) useServer.setState({ available: false });
+  }, everyMs);
+  window.addEventListener('online', look);
+  window.addEventListener('focus', look);
+  document.addEventListener('visibilitychange', look);
+  return stop;
 }
 
 /** How to start the app again after «Вимкнути повністю» — the launchers of 0.7.0. */
