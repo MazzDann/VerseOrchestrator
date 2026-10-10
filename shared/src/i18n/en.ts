@@ -42,8 +42,8 @@ export const EN: Record<string, string> = {
   Праворуч: 'Right',
   'Показувати номери віршів': 'Show verse numbers',
   'Перехід між слайдами': 'Slide transition',
-  'Плавний: старий слайд згасає, новий проявляється (новий текст — за ~0,4 с). Швидкий: новий одразу, коротке проявлення. Без анімації: миттєва заміна.':
-    'Smooth: the old slide fades out and the new one fades in (new text in about 0.4 s). Fast: the new one at once, with a short fade-in. No animation: an instant swap.',
+  'Плавний: старий слайд згасає, новий проявляється (новий текст — за ~0,4 с). Швидкий: новий одразу, коротке проявлення. Без анімації: миттєва заміна — і для рядків поступового розкриття.':
+    'Smooth: the old slide fades out and the new one fades in (new text in about 0.4 s). Fast: the new one at once, with a short fade-in. No animation: an instant swap — for the lines of a progressive reveal too.',
   Плавний: 'Smooth',
   Швидкий: 'Fast',
   'Без анімації': 'No animation',

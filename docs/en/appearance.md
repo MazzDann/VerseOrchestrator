@@ -50,7 +50,7 @@ In the **Text** section:
   - **Smooth** — the old slide fades out, the new one fades in; the new text appears in
     about 0.4 s.
   - **Fast** — the new slide at once, with a short fade-in.
-  - **No animation** — an instant swap.
+  - **No animation** — an instant swap; the lines of a progressive reveal appear at once too.
 
 The transition applies to the presentation windows. If the system is set to reduce motion,
 the monitors in the control window change the slide without animation, while the
