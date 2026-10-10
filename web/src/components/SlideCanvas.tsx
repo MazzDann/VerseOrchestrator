@@ -22,6 +22,7 @@ import {
 } from '../lib/countdown';
 import { useAutoFit } from '../useAutoFit';
 import { mixHex } from '../lib/color';
+import { revealTransition } from '../lib/slideFade';
 import { SlideFade } from './SlideFade';
 import { QrCard } from './QrCard';
 import { reportSlideError } from '../lib/slideErrors';
@@ -126,7 +127,7 @@ function RevealLines({
               whiteSpace: 'pre-line',
               opacity,
               visibility: hidden ? 'hidden' : 'visible',
-              transition: calm ? undefined : 'opacity 0.25s ease',
+              transition: calm ? undefined : revealTransition(style.transition),
             }}
           >
             {u}
