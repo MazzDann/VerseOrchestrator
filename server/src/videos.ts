@@ -192,6 +192,19 @@ export async function addVideo(
   return video;
 }
 
+/** Rename a video (1.14.0-beta.1): the app's name only — the file keeps its own. */
+export function renameVideo(dataDir: string, id: string, name: string): Video | null {
+  const videos = readVideos(dataDir);
+  const video = videos.find((v) => v.id === id);
+  if (!video) return null;
+  const renamed = { ...video, name };
+  writeVideos(
+    dataDir,
+    videos.map((v) => (v.id === id ? renamed : v)),
+  );
+  return renamed;
+}
+
 /** Forget a video (the file stays as it is) and its poster. */
 export async function removeVideo(dataDir: string, id: string): Promise<Video | null> {
   const videos = readVideos(dataDir);

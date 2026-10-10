@@ -166,6 +166,20 @@ export function addImage(
   return img;
 }
 
+/** Rename a picture (1.14.0-beta.1): its name in the list only; null — no such picture. */
+export function renameImage(dir: string, id: string, name: string): StoredImage | null {
+  const index = readIndex(dir);
+  const img = index.find((i) => i.id === id);
+  if (!img) return null;
+  assertWritable(path.join(dir, INDEX));
+  const renamed = { ...img, name };
+  writeIndex(
+    dir,
+    index.map((i) => (i.id === id ? renamed : i)),
+  );
+  return renamed;
+}
+
 /**
  * Move a picture aside, into `.trash/`, so «Скасувати» can bring it back; the oldest there go
  * once there are more than twenty. A running order that still shows it gets a black slide.

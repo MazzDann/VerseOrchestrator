@@ -27,6 +27,16 @@ GIF bigger than the small copy into a smaller moving one (up to 720 pixels and 4
 other browsers, the phones get its first frame, still. Save an iPhone's HEIC photo as JPEG
 first: browsers can't open such photos, and the app says so.
 
+You can also drag files into the control window from File Explorer or Finder: while you
+drag them, the window says what will happen. Photos and pictures go to **Images**, a folder
+becomes an album (see [Add a folder](#add-a-folder)), and videos go to **Videos** (see [Add a
+video](#add-a-video)).
+
+To rename an image, point at its thumbnail, click the pencil icon **Rename**, type the name,
+and press Enter. Only the name in the app changes; the file stays as it was. Items of the
+running order and of saved programs that carry the old name take the new one. Albums and
+videos are renamed the same way.
+
 ## Show an image
 
 To show an image, click its thumbnail. The thumbnail of the image on screen has a red frame,
@@ -79,6 +89,11 @@ To add a folder as an album:
    path may be in quotes, or start with `~` or `file://`. Below the list you see how many photos
    the folder has.
 4. Click **Add this folder**. The album opens.
+
+Or drag the folder into the control window. The browser doesn't tell where it lies on the
+disk, so the app looks for a folder of that name with the same files in Pictures, on the
+Desktop, in Downloads, Documents, OneDrive, and next to the other albums. One it finds is added
+at once; if it finds none or several, the folder picker opens.
 
 An album shows the JPEG, PNG, WebP, GIF, AVIF, and BMP photos right in the folder, by name:
 “IMG_2” before “IMG_10”. The app doesn't show folders inside it or hidden files. The browser
@@ -151,6 +166,9 @@ To add a video:
    the folder or to the video itself into the field at the top and press Enter. Below the
    folders you see the folder's videos with their sizes; the pasted video is highlighted.
 4. Click the video you need. It appears in the list.
+
+Or drag the video into the control window: the app looks for a file of that name and size in
+the usual folders (Videos, Desktop, Downloads…), and otherwise opens the folder picker.
 
 The browser doesn't play AVI, WMV, and other formats: the app says how many of them the folder
 has. Save such a video as MP4.
