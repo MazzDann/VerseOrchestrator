@@ -31,17 +31,18 @@ describe('a dropped folder or video found on disk (1.14.0-beta.1, the author’s
       { name: 'a.jpg', size: 10 },
       { name: 'b.jpg', size: 20 },
     ];
-    expect(await locateFolder('Табір', seen, roots)).toEqual([
-      path.join(home, 'Pictures', '2025', 'Табір'),
-    ]);
-    expect(await locateFolder('Нема', seen, roots)).toEqual([]);
+    expect(await locateFolder('Табір', seen, roots)).toEqual({
+      found: [path.join(home, 'Pictures', '2025', 'Табір')],
+      complete: true,
+    });
+    expect((await locateFolder('Нема', seen, roots)).found).toEqual([]);
   });
 
   it('a video by its name and size', async () => {
     const home = tmp();
     put(path.join(home, 'Videos', 'Вітання.mp4'), 64);
     put(path.join(home, 'Downloads', 'Вітання.mp4'), 65);
-    expect(await locateFile({ name: 'Вітання.mp4', size: 64 }, usualRoots(home))).toEqual([
+    expect((await locateFile({ name: 'Вітання.mp4', size: 64 }, usualRoots(home))).found).toEqual([
       path.join(home, 'Videos', 'Вітання.mp4'),
     ]);
   });
@@ -49,7 +50,10 @@ describe('a dropped folder or video found on disk (1.14.0-beta.1, the author’s
   it('stops at its time limit', async () => {
     const home = tmp();
     put(path.join(home, 'Pictures', 'x', 'a.jpg'), 1);
-    expect(await locateFolder('x', [{ name: 'a.jpg', size: 1 }], usualRoots(home), -1)).toEqual([]);
+    expect(await locateFolder('x', [{ name: 'a.jpg', size: 1 }], usualRoots(home), -1)).toEqual({
+      found: [],
+      complete: false,
+    });
   });
 
   it('takes names without folders and whole sizes only', () => {
