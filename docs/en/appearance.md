@@ -15,6 +15,11 @@ above them stands the app's version.
 Below each section's name you see its current values; click the name to expand or
 collapse the section.
 
+To find a setting, type a word in the **Search the settings** field at the top of the panel:
+the sections that hold it stay, expanded, with the matches highlighted. Esc clears the field,
+and the next Esc closes the panel. The command palette (Ctrl+K) finds settings too: choose a
+row, and the panel opens on it.
+
 You can drag the panel by its title, and resize it like a window, by any edge or corner.
 A double-click on an edge or a corner brings back the standard size. From the keyboard:
 reach the bottom-right corner with Tab and press the arrow keys.
@@ -48,6 +53,11 @@ In the **Text** section:
 - **Verse numbers on screen** — small numbers before the verses: **No**, **When there are
   several verses** (the default; a single verse has its number in the reference under the
   text), or **Always**.
+
+## Choose the slide transition
+
+In the **Transitions and animation** section:
+
 - **Slide transition** — how a new slide replaces the previous one:
   - **Smooth** — the old slide fades out, the new one fades in; the new text appears in
     about 0.4 s.

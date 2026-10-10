@@ -1817,3 +1817,14 @@ form.vo-remote-countdown {
     animation: none;
   }
 }
+
+/* A settings search's matches (1.13.0-beta.3, SettingsPanel SettingsHits): marked in place, in the
+   sections it opened — dark and light alike. */
+[data-vo-hit] {
+  background: var(--mantine-color-yellow-light);
+  box-shadow: 0 0 0 2px var(--mantine-color-yellow-light);
+  border-radius: 2px;
+}
+::highlight(vo-find) {
+  background-color: var(--mantine-color-yellow-light);
+}
