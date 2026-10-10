@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fadeTiming, planSlideChange } from './slideFade';
+import { fadeTiming, planSlideChange, revealTransition } from './slideFade';
 
 describe('slide change plan', () => {
   it('shows the first slide at once (it fades in by mode)', () => {
@@ -34,5 +34,14 @@ describe('slide change plan', () => {
     expect(fadeTiming('fast', 'out')).toBeNull();
     expect(fadeTiming('fast', 'in')).toEqual({ duration: 150, easing: 'ease-out' });
     expect(fadeTiming('none', 'in')).toBeNull();
+  });
+});
+
+describe('a reveal step follows «Перехід між слайдами» (1.12.6, F1010-12b)', () => {
+  it('fades by the mode, and «Без анімації» not at all', () => {
+    expect(revealTransition(undefined)).toBe('opacity 0.25s ease');
+    expect(revealTransition('smooth')).toBe('opacity 0.25s ease');
+    expect(revealTransition('fast')).toBe('opacity 0.15s ease-out');
+    expect(revealTransition('none')).toBeUndefined();
   });
 });
