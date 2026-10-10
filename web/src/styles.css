@@ -1780,3 +1780,40 @@ form.vo-remote-countdown {
   color: var(--stage-fg);
   font-weight: 600;
 }
+
+/* A verse added to a pick on screen comes in where it stands (1.13.0-beta.1, SlideCanvas
+   QuoteLines): a short rise and fade on an inline piece of text — `top` moves an inline box,
+   a transform would not. The phones' and «Сцена»'s words take `vo-rise-block`. */
+@keyframes vo-rise-in {
+  from {
+    opacity: 0;
+    top: 0.3em;
+  }
+  to {
+    opacity: 1;
+    top: 0;
+  }
+}
+@keyframes vo-rise-block {
+  from {
+    opacity: 0;
+    transform: translateY(0.4em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.vo-rise-text {
+  position: relative;
+  animation: vo-rise-in 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.vo-rise-words {
+  animation: vo-rise-block 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vo-rise-text,
+  .vo-rise-words {
+    animation: none;
+  }
+}

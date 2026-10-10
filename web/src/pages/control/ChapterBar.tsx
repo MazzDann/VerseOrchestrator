@@ -8,7 +8,8 @@ import {
 import { type Book } from '../../api';
 import { type Slide } from '../../presenterBus';
 import { type Outcome } from '../../lib/commands';
-import { tr, useLang } from '../../i18n';
+import { tr, trn, useLang } from '../../i18n';
+import { formatVerseListDisplay } from '../../lib/reference';
 
 /**
  * Above the verse list: the open book and chapter, what is on screen, the pages of a long
@@ -24,6 +25,7 @@ export function ChapterBar({
   safePageIndex,
   advance,
   selectedVerses,
+  pickHeld,
   addCurrentPassage,
   reference,
   chapters,
@@ -38,6 +40,8 @@ export function ChapterBar({
   safePageIndex: number;
   advance: (delta: number, previewOnly?: boolean) => Outcome | Promise<Outcome>;
   selectedVerses: number[];
+  /** a pick waits in the preview for Enter (1.13.0-beta.1) */
+  pickHeld: boolean;
   addCurrentPassage: () => void;
   reference: string;
   chapters: number[];
@@ -101,7 +105,28 @@ export function ChapterBar({
               </ActionIcon>
             </Tooltip>
           )}
-          {selectedVerses.length > 0 && <Badge variant="light">{reference}</Badge>}
+          {selectedVerses.length > 0 && (
+            // the picked numbers, as they read (1.13.0-beta.1, users' report F1010-04): the book is
+            // the title already, so a long name no longer cuts them off; «cue» while the pick waits
+            <Tooltip
+              label={
+                pickHeld
+                  ? tr('Ще не на екрані — Enter')
+                  : `${reference} · ${trn(selectedVerses.length, '{n} вірш|{n} вірші|{n} віршів')}`
+              }
+              withArrow
+              openDelay={250}
+            >
+              <Badge
+                variant="light"
+                color={pickHeld ? 'cue' : undefined}
+                style={{ flexShrink: 0, textTransform: 'none' }}
+              >
+                {`${chapter}:${formatVerseListDisplay(selectedVerses)}`}
+                {selectedVerses.length > 1 && ` · ${selectedVerses.length}`}
+              </Badge>
+            </Tooltip>
+          )}
         </Group>
       </Group>
       {chapters.length > 0 && (
