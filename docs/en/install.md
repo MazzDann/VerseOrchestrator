@@ -139,9 +139,10 @@ this computer. The choice works from the next start: the start file and the shor
 control window there.
 
 To open the control window as a separate window — without tabs or an address bar — turn on
-**As a separate window**. Browsers built on Chromium can: Chrome, Edge, Brave, Arc, Opera,
-Vivaldi, and Chromium. Firefox, Zen, and Safari open the control window as a regular window,
-so the switch is off there. A separate window has one tab, so a second start brings exactly
+**As a separate window**. Browsers built on Chromium can: Chrome, Edge, Brave, Arc, Vivaldi,
+and Chromium. Firefox, Zen, and Safari open the control window as a regular window, so the
+switch is off there. Opera is built on Chromium too but doesn't open a separate window — it
+shows an empty one — so with Opera the control window opens as a regular window as well. A separate window has one tab, so a second start brings exactly
 that window forward more reliably.
 
 To move to the other browser at once, without waiting for the next start, click **Open in …
@@ -175,8 +176,8 @@ copy from the repository says `dev` and the branch there, for example
 
 The shortcut starts the app and opens the control window as a window of its own — without
 tabs or an address bar: in the browser chosen in **Open the control window in…** if it is
-built on Chromium; with **System browser**, in Chrome or Edge. Firefox, Zen, and Safari open
-it as a regular window.
+built on Chromium; with **System browser**, in Chrome or Edge. Firefox, Zen, Safari, and Opera
+open it as a regular window.
 
 To create a shortcut, open **Settings** → **App** in the control window and click
 **Create shortcut**. The shortcut appears on the desktop; on Linux, in the applications menu
