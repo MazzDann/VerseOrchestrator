@@ -72,6 +72,7 @@ import { type PastItem } from '../lib/orderFlow';
 import { useTimers } from './control/useTimers';
 import { useVerseDeck } from './control/useVerseDeck';
 import { useJumps } from './control/useJumps';
+import { useTranslationSwitch } from './control/useTranslationSwitch';
 import { useShowSteps } from './control/useShowSteps';
 import { useShowJumpWhenReady } from './control/useShowJumpWhenReady';
 import { usePublishNext, useAdoptRestore, useLeaderTakeover } from './control/useTakeover';
@@ -103,7 +104,9 @@ export function Control() {
   const selectedVerses = useStore((s) => s.selectedVerses);
   const live = useStore((s) => s.live);
   const setTranslations = useStore((s) => s.setTranslations);
-  const makePrimary = useStore((s) => s.makePrimary);
+  // the operator's own change of translations keeps the place, in the new main one's numbering
+  // (1.12.6); jumps that bring their translations and place keep `setTranslations`
+  const switchTranslations = useTranslationSwitch();
   const selectBook = useStore((s) => s.selectBook);
   const openBook = useStore((s) => s.openBook);
   const selectChapter = useStore((s) => s.selectChapter);
@@ -1228,8 +1231,8 @@ export function Control() {
             panelResize={panelResize}
             translations={translations}
             selectedIds={selectedIds}
-            setTranslations={setTranslations}
-            makePrimary={makePrimary}
+            setTranslations={switchTranslations}
+            makePrimary={(id) => switchTranslations([id, ...selectedIds.filter((x) => x !== id)])}
             bookFilter={bookFilter}
             setBookFilter={setBookFilter}
             filteredBooks={filteredBooks}
