@@ -2126,12 +2126,13 @@ export const EN: Record<string, string> = {
   'Щодня й перед кожною зміною версії. Зберігаються останні 7 щоденних і 3 перед змінами версії — у data/backups/auto.':
     'Daily and before every version change. The last 7 daily ones and 3 made before version changes are kept — in data/backups/auto.',
   'Автоматичні копії': 'Automatic backups',
-  'без зображень': 'without pictures',
+  'без зображень': 'without images',
   'Відновити…': 'Restore…',
   'Показати менше': 'Show fewer',
   'Показати всі ({n})|Показати всі ({n})|Показати всі ({n})': 'Show all ({n})|Show all ({n})',
-  'без зображень — ваші лишаться як є': 'no pictures — yours stay as they are',
+  'без зображень — ваші лишаться як є': 'no images — yours stay as they are',
   'налаштування запуску: браузер «{browser}», порт {port}':
     'start settings: browser “{browser}”, port {port}',
   'Цієї копії вже немає': 'That backup is gone',
+  'Застосунок саме готується до зміни версії': 'The app is getting ready for a version change',
 };

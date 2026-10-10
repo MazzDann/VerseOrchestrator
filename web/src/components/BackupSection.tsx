@@ -6,7 +6,7 @@ import { notifications } from '@mantine/notifications';
 import { api, type AutoBackup, type BackupSummary } from '../api';
 import { dropUiState, takeServerUiState } from '../lib/uiState';
 import { useServer, NEEDS_SERVER } from '../serverStore';
-import { fmtDateTime, tr, trn, useLang } from '../i18n';
+import { fmtDateTime, fmtNumber, tr, trn, useLang } from '../i18n';
 
 /** The last part of a folder's path, the whole path in its title. */
 const shortName = (folder: string) => folder.split(/[\\/]/).filter(Boolean).pop() ?? folder;
@@ -20,7 +20,12 @@ const when = (iso: string) => {
 const browserName = (name: string) => (name === 'system' ? tr('Браузер системи') : name);
 
 /** «2,4 МБ» */
-const mb = (bytes: number) => `${(bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0)} МБ`; // i18n-ignore
+const mb = (bytes: number) =>
+  bytes < 1048576
+    ? tr('менше 1 МБ')
+    : tr('{n} МБ', {
+        n: fmtNumber(bytes / 1048576, { maximumFractionDigits: bytes < 10 * 1048576 ? 1 : 0 }),
+      });
 
 /** Why an automatic copy was made: «щодня», «перед переходом на 1.12.1». */
 const why = (b: AutoBackup) =>
@@ -84,26 +89,28 @@ function AutoBackups({
         )}
       />
       {backups.length > 0 && (
-        <Stack gap={4} mt={8} role="list" aria-label={tr('Автоматичні копії')}>
-          {shown.map((b) => (
-            <Group key={b.name} gap="xs" wrap="nowrap" justify="space-between" role="listitem">
-              <Text size="xs" c="dimmed" style={{ minWidth: 0 }} truncate="end" title={b.name}>
-                {[fmtDateTime(Date.parse(b.created)), why(b), b.app, mb(b.size)]
-                  .concat(b.pictures ? [] : [tr('без зображень')])
-                  .join(' · ')}
-              </Text>
-              <Button
-                size="compact-xs"
-                variant="light"
-                style={{ flexShrink: 0 }}
-                loading={checking === b.name}
-                disabled={disabled || (checking !== null && checking !== b.name)}
-                onClick={() => void check(b)}
-              >
-                {tr('Відновити…')}
-              </Button>
-            </Group>
-          ))}
+        <Stack gap={4} mt={8}>
+          <Stack gap={4} role="list" aria-label={tr('Автоматичні копії')}>
+            {shown.map((b) => (
+              <Group key={b.name} gap="xs" wrap="nowrap" justify="space-between" role="listitem">
+                <Text size="xs" c="dimmed" style={{ minWidth: 0 }} truncate="end" title={b.name}>
+                  {[fmtDateTime(Date.parse(b.created)), why(b), b.app, mb(b.size)]
+                    .concat(b.pictures ? [] : [tr('без зображень')])
+                    .join(' · ')}
+                </Text>
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  style={{ flexShrink: 0 }}
+                  loading={checking === b.name}
+                  disabled={disabled || (checking !== null && checking !== b.name)}
+                  onClick={() => void check(b)}
+                >
+                  {tr('Відновити…')}
+                </Button>
+              </Group>
+            ))}
+          </Stack>
           {backups.length > SHOWN && (
             <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setAll(!all)}>
               {all

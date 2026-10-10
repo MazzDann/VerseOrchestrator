@@ -147,7 +147,17 @@ export async function zipToFile(
     const dirBytes = central.reduce((n, b) => n + b.length, 0);
     for (const b of [...central, endRecord(entries.length, dirBytes, offset)]) await out.write(b);
     await out.close();
-    await fsp.rename(tmp, file);
+    // the new file held a moment by an antivirus or the indexer: tried again, a second at most
+    for (let tries = 1; ; tries++) {
+      try {
+        await fsp.rename(tmp, file);
+        break;
+      } catch (e) {
+        const code = (e as NodeJS.ErrnoException).code ?? '';
+        if (!['EBUSY', 'EPERM', 'EACCES'].includes(code) || tries >= 10) throw e;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
     return offset + dirBytes + 22;
   } catch (e) {
     await out.close().catch(() => undefined);

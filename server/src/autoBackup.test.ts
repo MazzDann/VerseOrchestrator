@@ -151,6 +151,15 @@ describe('automatic backups (1.12.0-beta.3)', () => {
     const buf = fs.readFileSync(path.join(autoDir(d), b.name));
     const { entries, summary } = await readBackup(buf);
     expect(entries.some((e) => e.name.startsWith('images/'))).toBe(false);
+    // a version before 1.12.0-beta.3 refuses it whole (its ALLOWED) rather than take the pictures away
+    const OLD_ALLOWED = [
+      /^manifest\.json$/,
+      /^ui-state\.json$/,
+      /^songs\/[^/\\.][^/\\]*\.vosongs$/,
+      /^images\/[^/\\.][^/\\]*$/,
+    ];
+    expect(entries.some((e) => !OLD_ALLOWED.some((r) => r.test(e.name)))).toBe(true);
+    expect(entries.map((e) => e.name)).toContain('no-pictures.txt');
     expect(summary.withPictures).toBe(false);
 
     // the copy changes: other songs, other pictures
@@ -216,5 +225,28 @@ describe('automatic backups (1.12.0-beta.3)', () => {
     expect(await readAutoBackup(d, '../settings.json')).toBeNull();
     expect(await readAutoBackup(d, { name: b.name })).toBeNull();
     expect(await readAutoBackup(d, 'auto-daily-2026-01-01-000000-1.0.0.zip')).toBeNull();
+  });
+
+  it('a temp file a cut-off copy left goes after 10 minutes; a fresh one stays', async () => {
+    const d = dataDir('a');
+    fs.mkdirSync(autoDir(d), { recursive: true });
+    const old = path.join(autoDir(d), 'auto-daily-2026-10-01-090000-1.12.0.zip.123.tmp');
+    const fresh = path.join(autoDir(d), 'auto-daily-2026-10-10-090000-1.12.0.zip.456.tmp');
+    fs.writeFileSync(old, 'half');
+    fs.writeFileSync(fresh, 'writing');
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    fs.utimesSync(old, hourAgo, hourAgo);
+    await makeAutoBackup(d, '1.12.0', 'daily', { now: new Date(2026, 9, 10, 9) });
+    expect(fs.existsSync(old)).toBe(false);
+    expect(fs.existsSync(fresh)).toBe(true);
+  });
+
+  it('a UI state that isn’t JSON stays out of the copy: the songs and pictures stay restorable', async () => {
+    const d = dataDir('a');
+    fs.writeFileSync(path.join(d, 'ui-state.json'), '{ not json');
+    const b = await makeAutoBackup(d, '1.12.0', 'daily', { now: new Date(2026, 9, 10, 9) });
+    const { entries, summary } = await readBackup(fs.readFileSync(path.join(autoDir(d), b.name)));
+    expect(entries.map((e) => e.name)).not.toContain('ui-state.json');
+    expect(summary).toMatchObject({ settings: false, bundles: ['ПС-a'], pictures: 1 });
   });
 });

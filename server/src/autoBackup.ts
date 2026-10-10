@@ -129,6 +129,18 @@ export async function makeAutoBackup(
  * that can't go now goes next time.
  */
 async function pruneAuto(dataDir: string, kind: AutoKind, keep: string): Promise<void> {
+  // a copy cut off midway (the app stopped by its idle time, «Вимкнути повністю») leaves its temp
+  // file, never listed: those older than 10 minutes go (review of 1.12.0-beta.3)
+  const now = Date.now();
+  for (const name of await fsp.readdir(autoDir(dataDir)).catch(() => [] as string[])) {
+    if (!name.endsWith('.tmp')) continue;
+    const file = path.join(autoDir(dataDir), name);
+    const old = await fsp.stat(file).then(
+      (st) => now - st.mtimeMs > 10 * 60 * 1000,
+      () => false,
+    );
+    if (old) await fsp.rm(file, { force: true }).catch(() => undefined);
+  }
   const others = (await listAutoBackups(dataDir)).filter((b) => b.kind === kind && b.name !== keep);
   for (const old of others.slice(AUTO_KEEP[kind] - 1))
     await fsp.rm(path.join(autoDir(dataDir), old.name), { force: true }).catch((e: Error) => {
