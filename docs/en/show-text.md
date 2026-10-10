@@ -218,7 +218,10 @@ the remote is allowed **Running order**.
 
 To open an output window, click **Presentation window** or the **Stage** icon at the top.
 If a second screen is connected, the browser asks for permission to manage windows on all
-your screens; allow it, and the window opens on the second screen.
+your screens; allow it, and the window opens on the second screen. A second output window
+doesn't go over the first: it opens on another free screen, or, if there is none, next to the
+control window. The presentation window comes first: it still opens on a screen that holds
+only the stage. You can move a window in the **Output windows** panel.
 
 In an output window:
 
