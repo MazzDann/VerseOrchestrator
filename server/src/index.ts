@@ -1387,10 +1387,24 @@ const movesFailed = (e: unknown, key: string) => {
  * send its old ones back with its next change; and the library's songs follow, in the same
  * turn, so a window that asks for them gets the restored ones (review of #47).
  */
-const restored = () => {
+const restored = (cleared = false) => {
   lastImport = null;
-  notifyUiStateRestored();
+  notifyUiStateRestored(cleared);
   refreshSongs(bundlesDir(dataDir));
+};
+
+/**
+ * One step after an import or its undo, on its own: the pairings' steps run before the songs'
+ * refresh, and a failure in one never skips another — the first is kept for the answer (review
+ * of 1.12.0-beta.2: a refresh that threw left the carried phones without a pairing).
+ */
+const step = (failures: unknown[], work: () => void) => {
+  try {
+    work();
+  } catch (e) {
+    failures.push(e);
+    console.warn(`[server] copies: ${(e as Error).message}`);
+  }
 };
 
 /** A backup refused in words: too big, or not one of this app / damaged (review of #47). */
@@ -1470,12 +1484,15 @@ app.post(
     try {
       undone = await oneAtATime(async () => {
         notDuringRebuild();
-        return undoRestore(dataDir, new Date(), ({ pairings }) => {
-          restored();
+        return undoRestore(dataDir, new Date(), ({ pairings, uiCleared }) => {
+          const failures: unknown[] = [];
           // an import's way back (1.12.0-beta.2): the pairings it added go — their phones lose
           // control now —, a phone paired since stays; the persistence it turned on goes back
-          for (const id of dropPairings(pairings)) dropRemote(id);
-          setRemotePersistence(getServerSettings().remotes.persist);
+          step(failures, () => {
+            for (const id of dropPairings(pairings)) dropRemote(id);
+          });
+          step(failures, () => setRemotePersistence(getServerSettings().remotes.persist));
+          step(failures, () => restored(uiCleared));
         });
       });
     } catch (e) {
@@ -1563,14 +1580,16 @@ app.post(
     if (!parts.things && !parts.launch && !parts.pairings)
       throw new ApiError(400, N_('Позначте, що перенести'));
     const started = Date.now();
+    const failures: unknown[] = [];
+    let done;
     try {
-      await oneAtATime(async () => {
+      done = await oneAtATime(async () => {
         notDuringRebuild();
         return importCopy(dataDir, from, parts, appVersion, new Date(), (pairings) => {
-          restored();
           // carried pairings are kept across restarts (the settings say so by now), then added
-          setRemotePersistence(getServerSettings().remotes.persist);
-          adoptPairings(pairings);
+          step(failures, () => setRemotePersistence(getServerSettings().remotes.persist));
+          step(failures, () => adoptPairings(pairings));
+          step(failures, () => restored());
         });
       });
     } catch (e) {
@@ -1591,13 +1610,21 @@ app.post(
         ),
       );
     }
+    // nothing changed: the last restore's way back stays (review of 1.12.0-beta.2)
+    if (done?.nothing)
+      throw new ApiError(409, N_('Переносити нічого: те, що позначено, тут уже є.'));
     console.log(
       `[server] copies: carried over from ${from.dataDir} (${Object.entries(parts)
         .filter(([, on]) => on)
         .map(([k]) => k)
         .join(', ')}; ${Date.now() - started} ms)`,
     );
-    res.json({ ok: true });
+    // the carry-over stands; a step after it that failed (the pairings' file held) is said
+    res.json(
+      failures.length
+        ? { ok: true, warning: (failures[0] as Error).message || String(failures[0]) }
+        : { ok: true },
+    );
   }),
 );
 
