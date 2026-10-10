@@ -24,8 +24,9 @@ side, and a small one, up to 1280 pixels, for the viewers' phones and the thumbn
 smaller file stays as it was. An animated GIF of up to 40 MB stays as it is too and moves on
 screen; a larger one becomes its first frame, still. For the phones, Chrome and Edge turn a
 GIF bigger than the small copy into a smaller moving one (up to 720 pixels and 4 MB); from
-other browsers, the phones get its first frame, still. Save an iPhone's HEIC photo as JPEG
-first: browsers can't open such photos, and the app says so.
+other browsers, the phones get its first frame, still. The app turns an iPhone's HEIC photo
+into JPEG itself, in the background: while it converts, the panel says “Converting HEIC
+photos…”, and **Cancel** stops it. A 12-megapixel photo takes about a second.
 
 You can also drag files into the control window from File Explorer or Finder: while you
 drag them, the window says what will happen. Photos and pictures go to **Images**, a folder
@@ -96,8 +97,11 @@ Desktop, in Downloads, Documents, OneDrive, and next to the other albums. One it
 at once; if it finds none or several, the folder picker opens.
 
 An album shows the JPEG, PNG, WebP, GIF, AVIF, and BMP photos right in the folder, by name:
-“IMG_2” before “IMG_10”. The app doesn't show folders inside it or hidden files. The browser
-can't open iPhone HEIC photos: the album says how many it left out.
+“IMG_2” before “IMG_10”. The app doesn't show folders inside it or hidden files. It shows
+iPhone HEIC photos too: the control window converts them in the background — first the photo
+on screen and the next two, then the rest. While a photo converts, its tile says “converting…”;
+such a photo picked goes on screen once it is ready, and the slideshow passes it by. The
+converted copies are kept, so next time the album opens at once.
 
 ### Show photos in turn
 
