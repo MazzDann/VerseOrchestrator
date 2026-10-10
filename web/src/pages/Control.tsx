@@ -75,6 +75,7 @@ import { useVerseDeck } from './control/useVerseDeck';
 import { useJumps } from './control/useJumps';
 import { useTranslationSwitch } from './control/useTranslationSwitch';
 import { useShowSteps } from './control/useShowSteps';
+import { formatReference } from '../lib/reference';
 import { useShowJumpWhenReady } from './control/useShowJumpWhenReady';
 import { usePublishNext, useAdoptRestore, useLeaderTakeover } from './control/useTakeover';
 import { useShowCommands } from './control/useShowCommands';
@@ -129,6 +130,7 @@ export function Control() {
   const panelPlacement = useSettings((s) => s.panelPlacement);
   const liveFollow = useSettings((s) => s.liveFollow);
   const orderFlow = useSettings((s) => s.orderFlow);
+  const pickBeforeEnter = useSettings((s) => s.pickBeforeEnter);
   const setLiveFollow = useSettings((s) => s.setLiveFollow);
   const followAlong = useSettings((s) => s.followAlong);
   const followQrCorner = useSettings((s) => s.followQrCorner);
@@ -657,6 +659,10 @@ export function Control() {
   // activatePassage.
   const {
     screenHeld,
+    pickHeld,
+    pickVerse,
+    pickVerses,
+    selectVerses,
     send,
     sendAndNotify,
     projectStrong,
@@ -689,6 +695,8 @@ export function Control() {
     chapter,
     primaryVerses,
     setSelectedVerses,
+    toggleVerse,
+    pickBeforeEnter,
     chapters,
     books,
     queryClient,
@@ -818,6 +826,7 @@ export function Control() {
     live,
     liveFollow,
     screenHeld,
+    pickHeld,
     selectedIds,
     currentBook,
     versePreview,
@@ -1039,6 +1048,12 @@ export function Control() {
       setMode={setAsideMode}
       primaryHasStrong={primaryHasStrong}
       reference={reference}
+      // the verses' caption in the short book name, so the numbers fit (1.13.0-beta.1, F1010-04)
+      previewShort={
+        previewSlide.reference === pageReference
+          ? formatReference(currentBook, chapter, pageVerses, true)
+          : undefined
+      }
       liveSlide={liveSlide}
       liveActive={liveActive}
       liveLabel={liveLabel}
@@ -1358,6 +1373,7 @@ export function Control() {
                 safePageIndex={safePageIndex}
                 advance={advance}
                 selectedVerses={selectedVerses}
+                pickHeld={pickHeld}
                 addCurrentPassage={addCurrentPassage}
                 reference={reference}
                 chapters={chapters}
@@ -1369,8 +1385,10 @@ export function Control() {
                 verseViewport={verseViewport}
                 primaryVerses={primaryVerses}
                 selectedVerses={selectedVerses}
-                toggleVerse={toggleVerse}
-                setSelectedVerses={setSelectedVerses}
+                // a pick waits in the preview for Enter; a plain click follows again (1.13.0-beta.1)
+                toggleVerse={pickVerse}
+                setSelectedVerses={selectVerses}
+                pickRange={pickVerses}
                 keymap={keymap}
                 projectVerseOnEnter={projectVerseOnEnter}
                 appearance={appearance}

@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { api } from '../api';
 import { type Slide } from '../presenterBus';
 import { connectLive } from '../lib/liveSocket';
+import { growTiming } from '../lib/slideFade';
+import { useGrownWords } from '../lib/useGrownWords';
+import { GrownWords } from '../components/GrownWords';
 import {
   DEFAULT_READER,
   READER_SIZES,
@@ -131,6 +134,15 @@ export function Follow() {
   const cornerLook = lookOf(slide?.cornerCountdown);
   const font = slide?.style?.font ?? '"Lora", Georgia, serif';
   const text = readerTextStyle(reader, font);
+  // the slide change by «Перехід між слайдами» (1.13.0-beta.1): «Наплив» brings new words in, a
+  // grown pick only its added verses
+  const mode = slide?.style?.transition;
+  const words = useGrownWords(
+    showText && !slide!.reveal ? slide!.lines.map((l) => l.text) : [],
+    slide?.source,
+    mode,
+  );
+  const riseMs = growTiming(mode);
 
   return (
     // Colours come from .vo-follow (styles.css), which follows the PHONE's own light/dark
@@ -237,8 +249,9 @@ export function Follow() {
                 })
               : slide!.lines.map((line, i) => (
                   <p
-                    key={i}
+                    key={`${words.block}-${i}`}
                     dir={line.rtl ? 'rtl' : 'ltr'}
+                    className={mode === 'rise' ? 'vo-rise-words' : undefined}
                     style={{
                       margin: 0,
                       ...text,
@@ -250,14 +263,16 @@ export function Follow() {
                         {line.translationAbbr}
                       </span>
                     )}
-                    {line.exact && line.segments
-                      ? // a song's second part (1.3.0): dimmer, whatever colour the screen gives it
-                        line.segments.map((s, j) => (
-                          <span key={j} style={s.color || s.soft ? { opacity: 0.6 } : undefined}>
-                            {s.text}
-                          </span>
-                        ))
-                      : line.text}
+                    {line.exact && line.segments ? (
+                      // a song's second part (1.3.0): dimmer, whatever colour the screen gives it
+                      line.segments.map((s, j) => (
+                        <span key={j} style={s.color || s.soft ? { opacity: 0.6 } : undefined}>
+                          {s.text}
+                        </span>
+                      ))
+                    ) : (
+                      <GrownWords text={line.text} cut={words.cuts?.[i]} ms={riseMs} />
+                    )}
                   </p>
                 ))}
             {slide!.subline && (

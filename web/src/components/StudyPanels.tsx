@@ -41,6 +41,8 @@ interface Props {
   setMode: (m: AsideMode) => void;
   primaryHasStrong: boolean;
   reference: string;
+  /** the verse preview's caption with the short book name (1.13.0-beta.1) */
+  previewShort?: string;
   /** What the output window actually shows now (published slide). */
   liveSlide: Slide;
   liveActive: boolean;
@@ -90,6 +92,7 @@ export function StudyPanels({
   setMode,
   primaryHasStrong,
   reference,
+  previewShort,
   liveSlide,
   liveActive,
   liveLabel,
@@ -187,7 +190,10 @@ export function StudyPanels({
       detail={
         merged
           ? liveDetail
-          : previewSlide.reference || reference || (previewHas ? undefined : tr('оберіть вірші'))
+          : previewShort ||
+            previewSlide.reference ||
+            reference ||
+            (previewHas ? undefined : tr('оберіть вірші'))
       }
       actions={
         <Group gap={2} wrap="nowrap">

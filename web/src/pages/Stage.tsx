@@ -17,6 +17,9 @@ import {
   subscribeNext,
 } from '../presenterBus';
 import { SlidePreview } from '../components/SlideCanvas';
+import { growTiming } from '../lib/slideFade';
+import { useGrownWords } from '../lib/useGrownWords';
+import { GrownWords } from '../components/GrownWords';
 import { clockOf, positionIn } from '../lib/video';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
@@ -119,6 +122,14 @@ function StageWords({
 }) {
   const key = slide.lines.map((l) => l.text).join('\n');
   const { containerRef, contentRef } = useAutoFit([key, maxPx], 8, Math.max(8, Math.round(maxPx)));
+  // «Перехід між слайдами» on «Сцена» too (1.13.0-beta.1): «Наплив» brings new words in, a grown
+  // pick only its added verses
+  const mode = slide.style?.transition;
+  const words = useGrownWords(
+    hasWords(slide) ? slide.lines.map((l) => l.text) : [],
+    slide.source,
+    mode,
+  );
   // nothing on screen (or nothing next): a quiet line, not an empty black slide in a red ring
   if (!showsSomething(slide) && !slide.blank && !slide.forceBlack)
     return <div className="vo-stage-none">{empty}</div>;
@@ -126,13 +137,17 @@ function StageWords({
   const several = slide.lines.length > 1;
   return (
     <div ref={containerRef} className="vo-stage-words" data-dim={dim ? 'true' : undefined}>
-      <div ref={contentRef}>
+      <div
+        ref={contentRef}
+        key={words.block}
+        className={mode === 'rise' ? 'vo-rise-words' : undefined}
+      >
         {slide.lines.map((l, i) => (
           <p key={i} dir={l.rtl ? 'rtl' : undefined}>
             {several && l.translationAbbr && (
               <span className="vo-stage-abbr">{l.translationAbbr}</span>
             )}
-            {l.text}
+            <GrownWords text={l.text} cut={words.cuts?.[i]} ms={growTiming(mode)} />
           </p>
         ))}
       </div>

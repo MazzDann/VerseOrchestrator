@@ -45,12 +45,18 @@ In the **Text** section:
 - **Font** — Lora, Inter, Georgia, Times New Roman, or the computer's system font.
 - **Color** — the text color.
 - **Alignment** — left, center, or right.
-- **Show verse numbers** — a number before each verse.
+- **Verse numbers on screen** — small numbers before the verses: **No**, **When there are
+  several verses** (the default; a single verse has its number in the reference under the
+  text), or **Always**.
 - **Slide transition** — how a new slide replaces the previous one:
   - **Smooth** — the old slide fades out, the new one fades in; the new text appears in
     about 0.4 s.
   - **Fast** — the new slide at once, with a short fade-in.
+  - **Rise** — the old slide fades out quickly, and the new text rises into place.
   - **No animation** — an instant swap; the lines of a progressive reveal appear at once too.
+
+  When one more verse joins the verses on screen, the shown ones stay in place and the added
+  one comes in alone — in every mode except **No animation**.
 
 The transition applies to the presentation windows. If the system is set to reduce motion,
 the monitors in the control window change the slide without animation, while the

@@ -23,6 +23,13 @@ export interface TextSpan {
   color?: string;
   /** a song's second part in the app's own style: dimmer (1.3.0, «Простий текст») */
   soft?: boolean;
+  /**
+   * the verse this piece belongs to (1.13.0-beta.1): a pick that grows on screen keeps the shown
+   * verses in place and brings only the added ones in
+   */
+  v?: number;
+  /** the verse's number, drawn small; `text` keeps it plain for older windows and phones */
+  num?: boolean;
 }
 
 export interface SlideLine {
@@ -70,9 +77,11 @@ export type QrStyle = 'square' | 'rounded' | 'dots';
 /**
  * Slide change (0.6.7): `smooth` fades the old slide out, then the new one in (0.35 s each
  * — the new text appears ~0.37 s after the command, measured in 0.6.6); `fast` swaps at
- * once and fades the new one in over 0.15 s; `none` swaps instantly.
+ * once and fades the new one in over 0.15 s; `none` swaps instantly. `rise` «Наплив»
+ * (1.13.0-beta.1): the old one fades out quickly, the new one rises in. A window older than
+ * 1.13 takes an unknown mode for `smooth`.
  */
-export type SlideTransition = 'smooth' | 'fast' | 'none';
+export type SlideTransition = 'smooth' | 'fast' | 'rise' | 'none';
 
 export type SlideObjectKind = 'quote' | 'reference' | 'subline' | 'divider';
 
@@ -115,6 +124,8 @@ export interface SlideReveal {
   count: number;
   mode: 'accumulate' | 'spotlight';
   placeholders: boolean;
+  /** each unit starts with its verse number and a space — drawn small (1.13.0-beta.1) */
+  numbered?: boolean;
 }
 
 export interface Slide {

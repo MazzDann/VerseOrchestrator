@@ -34,6 +34,7 @@ import {
   type PadLink,
   type StrongSubline,
   type SearchPlace,
+  type VerseNumbers,
 } from '../settingsStore';
 import type { SlideTransition } from '../presenterBus';
 import { fileToDownscaledDataUrl, fileToLogoDataUrl } from '../lib/image';
@@ -233,7 +234,10 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             fontLabel,
             alignLabel,
             a.transition === 'fast' && tr('швидкий перехід'),
+            a.transition === 'rise' && tr('наплив'),
             a.transition === 'none' && tr('без анімації'),
+            a.verseNumbers === 'off' && tr('без номерів віршів'),
+            a.verseNumbers === 'always' && tr('номери віршів завжди'),
           )}
         >
           <Select
@@ -265,18 +269,33 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               ]}
             />
           </div>
-          <Switch
-            label={tr('Показувати номери віршів')}
-            checked={a.showVerseNumbers}
-            onChange={(e) => set({ showVerseNumbers: e.currentTarget.checked })}
-          />
+          <div>
+            <Text size="sm" fw={500} mb={2}>
+              {tr('Номери віршів на екрані')}
+            </Text>
+            <Text size="xs" c="dimmed" mb={6}>
+              {tr(
+                'Маленькі номери перед віршами. Один вірш має свій номер у посиланні під текстом.',
+              )}
+            </Text>
+            <SegmentedControl
+              fullWidth
+              value={a.verseNumbers}
+              onChange={(v) => set({ verseNumbers: v as VerseNumbers })}
+              data={[
+                { label: tr('Ні'), value: 'off' },
+                { label: tr('Коли віршів кілька'), value: 'multi' },
+                { label: tr('Завжди'), value: 'always' },
+              ]}
+            />
+          </div>
           <div>
             <Text size="sm" fw={500} mb={2}>
               {tr('Перехід між слайдами')}
             </Text>
             <Text size="xs" c="dimmed" mb={6}>
               {tr(
-                'Плавний: старий слайд згасає, новий проявляється (новий текст — за ~0,4 с). Швидкий: новий одразу, коротке проявлення. Без анімації: миттєва заміна — і для рядків поступового розкриття.',
+                'Плавний: старий слайд згасає, новий проявляється (новий текст — за ~0,4 с). Швидкий: новий одразу, коротке проявлення. Наплив: новий текст піднімається на своє місце. Без анімації: миттєва заміна — і для рядків поступового розкриття. Вірш, доданий до показаних, з’являється сам, а показані стоять на місці.',
               )}
             </Text>
             <SegmentedControl
@@ -286,6 +305,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               data={[
                 { label: tr('Плавний'), value: 'smooth' },
                 { label: tr('Швидкий'), value: 'fast' },
+                { label: tr('Наплив'), value: 'rise' },
                 { label: tr('Без анімації'), value: 'none' },
               ]}
             />

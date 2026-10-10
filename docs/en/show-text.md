@@ -45,6 +45,21 @@ The **Live** switch next to **To screen** decides what happens next:
   with **To screen**. This is handy for preparing what comes next while something else is
   on screen.
 
+To show several verses together, gather them:
+
+- Ctrl+click (on macOS, ⌘+click) adds a verse to the selection or takes it out;
+- Shift+click chooses every verse from the one you clicked last to this one (with Ctrl, adds
+  them to the selection).
+
+While **Live** is on, the gathered verses wait in the preview, and the screen keeps what it
+shows. The badge above the verses names the chosen numbers and how many there are, for
+example **3:16–18, 20 · 4**; while they are not on screen yet, the badge is yellow. To show
+them, press Enter, **To screen**, or **Next**. After that, **Next** goes through the gathered
+verses one by one (16, 17, 18, 20) and, after the last, on to the chapter's next verse.
+
+For each added verse to appear on screen at once, turn off **Settings** → **Hotkeys** →
+**Several verses — to the screen after Enter**.
+
 ## Step through
 
 To show the next or the previous verse, press:

@@ -1,6 +1,7 @@
 import type { Appearance } from '../settingsStore';
 import type { SlideSource } from '../presenterBus';
 import { tr } from '../i18n';
+import { formatVerseListDisplay } from './reference';
 
 /**
  * «Сцена» (1.9.0-beta.11, F1005-09): the speaker's window — its own settings and words. The
@@ -64,9 +65,11 @@ export function placeWords(src: SlideSource | undefined | null): string {
     const first = src.shown?.[0] ?? src.verses[0];
     const last = src.shown?.[1] ?? src.verses[src.verses.length - 1];
     if (first == null) return '';
+    // a pick with a gap says so: «вірші 16–18, 20 з 36» (1.13.0-beta.1, F1010-04)
+    const shown = src.verses.filter((v) => v >= first && v <= last);
     return first === last
       ? tr('вірш {n} з {total}', { n: first, total: src.total })
-      : tr('вірші {from}–{to} з {total}', { from: first, to: last, total: src.total });
+      : tr('вірші {list} з {total}', { list: formatVerseListDisplay(shown), total: src.total });
   }
   if (src.kind === 'song')
     return tr('строфа {n} з {total}', { n: src.stanza + 1, total: src.total });

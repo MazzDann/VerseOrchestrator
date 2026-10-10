@@ -44,6 +44,7 @@ export function useControlHotkeys({
   live,
   liveFollow,
   screenHeld,
+  pickHeld,
   selectedIds,
   currentBook,
   versePreview,
@@ -76,6 +77,8 @@ export function useControlHotkeys({
   live: boolean;
   liveFollow: boolean;
   screenHeld: boolean;
+  /** a pick waits for Enter: «Далі» shows it first (1.13.0-beta.1) */
+  pickHeld: boolean;
   selectedIds: number[];
   currentBook: Book | null;
   versePreview: Slide;
@@ -102,6 +105,8 @@ export function useControlHotkeys({
     chapters,
     live,
     liveFollow,
+    screenHeld,
+    pickHeld,
     selectedIds,
     currentBook,
   ]);
@@ -121,6 +126,8 @@ export function useControlHotkeys({
       chapters,
       live,
       liveFollow,
+      screenHeld,
+      pickHeld,
       selectedIds,
       currentBook,
     ],
