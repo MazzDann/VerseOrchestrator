@@ -51,16 +51,19 @@ self.onmessage = async (
   const { id, bytes, max, quality } = e.data;
   try {
     const bitmap = await decode(bytes);
-    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-    const w = Math.max(1, Math.round(bitmap.width * scale));
-    const h = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = new OffscreenCanvas(w, h);
-    const ctx = canvas.getContext('2d')!;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    bitmap.close();
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
-    postMessage({ id, ok: true, blob, w, h });
+    try {
+      const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+      const w = Math.max(1, Math.round(bitmap.width * scale));
+      const h = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = new OffscreenCanvas(w, h);
+      const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(bitmap, 0, 0, w, h);
+      const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+      postMessage({ id, ok: true, blob, w, h });
+    } finally {
+      bitmap.close();
+    }
   } catch (err) {
     postMessage({ id, ok: false, error: String((err as Error)?.message ?? err) });
   }
