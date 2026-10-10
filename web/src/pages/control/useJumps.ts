@@ -96,7 +96,9 @@ export function useJumps({
   // `focus`: hand the keyboard to the verse landed on (search, «Перейти»), so ↩ puts it on
   // screen and the arrows walk on. Mac re-check (0.6.13): after a search pick the panel
   // closed and left the focus on <body> — ↩ did nothing, only ⌘↩ (a page-wide hotkey)
-  // projected. Other jumps (history, concordance, sequence, remotes) keep the focus.
+  // projected. «Історія» and «Збережене» too since 1.12.1 (F1010-03 / 06: their click opened the place
+  // and Enter showed nothing — Control.tsx pickPlace). Other jumps (concordance, sequence, remotes)
+  // keep the focus.
   // `show`: ⌘↩ / Ctrl+Enter in the search (Mac check of 1.9.0) — the verse on screen once it is in
   const focusJump = useRef(false);
   const jumpTo = (r: Jumpable, opts?: { focus?: boolean; show?: boolean }) => {
