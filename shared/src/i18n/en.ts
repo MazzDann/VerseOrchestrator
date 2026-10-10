@@ -1072,6 +1072,11 @@ export const EN: Record<string, string> = {
   '{window}: не вдалося перейти на весь екран': "{window}: couldn't go full screen",
   'Браузер не дозволив. Натисніть F у самому вікні або клацніть у ньому.':
     'The browser refused. Press F in the window itself, or click in it.',
+  '{window}: уже не на весь екран': '{window}: no longer full screen',
+  'Браузер так робить, коли у вікні керування відкрито вибір файлу. Клацніть будь-де у вікні керування — і «{window}» знову стане на весь екран. Або натисніть F у самому «{window}».':
+    'The browser does this while a file chooser is open in the control window. Click anywhere in the control window and “{window}” goes full screen again. Or press F in “{window}” itself.',
+  'Браузер так робить, коли у вікні керування відкрито вибір файлу. Натисніть F у самому «{window}» або клацніть у ньому.':
+    'The browser does this while a file chooser is open in the control window. Press F in “{window}” itself, or click in it.',
   '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну':
     "{window} didn't close — the browser won't let it be closed from here. Close it by hand",
   'Розкладку збережено: {n} вікно|Розкладку збережено: {n} вікна|Розкладку збережено: {n} вікон':
