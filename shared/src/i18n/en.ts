@@ -544,15 +544,10 @@ export const EN: Record<string, string> = {
   'Відновити з копії…': 'Restore from a backup…',
   'Відновити з копії': 'Restore from a backup',
   'Копія від {when}, версії {app}:': 'A backup of {when}, version {app}:',
-  'вигляд, клавіші, закладки й історія': 'the look, hotkeys, bookmarks, and history',
   '{n} програма|{n} програми|{n} програм': '{n} program|{n} programs',
   '{n} пункт у послідовності|{n} пункти в послідовності|{n} пунктів у послідовності':
     '{n} item in the running order|{n} items in the running order',
-  'пісні: {bundles}': 'songs: {bundles}',
-  'пісень немає': 'no songs',
   '{n} зображення|{n} зображення|{n} зображень': '{n} image|{n} images',
-  'Вони замінять поточні. Поточні збережуться окремо — їх можна буде повернути тут само.':
-    'They replace the current ones. The current ones are kept apart — you can bring them back right here.',
   Відновити: 'Restore',
   'Відновлено. Вікно перезавантажується…': 'Restored. The window reloads…',
   'Відновлено {at} з копії від {when}.': 'Restored on {at} from a backup of {when}.',
@@ -2130,9 +2125,21 @@ export const EN: Record<string, string> = {
   'Відновити…': 'Restore…',
   'Показати менше': 'Show fewer',
   'Показати всі ({n})|Показати всі ({n})|Показати всі ({n})': 'Show all ({n})|Show all ({n})',
-  'без зображень — ваші лишаться як є': 'no images — yours stay as they are',
-  'налаштування запуску: браузер «{browser}», порт {port}':
-    'start settings: browser “{browser}”, port {port}',
   'Цієї копії вже немає': 'That backup is gone',
   'Застосунок саме готується до зміни версії': 'The app is getting ready for a version change',
+  // partial restore (1.12.0-beta.4)
+  'Вигляд і клавіші': 'Look and keys',
+  'вигляд слайдів, пресети, клавіші, закладки й історія':
+    'the slide look, presets, hotkeys, bookmarks and history',
+  'Програми й послідовність показу': 'Programs and the running order',
+  'браузер «{browser}», порт {port}': 'browser “{browser}”, port {port}',
+  'Зображень у цій копії немає — ваші лишаться як є.':
+    'This backup has no images — yours stay as they are.',
+  'Позначене замінить поточне. Поточне збережеться окремо — його можна буде повернути тут само.':
+    'What you tick replaces the current state. The current state is kept separately — you can bring it back right here.',
+  'Копія завелика': 'The backup is too big',
+  'Зображення займають понад 1 ГБ — з ними копія завелика. Збережіть її без зображень: решта ввійде вся.':
+    'The images take over 1 GB — with them the backup is too big. Save it without the images: everything else goes in.',
+  'Зберегти без зображень': 'Save without images',
+  'Позначте, що відновити': 'Tick what to restore',
 };

@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import { Button, FileButton, Group, Paper, Stack, Switch, Text } from '@mantine/core';
+import { Button, Checkbox, FileButton, Group, Paper, Stack, Switch, Text } from '@mantine/core';
 import { IconArchive, IconArrowBackUp, IconUpload } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { api, type AutoBackup, type BackupSummary } from '../api';
+import { api, ApiFailure, type AutoBackup, type BackupSummary, type RestoreParts } from '../api';
 import { dropUiState, takeServerUiState } from '../lib/uiState';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { fmtDateTime, fmtNumber, tr, trn, useLang } from '../i18n';
@@ -124,6 +124,115 @@ function AutoBackups({
   );
 }
 
+/**
+ * What a backup holds, as parts to restore (1.12.0-beta.4): each part it has, ticked; a part it
+ * lacks is not offered and changes nothing. «Відновити» puts in place only what is ticked.
+ */
+function RestoreCard({
+  backup,
+  busy,
+  onRestore,
+  onCancel,
+}: {
+  backup: BackupSummary;
+  busy: boolean;
+  onRestore: (parts: RestoreParts) => void;
+  onCancel: () => void;
+}) {
+  // an older server says nothing of the running order: its counts do
+  const playlist = backup.playlist ?? backup.programs + backup.items > 0;
+  const pictures = backup.withPictures !== false && backup.pictures > 0;
+  const has: RestoreParts = {
+    look: backup.settings,
+    programs: playlist,
+    songs: backup.bundles.length > 0,
+    pictures,
+    start: !!backup.start,
+  };
+  const [parts, setParts] = useState<RestoreParts>(has);
+  const tick = (key: keyof RestoreParts) => (e: { currentTarget: { checked: boolean } }) =>
+    setParts({ ...parts, [key]: e.currentTarget.checked });
+  const chosen = (Object.keys(has) as (keyof RestoreParts)[]).some((k) => has[k] && parts[k]);
+  return (
+    <Paper withBorder p="xs" radius="md" role="group" aria-label={tr('Відновити з копії')}>
+      <Text size="xs" fw={500} mb={6}>
+        {tr('Копія від {when}, версії {app}:', { when: when(backup.created), app: backup.app })}
+      </Text>
+      <Stack gap={6}>
+        {has.look && (
+          <Checkbox
+            size="xs"
+            checked={parts.look}
+            onChange={tick('look')}
+            label={tr('Вигляд і клавіші')}
+            description={tr('вигляд слайдів, пресети, клавіші, закладки й історія')}
+          />
+        )}
+        {has.programs && (
+          <Checkbox
+            size="xs"
+            checked={parts.programs}
+            onChange={tick('programs')}
+            label={tr('Програми й послідовність показу')}
+            description={`${trn(backup.programs, '{n} програма|{n} програми|{n} програм')}, ${trn(
+              backup.items,
+              '{n} пункт у послідовності|{n} пункти в послідовності|{n} пунктів у послідовності',
+            )}`}
+          />
+        )}
+        {has.songs && (
+          <Checkbox
+            size="xs"
+            checked={parts.songs}
+            onChange={tick('songs')}
+            label={tr('Пісні')}
+            description={backup.bundles.join(', ')}
+          />
+        )}
+        {has.pictures && (
+          <Checkbox
+            size="xs"
+            checked={parts.pictures}
+            onChange={tick('pictures')}
+            label={tr('Зображення')}
+            description={trn(backup.pictures, '{n} зображення|{n} зображення|{n} зображень')}
+          />
+        )}
+        {has.start && backup.start && (
+          <Checkbox
+            size="xs"
+            checked={parts.start}
+            onChange={tick('start')}
+            label={tr('Налаштування запуску')}
+            description={tr('браузер «{browser}», порт {port}', {
+              browser: browserName(backup.start.browser),
+              port: backup.start.port,
+            })}
+          />
+        )}
+        {backup.withPictures === false && (
+          <Text size="xs" c="dimmed">
+            {tr('Зображень у цій копії немає — ваші лишаться як є.')}
+          </Text>
+        )}
+      </Stack>
+      <Text size="xs" c="dimmed" mt={6} mb={6}>
+        {tr(
+          'Позначене замінить поточне. Поточне збережеться окремо — його можна буде повернути тут само.',
+        )}
+      </Text>
+      <Group gap="xs">
+        <Button size="xs" loading={busy} disabled={!chosen} onClick={() => onRestore(parts)}>
+          {tr('Відновити')}
+        </Button>
+        <Button size="xs" variant="default" disabled={busy} onClick={onCancel}>
+          {tr('Скасувати')}
+        </Button>
+      </Group>
+    </Paper>
+  );
+}
+
 /** Save a blob under a name, as a download. */
 function saveAs(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
@@ -160,21 +269,26 @@ export function BackupSection() {
   const [checking, setChecking] = useState(false);
   const [pending, setPending] = useState<BackupSummary | null>(null);
   const [busy, setBusy] = useState(false);
+  // «Зберегти копію» over 1 GB: «Зберегти без зображень» offered
+  const [tooBig, setTooBig] = useState(false);
   const fail = (e: unknown) =>
     notifications.show({ message: tr((e as Error).message), color: 'red' });
 
-  const save = async () => {
+  const save = async (pictures = true) => {
     setSaving(true);
     try {
-      const { blob, name } = await api.downloadBackup();
+      const { blob, name } = await api.downloadBackup(pictures);
       saveAs(blob, name);
+      setTooBig(false);
       notifications.show({
         message: tr('Копію збережено: {name}', { name }),
         color: 'green',
         autoClose: 3000,
       });
     } catch (e) {
-      fail(e);
+      // over 1 GB with the pictures (1.12.0-beta.4): offered without them instead of refused
+      if (pictures && e instanceof ApiFailure && e.status === 413) setTooBig(true);
+      else fail(e);
     } finally {
       setSaving(false);
     }
@@ -263,70 +377,41 @@ export function BackupSection() {
             </FileButton>
           </Group>
           <AutoBackups disabled={busy || checking} onPicked={setPending} onFail={fail} />
-          {pending && (
-            <Paper withBorder p="xs" radius="md" role="group" aria-label={tr('Відновити з копії')}>
-              <Text size="xs" fw={500} mb={4}>
-                {tr('Копія від {when}, версії {app}:', {
-                  when: when(pending.created),
-                  app: pending.app,
-                })}
-              </Text>
-              <Text size="xs" component="ul" m={0} pl="md">
-                {pending.settings && <li>{tr('вигляд, клавіші, закладки й історія')}</li>}
-                <li>
-                  {trn(pending.programs, '{n} програма|{n} програми|{n} програм')},{' '}
-                  {trn(
-                    pending.items,
-                    '{n} пункт у послідовності|{n} пункти в послідовності|{n} пунктів у послідовності',
-                  )}
-                </li>
-                <li>
-                  {pending.bundles.length > 0
-                    ? tr('пісні: {bundles}', { bundles: pending.bundles.join(', ') })
-                    : tr('пісень немає')}
-                </li>
-                <li>
-                  {pending.withPictures === false
-                    ? tr('без зображень — ваші лишаться як є')
-                    : trn(pending.pictures, '{n} зображення|{n} зображення|{n} зображень')}
-                </li>
-                {pending.start && (
-                  <li>
-                    {tr('налаштування запуску: браузер «{browser}», порт {port}', {
-                      browser: browserName(pending.start.browser),
-                      port: pending.start.port,
-                    })}
-                  </li>
-                )}
-              </Text>
-              <Text size="xs" c="dimmed" mt={6} mb={6}>
+          {tooBig && !pending && (
+            <Paper withBorder p="xs" radius="md" role="group" aria-label={tr('Копія завелика')}>
+              <Text size="xs" mb={6}>
                 {tr(
-                  'Вони замінять поточні. Поточні збережуться окремо — їх можна буде повернути тут само.',
+                  'Зображення займають понад 1 ГБ — з ними копія завелика. Збережіть її без зображень: решта ввійде вся.',
                 )}
               </Text>
               <Group gap="xs">
-                <Button
-                  size="xs"
-                  loading={busy}
-                  onClick={() =>
-                    void reloadAfter(
-                      () => api.restoreBackup(pending.id ?? ''),
-                      tr('Відновлено. Вікно перезавантажується…'),
-                    )
-                  }
-                >
-                  {tr('Відновити')}
+                <Button size="xs" loading={saving} onClick={() => void save(false)}>
+                  {tr('Зберегти без зображень')}
                 </Button>
                 <Button
                   size="xs"
                   variant="default"
-                  disabled={busy}
-                  onClick={() => setPending(null)}
+                  disabled={saving}
+                  onClick={() => setTooBig(false)}
                 >
                   {tr('Скасувати')}
                 </Button>
               </Group>
             </Paper>
+          )}
+          {pending && (
+            <RestoreCard
+              key={pending.id}
+              backup={pending}
+              busy={busy}
+              onRestore={(parts) =>
+                void reloadAfter(
+                  () => api.restoreBackup(pending.id ?? '', parts),
+                  tr('Відновлено. Вікно перезавантажується…'),
+                )
+              }
+              onCancel={() => setPending(null)}
+            />
           )}
           {last && !pending && (
             <div>

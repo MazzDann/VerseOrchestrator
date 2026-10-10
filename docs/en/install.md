@@ -365,9 +365,11 @@ compress that folder in Finder (**Compress**), and the app takes that file too.
 To restore a backup on this or another computer:
 
 1. In the same section, click **Restore from a backup…** and choose the backup file.
-2. Check what it holds: the app shows the backup's date, the number of programs and
-   running-order items, the song bundles, and the number of images. Nothing changes until you
-   click **Restore**.
+2. Tick what to restore: **Look and keys**, **Programs and the running order**, **Songs**,
+   **Images**, **Start settings**. The app shows only what the backup holds — with its date,
+   the number of programs and running-order items, the song bundles, and the number of
+   images — and ticks all of it first. What you leave unticked stays as it is. Nothing changes
+   until you click **Restore**.
 3. Click **Restore**. The control window reloads with the restored state.
 
 Other open control windows take the restored settings at once. While a backup is saved or
@@ -378,7 +380,9 @@ song and image files stay there as they were. For a day after the restore you ca
 back: click **Go back to how it was** in the **Backup** section and confirm with
 **Bring back**. What was changed after the restore is kept in `data/backups/` too.
 
-A backup can be up to 1 GB. If the images take more, the app says so and makes no backup.
+A backup with images can be up to 1 GB. If the images take more, the app offers **Save
+without images**: everything else goes in, and restoring such a backup keeps the images there
+are.
 
 ### Automatic backups
 
