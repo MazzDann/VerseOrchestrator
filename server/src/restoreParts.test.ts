@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ALL_PARTS,
   keepPending,
@@ -14,6 +14,7 @@ import {
 
 const dirs: string[] = [];
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
 
@@ -143,5 +144,84 @@ describe('restoring by parts (1.12.0-beta.4)', () => {
     await undoRestore(to, later);
     expect(songs(to)).toEqual(['ПС-b.vosongs']);
     expect(images(to)).toEqual(['b.png', 'index.json']);
+  });
+
+  it('the undo of a partial restore puts back only what it restored: an entry edited since stays', async () => {
+    const from = dataDir('a', 'opera');
+    const to = dataDir('b', 'firefox');
+    await restore(from, to, only('look'), at);
+    expect(lastRestore(to, at.getTime())).toMatchObject({ uiKeys: ['vo:settings'] });
+    // the running order changes after the restore
+    const now = ui(to);
+    write(path.join(to, 'ui-state.json'), {
+      ...now,
+      'vo:playlist': {
+        value: JSON.stringify({ state: { items: ['edited'], saved: [] } }),
+        at: 9000,
+      },
+    });
+    await undoRestore(to, later);
+    expect(look(to)).toBe('b');
+    expect(order(to)).toBe('edited');
+  });
+
+  it('a UI state this copy can’t read now is never merged over: the restore stops and changes nothing', async () => {
+    const from = dataDir('a', 'opera');
+    const to = dataDir('b', 'firefox');
+    const file = path.join(to, 'ui-state.json');
+    const before = fs.readFileSync(file, 'utf8');
+    await keepPending(to, await makeBackup(from, '1.12.0', new Date('2026-10-01T10:00:00Z')));
+    const readFileSync = fs.readFileSync.bind(fs);
+    vi.spyOn(fs, 'readFileSync').mockImplementation(((p: fs.PathOrFileDescriptor, o?: unknown) => {
+      if (String(p) === file)
+        throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+      return readFileSync(p, o as BufferEncoding);
+    }) as typeof fs.readFileSync);
+    await expect(
+      restorePending(to, '1.12.0', at, { parts: { ...only('look'), songs: true } }),
+    ).rejects.toThrow();
+    vi.restoreAllMocks();
+    expect(fs.readFileSync(file, 'utf8')).toBe(before);
+    expect(songs(to)).toEqual(['ПС-b.vosongs']);
+    expect(lastRestore(to, at.getTime())).toBeNull();
+  });
+
+  it('restores of the look alone never push out the kept folder that holds songs', async () => {
+    const from = dataDir('a', 'opera');
+    const to = dataDir('b', 'firefox');
+    await restore(from, to, ALL_PARTS, at);
+    const full = lastRestore(to, at.getTime())!.undo;
+    for (let n = 1; n <= 6; n++)
+      await restore(from, to, only('look'), new Date(at.getTime() + n * 60_000));
+    const kept = fs
+      .readdirSync(path.join(to, 'backups'))
+      .filter((n) => n.startsWith('before-restore-'));
+    expect(kept).toContain(full);
+    expect(fs.readdirSync(path.join(to, 'backups', full, 'songs'))).toEqual(['ПС-b.vosongs']);
+    expect(kept.length).toBeLessThanOrEqual(6);
+  });
+
+  it('nothing chosen that the backup holds: nothing changes, the file stays checked, the way back stays', async () => {
+    const from = dataDir('a', 'opera', false);
+    const to = dataDir('b', 'firefox');
+    await restore(from, to, only('look'), at);
+    const note = lastRestore(to, at.getTime());
+    await keepPending(to, await makeBackup(from, '1.12.0', new Date('2026-10-01T10:00:00Z')));
+    await expect(restorePending(to, '1.12.0', later, { parts: only('songs') })).rejects.toThrow(
+      'nothing',
+    );
+    expect(lastRestore(to, at.getTime())).toEqual(note);
+    expect(fs.existsSync(path.join(to, 'backups', 'pending.zip'))).toBe(true);
+    expect(songs(to)).toEqual(['ПС-b.vosongs']);
+  });
+
+  it('a backup without pictures (an empty images folder) leaves this copy’s pictures, even restored whole', async () => {
+    const from = dataDir('a', 'opera');
+    fs.rmSync(path.join(from, 'images'), { recursive: true });
+    fs.mkdirSync(path.join(from, 'images'));
+    const to = dataDir('b', 'firefox');
+    await restore(from, to, ALL_PARTS, at);
+    expect(images(to)).toEqual(['b.png', 'index.json']);
+    expect(songs(to)).toEqual(['ПС-a.vosongs']);
   });
 });

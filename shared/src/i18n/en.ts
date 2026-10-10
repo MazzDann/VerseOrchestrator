@@ -2142,4 +2142,8 @@ export const EN: Record<string, string> = {
     'The images take over 1 GB — with them the backup is too big. Save it without the images: everything else goes in.',
   'Зберегти без зображень': 'Save without images',
   'Позначте, що відновити': 'Tick what to restore',
+  'На диску з застосунком не вистачає місця для копії. Звільніть місце й спробуйте ще раз.':
+    'The app’s drive has no room for the backup. Free some space and try again.',
+  'Відновлювати нічого: у копії немає того, що позначено.':
+    'Nothing to restore: the backup holds nothing of what you ticked.',
 };
