@@ -68,9 +68,13 @@ export function VerseList({
     toggleVerse(v);
   };
   const range = (v: number, add: boolean) => {
-    const from = anchor.current;
+    // from the verse clicked last while it is still chosen, else from the chosen verse nearest
+    // to this one (stepping and jumps move the selection, not the anchor — review)
+    const nearest = [...selectedVerses].sort((a, b) => Math.abs(a - v) - Math.abs(b - v))[0];
+    const from =
+      anchor.current != null && selectedVerses.includes(anchor.current) ? anchor.current : nearest;
     const nums = primaryVerses.map((x) => x.verse);
-    if (from == null || !nums.includes(from)) return toggle(v);
+    if (from == null || !nums.includes(from)) return one(v);
     const [a, b] = from < v ? [from, v] : [v, from];
     const run = nums.filter((n) => n >= a && n <= b);
     pickRange(add ? [...new Set([...selectedVerses, ...run])].sort((x, y) => x - y) : run);
