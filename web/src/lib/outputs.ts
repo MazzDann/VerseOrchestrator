@@ -1,7 +1,9 @@
-import { N_, tr } from '../i18n';
+import { translate, type Lang } from '@vo/shared';
+import { currentLang, N_, tr } from '../i18n';
 import { useEffect, useState } from 'react';
 import { onSlideError } from './slideErrors';
 import { onFullscreenRefused } from './fullscreen';
+import { createPeekGuardPoke } from './peekGuard';
 
 /**
  * Output windows registry (0.4.2): every output window (presenter, stage) announces itself
@@ -68,6 +70,14 @@ export const OUTPUT_KIND_LABEL: Record<OutputKind, string> = {
   presenter: N_('Показ'),
   stage: N_('Сцена'),
 };
+
+/**
+ * An output window's own title (F1005-05): «VerseOrchestrator — Показ» / «— Сцена». The server
+ * finds the output windows' browser windows by it (server/src/peekGuard.ts OUTPUT_TITLES — the same
+ * strings in both languages), and the taskbar tells them from the control window.
+ */
+export const outputTitle = (kind: OutputKind, lang: Lang = currentLang()): string =>
+  `VerseOrchestrator — ${translate(lang, OUTPUT_KIND_LABEL[kind])}`;
 
 /** «Показ 1», «Показ 2», «Сцена 1» — numbered per kind in the order they opened. */
 export function outputLabels(list: OutputInfo[]): Map<string, string> {
@@ -269,19 +279,49 @@ function announceWindow(
     },
     (cmd) => void runCommand(cmd),
   );
+  // its own title, and kept out of Windows «Peek» (F1005-05, lib/peekGuard.ts): asked now and
+  // whenever the window changes — opened, moved, resized (a tab dragged out is a new browser
+  // window), into or out of full screen, shown again
+  const titleBefore = document.title;
+  const retitle = () => {
+    const t = outputTitle(kind);
+    if (document.title !== t) document.title = t;
+  };
+  retitle();
+  const peek = createPeekGuardPoke();
+  // asked while visible since the window last changed: being shown again needs no new request —
+  // one covered and uncovered by turns (a single screen at a rehearsal) would ask every few
+  // seconds for nothing; a window that opened covered asks when it is first shown
+  let asked = false;
+  const ask = () => {
+    if (document.visibilityState !== 'visible') return;
+    asked = true;
+    peek.poke();
+  };
+  ask();
+  const changed = () => {
+    retitle();
+    a.changed();
+    asked = false;
+    ask();
+  };
+  const shown = () => {
+    retitle();
+    a.changed();
+    if (!asked) ask();
+  };
   // Moving a window fires no event: compare the position once a second.
   let last = JSON.stringify(info().bounds);
   const poll = window.setInterval(() => {
     const now = JSON.stringify(info().bounds);
     if (now !== last) {
       last = now;
-      a.changed();
+      changed();
     }
   }, 1000);
-  const changed = () => a.changed();
   window.addEventListener('resize', changed);
   document.addEventListener('fullscreenchange', changed);
-  document.addEventListener('visibilitychange', changed);
+  document.addEventListener('visibilitychange', shown);
   const bye = () => a.stop();
   window.addEventListener('pagehide', bye);
   return {
@@ -290,9 +330,11 @@ function announceWindow(
     stop() {
       window.clearInterval(poll);
       window.clearTimeout(timer);
+      peek.stop();
+      document.title = titleBefore;
       window.removeEventListener('resize', changed);
       document.removeEventListener('fullscreenchange', changed);
-      document.removeEventListener('visibilitychange', changed);
+      document.removeEventListener('visibilitychange', shown);
       window.removeEventListener('pagehide', bye);
       a.stop();
     },
