@@ -22,6 +22,7 @@ import { Home } from './pages/Home';
 // window with its panels, the database engine and the benchmarks.
 const Presenter = lazy(() => import('./pages/Presenter').then((m) => ({ default: m.Presenter })));
 const Stage = lazy(() => import('./pages/Stage').then((m) => ({ default: m.Stage })));
+const Broadcast = lazy(() => import('./pages/Broadcast').then((m) => ({ default: m.Broadcast })));
 const Follow = lazy(() => import('./pages/Follow').then((m) => ({ default: m.Follow })));
 const Remote = lazy(() => import('./pages/Remote').then((m) => ({ default: m.Remote })));
 const Desk = lazy(() => import('./pages/Desk').then((m) => ({ default: m.Desk })));
@@ -90,6 +91,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="/" element={<Home />} />
                 <Route path="/presenter" element={<Presenter />} />
                 <Route path="/stage" element={<Stage />} />
+                <Route path="/key" element={<Broadcast />} />
                 <Route path="/follow" element={<Follow />} />
                 <Route path="/remote" element={<Remote />} />
                 <Route path="/desk" element={<Desk />} />

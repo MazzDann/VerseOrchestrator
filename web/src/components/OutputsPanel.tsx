@@ -25,6 +25,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useSettings, type SavedOutput } from '../settingsStore';
+import { BroadcastSection } from './BroadcastSection';
 import {
   OUTPUT_KIND_LABEL as KIND_LABEL,
   outputLabels,
@@ -436,6 +437,10 @@ export function OutputsPanel() {
           </Text>
         )}
       </Stack>
+
+      <Divider />
+      {/* the outputs' shape and «Трансляція» (1.14.0-beta.3) */}
+      <BroadcastSection />
     </Stack>
   );
 }

@@ -49,7 +49,12 @@ import { handovers } from './handover.js';
  *   built from other code (a copy of the repository restarted with new code, 1.6.0), reloads.
  */
 
-type Role = 'viewer' | 'control' | 'remote';
+/**
+ * `key` (1.14.0-beta.3): the broadcast output «Трансляція» (`/key`) — OBS / vMix's browser source
+ * on this computer: it hears the whole slides the desks hear, follow-along or not, and is no
+ * audience viewer (not counted, no `slide` frames).
+ */
+type Role = 'viewer' | 'control' | 'remote' | 'key';
 interface Meta {
   role: Role;
   alive: boolean;
@@ -315,6 +320,19 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     notifyViewers(); // this socket stopped counting as a viewer; also primes the new control
     return;
   }
+  if (msg.role === 'key') {
+    // the screen as the operator shows it, follow-along or not: this computer only
+    if (!isLocalRequest(req)) {
+      send(ws, { type: 'denied', reason: N_('Трансляція доступна лише з цього комп’ютера') });
+      ws.close(4003, 'not local');
+      return;
+    }
+    m.role = 'key';
+    send(ws, { type: 'welcome', role: 'key' });
+    send(ws, slidesFrame());
+    notifyViewers(); // it stopped counting as a viewer
+    return;
+  }
   if (msg.role === 'remote') {
     const p = findByToken(msg.token);
     if (!p) {
@@ -558,7 +576,7 @@ export function attachLiveHub(server: Server, appVersion?: string, appBuild?: st
       } else if (msg?.type === 'slides' && m.role === 'control' && isActiveControl(ws)) {
         slidesState = { live: msg.live ?? null, next: msg.next ?? null };
         const frame = slidesFrame();
-        for (const c of deskSockets()) send(c, frame);
+        for (const c of [...deskSockets(), ...sockets('key')]) send(c, frame);
       }
     });
     ws.on('close', () => {

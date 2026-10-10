@@ -814,6 +814,26 @@ export const EN: Record<string, string> = {
     'The photo «{name}» is still converting — it goes on screen once it is ready.',
   'Копія фото HEIC має бути JPEG до 20 МБ': 'The HEIC photo’s copy must be a JPEG of up to 20 MB',
   'Не вдалося перетворити фото HEIC «{name}»': 'Could not convert the HEIC photo «{name}»',
+  'Співвідношення сторін': 'Aspect ratio',
+  'Як показувати слайд, коли проєктор чи трансляція має іншу форму, ніж вікно.':
+    'How to show the slide when a projector or a broadcast has another shape than the window.',
+  'Як екран': 'As the screen',
+  Трансляція: 'Broadcast',
+  'Текст поверх відео з камери: в OBS чи vMix — за адресою нижче (джерело «Браузер», 1920×1080); через HDMI на мікшер — у вікні на тому екрані, із зеленим чи чорним фоном для ключа.':
+    'Text over the camera picture: in OBS or vMix — at the address below (a «Browser» source, 1920×1080); over HDMI to a mixer — in a window on that screen, with a green or black background for the key.',
+  'Як на показі': 'As on the show',
+  Прозорий: 'Transparent',
+  Зелений: 'Green',
+  Чорний: 'Black',
+  'Плашка під текстом': 'A band under the text',
+  'Темна смуга, на якій текст читається поверх будь-якого кадру. Для ключа за яскравістю (чорний фон) вимкніть її.':
+    'A dark strip the text reads on over any picture. Turn it off for a luma key (black background).',
+  'Адреса для OBS / vMix': 'Address for OBS / vMix',
+  'Скопіювати адресу': 'Copy the address',
+  'Адреса працює лише на цьому комп’ютері.': 'The address works on this computer only.',
+  'Відкрити вікно трансляції': 'Open the broadcast window',
+  'Трансляція доступна лише з цього комп’ютера':
+    'The broadcast is available from this computer only',
   'Не вдалося перейменувати: {error}': 'Could not rename: {error}',
   'Бандл із такою назвою вже є': 'A bundle with this name already exists',
   'Бандл «{bundle}» повернуто': 'The bundle “{bundle}” is back',
