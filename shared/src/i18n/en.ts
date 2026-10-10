@@ -1065,6 +1065,9 @@ export const EN: Record<string, string> = {
     'Opened from another control window: F or a click in the window itself makes it full screen',
   'Вікно не озвалося — можливо, браузер його заблокував: дозвольте спливні вікна для цього сайту':
     "The window didn't answer — the browser may have blocked it: allow pop-ups for this site",
+  '{window}: вкладка, а не окреме вікно': '{window}: a tab, not a window of its own',
+  'Браузер відкрив його вкладкою цього вікна, тож на інший екран його не перенести. Перетягніть вкладку за межі вікна браузера — вона стане окремим вікном. У LibreWolf і Firefox можна відкривати такі вікна окремо завжди: about:config → browser.link.open_newwindow.restriction = 2.':
+    "The browser opened it as a tab of this window, so it can't go to another screen. Drag the tab out of the browser window — it becomes a window of its own. In LibreWolf and Firefox you can always get such windows separately: about:config → browser.link.open_newwindow.restriction = 2.",
   'Браузер заблокував вікно — дозвольте спливні вікна для цього сайту':
     'The browser blocked the window — allow pop-ups for this site',
   'Цей браузер не передає жест іншому вікну — натисніть F у самому вікні':
