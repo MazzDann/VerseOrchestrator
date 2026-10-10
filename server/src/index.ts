@@ -29,6 +29,8 @@ import {
   listPairings,
   reissuePairing,
   revokePairing,
+  adoptPairings,
+  dropPairings,
   setPairingAllowed,
   setRemotePersistence,
 } from './remote.js';
@@ -120,7 +122,9 @@ import {
   restorePending,
   startChange,
   undoRestore,
+  type Undone,
 } from './backup.js';
+import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 
 const app = express();
 const json = express.json({ limit: '1mb' });
@@ -1391,10 +1395,24 @@ const movesFailed = (e: unknown, key: string) => {
  * send its old ones back with its next change; and the library's songs follow, in the same
  * turn, so a window that asks for them gets the restored ones (review of #47).
  */
-const restored = () => {
+const restored = (cleared = false) => {
   lastImport = null;
-  notifyUiStateRestored();
+  notifyUiStateRestored(cleared);
   refreshSongs(bundlesDir(dataDir));
+};
+
+/**
+ * One step after an import or its undo, on its own: the pairings' steps run before the songs'
+ * refresh, and a failure in one never skips another — the first is kept for the answer (review
+ * of 1.12.0-beta.2: a refresh that threw left the carried phones without a pairing).
+ */
+const step = (failures: unknown[], work: () => void) => {
+  try {
+    work();
+  } catch (e) {
+    failures.push(e);
+    console.warn(`[server] copies: ${(e as Error).message}`);
+  }
 };
 
 /** A backup refused in words: too big, or not one of this app / damaged (review of #47). */
@@ -1470,11 +1488,20 @@ app.post(
   requireLocalControl,
   wrap(async (_req, res) => {
     notDuringRebuild();
-    let undone: boolean;
+    let undone: Undone | null;
     try {
       undone = await oneAtATime(async () => {
         notDuringRebuild();
-        return undoRestore(dataDir, new Date(), restored);
+        return undoRestore(dataDir, new Date(), ({ pairings, uiCleared }) => {
+          const failures: unknown[] = [];
+          // an import's way back (1.12.0-beta.2): the pairings it added go — their phones lose
+          // control now —, a phone paired since stays; the persistence it turned on goes back
+          step(failures, () => {
+            for (const id of dropPairings(pairings)) dropRemote(id);
+          });
+          step(failures, () => setRemotePersistence(getServerSettings().remotes.persist));
+          step(failures, () => restored(uiCleared));
+        });
       });
     } catch (e) {
       throw backupRefusal(
@@ -1488,7 +1515,124 @@ app.post(
     }
     if (!undone) throw new ApiError(409, N_('Повертати вже нічого'));
     console.log('[server] backup: back to the state before the last restore');
-    res.json({ ok: true });
+    // the copy had no UI state before: the page drops its own (BackupSection)
+    res.json({ ok: true, uiCleared: undone.uiCleared });
+  }),
+);
+
+// ── «Перенести з іншої копії…» (1.12.0-beta.2, otherCopy.ts) ──────────────────────────────
+
+/** A folder that doesn't answer in this long (a sleeping share) is reported, not waited for. */
+const COPY_WAIT_MS = 8000;
+const inTime = <T>(work: Promise<T>): Promise<T> =>
+  Promise.race([
+    work,
+    new Promise<T>((_, fail) =>
+      setTimeout(
+        () =>
+          fail(new ApiError(504, N_('Папка не відповідає. Перевірте диск і спробуйте ще раз.'))),
+        COPY_WAIT_MS,
+      ).unref(),
+    ),
+  ]);
+
+/** The other copies of this computer: the one that runs on the port, the ones beside this one. */
+app.get(
+  '/api/copies',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    const copies = await inTime(
+      findCopies({
+        root: repoRoot,
+        dataDir,
+        port: getServerSettings().standby.port,
+        app: appVersion,
+      }),
+    );
+    res.json({ copies });
+  }),
+);
+
+/** A folder the operator named: its copy, or why not. */
+const copyAt = async (raw: unknown) => {
+  const found = typeof raw === 'string' && raw.trim() ? await resolveCopy(raw.trim()) : null;
+  if (!found)
+    throw new ApiError(
+      404,
+      N_('Тут немає даних VerseOrchestrator. Виберіть папку копії — ту, де лежать app і data.'),
+    );
+  if (sameFolder(found.dataDir, dataDir))
+    throw new ApiError(400, N_('Це папка цієї копії. Виберіть іншу.'));
+  return found;
+};
+
+app.get(
+  '/api/copies/describe',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    res.json(await inTime(copyAt(req.query.path).then((c) => describeCopy(c, appVersion))));
+  }),
+);
+
+app.post(
+  '/api/copies/import',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const from = await inTime(copyAt(req.body?.path));
+    const parts = {
+      things: req.body?.things === true,
+      launch: req.body?.launch === true,
+      pairings: req.body?.pairings === true,
+    };
+    if (!parts.things && !parts.launch && !parts.pairings)
+      throw new ApiError(400, N_('Позначте, що перенести'));
+    const started = Date.now();
+    const failures: unknown[] = [];
+    let done;
+    try {
+      done = await oneAtATime(async () => {
+        notDuringRebuild();
+        return importCopy(dataDir, from, parts, appVersion, new Date(), (pairings) => {
+          // carried pairings are kept across restarts (the settings say so by now), then added
+          step(failures, () => setRemotePersistence(getServerSettings().remotes.persist));
+          step(failures, () => adoptPairings(pairings));
+          step(failures, () => restored());
+        });
+      });
+    } catch (e) {
+      // the other copy's UI state or pictures' index can't be read: said as that, not as a backup
+      if (e instanceof BackupError)
+        throw new ApiError(
+          400,
+          N_(
+            'У тій копії пошкоджено файл налаштувань вигляду чи список зображень — їх не перенести.',
+          ),
+        );
+      throw backupRefusal(
+        movesFailed(
+          e,
+          N_(
+            'Не вдалося перенести: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.',
+          ),
+        ),
+      );
+    }
+    // nothing changed: the last restore's way back stays (review of 1.12.0-beta.2)
+    if (done?.nothing)
+      throw new ApiError(409, N_('Переносити нічого: те, що позначено, тут уже є.'));
+    console.log(
+      `[server] copies: carried over from ${from.dataDir} (${Object.entries(parts)
+        .filter(([, on]) => on)
+        .map(([k]) => k)
+        .join(', ')}; ${Date.now() - started} ms)`,
+    );
+    // the carry-over stands; a step after it that failed (the pairings' file held) is said
+    res.json(
+      failures.length
+        ? { ok: true, warning: (failures[0] as Error).message || String(failures[0]) }
+        : { ok: true },
+    );
   }),
 );
 

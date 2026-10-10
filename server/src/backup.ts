@@ -88,6 +88,26 @@ async function filesIn(dir: string, keep: (name: string) => boolean): Promise<st
 
 const bundleFile = (n: string) => own(n) && n.endsWith(BUNDLE_EXT);
 
+/** The operator's files of a data folder: [name in a backup, path] — UI state, songs, pictures. */
+async function ownFiles(dataDir: string): Promise<[string, string][]> {
+  const files: [string, string][] = [];
+  const ui = path.join(dataDir, UI_FILE);
+  // asynchronous: another copy's folder may be on a slow or sleeping drive (stateEntries)
+  if (
+    await fsp.stat(ui).then(
+      (s) => s.isFile(),
+      () => false,
+    )
+  )
+    files.push([UI_FILE, ui]);
+  const songs = path.join(dataDir, SONGS);
+  for (const f of await filesIn(songs, bundleFile))
+    files.push([`${SONGS}/${f}`, path.join(songs, f)]);
+  const images = path.join(dataDir, IMAGES);
+  for (const f of await filesIn(images, own)) files.push([`${IMAGES}/${f}`, path.join(images, f)]);
+  return files;
+}
+
 /** What goes into a backup of `dataDir`, the manifest first; over 1 GB is BackupError('too big'). */
 export async function collect(dataDir: string, app: string, now = new Date()): Promise<ZipEntry[]> {
   const manifest: BackupManifest = {
@@ -96,14 +116,7 @@ export async function collect(dataDir: string, app: string, now = new Date()): P
     app,
     created: now.toISOString(),
   };
-  const files: [string, string][] = [];
-  const ui = path.join(dataDir, UI_FILE);
-  if (fs.existsSync(ui)) files.push([UI_FILE, ui]);
-  const songs = path.join(dataDir, SONGS);
-  for (const f of await filesIn(songs, bundleFile))
-    files.push([`${SONGS}/${f}`, path.join(songs, f)]);
-  const images = path.join(dataDir, IMAGES);
-  for (const f of await filesIn(images, own)) files.push([`${IMAGES}/${f}`, path.join(images, f)]);
+  const files = await ownFiles(dataDir);
   let total = 0;
   for (const [, p] of files) total += (await fsp.stat(p)).size;
   if (total > MAX_BACKUP_BYTES) throw new BackupError('too big');
@@ -111,6 +124,52 @@ export async function collect(dataDir: string, app: string, now = new Date()): P
     { name: MANIFEST, data: Buffer.from(JSON.stringify(manifest, null, 2) + '\n') },
   ];
   for (const [name, p] of files) out.push({ name, data: await fsp.readFile(p) });
+  return out;
+}
+
+/**
+ * A file to put in place: its bytes (a backup's .zip) or the file they are copied from (another
+ * copy's folder, 1.12.0-beta.2 — copied on disk, never held in memory).
+ */
+export interface StateEntry {
+  name: string;
+  data?: Buffer;
+  file?: string;
+}
+
+/** The UI state and the pictures' index of another copy are read: larger ones are not its own. */
+const SMALL_MAX = 64 * 1024 * 1024;
+
+/**
+ * Another copy's state to put in place («Перенести з іншої копії…», 1.12.0-beta.2): its songs and
+ * pictures as files to copy — no size limit, nothing read into memory (a copy with gigabytes of
+ * pictures must not take the hub down) —, its UI state and pictures' index read (the summary
+ * needs them). A songs or images folder that links out of that data folder is left out, and so
+ * is a linked UI state: the operator named this folder, not where its links lead.
+ */
+export async function stateEntries(dataDir: string): Promise<StateEntry[]> {
+  const real = await fsp.realpath(dataDir).catch(() => null);
+  if (!real) return [];
+  const within = new Map<string, boolean>();
+  const inside = async (sub: string) => {
+    if (!within.has(sub)) {
+      const r = await fsp.realpath(path.join(dataDir, sub)).catch(() => null);
+      within.set(sub, r !== null && r.startsWith(real + path.sep));
+    }
+    return within.get(sub)!;
+  };
+  const out: StateEntry[] = [];
+  for (const [name, file] of await ownFiles(dataDir)) {
+    const small = name === UI_FILE || name === `${IMAGES}/index.json`;
+    if (name !== UI_FILE && !(await inside(name.split('/')[0]))) continue;
+    if (!small) {
+      out.push({ name, file });
+      continue;
+    }
+    const st = await fsp.lstat(file).catch(() => null);
+    if (!st?.isFile() || st.size > SMALL_MAX) continue;
+    out.push({ name, data: await fsp.readFile(file) });
+  }
   return out;
 }
 
@@ -171,13 +230,18 @@ export async function readBackup(
     throw new BackupError('not a backup');
   const bad = entries.find((e) => !allowed(e.name));
   if (bad) throw new BackupError('foreign file');
+  return { entries, summary: summarize(entries, manifest) };
+}
+
+/** What backup entries hold (readBackup; another copy's data, otherCopy.ts). */
+export function summarize(entries: StateEntry[], manifest: Partial<BackupManifest>): BackupSummary {
   let settings = false;
   let programs = 0;
   let items = 0;
-  const ui = entries.find((e) => e.name === UI_FILE);
+  const ui = entries.find((e) => e.name === UI_FILE)?.data;
   if (ui) {
     try {
-      const state = JSON.parse(ui.data.toString('utf8')) as Record<string, { value?: string }>;
+      const state = JSON.parse(ui.toString('utf8')) as Record<string, { value?: string }>;
       settings = typeof state['vo:settings']?.value === 'string';
       const playlist = JSON.parse(state['vo:playlist']?.value ?? '{}') as {
         state?: { items?: unknown; saved?: unknown };
@@ -191,33 +255,34 @@ export async function readBackup(
   const bundles = entries
     .filter((e) => e.name.startsWith(`${SONGS}/`))
     .map((e) => e.name.slice(SONGS.length + 1, -BUNDLE_EXT.length));
-  const index = entries.find((e) => e.name === `${IMAGES}/index.json`);
+  const index = entries.find((e) => e.name === `${IMAGES}/index.json`)?.data;
   let pictures = 0;
   try {
-    pictures = index ? count(JSON.parse(index.data.toString('utf8')).images) : 0;
+    pictures = index ? count(JSON.parse(index.toString('utf8')).images) : 0;
   } catch {
     throw new BackupError('damaged');
   }
   return {
-    entries,
-    summary: {
-      app: String(manifest.app ?? ''),
-      created: String(manifest.created ?? ''),
-      settings,
-      programs,
-      items,
-      bundles,
-      pictures,
-    },
+    app: String(manifest.app ?? ''),
+    created: String(manifest.created ?? ''),
+    settings,
+    programs,
+    items,
+    bundles,
+    pictures,
   };
 }
 
-/** Write a file atomically (temp + rename), its folder made. */
-async function put(file: string, data: Buffer): Promise<void> {
+/**
+ * Write a file atomically (temp + rename), its folder made: from bytes, or copied from another
+ * file. A write that fails — a full disk — leaves no temp file behind (review of 1.12.0-beta.2).
+ */
+async function put(file: string, data: Buffer | { from: string }): Promise<void> {
   await fsp.mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
-  await fsp.writeFile(tmp, data);
   try {
+    if (Buffer.isBuffer(data)) await fsp.writeFile(tmp, data);
+    else await fsp.copyFile(data.from, tmp);
     await fsp.rename(tmp, file);
   } catch (e) {
     await fsp.rm(tmp, { force: true }); // nothing half-written left behind
@@ -230,19 +295,27 @@ async function put(file: string, data: Buffer): Promise<void> {
  * current ones, then the UI state — last, and stamped with the time it is written, so a change
  * a window sent while the files went in is older than it (review of #47); every browser takes
  * it as the newest at its next start (web/src/lib/uiState.ts). What the backup lacks stays as
- * it is only for the UI state. Returns the time the UI state was stamped with.
+ * it is only for the UI state. `beforeUi` runs between the two (an import's own files of data/,
+ * replaceState): the UI state stays the last step. Returns the time the UI state was stamped with.
  */
-export async function applyBackup(dataDir: string, entries: ZipEntry[]): Promise<number> {
+export async function applyBackup(
+  dataDir: string,
+  entries: StateEntry[],
+  beforeUi?: () => Promise<void>,
+): Promise<number> {
   const songs = path.join(dataDir, SONGS);
   for (const f of await filesIn(songs, bundleFile)) await fsp.rm(path.join(songs, f));
   const images = path.join(dataDir, IMAGES);
   for (const f of await filesIn(images, own)) await fsp.rm(path.join(images, f));
   for (const e of entries) {
-    if (e.name.startsWith(`${SONGS}/`) || e.name.startsWith(`${IMAGES}/`))
-      await put(path.join(dataDir, ...e.name.split('/')), e.data);
+    if (!e.name.startsWith(`${SONGS}/`) && !e.name.startsWith(`${IMAGES}/`)) continue;
+    const to = path.join(dataDir, ...e.name.split('/'));
+    if (e.data) await put(to, e.data);
+    else if (e.file) await put(to, { from: e.file });
   }
-  const ui = entries.find((e) => e.name === UI_FILE);
-  return ui ? writeUiState(dataDir, JSON.parse(ui.data.toString('utf8'))) : Date.now();
+  await beforeUi?.();
+  const ui = entries.find((e) => e.name === UI_FILE)?.data;
+  return ui ? writeUiState(dataDir, JSON.parse(ui.toString('utf8'))) : Date.now();
 }
 
 /** The UI state written, stamped with the time it is written; returns that time. */
@@ -290,12 +363,39 @@ export interface LastRestore {
   undo: string;
   /** how many songs and pictures were moved there: a folder holding another number offers nothing */
   files?: number;
+  /** «Перенести з іншої копії…» (1.12.0-beta.2): the other copy's folder */
+  from?: string;
+  /** an import without the operator's things: the songs, pictures and UI state stayed as they were */
+  state?: false;
+  /**
+   * Files of data/ itself the import wrote (EXTRAS): «Повернути як було» puts back the ones kept
+   * in the folder and removes the ones this copy didn't have.
+   */
+  extras?: string[];
+  /**
+   * The speaker remotes' pairings the import added (their ids): «Повернути як було» drops only
+   * these — a phone paired since stays paired (review of 1.12.0-beta.2).
+   */
+  pairings?: string[];
 }
+
+/**
+ * Files of data/ itself an import may write besides the UI state, the songs and the pictures: the
+ * start settings, the albums' and videos' lists. Not the pairings: the remote store adds them
+ * itself (remote.ts adoptPairings) — it saves its own file, and a write here could cross its own.
+ */
+export const EXTRAS = ['settings.json', 'albums.json', 'videos.json'] as const;
+export type Extra = (typeof EXTRAS)[number];
+const isExtra = (n: unknown): n is Extra => EXTRAS.includes(n as Extra);
 
 /** The last restore while «Повернути як було» is offered: a day, and while its folder is there. */
 export function lastRestore(dataDir: string, now = Date.now()): LastRestore | null {
   const last = readJson<LastRestore | null>(path.join(backupsDir(dataDir), LAST), null);
-  if (!last || typeof last.undo !== 'string' || !/^before-restore-[\w-]+$/.test(last.undo))
+  if (
+    !last ||
+    typeof last.undo !== 'string' ||
+    !/^before-(?:restore|import)-[\w-]+$/.test(last.undo)
+  )
     return null;
   if (!(now - Date.parse(last.at) < UNDO_FOR_MS)) return null;
   const folder = path.join(backupsDir(dataDir), last.undo);
@@ -388,12 +488,38 @@ async function moveState(from: string, to: string): Promise<number> {
  * are moved in next (moveState), not packed into a zip: no copy in memory and no size limit — a
  * local zip over 2 GB could not even be read back (review of #47).
  */
-async function keepFolder(dataDir: string, kind: 'restore' | 'undo', now: Date): Promise<string> {
+type Kind = 'restore' | 'import' | 'undo';
+async function keepFolder(
+  dataDir: string,
+  kind: Kind,
+  now: Date,
+  extras: readonly Extra[] = [],
+): Promise<string> {
   const into = path.join(backupsDir(dataDir), `before-${kind}-${stamp(now)}`);
   await fsp.mkdir(into, { recursive: true });
-  const ui = path.join(dataDir, UI_FILE);
-  if (fs.existsSync(ui)) await fsp.copyFile(ui, path.join(into, UI_FILE));
+  for (const name of [UI_FILE, ...extras]) {
+    const file = path.join(dataDir, name);
+    if (fs.existsSync(file)) await fsp.copyFile(file, path.join(into, name));
+  }
   return into;
+}
+
+/**
+ * The files of data/ itself an import wrote, as they were before it: from the kept folder, or
+ * removed when this copy had none. Each one tried; the first error stands.
+ */
+async function putBackExtras(dataDir: string, kept: string, names: readonly Extra[]) {
+  let failed: unknown = null;
+  for (const name of names) {
+    try {
+      const old = path.join(kept, name);
+      if (fs.existsSync(old)) await put(path.join(dataDir, name), { from: old });
+      else await fsp.rm(path.join(dataDir, name), { force: true });
+    } catch (e) {
+      failed ??= e;
+    }
+  }
+  if (failed) throw failed;
 }
 
 /** A kept folder no longer needed: removed only when no song or picture is left in it. */
@@ -408,7 +534,7 @@ async function dropFolder(folder: string): Promise<void> {
  * Done last and best effort: a folder that can't go now goes next time, and the operation it
  * follows has succeeded already (review of #47).
  */
-async function prune(dataDir: string, kind: 'restore' | 'undo', keep: string): Promise<void> {
+async function prune(dataDir: string, kind: Kind, keep: string): Promise<void> {
   try {
     const dir = backupsDir(dataDir);
     const others = (await fsp.readdir(dir, { withFileTypes: true }))
@@ -492,10 +618,47 @@ export async function restorePending(
   if (!fs.existsSync(pending)) return null;
   if (id !== undefined && readText(path.join(dir, PENDING_ID)) !== id) return null;
   const { entries, summary } = await readBackup(await fsp.readFile(pending));
-  const kept = await keepFolder(dataDir, 'restore', now);
+  await replaceState(dataDir, entries, summary, now, { kind: 'restore', applied });
+  for (const f of [pending, path.join(dir, PENDING_ID)])
+    await fsp.rm(f, { force: true }).catch(() => undefined);
+  return summary;
+}
+
+/** What replaceState is told besides the state. */
+export interface ReplaceOptions {
+  kind: 'restore' | 'import';
+  applied?: () => void;
+  /** an import: the other copy's folder, for the note */
+  from?: string;
+  /**
+   * An import: files of data/ itself (EXTRAS), each made right before it is written — from what
+   * is there then, so a setting saved while the songs and pictures went in is not lost (review
+   * of 1.12.0-beta.2); null: nothing to write. The current ones are kept first.
+   */
+  extras?: Partial<Record<Extra, () => Buffer | null>>;
+  /** an import: the ids of the pairings it adds (`applied` adds them), for the note */
+  pairings?: string[];
+}
+
+/**
+ * Put `entries` in place of the current state (a restore, an import; null: an import of the
+ * extras alone): the current state moved into a folder of its own (the way back) and the note
+ * that offers it, then the new one. All of it or nothing: a failure on the way puts the current
+ * state back — only when even that fails does the note stay, offering «Повернути як було»
+ * (review of #47).
+ */
+export async function replaceState(
+  dataDir: string,
+  entries: StateEntry[] | null,
+  summary: BackupSummary,
+  now: Date,
+  { kind, applied, from, extras = {}, pairings = [] }: ReplaceOptions,
+): Promise<void> {
+  const dir = backupsDir(dataDir);
+  const kept = await keepFolder(dataDir, kind, now);
   let files: number;
   try {
-    files = await moveState(dataDir, kept);
+    files = entries ? await moveState(dataDir, kept) : 0;
   } catch (e) {
     await dropFolder(kept).catch(() => undefined);
     throw e;
@@ -503,22 +666,60 @@ export async function restorePending(
   const last = path.join(dir, LAST);
   // an earlier restore's note, put back when this one changes nothing (review of #47)
   const earlier = fs.existsSync(last) ? await fsp.readFile(last) : null;
-  try {
-    writeJson(
-      last,
-      { created: summary.created, at: now.toISOString(), undo: path.basename(kept), files },
-      { replace: true }, // this restore's note, whatever the last one was
-    );
-    await applyBackup(dataDir, entries);
-  } catch (e) {
-    try {
-      // what of the backup went in goes (it is still in the file), what was there comes back
-      for (const [sub, f] of await stateFiles(dataDir))
-        await fsp.rm(path.join(dataDir, sub, f), { force: true });
-      await moveState(kept, dataDir);
-    } catch {
-      throw e; // the note stays: «Повернути як було» brings the kept state back
+  const note: LastRestore = {
+    created: summary.created,
+    at: now.toISOString(),
+    undo: path.basename(kept),
+    files,
+  };
+  if (from) note.from = from;
+  if (pairings.length) note.pairings = pairings;
+  if (!entries) note.state = false;
+  // the files of data/ itself written so far: a failure puts back only these
+  const written: Extra[] = [];
+  const writeExtras = async () => {
+    const made: [Extra, Buffer][] = [];
+    for (const n of EXTRAS) {
+      const data = extras[n]?.() ?? null;
+      if (data) made.push([n, data]);
     }
+    if (made.length === 0) return;
+    for (const [n] of made) {
+      const file = path.join(dataDir, n);
+      if (fs.existsSync(file)) await fsp.copyFile(file, path.join(kept, n));
+    }
+    note.extras = made.map(([n]) => n);
+    writeJson(last, note, { replace: true });
+    for (const [n, data] of made) {
+      written.push(n); // a write that fails midway is put back too
+      await put(path.join(dataDir, n), data);
+    }
+  };
+  try {
+    writeJson(last, note, { replace: true }); // this restore's note, whatever the last one was
+    // the UI state stays the last step: the extras go in between (applyBackup's beforeUi)
+    if (entries) await applyBackup(dataDir, entries, writeExtras);
+    else await writeExtras();
+  } catch (e) {
+    // the songs and pictures first — moving them back needs no free space, the extras' writes
+    // do (a full disk) —, then the extras; each tried whatever the other did (review of
+    // 1.12.0-beta.2)
+    let failed = false;
+    if (entries)
+      try {
+        // what of the backup went in goes (it is still in the file), what was there comes back
+        for (const [sub, f] of await stateFiles(dataDir))
+          await fsp.rm(path.join(dataDir, sub, f), { force: true });
+        await moveState(kept, dataDir);
+      } catch {
+        failed = true;
+      }
+    try {
+      await putBackExtras(dataDir, kept, written);
+    } catch {
+      failed = true;
+    }
+    if (failed) throw e; // the note stays: «Повернути як було» brings the kept state back
     // the note first: an emptied folder must not stay offered (its count no longer matches,
     // lastRestore, should this fail too); the folder best effort; the real cause reported
     await (earlier ? put(last, earlier) : fsp.rm(last, { force: true })).catch(() => undefined);
@@ -526,10 +727,7 @@ export async function restorePending(
     throw e;
   }
   tell(applied);
-  for (const f of [pending, path.join(dir, PENDING_ID)])
-    await fsp.rm(f, { force: true }).catch(() => undefined);
-  await prune(dataDir, 'restore', path.basename(kept));
-  return summary;
+  await prune(dataDir, kind, path.basename(kept));
 }
 
 /**
@@ -553,45 +751,82 @@ const readText = (file: string) => {
   }
 };
 
+/** What «Повернути як було» did, for the caller. */
+export interface Undone {
+  /** the pairings the import had added: the remote store drops them (remote.ts dropPairings) */
+  pairings: string[];
+  /** this copy had no UI state before: the one there now went too — the page goes to defaults */
+  uiCleared: boolean;
+}
+
 /**
  * «Повернути як було»: the state the last restore replaced, moved back. What is there now — the
  * restored state and whatever was changed since — is moved out first (data/backups/before-undo-…),
  * so going back loses nothing either (review of #47). Either move failing puts everything back
  * where it was, and the way back stays offered. The UI state goes in last, stamped as the
- * newest. False: nothing to go back to.
+ * newest. Null: nothing to go back to.
  */
 export async function undoRestore(
   dataDir: string,
   now = new Date(),
-  applied?: () => void,
-): Promise<boolean> {
+  applied?: (done: Undone) => void,
+): Promise<Undone | null> {
   const last = lastRestore(dataDir, now.getTime());
-  if (!last) return false;
+  if (!last) return null;
   const dir = backupsDir(dataDir);
   const from = path.join(dir, last.undo);
-  const kept = await keepFolder(dataDir, 'undo', now);
+  const extras = (last.extras ?? []).filter(isExtra);
+  // an import of the settings or the pairings alone left the songs, pictures and UI state alone
+  const state = last.state !== false;
+  const kept = await keepFolder(dataDir, 'undo', now, extras);
   try {
-    await moveState(dataDir, kept);
+    if (state) await moveState(dataDir, kept);
   } catch (e) {
     await dropFolder(kept).catch(() => undefined);
     throw e;
   }
   try {
-    await moveState(from, dataDir);
+    if (state) await moveState(from, dataDir);
   } catch (e) {
     await moveState(kept, dataDir).catch(() => undefined);
+    await dropFolder(kept).catch(() => undefined);
+    throw e;
+  }
+  try {
+    await putBackExtras(dataDir, from, extras);
+  } catch (e) {
+    // as it was before the undo: the songs and pictures first, then the extras
+    if (state) {
+      await moveState(dataDir, from).catch(() => undefined);
+      await moveState(kept, dataDir).catch(() => undefined);
+    }
+    await putBackExtras(dataDir, kept, extras).catch(() => undefined);
     await dropFolder(kept).catch(() => undefined);
     throw e;
   }
   // the way back is spent: an error after this point must not offer it again — a retry would
   // move what just came back out (review of #47)
   await fsp.rm(path.join(dir, LAST), { force: true });
-  const ui = readJson<Record<string, { value?: unknown }> | null>(path.join(from, UI_FILE), null);
-  if (ui && typeof ui === 'object') writeUiState(dataDir, ui);
-  tell(applied);
+  let uiCleared = false;
+  if (state) {
+    const before = path.join(from, UI_FILE);
+    const ui = readJson<Record<string, { value?: unknown }> | null>(before, null);
+    if (ui && typeof ui === 'object') writeUiState(dataDir, ui);
+    else if (!fs.existsSync(before)) {
+      // this copy had no UI state before (a fresh copy, the import's main case): the one there
+      // now goes too — kept in before-undo —, and the page drops its copy (review of 1.12.0-beta.2)
+      await fsp.rm(path.join(dataDir, UI_FILE), { force: true });
+      uiCleared = true;
+    }
+  }
+  const done: Undone = {
+    pairings: (last.pairings ?? []).filter((id): id is string => typeof id === 'string'),
+    uiCleared,
+  };
+  tell(() => applied?.(done));
   await fsp.rm(from, { recursive: true, force: true }).catch(() => undefined);
   await prune(dataDir, 'undo', path.basename(kept));
-  return true;
+  return done;
 }
 
 /** A file name for a backup made at `now`: VerseOrchestrator-backup-2026-10-01-1405.zip */

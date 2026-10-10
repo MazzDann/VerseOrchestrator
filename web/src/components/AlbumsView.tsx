@@ -18,6 +18,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconFolder,
+  IconFolderCheck,
   IconFolderPlus,
   IconHome,
   IconMovie,
@@ -245,11 +246,14 @@ export function FolderPicker({
   mode,
   onDone,
   onAdded,
+  onPick,
 }: {
-  mode: 'album' | 'video';
+  /** «copy» (1.12.0-beta.2): a folder of another copy of the app, given to `onPick` */
+  mode: 'album' | 'video' | 'copy';
   onDone: () => void;
   /** the album or the video just added */
-  onAdded: (id: string) => void;
+  onAdded?: (id: string) => void;
+  onPick?: (path: string) => void;
 }) {
   useLang();
   const queryClient = useQueryClient();
@@ -285,7 +289,7 @@ export function FolderPicker({
         autoClose: 1500,
       });
       onDone();
-      onAdded(a.id);
+      onAdded?.(a.id);
     } catch (e) {
       notifications.show({ message: addRefusal(e, 'folder'), color: 'red' });
     } finally {
@@ -303,7 +307,7 @@ export function FolderPicker({
         autoClose: 1500,
       });
       onDone();
-      onAdded(v.id);
+      onAdded?.(v.id);
     } catch (e) {
       notifications.show({ message: addRefusal(e, 'file'), color: 'red' });
     } finally {
@@ -436,7 +440,7 @@ export function FolderPicker({
                   : ''
               }`
             : null}
-          {mode === 'video' || here?.denied
+          {mode !== 'album' || here?.denied
             ? null
             : here?.path
               ? here.photos > 0
@@ -451,6 +455,17 @@ export function FolderPicker({
           <Button size="xs" variant="default" onClick={onDone}>
             {tr('Скасувати')}
           </Button>
+          {mode === 'copy' && (
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<IconFolderCheck size={14} />}
+              disabled={!here?.path || here.denied}
+              onClick={() => here?.path && onPick?.(here.path)}
+            >
+              {tr('Вибрати цю папку')}
+            </Button>
+          )}
           {mode === 'album' && (
             <Button
               size="xs"
