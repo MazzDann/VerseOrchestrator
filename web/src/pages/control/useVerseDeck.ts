@@ -15,6 +15,7 @@ import {
 import { type DataSource } from '../../dataSourceStore';
 import { type LibraryGap } from '../../components/NoLibrary';
 import { formatReference } from '../../lib/reference';
+import { useServer } from '../../serverStore';
 import { useStore } from '../../store';
 import { joinVerses, redLetterSegments } from './slideText';
 
@@ -80,12 +81,15 @@ export function useVerseDeck({
   // A translation the library no longer has leaves the selection, as on the desk (1.10.11, the Mac's
   // round: ids are import order — after a rescan or with a smaller library a gone PRIMARY id said
   // «У цьому перекладі немає книг» and couldn't be unticked). Only against a list that has
-  // translations: an empty or missing library keeps the choice for when it is back.
+  // translations: an empty or missing library keeps the choice for when it is back — and so does
+  // the browser's library standing in for a server being looked for (1.12.5: its ids are not the
+  // server's; trimmed against it, the ticks were gone when the server answered)
+  const serverLost = useServer((s) => s.lost);
   useEffect(() => {
-    if (!translationsQuery.isSuccess || translations.length === 0) return;
+    if (serverLost || !translationsQuery.isSuccess || translations.length === 0) return;
     const known = selectedIds.filter((id) => translations.some((t) => t.id === id));
     if (known.length !== selectedIds.length) useStore.getState().setTranslations(known);
-  }, [translationsQuery.isSuccess, translations, selectedIds]);
+  }, [serverLost, translationsQuery.isSuccess, translations, selectedIds]);
 
   const booksQuery = useQuery({
     queryKey: ['books', primaryId],
