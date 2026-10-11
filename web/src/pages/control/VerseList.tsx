@@ -1,8 +1,9 @@
-import { useRef, type RefObject } from 'react';
+import { Fragment, useMemo, useRef, type RefObject } from 'react';
 import { ScrollArea, Stack, Text } from '@mantine/core';
 import { parseRedLetter } from '@vo/shared';
-import { type Book, type Verse } from '../../api';
-import { type Appearance, type PanelPlacement } from '../../settingsStore';
+import { useQuery } from '@tanstack/react-query';
+import { api, type Book, type Verse } from '../../api';
+import { useSettings, type Appearance, type PanelPlacement } from '../../settingsStore';
 import { type Keymap, matchesCombo } from '../../hotkeys';
 import { ConcordancePanel } from '../../components/ConcordancePanel';
 import { NoLibrary, type LibraryGap } from '../../components/NoLibrary';
@@ -57,6 +58,21 @@ export function VerseList({
   setConcordanceStrong: (strong: string | null) => void;
 }) {
   useLang();
+  // the chapter's section titles in the main translation (1.16.0-beta.2), by the verse they open
+  const showHeadings = useSettings((x) => x.subheadings);
+  const book = currentBook?.bookNumber ?? null;
+  const { data: subheadings } = useQuery({
+    queryKey: ['subheadings', primaryId, book, chapter],
+    queryFn: () => api.subheadings(primaryId!, book!, chapter!),
+    enabled: showHeadings && primaryId != null && book != null && chapter != null,
+    staleTime: Infinity,
+  });
+  const headings = useMemo(() => {
+    const m = new Map<number, string[]>();
+    if (showHeadings)
+      for (const h of subheadings ?? []) m.set(h.verse, [...(m.get(h.verse) ?? []), h.title]);
+    return m;
+  }, [subheadings, showHeadings]);
   // where a Shift range starts: the verse clicked, Space'd or Ctrl-added last
   const anchor = useRef<number | null>(null);
   const one = (v: number) => {
@@ -97,61 +113,76 @@ export function VerseList({
       <ScrollArea style={{ flex: 1 }} px="md" py="xs" viewportRef={verseViewport}>
         <Stack gap={2}>
           {primaryVerses.map((v) => (
-            <div
-              // keyed by the place, not the number alone: a focused row of the last chapter must not
-              // stay focused as another verse of this one — Enter put «Ів 3:28» on screen after a jump
-              // from «Рим 8:28» (users' report F1010-03, reproduced in 1.12.0). The verse's own book:
-              // the books list may come after the verses (review)
-              key={`${v.bookNumber}-${v.chapter}-${v.verse}`}
-              className="vo-verse-item vo-verse-row"
-              role="button"
-              tabIndex={0}
-              data-verse={v.verse}
-              data-selected={selectedVerses.includes(v.verse) ? 'true' : undefined}
-              onClick={(e) => {
-                if (!pick(v.verse, e)) one(v.verse);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === ' ') {
-                  e.preventDefault();
+            <Fragment key={`${v.bookNumber}-${v.chapter}-${v.verse}`}>
+              {/* a section title before its verse (1.16.0-beta.2): not a row — the keys step verses */}
+              {headings.get(v.verse)?.map((title, i) => (
+                <Text
+                  key={i}
+                  className="vo-subheading"
+                  size="sm"
+                  fw={600}
+                  c="dimmed"
+                  aria-hidden={false}
+                >
+                  {title}
+                </Text>
+              ))}
+              <div
+                // keyed by the place, not the number alone: a focused row of the last chapter must not
+                // stay focused as another verse of this one — Enter put «Ів 3:28» on screen after a jump
+                // from «Рим 8:28» (users' report F1010-03, reproduced in 1.12.0). The verse's own book:
+                // the books list may come after the verses (review)
+                key={`${v.bookNumber}-${v.chapter}-${v.verse}`}
+                className="vo-verse-item vo-verse-row"
+                role="button"
+                tabIndex={0}
+                data-verse={v.verse}
+                data-selected={selectedVerses.includes(v.verse) ? 'true' : undefined}
+                onClick={(e) => {
                   if (!pick(v.verse, e)) one(v.verse);
-                } else if (e.key === 'Enter') {
-                  // bound to «На екран» (⌘↩ on a Mac): that hotkey projects
-                  if (matchesCombo(e.nativeEvent, keymap.project)) return;
-                  e.preventDefault();
-                  // a held Enter projects once, not on every repeat (held keys, as since 1.9.5)
-                  if (e.repeat) return;
-                  // Enter projects to the screen immediately (no need to enable
-                  // live-follow or press F5); modifier+Enter extends the selection.
-                  if (!pick(v.verse, e)) {
-                    anchor.current = v.verse;
-                    projectVerseOnEnter(v.verse);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === ' ') {
+                    e.preventDefault();
+                    if (!pick(v.verse, e)) one(v.verse);
+                  } else if (e.key === 'Enter') {
+                    // bound to «На екран» (⌘↩ on a Mac): that hotkey projects
+                    if (matchesCombo(e.nativeEvent, keymap.project)) return;
+                    e.preventDefault();
+                    // a held Enter projects once, not on every repeat (held keys, as since 1.9.5)
+                    if (e.repeat) return;
+                    // Enter projects to the screen immediately (no need to enable
+                    // live-follow or press F5); modifier+Enter extends the selection.
+                    if (!pick(v.verse, e)) {
+                      anchor.current = v.verse;
+                      projectVerseOnEnter(v.verse);
+                    }
                   }
-                }
-              }}
-            >
-              <span className="vo-verse-num">{v.verse}</span>
-              <span>
-                {appearance.redLetter
-                  ? parseRedLetter(v.textRaw ?? v.text ?? '').map((s, j, arr) => (
-                      <Text
-                        span
-                        key={j}
-                        style={{
-                          // a light tint toward the accent: the whole Gospel is often red-letter, so a
-                          // strong tint turns the reading list into a wall of red (the slide keeps 50%)
-                          color: s.jesus
-                            ? `color-mix(in srgb, currentColor 70%, ${appearance.jesusColor})`
-                            : undefined,
-                        }}
-                      >
-                        {s.text}
-                        {j < arr.length - 1 ? ' ' : ''}
-                      </Text>
-                    ))
-                  : v.text}
-              </span>
-            </div>
+                }}
+              >
+                <span className="vo-verse-num">{v.verse}</span>
+                <span>
+                  {appearance.redLetter
+                    ? parseRedLetter(v.textRaw ?? v.text ?? '').map((s, j, arr) => (
+                        <Text
+                          span
+                          key={j}
+                          style={{
+                            // a light tint toward the accent: the whole Gospel is often red-letter, so a
+                            // strong tint turns the reading list into a wall of red (the slide keeps 50%)
+                            color: s.jesus
+                              ? `color-mix(in srgb, currentColor 70%, ${appearance.jesusColor})`
+                              : undefined,
+                          }}
+                        >
+                          {s.text}
+                          {j < arr.length - 1 ? ' ' : ''}
+                        </Text>
+                      ))
+                    : v.text}
+                </span>
+              </div>
+            </Fragment>
           ))}
           {primaryVerses.length === 0 &&
             (libraryGap ? (

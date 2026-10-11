@@ -27,6 +27,41 @@ export function moduleKind(tables: string[]): ModuleKind | null {
   return null;
 }
 
+export interface Subheading {
+  book: number;
+  chapter: number;
+  verse: number;
+  ord: number;
+  title: string;
+}
+
+/**
+ * A translation's section titles (1.16.0-beta.2): Module keeps them in a `stories` table (column
+ * `title`) inside the Bible module, or in a `subheadings` table (column `subheading`); both may have
+ * `order_if_several`. Markup is stripped; empty titles are left out.
+ */
+export function readSubheadings(
+  all: (sql: string) => Record<string, unknown>[],
+  tables: string[],
+): Subheading[] {
+  const has = new Set(tables.map((t) => t.toLowerCase()));
+  const table = has.has('stories') ? 'stories' : has.has('subheadings') ? 'subheadings' : null;
+  if (!table) return [];
+  const out: Subheading[] = [];
+  for (const r of all(`SELECT * FROM ${table}`)) {
+    const title = stripTags(String(r.title ?? r.subheading ?? '')).trim();
+    if (!title) continue;
+    out.push({
+      book: Number(r.book_number),
+      chapter: Number(r.chapter),
+      verse: Number(r.verse),
+      ord: Number(r.order_if_several ?? 0) || 0,
+      title,
+    });
+  }
+  return out;
+}
+
 /** File name without the Module extensions: "UKRK.SQLite3" → "UKRK". */
 export function moduleLabel(fileName: string): string {
   return fileName
@@ -343,6 +378,20 @@ export function convertModule(
       verseRows,
     );
     bulk(out, 'verses_norm', ['id', 'text_norm'], normRows);
+    // the translation's section titles (1.16.0-beta.2)
+    bulk(
+      out,
+      'subheadings',
+      ['translation_id', 'book_number', 'chapter', 'verse', 'ord', 'title'],
+      readSubheadings((sql) => src.all(sql), tables).map((h) => [
+        id,
+        h.book,
+        h.chapter,
+        h.verse,
+        h.ord,
+        h.title,
+      ]),
+    );
     // In primary-key order: the WITHOUT ROWID b-tree is then appended to, not split at
     // random (KJV+: ~300k rows).
     strongRows.sort(

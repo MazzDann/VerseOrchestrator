@@ -155,6 +155,10 @@ function buildOnce(): void {
     const insVerseStrong = db.prepare(
       `INSERT OR IGNORE INTO verse_strongs (strong, lang, translation_id, verse_id) VALUES (?, ?, ?, ?)`,
     );
+    const insSubheading = db.prepare(
+      `INSERT INTO subheadings (translation_id, book_number, chapter, verse, ord, title)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
     const insName = db.prepare(
       `INSERT INTO book_names (translation_id, book_number, name_norm)
        VALUES (@translationId, @bookNumber, @nameNorm)`,
@@ -222,6 +226,10 @@ function buildOnce(): void {
           insName.run({ translationId, bookNumber: b.book_number, nameNorm });
         }
       }
+
+      // the translation's section titles (1.16.0-beta.2)
+      for (const h of mod.subheadings)
+        insSubheading.run(translationId, h.book, h.chapter, h.verse, h.ord, h.title);
 
       let strongRows = 0;
       for (const v of mod.verses) {

@@ -103,6 +103,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
   const simpleView = useSettings((s) => s.simpleView);
+  const subheadingsOn = useSettings((s) => s.subheadings);
   const setSimpleView = useSettings((s) => s.setSimpleView);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
@@ -1195,6 +1196,15 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               )}
               checked={simpleView}
               onChange={(e) => setSimpleView(e.currentTarget.checked)}
+            />
+            {/* 1.16.0-beta.2: a translation's section titles over its verses */}
+            <Switch
+              label={tr('Підзаголовки над віршами')}
+              description={tr(
+                'Назви розділів тексту з перекладу — у списку віршів вікна керування, якщо переклад їх має.',
+              )}
+              checked={subheadingsOn}
+              onChange={(e) => useSettings.getState().setSubheadings(e.currentTarget.checked)}
             />
             <UpdateSection />
             <BackupSection />

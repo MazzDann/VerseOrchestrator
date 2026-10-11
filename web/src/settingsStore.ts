@@ -389,6 +389,9 @@ interface SettingsState {
    */
   simpleView: boolean;
   setSimpleView: (v: boolean) => void;
+  /** a translation's section titles over its verses in the control window (1.16.0-beta.2) */
+  subheadings: boolean;
+  setSubheadings: (v: boolean) => void;
   setOutputs: (patch: Partial<OutputSettings>) => void;
   setLiveFollow: (v: boolean) => void;
   setFollowAlong: (v: boolean) => void;
@@ -705,6 +708,8 @@ export const useSettings = create<SettingsState>()(
       setLanguage: (lang) => set({ language: isLang(lang) ? lang : 'uk' }),
       simpleView: false,
       setSimpleView: (v) => set({ simpleView: v === true }),
+      subheadings: true,
+      setSubheadings: (v) => set({ subheadings: v === true }),
       setOutputs: (patch) =>
         set((st) => ({ outputs: sanitizeOutputs({ ...st.outputs, ...patch }) })),
       setLiveFollow: (v) => set({ liveFollow: v }),
@@ -873,6 +878,7 @@ export const useSettings = create<SettingsState>()(
           // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
           simpleView: p.simpleView === true,
+          subheadings: p.subheadings !== false,
           pickBeforeEnter: p.pickBeforeEnter !== false,
         };
       },

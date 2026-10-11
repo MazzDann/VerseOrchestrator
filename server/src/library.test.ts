@@ -221,5 +221,6 @@ describe('older libraries (pre-0.3.2 schema) keep working', () => {
     const old = createLibrary(betterSqliteDriver(() => db));
     expect((await old.search('полюбив', [1])).results.map((r) => r.translationId)).toEqual([1]);
     expect((await old.strongRefs('G2316', { translationId: 1 })).total).toBe(1); // lang ignored
+    expect(await old.getSubheadings(1, 500, 3)).toEqual([]); // no section titles before 1.16
   });
 });

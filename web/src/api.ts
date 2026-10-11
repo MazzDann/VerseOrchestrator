@@ -652,6 +652,13 @@ export const api = {
       (l) => l.chapterProfiles(translationIds, books),
       `/api/profiles?translations=${translationIds.join(',')}&books=${books.join(',')}`,
     ),
+  /** a chapter's section titles (1.16.0-beta.2); an older server has none to give */
+  subheadings: (id: number, book: number, chapter: number) =>
+    fromLibrary(
+      z.array(z.object({ verse: z.number(), title: z.string() })),
+      (l) => l.getSubheadings(id, book, chapter),
+      `/api/translations/${id}/books/${book}/chapters/${chapter}/subheadings`,
+    ).catch(() => []),
   verses: (id: number, book: number, chapter: number) =>
     fromLibrary(
       z.array(VerseSchema),

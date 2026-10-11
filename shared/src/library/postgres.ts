@@ -97,6 +97,18 @@ CREATE TABLE cross_references (
 );
 CREATE INDEX idx_xref ON cross_references (book, chapter, verse);
 
+-- Section titles inside a translation (Module's 'stories' / 'subheadings' tables, 1.16.0-beta.2): shown
+-- before their verse; 'ord' keeps several at one verse in order.
+CREATE TABLE subheadings (
+  translation_id INTEGER NOT NULL,
+  book_number    INTEGER NOT NULL,
+  chapter        INTEGER NOT NULL,
+  verse          INTEGER NOT NULL,
+  ord            INTEGER NOT NULL DEFAULT 0,
+  title          TEXT NOT NULL
+);
+CREATE INDEX idx_subheadings ON subheadings (translation_id, book_number, chapter, verse);
+
 CREATE TABLE commentaries (
   source       TEXT NOT NULL,
   book         INTEGER NOT NULL,

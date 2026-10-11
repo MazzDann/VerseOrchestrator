@@ -15,6 +15,7 @@ export const SEGMENT_TABLES = [
   'book_names',
   'verses',
   'verse_strongs',
+  'subheadings',
   'dictionaries',
   'dictionary_entries',
   'cross_references',
