@@ -228,10 +228,22 @@ export function useAlbum({
       })
       .catch(() => {});
   };
+  function heicFailed(name: string) {
+    return !!album && failed.has(`${album.id}|${name}`);
+  }
   const showPhoto = (index: number, quiet = false, dir: 1 | -1 = 1) => {
     if (!album || !photos?.[index]) return;
     // an HEIC still converting (1.14.0-beta.2): the screen keeps what it shows; the photo goes up
     // once its view copy is made — converted first
+    if (heicFailed(photos[index].name)) {
+      noticeOnce(
+        'album-heic',
+        tr('Не вдалося перетворити фото HEIC «{name}»', { name: photos[index].name }),
+        3000,
+        'orange',
+      );
+      return;
+    }
     if (!photoReady(photos[index])) {
       waitFor.current = {
         id: album.id,
@@ -314,9 +326,12 @@ export function useAlbum({
     if (!photos) return { ok: false, reason: tr('Альбом ще завантажується') };
     if (photos.length === 0) return { ok: false, reason: tr('В альбомі немає фото') };
     const at = place();
-    let idx = Math.max(0, Math.min(photos.length - 1, (at ?? -1) + dir));
-    // the slideshow's own steps go past HEIC photos still converting (1.14.0-beta.2)
-    if (quiet) while (idx > 0 && idx < photos.length - 1 && !photoReady(photos[idx])) idx += dir;
+    // past HEIC photos that couldn't be converted — and, for the slideshow's own steps, those still
+    // converting (1.14.0-beta.2; the sweep: a broken HEIC at the end kept «Це останнє фото» away)
+    const skip = (i: number) => heicFailed(photos[i].name) || (quiet && !photoReady(photos[i]));
+    let idx = (at ?? -1) + dir;
+    while (idx >= 0 && idx < photos.length && skip(idx)) idx += dir;
+    if (idx < 0 || idx >= photos.length) idx = at ?? Math.max(0, Math.min(photos.length - 1, idx));
     if (at != null && idx === at) {
       // the running order's next / previous item (1.10.0-beta.1) — never from the slideshow
       const o = quiet
@@ -450,6 +465,8 @@ export function useAlbum({
     over: Slide;
   } | null>(null);
   const [convertNow, setConvertNow] = useState(0);
+  /** HEIC photos this window couldn't convert (a broken file, a decoder failure) */
+  const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const converted = useRef(new Set<string>());
   const putRef = useRef(put);
   putRef.current = put;
@@ -474,7 +491,9 @@ export function useAlbum({
           const { blob } = await heicToJpeg(raw, 3840, 0.9);
           await api.putAlbumView(albumId, p.name, p.v!, blob);
         } catch {
-          // left as it is (a next opening tries again); the photo waited for says so (review)
+          // marked: its tile says so, steps go past it (a next opening of the window tries again)
+          setFailed((f) => new Set(f).add(key(p.name)));
+          // the photo waited for says so (review)
           if (waitFor.current?.id === albumId && waitFor.current.name === p.name) {
             waitFor.current = null;
             notifications.show({
@@ -551,6 +570,8 @@ export function useAlbum({
     openAlbum,
     startAlbum,
     pickPhoto,
+    /** an HEIC photo of the open album this window couldn't convert (its tile says so) */
+    heicFailed,
     /** the panel's ← → buttons: a step by hand, as a key */
     stepBy: (dir: 1 | -1) => {
       setPlaying(false);

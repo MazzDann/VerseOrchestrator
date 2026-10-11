@@ -804,6 +804,7 @@ export const EN: Record<string, string> = {
   'Перетворюю {n} фото HEIC…|Перетворюю {n} фото HEIC…|Перетворюю {n} фото HEIC…':
     'Converting {n} HEIC photo…|Converting {n} HEIC photos…',
   'перетворюю…': 'converting…',
+  'не вдалося перетворити': 'could not convert',
   'Перетворюю фото HEIC… ({n} з {of})': 'Converting HEIC photos… ({n} of {of})',
   'Перетворення HEIC скасовано': 'HEIC conversion cancelled',
   'Фото HEIC перетворювалося задовго — спробуйте ще раз або збережіть його як JPEG':
