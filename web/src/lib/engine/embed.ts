@@ -36,6 +36,7 @@ function getWorker(): Worker {
     else p?.reject(new Error(d.error ?? 'embed'));
   };
   w.onerror = (e) => {
+    useEmbedProgress.setState({ progress: null });
     for (const p of pending.values()) p.reject(new Error(e.message || 'embed'));
     pending.clear();
     worker = null;

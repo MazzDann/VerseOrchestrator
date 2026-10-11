@@ -123,8 +123,7 @@ describe('the vector job', () => {
     const sets = readVectorSets(dataDir, 'fast');
     expect(sets.get('h1')).toEqual({ done: true, books: 3 });
     expect(sets.get('h2')).toEqual({ done: true, books: 1 });
-    expect(onSet).toHaveBeenNthCalledWith(1, true); // the file is new: the library reopens
-    expect(onSet).toHaveBeenNthCalledWith(2, false);
+    expect(onSet).toHaveBeenCalledTimes(2); // a translation each
     // the empty verse is left out of the model and of the chapter
     expect(calls.flat()).not.toContain('');
     const v = new Database(vectorsPath(dataDir), { readonly: true });

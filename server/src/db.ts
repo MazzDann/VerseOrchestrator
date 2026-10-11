@@ -36,6 +36,8 @@ const VECTORS_PATH = path.join(
 export { LibraryError as ApiError };
 
 let db: Database.Database | null = null;
+/** the open connection has data/vectors.db attached */
+let attached = false;
 
 function getDb(): Database.Database {
   if (db) return db;
@@ -53,9 +55,11 @@ function getDb(): Database.Database {
     throw new LibraryError(503, NO_LIBRARY);
   }
   tuneReadOnly(conn);
+  attached = false;
   if (fs.existsSync(VECTORS_PATH))
     try {
       conn.prepare('ATTACH DATABASE ? AS vectors').run(VECTORS_PATH);
+      attached = true;
     } catch (err) {
       console.warn(`[db] vectors: ${(err as Error).message}`);
     }
@@ -103,6 +107,14 @@ export function betterSqliteDriver(open: () => Database.Database): SqlDriver {
 /** What «~ …» asks the model for (index.ts: the chosen model, opened when first asked). */
 let options: LibraryOptions = {};
 let current: Library = createLibrary(betterSqliteDriver(getDb), options);
+
+/**
+ * Does the library see data/vectors.db? Not when the connection opened before the file was made
+ * (the first vectors, or a first run stopped after making the file): then it is reopened.
+ */
+export function vectorsAttached(): boolean {
+  return !db || attached;
+}
 
 /** The host's embedder for queries by meaning — a fresh library takes it. */
 export function setLibraryOptions(o: LibraryOptions): void {

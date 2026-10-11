@@ -228,6 +228,8 @@ export function useHub({
         } else if (f.type === 'semantic') {
           // «Пошук за змістом» (1.15.0-beta.2): a model or the vectors moved on
           void queryClient.invalidateQueries({ queryKey: ['semantic'] });
+          // a «~ …» answered «not set up» before is asked again (review)
+          void queryClient.invalidateQueries({ queryKey: ['search'] });
         } else if (f.type === 'catalog') {
           // «Модулі» (1.15.0-beta.1): a download moved on, maybe started in another window
           const q = CatalogQueueSchema.safeParse(f.queue);

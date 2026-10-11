@@ -116,7 +116,7 @@ John 3:16 in Ukrainian too. Above the results it says **By meaning**, the neares
 This needs a model and the translations' vectors. Set them up once in **Settings** →
 **Search** → **Search by meaning**:
 
-1. Choose the model: **Fast** (135 MB, about 5 minutes a translation) or **Precise** (328 MB,
+1. Choose the model: **Fast** (129 MB, about 5 minutes a translation) or **Precise** (313 MB,
    finds better, about 25 minutes a translation). Both work with many languages.
 2. Click **Download the model**. The app downloads it from Hugging Face once.
 3. Click **Make them for … translations**. The app makes the vectors in the background, on

@@ -113,8 +113,8 @@ export function createVectorJob(d: {
   /** the model, opened for this job (released at its end) */
   open: (model: EmbedModelId) => Promise<Embedder & { release: () => Promise<void> }>;
   onChange?: (s: VectorJobState) => void;
-  /** a translation got all its vectors (the first one: the file is new — reopen the library) */
-  onSet?: (first: boolean) => void;
+  /** a translation got all its vectors */
+  onSet?: () => void;
 }) {
   let s: VectorJobState = {
     phase: 'idle',
@@ -136,14 +136,16 @@ export function createVectorJob(d: {
   };
 
   async function run(model: EmbedModelId, ids: number[] | null): Promise<void> {
-    const lib = new Database(d.libraryPath, { readonly: true, fileMustExist: true });
-    lib.pragma('busy_timeout = 3000');
-    const isNew = !fs.existsSync(vectorsPath(d.dataDir));
-    const vdb = openVectors(d.dataDir);
+    let lib: Database.Database | null = null;
+    let vdb: Database.Database | null = null;
     let embedder: (Embedder & { release: () => Promise<void> }) | null = null;
     let made = 0;
-    let first = isNew;
+    // the job's end, written once everything is closed: a new start can't overlap this one (review)
+    let end: VectorPhase = 'done';
     try {
+      lib = new Database(d.libraryPath, { readonly: true, fileMustExist: true });
+      lib.pragma('busy_timeout = 3000');
+      vdb = openVectors(d.dataDir);
       const sets = readVectorSets(d.dataDir, model);
       const all = lib
         .prepare('SELECT id, abbr, source_hash FROM translations ORDER BY abbr')
@@ -224,14 +226,12 @@ export function createVectorJob(d: {
           })();
         }
         finish.run(model, hash, t.abbr, rows.length);
-        d.onSet?.(first);
-        first = false;
+        d.onSet?.();
       }
-      s.phase = 'done';
     } catch (err) {
-      if (err instanceof Stopped) s.phase = 'stopped';
+      if (err instanceof Stopped) end = 'stopped';
       else {
-        s.phase = 'failed';
+        end = 'failed';
         s.error = {
           key: N_('Не вдалося обчислити вектори: {error}'),
           vars: { error: (err as Error).message },
@@ -240,8 +240,9 @@ export function createVectorJob(d: {
       }
     } finally {
       await embedder?.release().catch(() => undefined);
-      lib.close();
-      vdb.close();
+      lib?.close();
+      vdb?.close();
+      s.phase = end;
       s.endedAt = Date.now();
       s.current = null;
       s.left = 0;

@@ -39,6 +39,8 @@ export function SemanticSection({ active }: { active: boolean }) {
     setBusy(true);
     try {
       queryClient.setQueryData(['semantic'], await fn());
+      // a «~ …» answered «not set up» before is asked again (review)
+      void queryClient.invalidateQueries({ queryKey: ['search'] });
     } catch (e) {
       notifications.show({ message: (e as Error).message, color: 'red' });
     } finally {

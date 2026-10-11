@@ -6,7 +6,15 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ApiError, closeDb, library, libraryInfo, libraryPath, setLibraryOptions } from './db.js';
+import {
+  ApiError,
+  closeDb,
+  library,
+  libraryInfo,
+  libraryPath,
+  setLibraryOptions,
+  vectorsAttached,
+} from './db.js';
 import { isLocalRequest, isOwnAddress, lanIps } from './access.js';
 import { isLocalControl, requireLocal, requireLocalControl } from './guards.js';
 import { UnreadableFile } from './jsonFile.js';
@@ -2351,9 +2359,9 @@ const vectors = createVectorJob({
   libraryPath,
   open: (model) => openEmbedder(dataDir, model, jobThreads()),
   onChange: (s) => notifySemantic(s),
-  // the first translation made data/vectors.db: the library connection attaches it when reopened
-  onSet: (first) => {
-    if (first) closeDb();
+  // a library connection opened before data/vectors.db was made attaches it when reopened
+  onSet: () => {
+    if (!vectorsAttached()) closeDb();
     notifySemantic({});
   },
 });

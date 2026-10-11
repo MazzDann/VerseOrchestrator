@@ -64,12 +64,14 @@ export function createQueryEmbedder(dataDir: string, chosen: () => EmbedModelId 
     async embed(text: string): Promise<{ model: EmbedModelId; vec: Int8Array } | null> {
       const id = chosen();
       if (!id || !modelInstalled(dataDir, id)) return null;
+      // taken at once, before any await: two queries at the same moment share one session
       if (open?.id !== id) {
-        await release();
+        void release();
         open = { id, e: openEmbedder(dataDir, id, 2) };
       }
+      const mine = open;
       try {
-        const e = await open.e;
+        const e = await mine.e;
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => void release(), IDLE_MS);
         timer.unref();
@@ -77,7 +79,8 @@ export function createQueryEmbedder(dataDir: string, chosen: () => EmbedModelId 
         return { model: id, vec };
       } catch (err) {
         console.warn(`[embed] ${id}: ${(err as Error).message}`);
-        await release();
+        // a session that failed to open is dropped (one that a newer choice replaced is not)
+        if (open === mine) await release();
         return null;
       }
     },
