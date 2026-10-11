@@ -114,6 +114,7 @@ function fixtureLibrary(file: string): void {
     INSERT INTO verse_strongs SELECT 2316, 'H', 1, id FROM verses WHERE translation_id = 1 AND book_number = 60 AND chapter = 4 AND verse = 1;
     INSERT INTO dictionaries VALUES (1, 'SG', 'Strong Greek', 'el', 'strong', 1), (2, 'SH', 'Strong Hebrew', 'he', 'strong', 1), (3, 'BD', 'Біблійний словник', 'uk', 'explanatory', 0);
     INSERT INTO dictionary_entries VALUES (1, 'G2316', '2316', 'G', 'θεός'), (2, 'H2316', '2316', 'H', 'אֱלֹהִים'), (3, 'Любов', 'любов', '', 'Основа всього');
+    INSERT INTO subheadings VALUES (1, 500, 3, 16, 2, 'Бог полюбив світ'), (1, 500, 3, 16, 1, 'Розмова з Никодимом'), (2, 500, 3, 16, 0, 'For God so loved');
     INSERT INTO cross_references VALUES (500, 3, 16, 450, 5, 8, 8), (500, 3, 16, 690, 4, 9, 10);
     INSERT INTO commentaries VALUES ('MH', 500, 3, 14, 3, 18, '1', 'Про любов Божу'), ('MH', 500, 4, 1, 4, 1, '', 'Інше');
     INSERT INTO songs VALUES (1, 12, 'Боже Вічний', 'боже вічний', 'ПС'), (2, 120, 'Слава', 'слава', 'ПС');
@@ -237,6 +238,19 @@ describe('PostgreSQL (PGlite) answers like SQLite', () => {
     for (const q of ['', '1', '12', 'вічн', 'нема'])
       expect(await postgres.searchSongs(q), q).toEqual(await sqlite.searchSongs(q));
     expect(await postgres.getSong(1)).toEqual(await sqlite.getSong(1));
+  });
+
+  it('section titles (1.16.0-beta.2): the same, in order, per translation', async () => {
+    const want = [
+      { verse: 16, title: 'Розмова з Никодимом' },
+      { verse: 16, title: 'Бог полюбив світ' },
+    ];
+    expect(await sqlite.getSubheadings(1, 500, 3)).toEqual(want);
+    expect(await postgres.getSubheadings(1, 500, 3)).toEqual(want);
+    expect(await postgres.getSubheadings(2, 500, 3)).toEqual([
+      { verse: 16, title: 'For God so loved' },
+    ]);
+    expect(await sqlite.getSubheadings(1, 500, 4)).toEqual([]);
   });
 
   it('builds tsqueries from the same clauses as FTS5', () => {

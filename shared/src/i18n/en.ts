@@ -1747,6 +1747,9 @@ export const EN: Record<string, string> = {
   'Один на мову': 'One per language',
   'Лише головний': 'Only the main one',
   'лише частина Біблії': 'part of the Bible only',
+  'Підзаголовки над віршами': 'Section titles over the verses',
+  'Назви розділів тексту з перекладу — у списку віршів вікна керування, якщо переклад їх має.':
+    'The translation’s section titles — in the control window’s verse list, if the translation has them.',
   Модулі: 'Modules',
   'Модулі: каталог і вибір…': 'Modules: catalog and choice…',
   'Каталог модулів працює, коли застосунок запущено на цьому комп’ютері.':

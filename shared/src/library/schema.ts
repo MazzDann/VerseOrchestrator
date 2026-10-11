@@ -5,6 +5,7 @@
  */
 export const SCHEMA_SQL = /* sql */ `
 DROP TABLE IF EXISTS verse_strongs;
+DROP TABLE IF EXISTS subheadings;
 DROP TABLE IF EXISTS verses_fts_vocab;
 DROP TABLE IF EXISTS verses_fts;
 DROP TABLE IF EXISTS verses;
@@ -78,6 +79,18 @@ CREATE VIRTUAL TABLE verses_fts USING fts5 (
 -- Read-only view of the index's vocabulary (no storage): per-term document counts let
 -- the search planner tell a rare word from a frequent one before choosing a strategy.
 CREATE VIRTUAL TABLE verses_fts_vocab USING fts5vocab('verses_fts', 'row');
+
+-- Section titles inside a translation (Module's 'stories' / 'subheadings' tables, 1.16.0-beta.2): shown
+-- before their verse; 'ord' keeps several at one verse in order.
+CREATE TABLE subheadings (
+  translation_id INTEGER NOT NULL,
+  book_number    INTEGER NOT NULL,
+  chapter        INTEGER NOT NULL,
+  verse          INTEGER NOT NULL,
+  ord            INTEGER NOT NULL DEFAULT 0,
+  title          TEXT NOT NULL,
+  PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
+);
 
 DROP TABLE IF EXISTS dictionary_entries;
 DROP TABLE IF EXISTS dictionaries;

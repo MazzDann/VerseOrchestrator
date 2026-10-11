@@ -1098,6 +1098,20 @@ app.get(
   }),
 );
 
+// a chapter's section titles (1.16.0-beta.2)
+app.get(
+  '/api/translations/:id/books/:book/chapters/:chapter/subheadings',
+  wrap(async (req, res) =>
+    res.json(
+      await library().getSubheadings(
+        asInt(req.params.id, 'translation id'),
+        asInt(req.params.book, 'book'),
+        asInt(req.params.chapter, 'chapter'),
+      ),
+    ),
+  ),
+);
+
 app.get(
   '/api/translations/:id/books/:book/chapters/:chapter/verses',
   wrap(async (req, res) =>

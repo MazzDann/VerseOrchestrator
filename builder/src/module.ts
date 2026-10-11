@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { bibleMeta, type BibleMeta } from '@vo/shared';
+import { bibleMeta, readSubheadings, type BibleMeta, type Subheading } from '@vo/shared';
 
 export type ModuleInfo = BibleMeta;
 
@@ -21,6 +21,8 @@ export interface ModuleModule {
   info: ModuleInfo;
   books: ModuleBook[];
   verses: ModuleVerse[];
+  /** section titles (1.16.0-beta.2) */
+  subheadings: Subheading[];
 }
 
 function tableExists(db: Database.Database, name: string): boolean {
@@ -59,10 +61,17 @@ export function readModule(path: string): ModuleModule | null {
 
     if (books.length === 0 || verses.length === 0) return null;
 
+    const tables = (
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]
+    ).map((t) => t.name);
     return {
       info: bibleMeta(info),
       books,
       verses,
+      subheadings: readSubheadings(
+        (sql) => db.prepare(sql).all() as Record<string, unknown>[],
+        tables,
+      ),
     };
   } finally {
     db.close();

@@ -27,6 +27,64 @@ export function moduleKind(tables: string[]): ModuleKind | null {
   return null;
 }
 
+export interface Subheading {
+  book: number;
+  chapter: number;
+  verse: number;
+  ord: number;
+  title: string;
+}
+
+/**
+ * A translation's section titles (1.16.0-beta.2): Module keeps them in a `stories` table (column
+ * `title`) inside the Bible module, or in a `subheadings` table (column `subheading`); both may have
+ * `order_if_several`. Markup is stripped; empty titles are left out.
+ */
+export function readSubheadings(
+  all: (sql: string) => Record<string, unknown>[],
+  tables: string[],
+): Subheading[] {
+  const has = new Set(tables.map((t) => t.toLowerCase()));
+  const table = has.has('stories') ? 'stories' : has.has('subheadings') ? 'subheadings' : null;
+  if (!table) return [];
+  let rows: Record<string, unknown>[];
+  try {
+    rows = all(`SELECT * FROM ${table}`);
+  } catch {
+    return []; // an optional table: never what fails a module (review)
+  }
+  const found: (Subheading & { at: number; order: number })[] = [];
+  rows.forEach((r, at) => {
+    const title = stripTags(String(r.title ?? r.subheading ?? '')).trim();
+    const [book, chapter, verse] = [r.book_number, r.chapter, r.verse].map(Number);
+    if (!title || ![book, chapter, verse].every(Number.isFinite)) return;
+    found.push({ book, chapter, verse, ord: 0, title, at, order: Number(r.order_if_several) || 0 });
+  });
+  // one place, several titles: their order, then as they came — numbered 0, 1, … (the key)
+  found.sort(
+    (a, b) =>
+      a.book - b.book ||
+      a.chapter - b.chapter ||
+      a.verse - b.verse ||
+      a.order - b.order ||
+      a.at - b.at,
+  );
+  const out: Subheading[] = [];
+  for (const h of found) {
+    const prev = out[out.length - 1];
+    const same =
+      prev && prev.book === h.book && prev.chapter === h.chapter && prev.verse === h.verse;
+    out.push({
+      book: h.book,
+      chapter: h.chapter,
+      verse: h.verse,
+      ord: same ? prev.ord + 1 : 0,
+      title: h.title,
+    });
+  }
+  return out;
+}
+
 /** File name without the Module extensions: "UKRK.SQLite3" → "UKRK". */
 export function moduleLabel(fileName: string): string {
   return fileName
@@ -343,6 +401,20 @@ export function convertModule(
       verseRows,
     );
     bulk(out, 'verses_norm', ['id', 'text_norm'], normRows);
+    // the translation's section titles (1.16.0-beta.2)
+    bulk(
+      out,
+      'subheadings',
+      ['translation_id', 'book_number', 'chapter', 'verse', 'ord', 'title'],
+      readSubheadings((sql) => src.all(sql), tables).map((h) => [
+        id,
+        h.book,
+        h.chapter,
+        h.verse,
+        h.ord,
+        h.title,
+      ]),
+    );
     // In primary-key order: the WITHOUT ROWID b-tree is then appended to, not split at
     // random (KJV+: ~300k rows).
     strongRows.sort(

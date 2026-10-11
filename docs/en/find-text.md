@@ -39,6 +39,10 @@ To go to a place in the Bible:
 
 The chosen passage appears at once on the **Preview** monitor on the right.
 
+If the main translation has section titles (such as “The Creation”), they stand in the list
+over their verses. To hide them, turn off **Section titles over the verses** in **Settings** →
+**App**.
+
 To follow a reference, type it in the **Search** field at the top and press Enter. The
 field understands references such as `John 3:16`, `Genesis 2 3`, or `John 3:16-18`. A book
 name can be in the language of any translation in the library.

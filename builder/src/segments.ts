@@ -115,6 +115,7 @@ export function buildSegments(
     copy('book_names', 'translation_id = ?', [id]);
     const verses = copy('verses', 'translation_id = ?', [id]);
     if (has('verse_strongs')) copy('verse_strongs', 'translation_id = ?', [id]);
+    if (has('subheadings')) copy('subheadings', 'translation_id = ?', [id]);
     // FTS is contentless in the library, so the segment carries the NORMALIZED TEXT
     // instead of an index: the engine fills its own FTS from it with one SQL statement
     // (ftsFillSql). Shipping a built index too would only add size — it can't be merged.

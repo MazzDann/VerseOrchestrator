@@ -871,6 +871,25 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     return { kind: 'meaning', results };
   }
 
+  /**
+   * A chapter's section titles in a translation (1.16.0-beta.2): before which verse, in order. An
+   * older library has none.
+   */
+  async function getSubheadings(
+    translationId: number,
+    book: number,
+    chapter: number,
+  ): Promise<{ verse: number; title: string }[]> {
+    if (!(await tableExists('subheadings'))) return [];
+    const rows = await db.all<AnyRow>(
+      `SELECT verse, title FROM subheadings
+       WHERE translation_id = ? AND book_number = ? AND chapter = ?
+       ORDER BY verse, ord`,
+      [translationId, book, chapter],
+    );
+    return rows.map((r) => ({ verse: Number(r.verse), title: String(r.title) }));
+  }
+
   async function search(query: string, translationIds: number[]): Promise<SearchResponse> {
     const ids = translationIds.length ? translationIds : (await getTranslations()).map((t) => t.id);
     if (ids.length === 0) return { kind: 'empty', results: [] };
@@ -982,6 +1001,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     getChapters,
     chapterProfiles,
     getVerses,
+    getSubheadings,
     listDictionaries,
     lookupStrong,
     lookupWord,
