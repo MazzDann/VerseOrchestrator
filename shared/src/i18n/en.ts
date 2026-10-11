@@ -1106,14 +1106,14 @@ export const EN: Record<string, string> = {
   'Без номерів Стронга — доступний лише словник по слову.':
     "No Strong's numbers — only the dictionary by word is available.",
   'На екран зі Стронгом': "To screen with Strong's",
-  'Немає статті для {n}. Додайте словник Стронга в папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).':
-    "No entry for {n}. Add a Strong's dictionary to the modules/ folder and click “Rescan modules” (Settings → App).",
+  'Немає статті для {n}. Додайте словник Стронга в папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Дані).':
+    "No entry for {n}. Add a Strong's dictionary to the modules/ folder and click “Rescan modules” (Settings → Data).",
   'У словниках нічого не знайдено для цього слова.':
     'Nothing found in the dictionaries for this word.',
   'Де ще вживається · Стронг {n}': "Where else it is used · Strong's {n}",
   'Перехресні посилання': 'Cross-references',
-  'Немає перехресних посилань. Додайте модуль {module} у папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).':
-    'No cross-references. Add a {module} module to the modules/ folder and click “Rescan modules” (Settings → App).',
+  'Немає перехресних посилань. Додайте модуль {module} у папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Дані).':
+    'No cross-references. Add a {module} module to the modules/ folder and click “Rescan modules” (Settings → Data).',
   Коментарі: 'Commentaries',
   'Немає коментарів для цього вірша.': 'No commentaries for this verse.',
   'Цей переклад': 'This translation',
@@ -1704,14 +1704,12 @@ export const EN: Record<string, string> = {
     'Fast: {name}, {size}; ≈ {min} min a translation.',
   'Точна: {name}, {size}; знаходить краще, ≈ {min} хв на переклад.':
     'Precise: {name}, {size}; finds better, ≈ {min} min a translation.',
-  'Вектори є для {n} з {total} перекладів.': '{n} of {total} translations have vectors.',
   частково: 'partly',
   Вектори: 'Vectors',
   '{abbr}: {done} з {total} віршів · {rate} за секунду':
     '{abbr}: {done} of {total} verses · {rate} a second',
   'далі ще {n}': '{n} more after it',
   'Готую модель…': 'Preparing the model…',
-  'Обчислити для {n} перекладів (≈ {min} хв)': 'Make them for {n} translations (≈ {min} min)',
   'Видалити модель ({size})': 'Delete the model ({size})',
   'Завантажити модель ({size})': 'Download the model ({size})',
   'З Hugging Face; ліцензія {licence}.': 'From Hugging Face; licence {licence}.',
@@ -1735,6 +1733,20 @@ export const EN: Record<string, string> = {
   Швидка: 'Fast',
   Точна: 'Precise',
   'За змістом «~ любіть своїх ворогів»': 'By meaning “~ любіть своїх ворогів”',
+  'Для поточного перекладу векторів немає — знайдено за іншим перекладом. Enter відкриє це місце в поточному.':
+    'The current translation has no vectors — found through another one. Enter opens this place in the current translation.',
+  'Досить одного перекладу: за його векторами пошук знаходить місця за запитом будь-якою мовою й відкриває їх у головному перекладі. Інші переклади додають точності для своїх слів.':
+    'One translation is enough: with its vectors the search finds places for a query in any language and opens them in the main translation. Other translations add precision for their own wording.',
+  'Вектори є: {list}.': 'Vectors made: {list}.',
+  'Векторів ще немає.': 'No vectors yet.',
+  'Виберіть переклади, для яких обчислити вектори:': 'Choose the translations to make vectors for:',
+  'Увесь процесор': 'The whole processor',
+  'Швидше: «Точна» — удвічі, «Швидка» — в 1,4 раза. Поки вектори обчислюються, показ може пригальмовувати.':
+    'Faster: «Точна» twice, «Швидка» 1.4 times. While the vectors are made, the show may slow down.',
+  'Обчислити для вибраних: {n} (≈ {min} хв)': 'Make them for the chosen: {n} (≈ {min} min)',
+  'Один на мову': 'One per language',
+  'Лише головний': 'Only the main one',
+  'лише частина Біблії': 'part of the Bible only',
   Модулі: 'Modules',
   'Модулі: каталог і вибір…': 'Modules: catalog and choice…',
   'Каталог модулів працює, коли застосунок запущено на цьому комп’ютері.':
@@ -1785,10 +1797,10 @@ export const EN: Record<string, string> = {
     'This module holds only notes, without the Bible text',
   'Не вдалося зберегти модуль: {error}': 'Could not save the module: {error}',
   'Очікую { kind, files }': 'Expected { kind, files }',
-  'Або відкрийте модуль прямо в браузері: додайте файл у «Джерело даних» (Налаштування вигляду → Застосунок) і виберіть «У браузері».':
-    'Or open a module right in the browser: add the file under “Data source” (Settings → App) and choose “In the browser”.',
-  'Додайте модуль Module чи сегмент у «Джерело даних» (Налаштування вигляду → Застосунок).':
-    'Add a Module module or a segment under “Data source” (Settings → App).',
+  'Або відкрийте модуль прямо в браузері: додайте файл у «Джерело даних» (Налаштування вигляду → Дані) і виберіть «У браузері».':
+    'Or open a module right in the browser: add the file under “Data source” (Settings → Data) and choose “In the browser”.',
+  'Додайте модуль Module чи сегмент у «Джерело даних» (Налаштування вигляду → Дані).':
+    'Add a Module module or a segment under “Data source” (Settings → Data).',
   'Джерело даних…': 'Data source…',
   'Перекладів ще немає': 'No translations yet',
   // 0.13.2 bring back a cleared slide

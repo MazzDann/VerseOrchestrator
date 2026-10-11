@@ -1332,6 +1332,8 @@ export const api = {
   /** «Пошук за змістом» (1.15.0-beta.2): the models, the vectors of each translation, the job */
   semantic: () => getJson('/api/semantic', SemanticSchema),
   setSemanticModel: (model: EmbedModelId | null) => sendSemantic('/api/semantic', 'PUT', { model }),
+  /** «Увесь процесор» (1.15.1): vectors made on the whole processor */
+  setSemanticFullCpu: (fullCpu: boolean) => sendSemantic('/api/semantic', 'PUT', { fullCpu }),
   downloadModel: (id: EmbedModelId) => sendSemantic(`/api/semantic/models/${id}`, 'POST'),
   cancelModel: () => sendSemantic('/api/semantic/models-cancel', 'POST'),
   removeModel: (id: EmbedModelId) => sendSemantic(`/api/semantic/models/${id}`, 'DELETE'),
@@ -1372,6 +1374,8 @@ const VectorJobSchema = z.object({
 });
 export const SemanticSchema = z.object({
   model: EmbedModelIdSchema.nullable(),
+  // 1.15.1; a 1.15.0 server answers without it
+  fullCpu: z.boolean().default(false),
   models: z.array(
     z.object({
       id: EmbedModelIdSchema,
@@ -1391,6 +1395,9 @@ export const SemanticSchema = z.object({
       id: z.number(),
       abbr: z.string(),
       title: z.string(),
+      // 1.15.1; a 1.15.0 server answers without them
+      language: z.string().default(''),
+      verses: z.number().default(0),
       state: z.enum(['done', 'partial', 'none']),
     }),
   ),

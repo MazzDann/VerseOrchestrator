@@ -19,6 +19,7 @@ export type SettingsSectionId =
   | 'passages'
   | 'highlight'
   | 'hotkeys'
+  | 'data'
   | 'app';
 
 /** The sections' titles, as the panel names them. */
@@ -37,6 +38,7 @@ export const SECTION_TITLES: Record<SettingsSectionId, string> = {
   passages: N_('Довгі уривки'),
   highlight: N_('Виділення'),
   hotkeys: N_('Гарячі клавіші'),
+  data: N_('Дані'),
   app: N_('Застосунок'),
 };
 
@@ -89,11 +91,12 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('search', N_('Той самий вірш з різних перекладів — одним рядком'), 'group rows'),
   e('search', N_('Курсор у пошук, коли повертаєтеся до вікна керування'), 'focus cursor'),
   e(
-    'search',
+    'data',
     N_('Пошук за змістом'),
     'semantic meaning vectors model embeddings ~ зміст вектори модель', // i18n-ignore: Ukrainian search words
   ),
-  e('search', N_('Модель для пошуку за змістом'), 'model fast precise'),
+  e('data', N_('Модель для пошуку за змістом'), 'model fast precise'),
+  e('data', N_('Увесь процесор'), 'cpu threads speed vectors'),
   e('video', N_('Після кінця відео'), 'video end'),
   e('video', N_('Телефони глядачів під час відео'), 'phones viewers'),
   e('stageTimer', N_('Попередження'), 'speaker timer warning'),
@@ -130,14 +133,14 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('app', N_('Простий вигляд'), 'simple view'),
   e('app', N_('Мова інтерфейсу'), 'language english українська'), // i18n-ignore: Ukrainian search words
   e('app', N_('Розташування панелі прев’ю'), 'preview panel bottom'),
-  e('app', N_('Бібліотека модулів'), 'library modules module rescan пересканувати'), // i18n-ignore: Ukrainian search words
+  e('data', N_('Бібліотека модулів'), 'library modules module rescan пересканувати'), // i18n-ignore: Ukrainian search words
   e(
-    'app',
+    'data',
     N_('Модулі: каталог і вибір…'),
     'modules catalog module download translations dictionary каталог завантажити переклади словник', // i18n-ignore: Ukrainian search words
   ),
-  e('app', N_('Джерело даних'), 'data source browser server'),
-  e('app', N_('Порівняти рушії бази'), 'engines benchmark'),
+  e('data', N_('Джерело даних'), 'data source browser server'),
+  e('data', N_('Порівняти рушії бази'), 'engines benchmark'),
   e('app', N_('Оновлення'), 'update version release'),
   e('app', N_('Перевіряти оновлення'), 'update check'),
   e('app', N_('Канал оновлень'), 'channel beta stable'),

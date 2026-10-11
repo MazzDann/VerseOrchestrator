@@ -159,7 +159,7 @@ and its translation loads in 8.9 s. Making the vectors on half the CPU: «Шви
 
 ## Run the benchmarks
 
-- **In the app:** in **Налаштування вигляду** → **Застосунок** → **Джерело даних**, click
+- **In the app:** in **Налаштування вигляду** → **Дані** → **Джерело даних**, click
   **Порівняти рушії бази**, or open `/bench`. The page runs the server, SQLite-WASM, and
   PGlite on the same segments and queries in throwaway workers, and exports CSV or JSON.
 - **On the server:** `npm run bench:db` times the library queries on `data/library.db`.

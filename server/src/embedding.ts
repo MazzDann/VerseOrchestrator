@@ -47,8 +47,14 @@ export async function openEmbedder(
   return { ...e, release: () => session.release() };
 }
 
-/** Half the processor: the show goes on while vectors are made. */
-export const jobThreads = () => Math.max(1, Math.floor(os.availableParallelism() / 2));
+/**
+ * Half the processor: the show goes on while vectors are made — or all of it, when asked
+ * («Увесь процесор», 1.15.1). Measured on the PC (4 cores / 8 threads): «Швидка» 110 → 154
+ * verses/s, «Точна» 22 → 42; two or four sessions side by side gave nothing (111 / 81), nor did
+ * the GPU (GTX 1650, DirectML, fp16: 131–135).
+ */
+export const jobThreads = (full = false) =>
+  Math.max(1, full ? os.availableParallelism() : Math.floor(os.availableParallelism() / 2));
 
 /** Ten idle minutes and the query model leaves memory (Точна holds ≈ 0.5 GB). */
 const IDLE_MS = 10 * 60 * 1000;

@@ -78,7 +78,7 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
         !xrefQuery.isFetching && (
           <Text size="xs" c="dimmed">
             {trx(
-              'Немає перехресних посилань. Додайте модуль {module} у папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Застосунок).',
+              'Немає перехресних посилань. Додайте модуль {module} у папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Дані).',
               { module: <code>*.crossreferences</code> },
             )}
           </Text>

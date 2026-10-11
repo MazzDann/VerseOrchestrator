@@ -19,6 +19,7 @@ import { readCrossrefs, readCommentaries } from './extras.js';
 import { writeLibrarySongs } from '@vo/shared';
 import { bundlesDir, legacySongsDir, readBundles, syncFolderBundle } from '@vo/shared/songs-node';
 import { selectModules, SelectionError } from './selection.js';
+import { legacyHash, oldHashes, rekeyVectors, textHash } from './textHash.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DATA_DIR = process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data');
@@ -67,11 +68,6 @@ function listByExt(dir: string, re: RegExp): string[] {
     .map((f) => path.join(dir, f));
 }
 
-function fileHash(file: string): string {
-  const s = fs.statSync(file);
-  return `${s.size}:${Math.round(s.mtimeMs)}`;
-}
-
 function buildOnce(): void {
   const modulesDir = resolveModulesDir();
   const candidates = {
@@ -110,6 +106,9 @@ function buildOnce(): void {
   );
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
+  // the identities the vectors are kept by now, to move them if a translation's changes (1.15.1)
+  const before = oldHashes(OUT_PATH);
+  const moves = new Map<string, string>();
   const db = new Database(OUT_PATH);
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = NORMAL');
@@ -182,6 +181,19 @@ function buildOnce(): void {
 
       translationId += 1;
       const abbr = cleanAbbr(name.replace(/\.SQLite3$/i, ''), mod.info.description);
+      const hash = textHash(
+        mod.verses.map((v) => ({
+          book_number: v.book_number,
+          chapter: v.chapter,
+          verse: v.verse,
+          text: stripTags(v.text ?? ''),
+        })),
+      );
+      // only an identity of the old kind (size:time) moves — once; two text hashes that differ
+      // mean the text changed, and its old vectors must not pass for the new text
+      const was = before.get(name);
+      if (was && was !== hash && !was.startsWith('t1:') && was === legacyHash(file))
+        moves.set(was, hash);
       insTranslation.run({
         id: translationId,
         abbr,
@@ -190,7 +202,7 @@ function buildOnce(): void {
         rtl: mod.info.rtl ? 1 : 0,
         hasStrong: mod.info.hasStrong ? 1 : 0,
         sourceFile: name,
-        sourceHash: fileHash(file),
+        sourceHash: hash,
       });
 
       for (const b of mod.books) {
@@ -356,6 +368,13 @@ function buildOnce(): void {
     console.warn(`[builder] VACUUM skipped: ${(err as Error).message}`);
   }
   db.close();
+  // the library is committed: the vectors follow their translations' new identities
+  try {
+    const n = rekeyVectors(path.join(DATA_DIR, 'vectors.db'), moves);
+    if (n) console.log(`[builder] vectors carried over for ${n} translation(s)`);
+  } catch (err) {
+    console.warn(`[builder] vectors not carried over: ${(err as Error).message}`);
+  }
   if (notBibles.length) {
     console.warn(
       `[builder] WARNING: ${notBibles.length} selected Bible file(s) are not Bibles: ${notBibles.join(', ')}. ` +

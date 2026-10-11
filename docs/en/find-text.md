@@ -114,18 +114,30 @@ same thing, even in other words or another language: for `~ God so loved the wor
 John 3:16 in Ukrainian too. Above the results it says **By meaning**, the nearest first.
 
 This needs a model and the translations' vectors. Set them up once in **Settings** →
-**Search** → **Search by meaning**:
+**Data** → **Search by meaning**:
 
 1. Choose the model: **Fast** (129 MB, about 5 minutes a translation) or **Precise** (313 MB,
    finds better, about 25 minutes a translation). Both work with many languages.
 2. Click **Download the model**. The app downloads it from Hugging Face once.
-3. Click **Make them for … translations**. The app makes the vectors in the background, on
-   half the processor, so the show goes on as usual. **Stop** keeps the books already done, and
-   the next run goes on from them.
+3. Choose the translations to make vectors for (the main one is chosen first) and click
+   **Make them for the chosen**. The app makes the vectors in the background, on half the
+   processor, so the show goes on as usual. **Stop** keeps the books already done, and the next
+   run goes on from them.
 
-You can search by meaning in the translations that have their vectors; such a translation has
-✓ next to its abbreviation. If no model is chosen or there are no vectors yet, the line under
-the search field says what to do.
+One translation is enough. With its vectors the search finds places for a query in any
+language, and Enter opens the place in the main translation, with its numbering. Other
+translations' vectors add precision for their own wording, but each translation takes a few
+more minutes (about 25 with **Precise**). To make them faster, turn on **The whole processor**:
+**Precise** works twice as fast, **Fast** 1.4 times, but while the vectors are made the show may
+slow down.
+
+If no model is chosen or there are no vectors yet, the line under the search field says what
+to do.
+
+To avoid making the vectors again on another computer (or to put them in a data pack), copy
+the `data/vectors.db` file into that copy's `data/` folder, and the `data/models/` folder too if
+you like — then the model needn't be downloaded. Vectors belong to a translation's text, so
+they fit as soon as the same translations are there.
 
 ## Use the command palette
 
