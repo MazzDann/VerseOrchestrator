@@ -4,7 +4,7 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { VECTORS_SQL } from '@vo/shared';
-import { oldHashes, rekeyVectors, textHash } from './textHash';
+import { legacyHash, oldHashes, rekeyVectors, textHash } from './textHash';
 
 /** A translation's identity for its vectors (1.15.1): its text, not its file's date. */
 
@@ -25,6 +25,17 @@ describe('the text hash', () => {
     expect(textHash(a)).toMatch(/^t1:[0-9a-f]{32}$/);
     expect(textHash([v(10, 1, 1, 'На початку!'), a[1]])).not.toBe(textHash(a));
     expect(textHash([v(10, 1, 3, 'На початку'), a[1]])).not.toBe(textHash(a));
+  });
+
+  it('tells the old identity of a file as it is now — a replaced file has another', () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-rekey-'));
+    const f = path.join(dir, 'A.SQLite3');
+    fs.writeFileSync(f, 'one');
+    fs.utimesSync(f, 1_700_000_000, 1_700_000_000);
+    expect(legacyHash(f)).toBe('3:1700000000000');
+    fs.writeFileSync(f, 'other');
+    expect(legacyHash(f)).not.toBe('3:1700000000000');
+    expect(legacyHash(path.join(dir, 'none'))).toBeNull();
   });
 
   it('carries vectors from an old identity to the new one, a set already there kept', () => {

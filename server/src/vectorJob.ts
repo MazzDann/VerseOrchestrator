@@ -97,8 +97,17 @@ let listed: { key: string; list: LibraryTranslation[] } | null = null;
 
 export function listTranslations(libraryPath: string): LibraryTranslation[] {
   if (!fs.existsSync(libraryPath)) return [];
+  // the library is in WAL mode: a rebuild whose VACUUM was skipped lives in -wal until a checkpoint
+  // (review; songs.ts checks it the same way)
   const st = fs.statSync(libraryPath);
-  const key = `${libraryPath}|${st.size}|${st.mtimeMs}`;
+  let wal = '';
+  try {
+    const w = fs.statSync(`${libraryPath}-wal`);
+    wal = `${w.size}|${w.mtimeMs}`;
+  } catch {
+    /* no -wal */
+  }
+  const key = `${libraryPath}|${st.size}|${st.mtimeMs}|${wal}`;
   if (listed?.key === key) return listed.list;
   const db = new Database(libraryPath, { readonly: true, fileMustExist: true });
   try {

@@ -174,7 +174,10 @@ export function SemanticSection({ active }: { active: boolean }) {
                     <Button
                       size="compact-xs"
                       variant="subtle"
-                      onClick={() => setPicked(onePerLanguage(missing, mainId).map(String))}
+                      onClick={() =>
+                        // every row: a language with vectors already is left out
+                        setPicked(onePerLanguage(s.translations, mainId).map(String))
+                      }
                     >
                       {tr('Один на мову')}
                     </Button>

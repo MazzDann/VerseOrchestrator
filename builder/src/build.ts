@@ -19,7 +19,7 @@ import { readCrossrefs, readCommentaries } from './extras.js';
 import { writeLibrarySongs } from '@vo/shared';
 import { bundlesDir, legacySongsDir, readBundles, syncFolderBundle } from '@vo/shared/songs-node';
 import { selectModules, SelectionError } from './selection.js';
-import { oldHashes, rekeyVectors, textHash } from './textHash.js';
+import { legacyHash, oldHashes, rekeyVectors, textHash } from './textHash.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DATA_DIR = process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data');
@@ -192,7 +192,8 @@ function buildOnce(): void {
       // only an identity of the old kind (size:time) moves — once; two text hashes that differ
       // mean the text changed, and its old vectors must not pass for the new text
       const was = before.get(name);
-      if (was && was !== hash && !was.startsWith('t1:')) moves.set(was, hash);
+      if (was && was !== hash && !was.startsWith('t1:') && was === legacyHash(file))
+        moves.set(was, hash);
       insTranslation.run({
         id: translationId,
         abbr,

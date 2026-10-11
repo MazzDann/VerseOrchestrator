@@ -14,6 +14,20 @@ export function textHash(
   return `t1:${createHash('sha256').update(lines.join('\n')).digest('hex').slice(0, 32)}`;
 }
 
+/**
+ * The identity before 1.15.1: the module file's size and time. A file that still has the one its
+ * vectors were kept by is the same file — its text is what they were made from (review: a module
+ * replaced since the last build must not lend its old vectors to the new text).
+ */
+export function legacyHash(file: string): string | null {
+  try {
+    const s = fs.statSync(file);
+    return `${s.size}:${Math.round(s.mtimeMs)}`;
+  } catch {
+    return null;
+  }
+}
+
 /** The translations' identities in the library now, by module file — to carry their vectors over. */
 export function oldHashes(file: string): Map<string, string> {
   const out = new Map<string, string>();
