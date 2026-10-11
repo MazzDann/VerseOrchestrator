@@ -12,6 +12,8 @@ export interface LibrarySelection {
   dictionaries: string[] | null;
   commentaries: string[] | null;
   crossreferences: string[] | null;
+  /** section-title sets, *.subheadings.SQLite3 (1.16.0-beta.3) */
+  subheadings: string[] | null;
 }
 
 export type ModuleKind = keyof LibrarySelection;
@@ -21,6 +23,7 @@ export const MODULE_KINDS: ModuleKind[] = [
   'dictionaries',
   'commentaries',
   'crossreferences',
+  'subheadings',
 ];
 
 /** Above this many candidate files of a kind, `null` ("all") is refused. */
@@ -41,5 +44,7 @@ export function sanitizeLibrarySelection(raw: unknown): LibrarySelection | undef
     dictionaries: list(r.dictionaries),
     commentaries: list(r.commentaries),
     crossreferences: list(r.crossreferences),
+    // a selection from before the sets (1.16.0-beta.3) takes them all, as a new kind should
+    subheadings: r.subheadings === undefined ? null : list(r.subheadings),
   };
 }

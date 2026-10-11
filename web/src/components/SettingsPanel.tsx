@@ -65,6 +65,7 @@ import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
 import { SemanticSection } from './SemanticSection';
+import { SubheadingSetPicker } from './SubheadingSetPicker';
 import { useModulesPanel } from '../lib/catalog';
 import { rebuildProgress, useRebuildLibrary } from '../lib/rebuild';
 import { StandbySection } from './StandbySection';
@@ -1201,11 +1202,12 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             <Switch
               label={tr('Підзаголовки над віршами')}
               description={tr(
-                'Назви розділів тексту з перекладу — у списку віршів вікна керування, якщо переклад їх має.',
+                'Назви розділів тексту — у списку віршів вікна керування: з самого перекладу або з набору підзаголовків.',
               )}
               checked={subheadingsOn}
               onChange={(e) => useSettings.getState().setSubheadings(e.currentTarget.checked)}
             />
+            <SubheadingSetPicker />
             <UpdateSection />
             <BackupSection />
             <CopyImportSection />

@@ -115,6 +115,8 @@ function fixtureLibrary(file: string): void {
     INSERT INTO dictionaries VALUES (1, 'SG', 'Strong Greek', 'el', 'strong', 1), (2, 'SH', 'Strong Hebrew', 'he', 'strong', 1), (3, 'BD', 'Біблійний словник', 'uk', 'explanatory', 0);
     INSERT INTO dictionary_entries VALUES (1, 'G2316', '2316', 'G', 'θεός'), (2, 'H2316', '2316', 'H', 'אֱלֹהִים'), (3, 'Любов', 'любов', '', 'Основа всього');
     INSERT INTO morphology VALUES (1, 'V', '', 'Verb'), (1, '-AAI', 'V', 'Aor Act Ind'), (1, '-3S', '', '3rd Sing'), (1, 'N-PRI', '', 'Indeclinable Proper Name'), (2, 'HVqp3ms', '', 'Hebrew: Verb qal perfect');
+    INSERT INTO subheading_sets VALUES (2, 'KJV-s', 'Subheadings from the KJV', 'en'), (1, 'Хом-д', 'Підзаголовки з Біблії Хоменка', 'uk');
+    INSERT INTO set_subheadings VALUES (1, 500, 3, 16, 0, 'Бог полюбив світ'), (1, 500, 3, 1, 0, 'Никодим'), (2, 500, 3, 1, 0, 'Nicodemus');
     INSERT INTO subheadings VALUES (1, 500, 3, 16, 2, 'Бог полюбив світ'), (1, 500, 3, 16, 1, 'Розмова з Никодимом'), (2, 500, 3, 16, 0, 'For God so loved');
     INSERT INTO cross_references VALUES (500, 3, 16, 450, 5, 8, 8), (500, 3, 16, 690, 4, 9, 10);
     INSERT INTO commentaries VALUES ('MH', 500, 3, 14, 3, 18, '1', 'Про любов Божу'), ('MH', 500, 4, 1, 4, 1, '', 'Інше');
@@ -252,6 +254,21 @@ describe('PostgreSQL (PGlite) answers like SQLite', () => {
       { verse: 16, title: 'For God so loved' },
     ]);
     expect(await sqlite.getSubheadings(1, 500, 4)).toEqual([]);
+  });
+
+  it('lists the section-title sets and reads one the same way (1.16.0-beta.3)', async () => {
+    const sets = [
+      { id: 2, abbr: 'KJV-s', title: 'Subheadings from the KJV', language: 'en', titles: 1 },
+      { id: 1, abbr: 'Хом-д', title: 'Підзаголовки з Біблії Хоменка', language: 'uk', titles: 2 },
+    ];
+    for (const lib of [sqlite, postgres]) {
+      expect(await lib.listSubheadingSets()).toEqual(sets);
+      expect(await lib.getSetSubheadings(1, 500, 3)).toEqual([
+        { verse: 1, title: 'Никодим' },
+        { verse: 16, title: 'Бог полюбив світ' },
+      ]);
+      expect(await lib.getSetSubheadings(2, 500, 4)).toEqual([]);
+    }
   });
 
   it('explains a grammar code the same way (1.16.0-beta.2)', async () => {

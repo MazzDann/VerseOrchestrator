@@ -207,6 +207,38 @@ describe('Module → segment conversion', () => {
     expect(x).toMatchObject({ kind: 'crossreferences', items: 1 });
   });
 
+  it('a set of section titles: its own rows, read back through the library (1.16.0-beta.3)', async () => {
+    const id = droppedId(5);
+    const seg = convert(
+      module(
+        'Хом-д.subheadings.SQLite3',
+        `CREATE TABLE info (name TEXT, value TEXT);
+         INSERT INTO info VALUES ('description', 'Підзаголовки з <i>Біблії</i> Хоменка'), ('language', 'uk');
+         CREATE TABLE subheadings (book_number NUMERIC, chapter NUMERIC, verse NUMERIC, subheading TEXT);
+         INSERT INTO subheadings VALUES (230, 8, 2, 'Божа велич'), (230, 8, 6, 'звисоченість людини');`,
+      ),
+      'Хом-д.subheadings.SQLite3',
+      id,
+    );
+    expect(seg).toMatchObject({ kind: 'subheadings', abbr: 'Хом-д', items: 2 });
+    const work = new Database(':memory:');
+    work.exec(SCHEMA_SQL);
+    work.exec(`ATTACH '${seg.file.replace(/'/g, "''")}' AS seg`);
+    for (const sql of mergeSql('seg')) work.exec(sql);
+    work.exec('DETACH seg');
+    const lib = createLibrary(driver(work));
+    expect(await lib.listSubheadingSets()).toEqual([
+      { id, abbr: 'Хом-д', title: 'Підзаголовки з Біблії Хоменка', language: 'uk', titles: 2 },
+    ]);
+    expect(await lib.getSetSubheadings(id, 230, 8)).toEqual([
+      { verse: 2, title: 'Божа велич' },
+      { verse: 6, title: 'звисоченість людини' },
+    ]);
+    work.close();
+    const empty = module('E.subheadings.SQLite3', 'CREATE TABLE subheadings (subheading TEXT);');
+    expect(() => convert(empty, 'E.subheadings.SQLite3', droppedId(6))).toThrow(ModuleError);
+  });
+
   it('refuses files that are no module we import', () => {
     const src = module('plan.SQLite3', 'CREATE TABLE reading_plan (day INTEGER, reading TEXT);');
     expect(() => convert(src, 'plan.SQLite3', droppedId(4))).toThrow(ModuleError);

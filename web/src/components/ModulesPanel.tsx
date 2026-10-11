@@ -547,7 +547,10 @@ function LibraryTab() {
                 aria-label={tr('У бібліотеці')}
               />
               <Text size="sm" style={{ flex: '0 0 auto' }}>
-                {f.replace(/(\.(dictionary|commentaries|crossreferences))?\.SQLite3$/i, '')}
+                {f.replace(
+                  /(\.(dictionary|commentaries|crossreferences|subheadings))?\.SQLite3$/i,
+                  '',
+                )}
               </Text>
               <Text size="xs" c="dimmed" truncate style={{ flex: 1, minWidth: 0 }}>
                 {titles.get(f.toLowerCase()) ?? ''}

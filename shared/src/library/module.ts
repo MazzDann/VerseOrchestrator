@@ -15,7 +15,12 @@ import { fill, N_, type Vars } from '../i18n/index.js';
  * both produce the same text, search normalization and Strong index.
  */
 
-export type ModuleKind = 'bible' | 'dictionary' | 'commentaries' | 'crossreferences';
+export type ModuleKind =
+  | 'bible'
+  | 'dictionary'
+  | 'commentaries'
+  | 'crossreferences'
+  | 'subheadings';
 
 /** What a Module file is, from its table names; null when it's none we import. */
 export function moduleKind(tables: string[]): ModuleKind | null {
@@ -24,6 +29,8 @@ export function moduleKind(tables: string[]): ModuleKind | null {
   if (has.has('dictionary')) return 'dictionary';
   if (has.has('commentaries')) return 'commentaries';
   if (has.has('cross_references')) return 'crossreferences';
+  // a set of section titles of its own (1.16.0-beta.3) — a Bible with titles inside has verses
+  if (has.has('subheadings') || has.has('stories')) return 'subheadings';
   return null;
 }
 
@@ -125,7 +132,7 @@ export function readMorphology(
 export function moduleLabel(fileName: string): string {
   return fileName
     .replace(/\.SQLite3$/i, '')
-    .replace(/\.(dictionary|commentaries|crossreferences)$/i, '');
+    .replace(/\.(dictionary|commentaries|crossreferences|subheadings)$/i, '');
 }
 
 /**
@@ -359,7 +366,7 @@ export function convertModule(
   if (!kind) {
     throw new ModuleError(
       N_(
-        'Це не модуль Module, який можна імпортувати (Біблія, словник, коментарі чи перехресні посилання)',
+        'Це не модуль Module, який можна імпортувати (Біблія, словник, коментарі, перехресні посилання чи підзаголовки)',
       ),
     );
   }
@@ -461,6 +468,25 @@ export function convertModule(
     );
     bulk(out, 'verse_strongs', ['strong', 'lang', 'translation_id', 'verse_id'], strongRows, true);
     return { kind, abbr, title: meta.description || abbr, items: verses.length };
+  }
+
+  if (kind === 'subheadings') {
+    const rows = readSubheadings((sql) => src.all(sql), tables);
+    if (rows.length === 0) throw new ModuleError(N_('У модулі немає підзаголовків'));
+    const title = stripTags(info.description ?? '').trim() || label;
+    bulk(
+      out,
+      'subheading_sets',
+      ['id', 'abbr', 'title', 'language'],
+      [[id, label, title, info.language ?? '']],
+    );
+    bulk(
+      out,
+      'set_subheadings',
+      ['set_id', 'book_number', 'chapter', 'verse', 'ord', 'title'],
+      rows.map((h) => [id, h.book, h.chapter, h.verse, h.ord, h.title]),
+    );
+    return { kind, abbr: label, title, items: rows.length };
   }
 
   if (kind === 'dictionary') {

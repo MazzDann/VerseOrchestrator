@@ -16,6 +16,8 @@ export const SEGMENT_TABLES = [
   'verses',
   'verse_strongs',
   'subheadings',
+  'subheading_sets',
+  'set_subheadings',
   'dictionaries',
   'dictionary_entries',
   'morphology',

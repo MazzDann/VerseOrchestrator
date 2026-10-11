@@ -43,6 +43,12 @@ If the main translation has section titles (such as “The Creation”), they st
 over their verses. To hide them, turn off **Section titles over the verses** in **Settings** →
 **App**.
 
+Section titles also come as Module modules of their own (`*.subheadings.SQLite3`, such as
+«Хом-д» or «KJV-s»; **Modules** downloads them). Choose a set for the main translation in
+**App** → **Section titles for …**: **The translation’s own** or one of the sets. A set named
+after the translation (KJV-s for KJV) is on by itself. A set stands at the places it holds: one
+made for another verse numbering may be off in the Psalms.
+
 To follow a reference, type it in the **Search** field at the top and press Enter. The
 field understands references such as `John 3:16`, `Genesis 2 3`, or `John 3:16-18`. A book
 name can be in the language of any translation in the library.

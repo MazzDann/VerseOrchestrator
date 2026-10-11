@@ -223,5 +223,7 @@ describe('older libraries (pre-0.3.2 schema) keep working', () => {
     expect((await old.strongRefs('G2316', { translationId: 1 })).total).toBe(1); // lang ignored
     expect(await old.getSubheadings(1, 500, 3)).toEqual([]); // no section titles before 1.16
     expect(await old.decodeMorphology('V-AAI-3S')).toEqual([]); // nor grammar codes
+    expect(await old.listSubheadingSets()).toEqual([]); // nor sets of titles (1.16.0-beta.3)
+    expect(await old.getSetSubheadings(1, 500, 3)).toEqual([]);
   });
 });

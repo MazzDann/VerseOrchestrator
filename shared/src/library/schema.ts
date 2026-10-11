@@ -6,6 +6,8 @@
 export const SCHEMA_SQL = /* sql */ `
 DROP TABLE IF EXISTS verse_strongs;
 DROP TABLE IF EXISTS subheadings;
+DROP TABLE IF EXISTS set_subheadings;
+DROP TABLE IF EXISTS subheading_sets;
 DROP TABLE IF EXISTS verses_fts_vocab;
 DROP TABLE IF EXISTS verses_fts;
 DROP TABLE IF EXISTS verses;
@@ -90,6 +92,24 @@ CREATE TABLE subheadings (
   ord            INTEGER NOT NULL DEFAULT 0,
   title          TEXT NOT NULL,
   PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
+);
+
+-- Separate section-title sets (Module's *.subheadings.SQLite3, 1.16.0-beta.3): shown over the
+-- translation the user pairs a set with, at the places the set holds.
+CREATE TABLE subheading_sets (
+  id       INTEGER PRIMARY KEY,
+  abbr     TEXT NOT NULL,
+  title    TEXT NOT NULL,
+  language TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE set_subheadings (
+  set_id      INTEGER NOT NULL,
+  book_number INTEGER NOT NULL,
+  chapter     INTEGER NOT NULL,
+  verse       INTEGER NOT NULL,
+  ord         INTEGER NOT NULL DEFAULT 0,
+  title       TEXT NOT NULL,
+  PRIMARY KEY (set_id, book_number, chapter, verse, ord)
 );
 
 DROP TABLE IF EXISTS morphology;
