@@ -235,6 +235,11 @@ export function notifyRebuild(job: object): void {
   for (const c of sockets('control')) send(c, { type: 'rebuild', job });
 }
 
+/** «Модулі» (1.15.0-beta.1, catalog.ts): a download moved on — every control window shows it. */
+export function notifyCatalog(queue: object): void {
+  for (const c of sockets('control')) send(c, { type: 'catalog', queue });
+}
+
 /** Tell control windows to refetch the remote list (pairing added/removed/connected). */
 export function notifyRemotesChanged(): void {
   for (const c of sockets('control')) send(c, { type: 'remotes' });

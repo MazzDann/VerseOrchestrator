@@ -21,6 +21,7 @@ import {
   IconQrcode,
   IconDeviceMobile,
   IconAppWindow,
+  IconBooks,
 } from '@tabler/icons-react';
 import { useSettings, type Appearance } from '../../settingsStore';
 import { formatRemaining, savedLength } from '../../lib/countdown';
@@ -28,6 +29,7 @@ import { type SearchScope } from '../../components/SearchPanel';
 import { type CommandItem } from '../../components/CommandPalette';
 import { docsUrl } from '../../lib/docs';
 import { openFeedback } from '../../lib/feedback';
+import { useModulesPanel } from '../../lib/catalog';
 import { tr, useLang } from '../../i18n';
 import { openPresenter, openStage } from './outputWindows';
 
@@ -173,6 +175,14 @@ export function usePaletteCommands({
       keywords: 'simple view prostyi vyhliad',
       icon: <IconLayoutList size={16} />,
       run: () => useSettings.getState().setSimpleView(!simpleView),
+    },
+    // «Модулі» (1.15.0-beta.1): Module's catalog
+    {
+      id: 'modules',
+      label: tr('Модулі: каталог і вибір…'),
+      keywords: 'modules catalog module download moduli kataloh zavantazhyty pereklady',
+      icon: <IconBooks size={16} />,
+      run: () => useModulesPanel.getState().show(),
     },
     {
       id: 'search',

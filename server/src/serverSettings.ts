@@ -154,6 +154,16 @@ export function getServerSettings(): ServerSettings {
   return current;
 }
 
+/**
+ * «Модулі» (1.15.0-beta.1): which module files the library takes, from the control window. The
+ * builder's key — the file is re-read first, every other key kept as it is.
+ */
+export function setLibrarySelection(library: LibrarySelection): ServerSettings {
+  current = sanitizeServerSettings({ ...getServerSettings(), library });
+  if (file) writeJson(file, current);
+  return current;
+}
+
 /** Apply a patch to the server-owned keys (remotes, standby, updates, launch, backups). `library` is edited by the builder / by hand. */
 export function updateServerSettings(patch: unknown): ServerSettings {
   const p = (patch ?? {}) as {

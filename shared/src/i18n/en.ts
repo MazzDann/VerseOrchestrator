@@ -1684,8 +1684,59 @@ export const EN: Record<string, string> = {
   'Бібліотеки ще немає': 'No library yet',
   'У бібліотеці немає перекладів': 'The library has no translations',
   'У браузері ще немає перекладів': 'No translations in the browser yet',
-  'Покладіть модулі Module (*.SQLite3) у папку modules/ поруч із застосунком і натисніть «Пересканувати модулі».':
-    'Put Module modules (*.SQLite3) in the modules/ folder next to the app and click “Rescan modules”.',
+  'Завантажте переклади з каталогу Module — кнопка «Завантажити переклади…» нижче. Або покладіть модулі Module (*.SQLite3) у папку modules/ поруч із застосунком і натисніть «Пересканувати модулі».':
+    'Download translations from the Module catalog — the “Download translations…” button below. Or put Module modules (*.SQLite3) in the modules/ folder next to the app and click “Rescan modules”.',
+  'Завантажити переклади…': 'Download translations…',
+  Модулі: 'Modules',
+  'Модулі: каталог і вибір…': 'Modules: catalog and choice…',
+  'Каталог модулів працює, коли застосунок запущено на цьому комп’ютері.':
+    'The module catalog works when the app runs on this computer.',
+  'Каталог Module': 'Module catalog',
+  'У бібліотеці': 'In the library',
+  'Завантажую список модулів…': 'Loading the module list…',
+  'Назва чи скорочення': 'Name or abbreviation',
+  'Пошук у каталозі': 'Search the catalog',
+  Мова: 'Language',
+  'Усі мови': 'All languages',
+  'Немає модулів цього виду': 'No modules of this kind',
+  'Виберіть модуль у списку, щоб побачити опис і завантажити його.':
+    'Pick a module in the list to see its description and download it.',
+  'Модулі — з каталогу': 'Modules come from the catalog of',
+  'Права на тексти належать їхнім власникам.': 'The texts belong to their rights holders.',
+  'Список від {date}.': 'List of {date}.',
+  'Каталог зараз недоступний — показано збережений список.':
+    'The catalog is unavailable now — showing the saved list.',
+  'Оновити список': 'Refresh the list',
+  'у черзі': 'queued',
+  'розпаковую…': 'unpacking…',
+  'у бібліотеці': 'in the library',
+  'у папці': 'in the folder',
+  'оновлено {date}': 'updated {date}',
+  'Права: {who}': 'Rights: {who}',
+  'Додати до бібліотеки': 'Add to the library',
+  'Назва файлу чи модуля': 'File or module name',
+  'Пошук серед модулів': 'Search the modules',
+  'У бібліотеці {n} з {total}.': '{n} of {total} in the library.',
+  'Позначте, які модулі брати, і зберіть бібліотеку.':
+    'Tick the modules to take, then build the library.',
+  'У папці modules/ немає модулів цього виду. Завантажте їх із каталогу.':
+    'The modules/ folder has no modules of this kind. Download them from the catalog.',
+  'Зібрати бібліотеку': 'Build the library',
+  'Завантажую модулі: {list}': 'Downloading modules: {list}',
+  Біблії: 'Bibles',
+  'Паралельні місця': 'Cross-references',
+  'Інша мова': 'Other language',
+  'Каталог Module зараз недоступний. Перевірте інтернет і спробуйте пізніше.':
+    'The Module catalog is unavailable now. Check the internet connection and try again later.',
+  'Не вдалося завантажити модуль: дзеркала Module не відповідають':
+    'Could not download the module: the Module mirrors don’t answer',
+  'Для цього модуля немає адреси для завантаження': 'This module has no download address',
+  'Модуля «{name}» немає в каталозі': 'The catalog has no module “{name}”',
+  'У завантаженому файлі немає модуля Module': 'The downloaded file holds no Module module',
+  'У цьому модулі лише примітки, без тексту Біблії':
+    'This module holds only notes, without the Bible text',
+  'Не вдалося зберегти модуль: {error}': 'Could not save the module: {error}',
+  'Очікую { kind, files }': 'Expected { kind, files }',
   'Або відкрийте модуль прямо в браузері: додайте файл у «Джерело даних» (Налаштування вигляду → Застосунок) і виберіть «У браузері».':
     'Or open a module right in the browser: add the file under “Data source” (Settings → App) and choose “In the browser”.',
   'Додайте модуль Module чи сегмент у «Джерело даних» (Налаштування вигляду → Застосунок).':

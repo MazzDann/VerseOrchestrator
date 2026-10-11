@@ -28,6 +28,7 @@ import {
   IconUpload,
   IconTrash,
   IconRefresh,
+  IconBooks,
   IconDatabaseImport,
   IconExternalLink,
   IconSearch,
@@ -63,6 +64,7 @@ import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
+import { useModulesPanel } from '../lib/catalog';
 import { rebuildProgress, useRebuildLibrary } from '../lib/rebuild';
 import { StandbySection } from './StandbySection';
 import { UpdateSection } from './UpdateSection';
@@ -1146,6 +1148,18 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               <Text size="xs" c="dimmed" mb={8}>
                 {tr('Перебудувати з папок modules/ і songs/ після додавання перекладу чи пісні.')}
               </Text>
+              {/* «Модулі» (1.15.0-beta.1): Module's catalog, and which modules the library takes */}
+              <Button
+                variant="light"
+                fullWidth
+                mb={6}
+                leftSection={<IconBooks size={16} />}
+                disabled={serverAvailable === false}
+                title={serverAvailable === false ? tr(NEEDS_SERVER) : undefined}
+                onClick={() => useModulesPanel.getState().show()}
+              >
+                {tr('Модулі: каталог і вибір…')}
+              </Button>
               <Group gap="xs" wrap="nowrap">
                 <Button
                   variant="light"

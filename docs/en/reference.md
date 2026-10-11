@@ -166,6 +166,7 @@ Everything the app remembers is in its folder:
 | `data/backups/`      | the state that restoring a backup, a carry-over from another copy, or **Go back to how it was** replaced |
 | `data/backups/auto/` | the automatic backups: daily ones and those made before a version change                                 |
 | `data/library.db`    | the library: translations, dictionaries, commentaries, songs, and the search index                       |
+| `data/catalog/`      | the saved Module catalog list (the app refreshes it itself; not in the backup)                          |
 | `data/ui-state.json` | appearance settings, presets, hotkeys, the running order, and programs                                   |
 | `data/settings.json` | server options: the port and the waiting time (`standby`), remotes (`remotes`), modules (`library`)      |
 | `data/secrets.json`  | hashes of the remotes' codes                                                                             |

@@ -60,7 +60,31 @@ You can also run the app from a clone of the repository — developers do; see t
 
 ## Add texts and songs
 
-The app reads texts from Module modules — `*.SQLite3` files. To add texts:
+The app reads texts from Module modules — `*.SQLite3` files.
+
+### Download modules from the Module catalog
+
+The easiest way is to take modules from the Module catalog right in the app (you need the
+internet):
+
+1. In the control window, open **Settings** → **App** and click **Modules: catalog and
+   choice…**. While there is no library yet, the middle of the window has a **Download
+   translations…** button.
+2. On the **Module catalog** tab, choose the kind — **Bibles**, **Dictionaries**,
+   **Commentaries**, or **Cross-references** — and the language. The interface language comes
+   first; to see them all, choose **All languages**. To find a module, type its name or
+   abbreviation.
+3. Click a module — its description appears below the list — and click **Download**.
+
+The app downloads modules one at a time from the Module mirrors into the `modules/` folder and
+builds the library itself when the queue is done. Next to a module you see how much has come,
+then **in the library**. The texts belong to their rights holders; the app takes the module
+list from the Module catalog and looks at it once a day.
+
+The **In the library** tab shows the modules in the `modules/` folder. Tick the ones to take
+into the library and click **Build the library**.
+
+### Add modules by hand
 
 1. Copy the modules into the app's `modules/` folder:
    - Bible translations, for example `KJV.SQLite3`;

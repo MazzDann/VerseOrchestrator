@@ -125,6 +125,11 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('app', N_('Мова інтерфейсу'), 'language english українська'), // i18n-ignore: Ukrainian search words
   e('app', N_('Розташування панелі прев’ю'), 'preview panel bottom'),
   e('app', N_('Бібліотека модулів'), 'library modules module rescan пересканувати'), // i18n-ignore: Ukrainian search words
+  e(
+    'app',
+    N_('Модулі: каталог і вибір…'),
+    'modules catalog module download translations dictionary каталог завантажити переклади словник', // i18n-ignore: Ukrainian search words
+  ),
   e('app', N_('Джерело даних'), 'data source browser server'),
   e('app', N_('Порівняти рушії бази'), 'engines benchmark'),
   e('app', N_('Оновлення'), 'update version release'),

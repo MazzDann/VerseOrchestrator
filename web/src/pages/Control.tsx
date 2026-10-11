@@ -32,6 +32,7 @@ import { FloatingPanel } from '../components/FloatingPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { FollowPanel } from '../components/FollowPanel';
 import { usePhoneUrl } from '../lib/phoneUrl';
+import { ModulesFloating } from '../components/ModulesPanel';
 import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
 import { useOutputWindows } from '../lib/outputs';
@@ -1505,6 +1506,9 @@ export function Control() {
       >
         <RemotePanel />
       </FloatingPanel>
+
+      {/* «Модулі» (1.15.0-beta.1): Module's catalog — the settings, the empty library, the palette open it */}
+      <ModulesFloating />
 
       {quick !== null && <QuickRefPill value={quick} place={currentBook?.longName ?? ''} />}
 

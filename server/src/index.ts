@@ -18,6 +18,7 @@ import {
   pauseLive,
   isRemoteOnline,
   notifyAllowed,
+  notifyCatalog,
   notifyRemotesChanged,
   notifyRebuild,
   notifyUiStateRestored,
@@ -39,6 +40,7 @@ import {
 import {
   getServerSettings,
   initServerSettings,
+  setLibrarySelection,
   updateServerSettings,
   validStandbyPort,
 } from './serverSettings.js';
@@ -72,7 +74,15 @@ import {
   undoImport,
   type ImportUndo,
 } from '@vo/shared/songs-node';
-import { FILE_DENIED, FOLDER_DENIED, keyedError, N_, sameBundleName } from '@vo/shared';
+import {
+  FILE_DENIED,
+  FOLDER_DENIED,
+  keyedError,
+  MODULE_KINDS,
+  N_,
+  sameBundleName,
+  type ModuleKind,
+} from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
 import { handoverRoutes, spawnBrowser } from './handover.js';
@@ -138,6 +148,7 @@ import {
   type RestoreParts,
 } from './backup.js';
 import { zipToFile } from './zip.js';
+import { createCatalog, forPage, listModuleFiles } from './catalog.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
 
@@ -184,6 +195,11 @@ const rebuild = createRebuildJob({
   onSettled: () => closeDb(), // the next read opens the new library
   onChange: (s) => {
     notifyRebuild(s);
+    // «Модулі»: a download came while a build ran — the next build takes it (1.15.0-beta.1)
+    if (s.phase !== 'running' && rebuildWanted) {
+      rebuildWanted = false;
+      setImmediate(rebuildForCatalog);
+    }
     if (s.phase === 'running' && s.step === 0) console.log(`[server] rebuild ${s.id}: started`);
     else if (s.phase !== 'running')
       console.log(
@@ -2234,6 +2250,82 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
   lastImport = null; // a rescan rewrites the folder-fed bundle: an old snapshot would undo it
   res.status(202).json(rebuild.start());
 });
+
+// --- «Модулі» (1.15.0-beta.1, catalog.ts): Module's catalog, a download into modules/, the selection
+
+/**
+ * Where the builder reads modules from (build.ts `resolveModulesDir`): MODULES_DIR, else the
+ * project's modules/ or data/modules with Bibles in it. A first download goes to modules/ — which
+ * the builder then finds.
+ */
+function modulesDir(): string {
+  if (process.env.MODULES_DIR) return path.resolve(process.env.MODULES_DIR);
+  for (const dir of [path.join(repoRoot, 'modules'), path.join(dataDir, 'modules')])
+    if (listModuleFiles(dir).bibles.length > 0) return dir;
+  return path.join(repoRoot, 'modules');
+}
+
+/** A download came: the library is rebuilt now, or after the build under way. */
+let rebuildWanted = false;
+function rebuildForCatalog(): void {
+  if (rebuild.running()) {
+    rebuildWanted = true;
+    return;
+  }
+  // a backup or a version change in progress: left to «Зібрати бібліотеку» (the panel offers it)
+  if (backupBusy() || swapPending || installer?.notNow()) {
+    console.warn('[catalog] the library is not rebuilt now (a backup or an update is under way)');
+    return;
+  }
+  lastImport = null;
+  rebuild.start();
+}
+
+const catalog = createCatalog({
+  dataDir,
+  modulesDir,
+  version: appVersion,
+  selection: () => getServerSettings().library,
+  setSelection: (sel) => setLibrarySelection(sel),
+  rebuild: rebuildForCatalog,
+  onChange: notifyCatalog,
+});
+
+app.get(
+  '/api/catalog',
+  requireLocal,
+  wrap(async (req, res) => res.json(forPage(await catalog.catalog(req.query.refresh === '1')))),
+);
+app.get('/api/catalog/queue', requireLocal, (_req, res) => {
+  res.json(catalog.queue());
+});
+app.post(
+  '/api/catalog/download',
+  requireLocalControl,
+  json,
+  wrap((req, res) => res.json(catalog.enqueue(String(req.body?.fil ?? '')))),
+);
+app.post(
+  '/api/catalog/cancel',
+  requireLocalControl,
+  json,
+  wrap((req, res) => res.json(catalog.cancel(String(req.body?.fil ?? '')))),
+);
+app.get('/api/modules', requireLocal, (_req, res) => {
+  res.json(catalog.modules());
+});
+app.put(
+  '/api/modules/selection',
+  requireLocalControl,
+  json,
+  wrap((req, res) => {
+    const kind = req.body?.kind as ModuleKind;
+    const files: unknown = req.body?.files;
+    if (!MODULE_KINDS.includes(kind) || !Array.isArray(files))
+      throw new ApiError(400, N_('Очікую { kind, files }'));
+    res.json(catalog.select(kind, files.map(String)));
+  }),
+);
 
 app.get('/api/rebuild', requireLocal, (_req, res) => {
   res.json(rebuild.state());
