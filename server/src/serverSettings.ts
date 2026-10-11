@@ -40,8 +40,11 @@ export interface ServerSettings {
   launch: LaunchSettings;
   /** «Робити копії автоматично» (1.12.0-beta.3): daily and before a version change (autoBackup.ts) */
   backups: { auto: boolean };
-  /** «Пошук за змістом» (1.15.0-beta.2): the model «~ …» asks — none until one is chosen */
-  semantic: { model: EmbedModelId | null };
+  /**
+   * «Пошук за змістом» (1.15.0-beta.2): the model «~ …» asks — none until one is chosen; `fullCpu`
+   * (1.15.1): vectors made on the whole processor, not half of it
+   */
+  semantic: { model: EmbedModelId | null; fullCpu: boolean };
 }
 
 export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
@@ -51,7 +54,7 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   updates: { check: true },
   launch: DEFAULT_LAUNCH,
   backups: { auto: true },
-  semantic: { model: null },
+  semantic: { model: null, fullCpu: false },
 };
 
 /** The app's own ports (web dev server, API / single-process app) — not for the waiter. */
@@ -83,7 +86,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     };
     launch?: unknown;
     backups?: { auto?: unknown };
-    semantic?: { model?: unknown };
+    semantic?: { model?: unknown; fullCpu?: unknown };
   };
   const idle = Number(r.standby?.idleMinutes);
   const out: ServerSettings = {
@@ -114,7 +117,10 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
           ? r.backups.auto
           : DEFAULT_SERVER_SETTINGS.backups.auto,
     },
-    semantic: { model: isEmbedModelId(r.semantic?.model) ? r.semantic.model : null },
+    semantic: {
+      model: isEmbedModelId(r.semantic?.model) ? r.semantic.model : null,
+      fullCpu: r.semantic?.fullCpu === true,
+    },
   };
   const channel = r.updates?.channel;
   if (channel === 'stable' || channel === 'beta') out.updates.channel = channel;

@@ -207,7 +207,7 @@ app runs again, the connection comes back by itself in a few seconds.
 
 The library lacks the modules they need. Put a Strong's dictionary (`*.dictionary.SQLite3`),
 cross-references (`*.crossreferences.SQLite3`), or commentaries (`*.commentaries.SQLite3`)
-into the `modules/` folder and click **Rescan modules** in **Settings** → **App**.
+into the `modules/` folder and click **Rescan modules** in **Settings** → **Data**.
 
 ### “The passage is unavailable — the translation changed”
 

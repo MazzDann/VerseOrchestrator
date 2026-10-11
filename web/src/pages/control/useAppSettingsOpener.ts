@@ -3,7 +3,7 @@ import { notifications } from '@mantine/notifications';
 import { useDataSource } from '../../dataSourceStore';
 import { tr } from '../../i18n';
 
-/** «Застосунок» in the settings panel, and the first run with no server that opens it (E1). */
+/** «Дані» in the settings panel (1.15.1; «Застосунок» before), and the first run with no server that opens it (E1). */
 export function useAppSettingsOpener({
   setSettingsOpen,
   serverAvailable,
@@ -11,12 +11,12 @@ export function useAppSettingsOpener({
   setSettingsOpen: (open: boolean) => void;
   serverAvailable: boolean | null;
 }) {
-  /** The settings panel, opened on «Застосунок» (where «Джерело даних» is). */
+  /** The settings panel, opened on «Дані» (where «Джерело даних» is since 1.15.1). */
   const openAppSettings = () => {
     try {
       const open = JSON.parse(localStorage.getItem('vo:settingsSections') ?? '[]');
-      if (Array.isArray(open) && !open.includes('app'))
-        localStorage.setItem('vo:settingsSections', JSON.stringify([...open, 'app']));
+      if (Array.isArray(open) && !open.includes('data'))
+        localStorage.setItem('vo:settingsSections', JSON.stringify([...open, 'data']));
     } catch {
       /* storage unavailable */
     }

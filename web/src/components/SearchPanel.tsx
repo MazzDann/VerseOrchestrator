@@ -288,7 +288,12 @@ export function SearchPanel({
       </Group>
       {data?.fallback && (
         <Text size="xs" c="dimmed" mt={6}>
-          {tr('У поточному перекладі нічого — знайдено в інших.')}
+          {data.kind === 'meaning'
+            ? // one translation's vectors serve every other (1.15.1): the place opens in the main one
+              tr(
+                'Для поточного перекладу векторів немає — знайдено за іншим перекладом. Enter відкриє це місце в поточному.',
+              )
+            : tr('У поточному перекладі нічого — знайдено в інших.')}
         </Text>
       )}
       {suggestions.length > 0 && (

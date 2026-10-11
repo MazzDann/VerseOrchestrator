@@ -67,7 +67,7 @@ The app reads texts from Module modules — `*.SQLite3` files.
 The easiest way is to take modules from the Module catalog right in the app (you need the
 internet):
 
-1. In the control window, open **Settings** → **App** and click **Modules: catalog and
+1. In the control window, open **Settings** → **Data** and click **Modules: catalog and
    choice…**. While there is no library yet, the middle of the window has a **Download
    translations…** button.
 2. On the **Module catalog** tab, choose the kind — **Bibles**, **Dictionaries**,
@@ -95,7 +95,7 @@ into the library and click **Build the library**.
    `data/library.db` file.
 
 To add modules later, copy them into `modules/`, then in the control window open
-**Settings** → **App** and click **Rescan modules**. Below the button you see which module the
+**Settings** → **Data** and click **Rescan modules**. Below the button you see which module the
 app is building and how many are left (for example, **Building… UKRK, 18 of 29**); every control
 window shows the rebuild. To interrupt it, click **Stop** — the library stays as it was before
 the rebuild.

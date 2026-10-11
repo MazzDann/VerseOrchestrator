@@ -72,7 +72,7 @@ in the library twice.
 You can also add songs without the control window, through the app's `songs/` folder:
 
 1. Copy the `.pptx` files into the `songs/` folder. Subfolders are fine too.
-2. In the control window, open **Settings** → **App** and click **Rescan modules**.
+2. In the control window, open **Settings** → **Data** and click **Rescan modules**.
 
 Songs from the `songs/` folder go into the bundle named «Пісні» (Ukrainian for “songs”).
 New and changed files in the same folder update that bundle after the rescan.

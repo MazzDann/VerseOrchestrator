@@ -2357,7 +2357,7 @@ setLibraryOptions({ embed: (text) => queryEmbedder.embed(text) });
 const vectors = createVectorJob({
   dataDir,
   libraryPath,
-  open: (model) => openEmbedder(dataDir, model, jobThreads()),
+  open: (model) => openEmbedder(dataDir, model, jobThreads(getServerSettings().semantic.fullCpu)),
   onChange: (s) => notifySemantic(s),
   // a library connection opened before data/vectors.db was made attaches it when reopened
   onSet: () => {
@@ -2375,6 +2375,7 @@ function semanticState() {
   const sets = chosen ? readVectorSets(dataDir, chosen) : new Map();
   return {
     model: chosen,
+    fullCpu: getServerSettings().semantic.fullCpu,
     models: EMBED_MODEL_IDS.map((id) => ({
       id,
       name: EMBED_MODELS[id].name,
@@ -2388,6 +2389,8 @@ function semanticState() {
         id: t.id,
         abbr: t.abbr,
         title: t.title,
+        language: t.language,
+        verses: t.verses,
         state: set?.done ? 'done' : set ? 'partial' : 'none',
       };
     }),
@@ -2403,10 +2406,19 @@ app.put(
   requireLocalControl,
   json,
   wrap(async (req, res) => {
-    const model = req.body?.model;
-    if (model !== null && !isEmbedModelId(model)) throw new ApiError(400, N_('Очікую { model }'));
-    updateServerSettings({ semantic: { model } });
-    await queryEmbedder.release();
+    // the model, «Увесь процесор» — either or both
+    const { model, fullCpu } = (req.body ?? {}) as { model?: unknown; fullCpu?: unknown };
+    if (model !== undefined && model !== null && !isEmbedModelId(model))
+      throw new ApiError(400, N_('Очікую { model }'));
+    if (fullCpu !== undefined && typeof fullCpu !== 'boolean')
+      throw new ApiError(400, N_('Очікую { model }'));
+    updateServerSettings({
+      semantic: {
+        ...(model !== undefined ? { model } : {}),
+        ...(fullCpu !== undefined ? { fullCpu } : {}),
+      },
+    });
+    if (model !== undefined) await queryEmbedder.release();
     notifySemantic({});
     res.json(semanticState());
   }),

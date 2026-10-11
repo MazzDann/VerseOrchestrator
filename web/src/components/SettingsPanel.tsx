@@ -657,8 +657,6 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               checked={search.focusOnReturn}
               onChange={(e) => setSearch({ focusOnReturn: e.currentTarget.checked })}
             />
-            {/* «Пошук за змістом» (1.15.0-beta.2): «~ …», the model, the vectors */}
-            <SemanticSection active={openSections.includes('search')} />
           </Section>
 
           {/* «Відео» (1.8.12-beta.3, the author's calls): its end and the phones */}
@@ -1091,59 +1089,13 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             <HotkeysSettings />
           </Section>
 
+          {/* «Дані» (1.15.1, the author's call): the library, where it comes from, search by meaning —
+              out of «Застосунок» and «Пошук» into a place of their own */}
           <Section
-            value="app"
-            title={tr('Застосунок')}
-            summary={summary(
-              LANG_NAMES[language],
-              dataSource === 'local' ? tr('дані в браузері') : tr('дані з сервера'),
-              placement === 'aside' ? tr('прев’ю праворуч') : tr('прев’ю внизу'),
-              simpleView && tr('простий вигляд'),
-            )}
+            value="data"
+            title={tr('Дані')}
+            summary={summary(dataSource === 'local' ? tr('дані в браузері') : tr('дані з сервера'))}
           >
-            <div>
-              {/* named in both languages while it's Ukrainian: whoever reads only English finds it */}
-              <Text size="sm" fw={500} mb={4}>
-                {tr('Мова інтерфейсу')}
-                {language === 'uk' ? ' · Interface language' : ''}
-              </Text>
-              <SegmentedControl
-                fullWidth
-                value={language}
-                onChange={(v) => setLanguage(v as Lang)}
-                data={LANGS.map((l) => ({ value: l, label: LANG_NAMES[l] }))}
-              />
-            </div>
-            {inSettingsWindow ? (
-              <Text size="xs" c="dimmed">
-                {tr('Джерело даних налаштовується в головному вікні керування.')}
-              </Text>
-            ) : (
-              <DataSourceSection />
-            )}
-            <div>
-              <Text size="sm" fw={500} mb={4}>
-                {tr('Розташування панелі прев’ю')}
-              </Text>
-              <SegmentedControl
-                fullWidth
-                value={placement}
-                onChange={(v) => setPlacement(v as 'aside' | 'bottom')}
-                data={[
-                  { label: tr('Праворуч'), value: 'aside' },
-                  { label: tr('Унизу центру'), value: 'bottom' },
-                ]}
-              />
-            </div>
-            {/* 1.8.12-beta.7 (F1005-15): fewer things in sight */}
-            <Switch
-              label={tr('Простий вигляд')}
-              description={tr(
-                'Сцена, вікна виводу, глядачі, пульт, довідка й тема — у меню «Ще»; праворуч лише прев’ю',
-              )}
-              checked={simpleView}
-              onChange={(e) => setSimpleView(e.currentTarget.checked)}
-            />
             <div>
               <Text size="sm" fw={500} mb={2}>
                 {tr('Бібліотека модулів')}
@@ -1188,6 +1140,62 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 </Text>
               )}
             </div>
+            {inSettingsWindow ? (
+              <Text size="xs" c="dimmed">
+                {tr('Джерело даних налаштовується в головному вікні керування.')}
+              </Text>
+            ) : (
+              <DataSourceSection />
+            )}
+            {/* «Пошук за змістом» (1.15.0-beta.2): «~ …», the model, the vectors */}
+            <SemanticSection active={openSections.includes('data')} />
+          </Section>
+
+          <Section
+            value="app"
+            title={tr('Застосунок')}
+            summary={summary(
+              LANG_NAMES[language],
+              placement === 'aside' ? tr('прев’ю праворуч') : tr('прев’ю внизу'),
+              simpleView && tr('простий вигляд'),
+            )}
+          >
+            <div>
+              {/* named in both languages while it's Ukrainian: whoever reads only English finds it */}
+              <Text size="sm" fw={500} mb={4}>
+                {tr('Мова інтерфейсу')}
+                {language === 'uk' ? ' · Interface language' : ''}
+              </Text>
+              <SegmentedControl
+                fullWidth
+                value={language}
+                onChange={(v) => setLanguage(v as Lang)}
+                data={LANGS.map((l) => ({ value: l, label: LANG_NAMES[l] }))}
+              />
+            </div>
+            <div>
+              <Text size="sm" fw={500} mb={4}>
+                {tr('Розташування панелі прев’ю')}
+              </Text>
+              <SegmentedControl
+                fullWidth
+                value={placement}
+                onChange={(v) => setPlacement(v as 'aside' | 'bottom')}
+                data={[
+                  { label: tr('Праворуч'), value: 'aside' },
+                  { label: tr('Унизу центру'), value: 'bottom' },
+                ]}
+              />
+            </div>
+            {/* 1.8.12-beta.7 (F1005-15): fewer things in sight */}
+            <Switch
+              label={tr('Простий вигляд')}
+              description={tr(
+                'Сцена, вікна виводу, глядачі, пульт, довідка й тема — у меню «Ще»; праворуч лише прев’ю',
+              )}
+              checked={simpleView}
+              onChange={(e) => setSimpleView(e.currentTarget.checked)}
+            />
             <UpdateSection />
             <BackupSection />
             <CopyImportSection />

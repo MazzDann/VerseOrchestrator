@@ -1,13 +1,25 @@
-import { useState } from 'react';
-import { Button, Group, Progress, ScrollArea, SegmentedControl, Stack, Text } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import {
+  Button,
+  Checkbox,
+  Group,
+  Progress,
+  ScrollArea,
+  SegmentedControl,
+  Stack,
+  Switch,
+  Text,
+} from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconCheck, IconDownload } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { EMBED_MODELS, N_ } from '@vo/shared';
 import { api, type EmbedModelId, type SemanticState } from '../api';
 import { fmtNumber, tr, useLang } from '../i18n';
-import { formatSize } from '../lib/catalog';
+import { formatSize, langName } from '../lib/catalog';
+import { onePerLanguage } from '../lib/vectorPick';
 import { useServer } from '../serverStore';
+import { useStore } from '../store';
 
 /**
  * «Пошук за змістом» (1.15.0-beta.2, users' ask F1005-08): a query that starts with «~» finds verses
@@ -15,11 +27,17 @@ import { useServer } from '../serverStore';
  * choice) is downloaded here, and every translation's vectors are made here, in the background.
  */
 
-/** Minutes a Bible (31 000 verses) takes on half the processor — measured on the PC (i3-10100F). */
-const MINUTES: Record<EmbedModelId, number> = { fast: 5, precise: 24 };
+/**
+ * Minutes a Bible (31 000 verses) takes, on half the processor and on all of it — measured on the PC
+ * (i3-10100F, 4 cores / 8 threads): «Швидка» 110 / 154 verses a second, «Точна» 22 / 42.
+ */
+const MINUTES: Record<EmbedModelId, { half: number; full: number }> = {
+  fast: { half: 5, full: 3.5 },
+  precise: { half: 24, full: 12.5 },
+};
 
 export function SemanticSection({ active }: { active: boolean }) {
-  useLang();
+  const ui = useLang();
   const queryClient = useQueryClient();
   const serverAvailable = useServer((s) => s.available);
   const [busy, setBusy] = useState(false);
@@ -53,7 +71,20 @@ export function SemanticSection({ active }: { active: boolean }) {
   const model = s?.models.find((m) => m.id === chosen);
   const job = s?.job;
   const missing = s?.translations.filter((t) => t.state !== 'done') ?? [];
-  const done = (s?.translations.length ?? 0) - missing.length;
+  const done = s?.translations.filter((t) => t.state === 'done') ?? [];
+  // which translations get vectors (1.15.1): the main one by default — one is enough to find a place
+  const mainId = useStore((x) => x.selectedTranslationIds[0] ?? null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const missingKey = missing.map((t) => t.id).join(',');
+  useEffect(() => {
+    setPicked((p) => {
+      const still = p.filter((id) => missing.some((t) => String(t.id) === id));
+      if (still.length || p.length) return still;
+      return missing.some((t) => t.id === mainId) ? [String(mainId)] : [];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missingKey, mainId]);
+  const minutes = model ? MINUTES[model.id][s?.fullCpu ? 'full' : 'half'] : 0;
 
   return (
     <Stack gap={6}>
@@ -98,7 +129,7 @@ export function SemanticSection({ active }: { active: boolean }) {
                 {
                   name: model.name,
                   size: formatSize(model.bytes),
-                  min: String(MINUTES[model.id]),
+                  min: fmtNumber(minutes),
                 },
               )}
             </Text>
@@ -113,32 +144,84 @@ export function SemanticSection({ active }: { active: boolean }) {
           )}
           {model?.installed && (
             <>
-              <Text size="xs">
-                <IconCheck size={12} style={{ verticalAlign: -1 }} />{' '}
-                {tr('Вектори є для {n} з {total} перекладів.', {
-                  n: String(done),
-                  total: String(s.translations.length),
-                })}
+              <Text size="xs" c="dimmed">
+                {tr(
+                  'Досить одного перекладу: за його векторами пошук знаходить місця за запитом будь-якою мовою й відкриває їх у головному перекладі. Інші переклади додають точності для своїх слів.',
+                )}
               </Text>
-              {s.translations.length > 0 && (
-                <ScrollArea.Autosize mah="7.5rem" type="auto">
+              <Text size="xs">
+                {done.length > 0 && <IconCheck size={12} style={{ verticalAlign: -1 }} />}{' '}
+                {done.length > 0
+                  ? tr('Вектори є: {list}.', { list: done.map((t) => t.abbr).join(', ') })
+                  : tr('Векторів ще немає.')}
+              </Text>
+              {missing.length > 0 && job?.phase !== 'running' && (
+                <>
                   <Text size="xs" c="dimmed">
-                    {s.translations.map((t, i) => (
-                      <span key={t.id}>
-                        {i > 0 && ' · '}
-                        <span style={{ fontWeight: t.state === 'done' ? 500 : undefined }}>
-                          {t.abbr}
-                        </span>
-                        {t.state === 'done'
-                          ? ' ✓'
-                          : t.state === 'partial'
-                            ? ` (${tr('частково')})`
-                            : ''}
-                      </span>
-                    ))}
+                    {tr('Виберіть переклади, для яких обчислити вектори:')}
                   </Text>
-                </ScrollArea.Autosize>
+                  {/* «Усі», «Один на мову», «Головний» — the author's ask: a choice, «all» on top */}
+                  <Group gap="xs" wrap="wrap">
+                    <Checkbox
+                      size="xs"
+                      label={tr('Усі')}
+                      checked={picked.length === missing.length}
+                      indeterminate={picked.length > 0 && picked.length < missing.length}
+                      onChange={(e) =>
+                        setPicked(e.currentTarget.checked ? missing.map((t) => String(t.id)) : [])
+                      }
+                    />
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      onClick={() => setPicked(onePerLanguage(missing, mainId).map(String))}
+                    >
+                      {tr('Один на мову')}
+                    </Button>
+                    {mainId != null && missing.some((t) => t.id === mainId) && (
+                      <Button
+                        size="compact-xs"
+                        variant="subtle"
+                        onClick={() => setPicked([String(mainId)])}
+                      >
+                        {tr('Лише головний')}
+                      </Button>
+                    )}
+                  </Group>
+                  <ScrollArea.Autosize mah="10rem" type="auto">
+                    <Checkbox.Group value={picked} onChange={setPicked}>
+                      <Stack gap={4}>
+                        {missing.map((t) => (
+                          <Checkbox
+                            key={t.id}
+                            size="xs"
+                            value={String(t.id)}
+                            title={t.title}
+                            label={[
+                              t.abbr,
+                              t.language && langName(t.language, ui),
+                              t.verses > 0 && t.verses < 20000 && tr('лише частина Біблії'),
+                              t.state === 'partial' && tr('частково'),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          />
+                        ))}
+                      </Stack>
+                    </Checkbox.Group>
+                  </ScrollArea.Autosize>
+                </>
               )}
+              <Switch
+                size="xs"
+                label={tr('Увесь процесор')}
+                description={tr(
+                  'Швидше: «Точна» — удвічі, «Швидка» — в 1,4 раза. Поки вектори обчислюються, показ може пригальмовувати.',
+                )}
+                checked={s.fullCpu}
+                disabled={busy || job?.phase === 'running'}
+                onChange={(e) => void act(() => api.setSemanticFullCpu(e.currentTarget.checked))}
+              />
               {job?.phase === 'running' ? (
                 <Stack gap={4}>
                   <Group gap="xs" wrap="nowrap">
@@ -175,11 +258,12 @@ export function SemanticSection({ active }: { active: boolean }) {
                       size="xs"
                       variant="light"
                       loading={busy}
-                      onClick={() => void act(() => api.computeVectors())}
+                      disabled={picked.length === 0}
+                      onClick={() => void act(() => api.computeVectors(picked.map(Number)))}
                     >
-                      {tr('Обчислити для {n} перекладів (≈ {min} хв)', {
-                        n: String(missing.length),
-                        min: String(missing.length * MINUTES[model.id]),
+                      {tr('Обчислити для вибраних: {n} (≈ {min} хв)', {
+                        n: String(picked.length),
+                        min: fmtNumber(Math.ceil(picked.length * minutes)),
                       })}
                     </Button>
                   </Group>

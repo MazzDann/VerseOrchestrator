@@ -5,8 +5,9 @@
 This page is for the operator: how to change the font, colors, background, and layout of
 the slides the viewers see, and how to save a good look as a preset. Changes show at once
 in the preview and in every presentation window. Hotkeys are described in the
-[Reference](reference.md#hotkeys), and the **App** section in
-[Install and start](install.md).
+[Reference](reference.md#hotkeys), the **App** and **Data** sections in
+[Install and start](install.md), and search by meaning in
+[Find text](find-text.md#search-by-meaning).
 
 ## Open the settings
 

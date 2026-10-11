@@ -27,6 +27,28 @@ describe('the browser choice in settings.json (2026-10-01)', () => {
       expect(sanitizeServerSettings({ updates: { pin } }).updates.pin).toBeUndefined();
   });
 
+  it('«Пошук за змістом»: a known model or none; «Увесь процесор» off unless it is true (1.15.1)', () => {
+    expect(sanitizeServerSettings({}).semantic).toEqual({ model: null, fullCpu: false });
+    expect(
+      sanitizeServerSettings({ semantic: { model: 'precise', fullCpu: true } }).semantic,
+    ).toEqual({ model: 'precise', fullCpu: true });
+    expect(
+      sanitizeServerSettings({ semantic: { model: 'slow', fullCpu: 'yes' } }).semantic,
+    ).toEqual({
+      model: null,
+      fullCpu: false,
+    });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-settings-'));
+    dirs.push(dir);
+    initServerSettings(path.join(dir, 'settings.json'));
+    updateServerSettings({ semantic: { model: 'fast' } });
+    // one half changed, the other kept
+    expect(updateServerSettings({ semantic: { fullCpu: true } }).semantic).toEqual({
+      model: 'fast',
+      fullCpu: true,
+    });
+  });
+
   it('a pin set and cleared through a change keeps the switch', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-settings-'));
     dirs.push(dir);

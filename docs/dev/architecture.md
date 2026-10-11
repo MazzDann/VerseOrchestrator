@@ -119,18 +119,18 @@ none of the others, so all the wiring between them is in `Control.tsx`. A doc co
 module with its area — `vo-sync`, `vo-search`, `vo-timer`, `vo-songs`, `vo-media`, or
 `vo-remote` — so a search for the tag finds the area's code.
 
-| Area                            | Modules                                                                                                                                                      | Effects                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
-| The slide on screen             | `useLivePipeline.ts`: `pushLive`, the one way a slide reaches the screen, and the phones' relay                                                              | E10                                  |
-| The verses                      | `useVerseDeck.ts` (the queries, pages, preview, and what «Далі» shows), `useVerseListEffects.ts`, `VerseList.tsx`, `ChapterBar.tsx`, `slideText.ts`          | E6, E13–E15                          |
-| Finding the place               | `useJumps.ts`, `useShowJumpWhenReady.ts`                                                                                                                     | E3–E5, E21                           |
-| The show's steps and a takeover | `useShowSteps.ts`, `useTakeover.ts` (`usePublishNext`, `useAdoptRestore`, `useLeaderTakeover`)                                                               | E8, E9, E11, E12, E16, E17, E24, E25 |
-| Screen switches                 | `useScreenSwitches.tsx` (QR, «Заставка», hide, black, clear, and back), `useQrCornerFollow.ts`                                                               | E20                                  |
-| Timers                          | `useTimers.ts`, `useTimerSignals.ts`                                                                                                                         | E19, E31–E33                         |
-| Songs, pictures, running order  | `useSongProjection.ts`, `songSlides.ts`, `usePictures.ts`, `useRunningOrder.ts`, `usePlaylistActions.ts`, `PlaylistDocked.tsx` (in `components/ShowList.tsx`)                      | none                                 |
-| Commands, the hub, remotes      | `useShowCommands.ts`, `useHub.ts`                                                                                                                            | E22, E23, E26–E30                    |
-| Keys and the palette            | `useControlHotkeys.ts`, `usePaletteCommands.tsx`                                                                                                             | E18                                  |
-| The frame                       | `ControlHeader.tsx`, `LiveZone.tsx`, `ControlNavbar.tsx`, `HubBanners.tsx`, `usePanelResize.ts`, `useAppSettingsOpener.ts`, `outputWindows.ts`, `standby.ts` | E1                                   |
+| Area                            | Modules                                                                                                                                                       | Effects                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| The slide on screen             | `useLivePipeline.ts`: `pushLive`, the one way a slide reaches the screen, and the phones' relay                                                               | E10                                  |
+| The verses                      | `useVerseDeck.ts` (the queries, pages, preview, and what «Далі» shows), `useVerseListEffects.ts`, `VerseList.tsx`, `ChapterBar.tsx`, `slideText.ts`           | E6, E13–E15                          |
+| Finding the place               | `useJumps.ts`, `useShowJumpWhenReady.ts`                                                                                                                      | E3–E5, E21                           |
+| The show's steps and a takeover | `useShowSteps.ts`, `useTakeover.ts` (`usePublishNext`, `useAdoptRestore`, `useLeaderTakeover`)                                                                | E8, E9, E11, E12, E16, E17, E24, E25 |
+| Screen switches                 | `useScreenSwitches.tsx` (QR, «Заставка», hide, black, clear, and back), `useQrCornerFollow.ts`                                                                | E20                                  |
+| Timers                          | `useTimers.ts`, `useTimerSignals.ts`                                                                                                                          | E19, E31–E33                         |
+| Songs, pictures, running order  | `useSongProjection.ts`, `songSlides.ts`, `usePictures.ts`, `useRunningOrder.ts`, `usePlaylistActions.ts`, `PlaylistDocked.tsx` (in `components/ShowList.tsx`) | none                                 |
+| Commands, the hub, remotes      | `useShowCommands.ts`, `useHub.ts`                                                                                                                             | E22, E23, E26–E30                    |
+| Keys and the palette            | `useControlHotkeys.ts`, `usePaletteCommands.tsx`                                                                                                              | E18                                  |
+| The frame                       | `ControlHeader.tsx`, `LiveZone.tsx`, `ControlNavbar.tsx`, `HubBanners.tsx`, `usePanelResize.ts`, `useAppSettingsOpener.ts`, `outputWindows.ts`, `standby.ts`  | E1                                   |
 
 React runs a component's passive effects in the order of its hook calls, and several of the
 control window's effects rely on running before or after others in the same commit. So the

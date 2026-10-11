@@ -82,22 +82,55 @@ export function readVectorSets(dataDir: string, model: EmbedModelId): Map<string
 }
 
 /** The library's translations with their modules' hashes — what vectors are kept by. */
-export function listTranslations(
-  libraryPath: string,
-): { id: number; abbr: string; title: string; hash: string | null }[] {
+export interface LibraryTranslation {
+  id: number;
+  abbr: string;
+  title: string;
+  language: string;
+  /** its verses: a whole Bible ≈ 31 000, a New Testament ≈ 8 000 («один на мову» takes the whole) */
+  verses: number;
+  hash: string | null;
+}
+
+// the counts take a pass over every verse (≈ 0.1 s for 537 000): kept until the file changes
+let listed: { key: string; list: LibraryTranslation[] } | null = null;
+
+export function listTranslations(libraryPath: string): LibraryTranslation[] {
   if (!fs.existsSync(libraryPath)) return [];
+  const st = fs.statSync(libraryPath);
+  const key = `${libraryPath}|${st.size}|${st.mtimeMs}`;
+  if (listed?.key === key) return listed.list;
   const db = new Database(libraryPath, { readonly: true, fileMustExist: true });
   try {
     db.pragma('busy_timeout = 3000');
     if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'translations'").get()) return [];
-    return (
-      db.prepare('SELECT id, abbr, title, source_hash FROM translations ORDER BY abbr').all() as {
+    const counts = new Map(
+      (
+        db
+          .prepare('SELECT translation_id id, COUNT(*) n FROM verses GROUP BY translation_id')
+          .all() as { id: number; n: number }[]
+      ).map((r) => [r.id, r.n]),
+    );
+    const list = (
+      db
+        .prepare('SELECT id, abbr, title, language, source_hash FROM translations ORDER BY abbr')
+        .all() as {
         id: number;
         abbr: string;
         title: string | null;
+        language: string | null;
         source_hash: string | null;
       }[]
-    ).map((t) => ({ id: t.id, abbr: t.abbr, title: t.title ?? '', hash: t.source_hash }));
+    ).map((t) => ({
+      id: t.id,
+      abbr: t.abbr,
+      title: t.title ?? '',
+      language: t.language ?? '',
+      verses: counts.get(t.id) ?? 0,
+      hash: t.source_hash,
+    }));
+    listed = { key, list };
+    return list;
   } finally {
     db.close();
   }
