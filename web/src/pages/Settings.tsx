@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ScrollArea, Box, Title, Group, Text } from '@mantine/core';
 import { IconAdjustments } from '@tabler/icons-react';
+import { ModulesFloating } from '../components/ModulesPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { tr, useLang } from '../i18n';
 import { probeServer, useServer, versionHeading } from '../serverStore';
@@ -56,6 +57,7 @@ export function Settings() {
         </Group>
         <SettingsPanel />
       </Box>
+      <ModulesFloating />
     </ScrollArea>
   );
 }

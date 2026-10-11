@@ -3,7 +3,13 @@ import { flushSync } from 'react-dom';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { type Lang } from '@vo/shared';
-import { api, RebuildStateSchema, type RemoteCommand, type Pairing } from '../../api';
+import {
+  api,
+  CatalogQueueSchema,
+  RebuildStateSchema,
+  type RemoteCommand,
+  type Pairing,
+} from '../../api';
 import { noteRebuild } from '../../lib/rebuild';
 import { playable, type SeqItem } from '../../playlistStore';
 import { type Slide, type SlideSource } from '../../presenterBus';
@@ -219,6 +225,10 @@ export function useHub({
               outcome.ok ? 'brand' : 'orange',
             );
           });
+        } else if (f.type === 'catalog') {
+          // «Модулі» (1.15.0-beta.1): a download moved on, maybe started in another window
+          const q = CatalogQueueSchema.safeParse(f.queue);
+          if (q.success) queryClient.setQueryData(['catalogQueue'], q.data);
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
         } else if (f.type === 'rebuild') {

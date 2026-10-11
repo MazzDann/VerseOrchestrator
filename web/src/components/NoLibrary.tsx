@@ -1,6 +1,7 @@
 import { Button, Group, Stack, Text } from '@mantine/core';
-import { IconAdjustments, IconDatabaseImport } from '@tabler/icons-react';
+import { IconAdjustments, IconBooks, IconDatabaseImport } from '@tabler/icons-react';
 import { tr, useLang } from '../i18n';
+import { useModulesPanel } from '../lib/catalog';
 import { rebuildProgress, useRebuildLibrary } from '../lib/rebuild';
 
 /**
@@ -32,7 +33,7 @@ export function NoLibrary({
       {server && (
         <Text size="sm" c="dimmed">
           {tr(
-            'Покладіть модулі Module (*.SQLite3) у папку modules/ поруч із застосунком і натисніть «Пересканувати модулі».',
+            'Завантажте переклади з каталогу Module — кнопка «Завантажити переклади…» нижче. Або покладіть модулі Module (*.SQLite3) у папку modules/ поруч із застосунком і натисніть «Пересканувати модулі».',
           )}
         </Text>
       )}
@@ -46,6 +47,17 @@ export function NoLibrary({
             )}
       </Text>
       <Group gap="xs" mt={4}>
+        {/* «Модулі» (1.15.0-beta.1): Module's catalog in the app */}
+        {server && (
+          <Button
+            size="sm"
+            variant="filled"
+            leftSection={<IconBooks size={16} />}
+            onClick={() => useModulesPanel.getState().show('catalog')}
+          >
+            {tr('Завантажити переклади…')}
+          </Button>
+        )}
         {server && (
           <Button
             size="sm"

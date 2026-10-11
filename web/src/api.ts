@@ -1305,12 +1305,107 @@ export const api = {
     return RebuildStateSchema.parse(await res.json());
   },
   rebuildState: () => getJson('/api/rebuild', RebuildStateSchema),
+  /** «Модулі» (1.15.0-beta.1): Module's catalog, kept by the server a day (`refresh` asks again) */
+  catalog: (refresh = false) =>
+    getJson(`/api/catalog${refresh ? '?refresh=1' : ''}`, CatalogSchema),
+  catalogQueue: () => getJson('/api/catalog/queue', CatalogQueueSchema),
+  downloadModule: async (fil: string): Promise<CatalogQueue> => {
+    const res = await request('/api/catalog/download', {
+      method: 'POST',
+      headers: { ...CONTROL_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fil }),
+    });
+    if (!res.ok) throw await failure(res);
+    return CatalogQueueSchema.parse(await res.json());
+  },
+  cancelDownload: async (fil: string): Promise<CatalogQueue> => {
+    const res = await request('/api/catalog/cancel', {
+      method: 'POST',
+      headers: { ...CONTROL_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fil }),
+    });
+    if (!res.ok) throw await failure(res);
+    return CatalogQueueSchema.parse(await res.json());
+  },
+  /** modules/ by kind and which of them the library takes */
+  modules: () => getJson('/api/modules', ModulesSchema),
+  selectModules: async (kind: ModuleKindId, files: string[]) => {
+    const res = await request('/api/modules/selection', {
+      method: 'PUT',
+      headers: { ...CONTROL_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, files }),
+    });
+    if (!res.ok) throw await failure(res);
+  },
   stopRebuild: async (): Promise<RebuildState> => {
     const res = await request('/api/rebuild/stop', { method: 'POST', headers: CONTROL_HEADERS });
     if (!res.ok) throw await failure(res);
     return RebuildStateSchema.parse(await res.json());
   },
 };
+
+/** «Модулі» (1.15.0-beta.1, server/src/catalog.ts). */
+export const MODULE_KIND_IDS = [
+  'bibles',
+  'dictionaries',
+  'commentaries',
+  'crossreferences',
+] as const;
+export type ModuleKindId = (typeof MODULE_KIND_IDS)[number];
+const ModuleKindSchema = z.enum(MODULE_KIND_IDS);
+export const CatalogRowSchema = z.object({
+  fil: z.string(),
+  abbr: z.string(),
+  kind: ModuleKindSchema,
+  lang: z.string(),
+  title: z.string(),
+  titles: z.record(z.string()).optional(),
+  size: z.number(),
+  updated: z.string(),
+  info: z.string().optional(),
+  licence: z.string().optional(),
+  region: z.string().optional(),
+});
+export type CatalogRow = z.infer<typeof CatalogRowSchema>;
+const CatalogSchema = z.object({
+  version: z.number(),
+  fetchedAt: z.number(),
+  stale: z.boolean().optional(),
+  entries: z.array(CatalogRowSchema),
+});
+const KeyedNoteSchema = z.object({ key: z.string(), vars: z.record(z.string()).optional() });
+export const CatalogQueueSchema = z.object({
+  items: z.array(
+    z.object({
+      fil: z.string(),
+      abbr: z.string(),
+      phase: z.enum(['waiting', 'downloading', 'placing', 'done', 'failed', 'cancelled']),
+      got: z.number(),
+      total: z.number(),
+      files: z
+        .array(
+          z.object({ name: z.string(), kind: ModuleKindSchema, present: z.boolean().optional() }),
+        )
+        .optional(),
+      note: KeyedNoteSchema.optional(),
+    }),
+  ),
+});
+export type CatalogQueue = z.infer<typeof CatalogQueueSchema>;
+const SelectionListSchema = z.array(z.string()).nullable();
+const ModulesSchema = z.object({
+  dir: z.string(),
+  files: z.record(ModuleKindSchema, z.array(z.string())),
+  selection: z
+    .object({
+      bibles: SelectionListSchema,
+      dictionaries: SelectionListSchema,
+      commentaries: SelectionListSchema,
+      crossreferences: SelectionListSchema,
+    })
+    .nullable(),
+});
+export type ModulesInfo = z.infer<typeof ModulesSchema>;
 
 /** The library rebuild as the server's job (1.12.4, server/src/rebuildJob.ts). */
 export const RebuildStateSchema = z.object({
