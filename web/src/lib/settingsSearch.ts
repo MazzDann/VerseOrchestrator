@@ -88,6 +88,12 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('search', N_('Де поле пошуку'), 'search field place'),
   e('search', N_('Той самий вірш з різних перекладів — одним рядком'), 'group rows'),
   e('search', N_('Курсор у пошук, коли повертаєтеся до вікна керування'), 'focus cursor'),
+  e(
+    'search',
+    N_('Пошук за змістом'),
+    'semantic meaning vectors model embeddings ~ зміст вектори модель', // i18n-ignore: Ukrainian search words
+  ),
+  e('search', N_('Модель для пошуку за змістом'), 'model fast precise'),
   e('video', N_('Після кінця відео'), 'video end'),
   e('video', N_('Телефони глядачів під час відео'), 'phones viewers'),
   e('stageTimer', N_('Попередження'), 'speaker timer warning'),

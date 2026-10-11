@@ -47,6 +47,7 @@ const KIND_LABEL: Record<SegmentInfo['kind'], string> = {
   dictionary: N_('Словники'),
   study: N_('Посилання й коментарі'),
   songs: N_('Пісні'),
+  vectors: N_('Вектори для пошуку за змістом'),
 };
 
 const ms = (v: number | null | undefined) =>

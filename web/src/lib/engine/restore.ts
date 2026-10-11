@@ -111,6 +111,7 @@ const UNIT_FORMS: Record<SegmentUnit, string> = {
   notes: Nn_('{n} коментар|{n} коментарі|{n} коментарів'),
   refs: Nn_('{n} посилання|{n} посилання|{n} посилань'),
   songs: Nn_('{n} пісня|{n} пісні|{n} пісень'),
+  vectors: Nn_('вектори {n} вірша|вектори {n} віршів|вектори {n} віршів'),
 };
 
 /** «31 102 вірші», «14 250 статей» — what a segment holds, in words. */

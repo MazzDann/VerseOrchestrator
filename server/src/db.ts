@@ -2,7 +2,14 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
-import { createLibrary, LibraryError, NO_LIBRARY, type Library, type SqlDriver } from '@vo/shared';
+import {
+  createLibrary,
+  LibraryError,
+  NO_LIBRARY,
+  type Library,
+  type LibraryOptions,
+  type SqlDriver,
+} from '@vo/shared';
 
 /**
  * The server's engine for the shared library queries (@vo/shared `createLibrary`):
@@ -16,6 +23,14 @@ const DB_PATH =
   process.env.LIBRARY_DB ??
   path.join(process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data'), 'library.db');
 export const libraryPath = DB_PATH;
+/**
+ * The verse vectors («Пошук за змістом», 1.15.0-beta.2) — a file of its own next to the data, so a
+ * rebuild of library.db leaves them; ATTACHed to the library connection when it is there.
+ */
+const VECTORS_PATH = path.join(
+  process.env.VO_DATA_DIR ?? path.join(repoRoot, 'data'),
+  'vectors.db',
+);
 
 /** Errors carrying an HTTP status (the library's own errors are the same class). */
 export { LibraryError as ApiError };
@@ -38,6 +53,12 @@ function getDb(): Database.Database {
     throw new LibraryError(503, NO_LIBRARY);
   }
   tuneReadOnly(conn);
+  if (fs.existsSync(VECTORS_PATH))
+    try {
+      conn.prepare('ATTACH DATABASE ? AS vectors').run(VECTORS_PATH);
+    } catch (err) {
+      console.warn(`[db] vectors: ${(err as Error).message}`);
+    }
   db = conn;
   return db;
 }
@@ -79,7 +100,15 @@ export function betterSqliteDriver(open: () => Database.Database): SqlDriver {
   };
 }
 
-let current: Library = createLibrary(betterSqliteDriver(getDb));
+/** What «~ …» asks the model for (index.ts: the chosen model, opened when first asked). */
+let options: LibraryOptions = {};
+let current: Library = createLibrary(betterSqliteDriver(getDb), options);
+
+/** The host's embedder for queries by meaning — a fresh library takes it. */
+export function setLibraryOptions(o: LibraryOptions): void {
+  options = o;
+  current = createLibrary(betterSqliteDriver(getDb), options);
+}
 
 /** The library bound to the current database file. */
 export function library(): Library {
@@ -98,7 +127,7 @@ export function closeDb(): void {
     db = null;
   }
   // New driver (fresh statement cache) + new library (fresh schema probes).
-  current = createLibrary(betterSqliteDriver(getDb));
+  current = createLibrary(betterSqliteDriver(getDb), options);
 }
 
 /** What the server engine is and holds — the engine benchmark's "server" column. */

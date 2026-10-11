@@ -241,8 +241,9 @@ export function DataSourceSection() {
     dictionary: tr('Словники'),
     study: tr('Посилання й коментарі'),
     songs: tr('Пісні'),
+    vectors: tr('Вектори для пошуку за змістом'),
   };
-  const groups = (['translation', 'dictionary', 'study', 'songs'] as const)
+  const groups = (['translation', 'dictionary', 'study', 'songs', 'vectors'] as const)
     .map((k) => ({ k, items: (manifest.data?.segments ?? []).filter((s) => s.kind === k) }))
     .filter((g) => g.items.length > 0);
   const loadedBytes = loaded.reduce((a, s) => a + s.bytes, 0);
@@ -339,6 +340,8 @@ export function DataSourceSection() {
                           <span>
                             {s.abbr}{' '}
                             <Text span size="xs" c="dimmed">
+                              {/* a vector segment names its model (1.15.0-beta.2) */}
+                              {s.kind === 'vectors' && `${s.title} · `}
                               {mb(s.bytes)}
                               {loaded.some((l) => l.key === s.file)
                                 ? ` · ${tr('завантажено')}`

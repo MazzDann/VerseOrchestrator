@@ -3,6 +3,8 @@ import { parseReference } from '../reference.js';
 import type { Book, SearchResult, StrongDefinition, Translation, Verse } from '../types.js';
 import { LibraryError, type SqlDriver, type SqlParam } from './driver.js';
 import { PG_TS_CONFIG } from './postgres.js';
+import { pgVector } from './vectors.js';
+import { nearest, type ChapterVectors, type Scored } from '../embed/vectors.js';
 
 /**
  * Every read the app makes against a library database, written once against the
@@ -59,11 +61,33 @@ export interface SongDetail extends SongInfo {
 }
 
 export interface SearchResponse {
-  kind: 'reference' | 'text' | 'empty';
+  /** `meaning`: «~ …», found by meaning (1.15.0-beta.2), the nearest first */
+  kind: 'reference' | 'text' | 'meaning' | 'empty';
   results: SearchResult[];
   /** Alternative books for an ambiguous reference token ("did you mean…"). */
   suggestions?: SearchResult[];
+  /**
+   * «~ …» found nothing because a part is missing: no model chosen or downloaded (`model`), or
+   * none of the asked translations has its vectors yet (`vectors`).
+   */
+  missing?: 'model' | 'vectors';
 }
+
+/** What a query by meaning needs of the engine's host: the query's vector, by the chosen model. */
+export interface LibraryOptions {
+  /**
+   * `models`: those the asked translations have whole vectors of — a host with a model of its
+   * own (the server) answers with it anyway; the browser picks one of them.
+   */
+  embed?: (text: string, models: string[]) => Promise<{ model: string; vec: Int8Array } | null>;
+}
+
+/** «~ слова» — a search by meaning; the rest of the query is what to look for. */
+export const MEANING_PREFIX = /^\s*~\s*/;
+const INT = 'CAST(? AS INTEGER)';
+
+/** How many places a query by meaning returns. */
+export const MEANING_LIMIT = 60;
 
 // Rows come back loosely typed from any engine; map them explicitly.
 type AnyRow = any;
@@ -201,7 +225,7 @@ export type Library = ReturnType<typeof createLibrary>;
  * Bind the queries to one open database. Schema probes (which optional tables/columns
  * exist) are cached per instance — create a new instance after the file is rebuilt.
  */
-export function createLibrary(db: SqlDriver) {
+export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
   const pg = db.dialect === 'postgres';
   const tables = new Map<string, boolean>();
   const tableExists = async (name: string): Promise<boolean> => {
@@ -726,9 +750,133 @@ export function createLibrary(db: SqlDriver) {
    * Search either by reference ("Ів 3:16") or full text. Reference is tried first;
    * if the query does not look like a reference we fall back to FTS5 text search.
    */
+  // --- «Пошук за змістом» (1.15.0-beta.2, vectors.ts) ---
+
+  /** Vector tables can sit in an attached file (the server's data/vectors.db): every schema. */
+  let vectorsKnown: boolean | null = null;
+  async function hasVectors(): Promise<boolean> {
+    if (vectorsKnown === null) {
+      try {
+        vectorsKnown = pg
+          ? await tableExists('vector_sets')
+          : !!(await db.get("SELECT 1 FROM pragma_table_list WHERE name = 'vector_sets'"));
+      } catch {
+        vectorsKnown = false;
+      }
+    }
+    return vectorsKnown;
+  }
+
+  /** The asked translations that have every vector of this model. */
+  async function vectorTranslations(model: string, ids: number[]) {
+    const rows = await db.all<AnyRow>(
+      `SELECT t.id, t.source_hash FROM translations t
+       JOIN vector_sets s ON s.source_hash = t.source_hash
+       WHERE s.model = ? AND s.done = 1 AND t.id IN (${placeholders(ids.length)})`,
+      [model, ...ids],
+    );
+    return rows.map((r) => ({ id: Number(r.id), hash: String(r.source_hash) }));
+  }
+
+  // a translation's chapters, decoded once (≈ 12 MB each; a few kept): a scan then costs ≈ 22 ms
+  const chapterCache = new Map<string, ChapterVectors[]>();
+  async function chapterVectors(model: string, hash: string): Promise<ChapterVectors[]> {
+    const key = `${model}|${hash}`;
+    const had = chapterCache.get(key);
+    if (had) {
+      chapterCache.delete(key);
+      chapterCache.set(key, had);
+      return had;
+    }
+    const rows = await db.all<AnyRow>(
+      'SELECT book, chapter, verses, vecs FROM chapter_vectors WHERE model = ? AND source_hash = ?',
+      [model, hash],
+    );
+    const out = rows.map((r) => ({
+      book: Number(r.book),
+      chapter: Number(r.chapter),
+      verses: r.verses as Uint8Array,
+      vecs: r.vecs as Uint8Array,
+    }));
+    chapterCache.set(key, out);
+    while (chapterCache.size > 4) chapterCache.delete(chapterCache.keys().next().value!);
+    return out;
+  }
+
+  async function searchByMeaning(text: string, ids: number[]): Promise<SearchResponse> {
+    if (!text) return { kind: 'empty', results: [] };
+    if (!opts.embed || !(await hasVectors()))
+      return { kind: 'meaning', results: [], missing: 'model' };
+    const models = (
+      await db.all<AnyRow>(
+        `SELECT DISTINCT s.model FROM vector_sets s
+         JOIN translations t ON t.source_hash = s.source_hash
+         WHERE s.done = 1 AND t.id IN (${placeholders(ids.length)})`,
+        ids,
+      )
+    ).map((r) => String(r.model));
+    // none of the asked translations has vectors: nothing to ask the model
+    if (!models.length) return { kind: 'meaning', results: [], missing: 'vectors' };
+    const q = await opts.embed(text, models);
+    if (!q) return { kind: 'meaning', results: [], missing: 'model' };
+    const sets = await vectorTranslations(q.model, ids);
+    if (!sets.length) return { kind: 'meaning', results: [], missing: 'vectors' };
+    const hits: (Scored & { tid: number })[] = [];
+    if (pg) {
+      const vec = pgVector(q.vec);
+      const rows = await db.all<AnyRow>(
+        `SELECT t.id AS tid, x.book, x.chapter, x.verse, -(x.vec <#> ?::vector) / 16129.0 AS score
+         FROM verse_vectors x JOIN translations t ON t.source_hash = x.source_hash
+         WHERE x.model = ? AND t.id IN (${placeholders(sets.length)})
+         ORDER BY x.vec <#> ?::vector
+         LIMIT ${MEANING_LIMIT}`,
+        [vec, q.model, ...sets.map((s) => s.id), vec],
+      );
+      for (const r of rows)
+        hits.push({
+          tid: Number(r.tid),
+          book: Number(r.book),
+          chapter: Number(r.chapter),
+          verse: Number(r.verse),
+          score: Number(r.score),
+        });
+    } else {
+      for (const s of sets)
+        for (const h of nearest(await chapterVectors(q.model, s.hash), q.vec, MEANING_LIMIT))
+          hits.push({ ...h, tid: s.id });
+      hits.sort((a, b) => b.score - a.score);
+      hits.length = Math.min(hits.length, MEANING_LIMIT);
+    }
+    if (!hits.length) return { kind: 'meaning', results: [] };
+    // the places as a table joined on the verses' index — 60 ORed conditions scanned every verse
+    const rows = await db.all<AnyRow>(
+      // typed: Postgres reads an untyped parameter as text (and CAST is the one spelling both know)
+      `WITH h (t, bk, c, n) AS (VALUES ${hits.map(() => `(${INT}, ${INT}, ${INT}, ${INT})`).join(', ')})
+       SELECT v.translation_id, v.book_number, v.chapter, v.verse, v.text,
+              b.long_name, b.short_name
+       FROM h
+       JOIN verses v ON v.translation_id = h.t AND v.book_number = h.bk AND v.chapter = h.c AND v.verse = h.n
+       JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number`,
+      hits.flatMap((h) => [h.tid, h.book, h.chapter, h.verse]),
+    );
+    // in the order of their nearness
+    const at = new Map(hits.map((h, i) => [`${h.tid}|${h.book}|${h.chapter}|${h.verse}`, i]));
+    const results = rows
+      .map(rowToResult)
+      .sort(
+        (a, b) =>
+          (at.get(`${a.translationId}|${a.bookNumber}|${a.chapter}|${a.verse}`) ?? 0) -
+          (at.get(`${b.translationId}|${b.bookNumber}|${b.chapter}|${b.verse}`) ?? 0),
+      );
+    return { kind: 'meaning', results };
+  }
+
   async function search(query: string, translationIds: number[]): Promise<SearchResponse> {
     const ids = translationIds.length ? translationIds : (await getTranslations()).map((t) => t.id);
     if (ids.length === 0) return { kind: 'empty', results: [] };
+
+    const meaning = MEANING_PREFIX.exec(query);
+    if (meaning) return searchByMeaning(query.slice(meaning[0].length).trim(), ids);
 
     const ref = parseReference(query);
     if (ref) {

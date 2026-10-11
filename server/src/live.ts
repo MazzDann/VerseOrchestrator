@@ -240,6 +240,11 @@ export function notifyCatalog(queue: object): void {
   for (const c of sockets('control')) send(c, { type: 'catalog', queue });
 }
 
+/** «Пошук за змістом» (1.15.0-beta.2): a model or the vectors moved on — control windows look again. */
+export function notifySemantic(state: object): void {
+  for (const c of sockets('control')) send(c, { type: 'semantic', state });
+}
+
 /** Tell control windows to refetch the remote list (pairing added/removed/connected). */
 export function notifyRemotesChanged(): void {
   for (const c of sockets('control')) send(c, { type: 'remotes' });

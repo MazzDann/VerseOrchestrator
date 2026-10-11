@@ -1,4 +1,5 @@
 import { createLibrary, type Library, type SqlDriver } from '@vo/shared';
+import { embedQuery } from './embed';
 import { useDataSource } from '../../dataSourceStore';
 import { tr } from '../../i18n';
 import {
@@ -100,14 +101,14 @@ export function createEngine(kind: EngineKind, opts: { persist?: boolean } = {})
 
   // createLibrary caches schema probes; a new segment can add tables (a dictionary,
   // songs), so the library is recreated after every change.
-  let lib: Library = createLibrary(driver);
+  let lib: Library = createLibrary(driver, { embed: embedQuery });
 
   return {
     kind,
     library: () => lib,
     async add(key, bytes) {
       const r = await call<SegmentCounts & { ms: number }>({ op: 'add', key, bytes }, [bytes]);
-      lib = createLibrary(driver);
+      lib = createLibrary(driver, { embed: embedQuery });
       return r;
     },
     convert: (name, bytes) => call<ConvertResult>({ op: 'convert', name, bytes }, [bytes]),
@@ -116,7 +117,7 @@ export function createEngine(kind: EngineKind, opts: { persist?: boolean } = {})
     reopen: () => call<ReopenResult>({ op: 'reopen' }),
     async reset() {
       await call({ op: 'reset' });
-      lib = createLibrary(driver);
+      lib = createLibrary(driver, { embed: embedQuery });
     },
     terminate() {
       worker?.terminate();

@@ -37,6 +37,7 @@ const READ = N_('Читання');
 const REF = N_('Посилання');
 const FTS = N_('Повнотекстовий пошук');
 const STRONG = N_('Стронг і довідка');
+const MEANING = N_('Пошук за змістом');
 
 const search = (q: string, pick: (c: BenchContext) => number[] | undefined) => {
   return (lib: BenchLibrary, ctx: BenchContext) => {
@@ -72,6 +73,14 @@ export const BENCH_CASES: BenchCase[] = [
     make: search('никодим', uk), // i18n-ignore: a query
   },
   { id: 'word', group: FTS, label: N_('Слово «любов»'), make: search('любов', uk) }, // i18n-ignore: a query
+  // 1.15.0-beta.2: the query's vector (the server's model) + the scan of the translation's vectors —
+  // chapter rows in JS on SQLite, pgvector's <#> on Postgres
+  {
+    id: 'meaning',
+    group: MEANING,
+    label: N_('За змістом «~ любіть своїх ворогів»'),
+    make: search('~ любіть своїх ворогів', uk), // i18n-ignore: a query
+  },
   {
     id: 'frequent',
     group: FTS,

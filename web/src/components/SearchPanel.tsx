@@ -259,9 +259,11 @@ export function SearchPanel({
           <Group gap={6} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
             <IconSearch size={16} />
             <Text size="sm" fw={500} truncate>
-              {debounced.trim().length >= 2
-                ? tr('Знайдено для «{query}»', { query: debounced.trim() })
-                : tr('Пошук')}
+              {debounced.trim().length < 2
+                ? tr('Пошук')
+                : data?.kind === 'meaning'
+                  ? tr('За змістом: «{query}»', { query: debounced.trim().replace(/^~\s*/, '') })
+                  : tr('Знайдено для «{query}»', { query: debounced.trim() })}
             </Text>
             {isFetching && <Loader size="xs" />}
           </Group>
@@ -342,7 +344,16 @@ export function SearchPanel({
             )}
             {debounced.trim().length >= 2 && rows.length === 0 && !isFetching && !error && (
               <Text size="sm" c="dimmed" p="sm">
-                {tr('Нічого не знайдено')}
+                {/* «~ …» needs a model and vectors (1.15.0-beta.2): where to get them */}
+                {data?.missing === 'model'
+                  ? tr(
+                      'Пошук за змістом ще не налаштовано: виберіть і завантажте модель у «Налаштування вигляду → Пошук → Пошук за змістом».',
+                    )
+                  : data?.missing === 'vectors'
+                    ? tr(
+                        'Для цих перекладів ще немає векторів: обчисліть їх у «Налаштування вигляду → Пошук → Пошук за змістом».',
+                      )
+                    : tr('Нічого не знайдено')}
               </Text>
             )}
           </Stack>

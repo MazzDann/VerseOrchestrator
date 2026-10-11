@@ -16,6 +16,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # onnxruntime-node (1.15 «Пошук за змістом») would download CUDA providers on linux/x64 after its
+  # install — the app runs on the CPU (server/src/launcher.ts sets the same for every npm it starts)
+  ONNXRUNTIME_NODE_INSTALL: skip
+
 concurrency:
   group: ci-${{ github.ref }}
   # a newer push to a pull request replaces the check; on main every run finishes (a release)

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-pgvector": "^0.0.9",
     "@mantine/core": "^7.15.3",
     "@mantine/hooks": "^7.15.3",
     "@mantine/notifications": "^7.17.8",
@@ -20,6 +21,7 @@
     "@tanstack/react-virtual": "^3.11.2",
     "@vo/shared": "*",
     "libheif-js": "1.23.2",
+    "onnxruntime-web": "^1.30.0",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

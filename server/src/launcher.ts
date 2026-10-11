@@ -128,6 +128,10 @@ export const platformTag = () =>
 export type DepsMode = 'full' | 'runtime';
 
 const QUIET = ['--no-audit', '--no-fund', '--no-update-notifier', '--loglevel=error'];
+// onnxruntime-node («Пошук за змістом», 1.15) downloads CUDA providers after its install on
+// linux/x64 — hundreds of megabytes the app never uses (it runs on the CPU). Every npm this process
+// starts inherits it (the portable copy's too: it imports NPM_CI from here).
+process.env.ONNXRUNTIME_NODE_INSTALL ??= 'skip';
 /** `npm ci` for each mode. */
 export const NPM_CI: Record<DepsMode, string[]> = {
   full: ['ci', ...QUIET],

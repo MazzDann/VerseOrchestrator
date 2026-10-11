@@ -64,6 +64,7 @@ import { TemplateEditor } from './TemplateEditor';
 import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
+import { SemanticSection } from './SemanticSection';
 import { useModulesPanel } from '../lib/catalog';
 import { rebuildProgress, useRebuildLibrary } from '../lib/rebuild';
 import { StandbySection } from './StandbySection';
@@ -656,6 +657,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               checked={search.focusOnReturn}
               onChange={(e) => setSearch({ focusOnReturn: e.currentTarget.checked })}
             />
+            {/* «Пошук за змістом» (1.15.0-beta.2): «~ …», the model, the vectors */}
+            <SemanticSection active={openSections.includes('search')} />
           </Section>
 
           {/* «Відео» (1.8.12-beta.3, the author's calls): its end and the phones */}
