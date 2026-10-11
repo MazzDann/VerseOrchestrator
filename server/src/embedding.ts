@@ -1,7 +1,6 @@
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import * as ort from 'onnxruntime-node';
 import {
   createEmbedder,
   EMBED_MODELS,
@@ -10,6 +9,14 @@ import {
   type EmbedModelId,
 } from '@vo/shared/embed';
 import { modelDir, modelInstalled } from './models.js';
+
+/**
+ * onnxruntime-node, loaded on first use — never at the server's start: a system its native runtime
+ * doesn't fit (an Intel Mac, an old Linux) still runs the app, and only a search by meaning says it
+ * can't (1.15.0 — found in the update run: a top-level import would stop the whole server).
+ */
+let runtime: Promise<typeof import('onnxruntime-node')> | null = null;
+export const loadRuntime = () => (runtime ??= import('onnxruntime-node'));
 
 /**
  * A model of data/models/ running on this computer's processor (onnxruntime-node, 1.15.0-beta.2).
@@ -22,6 +29,7 @@ export async function openEmbedder(
   threads: number,
 ): Promise<Embedder & { release: () => Promise<void> }> {
   const dir = modelDir(dataDir, id);
+  const ort = await loadRuntime();
   const session = await ort.InferenceSession.create(path.join(dir, 'model.onnx'), {
     executionProviders: ['cpu'],
     intraOpNumThreads: threads,
