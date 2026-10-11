@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { dictMeta } from '@vo/shared';
+import { dictMeta, readMorphology, type MorphologyRow } from '@vo/shared';
 
 export interface DictEntry {
   topic: string;
@@ -12,6 +12,8 @@ export interface DictModule {
   type: string;
   isStrong: boolean;
   entries: DictEntry[];
+  /** the grammar codes it explains (1.16.0-beta.2) */
+  morphology: MorphologyRow[];
 }
 
 function tableExists(db: Database.Database, name: string): boolean {
@@ -34,6 +36,9 @@ export function readDictionary(path: string): DictModule | null {
     }
     const entries = db.prepare('SELECT topic, definition FROM dictionary').all() as DictEntry[];
     if (entries.length === 0) return null;
+    const tables = (
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]
+    ).map((t) => t.name);
     // name/type + the Strong's-dictionary heuristic are shared with the browser converter.
     return {
       ...dictMeta(
@@ -41,6 +46,10 @@ export function readDictionary(path: string): DictModule | null {
         entries.map((e) => String(e.topic)),
       ),
       entries,
+      morphology: readMorphology(
+        (sql) => db.prepare(sql).all() as Record<string, unknown>[],
+        tables,
+      ),
     };
   } finally {
     db.close();

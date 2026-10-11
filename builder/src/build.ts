@@ -276,6 +276,9 @@ function buildOnce(): void {
       `INSERT INTO dictionary_entries (dictionary_id, topic, topic_norm, strong_lang, definition)
        VALUES (@dictionaryId, @topic, @topicNorm, @strongLang, @definition)`,
     );
+    const insMorph = db.prepare(
+      'INSERT OR IGNORE INTO morphology (dictionary_id, indication, applicable_to, meaning) VALUES (?, ?, ?, ?)',
+    );
     let dictId = 0;
     for (const file of dictFiles) {
       step(moduleName(file));
@@ -306,8 +309,11 @@ function buildOnce(): void {
           definition: cleanDefinition(e.definition ?? ''),
         });
       }
+      for (const m of dict.morphology)
+        insMorph.run(dictId, m.indication, m.applicableTo, m.meaning);
       console.log(
-        `[builder]   dict ${dictName} (${dict.isStrong ? 'strong' : 'explanatory'}) — ${dict.entries.length} entries`,
+        `[builder]   dict ${dictName} (${dict.isStrong ? 'strong' : 'explanatory'}) — ${dict.entries.length} entries` +
+          (dict.morphology.length ? `, ${dict.morphology.length} grammar codes` : ''),
       );
     }
 

@@ -1106,6 +1106,7 @@ export const EN: Record<string, string> = {
   'Без номерів Стронга — доступний лише словник по слову.':
     "No Strong's numbers — only the dictionary by word is available.",
   'На екран зі Стронгом': "To screen with Strong's",
+  Граматика: 'Grammar',
   'Немає статті для {n}. Додайте словник Стронга в папку modules/ і натисніть «Пересканувати модулі» (Налаштування вигляду → Дані).':
     "No entry for {n}. Add a Strong's dictionary to the modules/ folder and click “Rescan modules” (Settings → Data).",
   'У словниках нічого не знайдено для цього слова.':

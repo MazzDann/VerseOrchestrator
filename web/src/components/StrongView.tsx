@@ -4,7 +4,7 @@ import { IconDeviceTv, IconListSearch } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Verse } from '../api';
 import { useSettings } from '../settingsStore';
-import { parseStrongTokens } from '../lib/strong';
+import { parseStrongTokens, type StrongToken } from '../lib/strong';
 import { tr, useLang } from '../i18n';
 
 export interface StrongPickRef {
@@ -26,6 +26,8 @@ interface Props {
 interface ActiveWord {
   text: string;
   strong: string | null;
+  /** its grammar code, «V-AAI-3S» (1.16.0-beta.2) */
+  morph?: string;
 }
 
 const stripPunct = (w: string) => w.replace(/[.,;:!?»«"'()[\]<>]/g, '').trim();
@@ -95,6 +97,12 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
     queryFn: () => api.strong(active!.strong!, book),
     enabled: active?.strong != null,
   });
+  const morphQuery = useQuery({
+    queryKey: ['morph', active?.morph],
+    queryFn: () => api.morphology(active!.morph!),
+    enabled: !!active?.morph,
+    staleTime: Infinity,
+  });
   const wordQuery = useQuery({
     queryKey: ['dict', active?.text.toLowerCase()],
     queryFn: () => api.dict(active!.text),
@@ -118,7 +126,15 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
 
   const strongDefs = strongQuery.data ?? [];
   const wordDefs = wordQuery.data ?? [];
-  const loading = strongQuery.isFetching || wordQuery.isFetching;
+  // the dictionaries in the order their Strong articles come (the rest after)
+  const dictAt = (name: string) => {
+    const i = strongDefs.findIndex((d) => d.dictionary === name);
+    return i < 0 ? strongDefs.length : i;
+  };
+  const morphDefs = [...(morphQuery.data ?? [])].sort(
+    (a, b) => dictAt(a.dictionary) - dictAt(b.dictionary),
+  );
+  const loading = strongQuery.isFetching || wordQuery.isFetching || morphQuery.isFetching;
 
   // Projection subline from the active Strong gloss: just the lemma line, or the
   // full definition, per the appearance setting (joined onto one line).
@@ -140,7 +156,7 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
         </Text>
       )}
       {verses.map((v) => {
-        const tokens = hasStrong
+        const tokens: StrongToken[] = hasStrong
           ? parseStrongTokens(v.textRaw ?? '')
           : (v.text ?? '').split(/\s+/).map((w) => ({ text: w, strong: null }));
         return (
@@ -159,11 +175,14 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
                     ? 'true'
                     : undefined
                 }
-                onClick={() => setActive({ text: stripPunct(t.text), strong: t.strong })}
+                title={t.morph}
+                onClick={() =>
+                  setActive({ text: stripPunct(t.text), strong: t.strong, morph: t.morph })
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    setActive({ text: stripPunct(t.text), strong: t.strong });
+                    setActive({ text: stripPunct(t.text), strong: t.strong, morph: t.morph });
                   }
                 }}
               >
@@ -184,6 +203,23 @@ export function StrongView({ verses, hasStrong, onProjectStrong, onShowConcordan
             </Text>
             {loading && <Loader size="xs" />}
           </Group>
+
+          {active.morph && (
+            <Text size="sm" mb={6}>
+              <Text span c="dimmed">
+                {tr('Граматика')}:{' '}
+              </Text>
+              <Text span ff="monospace">
+                {active.morph}
+              </Text>
+              {morphDefs[0] && ` — ${morphDefs[0].meaning}`}
+              {morphDefs.slice(1).map((d) => (
+                <Text key={d.dictionary} span c="dimmed" display="block" title={d.dictionary}>
+                  {d.meaning}
+                </Text>
+              ))}
+            </Text>
+          )}
 
           {active.strong && onProjectStrong && projectSubline && (
             <Button

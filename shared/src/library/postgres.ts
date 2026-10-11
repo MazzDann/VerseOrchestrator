@@ -108,6 +108,16 @@ CREATE TABLE subheadings (
   PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
 );
 
+-- Grammar codes a dictionary explains (Module's morphology_indications, 1.16.0-beta.2): «V» Verb,
+-- «-AAI» for «V» Aor Act Ind, «-3S» 3rd Sing; applicable_to '' = any part of speech.
+CREATE TABLE morphology (
+  dictionary_id INTEGER NOT NULL,
+  indication    TEXT NOT NULL,
+  applicable_to TEXT NOT NULL DEFAULT '',
+  meaning       TEXT NOT NULL,
+  PRIMARY KEY (dictionary_id, indication, applicable_to)
+);
+
 CREATE TABLE commentaries (
   source       TEXT NOT NULL,
   book         INTEGER NOT NULL,
@@ -146,6 +156,15 @@ CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
  * (review of 1.16.0-beta.2 — a new segment's COPY into a missing table failed the whole load).
  */
 export const PG_ADDED_SQL = /* sql */ `
+-- Grammar codes a dictionary explains (Module's morphology_indications, 1.16.0-beta.2): «V» Verb,
+-- «-AAI» for «V» Aor Act Ind, «-3S» 3rd Sing; applicable_to '' = any part of speech.
+CREATE TABLE IF NOT EXISTS morphology (
+  dictionary_id INTEGER NOT NULL,
+  indication    TEXT NOT NULL,
+  applicable_to TEXT NOT NULL DEFAULT '',
+  meaning       TEXT NOT NULL,
+  PRIMARY KEY (dictionary_id, indication, applicable_to)
+);
 CREATE TABLE IF NOT EXISTS subheadings (
   translation_id INTEGER NOT NULL,
   book_number    INTEGER NOT NULL,

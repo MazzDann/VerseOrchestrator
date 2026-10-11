@@ -677,6 +677,13 @@ export const api = {
       (l) => l.lookupStrong(num, book),
       `/api/strong/${encodeURIComponent(num)}${book != null ? `?book=${book}` : ''}`,
     ),
+  /** a grammar code explained (1.16.0-beta.2); an older server has nothing to say */
+  morphology: (code: string) =>
+    fromLibrary(
+      z.array(z.object({ dictionary: z.string(), meaning: z.string() })),
+      (l) => l.decodeMorphology(code),
+      `/api/morphology/${encodeURIComponent(code)}`,
+    ).catch(() => []),
   strongRefs: (num: string, opts?: { translationId?: number; limit?: number }) => {
     const params = new URLSearchParams();
     if (opts?.translationId != null) params.set('translation', String(opts.translationId));

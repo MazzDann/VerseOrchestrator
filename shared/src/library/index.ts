@@ -4,6 +4,7 @@ export * from './schema.js';
 export * from './segments.js';
 export * from './merge.js';
 export * from './module.js';
+export * from './morphology.js';
 export * from './postgres.js';
 export * from './versification.js';
 export * from './vectors.js';

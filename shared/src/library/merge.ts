@@ -18,6 +18,7 @@ export const SEGMENT_TABLES = [
   'subheadings',
   'dictionaries',
   'dictionary_entries',
+  'morphology',
   'cross_references',
   'commentaries',
   'songs',

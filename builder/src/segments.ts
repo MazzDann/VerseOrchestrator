@@ -168,6 +168,18 @@ export function buildSegments(
           ins.run(id, e.topic, e.topic_norm, e.strong_lang, e.definition);
           n += 1;
         }
+        // its grammar codes (1.16.0-beta.2)
+        if (has('morphology')) {
+          const insM = seg.prepare(
+            'INSERT INTO morphology (dictionary_id, indication, applicable_to, meaning) VALUES (?, ?, ?, ?)',
+          );
+          for (const m of lib
+            .prepare(
+              'SELECT indication, applicable_to, meaning FROM morphology WHERE dictionary_id = ?',
+            )
+            .iterate(id) as Iterable<Record<string, unknown>>)
+            insM.run(id, m.indication, m.applicable_to, m.meaning);
+        }
       })();
       segments.push(
         seal(seg, file, {
