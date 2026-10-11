@@ -519,7 +519,7 @@ function OpenAlbumView({
   const info = show.albumInfo;
   const photos = show.photos ?? [];
   // HEIC photos still converting in the background (1.14.0-beta.2)
-  const waiting = photos.filter((p) => !photoReady(p)).length;
+  const waiting = photos.filter((p) => !photoReady(p) && !show.heicFailed(p.name)).length;
   const viewport = useRef<HTMLDivElement>(null);
   const tiles = useRef<(HTMLButtonElement | null)[]>([]);
   // the photo stepped to stays in sight
@@ -704,9 +704,9 @@ function OpenAlbumView({
                     {photoReady(p) ? (
                       <LazyThumb src={p.small ?? p.src} root={viewport} />
                     ) : (
-                      // an HEIC still converting (1.14.0-beta.2)
+                      // an HEIC still converting, or one that couldn't be (1.14.0-beta.2)
                       <Text size="xs" c="dimmed" className="vo-thumb-wait">
-                        {tr('перетворюю…')}
+                        {show.heicFailed(p.name) ? tr('не вдалося перетворити') : tr('перетворюю…')}
                       </Text>
                     )}
                   </button>
