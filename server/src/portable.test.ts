@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { howToStart, nodeCopy, npmShim, projectFiles, START_FILE } from './portable';
+import { howToStart, nodeCopy, npmShim, projectFiles, pruneOnnx, START_FILE } from './portable';
 import { OS_NAME, releaseAsset } from './layout';
 
 describe('portable copy (0.7.3)', () => {
@@ -221,5 +221,52 @@ describe('portable copy (0.7.3)', () => {
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('the ONNX runtime in a copy (1.15)', () => {
+  const lay = (files: Record<string, string>) => {
+    const app = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-onnx-'));
+    for (const [f, body] of Object.entries(files)) {
+      const p = path.join(app, 'node_modules', 'onnxruntime-node', 'bin', 'napi-v6', f);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, body);
+    }
+    const left = () =>
+      fs
+        .readdirSync(path.join(app, 'node_modules', 'onnxruntime-node', 'bin', 'napi-v6'), {
+          recursive: true,
+        })
+        .map(String)
+        .map((f) => f.split(path.sep).join('/'))
+        .filter((f) => f.includes('.'))
+        .sort();
+    return { app, left };
+  };
+
+  it('keeps its own system, without DirectML', () => {
+    const { app, left } = lay({
+      'win32/x64/onnxruntime.dll': 'x',
+      'win32/x64/DirectML.dll': 'x',
+      'win32/x64/onnxruntime_binding.node': 'x',
+      'linux/x64/libonnxruntime.so.1': 'x',
+    });
+    pruneOnnx(app, 'win32', 'x64');
+    expect(left()).toEqual(['win32/x64/onnxruntime.dll', 'win32/x64/onnxruntime_binding.node']);
+    fs.rmSync(app, { recursive: true, force: true });
+  });
+
+  it('macOS: one copy of the runtime — the one the binding loads', () => {
+    const { app, left } = lay({
+      'darwin/arm64/libonnxruntime.1.dylib': 'same',
+      'darwin/arm64/libonnxruntime.1.30.0.dylib': 'same',
+      'darwin/arm64/onnxruntime_binding.node': 'x',
+    });
+    pruneOnnx(app, 'darwin', 'arm64');
+    expect(left()).toEqual([
+      'darwin/arm64/libonnxruntime.1.dylib',
+      'darwin/arm64/onnxruntime_binding.node',
+    ]);
+    fs.rmSync(app, { recursive: true, force: true });
   });
 });

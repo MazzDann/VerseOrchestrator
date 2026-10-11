@@ -109,8 +109,24 @@ export function pruneOnnx(app: string, platform = process.platform, arch = proce
     for (const cpu of fs.readdirSync(path.join(bin, os)))
       if (os !== platform || cpu !== arch)
         fs.rmSync(path.join(bin, os, cpu), { recursive: true, force: true });
+  const own = path.join(bin, platform, arch);
   for (const dll of ['DirectML.dll', 'dxcompiler.dll', 'dxil.dll'])
-    fs.rmSync(path.join(bin, platform, arch, dll), { force: true });
+    fs.rmSync(path.join(own, dll), { force: true });
+  // macOS: the package carries the runtime twice — libonnxruntime.1.dylib and .1.30.0.dylib, the
+  // same bytes as two files; the binding loads @rpath/libonnxruntime.1.dylib (1.15.0-beta.2's
+  // macOS zip grew 29 MB against Windows' 15). A symlinked pair is left as it is.
+  const linked = path.join(own, 'libonnxruntime.1.dylib');
+  if (platform !== 'darwin' || !fs.existsSync(linked) || fs.lstatSync(linked).isSymbolicLink())
+    return;
+  for (const f of fs.readdirSync(own)) {
+    const p = path.join(own, f);
+    if (
+      /^libonnxruntime\.1\.\d+\.\d+\.dylib$/.test(f) &&
+      !fs.lstatSync(p).isSymbolicLink() &&
+      fs.statSync(p).size === fs.statSync(linked).size
+    )
+      fs.rmSync(p, { force: true });
+  }
 }
 
 /** bin/npm and bin/npx of the copy: the npm beside it, run by the node beside it. */
