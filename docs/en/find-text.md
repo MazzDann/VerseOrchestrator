@@ -170,7 +170,10 @@ when the library has the matching Module modules:
 - **Strong's** — appears when the main translation has Strong's numbers. Click a word of
   the chosen verse to see its meaning from the dictionary. **To screen with Strong's**
   shows the verse with that word and its meaning, and **Where else it is used** — other
-  verses with the same number.
+  verses with the same number. When the translation has grammar codes (Greek and Hebrew
+  modules marked «+», such as `V-AAI-3S`), a word's code shows in the tooltip over it, and
+  the card shows **Grammar**: the code and what it means, from the Strong's dictionary (in
+  the dictionary's language).
 - **Context** — cross-references and commentaries on the chosen verse.
 
 ## What's next

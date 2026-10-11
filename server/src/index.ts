@@ -2177,6 +2177,12 @@ app.get(
   }),
 );
 
+// a grammar code explained (1.16.0-beta.2)
+app.get(
+  '/api/morphology/:code',
+  wrap(async (req, res) => res.json(await library().decodeMorphology(String(req.params.code)))),
+);
+
 app.get(
   '/api/strong/:num/refs',
   wrap(async (req, res) => {

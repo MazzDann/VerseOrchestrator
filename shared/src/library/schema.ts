@@ -92,6 +92,7 @@ CREATE TABLE subheadings (
   PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
 );
 
+DROP TABLE IF EXISTS morphology;
 DROP TABLE IF EXISTS dictionary_entries;
 DROP TABLE IF EXISTS dictionaries;
 
@@ -112,6 +113,16 @@ CREATE TABLE dictionary_entries (
   definition    TEXT
 );
 CREATE INDEX idx_dict_topic ON dictionary_entries (topic_norm, dictionary_id);
+
+-- Grammar codes a dictionary explains (Module's morphology_indications, 1.16.0-beta.2): «V» Verb,
+-- «-AAI» for «V» Aor Act Ind, «-3S» 3rd Sing; applicable_to '' = any part of speech.
+CREATE TABLE morphology (
+  dictionary_id INTEGER NOT NULL,
+  indication    TEXT NOT NULL,
+  applicable_to TEXT NOT NULL DEFAULT '',
+  meaning       TEXT NOT NULL,
+  PRIMARY KEY (dictionary_id, indication, applicable_to)
+);
 
 DROP TABLE IF EXISTS cross_references;
 DROP TABLE IF EXISTS commentaries;

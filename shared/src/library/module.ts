@@ -85,6 +85,42 @@ export function readSubheadings(
   return out;
 }
 
+export interface MorphologyRow {
+  indication: string;
+  applicableTo: string;
+  meaning: string;
+}
+
+/**
+ * The grammar codes a dictionary explains (1.16.0-beta.2): Module's `morphology_indications`
+ * (indication, applicable_to, meaning) — Strong's dictionary carries 4171 for the Greek (RMAC) and
+ * Hebrew (OSHB) codes. An odd table never fails the module.
+ */
+export function readMorphology(
+  all: (sql: string) => Record<string, unknown>[],
+  tables: string[],
+): MorphologyRow[] {
+  if (!tables.some((t) => t.toLowerCase() === 'morphology_indications')) return [];
+  let rows: Record<string, unknown>[];
+  try {
+    rows = all('SELECT indication, applicable_to, meaning FROM morphology_indications');
+  } catch {
+    return [];
+  }
+  const seen = new Set<string>();
+  const out: MorphologyRow[] = [];
+  for (const r of rows) {
+    const indication = String(r.indication ?? '').trim();
+    const applicableTo = String(r.applicable_to ?? '').trim();
+    const meaning = stripTags(String(r.meaning ?? '')).trim();
+    const key = `${indication}|${applicableTo}`;
+    if (!indication || !meaning || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ indication, applicableTo, meaning });
+  }
+  return out;
+}
+
 /** File name without the Module extensions: "UKRK.SQLite3" → "UKRK". */
 export function moduleLabel(fileName: string): string {
   return fileName
@@ -454,6 +490,18 @@ export function convertModule(
           cleanDefinition(String(e.definition ?? '')),
         ];
       }),
+    );
+    // the grammar codes it explains (1.16.0-beta.2)
+    bulk(
+      out,
+      'morphology',
+      ['dictionary_id', 'indication', 'applicable_to', 'meaning'],
+      readMorphology((sql) => src.all(sql), tables).map((m) => [
+        id,
+        m.indication,
+        m.applicableTo,
+        m.meaning,
+      ]),
     );
     return { kind, abbr: label, title: meta.name || label, items: entries.length };
   }

@@ -1,5 +1,6 @@
 import { normalizeForSearch } from '../normalize.js';
 import { parseReference } from '../reference.js';
+import { explainMorphology, morphologyKeys, type MorphologyMeaning } from './morphology.js';
 import type { Book, SearchResult, StrongDefinition, Translation, Verse } from '../types.js';
 import { LibraryError, type SqlDriver, type SqlParam } from './driver.js';
 import { PG_TS_CONFIG } from './postgres.js';
@@ -381,6 +382,32 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
         topic: r.topic,
         definition: r.definition,
       }));
+  }
+
+  /**
+   * A grammar code explained (1.16.0-beta.2) — «V-AAI-3S» → «Verb · Aor Act Ind · 3rd Sing» — by
+   * every dictionary that carries the codes. An older library has none.
+   */
+  async function decodeMorphology(code: string): Promise<MorphologyMeaning[]> {
+    const c = code.trim();
+    if (!c || c.length > 64 || !(await tableExists('morphology'))) return [];
+    const keys = morphologyKeys(c);
+    const rows = await db.all<AnyRow>(
+      `SELECT d.name, m.indication, m.applicable_to, m.meaning
+       FROM morphology m JOIN dictionaries d ON d.id = m.dictionary_id
+       WHERE m.indication IN (${keys.map(() => '?').join(', ')})
+       ORDER BY d.name`,
+      keys,
+    );
+    return explainMorphology(
+      c,
+      rows.map((r) => ({
+        dictionary: String(r.name),
+        indication: String(r.indication),
+        applicableTo: String(r.applicable_to ?? ''),
+        meaning: String(r.meaning),
+      })),
+    );
   }
 
   /** Look up a plain word in explanatory (non-Strong) dictionaries. */
@@ -1004,6 +1031,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     getSubheadings,
     listDictionaries,
     lookupStrong,
+    decodeMorphology,
     lookupWord,
     strongRefs,
     getCrossrefs,

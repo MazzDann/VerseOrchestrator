@@ -114,6 +114,7 @@ function fixtureLibrary(file: string): void {
     INSERT INTO verse_strongs SELECT 2316, 'H', 1, id FROM verses WHERE translation_id = 1 AND book_number = 60 AND chapter = 4 AND verse = 1;
     INSERT INTO dictionaries VALUES (1, 'SG', 'Strong Greek', 'el', 'strong', 1), (2, 'SH', 'Strong Hebrew', 'he', 'strong', 1), (3, 'BD', 'Біблійний словник', 'uk', 'explanatory', 0);
     INSERT INTO dictionary_entries VALUES (1, 'G2316', '2316', 'G', 'θεός'), (2, 'H2316', '2316', 'H', 'אֱלֹהִים'), (3, 'Любов', 'любов', '', 'Основа всього');
+    INSERT INTO morphology VALUES (1, 'V', '', 'Verb'), (1, '-AAI', 'V', 'Aor Act Ind'), (1, '-3S', '', '3rd Sing'), (1, 'N-PRI', '', 'Indeclinable Proper Name'), (2, 'HVqp3ms', '', 'Hebrew: Verb qal perfect');
     INSERT INTO subheadings VALUES (1, 500, 3, 16, 2, 'Бог полюбив світ'), (1, 500, 3, 16, 1, 'Розмова з Никодимом'), (2, 500, 3, 16, 0, 'For God so loved');
     INSERT INTO cross_references VALUES (500, 3, 16, 450, 5, 8, 8), (500, 3, 16, 690, 4, 9, 10);
     INSERT INTO commentaries VALUES ('MH', 500, 3, 14, 3, 18, '1', 'Про любов Божу'), ('MH', 500, 4, 1, 4, 1, '', 'Інше');
@@ -251,6 +252,21 @@ describe('PostgreSQL (PGlite) answers like SQLite', () => {
       { verse: 16, title: 'For God so loved' },
     ]);
     expect(await sqlite.getSubheadings(1, 500, 4)).toEqual([]);
+  });
+
+  it('explains a grammar code the same way (1.16.0-beta.2)', async () => {
+    for (const lib of [sqlite, postgres]) {
+      expect(await lib.decodeMorphology('V-AAI-3S')).toEqual([
+        { dictionary: 'Strong Greek', meaning: 'Verb · Aor Act Ind · 3rd Sing' },
+      ]);
+      expect(await lib.decodeMorphology('N-PRI')).toEqual([
+        { dictionary: 'Strong Greek', meaning: 'Indeclinable Proper Name' },
+      ]);
+      expect(await lib.decodeMorphology('Vqp3ms')).toEqual([
+        { dictionary: 'Strong Hebrew', meaning: 'Hebrew: Verb qal perfect' },
+      ]);
+      expect(await lib.decodeMorphology('n.fs.a')).toEqual([]);
+    }
   });
 
   it('builds tsqueries from the same clauses as FTS5', () => {
