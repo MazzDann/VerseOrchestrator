@@ -47,16 +47,39 @@ export function readSubheadings(
   const has = new Set(tables.map((t) => t.toLowerCase()));
   const table = has.has('stories') ? 'stories' : has.has('subheadings') ? 'subheadings' : null;
   if (!table) return [];
-  const out: Subheading[] = [];
-  for (const r of all(`SELECT * FROM ${table}`)) {
+  let rows: Record<string, unknown>[];
+  try {
+    rows = all(`SELECT * FROM ${table}`);
+  } catch {
+    return []; // an optional table: never what fails a module (review)
+  }
+  const found: (Subheading & { at: number; order: number })[] = [];
+  rows.forEach((r, at) => {
     const title = stripTags(String(r.title ?? r.subheading ?? '')).trim();
-    if (!title) continue;
+    const [book, chapter, verse] = [r.book_number, r.chapter, r.verse].map(Number);
+    if (!title || ![book, chapter, verse].every(Number.isFinite)) return;
+    found.push({ book, chapter, verse, ord: 0, title, at, order: Number(r.order_if_several) || 0 });
+  });
+  // one place, several titles: their order, then as they came — numbered 0, 1, … (the key)
+  found.sort(
+    (a, b) =>
+      a.book - b.book ||
+      a.chapter - b.chapter ||
+      a.verse - b.verse ||
+      a.order - b.order ||
+      a.at - b.at,
+  );
+  const out: Subheading[] = [];
+  for (const h of found) {
+    const prev = out[out.length - 1];
+    const same =
+      prev && prev.book === h.book && prev.chapter === h.chapter && prev.verse === h.verse;
     out.push({
-      book: Number(r.book_number),
-      chapter: Number(r.chapter),
-      verse: Number(r.verse),
-      ord: Number(r.order_if_several ?? 0) || 0,
-      title,
+      book: h.book,
+      chapter: h.chapter,
+      verse: h.verse,
+      ord: same ? prev.ord + 1 : 0,
+      title: h.title,
     });
   }
   return out;

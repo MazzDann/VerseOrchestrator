@@ -12,6 +12,7 @@ import {
   mergeSql,
   moduleHash,
   N_,
+  PG_ADDED_SQL,
   PG_SCHEMA_SQL,
   pgPlaceholders,
   SCHEMA_SQL,
@@ -98,6 +99,8 @@ async function openPg(): Promise<PGlite> {
     await p.query("SELECT 1 FROM information_schema.tables WHERE table_name = 'translations'")
   ).rows.length;
   if (fresh) await p.exec(PG_SCHEMA_SQL);
+  // tables added since (1.16.0-beta.2 subheadings): an older snapshot gets them too
+  await p.exec(PG_ADDED_SQL);
   await p.exec(
     'CREATE TABLE IF NOT EXISTS vo_segments (key TEXT PRIMARY KEY, verses INTEGER, items INTEGER, unit TEXT, bytes BIGINT)',
   );

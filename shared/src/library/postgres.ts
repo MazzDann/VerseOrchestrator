@@ -97,17 +97,16 @@ CREATE TABLE cross_references (
 );
 CREATE INDEX idx_xref ON cross_references (book, chapter, verse);
 
--- Section titles inside a translation (Module's 'stories' / 'subheadings' tables, 1.16.0-beta.2): shown
--- before their verse; 'ord' keeps several at one verse in order.
+-- Section titles inside a translation (1.16.0-beta.2; PG_ADDED_SQL brings it to an older snapshot).
 CREATE TABLE subheadings (
   translation_id INTEGER NOT NULL,
   book_number    INTEGER NOT NULL,
   chapter        INTEGER NOT NULL,
   verse          INTEGER NOT NULL,
   ord            INTEGER NOT NULL DEFAULT 0,
-  title          TEXT NOT NULL
+  title          TEXT NOT NULL,
+  PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
 );
-CREATE INDEX idx_subheadings ON subheadings (translation_id, book_number, chapter, verse);
 
 CREATE TABLE commentaries (
   source       TEXT NOT NULL,
@@ -141,6 +140,23 @@ CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
 `;
 
 /** Text-search configuration: plain lowercase words, like the SQLite index. */
+/**
+ * Tables added after the first Postgres schema, as DDL that can run on every open: a PGlite
+ * snapshot made by an older version has its own schema and never runs PG_SCHEMA_SQL again
+ * (review of 1.16.0-beta.2 — a new segment's COPY into a missing table failed the whole load).
+ */
+export const PG_ADDED_SQL = /* sql */ `
+CREATE TABLE IF NOT EXISTS subheadings (
+  translation_id INTEGER NOT NULL,
+  book_number    INTEGER NOT NULL,
+  chapter        INTEGER NOT NULL,
+  verse          INTEGER NOT NULL,
+  ord            INTEGER NOT NULL DEFAULT 0,
+  title          TEXT NOT NULL,
+  PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
+);
+`;
+
 export const PG_TS_CONFIG = 'simple';
 
 /**

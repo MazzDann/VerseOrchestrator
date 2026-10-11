@@ -88,9 +88,9 @@ CREATE TABLE subheadings (
   chapter        INTEGER NOT NULL,
   verse          INTEGER NOT NULL,
   ord            INTEGER NOT NULL DEFAULT 0,
-  title          TEXT NOT NULL
+  title          TEXT NOT NULL,
+  PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
 );
-CREATE INDEX idx_subheadings ON subheadings (translation_id, book_number, chapter, verse);
 
 DROP TABLE IF EXISTS dictionary_entries;
 DROP TABLE IF EXISTS dictionaries;
