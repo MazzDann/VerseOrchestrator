@@ -15,7 +15,7 @@ import {
 import { SCHEMA_SQL } from './schema.js';
 import { readModule } from './module.js';
 import { readDictionary } from './dictionary.js';
-import { readCrossrefs, readCommentaries } from './extras.js';
+import { readCrossrefs, readCommentaries, readSubheadingSet } from './extras.js';
 import { writeLibrarySongs } from '@vo/shared';
 import { bundlesDir, legacySongsDir, readBundles, syncFolderBundle } from '@vo/shared/songs-node';
 import { selectModules, SelectionError } from './selection.js';
@@ -75,6 +75,7 @@ function buildOnce(): void {
     dictionaries: listDictionaryFiles(modulesDir),
     commentaries: listByExt(modulesDir, /\.commentaries\.SQLite3$/i),
     crossreferences: listByExt(modulesDir, /\.crossreferences\.SQLite3$/i),
+    subheadings: listByExt(modulesDir, /\.subheadings\.SQLite3$/i),
   };
   // Songs come from the song bundles (0.10.0); a folder of .pptx songs keeps feeding its own.
   const songsDir = bundlesDir(DATA_DIR);
@@ -85,7 +86,7 @@ function buildOnce(): void {
   console.log(
     `[builder] available: ${candidates.bibles.length} Bibles, ${candidates.dictionaries.length} dictionaries, ` +
       `${candidates.crossreferences.length} crossrefs, ${candidates.commentaries.length} commentaries, ` +
-      `${songCount} songs in ${bundles.length} bundles`,
+      `${candidates.subheadings.length} subheading sets, ${songCount} songs in ${bundles.length} bundles`,
   );
 
   // Which of them go into the library — data/settings.json → library (seeded on first run).
@@ -100,9 +101,10 @@ function buildOnce(): void {
   const dictFiles = picked.files.dictionaries;
   const xrefFiles = picked.files.crossreferences;
   const commentaryFiles = picked.files.commentaries;
+  const setFiles = picked.files.subheadings;
   console.log(
     `[builder] importing: ${files.length} Bibles, ${dictFiles.length} dictionaries, ` +
-      `${xrefFiles.length} crossrefs, ${commentaryFiles.length} commentaries`,
+      `${xrefFiles.length} crossrefs, ${commentaryFiles.length} commentaries, ${setFiles.length} subheading sets`,
   );
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -120,11 +122,19 @@ function buildOnce(): void {
 
   // How far it is, for «Пересканувати модулі» (1.12.4): the server reads these lines
   // (server/src/rebuildJob.ts) — one before each module, the songs, and the end (VACUUM).
-  const steps = files.length + dictFiles.length + xrefFiles.length + commentaryFiles.length + 2;
+  const steps =
+    files.length +
+    dictFiles.length +
+    xrefFiles.length +
+    commentaryFiles.length +
+    setFiles.length +
+    2;
   let at = 0;
   const step = (name: string) => console.log(`[builder] step ${++at}/${steps} ${name}`);
   const moduleName = (file: string) =>
-    path.basename(file).replace(/(\.(dictionary|commentaries|crossreferences))?\.SQLite3$/i, '');
+    path
+      .basename(file)
+      .replace(/(\.(dictionary|commentaries|crossreferences|subheadings))?\.SQLite3$/i, '');
 
   const run = db.transaction(() => {
     // Create the schema first, then prepare statements against the new tables.
@@ -359,6 +369,33 @@ function buildOnce(): void {
         console.log(`[builder]   commentary ${source} — ${entries.length} notes`);
       } catch (err) {
         console.warn(`[builder]   skip commentary ${source}: ${(err as Error).message}`);
+      }
+    }
+
+    // Section-title sets (1.16.0-beta.3) — numbered 1..n in import order, like the dictionaries.
+    const insSet = db.prepare(
+      'INSERT INTO subheading_sets (id, abbr, title, language) VALUES (?, ?, ?, ?)',
+    );
+    const insSetRow = db.prepare(
+      `INSERT INTO set_subheadings (set_id, book_number, chapter, verse, ord, title)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+    let setId = 0;
+    for (const file of setFiles) {
+      const abbr = moduleName(file);
+      step(abbr);
+      try {
+        const set = readSubheadingSet(file);
+        if (set.rows.length === 0) {
+          console.warn(`[builder]   skip subheadings ${abbr}: no titles`);
+          continue;
+        }
+        setId += 1;
+        insSet.run(setId, abbr, set.title || abbr, set.language);
+        for (const h of set.rows) insSetRow.run(setId, h.book, h.chapter, h.verse, h.ord, h.title);
+        console.log(`[builder]   subheadings ${abbr} — ${set.rows.length} titles`);
+      } catch (err) {
+        console.warn(`[builder]   skip subheadings ${abbr}: ${(err as Error).message}`);
       }
     }
 

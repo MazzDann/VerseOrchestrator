@@ -25,7 +25,7 @@ export type EngineResponse = { id: number } & (
 );
 
 /** What a segment holds, by its main content. */
-export type SegmentUnit = 'verses' | 'entries' | 'notes' | 'refs' | 'songs' | 'vectors';
+export type SegmentUnit = 'verses' | 'entries' | 'notes' | 'refs' | 'songs' | 'vectors' | 'titles';
 
 export interface SegmentCounts {
   verses: number;

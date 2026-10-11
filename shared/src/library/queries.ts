@@ -1,7 +1,14 @@
 import { normalizeForSearch } from '../normalize.js';
 import { parseReference } from '../reference.js';
 import { explainMorphology, morphologyKeys, type MorphologyMeaning } from './morphology.js';
-import type { Book, SearchResult, StrongDefinition, Translation, Verse } from '../types.js';
+import type {
+  Book,
+  SearchResult,
+  StrongDefinition,
+  SubheadingSet,
+  Translation,
+  Verse,
+} from '../types.js';
 import { LibraryError, type SqlDriver, type SqlParam } from './driver.js';
 import { PG_TS_CONFIG } from './postgres.js';
 import { pgVector } from './vectors.js';
@@ -917,6 +924,44 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     return rows.map((r) => ({ verse: Number(r.verse), title: String(r.title) }));
   }
 
+  /** The section-title sets in the library (1.16.0-beta.3), by name; an older library has none. */
+  async function listSubheadingSets(): Promise<SubheadingSet[]> {
+    if (!(await tableExists('subheading_sets'))) return [];
+    const rows = await db.all<AnyRow>(
+      `SELECT s.id, s.abbr, s.title, s.language, COUNT(h.set_id) AS titles
+       FROM subheading_sets s LEFT JOIN set_subheadings h ON h.set_id = s.id
+       GROUP BY s.id, s.abbr, s.title, s.language`,
+    );
+    return (
+      rows
+        .map((r) => ({
+          id: Number(r.id),
+          abbr: String(r.abbr),
+          title: String(r.title),
+          language: String(r.language ?? ''),
+          titles: Number(r.titles),
+        }))
+        // by code points: the same order in every engine and locale
+        .sort((a, b) => (a.abbr < b.abbr ? -1 : a.abbr > b.abbr ? 1 : 0))
+    );
+  }
+
+  /** A chapter's titles from a set (1.16.0-beta.3), at the places the set gives. */
+  async function getSetSubheadings(
+    setId: number,
+    book: number,
+    chapter: number,
+  ): Promise<{ verse: number; title: string }[]> {
+    if (!(await tableExists('set_subheadings'))) return [];
+    const rows = await db.all<AnyRow>(
+      `SELECT verse, title FROM set_subheadings
+       WHERE set_id = ? AND book_number = ? AND chapter = ?
+       ORDER BY verse, ord`,
+      [setId, book, chapter],
+    );
+    return rows.map((r) => ({ verse: Number(r.verse), title: String(r.title) }));
+  }
+
   async function search(query: string, translationIds: number[]): Promise<SearchResponse> {
     const ids = translationIds.length ? translationIds : (await getTranslations()).map((t) => t.id);
     if (ids.length === 0) return { kind: 'empty', results: [] };
@@ -1029,6 +1074,8 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     chapterProfiles,
     getVerses,
     getSubheadings,
+    listSubheadingSets,
+    getSetSubheadings,
     listDictionaries,
     lookupStrong,
     decodeMorphology,

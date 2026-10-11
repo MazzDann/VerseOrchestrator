@@ -131,7 +131,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('hotkeys', N_('Після кінця пункту «Далі» відкриває наступний'), 'running order next item'),
   e('hotkeys', N_('Кілька віршів — на екран після Enter'), 'several verses pick ctrl shift вибір'), // i18n-ignore: Ukrainian search words
   e('app', N_('Простий вигляд'), 'simple view'),
-  e('app', N_('Підзаголовки над віршами'), 'subheadings section titles headings заголовки'), // i18n-ignore: Ukrainian search words
+  e('app', N_('Підзаголовки над віршами'), 'subheadings titles sets заголовки набір'), // i18n-ignore: Ukrainian search words
   e('app', N_('Мова інтерфейсу'), 'language english українська'), // i18n-ignore: Ukrainian search words
   e('app', N_('Розташування панелі прев’ю'), 'preview panel bottom'),
   e('data', N_('Бібліотека модулів'), 'library modules module rescan пересканувати'), // i18n-ignore: Ukrainian search words

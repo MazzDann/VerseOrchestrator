@@ -22,7 +22,7 @@ import {
  *                         its verse_strongs, and verses_norm (normalized text → the
  *                         engine builds its FTS from it; no index is shipped)
  *   d-<id>.vodb.gz        one dictionary (they're big: 111 MB together)
- *   study.vodb.gz         cross-references + commentaries
+ *   study.vodb.gz         cross-references + commentaries + section-title sets
  *   songs.vodb.gz         hymns
  *   v-<model>-<id>.vodb.gz one translation's verse vectors of one model («Пошук за змістом»,
  *                         1.15.0-beta.2) — from data/vectors.db, only translations it has whole
@@ -218,8 +218,8 @@ export function buildSegments(
   bundle(
     'study',
     'study',
-    ['cross_references', 'commentaries'],
-    'Перехресні посилання й коментарі', // i18n-ignore: the manifest's title (data)
+    ['cross_references', 'commentaries', 'subheading_sets', 'set_subheadings'],
+    'Перехресні посилання, коментарі, підзаголовки', // i18n-ignore: the manifest's title (data)
   );
   bundle('songs', 'songs', ['songs', 'song_slides'], 'Пісні'); // i18n-ignore: the manifest's title
 

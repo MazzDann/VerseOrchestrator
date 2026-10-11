@@ -24,6 +24,7 @@ const cands = (over: Partial<Candidates> = {}): Candidates => ({
   dictionaries: [],
   commentaries: [],
   crossreferences: [],
+  subheadings: [],
   ...over,
 });
 
@@ -46,6 +47,23 @@ describe('module selection (data/settings.json → library)', () => {
     });
     expect(r.files.bibles).toEqual([]);
     expect(JSON.parse(fs.readFileSync(settingsFile, 'utf8')).library.bibles).toEqual([]);
+  });
+
+  it('a selection from before the section-title sets takes them while there are few (1.16.0-beta.3)', () => {
+    fs.writeFileSync(settingsFile, JSON.stringify({ library: { bibles: [] } }));
+    const few = cands({ subheadings: files(3, '.subheadings.SQLite3') });
+    expect(
+      selectModules({ settingsFile, libraryPath, candidates: few }).files.subheadings,
+    ).toHaveLength(3);
+    const many = cands({ subheadings: files(61, '.subheadings.SQLite3') });
+    expect(
+      selectModules({ settingsFile, libraryPath, candidates: many }).files.subheadings,
+    ).toEqual([]);
+    // a choice made: kept, even empty
+    fs.writeFileSync(settingsFile, JSON.stringify({ library: { bibles: [], subheadings: [] } }));
+    expect(selectModules({ settingsFile, libraryPath, candidates: few }).files.subheadings).toEqual(
+      [],
+    );
   });
 
   it('refuses "all" for a huge folder with guidance', () => {
@@ -100,6 +118,7 @@ describe('module selection (data/settings.json → library)', () => {
       dictionaries: ['Strong.dictionary.SQLite3'],
       commentaries: ['CARSA.commentaries.SQLite3'],
       crossreferences: ['B-x.crossreferences.SQLite3'],
+      subheadings: null, // no sets in that folder: «all» of none
     });
     expect(r.files.bibles.map((p) => path.basename(p))).toEqual(['M1.SQLite3']);
   });

@@ -108,6 +108,24 @@ CREATE TABLE subheadings (
   PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
 );
 
+-- Separate section-title sets (Module's *.subheadings.SQLite3, 1.16.0-beta.3): shown over the
+-- translation the user pairs a set with, at the places the set holds.
+CREATE TABLE subheading_sets (
+  id       INTEGER PRIMARY KEY,
+  abbr     TEXT NOT NULL,
+  title    TEXT NOT NULL,
+  language TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE set_subheadings (
+  set_id      INTEGER NOT NULL,
+  book_number INTEGER NOT NULL,
+  chapter     INTEGER NOT NULL,
+  verse       INTEGER NOT NULL,
+  ord         INTEGER NOT NULL DEFAULT 0,
+  title       TEXT NOT NULL,
+  PRIMARY KEY (set_id, book_number, chapter, verse, ord)
+);
+
 -- Grammar codes a dictionary explains (Module's morphology_indications, 1.16.0-beta.2): «V» Verb,
 -- «-AAI» for «V» Aor Act Ind, «-3S» 3rd Sing; applicable_to '' = any part of speech.
 CREATE TABLE morphology (
@@ -173,6 +191,23 @@ CREATE TABLE IF NOT EXISTS subheadings (
   ord            INTEGER NOT NULL DEFAULT 0,
   title          TEXT NOT NULL,
   PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
+);
+-- Separate section-title sets (Module's *.subheadings.SQLite3, 1.16.0-beta.3): shown over the
+-- translation the user pairs a set with, at the places the set holds.
+CREATE TABLE IF NOT EXISTS subheading_sets (
+  id       INTEGER PRIMARY KEY,
+  abbr     TEXT NOT NULL,
+  title    TEXT NOT NULL,
+  language TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS set_subheadings (
+  set_id      INTEGER NOT NULL,
+  book_number INTEGER NOT NULL,
+  chapter     INTEGER NOT NULL,
+  verse       INTEGER NOT NULL,
+  ord         INTEGER NOT NULL DEFAULT 0,
+  title       TEXT NOT NULL,
+  PRIMARY KEY (set_id, book_number, chapter, verse, ord)
 );
 `;
 

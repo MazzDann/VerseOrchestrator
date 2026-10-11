@@ -57,6 +57,7 @@ function seedFromLibrary(libraryPath: string, candidates: Candidates): LibrarySe
         dictionaries: [],
         commentaries: [],
         crossreferences: [],
+        subheadings: [],
       };
       for (const r of rows)
         if (MODULE_KINDS.includes(r.kind)) (sel[r.kind] as string[]).push(r.file);
@@ -101,7 +102,7 @@ function seedFromLibrary(libraryPath: string, candidates: Candidates): LibrarySe
         }
       }
     }
-    return { bibles, dictionaries, commentaries, crossreferences };
+    return { bibles, dictionaries, commentaries, crossreferences, subheadings: [] };
   } finally {
     db.close();
   }
@@ -120,15 +121,18 @@ export function selectModules(opts: {
   const settings = readSettings(opts.settingsFile);
   let selection = sanitizeLibrarySelection(settings.library);
   let seeded = false;
+  const small = (k: ModuleKind) => opts.candidates[k].length <= LIBRARY_ALL_LIMIT;
 
   if (!selection) {
     const fromLibrary = seedFromLibrary(opts.libraryPath, opts.candidates);
-    const small = (k: ModuleKind) => opts.candidates[k].length <= LIBRARY_ALL_LIMIT;
-    selection = fromLibrary ?? {
-      bibles: small('bibles') ? null : [],
-      dictionaries: small('dictionaries') ? null : [],
-      commentaries: small('commentaries') ? null : [],
-      crossreferences: small('crossreferences') ? null : [],
+    selection = {
+      ...(fromLibrary ?? {
+        bibles: small('bibles') ? null : [],
+        dictionaries: small('dictionaries') ? null : [],
+        commentaries: small('commentaries') ? null : [],
+        crossreferences: small('crossreferences') ? null : [],
+      }),
+      subheadings: small('subheadings') ? null : [],
     };
     writeSettings(opts.settingsFile, { ...settings, version: 1, library: selection });
     seeded = true;
@@ -140,6 +144,12 @@ export function selectModules(opts: {
     const wanted = selection[kind];
     const available = opts.candidates[kind];
     if (wanted === null) {
+      // the section-title sets are optional (1.16.0-beta.3): «all» of a folder with many takes
+      // none until some are chosen in «Модулі» — never a failed build
+      if (kind === 'subheadings' && available.length > LIBRARY_ALL_LIMIT) {
+        files[kind] = [];
+        continue;
+      }
       if (available.length > LIBRARY_ALL_LIMIT) {
         throw new SelectionError(
           `library.${kind} is null ("all") but the modules folder has ${available.length} such files ` +

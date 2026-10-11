@@ -19,12 +19,16 @@ import {
 import { zip } from './zip';
 
 /** A tiny Module database of a kind, as bytes. */
-function moduleBytes(kind: 'bible' | 'commentaries' | 'dictionary' | 'none', wal = false): Buffer {
+function moduleBytes(
+  kind: 'bible' | 'commentaries' | 'dictionary' | 'subheadings' | 'none',
+  wal = false,
+): Buffer {
   const db = new Database(':memory:');
   if (kind === 'bible')
     db.exec('CREATE TABLE books (book_number INT); CREATE TABLE verses (text TEXT)');
   if (kind === 'commentaries') db.exec('CREATE TABLE commentaries (text TEXT)');
   if (kind === 'dictionary') db.exec('CREATE TABLE dictionary (topic TEXT)');
+  if (kind === 'subheadings') db.exec('CREATE TABLE subheadings (subheading TEXT)');
   if (kind === 'none') db.exec('CREATE TABLE other (x INT)');
   db.exec('CREATE TABLE info (name TEXT, value TEXT)');
   const buf = db.serialize();
@@ -99,6 +103,7 @@ describe('registry', () => {
     expect(parseSize('?')).toBe(0);
     expect(kindOfFil('KJV+')).toBe('bibles');
     expect(kindOfFil('OBX.crossreferences')).toBe('crossreferences');
+    expect(kindOfFil('KJV-s.subheadings')).toBe('subheadings');
     expect(kindOfFil('X.devotions')).toBeNull();
     expect(moduleFileName('KJV+', 'bibles')).toBe('KJV+.SQLite3');
     expect(moduleFileName('CUV', 'commentaries')).toBe('CUV.commentaries.SQLite3');
@@ -135,12 +140,14 @@ describe('modules on disk', () => {
       dictionaries: [],
       commentaries: ['CUV.commentaries.SQLite3'],
       crossreferences: [],
+      subheadings: [],
     });
     expect(fs.readdirSync(dir).some((f) => f.endsWith('.tmp'))).toBe(false);
   });
 
   it('tells a module kind from its tables', () => {
     expect(moduleKindOf(moduleBytes('dictionary'))).toBe('dictionaries');
+    expect(moduleKindOf(moduleBytes('subheadings'))).toBe('subheadings');
     expect(moduleKindOf(moduleBytes('none'))).toBeNull();
     expect(
       moduleKindOf(Buffer.from('not a database at all, not at all, really not at all')),
@@ -153,6 +160,7 @@ describe('modules on disk', () => {
       dictionaries: null,
       commentaries: [],
       crossreferences: [],
+      subheadings: [],
     };
     expect(
       withFiles(sel, [
@@ -202,7 +210,7 @@ describe('the download queue', () => {
     });
     let sel: LibrarySelection | undefined = o.noSelection
       ? undefined
-      : { bibles: [], dictionaries: [], commentaries: [], crossreferences: [] };
+      : { bibles: [], dictionaries: [], commentaries: [], crossreferences: [], subheadings: [] };
     const rebuild = vi.fn();
     const c = createCatalog({
       dataDir: path.join(tmp, 'data'),
@@ -266,6 +274,7 @@ describe('the download queue', () => {
       dictionaries: null,
       commentaries: null,
       crossreferences: null,
+      subheadings: null,
     });
     expect(t.rebuild).toHaveBeenCalledTimes(1);
   });

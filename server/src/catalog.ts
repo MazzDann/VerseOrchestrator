@@ -40,12 +40,14 @@ const SUFFIX_KIND: Record<string, ModuleKind> = {
   dictionary: 'dictionaries',
   commentaries: 'commentaries',
   crossreferences: 'crossreferences',
+  subheadings: 'subheadings',
 };
 const KIND_SUFFIX: Record<ModuleKind, string> = {
   bibles: '',
   dictionaries: '.dictionary',
   commentaries: '.commentaries',
   crossreferences: '.crossreferences',
+  subheadings: '.subheadings',
 };
 
 export interface CatalogEntry {
@@ -228,6 +230,7 @@ export function listModuleFiles(dir: string): Record<ModuleKind, string[]> {
     dictionaries: [],
     commentaries: [],
     crossreferences: [],
+    subheadings: [],
   };
   let names: string[] = [];
   try {

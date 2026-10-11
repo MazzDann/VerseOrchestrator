@@ -1112,6 +1112,24 @@ app.get(
   ),
 );
 
+// the section-title sets and a chapter's titles from one (1.16.0-beta.3)
+app.get(
+  '/api/subheading-sets',
+  wrap(async (_req, res) => res.json(await library().listSubheadingSets())),
+);
+app.get(
+  '/api/subheading-sets/:id/books/:book/chapters/:chapter',
+  wrap(async (req, res) =>
+    res.json(
+      await library().getSetSubheadings(
+        asInt(req.params.id, 'set id'),
+        asInt(req.params.book, 'book'),
+        asInt(req.params.chapter, 'chapter'),
+      ),
+    ),
+  ),
+);
+
 app.get(
   '/api/translations/:id/books/:book/chapters/:chapter/verses',
   wrap(async (req, res) =>

@@ -24,6 +24,17 @@ export interface Verse {
   textRaw?: string;
 }
 
+/** A set of section titles of its own, Module's *.subheadings.SQLite3 (1.16.0-beta.3). */
+export interface SubheadingSet {
+  id: number;
+  /** the file's name without the extensions — «KJV-s», «Хом-д» */
+  abbr: string;
+  title: string;
+  language: string;
+  /** how many titles it holds */
+  titles: number;
+}
+
 export interface StrongDefinition {
   dictionary: string;
   language: string;

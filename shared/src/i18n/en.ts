@@ -327,11 +327,13 @@ export const EN: Record<string, string> = {
   '{n} стаття|{n} статті|{n} статей': '{n} entry|{n} entries',
   '{n} коментар|{n} коментарі|{n} коментарів': '{n} note|{n} notes',
   '{n} посилання|{n} посилання|{n} посилань': '{n} cross-reference|{n} cross-references',
+  '{n} підзаголовок|{n} підзаголовки|{n} підзаголовків': '{n} section title|{n} section titles',
   '{n} пісня|{n} пісні|{n} пісень': '{n} song|{n} songs',
   Біблія: 'Bible',
   словник: 'dictionary',
   коментарі: 'commentaries',
   'перехресні посилання': 'cross-references',
+  підзаголовки: 'section titles',
   '{abbr} — {kind}, {items} (перетворено за {s} с)':
     '{abbr} — {kind}, {items} (converted in {s} s)',
   'Сегмент {file} пошкоджено при завантаженні (контрольна сума не збігається)':
@@ -1406,11 +1408,12 @@ export const EN: Record<string, string> = {
   'Цьому пульту не дозволено пісні': 'This remote may not use songs',
   'Пульт не на зв’язку': 'The remote is not connected',
   // Module modules (shared/src/library/module.ts)
-  'Це не модуль Module, який можна імпортувати (Біблія, словник, коментарі чи перехресні посилання)':
+  'Це не модуль Module, який можна імпортувати (Біблія, словник, коментарі, перехресні посилання чи підзаголовки)':
     'This is not a Module module that can be imported (a Bible, a dictionary, commentaries, or cross-references)',
   'У модулі немає книг або віршів': 'The module has no books or verses',
   'Забагато віршів у модулі ({n})': 'Too many verses in the module ({n})',
   'Словник порожній': 'The dictionary is empty',
+  'У модулі немає підзаголовків': 'The module has no section titles',
   // a remote without a name (web/src/components/RemotePanel.tsx)
   'Пульт {n}': 'Remote {n}',
   // the launcher console (server/src/launcher.ts)
@@ -1749,8 +1752,12 @@ export const EN: Record<string, string> = {
   'Лише головний': 'Only the main one',
   'лише частина Біблії': 'part of the Bible only',
   'Підзаголовки над віршами': 'Section titles over the verses',
-  'Назви розділів тексту з перекладу — у списку віршів вікна керування, якщо переклад їх має.':
-    'The translation’s section titles — in the control window’s verse list, if the translation has them.',
+  'Назви розділів тексту — у списку віршів вікна керування: з самого перекладу або з набору підзаголовків.':
+    'Section titles in the control window’s verse list: from the translation itself or from a set of section titles.',
+  'Підзаголовки для {abbr}': 'Section titles for {abbr}',
+  'Власні перекладу або набір із модулів. Набір, зроблений для іншої нумерації, може зсуватися в Псалмах.':
+    'The translation’s own or a set from the modules. A set made for another numbering may be off in the Psalms.',
+  'Власні перекладу': 'The translation’s own',
   Модулі: 'Modules',
   'Модулі: каталог і вибір…': 'Modules: catalog and choice…',
   'Каталог модулів працює, коли застосунок запущено на цьому комп’ютері.':
@@ -1789,6 +1796,7 @@ export const EN: Record<string, string> = {
   'Завантажую модулі: {list}': 'Downloading modules: {list}',
   Біблії: 'Bibles',
   'Паралельні місця': 'Cross-references',
+  Підзаголовки: 'Section titles',
   'Інша мова': 'Other language',
   'Каталог Module зараз недоступний. Перевірте інтернет і спробуйте пізніше.':
     'The Module catalog is unavailable now. Check the internet connection and try again later.',

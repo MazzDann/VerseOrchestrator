@@ -392,6 +392,9 @@ interface SettingsState {
   /** a translation's section titles over its verses in the control window (1.16.0-beta.2) */
   subheadings: boolean;
   setSubheadings: (v: boolean) => void;
+  /** which section-title set each translation shows, by abbr — '' its own (1.16.0-beta.3) */
+  subheadingSets: Record<string, string>;
+  setSubheadingSet: (translation: string, set: string) => void;
   setOutputs: (patch: Partial<OutputSettings>) => void;
   setLiveFollow: (v: boolean) => void;
   setFollowAlong: (v: boolean) => void;
@@ -539,6 +542,16 @@ const TRANSITIONS: SlideTransition[] = ['smooth', 'fast', 'rise', 'none'];
 export type VerseNumbers = 'off' | 'multi' | 'always';
 const VERSE_NUMBERS: VerseNumbers[] = ['off', 'multi', 'always'];
 /** A stored look's numbers: its own, or the old switch — on = «Завжди», off = the new default. */
+/** A translation → set map as saved: strings only, a sane size (1.16.0-beta.3). */
+function sanitizeSubheadingSets(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, unknown>)
+      .filter(([k, v]) => k && typeof v === 'string' && v.length <= 200)
+      .slice(0, 500),
+  ) as Record<string, string>;
+}
+
 function verseNumbersOf(ap: Record<string, unknown>): VerseNumbers {
   const v = ap.verseNumbers as VerseNumbers;
   if (VERSE_NUMBERS.includes(v)) return v;
@@ -710,6 +723,9 @@ export const useSettings = create<SettingsState>()(
       setSimpleView: (v) => set({ simpleView: v === true }),
       subheadings: true,
       setSubheadings: (v) => set({ subheadings: v === true }),
+      subheadingSets: {},
+      setSubheadingSet: (translation, choice) =>
+        set((s) => ({ subheadingSets: { ...s.subheadingSets, [translation]: choice } })),
       setOutputs: (patch) =>
         set((st) => ({ outputs: sanitizeOutputs({ ...st.outputs, ...patch }) })),
       setLiveFollow: (v) => set({ liveFollow: v }),
@@ -879,6 +895,7 @@ export const useSettings = create<SettingsState>()(
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
           simpleView: p.simpleView === true,
           subheadings: p.subheadings !== false,
+          subheadingSets: sanitizeSubheadingSets(p.subheadingSets),
           pickBeforeEnter: p.pickBeforeEnter !== false,
         };
       },

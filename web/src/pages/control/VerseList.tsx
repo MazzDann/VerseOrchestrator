@@ -3,6 +3,7 @@ import { ScrollArea, Stack, Text } from '@mantine/core';
 import { parseRedLetter } from '@vo/shared';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Book, type Verse } from '../../api';
+import { setFor } from '../../lib/subheadingSets';
 import { useSettings, type Appearance, type PanelPlacement } from '../../settingsStore';
 import { type Keymap, matchesCombo } from '../../hotkeys';
 import { ConcordancePanel } from '../../components/ConcordancePanel';
@@ -60,11 +61,36 @@ export function VerseList({
   useLang();
   // the chapter's section titles in the main translation (1.16.0-beta.2), by the verse they open
   const showHeadings = useSettings((x) => x.subheadings);
+  const chosenSets = useSettings((x) => x.subheadingSets);
   const book = currentBook?.bookNumber ?? null;
+  // or a set of them picked for the translation (1.16.0-beta.3)
+  const { data: translations } = useQuery({
+    queryKey: ['translations'],
+    queryFn: api.translations,
+    enabled: showHeadings,
+  });
+  // the app's 5 minutes, not forever: an early failure answers [] (review); a rebuild refetches
+  const { data: sets } = useQuery({
+    queryKey: ['subheading-sets'],
+    queryFn: api.subheadingSets,
+    enabled: showHeadings,
+  });
+  const primaryAbbr = translations?.find((t) => t.id === primaryId)?.abbr;
+  const setAbbr = primaryAbbr != null && sets ? setFor(primaryAbbr, chosenSets, sets) : '';
+  const setId = sets?.find((s) => s.abbr === setAbbr)?.id ?? null;
   const { data: subheadings } = useQuery({
-    queryKey: ['subheadings', primaryId, book, chapter],
-    queryFn: () => api.subheadings(primaryId!, book!, chapter!),
-    enabled: showHeadings && primaryId != null && book != null && chapter != null,
+    queryKey: ['subheadings', primaryId, setId, book, chapter],
+    queryFn: () =>
+      setId != null
+        ? api.setSubheadings(setId, book!, chapter!)
+        : api.subheadings(primaryId!, book!, chapter!),
+    enabled:
+      showHeadings &&
+      primaryId != null &&
+      book != null &&
+      chapter != null &&
+      translations !== undefined &&
+      sets !== undefined,
     staleTime: Infinity,
   });
   const headings = useMemo(() => {

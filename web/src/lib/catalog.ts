@@ -13,6 +13,7 @@ export const KIND_LABEL: Record<ModuleKindId, string> = {
   dictionaries: N_('Словники'),
   commentaries: N_('Коментарі'),
   crossreferences: N_('Паралельні місця'),
+  subheadings: N_('Підзаголовки'),
 };
 
 const KIND_SUFFIX: Record<ModuleKindId, string> = {
@@ -20,6 +21,7 @@ const KIND_SUFFIX: Record<ModuleKindId, string> = {
   dictionaries: '.dictionary',
   commentaries: '.commentaries',
   crossreferences: '.crossreferences',
+  subheadings: '.subheadings',
 };
 
 /** The file a catalog module is kept as in modules/ (catalog.ts `moduleFileName`). */

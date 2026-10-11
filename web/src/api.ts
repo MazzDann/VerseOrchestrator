@@ -659,6 +659,27 @@ export const api = {
       (l) => l.getSubheadings(id, book, chapter),
       `/api/translations/${id}/books/${book}/chapters/${chapter}/subheadings`,
     ).catch(() => []),
+  /** the section-title sets (1.16.0-beta.3); an older server has none */
+  subheadingSets: () =>
+    fromLibrary(
+      z.array(
+        z.object({
+          id: z.number(),
+          abbr: z.string(),
+          title: z.string(),
+          language: z.string(),
+          titles: z.number(),
+        }),
+      ),
+      (l) => l.listSubheadingSets(),
+      '/api/subheading-sets',
+    ).catch(() => []),
+  setSubheadings: (id: number, book: number, chapter: number) =>
+    fromLibrary(
+      z.array(z.object({ verse: z.number(), title: z.string() })),
+      (l) => l.getSetSubheadings(id, book, chapter),
+      `/api/subheading-sets/${id}/books/${book}/chapters/${chapter}`,
+    ).catch(() => []),
   verses: (id: number, book: number, chapter: number) =>
     fromLibrary(
       z.array(VerseSchema),
@@ -1435,6 +1456,7 @@ export const MODULE_KIND_IDS = [
   'dictionaries',
   'commentaries',
   'crossreferences',
+  'subheadings',
 ] as const;
 export type ModuleKindId = (typeof MODULE_KIND_IDS)[number];
 const ModuleKindSchema = z.enum(MODULE_KIND_IDS);
@@ -1487,6 +1509,7 @@ const ModulesSchema = z.object({
       dictionaries: SelectionListSchema,
       commentaries: SelectionListSchema,
       crossreferences: SelectionListSchema,
+      subheadings: SelectionListSchema.optional(),
     })
     .nullable(),
 });
