@@ -5,9 +5,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./songs-node": "./src/songs/node.ts"
+    "./songs-node": "./src/songs/node.ts",
+    "./embed": "./src/embed/index.ts"
   },
   "dependencies": {
+    "@huggingface/tokenizers": "^0.2.0",
     "better-sqlite3": "^12.11.1",
     "fflate": "^0.8.3"
   }

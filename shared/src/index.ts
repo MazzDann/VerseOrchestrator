@@ -2,6 +2,8 @@ export * from './normalize.js';
 export * from './reference.js';
 export * from './types.js';
 export * from './library/index.js';
+export * from './embed/models.js';
+export * from './embed/vectors.js';
 export * from './settings.js';
 export * from './media.js';
 export * from './songs/pptx.js';

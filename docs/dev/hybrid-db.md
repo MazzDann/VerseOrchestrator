@@ -104,6 +104,59 @@ For 8 segments, the database took 229 MB in SQLite-WASM and 361 MB in PGlite. Wi
 SQLite-WASM, jumping between chapters took 550–750 ms against the server's 580–600 ms:
 the time goes to the UI, not to the engine.
 
+## Vectors: search by meaning
+
+Version 1.15 adds a query by meaning: `~ любіть своїх ворогів` finds Luke 6:27 and Matthew 5:44
+without the words having to match. A multilingual embedding model turns every verse into a
+vector once, and a query into one each time; the nearest verse vectors are the answer.
+
+**The model.** Five open models were compared on the New Testament of UBIO'62 (7958 verses)
+with 20 queries in the operator's own words (16 Ukrainian, 4 English), on the development PC
+(i3-10100F, 8 threads, int8 ONNX on onnxruntime-node). The app offers two of them — the
+operator chooses («Швидка» / «Точна»), and downloads the chosen one on a click; neither ships
+with the app.
+
+| Model (licence)                                  | File   | Dims | Verses/s | Found in top 10 | First | MRR@10 |
+| ------------------------------------------------ | ------ | ---- | -------- | --------------- | ----- | ------ |
+| multilingual-e5-small (MIT)                      | 118 MB | 384  | 185      | 13              | 10    | 0.54   |
+| paraphrase-multilingual-MiniLM-L12-v2 — «Швидка» | 118 MB | 384  | 195      | 15              | 11    | 0.60   |
+| multilingual-e5-base (MIT)                       | 279 MB | 768  | 60       | 16              | 8     | 0.53   |
+| snowflake-arctic-embed-m-v2.0 — «Точна»          | 311 MB | 768  | 42       | 17              | 13    | 0.74   |
+| gte-multilingual-base (Apache-2.0)               | 340 MB | 768  | 41       | 17              | 12    | 0.67   |
+
+Vectors are kept as int8 (a unit vector ×127): no query was found or lost against float32. The
+«Точна» model is cut to 256 of its 768 dimensions (it is trained for that): MRR 0.74 → 0.71, the
+same 17 found. The runtime: onnxruntime-node on the server's CPU, 160–185 verses/s against
+60 for onnxruntime-web (WASM) in Node; DirectML on the GPU was slower for int8 (87).
+
+**One logical table, two physical forms.** A vector belongs to (model, translation, place); a
+translation is known by its module's hash, so vectors outlive a rebuild that renumbers
+translations. The server keeps them in `data/vectors.db`, attached to its read-only library
+connection — never in `library.db`, which the builder writes over whole.
+
+| Layout on better-sqlite3 (31 102 verses × 384)          | Read + scan |
+| ------------------------------------------------------- | ----------- |
+| a row per verse, a SQL function for the dot product     | 78 ms       |
+| a row per verse, read and scanned in JS                 | 81 ms       |
+| a row per **chapter** (verse numbers + vectors), in JS  | 37 ms       |
+| the same, decoded once and kept (a translation ≈ 12 MB) | 22 ms       |
+
+So SQLite — on the server and in the browser — keeps a row per chapter and scans it in shared
+JS (`shared/src/embed/vectors.ts`). PostgreSQL keeps a row per verse in a pgvector column and
+orders by `<#>`; the int8 values go in as they are, so float32 holds them exactly and both
+engines rank alike (the parity test `builder/src/vectors.test.ts`).
+
+PGlite with pgvector, in Node, UBIO'62 (31 170 vectors of 384): loading 2.6 s (with
+seven-digit fractions as text it was about three times longer); an exact `<#>` scan 37 ms; an
+HNSW index took 35 s to build and answered in 2.2 ms, but returned 40 of the 60 nearest with
+its default `ef_search`. At a Bible's size the exact scan is kept.
+
+Measured in the app (1.15.0-beta.2): the server answers «~ …» in 31–40 ms (word search 16 ms);
+in the browser, typed → rows takes 0.33–0.45 s (SQLite-WASM) and 0.36–0.78 s (PGlite), with the
+200 ms typing pause. The vector segment of UBIO'62 is 7.1 MB gzipped; a fresh PGlite with it
+and its translation loads in 8.9 s. Making the vectors on half the CPU: «Швидка» 104 verses/s
+(UBIO'62 in 5.0 min), «Точна» 22 verses/s (≈ 24 min a Bible).
+
 ## Run the benchmarks
 
 - **In the app:** in **Налаштування вигляду** → **Застосунок** → **Джерело даних**, click

@@ -167,6 +167,8 @@ Everything the app remembers is in its folder:
 | `data/backups/auto/` | the automatic backups: daily ones and those made before a version change                                 |
 | `data/library.db`    | the library: translations, dictionaries, commentaries, songs, and the search index                       |
 | `data/catalog/`      | the saved Module catalog list (the app refreshes it itself; not in the backup)                          |
+| `data/models/`       | the models for search by meaning (downloaded with a button; not in the backup)                           |
+| `data/vectors.db`    | the verses' vectors for search by meaning (the app makes them itself; not in the backup)                 |
 | `data/ui-state.json` | appearance settings, presets, hotkeys, the running order, and programs                                   |
 | `data/settings.json` | server options: the port and the waiting time (`standby`), remotes (`remotes`), modules (`library`)      |
 | `data/secrets.json`  | hashes of the remotes' codes                                                                             |

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { type BundleSong, type Library, type Vars } from '@vo/shared';
+import { type BundleSong, type EmbedModelId, type Library, type Vars } from '@vo/shared';
 import { type Slide } from './presenterBus';
 import { effectiveSource } from './dataSourceStore';
 import { useServer, whenBooted } from './serverStore';
@@ -58,9 +58,11 @@ const SearchResultSchema = VerseSchema.extend({
 export type SearchResult = z.infer<typeof SearchResultSchema>;
 
 const SearchResponseSchema = z.object({
-  kind: z.enum(['reference', 'text', 'empty']),
+  kind: z.enum(['reference', 'text', 'meaning', 'empty']),
   results: z.array(SearchResultSchema),
   suggestions: z.array(SearchResultSchema).optional(),
+  /** «~ …» with no model, or no vectors for the translations asked (1.15.0-beta.2) */
+  missing: z.enum(['model', 'vectors']).optional(),
 });
 
 const StrongRefsSchema = z.object({
@@ -214,7 +216,7 @@ function readLibrary<S extends z.ZodTypeAny>(
 
 const SegmentInfoSchema = z.object({
   file: z.string(),
-  kind: z.enum(['translation', 'dictionary', 'study', 'songs']),
+  kind: z.enum(['translation', 'dictionary', 'study', 'songs', 'vectors']),
   id: z.number().optional(),
   abbr: z.string(),
   title: z.string(),
@@ -1327,6 +1329,15 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return CatalogQueueSchema.parse(await res.json());
   },
+  /** «Пошук за змістом» (1.15.0-beta.2): the models, the vectors of each translation, the job */
+  semantic: () => getJson('/api/semantic', SemanticSchema),
+  setSemanticModel: (model: EmbedModelId | null) => sendSemantic('/api/semantic', 'PUT', { model }),
+  downloadModel: (id: EmbedModelId) => sendSemantic(`/api/semantic/models/${id}`, 'POST'),
+  cancelModel: () => sendSemantic('/api/semantic/models-cancel', 'POST'),
+  removeModel: (id: EmbedModelId) => sendSemantic(`/api/semantic/models/${id}`, 'DELETE'),
+  computeVectors: (translations?: number[]) =>
+    sendSemantic('/api/semantic/compute', 'POST', translations ? { translations } : {}),
+  stopVectors: () => sendSemantic('/api/semantic/stop', 'POST'),
   /** modules/ by kind and which of them the library takes */
   modules: () => getJson('/api/modules', ModulesSchema),
   selectModules: async (kind: ModuleKindId, files: string[]) => {
@@ -1343,6 +1354,59 @@ export const api = {
     return RebuildStateSchema.parse(await res.json());
   },
 };
+
+/** «Пошук за змістом» (1.15.0-beta.2, server/src/models.ts, vectorJob.ts). */
+export type { EmbedModelId };
+const EmbedModelIdSchema = z.enum(['fast', 'precise']);
+const VectorJobSchema = z.object({
+  phase: z.enum(['idle', 'running', 'done', 'failed', 'stopped']),
+  model: EmbedModelIdSchema.nullable(),
+  current: z
+    .object({ translationId: z.number(), abbr: z.string(), done: z.number(), total: z.number() })
+    .nullable(),
+  left: z.number(),
+  startedAt: z.number().nullable(),
+  endedAt: z.number().nullable(),
+  rate: z.number(),
+  error: z.object({ key: z.string(), vars: z.record(z.string()).optional() }).nullable(),
+});
+export const SemanticSchema = z.object({
+  model: EmbedModelIdSchema.nullable(),
+  models: z.array(
+    z.object({
+      id: EmbedModelIdSchema,
+      name: z.string(),
+      bytes: z.number(),
+      installed: z.boolean(),
+      download: z.object({
+        phase: z.enum(['idle', 'downloading', 'done', 'failed', 'cancelled']),
+        got: z.number(),
+        total: z.number(),
+        note: z.object({ key: z.string(), vars: z.record(z.string()).optional() }).optional(),
+      }),
+    }),
+  ),
+  translations: z.array(
+    z.object({
+      id: z.number(),
+      abbr: z.string(),
+      title: z.string(),
+      state: z.enum(['done', 'partial', 'none']),
+    }),
+  ),
+  job: VectorJobSchema,
+});
+export type SemanticState = z.infer<typeof SemanticSchema>;
+
+async function sendSemantic(url: string, method: string, body?: object): Promise<SemanticState> {
+  const res = await request(url, {
+    method,
+    headers: { ...CONTROL_HEADERS, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) throw await failure(res);
+  return SemanticSchema.parse(await res.json());
+}
 
 /** «Модулі» (1.15.0-beta.1, server/src/catalog.ts). */
 export const MODULE_KIND_IDS = [

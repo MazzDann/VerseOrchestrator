@@ -6,7 +6,15 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ApiError, closeDb, library, libraryInfo, libraryPath } from './db.js';
+import {
+  ApiError,
+  closeDb,
+  library,
+  libraryInfo,
+  libraryPath,
+  setLibraryOptions,
+  vectorsAttached,
+} from './db.js';
 import { isLocalRequest, isOwnAddress, lanIps } from './access.js';
 import { isLocalControl, requireLocal, requireLocalControl } from './guards.js';
 import { UnreadableFile } from './jsonFile.js';
@@ -19,6 +27,7 @@ import {
   isRemoteOnline,
   notifyAllowed,
   notifyCatalog,
+  notifySemantic,
   notifyRemotesChanged,
   notifyRebuild,
   notifyUiStateRestored,
@@ -77,7 +86,11 @@ import {
 import {
   FILE_DENIED,
   FOLDER_DENIED,
+  EMBED_MODEL_IDS,
+  EMBED_MODELS,
+  isEmbedModelId,
   keyedError,
+  modelBytes,
   MODULE_KINDS,
   N_,
   sameBundleName,
@@ -149,6 +162,9 @@ import {
 } from './backup.js';
 import { zipToFile } from './zip.js';
 import { createCatalog, forPage, listModuleFiles } from './catalog.js';
+import { createModelStore, modelInstalled } from './models.js';
+import { createQueryEmbedder, jobThreads, openEmbedder } from './embedding.js';
+import { createVectorJob, listTranslations, readVectorSets } from './vectorJob.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
 
@@ -195,6 +211,8 @@ const rebuild = createRebuildJob({
   onSettled: () => closeDb(), // the next read opens the new library
   onChange: (s) => {
     notifyRebuild(s);
+    // a rebuild rewrites library.db under the vector job: it stops (the books in stay)
+    if (s.phase === 'running') stopVectors();
     // «Модулі»: a download came while a build ran — the next build takes it (1.15.0-beta.1)
     if (s.phase !== 'running' && rebuildWanted) {
       rebuildWanted = false;
@@ -2324,6 +2342,133 @@ app.put(
     if (!MODULE_KINDS.includes(kind) || !Array.isArray(files))
       throw new ApiError(400, N_('Очікую { kind, files }'));
     res.json(catalog.select(kind, files.map(String)));
+  }),
+);
+
+// --- «Пошук за змістом» (1.15.0-beta.2): the models, the vectors, «~ …» --------------------------
+
+const models = createModelStore({
+  dataDir,
+  version: appVersion,
+  onChange: () => notifySemantic({}),
+});
+const queryEmbedder = createQueryEmbedder(dataDir, () => getServerSettings().semantic.model);
+setLibraryOptions({ embed: (text) => queryEmbedder.embed(text) });
+const vectors = createVectorJob({
+  dataDir,
+  libraryPath,
+  open: (model) => openEmbedder(dataDir, model, jobThreads()),
+  onChange: (s) => notifySemantic(s),
+  // a library connection opened before data/vectors.db was made attaches it when reopened
+  onSet: () => {
+    if (!vectorsAttached()) closeDb();
+    notifySemantic({});
+  },
+});
+/** A rebuild started: the vector job stops (declared here, the rebuild job is set up first). */
+function stopVectors(): void {
+  vectors.stop();
+}
+
+function semanticState() {
+  const chosen = getServerSettings().semantic.model;
+  const sets = chosen ? readVectorSets(dataDir, chosen) : new Map();
+  return {
+    model: chosen,
+    models: EMBED_MODEL_IDS.map((id) => ({
+      id,
+      name: EMBED_MODELS[id].name,
+      bytes: modelBytes(EMBED_MODELS[id]),
+      installed: modelInstalled(dataDir, id),
+      download: models.state(id),
+    })),
+    translations: listTranslations(libraryPath).map((t) => {
+      const set = t.hash ? sets.get(t.hash) : undefined;
+      return {
+        id: t.id,
+        abbr: t.abbr,
+        title: t.title,
+        state: set?.done ? 'done' : set ? 'partial' : 'none',
+      };
+    }),
+    job: vectors.state(),
+  };
+}
+
+app.get('/api/semantic', requireLocal, (_req, res) => {
+  res.json(semanticState());
+});
+app.put(
+  '/api/semantic',
+  requireLocalControl,
+  json,
+  wrap(async (req, res) => {
+    const model = req.body?.model;
+    if (model !== null && !isEmbedModelId(model)) throw new ApiError(400, N_('Очікую { model }'));
+    updateServerSettings({ semantic: { model } });
+    await queryEmbedder.release();
+    notifySemantic({});
+    res.json(semanticState());
+  }),
+);
+app.post(
+  '/api/semantic/models/:id',
+  requireLocalControl,
+  wrap((req, res) => {
+    const id = req.params.id;
+    if (!isEmbedModelId(id)) throw new ApiError(404, N_('Немає такої моделі'));
+    models.download(id);
+    res.json(semanticState());
+  }),
+);
+app.post('/api/semantic/models-cancel', requireLocalControl, (_req, res) => {
+  models.cancel();
+  res.json(semanticState());
+});
+app.delete(
+  '/api/semantic/models/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const id = req.params.id;
+    if (!isEmbedModelId(id)) throw new ApiError(404, N_('Немає такої моделі'));
+    if (vectors.running() && vectors.state().model === id)
+      throw new ApiError(409, N_('Зачекайте, доки обчисляться вектори, або зупиніть їх'));
+    if (getServerSettings().semantic.model === id) await queryEmbedder.release();
+    await models.remove(id);
+    notifySemantic({});
+    res.json(semanticState());
+  }),
+);
+app.post(
+  '/api/semantic/compute',
+  requireLocalControl,
+  json,
+  wrap((req, res) => {
+    const model = getServerSettings().semantic.model;
+    if (!model || !modelInstalled(dataDir, model))
+      throw new ApiError(409, N_('Спершу виберіть і завантажте модель'));
+    if (rebuild.running()) throw new ApiError(409, N_('Зачекайте, доки бібліотека збереться'));
+    const ids = Array.isArray(req.body?.translations)
+      ? (req.body.translations as unknown[]).map(Number).filter((n) => Number.isInteger(n))
+      : null;
+    vectors.start(model, ids);
+    res.json(semanticState());
+  }),
+);
+app.post('/api/semantic/stop', requireLocalControl, (_req, res) => {
+  vectors.stop();
+  res.json(semanticState());
+});
+/** A query's vector — for the browser's engines, which hold the vectors but not the model. */
+app.get(
+  '/api/embed',
+  requireLocal,
+  wrap(async (req, res) => {
+    const q = String(req.query.q ?? '').trim();
+    const e = q ? await queryEmbedder.embed(q) : null;
+    if (!e)
+      throw new ApiError(404, N_('Модель для пошуку за змістом не вибрано чи не завантажено'));
+    res.json({ model: e.model, vec: Array.from(e.vec) });
   }),
 );
 

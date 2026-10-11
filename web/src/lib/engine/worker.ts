@@ -8,6 +8,7 @@ import {
   ftsRow,
   ftsSourceSql,
   loadSegmentPg,
+  loadVectorsPg,
   mergeSql,
   moduleHash,
   N_,
@@ -15,6 +16,7 @@ import {
   pgPlaceholders,
   SCHEMA_SQL,
   SEGMENT_NORM_TABLE_SQL,
+  VECTORS_SQL,
   type SqlParam,
   type SyncConn,
   type Vars,
@@ -75,16 +77,23 @@ const PG_CONF = 'max_wal_size = 16MB\nmin_wal_size = 2MB\nfull_page_writes = off
 async function openPg(): Promise<PGlite> {
   if (pg) return pg;
   const { PGlite } = await import('@electric-sql/pglite');
+  // pgvector, for «Пошук за змістом» (1.15.0-beta.2): its tables come with the first vector segment
+  const { vector } = await import('@electric-sql/pglite-pgvector');
+  const extensions = { vector };
   let p: PGlite | null = null;
   const snapshot = persist ? await snapshotStore('get').catch(() => null) : null;
   if (snapshot instanceof Blob) {
     try {
-      p = await PGlite.create({ loadDataDir: snapshot, postgresqlconf: PG_CONF });
+      p = await PGlite.create({ loadDataDir: snapshot, postgresqlconf: PG_CONF, extensions });
     } catch {
       await snapshotStore('delete').catch(() => undefined); // unreadable: start over
     }
   }
-  p ??= await PGlite.create({ initDbStartParams: ['--wal-segsize=1'], postgresqlconf: PG_CONF });
+  p ??= await PGlite.create({
+    initDbStartParams: ['--wal-segsize=1'],
+    postgresqlconf: PG_CONF,
+    extensions,
+  });
   const fresh = !(
     await p.query("SELECT 1 FROM information_schema.tables WHERE table_name = 'translations'")
   ).rows.length;
@@ -224,6 +233,14 @@ function counts(conn: Database, alias: string, bytes: number): SegmentCounts {
   return { verses, items: 0, unit: 'verses', bytes };
 }
 
+/** A vector segment: the verses it has vectors for. */
+const vectorCounts = (n: number, bytes: number): SegmentCounts => ({
+  verses: 0,
+  items: n,
+  unit: 'vectors',
+  bytes,
+});
+
 const NOT_SEGMENT = N_('Це не сегмент бібліотеки — модулі Module спершу перетворюються (convert)');
 
 async function add(key: string, gz: ArrayBuffer): Promise<SegmentCounts> {
@@ -257,7 +274,11 @@ async function addPg(gz: ArrayBuffer): Promise<SegmentCounts> {
       throw new Error(NOT_SEGMENT);
     }
     await loadSegmentPg(syncConn(seg), p);
-    return counts(seg, 'main', raw.byteLength);
+    // a vector segment: a row per verse for pgvector
+    const vectors = seg.selectValue("SELECT 1 FROM sqlite_master WHERE name = 'chapter_vectors'")
+      ? await loadVectorsPg(syncConn(seg), p)
+      : 0;
+    return vectors ? vectorCounts(vectors, raw.byteLength) : counts(seg, 'main', raw.byteLength);
   } finally {
     seg.close();
   }
@@ -287,6 +308,22 @@ async function addSqlite(gz: ArrayBuffer): Promise<SegmentCounts> {
         "SELECT 1 FROM seg.sqlite_master WHERE type = 'table' AND name = 'verses_norm'",
       );
       info = counts(conn, 'seg', raw.byteLength);
+      // a vector segment (1.15.0-beta.2): its chapter rows as they are — scanned in JS
+      if (conn.selectValue("SELECT 1 FROM seg.sqlite_master WHERE name = 'chapter_vectors'")) {
+        conn.exec(VECTORS_SQL);
+        conn.exec(
+          `INSERT OR REPLACE INTO main.chapter_vectors (model, source_hash, book, chapter, verses, vecs)
+           SELECT model, source_hash, book, chapter, verses, vecs FROM seg.chapter_vectors`,
+        );
+        conn.exec(
+          `INSERT OR REPLACE INTO main.vector_sets (model, source_hash, abbr, verses, done)
+           SELECT model, source_hash, abbr, verses, done FROM seg.vector_sets`,
+        );
+        info = vectorCounts(
+          Number(conn.selectValue('SELECT COALESCE(SUM(verses), 0) FROM seg.vector_sets')),
+          raw.byteLength,
+        );
+      }
       if (hasNorm) {
         // Segment format ≥ 2: normalized text shipped → fill FTS with one SQL statement,
         // entirely inside SQLite (≈4× faster than feeding rows from JS).

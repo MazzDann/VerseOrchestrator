@@ -97,6 +97,22 @@ export function nodeCopy(
   return copy;
 }
 
+/**
+ * onnxruntime-node («Пошук за змістом», 1.15) ships every system's runtime (288 MB): the copy keeps
+ * its own, without DirectML — the app runs it on the CPU, which needs none of those (measured on
+ * the PC: 164 verses/s with them gone, as with them).
+ */
+export function pruneOnnx(app: string, platform = process.platform, arch = process.arch): void {
+  const bin = path.join(app, 'node_modules', 'onnxruntime-node', 'bin', 'napi-v6');
+  if (!fs.existsSync(bin)) return;
+  for (const os of fs.readdirSync(bin))
+    for (const cpu of fs.readdirSync(path.join(bin, os)))
+      if (os !== platform || cpu !== arch)
+        fs.rmSync(path.join(bin, os, cpu), { recursive: true, force: true });
+  for (const dll of ['DirectML.dll', 'dxcompiler.dll', 'dxil.dll'])
+    fs.rmSync(path.join(bin, platform, arch, dll), { force: true });
+}
+
 /** bin/npm and bin/npx of the copy: the npm beside it, run by the node beside it. */
 export const npmShim = (cli: 'npm-cli' | 'npx-cli') => `#!/bin/sh
 # npm of the Node in this folder (VerseOrchestrator portable copy)
@@ -295,6 +311,16 @@ async function main(argv: string[]): Promise<number> {
   );
   if (sqlite.status !== 0) {
     say(`✗ ${tr('Модуль SQLite не завантажується в копії.')}`);
+    return 1;
+  }
+  pruneOnnx(app);
+  const ort = spawnSync(
+    path.join(app, 'node', process.platform === 'win32' ? 'node.exe' : 'bin/node'),
+    ['-e', "require('onnxruntime-node').InferenceSession"],
+    { cwd: path.join(app, 'server'), windowsHide: true },
+  );
+  if (ort.status !== 0) {
+    say(`✗ ${tr('Рушій ONNX не завантажується в копії.')}`);
     return 1;
   }
   // the launcher there counts these as installed, and reinstalls the same way if ever needed

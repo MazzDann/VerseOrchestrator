@@ -1,4 +1,9 @@
-import { sanitizeLibrarySelection, type LibrarySelection } from '@vo/shared';
+import {
+  isEmbedModelId,
+  sanitizeLibrarySelection,
+  type EmbedModelId,
+  type LibrarySelection,
+} from '@vo/shared';
 import { DEFAULT_LAUNCH, sanitizeLaunch, type LaunchSettings } from './browsers.js';
 import { readJson, writeJson } from './jsonFile.js';
 import { parseVersion, type Channel, type Pin } from './updates.js';
@@ -35,6 +40,8 @@ export interface ServerSettings {
   launch: LaunchSettings;
   /** «Робити копії автоматично» (1.12.0-beta.3): daily and before a version change (autoBackup.ts) */
   backups: { auto: boolean };
+  /** «Пошук за змістом» (1.15.0-beta.2): the model «~ …» asks — none until one is chosen */
+  semantic: { model: EmbedModelId | null };
 }
 
 export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
@@ -44,6 +51,7 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   updates: { check: true },
   launch: DEFAULT_LAUNCH,
   backups: { auto: true },
+  semantic: { model: null },
 };
 
 /** The app's own ports (web dev server, API / single-process app) — not for the waiter. */
@@ -75,6 +83,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     };
     launch?: unknown;
     backups?: { auto?: unknown };
+    semantic?: { model?: unknown };
   };
   const idle = Number(r.standby?.idleMinutes);
   const out: ServerSettings = {
@@ -105,6 +114,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
           ? r.backups.auto
           : DEFAULT_SERVER_SETTINGS.backups.auto,
     },
+    semantic: { model: isEmbedModelId(r.semantic?.model) ? r.semantic.model : null },
   };
   const channel = r.updates?.channel;
   if (channel === 'stable' || channel === 'beta') out.updates.channel = channel;
@@ -172,6 +182,7 @@ export function updateServerSettings(patch: unknown): ServerSettings {
     updates?: object;
     launch?: object;
     backups?: object;
+    semantic?: object;
   };
   const base = getServerSettings();
   current = sanitizeServerSettings({
@@ -181,6 +192,7 @@ export function updateServerSettings(patch: unknown): ServerSettings {
     updates: { ...base.updates, ...p.updates },
     launch: { ...base.launch, ...p.launch },
     backups: { ...base.backups, ...p.backups },
+    semantic: { ...base.semantic, ...p.semantic },
   });
   if (file) writeJson(file, current);
   return current;

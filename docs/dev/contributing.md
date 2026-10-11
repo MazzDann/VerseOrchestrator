@@ -21,6 +21,10 @@ npm run dev             # API server on :8787, web app on :5173
 
 Open <http://localhost:5173>. Vite reloads the web app; `tsx watch` restarts the server.
 
+On Linux x64, `onnxruntime-node` (search by meaning) downloads CUDA libraries after its install
+unless told not to; the app runs it on the CPU. Set `ONNXRUNTIME_NODE_INSTALL=skip` for your own
+`npm ci` (`ONNXRUNTIME_NODE_INSTALL=skip npm ci`); CI and the launcher set it themselves.
+
 ## Run the checks
 
 Before every commit, run:
@@ -93,7 +97,7 @@ window-sync transports, and `npm run bench:db` benchmarks the server's queries.
   started by the start file does more since 1.6.1 (`server/src/gitSync.ts`): with
   `updates.check` on it fetches its upstream (`git fetch --quiet`) 15 s after the start and
   then every 12 h, and on **Перевірити зараз**; on **Отримати оновлення** (`POST
-  /api/update/pull`) it fast-forwards (`git merge --ff-only @{upstream}`) — never on a dirty
+/api/update/pull`) it fast-forwards (`git merge --ff-only @{upstream}`) — never on a dirty
   tree, a detached HEAD, a branch with no upstream, a merge or rebase under way, or a diverged
   branch. Releases and portable copies show the plain version and never call git. Whatever
   compares versions — the update check, the UI stamp, the update swap — uses `version`, never

@@ -4,8 +4,11 @@ import zlib from 'node:zlib';
 import { createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import {
+  EMBED_MODELS,
+  isEmbedModelId,
   normalizeForSearch,
   SCHEMA_SQL,
+  VECTORS_SQL,
   SEGMENT_NORM_TABLE_SQL,
   type SegmentManifest,
   type SegmentInfo,
@@ -21,6 +24,8 @@ import {
  *   d-<id>.vodb.gz        one dictionary (they're big: 111 MB together)
  *   study.vodb.gz         cross-references + commentaries
  *   songs.vodb.gz         hymns
+ *   v-<model>-<id>.vodb.gz one translation's verse vectors of one model («Пошук за змістом»,
+ *                         1.15.0-beta.2) — from data/vectors.db, only translations it has whole
  *
  * Verse ids stay GLOBAL (as in the source library), so any set of translation segments
  * merges by plain INSERTs — no renumbering. Files are gzip-compressed (SQLite pages
@@ -67,7 +72,11 @@ function seal(
   };
 }
 
-export function buildSegments(libraryPath: string, outDir: string): SegmentManifest {
+export function buildSegments(
+  libraryPath: string,
+  outDir: string,
+  vectorsPath?: string,
+): SegmentManifest {
   fs.mkdirSync(outDir, { recursive: true });
   for (const f of fs.readdirSync(outDir)) {
     if (f.endsWith('.vodb.gz') || f === 'manifest.json') fs.rmSync(path.join(outDir, f));
@@ -200,6 +209,53 @@ export function buildSegments(libraryPath: string, outDir: string): SegmentManif
     'Перехресні посилання й коментарі', // i18n-ignore: the manifest's title (data)
   );
   bundle('songs', 'songs', ['songs', 'song_slides'], 'Пісні'); // i18n-ignore: the manifest's title
+
+  // --- verse vectors: one segment per (model, translation) the vectors file holds whole
+  if (vectorsPath && fs.existsSync(vectorsPath)) {
+    const vec = new Database(vectorsPath, { readonly: true, fileMustExist: true });
+    try {
+      const sets = vec
+        .prepare('SELECT model, source_hash, abbr, verses FROM vector_sets WHERE done = 1')
+        .all() as { model: string; source_hash: string; abbr: string; verses: number }[];
+      for (const set of sets) {
+        if (!isEmbedModelId(set.model)) continue;
+        const t = translations.find((x) => x.source_hash === set.source_hash);
+        if (!t) continue; // a translation no longer in the library
+        const id = Number(t.id);
+        const file = path.join(outDir, `v-${set.model}-${id}.vodb`);
+        const seg = newSegment(file);
+        seg.exec(VECTORS_SQL);
+        seg
+          .prepare(
+            'INSERT INTO vector_sets (model, source_hash, abbr, verses, done) VALUES (?, ?, ?, ?, 1)',
+          )
+          .run(set.model, set.source_hash, set.abbr, set.verses);
+        const ins = seg.prepare(
+          'INSERT INTO chapter_vectors (model, source_hash, book, chapter, verses, vecs) VALUES (?, ?, ?, ?, ?, ?)',
+        );
+        seg.transaction(() => {
+          for (const r of vec
+            .prepare(
+              'SELECT book, chapter, verses, vecs FROM chapter_vectors WHERE model = ? AND source_hash = ?',
+            )
+            .iterate(set.model, set.source_hash) as Iterable<Record<string, unknown>>)
+            ins.run(set.model, set.source_hash, r.book, r.chapter, r.verses, r.vecs);
+        })();
+        segments.push(
+          seal(seg, file, {
+            kind: 'vectors',
+            id,
+            abbr: String(t.abbr ?? ''),
+            title: EMBED_MODELS[set.model].name,
+            language: String(t.language ?? ''),
+            items: set.verses,
+          }),
+        );
+      }
+    } finally {
+      vec.close();
+    }
+  }
 
   lib.close();
   const manifest: SegmentManifest = {

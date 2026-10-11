@@ -106,6 +106,27 @@ A query can combine these parts:
 
 Uppercase and lowercase letters and accents don't matter.
 
+### Search by meaning
+
+To find a verse by what it says rather than by its words, start the query with `~`, for
+example `~ love your enemies` or `~ about forgiveness`. The app finds verses that say the
+same thing, even in other words or another language: for `~ God so loved the world` it shows
+John 3:16 in Ukrainian too. Above the results it says **By meaning**, the nearest first.
+
+This needs a model and the translations' vectors. Set them up once in **Settings** →
+**Search** → **Search by meaning**:
+
+1. Choose the model: **Fast** (129 MB, about 5 minutes a translation) or **Precise** (313 MB,
+   finds better, about 25 minutes a translation). Both work with many languages.
+2. Click **Download the model**. The app downloads it from Hugging Face once.
+3. Click **Make them for … translations**. The app makes the vectors in the background, on
+   half the processor, so the show goes on as usual. **Stop** keeps the books already done, and
+   the next run goes on from them.
+
+You can search by meaning in the translations that have their vectors; such a translation has
+✓ next to its abbreviation. If no model is chosen or there are no vectors yet, the line under
+the search field says what to do.
+
 ## Use the command palette
 
 The command palette opens anything from one line: a book, a reference, a song, or a

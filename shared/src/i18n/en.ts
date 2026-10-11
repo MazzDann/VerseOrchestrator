@@ -1687,6 +1687,54 @@ export const EN: Record<string, string> = {
   'Завантажте переклади з каталогу Module — кнопка «Завантажити переклади…» нижче. Або покладіть модулі Module (*.SQLite3) у папку modules/ поруч із застосунком і натисніть «Пересканувати модулі».':
     'Download translations from the Module catalog — the “Download translations…” button below. Or put Module modules (*.SQLite3) in the modules/ folder next to the app and click “Rescan modules”.',
   'Завантажити переклади…': 'Download translations…',
+  'Вектори для пошуку за змістом': 'Vectors for search by meaning',
+  'За змістом: «{query}»': 'By meaning: “{query}”',
+  'Пошук за змістом ще не налаштовано: виберіть і завантажте модель у «Налаштування вигляду → Пошук → Пошук за змістом».':
+    'Search by meaning isn’t set up yet: choose and download a model in “Settings → Search → Search by meaning”.',
+  'Для цих перекладів ще немає векторів: обчисліть їх у «Налаштування вигляду → Пошук → Пошук за змістом».':
+    'These translations have no vectors yet: make them in “Settings → Search → Search by meaning”.',
+  'Пошук за змістом': 'Search by meaning',
+  'Почніть запит із ~, наприклад «~ про прощення», — і застосунок знайде вірші за змістом, навіть іншими словами чи іншою мовою.':
+    'Start a query with ~, for example “~ about forgiveness”, and the app finds verses by what they say, even in other words or another language.',
+  'Модель і вектори готує застосунок на цьому комп’ютері.':
+    'The app on this computer prepares the model and the vectors.',
+  Вимкнено: 'Off',
+  'Модель для пошуку за змістом': 'Model for search by meaning',
+  'Швидка: {name}, {size}; ≈ {min} хв на переклад.':
+    'Fast: {name}, {size}; ≈ {min} min a translation.',
+  'Точна: {name}, {size}; знаходить краще, ≈ {min} хв на переклад.':
+    'Precise: {name}, {size}; finds better, ≈ {min} min a translation.',
+  'Вектори є для {n} з {total} перекладів.': '{n} of {total} translations have vectors.',
+  частково: 'partly',
+  Вектори: 'Vectors',
+  '{abbr}: {done} з {total} віршів · {rate} за секунду':
+    '{abbr}: {done} of {total} verses · {rate} a second',
+  'далі ще {n}': '{n} more after it',
+  'Готую модель…': 'Preparing the model…',
+  'Обчислити для {n} перекладів (≈ {min} хв)': 'Make them for {n} translations (≈ {min} min)',
+  'Видалити модель ({size})': 'Delete the model ({size})',
+  'Завантажити модель ({size})': 'Download the model ({size})',
+  'З Hugging Face; ліцензія {licence}.': 'From Hugging Face; licence {licence}.',
+  'вектори {n} вірша|вектори {n} віршів|вектори {n} віршів':
+    'vectors of {n} verse|vectors of {n} verses',
+  'Очікую { model }': 'Expected { model }',
+  'Немає такої моделі': 'No such model',
+  'Зачекайте, доки обчисляться вектори, або зупиніть їх':
+    'Wait until the vectors are made, or stop them',
+  'Спершу виберіть і завантажте модель': 'Choose and download a model first',
+  'Зачекайте, доки бібліотека збереться': 'Wait until the library is built',
+  'Модель для пошуку за змістом не вибрано чи не завантажено':
+    'No model for search by meaning is chosen or downloaded',
+  'Файл моделі пошкоджено під час завантаження. Спробуйте ще раз.':
+    'A model file was damaged on the way. Try again.',
+  'Не вдалося завантажити модель: {error}': 'Could not download the model: {error}',
+  'Зачекайте, доки завантажиться інша модель': 'Wait until the other model is downloaded',
+  'Модель саме завантажується': 'The model is downloading',
+  'Рушій ONNX не завантажується в копії.': "The ONNX runtime doesn't load in the copy.",
+  'Не вдалося обчислити вектори: {error}': 'Could not make the vectors: {error}',
+  Швидка: 'Fast',
+  Точна: 'Precise',
+  'За змістом «~ любіть своїх ворогів»': 'By meaning “~ любіть своїх ворогів”',
   Модулі: 'Modules',
   'Модулі: каталог і вибір…': 'Modules: catalog and choice…',
   'Каталог модулів працює, коли застосунок запущено на цьому комп’ютері.':

@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-pgvector": "^0.0.9",
     "@types/better-sqlite3": "^7.6.12"
   }
 }
