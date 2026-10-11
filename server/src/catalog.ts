@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import {
+  LIBRARY_ALL_LIMIT,
   LibraryError,
   MODULE_KINDS,
   moduleKind,
@@ -28,9 +29,11 @@ export const REGISTRIES = [
 ];
 /** A registry this old is looked at again when the panel opens (its version first — 22 bytes). */
 export const REFRESH_MS = 24 * 60 * 60 * 1000;
-/** Bigger than any module of the catalog (the largest ≈ 300 MB packed) — a guard, not a limit. */
-export const MAX_MODULE_BYTES = 1024 ** 3;
+/** Twice the catalog's largest module (Вейсман.dictionary, 261 MB packed) — a guard, not a limit. */
+export const MAX_MODULE_BYTES = 512 * 1024 ** 2;
 const TIMEOUT_MS = 30_000;
+/** A download with no byte for this long goes to the next mirror. */
+const STALL_MS = 60_000;
 
 /** The Module kinds the library takes (the builder's kinds); devotions, plans, bundles are left out. */
 const SUFFIX_KIND: Record<string, ModuleKind> = {
@@ -126,6 +129,16 @@ export function htmlText(html: unknown, max = 600): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 
+/**
+ * A registry name that can be a file name in modules/ on every system: no folders, nothing
+ * Windows refuses (`<>:"|?*`, control characters, a trailing dot or space, CON / NUL …).
+ */
+export function safeName(fil: string): boolean {
+  if (fil.length > 120 || fil.startsWith('.') || /[. ]$/.test(fil)) return false;
+  if ([...fil].some((c) => c.charCodeAt(0) < 32 || '<>:"/\\|?*'.includes(c))) return false;
+  return !/^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(fil);
+}
+
 /** Which library kind a registry file name is (null: a kind the app doesn't read). */
 export function kindOfFil(fil: string): ModuleKind | null {
   const dot = fil.lastIndexOf('.');
@@ -156,7 +169,7 @@ export function parseRegistry(raw: unknown): { version: number; entries: Catalog
   const entries: CatalogEntry[] = [];
   for (const e of (Array.isArray(r.downloads) ? r.downloads : []) as RawEntry[]) {
     const fil = typeof e?.fil === 'string' ? e.fil.trim() : '';
-    if (!fil || e.hid === true || /[\\/]/.test(fil) || fil.startsWith('.')) continue;
+    if (!fil || e.hid === true || !safeName(fil)) continue;
     const kind = kindOfFil(fil);
     if (!kind) continue;
     const urls = (Array.isArray(e.url) ? e.url : [])
@@ -273,7 +286,7 @@ export interface Placed {
  * a bulk download once saved the notes under the Bible's name). A file already there stays.
  */
 export async function placeModule(zipBuf: Buffer, fil: string, dir: string): Promise<Placed[]> {
-  const members = (await unzip(zipBuf, 2 * MAX_MODULE_BYTES)).filter((m) => m.data.length > 0);
+  const members = (await unzip(zipBuf, 4 * MAX_MODULE_BYTES)).filter((m) => m.data.length > 0);
   await fsp.mkdir(dir, { recursive: true });
   const have = new Set(fs.readdirSync(dir).map((f) => f.toLowerCase()));
   const out: Placed[] = [];
@@ -345,6 +358,8 @@ export interface CatalogDeps {
   modulesDir: () => string;
   version: string;
   fetch?: typeof fetch;
+  /** no byte for this long: the next mirror (tests make it short) */
+  stallMs?: number;
   /** the selection now / write it (serverSettings.ts — the builder's key, re-read first) */
   selection: () => LibrarySelection | undefined;
   setSelection: (sel: LibrarySelection) => void;
@@ -362,6 +377,7 @@ export const userAgent = (version: string) =>
 
 export function createCatalog(d: CatalogDeps) {
   const get = d.fetch ?? fetch;
+  const stallMs = d.stallMs ?? STALL_MS;
   const file = path.join(d.dataDir, 'catalog', 'registry.json');
   const headers = { 'User-Agent': userAgent(d.version) };
   let list: CatalogList | null = null;
@@ -444,6 +460,20 @@ export function createCatalog(d: CatalogDeps) {
     }
   }
 
+  /**
+   * The selection as it stands — or, with none written yet, the one the builder would seed for
+   * this folder («all» for a kind of ≤ 60 files): written with the new file, so the builder's seed
+   * from an older library can't leave the download out (review).
+   */
+  function selectionNow(): LibrarySelection {
+    const had = d.selection();
+    if (had) return had;
+    const files = listModuleFiles(d.modulesDir());
+    const seed = {} as LibrarySelection;
+    for (const k of MODULE_KINDS) seed[k] = files[k].length <= LIBRARY_ALL_LIMIT ? null : [];
+    return seed;
+  }
+
   async function download(
     item: DownloadItem,
     entry: CatalogEntry,
@@ -451,8 +481,11 @@ export function createCatalog(d: CatalogDeps) {
   ): Promise<Buffer> {
     let failed = false;
     for (const url of entry.urls) {
+      // a mirror that stops sending is left for the next one (review: the one queue stood still)
+      const stall = new AbortController();
+      let timer = setTimeout(() => stall.abort(), stallMs);
       try {
-        const res = await get(url, { headers, signal });
+        const res = await get(url, { headers, signal: AbortSignal.any([signal, stall.signal]) });
         if (!res.ok || !res.body) {
           failed = true;
           continue;
@@ -461,6 +494,8 @@ export function createCatalog(d: CatalogDeps) {
         item.got = 0;
         const parts: Buffer[] = [];
         for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+          clearTimeout(timer);
+          timer = setTimeout(() => stall.abort(), stallMs);
           parts.push(Buffer.from(chunk));
           item.got += chunk.length;
           if (item.got > MAX_MODULE_BYTES) throw new Error('too big');
@@ -470,6 +505,8 @@ export function createCatalog(d: CatalogDeps) {
       } catch (err) {
         if (signal.aborted) throw err;
         failed = true;
+      } finally {
+        clearTimeout(timer);
       }
     }
     throw new LibraryError(
@@ -503,7 +540,8 @@ export function createCatalog(d: CatalogDeps) {
           item.phase = 'done';
           if (entry.kind === 'bibles' && !files.some((f) => f.kind === 'bibles'))
             item.note = { key: N_('У цьому модулі лише примітки, без тексту Біблії') };
-          const sel = withFiles(d.selection(), files);
+          const had = d.selection();
+          const sel = withFiles(had ?? selectionNow(), files) ?? (had ? null : selectionNow());
           if (sel) d.setSelection(sel);
           if (sel || files.some((f) => !f.present)) came = true;
         } catch (err) {
@@ -589,13 +627,7 @@ export function createCatalog(d: CatalogDeps) {
           files.map((f) => have.get(String(f).toLowerCase())).filter((f): f is string => !!f),
         ),
       ];
-      const base = d.selection() ?? {
-        bibles: null,
-        dictionaries: null,
-        commentaries: null,
-        crossreferences: null,
-      };
-      const sel = { ...base, [kind]: names };
+      const sel = { ...selectionNow(), [kind]: names };
       d.setSelection(sel);
       return sel;
     },

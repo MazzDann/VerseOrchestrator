@@ -69,6 +69,9 @@ const REGISTRY = {
     { abr: 'H', fil: 'HIDDEN', hid: true, url: ['{mz}HIDDEN'] },
     { abr: 'N', fil: 'NOURL', url: ['{old}NOURL'] },
     { abr: 'T', fil: '../evil', url: ['{mz}evil'] },
+    { abr: 'C', fil: 'C:evil', url: ['{mz}evil'] },
+    { abr: 'N', fil: 'NUL', url: ['{mz}evil'] },
+    { abr: 'D', fil: 'dot.', url: ['{mz}evil'] },
   ],
 };
 
@@ -167,7 +170,10 @@ describe('the download queue', () => {
   let tmp = '';
   afterEach(() => tmp && fs.rmSync(tmp, { recursive: true, force: true }));
 
-  async function setup(fail: (url: string) => boolean = () => false) {
+  async function setup(
+    fail: (url: string) => boolean = () => false,
+    o: { stall?: (url: string) => boolean; noSelection?: boolean } = {},
+  ) {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-catalog-'));
     const registry = await zip([
       { name: 'registry.json', data: Buffer.from(BOM + JSON.stringify(REGISTRY)) },
@@ -178,18 +184,25 @@ describe('the download queue', () => {
       const u = String(url);
       asked.push({ url: u, ua: new Headers(init?.headers).get('user-agent') });
       if (fail(u)) return new Response('gone', { status: 404 });
+      // a mirror that sends a little and then nothing more, until the request is dropped
+      if (o.stall?.(u)) {
+        const body = new ReadableStream({
+          start(ctl) {
+            ctl.enqueue(new Uint8Array([1, 2, 3]));
+            init?.signal?.addEventListener('abort', () => ctl.error(new Error('aborted')));
+          },
+        });
+        return new Response(body);
+      }
       if (u.endsWith('registry_info.json')) return new Response(BOM + '{"version":42}');
       if (u.endsWith('registry.zip')) return new Response(registry);
       if (u.includes('UBIO'))
         return new Response(bible, { headers: { 'content-length': String(bible.length) } });
       return new Response('nope', { status: 404 });
     });
-    let sel: LibrarySelection = {
-      bibles: [],
-      dictionaries: [],
-      commentaries: [],
-      crossreferences: [],
-    };
+    let sel: LibrarySelection | undefined = o.noSelection
+      ? undefined
+      : { bibles: [], dictionaries: [], commentaries: [], crossreferences: [] };
     const rebuild = vi.fn();
     const c = createCatalog({
       dataDir: path.join(tmp, 'data'),
@@ -199,6 +212,7 @@ describe('the download queue', () => {
       selection: () => sel,
       setSelection: (s) => (sel = s),
       rebuild,
+      stallMs: 200,
     });
     const idle = () =>
       vi.waitFor(() =>
@@ -223,7 +237,7 @@ describe('the download queue', () => {
       files: [{ name: "UBIO'62.SQLite3", kind: 'bibles' }],
     });
     expect(item.got).toBe(item.total);
-    expect(t.sel().bibles).toEqual(["UBIO'62.SQLite3"]);
+    expect(t.sel()?.bibles).toEqual(["UBIO'62.SQLite3"]);
     expect(t.rebuild).toHaveBeenCalledTimes(1);
     expect(t.asked.map((a) => a.url)).toContain('https://inf.example/m/UBIO%2762.zip');
     expect(
@@ -231,6 +245,29 @@ describe('the download queue', () => {
         (a) => a.ua === 'VerseOrchestrator/9.9.9 (+https://github.com/MazzDann/VerseOrchestrator)',
       ),
     ).toBe(true);
+  });
+
+  it('leaves a mirror that stops sending for the next one', async () => {
+    const t = await setup(undefined, { stall: (u) => u.startsWith('https://mz.example/m/UBIO') });
+    await t.c.catalog();
+    t.c.enqueue("UBIO'62");
+    await t.idle();
+    expect(t.c.queue().items[0].phase).toBe('done');
+  });
+
+  it('writes a selection when there was none, so the builder takes the download', async () => {
+    const t = await setup(undefined, { noSelection: true });
+    await t.c.catalog();
+    t.c.enqueue("UBIO'62");
+    await t.idle();
+    // a small folder: «all» of every kind, as the builder seeds it — written, not left to its seed
+    expect(t.sel()).toEqual({
+      bibles: null,
+      dictionaries: null,
+      commentaries: null,
+      crossreferences: null,
+    });
+    expect(t.rebuild).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the list a day, then asks for the version alone', async () => {
