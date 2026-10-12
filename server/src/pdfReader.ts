@@ -17,8 +17,45 @@ export interface PdfReply {
 /** A PDF that takes longer is given up (and its child stopped): the next one gets a new child. */
 const FILE_TIMEOUT_MS = 60_000;
 
+/**
+ * The server's own flags for a child that starts elsewhere: a release runs it with `--import tsx`,
+ * a bare name Node resolves from the working folder — from the home folder it is not found (the
+ * update run of 1.17.0-beta.4: every PDF failed in 88 ms). Such names become absolute, resolved
+ * where the server resolves its packages.
+ */
+export function childExecArgv(
+  argv: readonly string[],
+  resolve: (spec: string) => string = (s) => import.meta.resolve(s),
+): string[] {
+  const out: string[] = [];
+  const bare = (s: string) => !/^(\.{1,2}[\\/]|[\\/]|[a-zA-Z]:|[a-z]+:)/.test(s);
+  for (let i = 0; i < argv.length; i++) {
+    const m = /^--(import|require|loader|experimental-loader)(?:=(.*))?$/.exec(argv[i]);
+    if (!m) {
+      out.push(argv[i]);
+      continue;
+    }
+    const spec = m[2] ?? argv[++i] ?? '';
+    let to = spec;
+    if (bare(spec)) {
+      try {
+        const url = resolve(spec);
+        // --require takes a path, the others a URL
+        to = m[1] === 'require' ? fileURLToPath(url) : url;
+      } catch {
+        /* left as it was */
+      }
+    }
+    out.push(`--${m[1]}=${to}`);
+  }
+  return out;
+}
+
 function startChild(): ChildProcess {
-  const args = [...process.execArgv, fileURLToPath(new URL('./pdfWorker.ts', import.meta.url))];
+  const args = [
+    ...childExecArgv(process.execArgv),
+    fileURLToPath(new URL('./pdfWorker.ts', import.meta.url)),
+  ];
   // from the home folder: a process sitting in app/ blocks an update's swap on Windows (EBUSY)
   return spawn(process.execPath, args, {
     cwd: os.homedir(),
