@@ -45,6 +45,8 @@ describe('how «~ …» ranks (1.16.0-beta.4)', () => {
   });
 
   it('grades by the distance from the best', () => {
-    expect([0, 0.05, 0.08, 0.12, 0.2].map(closenessOf)).toEqual([3, 3, 2, 2, 1]);
+    expect([0, 0.05, 0.08, 0.12, 0.2].map((g) => closenessOf(g))).toEqual([3, 3, 2, 2, 1]);
+    // a model whose scores lie closer: its own cut (1.16.0-beta.5)
+    expect([0.04, 0.05, 0.1, 0.11].map((g) => closenessOf(g, 0.17))).toEqual([3, 2, 2, 1]);
   });
 });

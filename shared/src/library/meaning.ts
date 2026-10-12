@@ -61,14 +61,18 @@ export function meaningStems(query: string): string[] {
   return [...new Set(words.map((w) => w.slice(0, STEM)))];
 }
 
-/** The share the words' match has in a verse's closeness. */
-export const WORDS_WEIGHT = 0.25;
-/** Farther below the best than this: left out. */
-export const CLOSENESS_CUT = 0.2;
+/**
+ * The words' share in a verse's closeness and how far below the best a place still shows — for a
+ * model with no ranking of its own (each has: EMBED_MODELS `ranking`, 1.16.0-beta.5).
+ */
+export const DEFAULT_RANKING = { wordsWeight: 0.25, cut: 0.2 };
 /** At least this many places, however far (a vague query still answers). */
 export const MEANING_MIN = 10;
 
-/** 3 — as close as the best, 2 — close, 1 — related; by the distance from the best. */
-export function closenessOf(gap: number): 1 | 2 | 3 {
-  return gap <= 0.05 ? 3 : gap <= 0.12 ? 2 : 1;
+/**
+ * 3 — as close as the best, 2 — close, 1 — related: by the distance from the best, in parts of the
+ * model's cut (a quarter, three fifths — 0.05 and 0.12 of the «Швидка» cut 0.2).
+ */
+export function closenessOf(gap: number, cut = DEFAULT_RANKING.cut): 1 | 2 | 3 {
+  return gap <= cut * 0.25 ? 3 : gap <= cut * 0.6 ? 2 : 1;
 }

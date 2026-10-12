@@ -39,6 +39,12 @@ export interface EmbedModel {
   dims: number;
   /** a verse longer than this is cut (the longest verses run ≈ 110 tokens) */
   maxTokens: number;
+  /**
+   * How «~ …» weighs its places (library/meaning.ts, 1.16.0-beta.5): the query words' share in a
+   * verse's closeness, and how far below the best a place still shows — each model its own,
+   * measured on HOM with 44 queries.
+   */
+  ranking: { wordsWeight: number; cut: number };
 }
 
 export const EMBED_MODELS: Record<EmbedModelId, EmbedModel> = {
@@ -74,6 +80,8 @@ export const EMBED_MODELS: Record<EmbedModelId, EmbedModel> = {
     passagePrefix: '',
     dims: 384,
     maxTokens: 128,
+    // MRR@10 0.33 → 0.55 with the words at 0.25; hits sat ≤ 0.20 below the best (p90)
+    ranking: { wordsWeight: 0.25, cut: 0.2 },
   },
   precise: {
     id: 'precise',
@@ -107,6 +115,9 @@ export const EMBED_MODELS: Record<EmbedModelId, EmbedModel> = {
     passagePrefix: '',
     dims: 256,
     maxTokens: 128,
+    // it reads words and names well itself: 0.25 pulled it down to 0.53, 0.10 gives 0.58 (0.52
+    // with the vectors alone); its scores lie closer — hits ≤ 0.17 below the best (p90)
+    ranking: { wordsWeight: 0.1, cut: 0.17 },
   },
 };
 
