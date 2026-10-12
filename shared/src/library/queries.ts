@@ -12,7 +12,17 @@ import type {
 import { LibraryError, type SqlDriver, type SqlParam } from './driver.js';
 import { PG_TS_CONFIG } from './postgres.js';
 import { pgVector } from './vectors.js';
-import { nearest, type ChapterVectors, type Scored } from '../embed/vectors.js';
+import { nearest, type ChapterVectors } from '../embed/vectors.js';
+import {
+  blendVectors,
+  capitalizeWords,
+  CLOSENESS_CUT,
+  closenessOf,
+  inQueryLanguage,
+  MEANING_MIN,
+  meaningStems,
+  WORDS_WEIGHT,
+} from './meaning.js';
 
 /**
  * Every read the app makes against a library database, written once against the
@@ -94,8 +104,12 @@ export interface LibraryOptions {
 export const MEANING_PREFIX = /^\s*~\s*/;
 const INT = 'CAST(? AS INTEGER)';
 
-/** How many places a query by meaning returns. */
+/** How many places a query by meaning returns, at most. */
 export const MEANING_LIMIT = 60;
+/** How many places of the query's language are weighed: the vectors' nearest, the word-richest. */
+const MEANING_POOL = 200;
+/** A word in more verses than this is common anyway: its count stops there. */
+const STEM_CAP = 3000;
 
 // Rows come back loosely typed from any engine; map them explicitly.
 type AnyRow = any;
@@ -801,18 +815,25 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     return vectorsKnown;
   }
 
-  /** The asked translations that have every vector of this model. */
+  /** The asked translations that have every vector of this model, with their language. */
   async function vectorTranslations(model: string, ids: number[]) {
     const rows = await db.all<AnyRow>(
-      `SELECT t.id, t.source_hash FROM translations t
+      `SELECT t.id, t.source_hash, t.language, s.verses FROM translations t
        JOIN vector_sets s ON s.source_hash = t.source_hash
        WHERE s.model = ? AND s.done = 1 AND t.id IN (${placeholders(ids.length)})`,
       [model, ...ids],
     );
-    return rows.map((r) => ({ id: Number(r.id), hash: String(r.source_hash) }));
+    return rows.map((r) => ({
+      id: Number(r.id),
+      hash: String(r.source_hash),
+      language: String(r.language ?? ''),
+      verses: Number(r.verses) || 0,
+    }));
   }
+  type VectorSet = Awaited<ReturnType<typeof vectorTranslations>>[number];
 
-  // a translation's chapters, decoded once (≈ 12 MB each; a few kept): a scan then costs ≈ 22 ms
+  // a translation's chapters, decoded once (≈ 12 MB each): a scan then costs ≈ 22 ms. Eight kept —
+  // «Один на мову» asks six at once: with four kept a query took 375 ms, with eight 221 (1.16.0-beta.4)
   const chapterCache = new Map<string, ChapterVectors[]>();
   async function chapterVectors(model: string, hash: string): Promise<ChapterVectors[]> {
     const key = `${model}|${hash}`;
@@ -833,7 +854,145 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       vecs: r.vecs as Uint8Array,
     }));
     chapterCache.set(key, out);
-    while (chapterCache.size > 4) chapterCache.delete(chapterCache.keys().next().value!);
+    while (chapterCache.size > 8) chapterCache.delete(chapterCache.keys().next().value!);
+    return out;
+  }
+
+  /** A place of a translation, as a key: `tid|book|chapter|verse`. */
+  const placeKey = (tid: number, book: number, chapter: number, verse: number) =>
+    `${tid}|${book}|${chapter}|${verse}`;
+
+  /** The `k` places of these translations nearest to `q`, with their cosine (≈). */
+  async function nearestIn(model: string, sets: VectorSet[], q: Int8Array, k: number) {
+    const hits: { tid: number; book: number; chapter: number; verse: number; cos: number }[] = [];
+    if (!sets.length) return hits;
+    if (pg) {
+      const vec = pgVector(q);
+      const rows = await db.all<AnyRow>(
+        `SELECT t.id AS tid, x.book, x.chapter, x.verse, -(x.vec <#> ?::vector) / 16129.0 AS score
+         FROM verse_vectors x JOIN translations t ON t.source_hash = x.source_hash
+         WHERE x.model = ? AND t.id IN (${placeholders(sets.length)})
+         ORDER BY x.vec <#> ?::vector
+         LIMIT ${k}`,
+        [vec, model, ...sets.map((s) => s.id), vec],
+      );
+      for (const r of rows)
+        hits.push({
+          tid: Number(r.tid),
+          book: Number(r.book),
+          chapter: Number(r.chapter),
+          verse: Number(r.verse),
+          cos: Number(r.score),
+        });
+      return hits;
+    }
+    for (const s of sets)
+      for (const h of nearest(await chapterVectors(model, s.hash), q, k))
+        hits.push({
+          tid: s.id,
+          book: h.book,
+          chapter: h.chapter,
+          verse: h.verse,
+          cos: h.score, // nearest() gives the cosine already
+        });
+    return hits.sort((x, y) => y.cos - x.cos).slice(0, k);
+  }
+
+  /** The cosine of these places (book, chapter, verse) of one translation, by `book|chapter|verse`. */
+  async function cosineAt(model: string, set: VectorSet, q: Int8Array, places: number[][]) {
+    const out = new Map<string, number>();
+    if (!places.length) return out;
+    if (pg) {
+      const rows = await db.all<AnyRow>(
+        `WITH h (bk, c, n) AS (VALUES ${places.map(() => `(${INT}, ${INT}, ${INT})`).join(', ')})
+         SELECT x.book, x.chapter, x.verse, -(x.vec <#> ?::vector) / 16129.0 AS score
+         FROM h JOIN verse_vectors x ON x.book = h.bk AND x.chapter = h.c AND x.verse = h.n
+         WHERE x.model = ? AND x.source_hash = ?`,
+        [...places.flat(), pgVector(q), model, set.hash],
+      );
+      for (const r of rows) out.set(`${r.book}|${r.chapter}|${r.verse}`, Number(r.score));
+      return out;
+    }
+    const chapters = new Map(
+      (await chapterVectors(model, set.hash)).map((c) => [`${c.book}|${c.chapter}`, c]),
+    );
+    const d = q.length;
+    for (const [book, chapter, verse] of places) {
+      const c = chapters.get(`${book}|${chapter}`);
+      if (!c) continue;
+      const nums = new DataView(c.verses.buffer, c.verses.byteOffset, c.verses.byteLength);
+      const x = new Int8Array(c.vecs.buffer, c.vecs.byteOffset, c.vecs.byteLength);
+      for (let i = 0; i < nums.byteLength / 2; i++) {
+        if (nums.getInt16(i * 2, true) !== verse) continue;
+        let dot = 0;
+        for (let j = 0; j < d; j++) dot += x[i * d + j] * q[j];
+        out.set(`${book}|${chapter}|${verse}`, dot / 16129);
+        break;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * The verses of one translation with a word starting so, through the full-text index: their
+   * places (`book|chapter|verse`) up to `cap`, or — `count` — how many there are.
+   */
+  async function stemVerses(tid: number, stem: string, cap: number): Promise<string[]>;
+  async function stemVerses(tid: number, stem: string, cap: number, count: true): Promise<number>;
+  async function stemVerses(tid: number, stem: string, cap: number, count?: true) {
+    const what = count ? 'COUNT(*) AS n' : 'v.book_number, v.chapter, v.verse';
+    const limit = count ? '' : `LIMIT ${cap}`;
+    let rows: AnyRow[];
+    try {
+      if (pg)
+        rows = await db.all<AnyRow>(
+          `SELECT ${what}
+           FROM verses_fts f JOIN verses v ON v.id = f.id
+           WHERE f.tsv @@ to_tsquery('${PG_TS_CONFIG}', ?) AND f.translation_id = ? ${limit}`,
+          [`'${stem}':*`, tid],
+        );
+      else if (await columnExists('verses_fts', 'tr'))
+        rows = await db.all<AnyRow>(
+          `SELECT ${what}
+           FROM verses_fts JOIN verses v ON v.id = verses_fts.rowid
+           WHERE verses_fts MATCH ? ${limit}`,
+          [`{text_norm}: ("${stem}"*) AND {tr}: (t${tid})`],
+        );
+      else
+        rows = await db.all<AnyRow>(
+          `SELECT ${what}
+           FROM verses_fts JOIN verses v ON v.id = verses_fts.rowid
+           WHERE verses_fts MATCH ? AND v.translation_id = ? ${limit}`,
+          [`"${stem}"*`, tid],
+        );
+    } catch {
+      return count ? 0 : []; // no full-text index here: the vectors alone
+    }
+    if (count) return Number(rows[0]?.n ?? 0);
+    return rows.map((r) => `${r.book_number}|${r.chapter}|${r.verse}`);
+  }
+
+  /** These places' verse texts in one translation, as the index has them, by `book|chapter|verse`. */
+  async function searchTexts(
+    tid: number,
+    places: { book: number; chapter: number; verse: number }[],
+  ) {
+    const out = new Map<string, string>();
+    for (let i = 0; i < places.length; i += 300) {
+      const part = places.slice(i, i + 300);
+      const rows = await db.all<AnyRow>(
+        `WITH h (bk, c, n) AS (VALUES ${part.map(() => `(${INT}, ${INT}, ${INT})`).join(', ')})
+         SELECT v.book_number, v.chapter, v.verse, v.text
+         FROM h JOIN verses v ON v.translation_id = ${INT} AND v.book_number = h.bk
+           AND v.chapter = h.c AND v.verse = h.n`,
+        [...part.flatMap((p) => [p.book, p.chapter, p.verse]), tid],
+      );
+      for (const r of rows)
+        out.set(
+          `${r.book_number}|${r.chapter}|${r.verse}`,
+          ` ${normalizeForSearch(String(r.text ?? ''))} `,
+        );
+    }
     return out;
   }
 
@@ -851,37 +1010,94 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     ).map((r) => String(r.model));
     // none of the asked translations has vectors: nothing to ask the model
     if (!models.length) return { kind: 'meaning', results: [], missing: 'vectors' };
-    const q = await opts.embed(text, models);
-    if (!q) return { kind: 'meaning', results: [], missing: 'model' };
-    const sets = await vectorTranslations(q.model, ids);
+    const asked = await opts.embed(text, models);
+    if (!asked) return { kind: 'meaning', results: [], missing: 'model' };
+    // the words capitalized too: the model takes «павло» for no name (meaning.ts)
+    const capitalized = capitalizeWords(text);
+    const also = capitalized !== text ? await opts.embed(capitalized, [asked.model]) : null;
+    const q = also?.model === asked.model ? blendVectors(asked.vec, also.vec) : asked.vec;
+    const sets = await vectorTranslations(asked.model, ids);
     if (!sets.length) return { kind: 'meaning', results: [], missing: 'vectors' };
-    const hits: (Scored & { tid: number })[] = [];
-    if (pg) {
-      const vec = pgVector(q.vec);
-      const rows = await db.all<AnyRow>(
-        `SELECT t.id AS tid, x.book, x.chapter, x.verse, -(x.vec <#> ?::vector) / 16129.0 AS score
-         FROM verse_vectors x JOIN translations t ON t.source_hash = x.source_hash
-         WHERE x.model = ? AND t.id IN (${placeholders(sets.length)})
-         ORDER BY x.vec <#> ?::vector
-         LIMIT ${MEANING_LIMIT}`,
-        [vec, q.model, ...sets.map((s) => s.id), vec],
+
+    type Place = {
+      tid: number;
+      book: number;
+      chapter: number;
+      verse: number;
+      cos: number;
+      words: number;
+    };
+    const ownLanguage = inQueryLanguage(text);
+    const own = sets.filter((s) => ownLanguage(s.language));
+    const rest = sets.filter((s) => !ownLanguage(s.language));
+    // in the query's language: the vectors' nearest and the verses with its words
+    const found = new Map<string, Place>();
+    for (const h of await nearestIn(asked.model, own, q, MEANING_POOL))
+      found.set(placeKey(h.tid, h.book, h.chapter, h.verse), { ...h, words: 0 });
+    const stems = meaningStems(text);
+    for (const s of stems.length ? own : []) {
+      const lists = await Promise.all(stems.map((st) => stemVerses(s.id, st, STEM_CAP + 1)));
+      // a common word's verses are too many to list: only counted (the list stops at the cap)
+      const counts = await Promise.all(
+        lists.map((l, i) => (l.length > STEM_CAP ? stemVerses(s.id, stems[i], 0, true) : l.length)),
       );
-      for (const r of rows)
-        hits.push({
-          tid: Number(r.tid),
-          book: Number(r.book),
-          chapter: Number(r.chapter),
-          verse: Number(r.verse),
-          score: Number(r.score),
-        });
-    } else {
-      for (const s of sets)
-        for (const h of nearest(await chapterVectors(q.model, s.hash), q.vec, MEANING_LIMIT))
-          hits.push({ ...h, tid: s.id });
-      hits.sort((a, b) => b.score - a.score);
-      hits.length = Math.min(hits.length, MEANING_LIMIT);
+      // a word in many verses says little, a name in a few says much
+      const n = Math.max(s.verses, ...counts, 1);
+      const idf = counts.map((c) => (c ? Math.log(n / c) : 0));
+      const total = idf.reduce((x, y) => x + y, 0);
+      if (total <= 0) continue;
+      // more places to weigh: the verses richest in the rarer words
+      const rare = new Map<string, number>();
+      lists.forEach((l, i) => {
+        if (l.length <= STEM_CAP) for (const p of l) rare.set(p, (rare.get(p) ?? 0) + idf[i]);
+      });
+      const richest = [...rare]
+        .filter(([p]) => !found.has(`${s.id}|${p}`))
+        .sort((x, y) => y[1] - x[1])
+        .slice(0, MEANING_POOL)
+        .map(([p]) => p.split('|').map(Number));
+      const cos = await cosineAt(asked.model, s, q, richest);
+      for (const [book, chapter, verse] of richest) {
+        const c = cos.get(`${book}|${chapter}|${verse}`);
+        if (c != null)
+          found.set(placeKey(s.id, book, chapter, verse), {
+            tid: s.id,
+            book,
+            chapter,
+            verse,
+            cos: c,
+            words: 0,
+          });
+      }
+      // each place's share of the query's words, read in its own text (common words too)
+      const mine = [...found.values()].filter((h) => h.tid === s.id);
+      const texts = await searchTexts(s.id, mine);
+      for (const h of mine) {
+        const t = texts.get(`${h.book}|${h.chapter}|${h.verse}`) ?? '';
+        h.words = stems.reduce((w, st, i) => (t.includes(` ${st}`) ? w + idf[i] : w), 0) / total;
+      }
     }
-    if (!hits.length) return { kind: 'meaning', results: [] };
+    const score = (h: Place) => (1 - WORDS_WEIGHT) * h.cos + WORDS_WEIGHT * h.words;
+    // the closer first; a tie by place, the same on every engine
+    const order = (x: Place, y: Place) =>
+      score(y) - score(x) ||
+      x.tid - y.tid ||
+      x.book - y.book ||
+      x.chapter - y.chapter ||
+      x.verse - y.verse;
+    const ranked = [
+      ...[...found.values()].sort(order),
+      // the other languages after (the author: the query's language first)
+      ...(await nearestIn(asked.model, rest, q, MEANING_LIMIT))
+        .map((h) => ({ ...h, words: 0 }))
+        .sort(order),
+    ];
+    if (!ranked.length) return { kind: 'meaning', results: [] };
+    const best = Math.max(...ranked.map(score));
+    // far below the best: left out — a few always stay
+    const hits = ranked
+      .filter((h, i) => i < MEANING_MIN || best - score(h) <= CLOSENESS_CUT)
+      .slice(0, MEANING_LIMIT);
     // the places as a table joined on the verses' index — 60 ORed conditions scanned every verse
     const rows = await db.all<AnyRow>(
       // typed: Postgres reads an untyped parameter as text (and CAST is the one spelling both know)
@@ -893,14 +1109,18 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
        JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number`,
       hits.flatMap((h) => [h.tid, h.book, h.chapter, h.verse]),
     );
-    // in the order of their nearness
-    const at = new Map(hits.map((h, i) => [`${h.tid}|${h.book}|${h.chapter}|${h.verse}`, i]));
+    // in the order found, each with how close it is
+    const at = new Map(hits.map((h, i) => [placeKey(h.tid, h.book, h.chapter, h.verse), i]));
     const results = rows
-      .map(rowToResult)
+      .map((r): SearchResult => {
+        const res = rowToResult(r);
+        const i = at.get(placeKey(res.translationId, res.bookNumber, res.chapter, res.verse)) ?? 0;
+        return { ...res, closeness: closenessOf(best - score(hits[i])) };
+      })
       .sort(
-        (a, b) =>
-          (at.get(`${a.translationId}|${a.bookNumber}|${a.chapter}|${a.verse}`) ?? 0) -
-          (at.get(`${b.translationId}|${b.bookNumber}|${b.chapter}|${b.verse}`) ?? 0),
+        (x, y) =>
+          (at.get(placeKey(x.translationId, x.bookNumber, x.chapter, x.verse)) ?? 0) -
+          (at.get(placeKey(y.translationId, y.bookNumber, y.chapter, y.verse)) ?? 0),
       );
     return { kind: 'meaning', results };
   }

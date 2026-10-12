@@ -54,6 +54,8 @@ const StrongDefSchema = z.object({
 const SearchResultSchema = VerseSchema.extend({
   longName: str(),
   shortName: str(),
+  /** «~ …»: how close to the best (1.16.0-beta.4) */
+  closeness: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
 });
 export type SearchResult = z.infer<typeof SearchResultSchema>;
 

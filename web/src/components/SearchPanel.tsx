@@ -29,7 +29,7 @@ import { searchEnter } from '../lib/quickRef';
 import { isScrolling } from '../lib/scrolling';
 import { useSearchRows } from '../lib/useSearchRows';
 import { useSettings } from '../settingsStore';
-import { tr, useLang } from '../i18n';
+import { N_, tr, useLang } from '../i18n';
 
 export type SearchScope = 'current' | 'all';
 
@@ -368,6 +368,20 @@ export function SearchPanel({
   );
 }
 
+const CLOSENESS = [N_('Споріднене'), N_('Близько'), N_('Дуже близько')];
+
+/** «~ …»: how close a place is to the best one — three dots (1.16.0-beta.4, the author's ask). */
+function Closeness({ level }: { level: 1 | 2 | 3 }) {
+  const label = tr(CLOSENESS[level - 1]);
+  return (
+    <span className="vo-closeness" title={label} aria-label={label} role="img">
+      {[1, 2, 3].map((i) => (
+        <span key={i} data-on={i <= level ? 'true' : undefined} />
+      ))}
+    </span>
+  );
+}
+
 /**
  * One result. Memoized: moving the highlight re-renders the two rows that change, not all
  * of them (with their term highlighting). The highlight follows the pointer only when it
@@ -409,6 +423,7 @@ const ResultRow = memo(function ResultRow({
       }}
     >
       <Text size="xs" c="dimmed">
+        {r.closeness && <Closeness level={r.closeness} />}
         {r.longName || r.shortName} {r.chapter}:{r.verse}
         {own && ` · ${own}`}
         {also && ` · ${tr('також: {list}', { list: also })}`}

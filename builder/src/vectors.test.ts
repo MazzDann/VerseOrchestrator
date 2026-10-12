@@ -8,6 +8,7 @@ import { vector } from '@electric-sql/pglite-pgvector';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   createLibrary,
+  ftsFillSql,
   loadSegmentPg,
   loadVectorsPg,
   mergeSql,
@@ -65,7 +66,14 @@ beforeAll(async () => {
   );
   for (let c = 1; c <= 2; c++)
     for (let v = 1; v <= 8; v++) {
-      verse.run(1, 500, c, v, `укр ${c}:${v}`);
+      // two verses carry a name: the words' share lifts them (1.16.0-beta.4)
+      verse.run(
+        1,
+        500,
+        c,
+        v,
+        c === 1 && (v === 3 || v === 7) ? `Павло прийшов ${c}:${v}` : `укр ${c}:${v}`,
+      );
       verse.run(2, 500, c, v, `kjv ${c}:${v}`);
     }
   lib.close();
@@ -98,6 +106,7 @@ beforeAll(async () => {
     fs.writeFileSync(tmp, raw);
     work.exec(`ATTACH '${tmp.replace(/'/g, "''")}' AS seg`);
     for (const sql of mergeSql('seg')) work.exec(sql);
+    if (s.kind === 'translation') work.exec(ftsFillSql('seg'));
     if (s.kind === 'vectors') {
       work.exec(VECTORS_SQL);
       work.exec('INSERT OR REPLACE INTO main.chapter_vectors SELECT * FROM seg.chapter_vectors');
@@ -148,7 +157,27 @@ describe('search by meaning on both engines', () => {
     expect(b.results.map(place).sort()).toEqual(a.results.map(place).sort());
     const [first] = a.results;
     expect(first.text).toBe(`укр ${first.chapter}:${first.verse}`);
+    // how close each is: the same on both
+    expect(a.results[0].closeness).toBe(3);
+    expect(b.results.map((r) => r.closeness)).toEqual(a.results.map((r) => r.closeness));
     expect(a.results[0].shortName).toBe('Ів');
+  });
+
+  it('the query’s words in a verse lift it, through each engine’s full-text index (1.16.0-beta.4)', async () => {
+    const plain = await createLibrary(sqliteDriver, { embed }).search('~ щось', [1]);
+    const at = (rs: SearchResult[], c: number, v: number) =>
+      rs.findIndex((r) => r.chapter === c && r.verse === v);
+    for (const d of [sqliteDriver, pgDriver]) {
+      const named = (await createLibrary(d, { embed }).search('~ павло', [1])).results;
+      // 1:3 and 1:7 lie far from the query's vector, yet the name brings them up
+      expect(at(named, 1, 3)).toBeGreaterThanOrEqual(0);
+      expect(at(named, 1, 7)).toBeLessThan(
+        at(plain.results, 1, 7) < 0 ? 99 : at(plain.results, 1, 7),
+      );
+    }
+    const a = (await createLibrary(sqliteDriver, { embed }).search('~ павло', [1])).results;
+    const b = (await createLibrary(pgDriver, { embed }).search('~ павло', [1])).results;
+    expect(b.map(place)).toEqual(a.map(place));
   });
 
   it('says what is missing: a model, or vectors for the translations asked', async () => {
@@ -159,8 +188,10 @@ describe('search by meaning on both engines', () => {
         missing: 'vectors',
         results: [],
       });
-      // all translations: those with vectors answer
-      expect((await createLibrary(d, { embed }).search('~щось', [])).results.length).toBe(16);
+      // all translations: those with vectors answer — the far ones left out, ten always stay
+      const all = (await createLibrary(d, { embed }).search('~щось', [])).results;
+      expect(all.length).toBeGreaterThanOrEqual(10);
+      expect(all.every((r) => r.translationId === 1)).toBe(true);
     }
   });
 });
