@@ -55,10 +55,10 @@ describe('«Місце на диску»', () => {
     expect(by['images-trash'].bytes).toBe(30);
     expect(by.modules.bytes).toBe(2005);
     expect(by['documents-trash'].bytes).toBe(3);
-    // the older daily copy and the older state before a restore; the newest of each kind, an
-    // update's only copy and the pending undo stay
-    expect(by['backups-old'].bytes).toBe(10 + 13);
-    expect(by.backups.bytes).toBe(11 + 12 + 14 + 15);
+    // the older daily copy only: the newest of each kind, an update's only copy, the states kept
+    // before a restore (they hold the moved songs and pictures) and the pending undo stay
+    expect(by['backups-old'].bytes).toBe(10);
+    expect(by.backups.bytes).toBe(11 + 12 + 13 + 14 + 15);
     expect(by['data-other'].bytes).toBe(7);
   });
 

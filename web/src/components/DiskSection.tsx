@@ -49,9 +49,12 @@ const PARTS: Record<DiskPart['id'], { name: string; note: string }> = {
     name: N_('Видалені й замінені документи'),
     note: N_('Чекають на «Скасувати»; після прибирання повернути не вийде.'),
   },
-  backups: { name: N_('Резервні копії'), note: N_('Найновіша копія кожного виду.') },
+  backups: {
+    name: N_('Резервні копії'),
+    note: N_('Найновіші автоматичні копії й стани перед відновленням.'),
+  },
   'backups-old': {
-    name: N_('Старі резервні копії'),
+    name: N_('Старі автоматичні копії'),
     note: N_('Найновіша копія кожного виду лишається.'),
   },
   'logs-old': { name: N_('Старий журнал запуску'), note: '' },
@@ -88,7 +91,7 @@ export function DiskSection({ active }: { active: boolean }) {
   const browser = useQuery({
     queryKey: ['browser-bytes'],
     queryFn: browserDataBytes,
-    enabled: active && shown,
+    enabled: active,
   });
 
   const parts = disk.data?.parts ?? [];
@@ -155,6 +158,10 @@ export function DiskSection({ active }: { active: boolean }) {
             {tr('Показати, що займає місце')}
           </Button>
         </>
+      ) : serverAvailable === false ? (
+        <Text size="xs" c="dimmed">
+          {tr(NEEDS_SERVER)}
+        </Text>
       ) : disk.isLoading ? (
         <Group gap="xs">
           <Loader size="xs" />
@@ -216,40 +223,41 @@ export function DiskSection({ active }: { active: boolean }) {
                 </Group>
               );
             })}
-          <Group justify="space-between" wrap="nowrap" gap="xs" align="flex-start" mt={4}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <Text size="sm">
-                {tr('Дані цього браузера')}
-                {browser.data != null ? ` · ${formatSize(browser.data)}` : ''}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {tr(
-                  'Кеш бібліотеки для «У браузері» (сегменти, знімок PostgreSQL). Налаштування лишаються; вікно перезавантажиться.',
-                )}
-              </Text>
-            </div>
-            {asking === 'browser' ? (
-              <Group gap={4} wrap="nowrap">
-                <Button
-                  size="compact-xs"
-                  variant="light"
-                  color="red"
-                  onClick={() => void clearBrowserCaches().then(() => window.location.reload())}
-                >
-                  {tr('Так, очистити')}
-                </Button>
-                <Button size="compact-xs" variant="default" onClick={() => setAsking(null)}>
-                  {tr('Ні')}
-                </Button>
-              </Group>
-            ) : (
-              <Button size="compact-xs" variant="default" onClick={() => setAsking('browser')}>
-                {tr('Очистити кеш')}
-              </Button>
-            )}
-          </Group>
         </Stack>
       )}
+      {/* this browser's caches: here even without a server (the «У браузері» mode needs it most) */}
+      <Group justify="space-between" wrap="nowrap" gap="xs" align="flex-start" mt="xs">
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <Text size="sm">
+            {tr('Дані цього браузера')}
+            {browser.data != null ? ` · ${formatSize(browser.data)}` : ''}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {tr(
+              'Кеш бібліотеки для «У браузері» (сегменти, знімок PostgreSQL). Налаштування лишаються; вікно перезавантажиться. Інші вікна застосунку в цьому браузері (показ, сцена) спершу закрийте.',
+            )}
+          </Text>
+        </div>
+        {asking === 'browser' ? (
+          <Group gap={4} wrap="nowrap">
+            <Button
+              size="compact-xs"
+              variant="light"
+              color="red"
+              onClick={() => void clearBrowserCaches().then(() => window.location.reload())}
+            >
+              {tr('Так, очистити')}
+            </Button>
+            <Button size="compact-xs" variant="default" onClick={() => setAsking(null)}>
+              {tr('Ні')}
+            </Button>
+          </Group>
+        ) : (
+          <Button size="compact-xs" variant="default" onClick={() => setAsking('browser')}>
+            {tr('Очистити кеш')}
+          </Button>
+        )}
+      </Group>
     </div>
   );
 }

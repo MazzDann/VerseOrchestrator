@@ -2726,12 +2726,16 @@ app.post(
         freed = await removeAll(dbFiles(d('vectors.db')));
       } else {
         if (!isEmbedModelId(sub)) throw new ApiError(404, N_('Немає такої моделі'));
-        freed = await sizeOf(d('models', sub));
-        if (getServerSettings().semantic.model === sub) await queryEmbedder.release();
+        const before = await sizeOf(d('models', sub));
+        // a model just switched from may still hold its files (Windows): released whichever it is
+        await queryEmbedder.release();
         await models.remove(sub);
+        freed = before - (await sizeOf(d('models', sub)));
       }
       notifySemantic({});
     } else if (id === 'backups-old') {
+      // the copy made before an update must stay while the swap is under way
+      if (swapPending) throw new ApiError(409, N_('Застосунок саме готується до зміни версії'));
       freed = await oneAtATime(async () => removeAll(await oldBackups(backupsDir(dataDir))));
     } else {
       const places: Partial<Record<string, string>> = {

@@ -1,3 +1,4 @@
+import { PG_SNAPSHOT_DB } from './engine/protocol';
 /**
  * What this app keeps in the browser for its address, and forgetting it («Вимкнути повністю»
  * with «стерти дані браузера», 0.7.1): localStorage (settings, running order, selection, panel
@@ -88,7 +89,8 @@ export async function clearBrowserData(): Promise<void> {
 /**
  * The library's caches of this address only (1.17.0-beta.4, «Місце на диску»): the segments in
  * Cache Storage and the PostgreSQL snapshot in IndexedDB — the settings and the running order in
- * localStorage stay. The page reloads after it (an open engine holds its database till then).
+ * localStorage stay. The page reloads after it (an open engine holds its database till then; an
+ * output window of the same browser holds it too — the section asks to close those first).
  */
 export async function clearBrowserCaches(): Promise<void> {
   try {
@@ -96,21 +98,14 @@ export async function clearBrowserCaches(): Promise<void> {
   } catch {
     /* no Cache Storage (plain http on another host) */
   }
-  try {
-    const dbs = (await indexedDB.databases?.()) ?? [];
-    await Promise.all(
-      dbs.map(
-        (d) =>
-          new Promise<void>((resolve) => {
-            if (!d.name) return resolve();
-            const r = indexedDB.deleteDatabase(d.name);
-            r.onsuccess = r.onerror = r.onblocked = () => resolve();
-          }),
-      ),
-    );
-  } catch {
-    /* no IndexedDB */
-  }
+  await new Promise<void>((resolve) => {
+    try {
+      const r = indexedDB.deleteDatabase(PG_SNAPSHOT_DB);
+      r.onsuccess = r.onerror = r.onblocked = () => resolve();
+    } catch {
+      resolve(); // no IndexedDB
+    }
+  });
 }
 
 /** Every window of the app listens (main.tsx): when one forgets, the others stop writing. */

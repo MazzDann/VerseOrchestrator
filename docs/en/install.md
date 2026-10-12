@@ -421,11 +421,12 @@ how much and remove what you don't need:
 Under each part, the app says what happens without it: small copies and posters are made again
 by the app itself, a model downloads again with one click, vectors are computed again, and
 without the previous version there is no rolling back to it. **Remove** never touches your own
-files — the library, modules, documents, pictures, settings. The newest backup of each kind
-stays.
+files — the library, modules, documents, pictures, settings. Of the old backups only the
+automatic ones go — the newest of each kind stays — and the states kept before a restore stay too.
 
 **This browser's data** is the library cache for «У браузері» (in the browser) mode in this
-browser. **Clear the cache** removes it and reloads the window; the settings stay.
+browser. **Clear the cache** removes it and reloads the window; the settings stay. Close the app’s
+other windows in this browser (presentation, stage) first.
 
 ## Carry data over from another copy
 

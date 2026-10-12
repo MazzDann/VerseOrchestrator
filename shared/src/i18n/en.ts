@@ -2416,8 +2416,9 @@ export const EN: Record<string, string> = {
     'They wait for «Скасувати» (Cancel); once removed, they can’t come back.',
   'Видалені й замінені документи': 'Deleted and replaced documents',
   'Резервні копії': 'Backups',
-  'Найновіша копія кожного виду.': 'The newest backup of each kind.',
-  'Старі резервні копії': 'Old backups',
+  'Найновіші автоматичні копії й стани перед відновленням.':
+    'The newest automatic backups and the states kept before a restore.',
+  'Старі автоматичні копії': 'Old automatic backups',
   'Найновіша копія кожного виду лишається.': 'The newest backup of each kind stays.',
   'Старий журнал запуску': 'The old start log',
   'Інші дані': 'Other data',
@@ -2433,8 +2434,8 @@ export const EN: Record<string, string> = {
   'Застосунок займає {size}.': 'The app takes {size}.',
   'Так, прибрати': 'Yes, remove',
   'Дані цього браузера': 'This browser’s data',
-  'Кеш бібліотеки для «У браузері» (сегменти, знімок PostgreSQL). Налаштування лишаються; вікно перезавантажиться.':
-    'The library cache for «У браузері» (in the browser): segments, the PostgreSQL snapshot. The settings stay; the window reloads.',
+  'Кеш бібліотеки для «У браузері» (сегменти, знімок PostgreSQL). Налаштування лишаються; вікно перезавантажиться. Інші вікна застосунку в цьому браузері (показ, сцена) спершу закрийте.':
+    'The library cache for «У браузері» (in the browser): segments, the PostgreSQL snapshot. The settings stay; the window reloads. Close the app’s other windows in this browser (presentation, stage) first.',
   'Так, очистити': 'Yes, clear',
   'Цього тут немає': 'There is none here',
   'Цього прибрати не можна': 'This can’t be removed',

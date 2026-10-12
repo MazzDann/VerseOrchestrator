@@ -67,7 +67,11 @@ export async function sizeOf(p: string, root = true): Promise<number> {
   return total;
 }
 
-const inside = (dir: string, file: string) => !path.relative(dir, file).startsWith('..');
+const inside = (dir: string, file: string) => {
+  const rel = path.relative(dir, file);
+  // another drive gives an absolute path; «..foo» is a name, «..» + a separator is outside
+  return !path.isAbsolute(rel) && rel !== '..' && !rel.startsWith(`..${path.sep}`);
+};
 
 /** A SQLite file with its -wal and -shm. */
 export const dbFiles = (file: string) => [file, `${file}-wal`, `${file}-shm`];
@@ -138,40 +142,26 @@ export async function diskParts(p: DiskPlaces): Promise<DiskPart[]> {
 }
 
 /**
- * The backups that may go: every automatic copy but the newest of each kind (daily, before an
- * update), every state kept before a restore but the newest; never the files of an undo that may
- * still come (pending.*, last-restore.json).
+ * The backups that may go: every automatic copy (a zip — a copy of the data) but the newest of each
+ * kind (daily, before an update). Never the states kept before a restore or an undo
+ * (before-<kind>-<time>/): the songs and pictures a restore replaced were MOVED there, not copied
+ * (review of 1.17.0-beta.4) — backup.ts keeps and prunes those itself; nor an undo's files.
  */
 export async function oldBackups(dir: string): Promise<string[]> {
   const out: string[] = [];
-  const keepNewest = (names: string[], kindOf: (n: string) => string) => {
-    const newest = new Map<string, string>();
-    for (const n of names) {
-      const k = kindOf(n);
-      const had = newest.get(k);
-      if (!had || n > had) newest.set(k, n);
-    }
-    return names.filter((n) => newest.get(kindOf(n)) !== n);
-  };
   const auto = path.join(dir, 'auto');
   try {
     const zips = fs.readdirSync(auto).filter((n) => n.endsWith('.zip'));
     // «auto-daily-<time>-…» / «auto-update-<time>-…»: the time sorts them
-    for (const n of keepNewest(zips, (x) => /^auto-([a-z]+)-/.exec(x)?.[1] ?? x))
-      out.push(path.join(auto, n));
+    const kindOf = (x: string) => /^auto-([a-z]+)-/.exec(x)?.[1] ?? x;
+    const newest = new Map<string, string>();
+    for (const n of zips) {
+      const had = newest.get(kindOf(n));
+      if (!had || n > had) newest.set(kindOf(n), n);
+    }
+    for (const n of zips) if (newest.get(kindOf(n)) !== n) out.push(path.join(auto, n));
   } catch {
     /* no automatic copies */
-  }
-  try {
-    // «before-restore-<time>», «before-undo-<time>»… (backup.ts)
-    const states = fs
-      .readdirSync(dir, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && /^before-[a-z]+-/.test(e.name))
-      .map((e) => e.name);
-    for (const n of keepNewest(states, (x) => /^before-([a-z]+)-/.exec(x)?.[1] ?? x))
-      out.push(path.join(dir, n));
-  } catch {
-    /* no backups */
   }
   return out;
 }
@@ -181,12 +171,13 @@ export async function removeAll(paths: string[]): Promise<number> {
   let freed = 0;
   for (const p of paths) {
     if (!fs.existsSync(p)) continue;
-    const bytes = await sizeOf(p);
+    // a link is removed, not what it points to: counted as itself
+    const bytes = await sizeOf(p, false);
     try {
       fs.rmSync(p, { recursive: true, force: true });
       freed += bytes;
     } catch {
-      freed += bytes - (await sizeOf(p)); // in use (Windows): the rest next time
+      freed += bytes - (await sizeOf(p, false)); // in use (Windows): the rest next time
     }
   }
   return freed;
