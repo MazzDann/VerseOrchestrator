@@ -41,10 +41,18 @@ export interface ServerSettings {
   /** «Робити копії автоматично» (1.12.0-beta.3): daily and before a version change (autoBackup.ts) */
   backups: { auto: boolean };
   /**
-   * «Пошук за змістом» (1.15.0-beta.2): the model «~ …» asks — none until one is chosen; `fullCpu`
-   * (1.15.1): vectors made on the whole processor, not half of it
+   * «Пошук за змістом» (1.15.0-beta.2): the model «~ …» asks — none until one is chosen; `threads`
+   * («Ядра процесора»): how many cores make the vectors, null = «Авто» (embedding.ts cpuInfo; a
+   * number above this computer's limit takes the limit — so 1.15.1's `fullCpu: true` reads as 64)
    */
-  semantic: { model: EmbedModelId | null; fullCpu: boolean };
+  semantic: { model: EmbedModelId | null; threads: number | null };
+}
+
+/** «Ядра процесора»: a whole number from 1 on (64 at most), else «Авто»; 1.15.1's «Увесь процесор» = all. */
+export function sanitizeThreads(threads: unknown, fullCpu?: unknown): number | null {
+  if (typeof threads === 'number' && Number.isInteger(threads) && threads >= 1)
+    return Math.min(threads, 64);
+  return threads === undefined && fullCpu === true ? 64 : null;
 }
 
 export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
@@ -54,7 +62,7 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   updates: { check: true },
   launch: DEFAULT_LAUNCH,
   backups: { auto: true },
-  semantic: { model: null, fullCpu: false },
+  semantic: { model: null, threads: null },
 };
 
 /** The app's own ports (web dev server, API / single-process app) — not for the waiter. */
@@ -86,7 +94,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     };
     launch?: unknown;
     backups?: { auto?: unknown };
-    semantic?: { model?: unknown; fullCpu?: unknown };
+    semantic?: { model?: unknown; threads?: unknown; fullCpu?: unknown };
   };
   const idle = Number(r.standby?.idleMinutes);
   const out: ServerSettings = {
@@ -119,7 +127,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     },
     semantic: {
       model: isEmbedModelId(r.semantic?.model) ? r.semantic.model : null,
-      fullCpu: r.semantic?.fullCpu === true,
+      threads: sanitizeThreads(r.semantic?.threads, r.semantic?.fullCpu),
     },
   };
   const channel = r.updates?.channel;

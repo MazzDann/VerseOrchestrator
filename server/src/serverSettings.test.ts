@@ -27,26 +27,30 @@ describe('the browser choice in settings.json (2026-10-01)', () => {
       expect(sanitizeServerSettings({ updates: { pin } }).updates.pin).toBeUndefined();
   });
 
-  it('«Пошук за змістом»: a known model or none; «Увесь процесор» off unless it is true (1.15.1)', () => {
-    expect(sanitizeServerSettings({}).semantic).toEqual({ model: null, fullCpu: false });
-    expect(
-      sanitizeServerSettings({ semantic: { model: 'precise', fullCpu: true } }).semantic,
-    ).toEqual({ model: 'precise', fullCpu: true });
+  it('«Пошук за змістом»: a known model or none; «Ядра процесора» a whole number or «Авто»', () => {
+    expect(sanitizeServerSettings({}).semantic).toEqual({ model: null, threads: null });
+    expect(sanitizeServerSettings({ semantic: { model: 'precise', threads: 3 } }).semantic).toEqual(
+      { model: 'precise', threads: 3 },
+    );
+    for (const threads of [0, -2, 2.5, '4', true])
+      expect(sanitizeServerSettings({ semantic: { threads } }).semantic.threads).toBeNull();
+    expect(sanitizeServerSettings({ semantic: { threads: 500 } }).semantic.threads).toBe(64);
+    // 1.15.1's «Увесь процесор»: every core this computer may take
+    expect(sanitizeServerSettings({ semantic: { fullCpu: true } }).semantic.threads).toBe(64);
+    expect(sanitizeServerSettings({ semantic: { fullCpu: false } }).semantic.threads).toBeNull();
     expect(
       sanitizeServerSettings({ semantic: { model: 'slow', fullCpu: 'yes' } }).semantic,
-    ).toEqual({
-      model: null,
-      fullCpu: false,
-    });
+    ).toEqual({ model: null, threads: null });
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-settings-'));
     dirs.push(dir);
     initServerSettings(path.join(dir, 'settings.json'));
     updateServerSettings({ semantic: { model: 'fast' } });
     // one half changed, the other kept
-    expect(updateServerSettings({ semantic: { fullCpu: true } }).semantic).toEqual({
+    expect(updateServerSettings({ semantic: { threads: 2 } }).semantic).toEqual({
       model: 'fast',
-      fullCpu: true,
+      threads: 2,
     });
+    expect(updateServerSettings({ semantic: { threads: null } }).semantic.threads).toBeNull();
   });
 
   it('a pin set and cleared through a change keeps the switch', () => {

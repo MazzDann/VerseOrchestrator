@@ -96,7 +96,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
     'semantic meaning vectors model embeddings ~ зміст вектори модель', // i18n-ignore: Ukrainian search words
   ),
   e('data', N_('Модель для пошуку за змістом'), 'model fast precise'),
-  e('data', N_('Увесь процесор'), 'cpu threads speed vectors'),
+  e('data', N_('Ядра процесора'), 'cpu cores threads speed vectors processor'),
   e('video', N_('Після кінця відео'), 'video end'),
   e('video', N_('Телефони глядачів під час відео'), 'phones viewers'),
   e('stageTimer', N_('Попередження'), 'speaker timer warning'),

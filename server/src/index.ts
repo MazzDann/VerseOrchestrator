@@ -49,6 +49,7 @@ import {
 import {
   getServerSettings,
   initServerSettings,
+  sanitizeThreads,
   setLibrarySelection,
   updateServerSettings,
   validStandbyPort,
@@ -163,7 +164,7 @@ import {
 import { zipToFile } from './zip.js';
 import { createCatalog, forPage, listModuleFiles } from './catalog.js';
 import { createModelStore, modelInstalled } from './models.js';
-import { createQueryEmbedder, jobThreads, openEmbedder } from './embedding.js';
+import { cpuInfo, createQueryEmbedder, jobThreads, openChildEmbedder } from './embedding.js';
 import { createVectorJob, listTranslations, readVectorSets } from './vectorJob.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
@@ -2395,7 +2396,8 @@ setLibraryOptions({ embed: (text) => queryEmbedder.embed(text) });
 const vectors = createVectorJob({
   dataDir,
   libraryPath,
-  open: (model) => openEmbedder(dataDir, model, jobThreads(getServerSettings().semantic.fullCpu)),
+  open: (model) =>
+    openChildEmbedder(dataDir, model, jobThreads(getServerSettings().semantic.threads)),
   onChange: (s) => notifySemantic(s),
   // a library connection opened before data/vectors.db was made attaches it when reopened
   onSet: () => {
@@ -2413,7 +2415,10 @@ function semanticState() {
   const sets = chosen ? readVectorSets(dataDir, chosen) : new Map();
   return {
     model: chosen,
-    fullCpu: getServerSettings().semantic.fullCpu,
+    threads: getServerSettings().semantic.threads,
+    cpu: cpuInfo(),
+    // for a 1.15.1–1.16.0-beta.5 control window: «Увесь процесор» on = every core it may take
+    fullCpu: jobThreads(getServerSettings().semantic.threads) >= cpuInfo().max,
     models: EMBED_MODEL_IDS.map((id) => ({
       id,
       name: EMBED_MODELS[id].name,
@@ -2444,16 +2449,30 @@ app.put(
   requireLocalControl,
   json,
   wrap(async (req, res) => {
-    // the model, «Увесь процесор» — either or both
-    const { model, fullCpu } = (req.body ?? {}) as { model?: unknown; fullCpu?: unknown };
+    // the model, «Ядра процесора» (null = «Авто») — either or both; `fullCpu` from an older window
+    const { model, threads, fullCpu } = (req.body ?? {}) as {
+      model?: unknown;
+      threads?: unknown;
+      fullCpu?: unknown;
+    };
     if (model !== undefined && model !== null && !isEmbedModelId(model))
       throw new ApiError(400, N_('Очікую { model }'));
     if (fullCpu !== undefined && typeof fullCpu !== 'boolean')
       throw new ApiError(400, N_('Очікую { model }'));
+    if (threads !== undefined && threads !== null && sanitizeThreads(threads) === null)
+      throw new ApiError(400, N_('Очікую { model }'));
+    const cores =
+      threads !== undefined
+        ? sanitizeThreads(threads)
+        : fullCpu !== undefined
+          ? fullCpu
+            ? 64
+            : null
+          : undefined;
     updateServerSettings({
       semantic: {
         ...(model !== undefined ? { model } : {}),
-        ...(fullCpu !== undefined ? { fullCpu } : {}),
+        ...(cores !== undefined ? { threads: cores } : {}),
       },
     });
     if (model !== undefined) await queryEmbedder.release();

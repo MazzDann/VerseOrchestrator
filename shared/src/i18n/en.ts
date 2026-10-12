@@ -1748,6 +1748,13 @@ export const EN: Record<string, string> = {
   'Векторів ще немає.': 'No vectors yet.',
   'Виберіть переклади, для яких обчислити вектори:': 'Choose the translations to make vectors for:',
   'Увесь процесор': 'The whole processor',
+  'Ядра процесора': 'Processor cores',
+  'Ядра процесора: {n} з {all}': 'Processor cores: {n} of {all}',
+  рекомендовано: 'recommended',
+  'Більше ядер — швидше, але показ може пригальмовувати. Одне ядро завжди лишається вільним, а вектори обчислюються з найнижчим пріоритетом, тож комп’ютер не зависає.':
+    'More cores are faster, but the show may slow down. One core is always left free, and the vectors are made at the lowest priority, so the computer doesn’t freeze.',
+  'Швидких ядер тут: {fast} — більше за них обчислює повільніше.':
+    'Fast cores here: {fast} — more than that computes slower.',
   'Швидше: «Точна» — удвічі, «Швидка» — в 1,4 раза. Поки вектори обчислюються, показ може пригальмовувати.':
     'Faster: «Точна» twice, «Швидка» 1.4 times. While the vectors are made, the show may slow down.',
   'Обчислити для вибраних: {n} (≈ {min} хв)': 'Make them for the chosen: {n} (≈ {min} min)',

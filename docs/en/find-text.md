@@ -142,9 +142,12 @@ This needs a model and the translations' vectors. Set them up once in **Settings
 One translation is enough. With its vectors the search finds places for a query in any
 language, and Enter opens the place in the main translation, with its numbering. Other
 translations' vectors add precision for their own wording, but each translation takes a few
-more minutes (about 25 with **Precise**). To make them faster, turn on **The whole processor**:
-**Precise** works twice as fast, **Fast** 1.4 times, but while the vectors are made the show may
-slow down.
+more minutes (about 25 with **Precise**). How many processor cores they take is set by the
+**Processor cores** slider: its mark (**recommended**) is half of them (on a Mac with Apple
+Silicon, its fast cores less one); more cores compute faster, but the show may slow down. One core is always left
+free and the vectors are made at the lowest priority, so the computer doesn't freeze. On a Mac with
+Apple Silicon, more cores than its fast ones compute slower: the efficiency cores hold the rest
+back.
 
 If no model is chosen or there are no vectors yet, the line under the search field says what
 to do.

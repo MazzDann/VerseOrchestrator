@@ -1,6 +1,9 @@
+import { spawn, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   createEmbedder,
   EMBED_MODELS,
@@ -47,14 +50,127 @@ export async function openEmbedder(
   return { ...e, release: () => session.release() };
 }
 
+/** Apple Silicon's performance cores (sysctl hw.perflevel0), null elsewhere or unknown. */
+function appleFastCores(): number | null {
+  if (process.platform !== 'darwin' || process.arch !== 'arm64') return null;
+  const r = spawnSync('sysctl', ['-n', 'hw.perflevel0.logicalcpu'], {
+    encoding: 'utf8',
+    timeout: 2000,
+  });
+  const n = Number.parseInt(r.stdout ?? '', 10);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+let fastCores: number | null | undefined;
+
 /**
- * Half the processor: the show goes on while vectors are made — or all of it, when asked
- * («Увесь процесор», 1.15.1). Measured on the PC (4 cores / 8 threads): «Швидка» 110 → 154
- * verses/s, «Точна» 22 → 42; two or four sessions side by side gave nothing (111 / 81), nor did
- * the GPU (GTX 1650, DirectML, fp16: 131–135).
+ * «Ядра процесора» for the vectors: `all` the processor has, at most `max` of them — one always left
+ * to the show and the system — and `auto`, what «Авто» takes: half, or on Apple Silicon its fast cores
+ * less one. Measured: the PC (i3-10100F, 4 cores / 8 threads) «Швидка» 110 v/s on 4, 154 on 8, «Точна»
+ * 22 → 42; two or four sessions side by side gave nothing (111 / 81), nor did the GPU (GTX 1650,
+ * DirectML, fp16: 131–135). A MacBook Air M4 (4 fast + 6 efficiency cores; 3 000 verses, «Швидка»):
+ * 2 → 231, 3 → 284, 4 → 263, 5 → 242, 8 → 227, 10 → 161 v/s — the efficiency cores hold the rest back.
  */
-export const jobThreads = (full = false) =>
-  Math.max(1, full ? os.availableParallelism() : Math.floor(os.availableParallelism() / 2));
+export function cpuInfo(all = os.availableParallelism(), fast = (fastCores ??= appleFastCores())) {
+  const max = Math.max(1, all - 1);
+  const auto = Math.min(max, fast ? Math.max(2, fast - 1) : Math.max(1, Math.floor(all / 2)));
+  return { all, max, auto, fast };
+}
+
+/** The cores a job takes: the chosen number within this computer's limit, or «Авто». */
+export const jobThreads = (threads: number | null, cpu = cpuInfo()) =>
+  Math.min(cpu.max, Math.max(1, threads ?? cpu.auto));
+
+const TASKPOLICY = '/usr/sbin/taskpolicy';
+
+/**
+ * The job's model in a child process of the lowest priority (embedWorker.ts): the operating system
+ * gives the show, the browser and everything else the processor first, so making vectors never
+ * freezes the computer. The query model stays in the server (a query is a few milliseconds).
+ */
+export function openChildEmbedder(
+  dataDir: string,
+  id: EmbedModelId,
+  threads: number,
+): Promise<Embedder & { release: () => Promise<void> }> {
+  const args = [...process.execArgv, fileURLToPath(new URL('./embedWorker.ts', import.meta.url))];
+  // macOS barely heeds nice alone (an M4, 9 threads: a foreground task kept 47 % of its speed); the
+  // «utility» QoS class makes the job give way (82 %) and costs it little when the Mac is idle
+  const qos = process.platform === 'darwin' && fs.existsSync(TASKPOLICY);
+  const child = spawn(
+    qos ? TASKPOLICY : process.execPath,
+    qos ? ['-c', 'utility', process.execPath, ...args] : args,
+    // advanced: the vectors cross as Int8Arrays, not JSON
+    {
+      stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
+      serialization: 'advanced',
+      windowsHide: true,
+    },
+  );
+  try {
+    if (child.pid) os.setPriority(child.pid, os.constants.priority.PRIORITY_LOW);
+  } catch {
+    // not allowed here: the job still runs, at the usual priority
+  }
+  const waiting = new Map<number, { ok: (v: Int8Array[]) => void; fail: (e: Error) => void }>();
+  let next = 0;
+  let gone: Error | null = null;
+  const failAll = (e: Error) => {
+    gone ??= e;
+    for (const w of waiting.values()) w.fail(gone);
+    waiting.clear();
+  };
+  child.on('message', (m: WorkerReply) => {
+    const w = waiting.get(m.id);
+    if (!w) return;
+    waiting.delete(m.id);
+    if (m.error) w.fail(new Error(m.error));
+    else w.ok(m.vectors ?? []);
+  });
+  // every error, not the first: a send after the channel closed comes as one too (review)
+  child.on('error', (e) => failAll(e));
+  child.once('exit', (code, signal) =>
+    failAll(new Error(`embedWorker exited (${signal ?? code})`)),
+  );
+  const ask = (msg: WorkerAsk) =>
+    new Promise<Int8Array[]>((ok, fail) => {
+      if (gone) return fail(gone);
+      waiting.set(msg.id, { ok, fail });
+      child.send(msg);
+    });
+  // resolves once the child is gone: on Windows its model.onnx stays locked until then (review —
+  // «Видалити модель» right after a stop)
+  const release = () =>
+    new Promise<void>((done) => {
+      if (child.exitCode !== null || child.signalCode !== null) return done();
+      const t = setTimeout(done, 5000);
+      child.once('exit', () => {
+        clearTimeout(t);
+        done();
+      });
+      child.kill();
+    });
+  return ask({ id: next++, open: { dataDir, model: id, threads } }).then(
+    () => ({
+      model: EMBED_MODELS[id],
+      embed: (texts: string[], as: 'query' | 'passage') => ask({ id: next++, texts, as }),
+      release,
+    }),
+    async (e: Error) => {
+      await release();
+      throw e;
+    },
+  );
+}
+
+/** Messages to and from embedWorker.ts. */
+export type WorkerAsk =
+  | { id: number; open: { dataDir: string; model: EmbedModelId; threads: number } }
+  | { id: number; texts: string[]; as: 'query' | 'passage' };
+export interface WorkerReply {
+  id: number;
+  vectors?: Int8Array[];
+  error?: string;
+}
 
 /** Ten idle minutes and the query model leaves memory (Точна holds ≈ 0.5 GB). */
 const IDLE_MS = 10 * 60 * 1000;

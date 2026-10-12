@@ -6,6 +6,7 @@ import {
   Progress,
   ScrollArea,
   SegmentedControl,
+  Slider,
   Stack,
   Switch,
   Text,
@@ -35,6 +36,18 @@ const MINUTES: Record<EmbedModelId, { half: number; full: number }> = {
   fast: { half: 5, full: 3.5 },
   precise: { half: 24, full: 12.5 },
 };
+
+/**
+ * Minutes for the chosen cores: «Авто» or more of them ≈ the measured half / full; fewer than «Авто»
+ * take longer about in proportion. Rough — the job's own line shows the real speed.
+ */
+function estimate(id: EmbedModelId, s: SemanticState): number {
+  const m = MINUTES[id];
+  if (!s.cpu) return m[s.fullCpu ? 'full' : 'half'];
+  const cores = Math.min(s.cpu.max, Math.max(1, s.threads ?? s.cpu.auto));
+  if (cores > s.cpu.auto) return m.full;
+  return Math.round(((m.half * s.cpu.auto) / cores) * 10) / 10;
+}
 
 export function SemanticSection({ active }: { active: boolean }) {
   const ui = useLang();
@@ -84,7 +97,10 @@ export function SemanticSection({ active }: { active: boolean }) {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missingKey, mainId]);
-  const minutes = model ? MINUTES[model.id][s?.fullCpu ? 'full' : 'half'] : 0;
+  const minutes = model && s ? estimate(model.id, s) : 0;
+  // «Ядра процесора»: the slider moves freely, the choice is saved when it's let go
+  const cores = s?.cpu ? Math.min(s.cpu.max, Math.max(1, s.threads ?? s.cpu.auto)) : 0;
+  const [coresDraft, setCoresDraft] = useState<number | null>(null);
 
   return (
     <Stack gap={6}>
@@ -215,16 +231,57 @@ export function SemanticSection({ active }: { active: boolean }) {
                   </ScrollArea.Autosize>
                 </>
               )}
-              <Switch
-                size="xs"
-                label={tr('Увесь процесор')}
-                description={tr(
-                  'Швидше: «Точна» — удвічі, «Швидка» — в 1,4 раза. Поки вектори обчислюються, показ може пригальмовувати.',
-                )}
-                checked={s.fullCpu}
-                disabled={busy || job?.phase === 'running'}
-                onChange={(e) => void act(() => api.setSemanticFullCpu(e.currentTarget.checked))}
-              />
+              {!s.cpu ? (
+                // a 1.15.1–1.16.0-beta.5 server: its switch
+                <Switch
+                  size="xs"
+                  label={tr('Увесь процесор')}
+                  description={tr(
+                    'Швидше: «Точна» — удвічі, «Швидка» — в 1,4 раза. Поки вектори обчислюються, показ може пригальмовувати.',
+                  )}
+                  checked={s.fullCpu}
+                  disabled={busy || job?.phase === 'running'}
+                  onChange={(e) => void act(() => api.setSemanticFullCpu(e.currentTarget.checked))}
+                />
+              ) : (
+                <Stack gap={4}>
+                  <Text size="sm">
+                    {tr('Ядра процесора: {n} з {all}', {
+                      n: fmtNumber(coresDraft ?? cores),
+                      all: fmtNumber(s.cpu.all),
+                    })}
+                    {(coresDraft ?? cores) === s.cpu.auto ? ` · ${tr('рекомендовано')}` : ''}
+                  </Text>
+                  {s.cpu.max > 1 && (
+                    <Slider
+                      size="xs"
+                      min={1}
+                      max={s.cpu.max}
+                      step={1}
+                      value={coresDraft ?? cores}
+                      onChange={setCoresDraft}
+                      onChangeEnd={(v) => {
+                        const cpu = s.cpu!;
+                        void act(() => api.setSemanticThreads(v === cpu.auto ? null : v)).finally(
+                          () => setCoresDraft(null),
+                        );
+                      }}
+                      marks={[{ value: s.cpu.auto }]}
+                      label={null}
+                      disabled={busy || job?.phase === 'running'}
+                      thumbLabel={tr('Ядра процесора')}
+                    />
+                  )}
+                  <Text size="xs" c="dimmed">
+                    {tr(
+                      'Більше ядер — швидше, але показ може пригальмовувати. Одне ядро завжди лишається вільним, а вектори обчислюються з найнижчим пріоритетом, тож комп’ютер не зависає.',
+                    )}
+                    {s.cpu.fast
+                      ? ` ${tr('Швидких ядер тут: {fast} — більше за них обчислює повільніше.', { fast: fmtNumber(s.cpu.fast) })}`
+                      : ''}
+                  </Text>
+                </Stack>
+              )}
               {job?.phase === 'running' ? (
                 <Stack gap={4}>
                   <Group gap="xs" wrap="nowrap">

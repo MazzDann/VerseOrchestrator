@@ -1371,6 +1371,8 @@ export const api = {
   setSemanticModel: (model: EmbedModelId | null) => sendSemantic('/api/semantic', 'PUT', { model }),
   /** «Увесь процесор» (1.15.1): vectors made on the whole processor */
   setSemanticFullCpu: (fullCpu: boolean) => sendSemantic('/api/semantic', 'PUT', { fullCpu }),
+  /** «Ядра процесора»: how many cores make the vectors, null = «Авто» */
+  setSemanticThreads: (threads: number | null) => sendSemantic('/api/semantic', 'PUT', { threads }),
   downloadModel: (id: EmbedModelId) => sendSemantic(`/api/semantic/models/${id}`, 'POST'),
   cancelModel: () => sendSemantic('/api/semantic/models-cancel', 'POST'),
   removeModel: (id: EmbedModelId) => sendSemantic(`/api/semantic/models/${id}`, 'DELETE'),
@@ -1413,6 +1415,11 @@ export const SemanticSchema = z.object({
   model: EmbedModelIdSchema.nullable(),
   // 1.15.1; a 1.15.0 server answers without it
   fullCpu: z.boolean().default(false),
+  // «Ядра процесора»; a server before it answers without them (and shows its switch)
+  threads: z.number().nullable().default(null),
+  cpu: z
+    .object({ all: z.number(), max: z.number(), auto: z.number(), fast: z.number().nullable() })
+    .optional(),
   models: z.array(
     z.object({
       id: EmbedModelIdSchema,
