@@ -2350,12 +2350,14 @@ documents.watch();
 /** Does a dropped file read as a document? A PDF is tried in the reader's child (1.17.0-beta.3). */
 async function readableDocument(bytes: Uint8Array, name: string): Promise<boolean> {
   if (documentKind(name) !== 'pdf') return !!parseDocument(bytes, name);
-  const tmp = path.join(os.tmpdir(), `vo-doc-${process.pid}-${Date.now()}.pdf`);
-  fs.writeFileSync(tmp, bytes);
+  // a folder of its own: two uploads at once never share a file
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-doc-'));
+  const file = path.join(tmp, 'upload.pdf');
+  fs.writeFileSync(file, bytes);
   try {
-    return (await readPdfs([{ file: name, path: tmp }])).get(name) != null;
+    return (await readPdfs([{ file: name, path: file }])).get(name)?.doc != null;
   } finally {
-    fs.rmSync(tmp, { force: true });
+    fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
 

@@ -8,8 +8,9 @@ import {
   refreshLibraryDocuments,
   type DocumentFile,
   type DocumentsRefresh,
+  type PreRead,
 } from '@vo/shared/documents-node';
-import { readPdfs } from './pdfReader.js';
+import { readPdfs, type PdfResult } from './pdfReader.js';
 
 /**
  * Documents (1.17.0-beta.1): the folder modules/documents is watched — a file put there by hand
@@ -45,15 +46,21 @@ export function createDocuments(d: {
     const pdfs = pendingDocuments(d.libraryPath, at, 'pdf').filter(
       (f) => unreadable.get(f.file) !== stamp(f),
     );
-    const pre = pdfs.length
+    const read = pdfs.length
       ? await readPdfs(
           pdfs.map((f) => ({ file: f.file, path: documentPath(at, f.file) ?? '' })),
           d.log,
         )
-      : new Map();
+      : new Map<string, PdfResult>();
+    // each reading with the file's size and time it was read at: a file saved again meanwhile
+    // is left for the next refresh; a child that failed is tried again then too
+    const pre = new Map<string, PreRead>();
     for (const f of pdfs) {
-      if (pre.get(f.file) == null) unreadable.set(f.file, stamp(f));
+      const r = read.get(f.file);
+      if (!r) continue;
+      if (r.final && !r.doc) unreadable.set(f.file, stamp(f));
       else unreadable.delete(f.file);
+      if (r.final || r.doc) pre.set(f.file, { doc: r.doc, size: f.size, mtime: f.mtime });
     }
     // a rebuild that began while the PDFs were read rewrites the library itself
     if (d.rebuilding()) return null;

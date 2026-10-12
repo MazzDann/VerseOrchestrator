@@ -54,7 +54,8 @@ describe('PDF text into a document', () => {
     const p = (n: number, text: string) =>
       page(run('Конспект лекцій', 800, 72, 9), run(text, 700), run(`${n}`, 40, 300, 9));
     const units = pdfUnits([p(1, 'Перша сторінка.'), p(2, 'Друга сторінка.'), p(3, 'Третя.')]);
-    expect(units.map((u) => u.text)).toEqual(['Перша сторінка.', 'Друга сторінка.', 'Третя.']);
+    // no indent, no short last line: the text runs on over the pages, without what repeats
+    expect(units.map((u) => u.text)).toEqual(['Перша сторінка. Друга сторінка. Третя.']);
   });
 
   it('a scanned PDF (no text) gives no units', () => {

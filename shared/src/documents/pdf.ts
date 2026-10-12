@@ -124,7 +124,9 @@ export function pdfUnits(pages: PdfPage[]): DocUnit[] {
   const spacing = mode(gaps.filter(([g]) => g > 0)) || body * 1.2;
   const bodyLines = lines.filter((l) => l.size === body);
   const left = mode(bodyLines.map((l) => [Math.round(l.x), 1]));
-  const right = mode(bodyLines.map((l) => [Math.round(l.right), 1]));
+  // the right margin: where the longer lines end (a mode means nothing in ragged-right text)
+  const rights = bodyLines.map((l) => l.right).sort((a, b) => a - b);
+  const right = rights[Math.floor(rights.length * 0.9)] ?? 0;
   // a heading: clearly bigger, and short — or not much longer without ending a sentence
   const headingLevel = (l: Line): number => {
     const short = l.text.length <= 80 || (l.text.length <= 160 && !SENTENCE_END.test(l.text));
@@ -168,9 +170,8 @@ export function pdfUnits(pages: PdfPage[]): DocUnit[] {
       cur.kind === 'heading' ||
       !!bullet ||
       (samePage && gap > spacing * 1.45) ||
-      (!!prev && SENTENCE_END.test(prev.text) && (l.x > left + body * 1.2 || lastLine(prev))) ||
-      // over a page break a paragraph runs on unless it ended a sentence
-      (!samePage && !!prev && SENTENCE_END.test(prev.text));
+      // an indent or a short last line after a sentence — over a page break too, else it runs on
+      (!!prev && SENTENCE_END.test(prev.text) && (l.x > left + body * 1.2 || lastLine(prev)));
     if (startsNew) {
       flush();
       cur = bullet

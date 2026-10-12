@@ -28,15 +28,24 @@ function startChild(): ChildProcess {
 }
 
 /**
+ * A PDF's reading: its document (null: no text — a scanned PDF —, broken, or too slow), and whether
+ * that is the file's own answer (`final`) or the child failed (spawn refused, crashed): then the
+ * next refresh tries again.
+ */
+export interface PdfResult {
+  doc: ParsedDocument | null;
+  final: boolean;
+}
+
+/**
  * Read PDF documents one by one in a child process (1.17.0-beta.3, pdfWorker.ts): pdf.js is
- * CPU-heavy and a broken file may hang it — the server's sockets and reads go on meanwhile. Each
- * file's result: its units, or null (no text — a scanned PDF —, broken, or too slow).
+ * CPU-heavy and a broken file may hang it — the server's sockets and reads go on meanwhile.
  */
 export async function readPdfs(
   files: { file: string; path: string }[],
   log: (msg: string) => void = () => {},
-): Promise<Map<string, ParsedDocument | null>> {
-  const out = new Map<string, ParsedDocument | null>();
+): Promise<Map<string, PdfResult>> {
+  const out = new Map<string, PdfResult>();
   let child: ChildProcess | null = null;
   let next = 0;
   try {
@@ -45,33 +54,51 @@ export async function readPdfs(
       const c = child;
       const id = ++next;
       const started = Date.now();
-      const units = await new Promise<DocUnit[] | null>((done) => {
-        const finish = (v: DocUnit[] | null) => {
+      const r = await new Promise<{ units: DocUnit[] | null; final: boolean }>((done) => {
+        const finish = (units: DocUnit[] | null, final: boolean) => {
           clearTimeout(timer);
           c.off('message', onMessage);
           c.off('exit', onExit);
-          done(v);
+          c.off('error', onError);
+          done({ units, final });
         };
         const onMessage = (m: PdfReply) => {
           if (m.id !== id) return;
           if (m.error) log(`documents: ${f.file} — ${m.error}`);
-          finish(m.units ?? null);
+          finish(m.units ?? null, true);
         };
-        const onExit = () => finish(null);
+        const onExit = () => finish(null, false);
+        // a spawn refused (an antivirus, no memory): no 'exit' may follow, and an unheard 'error'
+        // would bring the server down
+        const onError = (e: Error) => {
+          log(`documents: ${f.file} — the PDF reader failed: ${e.message}`);
+          finish(null, false);
+        };
         const timer = setTimeout(() => {
           log(`documents: ${f.file} — no answer in ${FILE_TIMEOUT_MS / 1000} s, given up`);
           c.kill();
-          finish(null);
+          finish(null, true);
         }, FILE_TIMEOUT_MS);
         c.on('message', onMessage);
         c.once('exit', onExit);
-        c.send({ id, file: f.path } satisfies PdfAsk, (err) => {
-          if (err) finish(null);
-        });
+        c.on('error', onError);
+        try {
+          c.send({ id, file: f.path } satisfies PdfAsk, (err) => {
+            if (err) finish(null, false);
+          });
+        } catch {
+          finish(null, false);
+        }
       });
       // a child that died or was stopped: a new one for the next file
-      if (c.exitCode !== null || c.signalCode !== null || c.killed) child = null;
-      out.set(f.file, units && units.length > 0 ? { units } : null);
+      if (c.exitCode !== null || c.signalCode !== null || c.killed || !c.connected) {
+        c.on('error', () => {}); // a late error of a child left behind is no news
+        child = null;
+      }
+      out.set(f.file, {
+        doc: r.units && r.units.length > 0 ? { units: r.units } : null,
+        final: r.final,
+      });
       log(`documents: ${f.file} — PDF read in ${Date.now() - started} ms`);
     }
   } finally {

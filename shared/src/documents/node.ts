@@ -112,6 +112,13 @@ export function docSections(units: Pick<DocUnit, 'kind'>[]): number[] {
   return units.map((u, i) => (u.kind === 'heading' ? (at = i) : at));
 }
 
+/** A document read before the write (a PDF): its reading, and the file's size and time then. */
+export interface PreRead {
+  doc: ParsedDocument | null;
+  size: number;
+  mtime: number;
+}
+
 const stale = (d: StoredDoc | undefined, f: DocumentFile) =>
   !d || d.size !== f.size || d.mtime !== f.mtime || d.reader !== DOC_READER;
 
@@ -147,7 +154,7 @@ export function writeLibraryDocuments(
   lib: Database.Database,
   dir: string,
   log: (msg: string) => void = () => {},
-  pre?: ReadonlyMap<string, ParsedDocument | null>,
+  pre?: ReadonlyMap<string, PreRead>,
 ): DocumentsRefresh {
   lib.exec(DOCS_SCHEMA_SQL);
   const stored = lib
@@ -159,7 +166,11 @@ export function writeLibraryDocuments(
   const toRead: DocumentFile[] = [];
   for (const f of files) {
     seen.add(f.file);
-    if (documentKind(f.file) === 'pdf' && !pre?.has(f.file)) continue;
+    if (documentKind(f.file) === 'pdf') {
+      const p = pre?.get(f.file);
+      // not read, or saved again while it was read: left for the next refresh
+      if (!p || p.size !== f.size || p.mtime !== f.mtime) continue;
+    }
     if (stale(byFile.get(f.file), f)) toRead.push(f);
   }
   const gone = stored.filter((d) => !seen.has(d.file));
@@ -169,7 +180,7 @@ export function writeLibraryDocuments(
     const p = documentPath(dir, f.file);
     let doc: ParsedDocument | null = null;
     try {
-      if (pre?.has(f.file)) doc = pre.get(f.file) ?? null;
+      if (pre?.has(f.file)) doc = pre.get(f.file)!.doc;
       else doc = p ? parseDocument(fs.readFileSync(p), f.file) : null;
     } catch {
       doc = null;
@@ -265,7 +276,7 @@ export function refreshLibraryDocuments(
   libraryPath: string,
   dir: string,
   log?: (msg: string) => void,
-  pre?: ReadonlyMap<string, ParsedDocument | null>,
+  pre?: ReadonlyMap<string, PreRead>,
 ): DocumentsRefresh {
   const db = new Database(libraryPath, { fileMustExist: true });
   try {
