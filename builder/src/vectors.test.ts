@@ -36,6 +36,7 @@ let dir: string;
 let pg: PGlite;
 let sqliteDriver: SqlDriver;
 let pgDriver: SqlDriver;
+let work: Database.Database;
 
 /** A made-up model of 4 dims: verse k of a chapter points mostly along axis k % 4. */
 const vecOf = (verse: number) => {
@@ -96,7 +97,7 @@ beforeAll(async () => {
 
   const manifest = buildSegments(libPath, path.join(dir, 'segments'), vecPath);
   // SQLite: what the SQLite-WASM engine does with each segment
-  const work = new Database(':memory:');
+  work = new Database(':memory:');
   work.exec(SCHEMA_SQL);
   pg = await PGlite.create({ extensions: { vector } });
   await pg.exec(PG_SCHEMA_SQL);
@@ -192,6 +193,33 @@ describe('search by meaning on both engines', () => {
       const all = (await createLibrary(d, { embed }).search('~щось', [])).results;
       expect(all.length).toBeGreaterThanOrEqual(10);
       expect(all.every((r) => r.translationId === 1)).toBe(true);
+    }
+  });
+
+  it('one row per place when two translations share the vectors — from the one asked first (1.17)', async () => {
+    // KJV takes UKR's text identity for a moment: both have the same places in the vectors
+    const set = async (hash: string, lang: string) => {
+      work
+        .prepare('UPDATE translations SET source_hash = ?, language = ? WHERE id = 2')
+        .run(hash, lang);
+      await pg.query('UPDATE translations SET source_hash = $1, language = $2 WHERE id = 2', [
+        hash,
+        lang,
+      ]);
+    };
+    await set('h-ukr', 'uk');
+    try {
+      for (const d of [sqliteDriver, pgDriver]) {
+        const r = (await createLibrary(d, { embed }).search('~ щось', [2, 1])).results;
+        const places = r.map((x) => `${x.chapter}:${x.verse}`);
+        expect(new Set(places).size, d.dialect).toBe(places.length);
+        expect(
+          r.every((x) => x.translationId === 2),
+          d.dialect,
+        ).toBe(true);
+      }
+    } finally {
+      await set('h-kjv', 'en');
     }
   });
 });

@@ -95,6 +95,31 @@ const SongInfoSchema = z.object({
 });
 export type SongInfo = z.infer<typeof SongInfoSchema>;
 const SongBundleSchema = z.object({ name: z.string(), count: z.number() });
+const DiskPartSchema = z.object({
+  id: z.enum([
+    'app',
+    'previous',
+    'updates',
+    'library',
+    'segments',
+    'modules',
+    'vectors',
+    'models',
+    'album-cache',
+    'video-cache',
+    'images',
+    'images-trash',
+    'documents-trash',
+    'backups',
+    'backups-old',
+    'logs-old',
+    'data-other',
+  ]),
+  sub: z.string().optional(),
+  bytes: z.number(),
+  removable: z.boolean(),
+});
+export type DiskPart = z.infer<typeof DiskPartSchema>;
 /** A document (1.17.0-beta.1): a file of modules/documents read into the library. */
 const DocumentInfoSchema = z.object({
   id: z.number(),
@@ -1295,6 +1320,17 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return z.object({ name: z.string() }).parse(await res.json());
+  },
+  /** «Місце на диску» (1.17.0-beta.4): what the app keeps on disk, part by part. */
+  disk: () => getJson('/api/disk', z.object({ parts: z.array(DiskPartSchema), ms: z.number() })),
+  cleanDisk: async (id: DiskPart['id'], sub?: string) => {
+    const res = await request('/api/disk/clean', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ id, sub }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ freed: z.number() }).parse(await res.json());
   },
   /** Where the documents folder is (1.17.0-beta.1). */
   documentsFolder: () => getJson('/api/documents/folder', z.object({ dir: z.string() })),

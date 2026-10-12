@@ -1232,6 +1232,17 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
         .map((h) => ({ ...h, words: 0 }))
         .sort(order),
     ];
+    // one row per place (1.17, the Mac's finding: «Дії 13:13» twice from two Ukrainian sets): the
+    // place keeps its best score and is shown from the translation asked first among those found
+    const byPlace = new Map<string, Place>();
+    const rank = (tid: number) => (ids.indexOf(tid) + ids.length + 1) % (ids.length + 1);
+    for (const h of ranked) {
+      const key = `${h.book}|${h.chapter}|${h.verse}`;
+      const had = byPlace.get(key);
+      if (!had) byPlace.set(key, h);
+      else if (rank(h.tid) < rank(had.tid)) byPlace.set(key, { ...had, tid: h.tid });
+    }
+    ranked.splice(0, ranked.length, ...byPlace.values());
     if (!ranked.length) return { kind: 'meaning', results: [] };
     const best = Math.max(...ranked.map(score));
     // far below the best: left out — a few always stay

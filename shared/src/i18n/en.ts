@@ -2388,4 +2388,55 @@ export const EN: Record<string, string> = {
   'Відкрити документ на цьому абзаці': 'Open the document at this paragraph',
   'У тексті документів': 'In the documents’ text',
   'Показати {ref} на екрані': 'Show {ref} on screen',
+  // «Місце на диску» (1.17.0-beta.4)
+  'Застосунок (app/)': 'The app (app/)',
+  'Сама програма.': 'The program itself.',
+  'Попередня версія': 'The previous version',
+  'Для «Повернути версію» — без неї повернутися не вийде.':
+    'For «Повернути версію» (roll back) — without it there is no going back.',
+  'Лишки оновлень': 'Update leftovers',
+  'Те, що лишилося після оновлення.': 'What an update left behind.',
+  'Бібліотека (library.db)': 'The library (library.db)',
+  'Збирається з модулів: «Пересканувати модулі».':
+    'Built from the modules: «Пересканувати модулі» (Rescan modules).',
+  'Модулі й документи (modules/)': 'Modules and documents (modules/)',
+  'Ваші файли.': 'Your files.',
+  'Сегменти для «У браузері»': 'Segments for «У браузері» (in the browser)',
+  'Збираються командою npm run build:segments.': 'Built with npm run build:segments.',
+  'Обчислюються знову в «Пошук за змістом».':
+    'Computed again in «Пошук за змістом» (Search by meaning).',
+  'Модель «{name}»': 'The «{name}» model',
+  'Завантажується знову одним клацанням.': 'Downloaded again with one click.',
+  'Малі копії фото для телефонів': 'Small copies of photos for phones',
+  'Застосунок зробить їх знову, коли знадобляться.':
+    'The app makes them again when they are needed.',
+  'Обкладинки відео': 'Video posters',
+  'Видалені зображення': 'Deleted pictures',
+  'Чекають на «Скасувати»; після прибирання повернути не вийде.':
+    'They wait for «Скасувати» (Cancel); once removed, they can’t come back.',
+  'Видалені й замінені документи': 'Deleted and replaced documents',
+  'Резервні копії': 'Backups',
+  'Найновіші автоматичні копії й стани перед відновленням.':
+    'The newest automatic backups and the states kept before a restore.',
+  'Старі автоматичні копії': 'Old automatic backups',
+  'Найновіша копія кожного виду лишається.': 'The newest backup of each kind stays.',
+  'Старий журнал запуску': 'The old start log',
+  'Інші дані': 'Other data',
+  'Налаштування, пісні, програми показу й решта папки data/.':
+    'Settings, songs, programs and the rest of the data/ folder.',
+  'Прибрано: {what} — звільнено {size}': 'Removed: {what} — {size} freed',
+  'Місце на диску': 'Disk space',
+  'Порахувати знову': 'Count again',
+  'Що застосунок зберігає на цьому комп’ютері: моделі, вектори, кеші, старі копії — і що з цього можна прибрати.':
+    'What the app keeps on this computer: models, vectors, caches, old copies — and what of it can go.',
+  'Показати, що займає місце': 'Show what takes the space',
+  'Рахую…': 'Counting…',
+  'Застосунок займає {size}.': 'The app takes {size}.',
+  'Так, прибрати': 'Yes, remove',
+  'Дані цього браузера': 'This browser’s data',
+  'Кеш бібліотеки для «У браузері» (сегменти, знімок PostgreSQL). Налаштування лишаються; вікно перезавантажиться. Інші вікна застосунку в цьому браузері (показ, сцена) спершу закрийте.':
+    'The library cache for «У браузері» (in the browser): segments, the PostgreSQL snapshot. The settings stay; the window reloads. Close the app’s other windows in this browser (presentation, stage) first.',
+  'Так, очистити': 'Yes, clear',
+  'Цього тут немає': 'There is none here',
+  'Цього прибрати не можна': 'This can’t be removed',
 };

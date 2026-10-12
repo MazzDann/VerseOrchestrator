@@ -407,6 +407,27 @@ backup without images leaves the images there are as they are; versions of the a
 the one that made it don't accept such a backup. To stop the app from making backups by itself,
 turn off **Make backups automatically**.
 
+## Free disk space
+
+Over time the app gathers search-by-meaning models, vectors, small copies of photos for phones,
+old backups, and the previous version kept for **Повернути версію** (roll back). To see what takes
+how much and remove what you don't need:
+
+1. Open **Налаштування вигляду → Дані** (Settings → Data).
+2. At the bottom, in **Disk space**, click **Show what takes the space**. The app counts each
+   part — a big folder may take a few seconds.
+3. Next to a part that can go, click **Remove**, then **Yes, remove**.
+
+Under each part, the app says what happens without it: small copies and posters are made again
+by the app itself, a model downloads again with one click, vectors are computed again, and
+without the previous version there is no rolling back to it. **Remove** never touches your own
+files — the library, modules, documents, pictures, settings. Of the old backups only the
+automatic ones go — the newest of each kind stays — and the states kept before a restore stay too.
+
+**This browser's data** is the library cache for «У браузері» (in the browser) mode in this
+browser. **Clear the cache** removes it and reloads the window; the settings stay. Close the app’s
+other windows in this browser (presentation, stage) first.
+
 ## Carry data over from another copy
 
 If the computer has an older or another copy of the app — say, an old folder that updated
