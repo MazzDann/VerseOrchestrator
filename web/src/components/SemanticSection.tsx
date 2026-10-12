@@ -61,6 +61,7 @@ export function SemanticSection({ active }: { active: boolean }) {
     // every second while a model comes or vectors are made (the hub tells a control window too)
     refetchInterval: (x) =>
       x.state.data?.job.phase === 'running' ||
+      x.state.data?.coresTest?.phase === 'running' ||
       x.state.data?.models.some((m) => m.download.phase === 'downloading')
         ? 1000
         : false,
@@ -101,6 +102,8 @@ export function SemanticSection({ active }: { active: boolean }) {
   // «Ядра процесора»: the slider moves freely, the choice is saved when it's let go
   const cores = s?.cpu ? Math.min(s.cpu.max, Math.max(1, s.threads ?? s.cpu.auto)) : 0;
   const [coresDraft, setCoresDraft] = useState<number | null>(null);
+  const test = s?.coresTest;
+  const testing = test?.phase === 'running';
 
   return (
     <Stack gap={6}>
@@ -268,7 +271,7 @@ export function SemanticSection({ active }: { active: boolean }) {
                       }}
                       marks={[{ value: s.cpu.auto }]}
                       label={null}
-                      disabled={busy || job?.phase === 'running'}
+                      disabled={busy || testing || job?.phase === 'running'}
                       thumbLabel={tr('Ядра процесора')}
                     />
                   )}
@@ -280,6 +283,68 @@ export function SemanticSection({ active }: { active: boolean }) {
                       ? ` ${tr('Швидких ядер тут: {fast} — більше за них обчислює повільніше.', { fast: fmtNumber(s.cpu.fast) })}`
                       : ''}
                   </Text>
+                  {testing && test ? (
+                    <Group gap="xs" wrap="nowrap">
+                      <Progress
+                        style={{ flex: 1 }}
+                        value={(test.results.length / Math.max(1, test.total)) * 100}
+                        aria-label={tr('Перевірка ядер')}
+                      />
+                      <Button
+                        size="xs"
+                        variant="default"
+                        onClick={() => void act(() => api.stopVectors())}
+                      >
+                        {tr('Зупинити')}
+                      </Button>
+                    </Group>
+                  ) : (
+                    model?.installed &&
+                    s.cpu.max > 1 && (
+                      <Group>
+                        <Button
+                          size="xs"
+                          variant="default"
+                          loading={busy}
+                          disabled={job?.phase === 'running'}
+                          onClick={() => void act(() => api.testCores())}
+                        >
+                          {tr('Перевірити, скільки ядер найкраще')}
+                        </Button>
+                      </Group>
+                    )
+                  )}
+                  <Text size="xs" c="dimmed" aria-live="polite">
+                    {testing && test
+                      ? tr(
+                          'Перевіряю ядра: {done} з {total}. Поки триває, не навантажуйте комп’ютер.',
+                          {
+                            done: fmtNumber(test.results.length),
+                            total: fmtNumber(test.total),
+                          },
+                        )
+                      : test?.phase === 'done' && test.best !== null
+                        ? tr('Вибрано: {n} — найшвидше ({rate} віршів за секунду).', {
+                            n: fmtNumber(test.best),
+                            rate: fmtNumber(
+                              test.results.find((r) => r.threads === test.best)?.rate ?? 0,
+                            ),
+                          })
+                        : test?.phase === 'failed'
+                          ? tr('Перевірка не вдалася: {error}', { error: test.error ?? '' })
+                          : model?.installed && s.cpu.max > 1
+                            ? tr(
+                                'Хвилина-дві: модель обчислює ті самі вірші на 1, 2, 3 … ядрах, і вибирається найшвидше.',
+                              )
+                            : ''}
+                  </Text>
+                  {test && test.results.length > 0 && (
+                    <Text size="xs" c="dimmed">
+                      {test.results
+                        .map((r) => `${fmtNumber(r.threads)} — ${fmtNumber(r.rate)}`)
+                        .join(' · ')}
+                    </Text>
+                  )}
                 </Stack>
               )}
               {job?.phase === 'running' ? (
@@ -318,7 +383,7 @@ export function SemanticSection({ active }: { active: boolean }) {
                       size="xs"
                       variant="light"
                       loading={busy}
-                      disabled={picked.length === 0}
+                      disabled={picked.length === 0 || testing}
                       onClick={() => void act(() => api.computeVectors(picked.map(Number)))}
                     >
                       {tr('Обчислити для вибраних: {n} (≈ {min} хв)', {

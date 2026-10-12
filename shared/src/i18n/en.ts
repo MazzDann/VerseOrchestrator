@@ -1749,6 +1749,17 @@ export const EN: Record<string, string> = {
   'Виберіть переклади, для яких обчислити вектори:': 'Choose the translations to make vectors for:',
   'Увесь процесор': 'The whole processor',
   'Ядра процесора': 'Processor cores',
+  'Перевірити, скільки ядер найкраще': 'Find the best number of cores',
+  'Перевірка ядер': 'Cores test',
+  'Перевіряю ядра: {done} з {total}. Поки триває, не навантажуйте комп’ютер.':
+    'Testing the cores: {done} of {total}. While it runs, keep the computer free.',
+  'Вибрано: {n} — найшвидше ({rate} віршів за секунду).':
+    'Chosen: {n} — the fastest ({rate} verses a second).',
+  'Перевірка не вдалася: {error}': 'The test failed: {error}',
+  'Хвилина-дві: модель обчислює ті самі вірші на 1, 2, 3 … ядрах, і вибирається найшвидше.':
+    'A minute or two: the model makes the same verses on 1, 2, 3 … cores, and the fastest is chosen.',
+  'Зачекайте, доки закінчиться перевірка ядер': 'Wait until the cores test ends',
+  'Зачекайте, доки вектори обчисляться': 'Wait until the vectors are made',
   'Ядра процесора: {n} з {all}': 'Processor cores: {n} of {all}',
   рекомендовано: 'recommended',
   'Більше ядер — швидше, але показ може пригальмовувати. Одне ядро завжди лишається вільним, а вектори обчислюються з найнижчим пріоритетом, тож комп’ютер не зависає.':

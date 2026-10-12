@@ -164,6 +164,7 @@ import {
 import { zipToFile } from './zip.js';
 import { createCatalog, forPage, listModuleFiles } from './catalog.js';
 import { createModelStore, modelInstalled } from './models.js';
+import { createCoresTest, sampleVerses } from './coresTest.js';
 import { cpuInfo, createQueryEmbedder, jobThreads, openChildEmbedder } from './embedding.js';
 import { createVectorJob, listTranslations, readVectorSets } from './vectorJob.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
@@ -2405,9 +2406,21 @@ const vectors = createVectorJob({
     notifySemantic({});
   },
 });
+// «Перевірити, скільки ядер найкраще»: the chosen model on 1, 2, 3 … cores, the best one kept
+const coresTest = createCoresTest({
+  open: (threads) => {
+    const model = getServerSettings().semantic.model;
+    if (!model) return Promise.reject(new Error('no model'));
+    return openChildEmbedder(dataDir, model, threads);
+  },
+  sample: () => sampleVerses(libraryPath),
+  onChange: () => notifySemantic({}),
+  onBest: (n) => updateServerSettings({ semantic: { threads: n === cpuInfo().auto ? null : n } }),
+});
 /** A rebuild started: the vector job stops (declared here, the rebuild job is set up first). */
 function stopVectors(): void {
   vectors.stop();
+  coresTest.stop();
 }
 
 function semanticState() {
@@ -2438,6 +2451,7 @@ function semanticState() {
       };
     }),
     job: vectors.state(),
+    coresTest: coresTest.state(),
   };
 }
 
@@ -2517,6 +2531,8 @@ app.post(
     if (!model || !modelInstalled(dataDir, model))
       throw new ApiError(409, N_('Спершу виберіть і завантажте модель'));
     if (rebuild.running()) throw new ApiError(409, N_('Зачекайте, доки бібліотека збереться'));
+    if (coresTest.running())
+      throw new ApiError(409, N_('Зачекайте, доки закінчиться перевірка ядер'));
     const ids = Array.isArray(req.body?.translations)
       ? (req.body.translations as unknown[]).map(Number).filter((n) => Number.isInteger(n))
       : null;
@@ -2526,8 +2542,23 @@ app.post(
 );
 app.post('/api/semantic/stop', requireLocalControl, (_req, res) => {
   vectors.stop();
+  coresTest.stop();
   res.json(semanticState());
 });
+app.post(
+  '/api/semantic/cores-test',
+  requireLocalControl,
+  wrap((_req, res) => {
+    const model = getServerSettings().semantic.model;
+    if (!model || !modelInstalled(dataDir, model))
+      throw new ApiError(409, N_('Спершу виберіть і завантажте модель'));
+    if (rebuild.running()) throw new ApiError(409, N_('Зачекайте, доки бібліотека збереться'));
+    if (vectors.state().phase === 'running')
+      throw new ApiError(409, N_('Зачекайте, доки вектори обчисляться'));
+    coresTest.start(cpuInfo().max);
+    res.json(semanticState());
+  }),
+);
 /** A query's vector — for the browser's engines, which hold the vectors but not the model. */
 app.get(
   '/api/embed',

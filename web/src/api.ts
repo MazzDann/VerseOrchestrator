@@ -1371,6 +1371,8 @@ export const api = {
   setSemanticModel: (model: EmbedModelId | null) => sendSemantic('/api/semantic', 'PUT', { model }),
   /** «Увесь процесор» (1.15.1): vectors made on the whole processor */
   setSemanticFullCpu: (fullCpu: boolean) => sendSemantic('/api/semantic', 'PUT', { fullCpu }),
+  /** «Перевірити, скільки ядер найкраще»: measures 1, 2, 3 … cores and keeps the fastest */
+  testCores: () => sendSemantic('/api/semantic/cores-test', 'POST'),
   /** «Ядра процесора»: how many cores make the vectors, null = «Авто» */
   setSemanticThreads: (threads: number | null) => sendSemantic('/api/semantic', 'PUT', { threads }),
   downloadModel: (id: EmbedModelId) => sendSemantic(`/api/semantic/models/${id}`, 'POST'),
@@ -1419,6 +1421,16 @@ export const SemanticSchema = z.object({
   threads: z.number().nullable().default(null),
   cpu: z
     .object({ all: z.number(), max: z.number(), auto: z.number(), fast: z.number().nullable() })
+    .optional(),
+  coresTest: z
+    .object({
+      phase: z.enum(['idle', 'running', 'done', 'failed', 'stopped']),
+      current: z.number().nullable(),
+      total: z.number(),
+      results: z.array(z.object({ threads: z.number(), rate: z.number() })),
+      best: z.number().nullable(),
+      error: z.string().nullable(),
+    })
     .optional(),
   models: z.array(
     z.object({

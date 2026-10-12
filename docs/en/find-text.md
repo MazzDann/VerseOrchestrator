@@ -147,7 +147,9 @@ more minutes (about 25 with **Precise**). How many processor cores they take is 
 Silicon, its fast cores less one); more cores compute faster, but the show may slow down. One core is always left
 free and the vectors are made at the lowest priority, so the computer doesn't freeze. On a Mac with
 Apple Silicon, more cores than its fast ones compute slower: the efficiency cores hold the rest
-back.
+back. Instead of guessing, press **Find the best number of cores**: the model makes the same
+verses on 1, 2, 3 … cores (about twenty seconds with **Fast**, a minute or two with **Precise**)
+and picks the fewest cores that give nearly the top speed.
 
 If no model is chosen or there are no vectors yet, the line under the search field says what
 to do.
