@@ -22,6 +22,7 @@ import {
   Button,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { useDocOpen } from '../lib/documents';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
@@ -135,6 +136,15 @@ export function SearchPanel({
     },
     enabled: open && debounced.trim().length >= 2,
   });
+  // words found in the documents too (1.17.0-beta.2) — a few rows under the verses; a click
+  // opens the document at that paragraph
+  const words = data?.kind === 'text' ? debounced.trim() : '';
+  const docHits = useQuery({
+    queryKey: ['document-search', words],
+    queryFn: () => api.searchDocuments(words),
+    enabled: open && words.length >= 3,
+  });
+  const docRows = words.length >= 3 ? (docHits.data ?? []).slice(0, 5) : [];
   const abbr = useMemo(() => new Map(translations.map((t) => [t.id, t.abbr])), [translations]);
   // several translations found: their chapter lengths align the numberings (1.8.12-beta.5), so
   // Ps 22 of one and Ps 23 of another — the same psalm — are one row; until they come, places
@@ -330,6 +340,39 @@ export function SearchPanel({
                 onPoint={setHighlight}
               />
             ))}
+            {docRows.length > 0 && (
+              <>
+                <Text size="xs" c="dimmed" fw={500} mt="xs" px={6}>
+                  {tr('У документах')}
+                </Text>
+                {docRows.map((h) => (
+                  <Box
+                    key={`doc-${h.docId}-${h.ord}`}
+                    className="vo-list-item"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      useDocOpen.getState().open(h.docId, h.ord);
+                      onClose();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        useDocOpen.getState().open(h.docId, h.ord);
+                        onClose();
+                      }
+                    }}
+                  >
+                    <Text size="xs" c="dimmed" truncate>
+                      {h.title} · {h.ord + 1}
+                    </Text>
+                    <Text size="sm" lineClamp={2}>
+                      {h.text}
+                    </Text>
+                  </Box>
+                ))}
+              </>
+            )}
             {debounced.trim().length >= 2 && rows.length === 0 && !isFetching && error && (
               // a failed search says so — «Нічого не знайдено» sent users to other words (F1010-02)
               <Group gap="xs" p="sm" wrap="nowrap">
@@ -347,20 +390,24 @@ export function SearchPanel({
                 </Button>
               </Group>
             )}
-            {debounced.trim().length >= 2 && rows.length === 0 && !isFetching && !error && (
-              <Text size="sm" c="dimmed" p="sm">
-                {/* «~ …» needs a model and vectors (1.15.0-beta.2): where to get them */}
-                {data?.missing === 'model'
-                  ? tr(
-                      'Пошук за змістом ще не налаштовано: виберіть і завантажте модель у «Налаштування вигляду → Пошук → Пошук за змістом».',
-                    )
-                  : data?.missing === 'vectors'
+            {debounced.trim().length >= 2 &&
+              rows.length === 0 &&
+              docRows.length === 0 &&
+              !isFetching &&
+              !error && (
+                <Text size="sm" c="dimmed" p="sm">
+                  {/* «~ …» needs a model and vectors (1.15.0-beta.2): where to get them */}
+                  {data?.missing === 'model'
                     ? tr(
-                        'Для цих перекладів ще немає векторів: обчисліть їх у «Налаштування вигляду → Пошук → Пошук за змістом».',
+                        'Пошук за змістом ще не налаштовано: виберіть і завантажте модель у «Налаштування вигляду → Пошук → Пошук за змістом».',
                       )
-                    : tr('Нічого не знайдено')}
-              </Text>
-            )}
+                    : data?.missing === 'vectors'
+                      ? tr(
+                          'Для цих перекладів ще немає векторів: обчисліть їх у «Налаштування вигляду → Пошук → Пошук за змістом».',
+                        )
+                      : tr('Нічого не знайдено')}
+                </Text>
+              )}
           </Stack>
         </ScrollArea.Autosize>
       )}

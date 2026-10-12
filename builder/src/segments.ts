@@ -229,7 +229,7 @@ export function buildSegments(
     'Перехресні посилання, коментарі, підзаголовки', // i18n-ignore: the manifest's title (data)
   );
   bundle('songs', 'songs', ['songs', 'song_slides'], 'Пісні'); // i18n-ignore: the manifest's title
-  bundle('docs', 'docs', ['documents', 'doc_units'], 'Документи'); // i18n-ignore: the manifest's title
+  bundle('docs', 'docs', ['documents', 'doc_units', 'doc_refs'], 'Документи'); // i18n-ignore: the manifest's title
 
   // --- verse vectors: one segment per (model, translation) the vectors file holds whole
   if (vectorsPath && fs.existsSync(vectorsPath)) {

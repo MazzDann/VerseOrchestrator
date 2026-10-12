@@ -123,7 +123,8 @@ function fixtureLibrary(file: string): void {
     INSERT INTO songs VALUES (1, 12, 'Боже Вічний', 'боже вічний', 'ПС'), (2, 120, 'Слава', 'слава', 'ПС');
     INSERT INTO song_slides VALUES (1, 0, 'Боже Вічний, Боже сили', '{"bg":"#000"}'), (1, 1, 'Другий куплет', NULL);
     INSERT INTO documents VALUES (7, 'Проповідь.docx', 'Проповідь', 'docx', 3, 1200, 1760000000000, 1), (9, 'a/Лекція.md', 'Лекція', 'md', 1, 90, 1760000000001, 1);
-    INSERT INTO doc_units VALUES (7, 0, 'heading', 1, 0, 'Вступ', 'вступ'), (7, 1, 'para', 0, 0, 'Бог є любов', 'бог є любов'), (7, 2, 'quote', 0, 0, 'Ів 3:16', 'ів 3:16'), (9, 0, 'item', 1, -1, 'Перше', 'перше');`);
+    INSERT INTO doc_units VALUES (7, 0, 'heading', 1, 0, 'Вступ', 'вступ'), (7, 1, 'para', 0, 0, 'Бог є любов', 'бог є любов'), (7, 2, 'quote', 0, 0, 'Ів 3:16', 'ів 3:16'), (9, 0, 'item', 1, -1, 'Перше', 'перше');
+    INSERT INTO doc_refs VALUES (7, 2, 0, 7, 500, 3, 16, 16), (7, 1, 4, 9, 500, 3, 14, 18);`);
   db.close();
 }
 
@@ -257,6 +258,24 @@ describe('PostgreSQL (PGlite) answers like SQLite', () => {
     ]);
     expect(await postgres.getDocument(7)).toEqual(doc);
     expect(await postgres.getDocument(8)).toBeNull();
+  });
+
+  it('documents (1.17.0-beta.2): their references, the words in them, the units citing a verse', async () => {
+    expect((await sqlite.getDocument(7))?.refs.map((r) => [r.ord, r.from, r.to])).toEqual([
+      [1, 14, 18],
+      [2, 16, 16],
+    ]);
+    for (const q of ['любов', 'бог любов', 'ВСТУП', 'нема', ''])
+      expect(await postgres.searchDocuments(q), q).toEqual(await sqlite.searchDocuments(q));
+    expect((await sqlite.searchDocuments('бог любов')).map((h) => [h.docId, h.ord])).toEqual([
+      [7, 1],
+    ]);
+    for (const v of [16, 15, 19, undefined])
+      expect(await postgres.documentsCiting(500, 3, v), String(v)).toEqual(
+        await sqlite.documentsCiting(500, 3, v),
+      );
+    expect((await sqlite.documentsCiting(500, 3, 16)).map((h) => h.ord)).toEqual([1, 2]);
+    expect(await sqlite.documentsCiting(500, 3, 19)).toEqual([]);
   });
 
   it('section titles (1.16.0-beta.2): the same, in order, per translation', async () => {

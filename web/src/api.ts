@@ -112,7 +112,28 @@ const DocUnitSchema = z.object({
   text: z.string(),
 });
 export type DocUnit = z.infer<typeof DocUnitSchema>;
-const DocumentDetailSchema = DocumentInfoSchema.extend({ body: z.array(DocUnitSchema) });
+const DocRefSchema = z.object({
+  ord: z.number(),
+  pos: z.number(),
+  len: z.number(),
+  book: z.number(),
+  chapter: z.number(),
+  from: z.number(),
+  to: z.number(),
+});
+export type DocRef = z.infer<typeof DocRefSchema>;
+const DocumentDetailSchema = DocumentInfoSchema.extend({
+  body: z.array(DocUnitSchema),
+  /** Bible references in the units (1.17.0-beta.2); none from an older server */
+  refs: z.array(DocRefSchema).default([]),
+});
+const DocUnitHitSchema = z.object({
+  docId: z.number(),
+  title: z.string(),
+  ord: z.number(),
+  text: z.string(),
+});
+export type DocUnitHit = z.infer<typeof DocUnitHitSchema>;
 export type DocumentDetail = z.infer<typeof DocumentDetailSchema>;
 const AnchorSchema = z.enum(['top', 'middle', 'bottom']);
 /** A slide's second text box (1.2.1): a title slide's authors, a «Приспів:» label. */
@@ -786,6 +807,20 @@ export const api = {
         return doc;
       },
       `/api/documents/${id}`,
+    ),
+  /** Units holding every word of the query (1.17.0-beta.2). */
+  searchDocuments: (q: string) =>
+    fromLibrary(
+      z.array(DocUnitHitSchema),
+      (l) => l.searchDocuments(q),
+      `/api/documents/search?q=${encodeURIComponent(q)}`,
+    ),
+  /** The documents' units that cite a verse (or a chapter). */
+  documentsCiting: (book: number, chapter: number, verse?: number) =>
+    fromLibrary(
+      z.array(DocUnitHitSchema),
+      (l) => l.documentsCiting(book, chapter, verse),
+      `/api/documents/citing?book=${book}&chapter=${chapter}${verse != null ? `&verse=${verse}` : ''}`,
     ),
   // --- Library segments for the browser engine (server/src/index.ts) ---
   /**

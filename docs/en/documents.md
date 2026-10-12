@@ -63,6 +63,27 @@ The **Add to the running order** button (the list-with-a-plus icon above the par
 document to the [running order](running-order.md). The item opens the document and shows its
 first paragraph.
 
+## Show a verse from a document
+
+The app underlines Bible references in a document's text — «Ів 3:16», «1 Кор 13:4-7», «Рим.
+8:28». Click a reference: those verses go on screen in the translations ticked in **Біблія**
+(Bible) mode, and the document stays open — the next ↓ shows the next paragraph.
+
+The app recognizes a reference that starts with a capital letter and reads “book
+chapter:verse” or “book chapter:verse-verse”, and the book by the names in your translations.
+A time such as “о 10:30” doesn't become a reference.
+
+In **Біблія** mode, on the **Context** tab on the right, **In documents** lists the paragraphs
+that refer to the selected verse. Click one to open the document with that paragraph marked.
+
+## Find words in documents
+
+Start typing into the search field above the list of documents. Besides titles, from three
+letters on the app searches the text too: **In the documents' text** appears under the list —
+the paragraphs that hold every word you typed. Click one to open the document at it.
+
+The search at the top finds documents' paragraphs too: **In documents** under the verses.
+
 ## Delete a document
 
 To delete a document, open it and click the trash icon **Delete the document**. The file moves

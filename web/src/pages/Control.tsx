@@ -81,6 +81,8 @@ import { useMediaDrop } from './control/useMediaDrop';
 import { DropOverlay } from '../components/DropOverlay';
 import { useSettingsFind } from '../lib/settingsSearch';
 import { formatReference } from '../lib/reference';
+import { api, type DocRef } from '../api';
+import { useDocOpen } from '../lib/documents';
 import { useShowJumpWhenReady } from './control/useShowJumpWhenReady';
 import { usePublishNext, useAdoptRestore, useLeaderTakeover } from './control/useTakeover';
 import { useShowCommands } from './control/useShowCommands';
@@ -341,6 +343,11 @@ export function Control() {
   // «Документи» (1.17.0-beta.1): the open document and its unit on screen, as the song's
   const [docsPanelDocId, setDocsPanelDocId] = useState<number | null>(null);
   const [docsPanelUnit, setDocsPanelUnit] = useState<number | null>(null);
+  // a document asked for from elsewhere (a drop, a verse's «У документах», 1.17.0-beta.2)
+  const docAsked = useDocOpen((s) => s.id);
+  useEffect(() => {
+    if (docAsked != null) setPlace((p) => (p.ws === 'docs' ? p : { ...p, ws: 'docs' }));
+  }, [docAsked]);
   const openDoc = useCallback((id: number | null) => {
     setDocsPanelDocId(id);
     setDocsPanelUnit(null);
@@ -615,6 +622,39 @@ export function Control() {
     playlistNextRef,
   });
   // the running order on screen: an item put on, one step on or back (no effects)
+  // a Bible reference in a document (1.17.0-beta.2): its verses on screen in the chosen
+  // translations, the book named as the passages are; the document stays open, ↓ goes on
+  const showDocRef = async (ref: DocRef, written: string) => {
+    if (selectedIds.length === 0) {
+      notifications.show({ message: tr('Позначте переклад у режимі «Біблія»'), color: 'gray' });
+      return;
+    }
+    const verses = Array.from({ length: ref.to - ref.from + 1 }, (_, i) => ref.from + i);
+    let label = written;
+    try {
+      const books = await queryClient.fetchQuery({
+        queryKey: ['books', selectedIds[0]],
+        queryFn: () => api.books(selectedIds[0]),
+      });
+      label =
+        formatReference(
+          books.find((b) => b.bookNumber === ref.book) ?? null,
+          ref.chapter,
+          verses,
+        ) || written;
+    } catch {
+      /* the reference as the document writes it */
+    }
+    await activatePassage({
+      id: 'doc-ref',
+      kind: 'passage',
+      label,
+      translationIds: selectedIds,
+      bookNumber: ref.book,
+      chapter: ref.chapter,
+      verses,
+    });
+  };
   const { activatePassage, activateItem, stepPlaylist, playlistStepRef } = useRunningOrder({
     followItem,
     setTranslations,
@@ -1383,6 +1423,7 @@ export function Control() {
               onPastEnd={(dir, docId, held) =>
                 pastItemRef.current?.(dir, { kind: 'doc', docId }, held) ?? null
               }
+              onShowRef={(ref, written) => void showDocRef(ref, written)}
             />
             <TextPanel
               open={textOpen}

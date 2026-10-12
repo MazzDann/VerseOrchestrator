@@ -2369,6 +2369,29 @@ app.get(
 app.get('/api/documents/folder', requireLocal, (_req, res) => {
   res.json({ dir: documents.dir() });
 });
+/** Units holding the query's words (1.17.0-beta.2) — before /:id, which would take «search» */
+app.get(
+  '/api/documents/search',
+  requireLocal,
+  wrap(async (req, res) =>
+    res.json(await library().searchDocuments(String(req.query.q ?? '').slice(0, 200))),
+  ),
+);
+/** The units citing a verse (or a chapter) — «Документи» beside the Bible */
+app.get(
+  '/api/documents/citing',
+  requireLocal,
+  wrap(async (req, res) => {
+    const verse = req.query.verse ? asInt(String(req.query.verse), 'verse') : undefined;
+    res.json(
+      await library().documentsCiting(
+        asInt(String(req.query.book ?? ''), 'book'),
+        asInt(String(req.query.chapter ?? ''), 'chapter'),
+        verse,
+      ),
+    );
+  }),
+);
 app.get(
   '/api/documents/:id',
   requireLocal,

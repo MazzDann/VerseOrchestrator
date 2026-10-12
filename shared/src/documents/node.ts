@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import { normalizeForSearch } from '../normalize.js';
 import { DOCS_SCHEMA_SQL } from '../library/schema.js';
 import { DOC_READER, documentKind, documentTitle, parseDocument, type DocUnit } from './parse.js';
+import { bookResolver, scanReferences } from './refs.js';
 
 /**
  * Documents on disk (1.17.0-beta.1). The truth is the folder `modules/documents`: a file put
@@ -156,6 +157,22 @@ export function writeLibraryDocuments(
   for (const d of drop) used.delete(d.id);
   const delDoc = lib.prepare('DELETE FROM documents WHERE id = ?');
   const delUnits = lib.prepare('DELETE FROM doc_units WHERE document_id = ?');
+  const delRefs = lib.prepare('DELETE FROM doc_refs WHERE document_id = ?');
+  const insRef = lib.prepare(
+    'INSERT OR IGNORE INTO doc_refs (document_id, ord, pos, len, book_number, chapter, verse_from, verse_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  );
+  // Bible references by the library's own book names (1.17.0-beta.2); none without a Bible
+  const hasBooks = !!lib
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'book_names'")
+    .get();
+  const bookOf = bookResolver(
+    hasBooks
+      ? (lib.prepare('SELECT DISTINCT book_number, name_norm FROM book_names').all() as {
+          book_number: number;
+          name_norm: string;
+        }[])
+      : [],
+  );
   const insDoc = lib.prepare(
     'INSERT INTO documents (id, file, title, kind, units, size, mtime, reader) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   );
@@ -164,6 +181,7 @@ export function writeLibraryDocuments(
   );
   lib.transaction(() => {
     for (const d of drop) {
+      delRefs.run(d.id);
       delUnits.run(d.id);
       delDoc.run(d.id);
     }
@@ -183,9 +201,13 @@ export function writeLibraryDocuments(
         DOC_READER,
       );
       const sec = docSections(doc.units);
-      doc.units.forEach((u, i) =>
-        insUnit.run(id, i, u.kind, u.level, sec[i], u.text, normalizeForSearch(u.text)),
-      );
+      doc.units.forEach((u, i) => {
+        insUnit.run(id, i, u.kind, u.level, sec[i], u.text, normalizeForSearch(u.text));
+        for (const r of scanReferences(u.text)) {
+          const book = bookOf(r.token);
+          if (book != null) insRef.run(id, i, r.start, r.len, book, r.chapter, r.from, r.to);
+        }
+      });
     }
   })();
   for (const { f, doc } of parsed) log(`documents: ${f.file} — ${doc.units.length} units`);

@@ -2381,4 +2381,10 @@ export const EN: Record<string, string> = {
   'Така назва файлу не підходить — перейменуйте його': 'This file name won’t do — rename the file',
   'Не вдалося повернути документ: його місце зайняте або копії вже немає':
     'Couldn’t bring the document back: its place is taken or the copy is gone',
+  // 1.17.0-beta.2: Bible references in documents, words in documents
+  'Позначте переклад у режимі «Біблія»': 'Tick a translation in «Біблія» (Bible) mode',
+  'У документах': 'In documents',
+  'Відкрити документ на цьому абзаці': 'Open the document at this paragraph',
+  'У тексті документів': 'In the documents’ text',
+  'Показати {ref} на екрані': 'Show {ref} on screen',
 };

@@ -94,8 +94,26 @@ export interface DocUnitOut {
   section: number;
   text: string;
 }
+/** A Bible reference inside a unit (1.17.0-beta.2): where it stands and the verses it names. */
+export interface DocRefOut {
+  ord: number;
+  pos: number;
+  len: number;
+  book: number;
+  chapter: number;
+  from: number;
+  to: number;
+}
 export interface DocumentDetail extends DocumentInfo {
   body: DocUnitOut[];
+  refs: DocRefOut[];
+}
+/** A unit found by its words or by a verse it cites. */
+export interface DocUnitHit {
+  docId: number;
+  title: string;
+  ord: number;
+  text: string;
 }
 
 export interface SearchResponse {
@@ -663,12 +681,28 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
        WHERE document_id = ? ORDER BY ord`,
       [id],
     );
+    const refs = (await tableExists('doc_refs'))
+      ? await db.all<AnyRow>(
+          `SELECT ord, pos, len, book_number, chapter, verse_from, verse_to FROM doc_refs
+           WHERE document_id = ? ORDER BY ord, pos`,
+          [id],
+        )
+      : [];
     return {
       id: Number(d.id),
       title: d.title,
       file: d.file,
       kind: d.kind,
       units: Number(d.units),
+      refs: refs.map((r) => ({
+        ord: Number(r.ord),
+        pos: Number(r.pos),
+        len: Number(r.len),
+        book: Number(r.book_number),
+        chapter: Number(r.chapter),
+        from: Number(r.verse_from),
+        to: Number(r.verse_to),
+      })),
       body: units.map((u) => ({
         ord: Number(u.ord),
         kind: u.kind,
@@ -677,6 +711,44 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
         text: u.text,
       })),
     };
+  }
+
+  const unitHits = (rows: AnyRow[]): DocUnitHit[] =>
+    rows.map((r) => ({ docId: Number(r.id), title: r.title, ord: Number(r.ord), text: r.text }));
+
+  /**
+   * Units holding every word of the query (1.17.0-beta.2), any document — the words as typed,
+   * normalized like the verses (й → и, no accents), each anywhere in the unit.
+   */
+  async function searchDocuments(q: string, limit = 60): Promise<DocUnitHit[]> {
+    const words = normalizeForSearch(q).split(' ').filter(Boolean).slice(0, 8);
+    if (words.length === 0 || !(await tableExists('doc_units'))) return [];
+    const rows = await db.all<AnyRow>(
+      `SELECT d.id, d.title, u.ord, u.text FROM doc_units u JOIN documents d ON d.id = u.document_id
+       WHERE ${words.map(() => 'u.text_norm LIKE ?').join(' AND ')}
+       ORDER BY d.title, u.ord LIMIT ?`,
+      [...words.map((w) => `%${w}%`), limit],
+    );
+    return unitHits(rows);
+  }
+
+  /** The units that cite a verse (or a chapter, without one) — «Документи» beside the Bible. */
+  async function documentsCiting(
+    book: number,
+    chapter: number,
+    verse?: number,
+    limit = 30,
+  ): Promise<DocUnitHit[]> {
+    if (!(await tableExists('doc_refs'))) return [];
+    const rows = await db.all<AnyRow>(
+      `SELECT DISTINCT d.id, d.title, u.ord, u.text FROM doc_refs r
+       JOIN documents d ON d.id = r.document_id
+       JOIN doc_units u ON u.document_id = r.document_id AND u.ord = r.ord
+       WHERE r.book_number = ? AND r.chapter = ?${verse != null ? ' AND r.verse_from <= ? AND r.verse_to >= ?' : ''}
+       ORDER BY d.title, u.ord LIMIT ?`,
+      verse != null ? [book, chapter, verse, verse, limit] : [book, chapter, limit],
+    );
+    return unitHits(rows);
   }
 
   /** Does (book, chapter[, verse]) exist in any of the given translations? */
@@ -1376,6 +1448,8 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     getSong,
     listDocuments,
     getDocument,
+    searchDocuments,
+    documentsCiting,
     search,
     resolveBookCandidates,
   };

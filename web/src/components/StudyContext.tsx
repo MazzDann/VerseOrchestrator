@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type Verse, type Book } from '../api';
 import { type StrongPickRef } from './StrongView';
 import { tr, trx, useLang } from '../i18n';
+import { useDocOpen } from '../lib/documents';
 
 interface Props {
   /** The selected verse(s) of the primary translation; [0] is the focus. */
@@ -20,6 +21,12 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
   const xrefQuery = useQuery({
     queryKey: ['crossrefs', v?.bookNumber, v?.chapter, v?.verse],
     queryFn: () => api.crossrefs(v!.bookNumber, v!.chapter, v!.verse),
+    enabled: !!v,
+  });
+  // the documents that cite it (1.17.0-beta.2)
+  const docQuery = useQuery({
+    queryKey: ['document-citing', v?.bookNumber, v?.chapter, v?.verse],
+    queryFn: () => api.documentsCiting(v!.bookNumber, v!.chapter, v!.verse),
     enabled: !!v,
   });
   const comQuery = useQuery({
@@ -105,6 +112,37 @@ export function StudyContext({ verses, books, onPickRef }: Props) {
               {tr('Немає коментарів для цього вірша.')}
             </Text>
           )}
+
+      {(docQuery.data?.length ?? 0) > 0 && (
+        <>
+          <Text fw={600} size="sm" mt="xs">
+            {tr('У документах')}
+          </Text>
+          {docQuery.data!.map((h) => (
+            <Box
+              key={`${h.docId}:${h.ord}`}
+              className="vo-list-item"
+              role="button"
+              tabIndex={0}
+              title={tr('Відкрити документ на цьому абзаці')}
+              onClick={() => useDocOpen.getState().open(h.docId, h.ord)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  useDocOpen.getState().open(h.docId, h.ord);
+                }
+              }}
+            >
+              <Text size="xs" c="dimmed" truncate>
+                {h.title} · {h.ord + 1}
+              </Text>
+              <Text size="sm" lineClamp={3}>
+                {h.text}
+              </Text>
+            </Box>
+          ))}
+        </>
+      )}
     </Stack>
   );
 }
