@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ActionIcon, Box, Button, Group, Loader, Text, TextInput, Tooltip } from '@mantine/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +14,8 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { normalizeForSearch } from '@vo/shared';
-import { api, type DocUnit, type DocumentDetail } from '../api';
+import { api, type DocRef, type DocUnit, type DocumentDetail } from '../api';
+import { useDebouncedValue } from '@mantine/hooks';
 import type { SlideSource } from '../presenterBus';
 import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
@@ -42,6 +43,8 @@ interface Props {
   onDocEnd?: () => Outcome;
   /** past «Кінець» or before the first unit: the running order's next / previous item, or null */
   onPastEnd?: (dir: 1 | -1, docId: number, held?: boolean) => Outcome | null;
+  /** a Bible reference in a unit clicked (1.17.0-beta.2): its verses on screen */
+  onShowRef?: (ref: DocRef, written: string) => void;
 }
 
 /** The folder part of a document's path («серія/»), shown dimmed beside its title. */
@@ -65,6 +68,7 @@ export function DocumentsPanel({
   keysPaused,
   onDocEnd,
   onPastEnd,
+  onShowRef,
 }: Props) {
   useLang();
   const [query, setQuery] = useState('');
@@ -82,13 +86,28 @@ export function DocumentsPanel({
     queryFn: () => api.document(docId!),
     enabled: open && docId != null,
   });
-  // a document an import or a drop asks to open
+  // a unit found by the text search or a verse's «У документах»: shown in sight, marked
+  const [found, setFound] = useState<{ docId: number; ord: number } | null>(null);
+  // another document opened: the mark goes (coming back must not scroll to an old find)
+  useEffect(() => {
+    setFound((f) => (f && f.docId !== docId ? null : f));
+  }, [docId]);
+  // a document an import, a drop or a verse's «У документах» asks to open
   const askedOpen = useDocOpen((s) => s.id);
   useEffect(() => {
     if (askedOpen == null) return;
+    const ord = useDocOpen.getState().ord;
     onDocIdChange(askedOpen);
+    setFound(ord != null ? { docId: askedOpen, ord } : null);
     useDocOpen.getState().open(null);
   }, [askedOpen, onDocIdChange]);
+  // the words inside the documents (1.17.0-beta.2): from three letters on
+  const [debounced] = useDebouncedValue(query.trim(), 250);
+  const textQuery = useQuery({
+    queryKey: ['document-search', debounced],
+    queryFn: () => api.searchDocuments(debounced),
+    enabled: open && debounced.length >= 3,
+  });
   useEffect(() => {
     if (!open) setDeleted(null);
   }, [open]);
@@ -194,8 +213,26 @@ export function DocumentsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeUnit, rows]);
 
+  // a found unit comes into sight once its document is there
+  useEffect(() => {
+    if (found && doc?.id === found.docId && found.ord < rows)
+      virtualizer.scrollToIndex(found.ord, { align: 'center' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found, doc?.id, rows]);
+  // the references of each unit, by its place
+  const refsOf = useMemo(() => {
+    const m = new Map<number, DocRef[]>();
+    for (const r of doc?.refs ?? []) m.set(r.ord, [...(m.get(r.ord) ?? []), r]);
+    return m;
+  }, [doc]);
+
   if (!open) return null;
   const noServer = serverAvailable === false;
+  const openHit = (id: number, ord: number) => {
+    onDocIdChange(id);
+    setFound({ docId: id, ord });
+  };
+  const hits = debounced.length >= 3 ? (textQuery.data ?? []) : [];
 
   const add = async (files: File[]) => {
     if (files.length === 0) return;
@@ -349,7 +386,41 @@ export function DocumentsPanel({
             </Group>
           </Box>
         ))}
-        {query.trim() && docs.length === 0 && listQuery.isSuccess && (
+        {hits.length > 0 && (
+          <>
+            <Text size="xs" c="dimmed" fw={500} mt="xs" px={6}>
+              {tr('У тексті документів')}
+            </Text>
+            {hits.map((h) => (
+              <Box
+                key={`${h.docId}:${h.ord}`}
+                className="vo-list-item"
+                role="button"
+                tabIndex={0}
+                data-selected={
+                  found?.docId === h.docId && found.ord === h.ord && docId === h.docId
+                    ? 'true'
+                    : undefined
+                }
+                onClick={() => openHit(h.docId, h.ord)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openHit(h.docId, h.ord);
+                  }
+                }}
+              >
+                <Text size="xs" c="dimmed" truncate>
+                  {h.title} · {h.ord + 1}
+                </Text>
+                <Text size="sm" lineClamp={2}>
+                  {h.text}
+                </Text>
+              </Box>
+            ))}
+          </>
+        )}
+        {query.trim() && docs.length === 0 && hits.length === 0 && listQuery.isSuccess && (
           <Text size="sm" c="dimmed" p="sm">
             {tr('Нічого не знайдено за «{q}»', { q: query.trim() })}
           </Text>
@@ -365,6 +436,37 @@ export function DocumentsPanel({
     </Box>
   );
 
+  /** the unit's text, its Bible references as buttons (a click: those verses on screen) */
+  const unitText = (u: DocUnit, i: number) => {
+    const refs = onShowRef ? (refsOf.get(i) ?? []) : [];
+    const lead = u.kind === 'item' ? '• ' : '';
+    if (refs.length === 0) return lead + u.text;
+    const parts: ReactNode[] = [lead];
+    let at = 0;
+    for (const r of refs) {
+      if (r.pos < at) continue;
+      parts.push(u.text.slice(at, r.pos));
+      const written = u.text.slice(r.pos, r.pos + r.len);
+      parts.push(
+        <button
+          key={r.pos}
+          type="button"
+          className="vo-doc-ref"
+          title={tr('Показати {ref} на екрані', { ref: written })}
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowRef?.(r, written);
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {written}
+        </button>,
+      );
+      at = r.pos + r.len;
+    }
+    parts.push(u.text.slice(at));
+    return parts;
+  };
   const unitRow = (u: DocUnit, i: number) => (
     <div
       className="vo-verse-item vo-doc-row"
@@ -372,6 +474,7 @@ export function DocumentsPanel({
       tabIndex={0}
       data-kind={u.kind}
       data-selected={activeUnit === i ? 'true' : undefined}
+      data-found={found && doc?.id === found.docId && found.ord === i ? 'true' : undefined}
       onClick={() => showUnit(i)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -392,7 +495,7 @@ export function DocumentsPanel({
         }}
         lineClamp={activeUnit === i ? undefined : 4}
       >
-        {u.kind === 'item' ? `• ${u.text}` : u.text}
+        {unitText(u, i)}
       </Text>
     </div>
   );

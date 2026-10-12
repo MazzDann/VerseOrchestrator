@@ -24,7 +24,8 @@ export interface ParsedDocument {
 export type DocumentKind = 'docx' | 'md' | 'txt';
 
 /** The version of these readers: a document read by an older one is read again. */
-export const DOC_READER = 1;
+/** 2 — 1.17.0-beta.2: Bible references found in the units */
+export const DOC_READER = 2;
 
 /** A unit longer than this is cut at a sentence end: a slide holds a paragraph, not a page. */
 export const UNIT_MAX = 900;

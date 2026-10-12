@@ -31,6 +31,19 @@ CREATE TABLE IF NOT EXISTS doc_units (
   text_norm   TEXT NOT NULL,
   PRIMARY KEY (document_id, ord)
 );
+-- Bible references inside a unit (1.17.0-beta.2): where they stand (pos, len) and the verses
+CREATE TABLE IF NOT EXISTS doc_refs (
+  document_id INTEGER NOT NULL,
+  ord         INTEGER NOT NULL,
+  pos         INTEGER NOT NULL,
+  len         INTEGER NOT NULL,
+  book_number INTEGER NOT NULL,
+  chapter     INTEGER NOT NULL,
+  verse_from  INTEGER NOT NULL,
+  verse_to    INTEGER NOT NULL,
+  PRIMARY KEY (document_id, ord, pos)
+);
+CREATE INDEX IF NOT EXISTS idx_doc_refs_place ON doc_refs (book_number, chapter);
 `;
 
 export const SCHEMA_SQL = /* sql */ `
@@ -233,6 +246,7 @@ CREATE TABLE song_slides (
 );
 CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
 
+DROP TABLE IF EXISTS doc_refs;
 DROP TABLE IF EXISTS doc_units;
 DROP TABLE IF EXISTS documents;
 ${DOCS_SCHEMA_SQL}`;

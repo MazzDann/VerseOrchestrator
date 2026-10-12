@@ -15,10 +15,15 @@ import { DOC_KEYS } from './songKeys';
 /** Is this a file the documents take (by its name)? */
 export const isDocumentFile = (name: string): boolean => documentKind(name) !== null;
 
-/** The document to open once an import is done (the panel reads it). */
-export const useDocOpen = create<{ id: number | null; open: (id: number | null) => void }>(
-  (set) => ({ id: null, open: (id) => set({ id }) }),
-);
+/**
+ * A document to open — after an import, or from a verse's «У документах» (1.17.0-beta.2), then
+ * with the unit that cites it (`ord`) marked as found. The control window goes to «Документи».
+ */
+export const useDocOpen = create<{
+  id: number | null;
+  ord: number | null;
+  open: (id: number | null, ord?: number | null) => void;
+}>((set) => ({ id: null, ord: null, open: (id, ord = null) => set({ id, ord }) }));
 
 export async function refreshDocuments(queryClient: QueryClient): Promise<void> {
   await Promise.all(DOC_KEYS.map((k) => queryClient.invalidateQueries({ queryKey: [k] })));
