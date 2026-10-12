@@ -92,7 +92,8 @@ export function ControlNavbar({
       />
     </Box>
   );
-  if (workspace === 'songs')
+  // «Документи» (1.17.0-beta.1) draws its list into the same slot
+  if (workspace === 'songs' || workspace === 'docs')
     return (
       <>
         {resize}

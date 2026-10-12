@@ -28,6 +28,7 @@ import {
   notifyAllowed,
   notifySemantic,
   notifyRemotesChanged,
+  notifyDocuments,
   notifyRebuild,
   notifyUiStateRestored,
   publishLive,
@@ -62,6 +63,7 @@ import {
 } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
+import { createDocuments, openFolder } from './documents.js';
 import { createRebuildJob, type BuilderProcess } from './rebuildJob.js';
 import { OPEN_FRESH_MS, createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
 import { readLayout } from './layout.js';
@@ -84,6 +86,13 @@ import {
   type ImportUndo,
 } from '@vo/shared/songs-node';
 import {
+  addDocumentFile,
+  DOC_FILE_MAX,
+  restoreDocument,
+  trashDocument,
+} from '@vo/shared/documents-node';
+import {
+  documentKind,
   FILE_DENIED,
   FOLDER_DENIED,
   EMBED_MODEL_IDS,
@@ -93,6 +102,7 @@ import {
   modelBytes,
   MODULE_KINDS,
   N_,
+  parseDocument,
   sameBundleName,
   type ModuleKind,
 } from '@vo/shared';
@@ -209,7 +219,17 @@ try {
  */
 const rebuild = createRebuildJob({
   start: startBuilder,
-  onSettled: () => closeDb(), // the next read opens the new library
+  onSettled: () => {
+    closeDb(); // the next read opens the new library
+    // a file put into the documents folder while the builder ran
+    setTimeout(() => {
+      try {
+        documents.refresh();
+      } catch (err) {
+        console.warn(`[server] documents: ${(err as Error).message}`);
+      }
+    }, 0).unref();
+  },
   onChange: (s) => {
     notifyRebuild(s);
     // a rebuild rewrites library.db under the vector job: it stops (the books in stay)
@@ -2315,6 +2335,120 @@ function modulesDir(): string {
     if (listModuleFiles(dir).bibles.length > 0) return dir;
   return path.join(repoRoot, 'modules');
 }
+
+// --- Documents (1.17.0-beta.1, documents.ts): modules/documents is the truth --------------------
+
+const documents = createDocuments({
+  modulesDir,
+  libraryPath,
+  closeDb,
+  rebuilding,
+  notify: notifyDocuments,
+  log: (m) => console.log(`[server] ${m}`),
+});
+try {
+  documents.refresh();
+} catch (err) {
+  console.warn(`[server] documents: ${(err as Error).message}`);
+}
+documents.watch();
+
+/** a document's file by its id in the library */
+async function documentFile(idParam: string): Promise<string> {
+  const doc = await library().getDocument(asInt(idParam, 'document id'));
+  if (!doc) throw new ApiError(404, N_('Документ не знайдено — можливо, файл прибрали з папки'));
+  return doc.file;
+}
+
+// the documents are the operator's own texts: read by this machine only, like the picture list
+app.get(
+  '/api/documents',
+  requireLocal,
+  wrap(async (_req, res) => res.json(await library().listDocuments())),
+);
+app.get('/api/documents/folder', requireLocal, (_req, res) => {
+  res.json({ dir: documents.dir() });
+});
+app.get(
+  '/api/documents/:id',
+  requireLocal,
+  wrap(async (req, res) => {
+    const doc = await library().getDocument(asInt(req.params.id, 'document id'));
+    if (!doc) throw new ApiError(404, N_('Документ не знайдено — можливо, файл прибрали з папки'));
+    res.json(doc);
+  }),
+);
+/** A dropped file: checked, written into the folder, read into the library at once. */
+app.post(
+  '/api/documents/import',
+  requireLocalControl,
+  express.raw({ type: () => true, limit: DOC_FILE_MAX }),
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    if (!fs.existsSync(libraryPath))
+      throw new ApiError(409, N_('Бібліотеки ще немає — спершу пересканіть модулі'));
+    const name = String(req.query.name ?? '');
+    const bytes = req.body instanceof Buffer ? new Uint8Array(req.body) : new Uint8Array();
+    if (!documentKind(name)) throw new ApiError(400, N_('Документ має бути .docx, .md або .txt'));
+    if (!parseDocument(bytes, name))
+      throw new ApiError(
+        400,
+        N_('Не вдалося прочитати «{file}» — у ньому немає тексту або файл пошкоджено'),
+        {
+          file: name.replace(/^.*[\\/]/, ''),
+        },
+      );
+    const added = addDocumentFile(documents.dir(), name, bytes);
+    if (!added) throw new ApiError(400, N_('Така назва файлу не підходить — перейменуйте його'));
+    documents.refresh();
+    const doc = (await library().listDocuments()).find((x) => x.file === added.file) ?? null;
+    res.json({ ...added, id: doc?.id ?? null });
+  }),
+);
+app.delete(
+  '/api/documents/:id',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const file = await documentFile(String(req.params.id));
+    const trashed = trashDocument(documents.dir(), file);
+    if (!trashed)
+      throw new ApiError(404, N_('Документ не знайдено — можливо, файл прибрали з папки'));
+    documents.refresh();
+    res.json({ trashed });
+  }),
+);
+app.post(
+  '/api/documents/restore',
+  requireLocalControl,
+  express.json(),
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const trashed = typeof req.body?.trashed === 'string' ? req.body.trashed : '';
+    const file = restoreDocument(documents.dir(), trashed);
+    if (!file)
+      throw new ApiError(
+        409,
+        N_('Не вдалося повернути документ: його місце зайняте або копії вже немає'),
+      );
+    documents.refresh();
+    res.json({ file });
+  }),
+);
+app.post(
+  '/api/documents/rescan',
+  requireLocalControl,
+  wrap(async (_req, res) => {
+    notDuringRebuild();
+    documents.watch(); // a folder made or moved meanwhile
+    const r = documents.refresh();
+    res.json(r ?? { documents: 0, read: 0, removed: 0, failed: [], changed: false });
+  }),
+);
+app.post('/api/documents/open-folder', requireLocalControl, (_req, res) => {
+  fs.mkdirSync(documents.dir(), { recursive: true });
+  res.json({ ok: openFolder(documents.dir()) });
+});
 
 const moduleFiles = createModuleFiles({
   modulesDir,

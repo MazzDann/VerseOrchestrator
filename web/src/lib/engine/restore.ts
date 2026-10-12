@@ -113,6 +113,7 @@ const UNIT_FORMS: Record<SegmentUnit, string> = {
   songs: Nn_('{n} пісня|{n} пісні|{n} пісень'),
   vectors: Nn_('вектори {n} вірша|вектори {n} віршів|вектори {n} віршів'),
   titles: Nn_('{n} підзаголовок|{n} підзаголовки|{n} підзаголовків'),
+  docs: Nn_('{n} документ|{n} документи|{n} документів'),
 };
 
 /** «31 102 вірші», «14 250 статей» — what a segment holds, in words. */

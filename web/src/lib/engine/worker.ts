@@ -229,6 +229,7 @@ function counts(conn: Database, alias: string, bytes: number): SegmentCounts {
     ['refs', 'cross_references'],
     ['songs', 'songs'],
     ['titles', 'set_subheadings'],
+    ['docs', 'documents'],
   ];
   for (const [unit, table] of order) {
     const items = unit === 'verses' ? verses : n(table);

@@ -112,7 +112,12 @@ export function rebuildProgress(job: RebuildState): string {
   if (job.total === 0) return tr('Готую перебудову…');
   if (job.current === 'finish') return tr('Завершую перебудову…');
   return tr('Збираю… {module}, {step} з {total}', {
-    module: job.current === 'songs' ? tr('пісні') : (job.current ?? ''),
+    module:
+      job.current === 'songs'
+        ? tr('пісні')
+        : job.current === 'documents'
+          ? tr('документи')
+          : (job.current ?? ''),
     step: String(job.step),
     total: String(job.total),
   });

@@ -1884,3 +1884,15 @@ form.vo-remote-countdown {
   background: var(--mantine-color-brand-filled);
   opacity: 1;
 }
+
+/* «Документи» (1.17.0-beta.1): a document's units — a number column like the verses', headings
+   bold and a little apart from the paragraph before */
+.vo-doc-row {
+  display: grid;
+  grid-template-columns: 3.4em minmax(0, 1fr);
+  column-gap: 10px;
+  padding-left: 4px;
+}
+.vo-doc-row[data-kind='heading'] {
+  margin-top: 6px;
+}

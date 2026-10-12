@@ -14,6 +14,7 @@ export type PastFrom =
   /** the preview's selection and page — the step itself runs on them, not on the screen */
   | { kind: 'verses'; selected: number[]; page: number }
   | { kind: 'song'; songId: number }
+  | { kind: 'doc'; docId: number }
   | { kind: 'album'; albumId: string };
 /** `held`: a key held down (its repeats) — it stops at the item's end, a new press goes on (1.10.6) */
 export type PastItem = (delta: 1 | -1, from: PastFrom, held?: boolean) => Outcome | null;
@@ -30,6 +31,7 @@ export function belongsTo(it: SeqItem, slide: Slide): boolean {
       src.verses.every((v) => it.verses.includes(v))
     );
   if (it.kind === 'song') return src?.kind === 'song' && src.songId === it.songId;
+  if (it.kind === 'doc') return src?.kind === 'doc' && src.docId === it.docId;
   if (it.kind === 'album') return src?.kind === 'album' && src.albumId === it.albumId;
   if (it.kind === 'video') return src?.kind === 'video' && src.videoId === it.videoId;
   if (it.kind === 'image') return !!slide.picture && slide.picture.src === it.src;
@@ -74,6 +76,10 @@ export function stillThere(it: SeqItem, slide: Slide, from: PastFrom): boolean {
     if (slide.source?.kind === 'song') return slide.source.songId === from.songId;
     return !slide.source && slide.lines.length === 0 && !slide.picture && !slide.video;
   }
+  if (from.kind === 'doc') {
+    if (slide.source?.kind === 'doc') return slide.source.docId === from.docId;
+    return !slide.source && slide.lines.length === 0 && !slide.picture && !slide.video;
+  }
   if (!belongsTo(it, slide)) return false;
   if (from.kind !== 'verses' || it.kind !== 'passage') return true;
   const src = slide.source;
@@ -98,5 +104,6 @@ export function asksFor(it: SeqItem, from: PastFrom): boolean {
     );
   if (from.kind === 'verses') return it.kind === 'passage';
   if (from.kind === 'song') return it.kind === 'song' && it.songId === from.songId;
+  if (from.kind === 'doc') return it.kind === 'doc' && it.docId === from.docId;
   return it.kind === 'album' && it.albumId === from.albumId;
 }

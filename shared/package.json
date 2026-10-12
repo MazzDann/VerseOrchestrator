@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./songs-node": "./src/songs/node.ts",
+    "./documents-node": "./src/documents/node.ts",
     "./embed": "./src/embed/index.ts"
   },
   "dependencies": {

@@ -95,6 +95,25 @@ const SongInfoSchema = z.object({
 });
 export type SongInfo = z.infer<typeof SongInfoSchema>;
 const SongBundleSchema = z.object({ name: z.string(), count: z.number() });
+/** A document (1.17.0-beta.1): a file of modules/documents read into the library. */
+const DocumentInfoSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  file: z.string(),
+  kind: z.string(),
+  units: z.number(),
+});
+export type DocumentInfo = z.infer<typeof DocumentInfoSchema>;
+const DocUnitSchema = z.object({
+  ord: z.number(),
+  kind: z.enum(['heading', 'para', 'quote', 'item']),
+  level: z.number(),
+  section: z.number(),
+  text: z.string(),
+});
+export type DocUnit = z.infer<typeof DocUnitSchema>;
+const DocumentDetailSchema = DocumentInfoSchema.extend({ body: z.array(DocUnitSchema) });
+export type DocumentDetail = z.infer<typeof DocumentDetailSchema>;
 const AnchorSchema = z.enum(['top', 'middle', 'bottom']);
 /** A slide's second text box (1.2.1): a title slide's authors, a «Приспів:» label. */
 const SongBoxSchema = z.object({
@@ -218,7 +237,7 @@ function readLibrary<S extends z.ZodTypeAny>(
 
 const SegmentInfoSchema = z.object({
   file: z.string(),
-  kind: z.enum(['translation', 'dictionary', 'study', 'songs', 'vectors']),
+  kind: z.enum(['translation', 'dictionary', 'study', 'songs', 'docs', 'vectors']),
   id: z.number().optional(),
   abbr: z.string(),
   title: z.string(),
@@ -755,6 +774,19 @@ export const api = {
       },
       `/api/songs/${id}`,
     ),
+  /** The documents (1.17.0-beta.1), by title. */
+  documents: () =>
+    fromLibrary(z.array(DocumentInfoSchema), (l) => l.listDocuments(), '/api/documents'),
+  document: (id: number) =>
+    fromLibrary(
+      DocumentDetailSchema,
+      async (l) => {
+        const doc = await l.getDocument(id);
+        if (!doc) throw new Error(tr('Документ не знайдено — можливо, файл прибрали з папки'));
+        return doc;
+      },
+      `/api/documents/${id}`,
+    ),
   // --- Library segments for the browser engine (server/src/index.ts) ---
   /**
    * The segment manifest: from the API, or — on a static deployment with no server — from
@@ -1228,6 +1260,65 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return z.object({ name: z.string() }).parse(await res.json());
+  },
+  /** Where the documents folder is (1.17.0-beta.1). */
+  documentsFolder: () => getJson('/api/documents/folder', z.object({ dir: z.string() })),
+  /** Put a file into the documents folder and read it into the library at once. */
+  importDocument: async (file: File) => {
+    const res = await request(`/api/documents/import?name=${encodeURIComponent(file.name)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', ...CONTROL_HEADERS },
+      body: file,
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({
+        file: z.string(),
+        id: z.number().nullable(),
+        replaced: z.string().nullable(),
+        same: z.boolean(),
+      })
+      .parse(await res.json());
+  },
+  /** Move a document's file into the folder's trash; `restoreDocument` brings it back. */
+  deleteDocument: async (id: number) => {
+    const res = await request(`/api/documents/${id}`, {
+      method: 'DELETE',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ trashed: z.string() }).parse(await res.json());
+  },
+  restoreDocument: async (trashed: string) => {
+    const res = await request('/api/documents/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ trashed }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z.object({ file: z.string() }).parse(await res.json());
+  },
+  rescanDocuments: async () => {
+    const res = await request('/api/documents/rescan', {
+      method: 'POST',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({
+        documents: z.number(),
+        read: z.number(),
+        removed: z.number(),
+        failed: z.array(z.string()),
+      })
+      .parse(await res.json());
+  },
+  openDocumentsFolder: async () => {
+    const res = await request('/api/documents/open-folder', {
+      method: 'POST',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
   },
   songBundleFiles: () =>
     getJson(

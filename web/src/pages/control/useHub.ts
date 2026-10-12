@@ -21,7 +21,7 @@ import {
 } from '../../lib/commands';
 import { deskFrame, forAudience, summarize } from '../../lib/slide';
 import { dropUiState, takeServerUiState } from '../../lib/uiState';
-import { SONG_KEYS } from '../../lib/songKeys';
+import { DOC_KEYS, SONG_KEYS } from '../../lib/songKeys';
 import {
   applyHandoverFrame,
   claimForHandover,
@@ -224,6 +224,9 @@ export function useHub({
           void queryClient.invalidateQueries({ queryKey: ['semantic'] });
           // a «~ …» answered «not set up» before is asked again (review)
           void queryClient.invalidateQueries({ queryKey: ['search'] });
+        } else if (f.type === 'documents') {
+          // the documents folder changed (1.17.0-beta.1): a file put there, dropped or deleted
+          for (const key of DOC_KEYS) void queryClient.invalidateQueries({ queryKey: [key] });
         } else if (f.type === 'remotes') {
           void queryClient.invalidateQueries({ queryKey: ['remotes'] });
         } else if (f.type === 'rebuild') {

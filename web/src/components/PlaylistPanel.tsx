@@ -40,6 +40,7 @@ import {
   IconRepeat,
   IconArrowBarToDown,
   IconPlus,
+  IconFileText,
 } from '@tabler/icons-react';
 import { CoverItemEditor } from './CoverItemEditor';
 import { CountdownItemEditor } from './CountdownItemEditor';
@@ -82,6 +83,7 @@ interface Props {
 const KIND_ICON = {
   passage: IconBook,
   song: IconMusic,
+  doc: IconFileText,
   text: IconLetterT,
   image: IconLibraryPhoto,
   album: IconAlbum,
@@ -96,6 +98,7 @@ const KIND_ICON = {
 const KIND_COLOR = {
   passage: 'gray',
   song: 'gray',
+  doc: 'gray',
   text: 'gray',
   image: 'gray',
   album: 'gray',

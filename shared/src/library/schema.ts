@@ -3,6 +3,36 @@
  * every engine (driver.ts): the builder writes it with better-sqlite3, the browser can
  * create it in sql.js. (FTS5 is SQLite-only; a Postgres engine maps it separately.)
  */
+/**
+ * Documents (1.17.0-beta.1): the files in modules/documents (a sermon, a lecture — .docx, .md,
+ * .txt) read as structured texts — headings open sections, the units under them are shown one at
+ * a time like verses. The folder is the truth: these rows are refreshed from it (documents/node.ts),
+ * so the DDL can run on any library — the same text in SQLite and Postgres (PG_ADDED_SQL).
+ * `section` = the ord of the heading a unit stands under, -1 before the first heading.
+ */
+export const DOCS_SCHEMA_SQL = /* sql */ `
+CREATE TABLE IF NOT EXISTS documents (
+  id     INTEGER PRIMARY KEY,
+  file   TEXT NOT NULL,     -- the file's name in the documents folder
+  title  TEXT NOT NULL,
+  kind   TEXT NOT NULL,     -- docx | md | txt
+  units  INTEGER NOT NULL,
+  size   BIGINT NOT NULL,   -- the file's size and modification time (ms) when it was read
+  mtime  BIGINT NOT NULL,
+  reader INTEGER NOT NULL   -- DOC_READER that read it
+);
+CREATE TABLE IF NOT EXISTS doc_units (
+  document_id INTEGER NOT NULL,
+  ord         INTEGER NOT NULL,
+  kind        TEXT NOT NULL,  -- heading | para | quote | item
+  level       INTEGER NOT NULL DEFAULT 0,
+  section     INTEGER NOT NULL DEFAULT -1,
+  text        TEXT NOT NULL,
+  text_norm   TEXT NOT NULL,
+  PRIMARY KEY (document_id, ord)
+);
+`;
+
 export const SCHEMA_SQL = /* sql */ `
 DROP TABLE IF EXISTS verse_strongs;
 DROP TABLE IF EXISTS subheadings;
@@ -202,4 +232,7 @@ CREATE TABLE song_slides (
   render  TEXT          -- JSON faithful style {bg,color,font,bold,align,x,y,w,h}, or NULL
 );
 CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
-`;
+
+DROP TABLE IF EXISTS doc_units;
+DROP TABLE IF EXISTS documents;
+${DOCS_SCHEMA_SQL}`;

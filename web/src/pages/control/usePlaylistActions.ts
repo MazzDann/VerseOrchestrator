@@ -67,6 +67,15 @@ export function usePlaylistActions({
     });
   };
 
+  const addDocToPlaylist = (doc: { docId: number; file: string; label: string }) => {
+    playlistAdd({ kind: 'doc', label: doc.label, docId: doc.docId, file: doc.file });
+    notifications.show({
+      message: tr('Додано у показ: {item}', { item: doc.label }),
+      color: 'green',
+      autoClose: 1200,
+    });
+  };
+
   const addAlbumToPlaylist = (album: { id: string; name: string }, fit: SlidePicture['fit']) => {
     playlistAdd({ kind: 'album', label: album.name, albumId: album.id, fit });
     notifications.show({
@@ -94,6 +103,7 @@ export function usePlaylistActions({
   return {
     addCurrentPassage,
     addSongToPlaylist,
+    addDocToPlaylist,
     addAlbumToPlaylist,
     addVideoToPlaylist,
     addTextToPlaylist,

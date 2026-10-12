@@ -156,7 +156,8 @@ export function useSongProjection({
   const songEnd = (): Outcome => {
     if (!leaderRef.current) return { ok: false, reason: tr('Показом керує інше вікно керування') };
     const s = liveSlideRef.current;
-    if (s.source?.kind !== 'song' || !s.visible) {
+    // a document's last paragraph the same (1.17.0-beta.1)
+    if ((s.source?.kind !== 'song' && s.source?.kind !== 'doc') || !s.visible) {
       return { ok: false, reason: tr('На екрані не пісня — ховати нічого') };
     }
     if (s.blank || s.forceBlack) return { ok: true }; // nothing to read already

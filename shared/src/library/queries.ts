@@ -78,6 +78,26 @@ export interface SongDetail extends SongInfo {
   slides: SongSlideOut[];
 }
 
+/** A document in the library (1.17.0-beta.1): a file of modules/documents. */
+export interface DocumentInfo {
+  id: number;
+  title: string;
+  file: string;
+  kind: string;
+  units: number;
+}
+export interface DocUnitOut {
+  ord: number;
+  kind: 'heading' | 'para' | 'quote' | 'item';
+  level: number;
+  /** the ord of the heading this unit stands under; -1 before the first heading */
+  section: number;
+  text: string;
+}
+export interface DocumentDetail extends DocumentInfo {
+  body: DocUnitOut[];
+}
+
 export interface SearchResponse {
   /** `meaning`: «~ …», found by meaning (1.15.0-beta.2), the nearest first */
   kind: 'reference' | 'text' | 'meaning' | 'empty';
@@ -613,6 +633,50 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       ])
     ).map((r) => ({ text: r.text as string, style: r.render ? JSON.parse(r.render) : null }));
     return { id: s.id, number: s.number, title: s.title, bundle: s.bundle ?? '', slides };
+  }
+
+  /** The documents (1.17.0-beta.1), by title; none in a library built before them. */
+  async function listDocuments(): Promise<DocumentInfo[]> {
+    if (!(await tableExists('documents'))) return [];
+    const rows = await db.all<AnyRow>(
+      'SELECT id, title, file, kind, units FROM documents ORDER BY title, file',
+    );
+    return rows.map((r) => ({
+      id: Number(r.id),
+      title: r.title,
+      file: r.file,
+      kind: r.kind,
+      units: Number(r.units),
+    }));
+  }
+
+  /** A document with all its units, in order. */
+  async function getDocument(id: number): Promise<DocumentDetail | null> {
+    if (!(await tableExists('documents'))) return null;
+    const d = await db.get<AnyRow>(
+      'SELECT id, title, file, kind, units FROM documents WHERE id = ?',
+      [id],
+    );
+    if (!d) return null;
+    const units = await db.all<AnyRow>(
+      `SELECT ord, kind, level, section, text FROM doc_units
+       WHERE document_id = ? ORDER BY ord`,
+      [id],
+    );
+    return {
+      id: Number(d.id),
+      title: d.title,
+      file: d.file,
+      kind: d.kind,
+      units: Number(d.units),
+      body: units.map((u) => ({
+        ord: Number(u.ord),
+        kind: u.kind,
+        level: Number(u.level),
+        section: Number(u.section),
+        text: u.text,
+      })),
+    };
   }
 
   /** Does (book, chapter[, verse]) exist in any of the given translations? */
@@ -1310,6 +1374,8 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     searchSongs,
     listSongBundles,
     getSong,
+    listDocuments,
+    getDocument,
     search,
     resolveBookCandidates,
   };

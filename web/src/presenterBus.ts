@@ -314,7 +314,9 @@ export type SlideSource =
       total?: number;
     }
   /** a video of the list (1.8.12-beta.3) */
-  | { kind: 'video'; videoId: string; by?: string };
+  | { kind: 'video'; videoId: string; by?: string }
+  /** a unit of a document (1.17.0-beta.1): «абзац 3 з 40» on «Сцена» */
+  | { kind: 'doc'; docId: number; unit: number; by?: string; total?: number };
 
 /** Built-in layout presets. The first (null template) is the default centred look. */
 export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }[] = [
