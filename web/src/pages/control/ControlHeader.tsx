@@ -18,6 +18,7 @@ import {
   IconBook2,
   IconLayoutSidebarRight,
   IconLibraryPhoto,
+  IconFileText,
   IconMoonStars,
   IconMusic,
   IconQrcode,
@@ -223,6 +224,12 @@ export function ControlHeader({
       tr('Пісні'),
       tr('Список пісень ліворуч, пісня посередині'),
       <IconMusic size={18} stroke={1.5} />,
+    ),
+    modeTool(
+      'docs',
+      tr('Документи'),
+      tr('Документи з папки: абзац за абзацом'),
+      <IconFileText size={18} stroke={1.5} />,
     ),
     modeTool(
       'media',

@@ -25,6 +25,8 @@ interface does; to switch the interface to English, see
   windows, the stage display.
 - [Songs and custom text](songs-and-text.md): songs from `.pptx` stanza by stanza,
   announcements, and any other text.
+- [Documents](documents.md): a sermon, a lecture or notes from `.docx`, `.md` or `.txt`, one
+  paragraph at a time.
 - [Images](images.md): posters, announcements, and photos on screen and in the running order.
 - [Running order](running-order.md): a program of passages, songs, texts, and images that you can
   save and open next time.

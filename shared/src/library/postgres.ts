@@ -1,6 +1,7 @@
 import type { Row } from './driver.js';
 import { ftsRow, ftsSourceSql, SEGMENT_TABLES } from './merge.js';
 import type { SyncConn } from './moduleFormat.js';
+import { DOCS_SCHEMA_SQL } from './schema.js';
 
 /**
  * The library in PostgreSQL (PGlite — Postgres compiled to WASM — in the browser). Same
@@ -165,7 +166,7 @@ CREATE TABLE song_slides (
   render  TEXT
 );
 CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
-`;
+${DOCS_SCHEMA_SQL}`;
 
 /** Text-search configuration: plain lowercase words, like the SQLite index. */
 /**
@@ -209,6 +210,8 @@ CREATE TABLE IF NOT EXISTS set_subheadings (
   title       TEXT NOT NULL,
   PRIMARY KEY (set_id, book_number, chapter, verse, ord)
 );
+-- Documents (1.17.0-beta.1).
+${DOCS_SCHEMA_SQL}
 `;
 
 export const PG_TS_CONFIG = 'simple';

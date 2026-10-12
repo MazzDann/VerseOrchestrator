@@ -24,6 +24,7 @@ import {
  *   d-<id>.vodb.gz        one dictionary (they're big: 111 MB together)
  *   study.vodb.gz         cross-references + commentaries + section-title sets
  *   songs.vodb.gz         hymns
+ *   docs.vodb.gz          documents (1.17.0-beta.1)
  *   v-<model>-<id>.vodb.gz one translation's verse vectors of one model («Пошук за змістом»,
  *                         1.15.0-beta.2) — from data/vectors.db, only translations it has whole
  *
@@ -213,6 +214,12 @@ export function buildSegments(
       })();
       items += rows.length;
     }
+    // no documents yet: no segment for them (1.17.0-beta.1)
+    if (items === 0 && kind === 'docs') {
+      seg.close();
+      fs.rmSync(file, { force: true });
+      return;
+    }
     segments.push(seal(seg, file, { kind, abbr: name, title, language: '', items }));
   };
   bundle(
@@ -222,6 +229,7 @@ export function buildSegments(
     'Перехресні посилання, коментарі, підзаголовки', // i18n-ignore: the manifest's title (data)
   );
   bundle('songs', 'songs', ['songs', 'song_slides'], 'Пісні'); // i18n-ignore: the manifest's title
+  bundle('docs', 'docs', ['documents', 'doc_units'], 'Документи'); // i18n-ignore: the manifest's title
 
   // --- verse vectors: one segment per (model, translation) the vectors file holds whole
   if (vectorsPath && fs.existsSync(vectorsPath)) {

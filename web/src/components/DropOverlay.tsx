@@ -11,7 +11,9 @@ export function DropOverlay() {
         <IconFileUpload size={36} stroke={1.5} />
         <Text fw={600}>{tr('Відпустіть, щоб додати')}</Text>
         <Text size="sm" c="dimmed" ta="center" maw={360}>
-          {tr('Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео».')}
+          {tr(
+            'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt) — у «Документи».',
+          )}
         </Text>
       </Stack>
     </div>

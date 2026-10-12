@@ -5,6 +5,7 @@ import { api } from '../../api';
 import { type MediaTab } from '../../components/ImagesPanel';
 import { droppedKind, readFolder, useDrop } from '../../lib/drop';
 import { tr, trn } from '../../i18n';
+import { importDocuments, isDocumentFile, useDocOpen } from '../../lib/documents';
 
 /**
  * Files and folders dropped anywhere on the control window (1.14.0-beta.1, the author's Q14):
@@ -15,9 +16,12 @@ import { tr, trn } from '../../i18n';
  */
 export function useMediaDrop({
   openMedia,
+  openDocs,
   enabled,
 }: {
   openMedia: (tab: MediaTab) => void;
+  /** «Документи» (1.17.0-beta.1): a dropped .docx / .md / .txt goes there */
+  openDocs: () => void;
   /** the leading control window with its server (a standby window or the desk adds nothing) */
   enabled: boolean;
 }) {
@@ -26,8 +30,8 @@ export function useMediaDrop({
   // the overlay goes when no dragover came for a moment: an enter / leave count stuck when a node
   // under the pointer went away mid-drag, or Esc ended the drag outside (review)
   const quiet = useRef(0);
-  const live = useRef({ openMedia, enabled });
-  live.current = { openMedia, enabled };
+  const live = useRef({ openMedia, openDocs, enabled });
+  live.current = { openMedia, openDocs, enabled };
 
   useEffect(() => {
     const files = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
@@ -78,6 +82,7 @@ export function useMediaDrop({
     const { openMedia } = live.current;
     const images: File[] = [];
     const videos: File[] = [];
+    const docs: File[] = [];
     const others: string[] = [];
     const folders: FileSystemDirectoryEntry[] = [];
     for (const { entry, file } of entries) {
@@ -86,12 +91,13 @@ export function useMediaDrop({
         const kind = droppedKind(file);
         if (kind === 'image') images.push(file);
         else if (kind === 'video') videos.push(file);
+        else if (isDocumentFile(file.name)) docs.push(file);
         else others.push(file.name);
       }
     }
     if (others.length > 0)
       notifications.show({
-        message: tr('Не зображення й не відео — не додано: {names}', {
+        message: tr('Не зображення, не відео й не документ — не додано: {names}', {
           names: others.slice(0, 3).join(', '),
         }),
         color: 'gray',
@@ -102,6 +108,11 @@ export function useMediaDrop({
     }
     for (const dir of folders) await folderToAlbum(dir);
     for (const v of videos) await fileToVideo(v);
+    if (docs.length > 0) {
+      live.current.openDocs();
+      const last = await importDocuments(docs, queryClient);
+      if (last != null) useDocOpen.getState().open(last);
+    }
   };
 
   const folderToAlbum = async (dir: FileSystemDirectoryEntry) => {

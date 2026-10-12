@@ -12,6 +12,7 @@ import { notifications } from '@mantine/notifications';
 import { api, type SongStyle, type Translation } from '../../api';
 import { type Appearance } from '../../settingsStore';
 import {
+  type SeqDoc,
   type SeqImage,
   type SeqItem,
   type SeqLoop,
@@ -63,6 +64,8 @@ export function useRunningOrder({
   setLive,
   openSong,
   setSongsOpen,
+  openDoc,
+  setDocsPanelUnit,
   followItem,
   setSongsPanelStanza,
   playlistRelinkSong,
@@ -98,6 +101,9 @@ export function useRunningOrder({
   setLive: (live: boolean) => void;
   openSong: (id: number | null) => void;
   setSongsOpen: (v: boolean | ((open: boolean) => boolean)) => void;
+  /** «Документи» (1.17.0-beta.1): open a document, mark its unit on screen */
+  openDoc: (id: number | null) => void;
+  setDocsPanelUnit: (unit: number | null) => void;
   /** the item's mode (1.8.12-beta.7): a passage — «Біблія», a text or a picture — «Медіа» */
   followItem: (kind: SeqItem['kind']) => void;
   setSongsPanelStanza: (stanza: number | null) => void;
@@ -228,6 +234,41 @@ export function useRunningOrder({
     }
   };
 
+  // A document (1.17.0-beta.1): open it in «Документи» and put its first unit on screen — by its
+  // id, or by its file's path when the library numbered it anew
+  const activateDoc = async (it: SeqDoc) => {
+    try {
+      const list = await queryClient.fetchQuery({
+        queryKey: ['documents'],
+        queryFn: api.documents,
+      });
+      const found = list.find((d) => d.id === it.docId) ?? list.find((d) => d.file === it.file);
+      if (!found) {
+        notifications.show({
+          message: tr('Документа «{name}» уже немає в папці документів', { name: it.label }),
+          color: 'orange',
+        });
+        return;
+      }
+      openDoc(found.id);
+      const d = await queryClient.fetchQuery({
+        queryKey: ['document', found.id],
+        queryFn: () => api.document(found.id),
+      });
+      const first = d.body[0];
+      if (!first) return;
+      projectText(first.text, d.title, null, {
+        kind: 'doc',
+        docId: d.id,
+        unit: 0,
+        total: d.body.length,
+      });
+      setDocsPanelUnit(0);
+    } catch {
+      /* a document that fails to load stays off screen */
+    }
+  };
+
   /**
    * One slide of a «Цикл» on screen (1.10.0-beta.4): a text, a picture or a cover, as their items are.
    * A tick of the loop's clock (`quiet`, 1.10.4 — the Mac's round) changes the screen and only a
@@ -299,6 +340,7 @@ export function useRunningOrder({
     else if (it.kind === 'album') void startAlbum(it.albumId, it.fit, it.label);
     else if (it.kind === 'video') void startVideo(it.videoId, it.fit, it.label);
     else if (it.kind === 'song') void activateSong(it);
+    else if (it.kind === 'doc') void activateDoc(it);
     else if (it.kind === 'countdown') {
       // its own length, words and zero, on the cover on screen (an item's) or the settings' one
       countdownStartRef.current?.(

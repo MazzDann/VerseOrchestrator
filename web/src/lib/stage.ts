@@ -74,6 +74,7 @@ export function placeWords(src: SlideSource | undefined | null): string {
   if (src.kind === 'song')
     return tr('строфа {n} з {total}', { n: src.stanza + 1, total: src.total });
   if (src.kind === 'album') return tr('фото {n} з {total}', { n: src.index + 1, total: src.total });
+  if (src.kind === 'doc') return tr('абзац {n} з {total}', { n: src.unit + 1, total: src.total });
   return '';
 }
 

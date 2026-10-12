@@ -25,6 +25,8 @@ export const SEGMENT_TABLES = [
   'commentaries',
   'songs',
   'song_slides',
+  'documents',
+  'doc_units',
 ] as const;
 
 /**

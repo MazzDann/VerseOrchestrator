@@ -53,6 +53,19 @@ The queries branch on `dialect` only for schema probes and text search. A parity
 real data, every query without a row limit returned identical results on all three
 engines.
 
+**Documents (1.17).** The schema is not only the Bible's: `documents` and `doc_units` hold
+any structured text — a heading opens a section, the units under it (paragraphs, quotes, list
+items) are shown one at a time like verses (`section` = the `ord` of the heading above). The
+source is the folder `modules/documents`: `shared/src/documents/parse.ts` reads `.docx` (the
+`word/document.xml` runs and the style names in `word/styles.xml`), Markdown and plain text;
+`documents/node.ts` brings the tables in line with the folder, reading again only files whose
+size, modification time or reader version changed (an unchanged folder costs a directory
+listing; three small files read in 16 ms). The server watches the folder (`fs.watch`, a 1.5 s
+quiet period) and writes through a short-lived connection while its own stays read-only; the
+builder fills the tables as one of its steps. The DDL (`DOCS_SCHEMA_SQL`) is the same text for
+both engines, so an older library or PGlite snapshot gets the tables on the next refresh or
+open (`PG_ADDED_SQL`). The `docs` segment carries them to the browser engines.
+
 Normalization (`shared/src/normalize.ts`) happens once, when the library is built: the module
 markup goes (Strong's numbers, footnotes, and morphology codes with their content), letters
 are lowercased, accents and other combining marks are removed (й → и, ї → і), and
@@ -63,7 +76,7 @@ doesn't depend on an engine's collation.
 
 The whole server library doesn't fit a browser: it was 636 MB when the browser engines
 were added. So the builder also writes **segments** (`npm run build:segments`), one gzipped
-SQLite file per translation, dictionary, study set, and song collection, with a manifest
+SQLite file per translation, dictionary, study set, song collection, and the documents, with a manifest
 that lists their SHA-256 hashes. The browser downloads only the segments you choose,
 checks them against the manifest, keeps them in Cache Storage by hash, and merges them
 into its local database (`shared/src/library/merge.ts`).

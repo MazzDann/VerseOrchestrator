@@ -28,6 +28,18 @@ export interface SeqSong {
   faithful: boolean; // project faithfully (pptx look) or as plain text
 }
 
+/**
+ * A document (1.17.0-beta.1): it opens at its first unit — the file's path finds it again when the
+ * library numbered it anew.
+ */
+export interface SeqDoc {
+  kind: 'doc';
+  id: string;
+  label: string; // the document's title
+  docId: number;
+  file: string;
+}
+
 export interface SeqText {
   kind: 'text';
   id: string;
@@ -137,6 +149,7 @@ export interface SeqForeign {
 export type SeqItem =
   | SeqPassage
   | SeqSong
+  | SeqDoc
   | SeqText
   | SeqImage
   | SeqAlbum
@@ -149,6 +162,7 @@ export type SeqItem =
 export type NewSeqItem =
   | Omit<SeqPassage, 'id'>
   | Omit<SeqSong, 'id'>
+  | Omit<SeqDoc, 'id'>
   | Omit<SeqText, 'id'>
   | Omit<SeqImage, 'id'>
   | Omit<SeqAlbum, 'id'>
@@ -181,6 +195,7 @@ export const KIND_SINCE: Record<Exclude<SeqItem['kind'], 'foreign'>, string> = {
   cover: '1.10.0-beta.2',
   countdown: '1.10.0-beta.3',
   loop: '1.10.0-beta.4',
+  doc: '1.17.0-beta.1',
 };
 /** From this version on, an item of a kind the version doesn't know is passed over. */
 export const FIRST_FOREIGN_SAFE = '1.9.1';

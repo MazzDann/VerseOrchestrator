@@ -27,6 +27,7 @@ import { strongLangFor } from '@vo/shared';
 import { SearchPanel } from '../components/SearchPanel';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { SongsPanel } from '../components/SongsPanel';
+import { DocumentsPanel } from '../components/DocumentsPanel';
 import { TextPanel } from '../components/TextPanel';
 import { FloatingPanel } from '../components/FloatingPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
@@ -95,7 +96,7 @@ import { ShowList, type ShowTab } from '../components/ShowList';
 import { SearchField } from './control/SearchField';
 
 /** What the control window works with (1.8.12-beta.7, F1005-12 / 15). */
-export type Workspace = 'bible' | 'songs' | 'media';
+export type Workspace = 'bible' | 'songs' | 'docs' | 'media';
 type Toggle = boolean | ((open: boolean) => boolean);
 const toggled = (v: Toggle, was: boolean) => (typeof v === 'function' ? v(was) : v);
 
@@ -255,6 +256,7 @@ export function Control() {
       if (kind === 'passage') toBible();
       else if (kind === 'text') setTextOpen(true);
       else if (kind === 'image') setPlace({ ws: 'media', tab: 'images' });
+      else if (kind === 'doc') setPlace((p) => ({ ...p, ws: 'docs' }));
       // a «Заставка», «Відлік» or «Цикл» has no panel of its own (1.10.5, the Mac's round): it
       // leaves «Пісні» and an open album — they kept ←/→, the clicker and the remote, and their next
       // stanza or photo went over the item instead of the running order moving on
@@ -336,6 +338,13 @@ export function Control() {
     setSongsPanelSongId(id);
     setSongsPanelStanza(null);
   };
+  // «Документи» (1.17.0-beta.1): the open document and its unit on screen, as the song's
+  const [docsPanelDocId, setDocsPanelDocId] = useState<number | null>(null);
+  const [docsPanelUnit, setDocsPanelUnit] = useState<number | null>(null);
+  const openDoc = useCallback((id: number | null) => {
+    setDocsPanelDocId(id);
+    setDocsPanelUnit(null);
+  }, []);
   // Last song/text/Strong projection shown in the preview (so the preview reflects
   // songs and free text, not only the verse selection). Cleared on navigation.
   const [previewOverride, setPreviewOverride] = useState<Slide | null>(null);
@@ -623,6 +632,8 @@ export function Control() {
     setLive,
     openSong,
     setSongsOpen,
+    openDoc,
+    setDocsPanelUnit,
     setSongsPanelStanza,
     playlistRelinkSong,
     projectText,
@@ -645,6 +656,7 @@ export function Control() {
   const {
     addCurrentPassage,
     addSongToPlaylist,
+    addDocToPlaylist,
     addAlbumToPlaylist,
     addVideoToPlaylist,
     addTextToPlaylist,
@@ -1164,6 +1176,7 @@ export function Control() {
   // hook: it starts no effect the others wait for
   const { dragging } = useMediaDrop({
     openMedia: (tab) => setPlace({ ws: 'media', tab }),
+    openDocs: () => setPlace((p) => ({ ...p, ws: 'docs' })),
     enabled: isLeader && serverAvailable !== false,
   });
 
@@ -1354,6 +1367,21 @@ export function Control() {
               onSongEnd={songEnd}
               onPastEnd={(dir, songId, held) =>
                 pastItemRef.current?.(dir, { kind: 'song', songId }, held) ?? null
+              }
+            />
+            <DocumentsPanel
+              open={workspace === 'docs'}
+              listSlot={songListSlot}
+              onProjectUnit={(text, ref, source) => projectText(text, ref, null, source)}
+              docId={docsPanelDocId}
+              onDocIdChange={openDoc}
+              activeUnit={docsPanelUnit}
+              onActiveUnitChange={setDocsPanelUnit}
+              onAddToPlaylist={addDocToPlaylist}
+              keysPaused={paletteOpen || moreShown || toolOpen}
+              onDocEnd={songEnd}
+              onPastEnd={(dir, docId, held) =>
+                pastItemRef.current?.(dir, { kind: 'doc', docId }, held) ?? null
               }
             />
             <TextPanel

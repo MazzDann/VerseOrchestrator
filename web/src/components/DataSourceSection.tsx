@@ -241,9 +241,10 @@ export function DataSourceSection() {
     dictionary: tr('Словники'),
     study: tr('Посилання й коментарі'),
     songs: tr('Пісні'),
+    docs: tr('Документи'),
     vectors: tr('Вектори для пошуку за змістом'),
   };
-  const groups = (['translation', 'dictionary', 'study', 'songs', 'vectors'] as const)
+  const groups = (['translation', 'dictionary', 'study', 'songs', 'docs', 'vectors'] as const)
     .map((k) => ({ k, items: (manifest.data?.segments ?? []).filter((s) => s.kind === k) }))
     .filter((g) => g.items.length > 0);
   const loadedBytes = loaded.reduce((a, s) => a + s.bytes, 0);

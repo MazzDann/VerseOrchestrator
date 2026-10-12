@@ -18,6 +18,7 @@ import { readDictionary } from './dictionary.js';
 import { readCrossrefs, readCommentaries, readSubheadingSet } from './extras.js';
 import { writeLibrarySongs } from '@vo/shared';
 import { bundlesDir, legacySongsDir, readBundles, syncFolderBundle } from '@vo/shared/songs-node';
+import { documentsDir, writeLibraryDocuments } from '@vo/shared/documents-node';
 import { selectModules, SelectionError } from './selection.js';
 import { legacyHash, oldHashes, rekeyVectors, textHash } from './textHash.js';
 
@@ -128,7 +129,7 @@ function buildOnce(): void {
     xrefFiles.length +
     commentaryFiles.length +
     setFiles.length +
-    2;
+    3;
   let at = 0;
   const step = (name: string) => console.log(`[builder] step ${++at}/${steps} ${name}`);
   const moduleName = (file: string) =>
@@ -406,6 +407,13 @@ function buildOnce(): void {
       const names = bundles.map((b) => `«${b.meta.name}» ${b.songs.length}`).join(', ');
       console.log(`[builder]   songs — ${songsIn} from ${names} (${songsDir})`);
     }
+
+    // Documents (1.17.0-beta.1): the files in modules/documents, read afresh
+    step('documents');
+    const docs = writeLibraryDocuments(db, documentsDir(modulesDir), (m) =>
+      console.log(`[builder]   ${m}`),
+    );
+    if (docs.documents > 0) console.log(`[builder]   documents — ${docs.documents}`);
   });
 
   const started = Date.now();

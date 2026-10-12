@@ -121,7 +121,9 @@ function fixtureLibrary(file: string): void {
     INSERT INTO cross_references VALUES (500, 3, 16, 450, 5, 8, 8), (500, 3, 16, 690, 4, 9, 10);
     INSERT INTO commentaries VALUES ('MH', 500, 3, 14, 3, 18, '1', 'Про любов Божу'), ('MH', 500, 4, 1, 4, 1, '', 'Інше');
     INSERT INTO songs VALUES (1, 12, 'Боже Вічний', 'боже вічний', 'ПС'), (2, 120, 'Слава', 'слава', 'ПС');
-    INSERT INTO song_slides VALUES (1, 0, 'Боже Вічний, Боже сили', '{"bg":"#000"}'), (1, 1, 'Другий куплет', NULL);`);
+    INSERT INTO song_slides VALUES (1, 0, 'Боже Вічний, Боже сили', '{"bg":"#000"}'), (1, 1, 'Другий куплет', NULL);
+    INSERT INTO documents VALUES (7, 'Проповідь.docx', 'Проповідь', 'docx', 3, 1200, 1760000000000, 1), (9, 'a/Лекція.md', 'Лекція', 'md', 1, 90, 1760000000001, 1);
+    INSERT INTO doc_units VALUES (7, 0, 'heading', 1, 0, 'Вступ', 'вступ'), (7, 1, 'para', 0, 0, 'Бог є любов', 'бог є любов'), (7, 2, 'quote', 0, 0, 'Ів 3:16', 'ів 3:16'), (9, 0, 'item', 1, -1, 'Перше', 'перше');`);
   db.close();
 }
 
@@ -241,6 +243,20 @@ describe('PostgreSQL (PGlite) answers like SQLite', () => {
     for (const q of ['', '1', '12', 'вічн', 'нема'])
       expect(await postgres.searchSongs(q), q).toEqual(await sqlite.searchSongs(q));
     expect(await postgres.getSong(1)).toEqual(await sqlite.getSong(1));
+  });
+
+  it('documents (1.17.0-beta.1): the list and one document the same way', async () => {
+    const list = await sqlite.listDocuments();
+    expect(list.map((d) => d.title)).toEqual(['Лекція', 'Проповідь']);
+    expect(await postgres.listDocuments()).toEqual(list);
+    const doc = await sqlite.getDocument(7);
+    expect(doc?.body.map((u) => [u.kind, u.section])).toEqual([
+      ['heading', 0],
+      ['para', 0],
+      ['quote', 0],
+    ]);
+    expect(await postgres.getDocument(7)).toEqual(doc);
+    expect(await postgres.getDocument(8)).toBeNull();
   });
 
   it('section titles (1.16.0-beta.2): the same, in order, per translation', async () => {

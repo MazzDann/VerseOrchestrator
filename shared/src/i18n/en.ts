@@ -790,9 +790,10 @@ export const EN: Record<string, string> = {
   'Введіть назву': 'Type a name',
   'Перейменувати «{name}»': 'Rename «{name}»',
   'Відпустіть, щоб додати': 'Drop to add',
-  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео».':
-    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео».',
-  'Не зображення й не відео — не додано: {names}': 'Not a picture or a video — not added: {names}',
+  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt) — у «Документи».':
+    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео», a document (.docx, .md, .txt) goes to «Документи».',
+  'Не зображення, не відео й не документ — не додано: {names}':
+    'Not a picture, a video or a document — not added: {names}',
   'Папка «{name}» порожня': 'The folder «{name}» is empty',
   'Папку «{name}» не знайдено на диску — виберіть її.':
     'The folder «{name}» was not found on the disk — choose it.',
@@ -2337,4 +2338,47 @@ export const EN: Record<string, string> = {
     'The app’s drive has no room for the backup. Free some space and try again.',
   'Відновлювати нічого: у копії немає того, що позначено.':
     'Nothing to restore: the backup holds nothing of what you ticked.',
+  // «Документи» (1.17.0-beta.1)
+  Документи: 'Documents',
+  документи: 'documents',
+  'Документи з папки: абзац за абзацом': 'Documents from the folder, a paragraph at a time',
+  'Документ не знайдено — можливо, файл прибрали з папки':
+    'Document not found — its file may have been taken out of the folder',
+  'Документ ще завантажується': 'The document is still loading',
+  'Кінець документа': 'End of the document',
+  'Це останній абзац': 'This is the last paragraph',
+  'Це перший абзац': 'This is the first paragraph',
+  'Не вдалося прочитати: {names}': 'Couldn’t read: {names}',
+  'Документи перечитано з папки': 'The documents were read from the folder again',
+  'Документ: назва': 'Document: title',
+  'Додати файли .docx, .md або .txt': 'Add .docx, .md or .txt files',
+  'Відкрити папку документів': 'Open the documents folder',
+  'Перечитати папку документів': 'Read the documents folder again',
+  'Нічого не знайдено за «{q}»': 'Nothing found for “{q}”',
+  'Документів ще немає. Натисніть «Додати…» або перетягніть файли .docx, .md чи .txt у вікно; можна й покласти їх у папку документів (кнопка з текою).':
+    'No documents yet. Click “Add…” or drag .docx, .md or .txt files into the window; you can also put them into the documents folder (the folder button).',
+  'Видалити документ (файл — у кошик папки)':
+    'Delete the document (its file goes to the folder’s trash)',
+  'Видалити документ': 'Delete the document',
+  'Виберіть документ ліворуч — його абзаци стануть тут, як строфи пісні.':
+    'Choose a document on the left — its paragraphs appear here, like a song’s stanzas.',
+  '«{file}» — не документ: додаються .docx, .md і .txt':
+    '“{file}” is not a document: .docx, .md and .txt files are added',
+  '«{file}» уже є в документах': '“{file}” is already in the documents',
+  '«{file}» замінено новішим: стару копію відкладено':
+    '“{file}” was replaced with the newer one: the old copy was put aside',
+  'Документ додано: {file}': 'Document added: {file}',
+  'Не вдалося додати «{file}»: {error}': 'Couldn’t add “{file}”: {error}',
+  '{n} документ|{n} документи|{n} документів': '{n} document|{n} documents',
+  'абзац {n} з {total}': 'paragraph {n} of {total}',
+  'Документа «{name}» уже немає в папці документів':
+    'The document “{name}” is no longer in the documents folder',
+  'Бібліотеки ще немає — спершу пересканіть модулі':
+    'There is no library yet — rescan the modules first',
+  'Документ має бути .docx, .md або .txt': 'A document must be a .docx, .md or .txt file',
+  'Не вдалося прочитати «{file}» — у ньому немає тексту або файл пошкоджено':
+    'Couldn’t read “{file}” — it holds no text or the file is damaged',
+  'Така назва файлу не підходить — перейменуйте його': 'This file name won’t do — rename the file',
+  'Не вдалося повернути документ: його місце зайняте або копії вже немає':
+    'Couldn’t bring the document back: its place is taken or the copy is gone',
 };

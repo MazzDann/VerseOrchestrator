@@ -6,7 +6,7 @@ export interface SegmentInfo {
   /** File name in the segments folder, e.g. "t-17.vodb.gz". */
   file: string;
   /** `vectors`: one translation's verse vectors of one model (1.15.0-beta.2) — `title` names the model */
-  kind: 'translation' | 'dictionary' | 'study' | 'songs' | 'vectors';
+  kind: 'translation' | 'dictionary' | 'study' | 'songs' | 'docs' | 'vectors';
   /** translation / dictionary id in the source library (verse ids are global). */
   id?: number;
   abbr: string;

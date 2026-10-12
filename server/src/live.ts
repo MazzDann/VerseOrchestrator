@@ -235,6 +235,11 @@ export function notifyRebuild(job: object): void {
   for (const c of sockets('control')) send(c, { type: 'rebuild', job });
 }
 
+/** The documents changed (1.17.0-beta.1, documents.ts): control windows read the list again. */
+export function notifyDocuments(): void {
+  for (const c of sockets('control')) send(c, { type: 'documents' });
+}
+
 /** «Пошук за змістом» (1.15.0-beta.2): a model or the vectors moved on — control windows look again. */
 export function notifySemantic(state: object): void {
   for (const c of sockets('control')) send(c, { type: 'semantic', state });
