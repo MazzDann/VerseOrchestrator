@@ -156,7 +156,7 @@ Everything the app remembers is in its folder:
 | Path                 | What's there                                                                                             |
 | -------------------- | -------------------------------------------------------------------------------------------------------- |
 | `modules/`           | module files (`*.SQLite3`) the library is built from                                                     |
-| `modules/documents/` | documents (`*.docx`, `*.md`, `*.txt`); `.trash/` keeps the last twenty deleted or replaced               |
+| `modules/documents/` | documents (`*.docx`, `*.md`, `*.txt`, `*.pdf`); `.trash/` keeps the last twenty deleted or replaced      |
 | `songs/`             | songs in presentations (`*.pptx`) that the app moves into a bundle                                       |
 | `data/songs/`        | song bundles (`*.vosongs`)                                                                               |
 | `data/images/`       | images to show: two files for each and `index.json`; in `.trash/`, the last twenty deleted               |
