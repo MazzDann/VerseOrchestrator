@@ -65,6 +65,7 @@ import { HotkeysSettings } from './HotkeysSettings';
 import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
 import { SemanticSection } from './SemanticSection';
+import { DiskSection } from './DiskSection';
 import { SubheadingSetPicker } from './SubheadingSetPicker';
 import { useModulesPanel } from '../lib/modules';
 import { rebuildProgress, useRebuildLibrary } from '../lib/rebuild';
@@ -1151,6 +1152,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             )}
             {/* «Пошук за змістом» (1.15.0-beta.2): «~ …», the model, the vectors */}
             <SemanticSection active={openSections.includes('data')} />
+            {/* «Місце на диску» (1.17.0-beta.4): what the app keeps, and «Прибрати» */}
+            {!inSettingsWindow && <DiskSection active={openSections.includes('data')} />}
           </Section>
 
           <Section

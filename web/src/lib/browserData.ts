@@ -85,6 +85,34 @@ export async function clearBrowserData(): Promise<void> {
   setTimeout(wipe, 500);
 }
 
+/**
+ * The library's caches of this address only (1.17.0-beta.4, «Місце на диску»): the segments in
+ * Cache Storage and the PostgreSQL snapshot in IndexedDB — the settings and the running order in
+ * localStorage stay. The page reloads after it (an open engine holds its database till then).
+ */
+export async function clearBrowserCaches(): Promise<void> {
+  try {
+    for (const k of await caches.keys()) await caches.delete(k);
+  } catch {
+    /* no Cache Storage (plain http on another host) */
+  }
+  try {
+    const dbs = (await indexedDB.databases?.()) ?? [];
+    await Promise.all(
+      dbs.map(
+        (d) =>
+          new Promise<void>((resolve) => {
+            if (!d.name) return resolve();
+            const r = indexedDB.deleteDatabase(d.name);
+            r.onsuccess = r.onerror = r.onblocked = () => resolve();
+          }),
+      ),
+    );
+  } catch {
+    /* no IndexedDB */
+  }
+}
+
 /** Every window of the app listens (main.tsx): when one forgets, the others stop writing. */
 export function listenForForget(): void {
   try {

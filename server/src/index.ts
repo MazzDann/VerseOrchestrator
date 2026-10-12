@@ -66,6 +66,7 @@ import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
 import { createDocuments, openFolder } from './documents.js';
 import { readPdfs } from './pdfReader.js';
+import { dbFiles, diskParts, oldBackups, removeAll, sizeOf } from './diskSpace.js';
 import { createRebuildJob, type BuilderProcess } from './rebuildJob.js';
 import { OPEN_FRESH_MS, createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
 import { readLayout } from './layout.js';
@@ -2672,6 +2673,80 @@ app.post(
       : null;
     vectors.start(model, ids);
     res.json(semanticState());
+  }),
+);
+
+// --- «Місце на диску» (1.17.0-beta.4, diskSpace.ts): what the app keeps, and «Прибрати» -------
+
+const diskPlaces = () => ({
+  dataDir,
+  modulesDir: modulesDir(),
+  documentsDir: documents.dir(),
+  libraryPath,
+  top: releaseTop,
+});
+app.get(
+  '/api/disk',
+  requireLocal,
+  wrap(async (_req, res) => {
+    const started = Date.now();
+    const parts = await diskParts(diskPlaces());
+    res.json({ parts, ms: Date.now() - started });
+  }),
+);
+app.post(
+  '/api/disk/clean',
+  requireLocalControl,
+  json,
+  wrap(async (req, res) => {
+    const id = String(req.body?.id ?? '');
+    const sub = String(req.body?.sub ?? '');
+    const d = (...parts: string[]) => path.join(dataDir, ...parts);
+    let freed = 0;
+    if (id === 'previous' || id === 'updates') {
+      if (!installer || !releaseTop) throw new ApiError(404, N_('Цього тут немає'));
+      refuseIfNotNow(installer);
+      if (id === 'previous')
+        freed = await removeAll(
+          ['app.previous', 'app.previous.old', 'app.failed'].map((f) => path.join(releaseTop, f)),
+        );
+      else {
+        const before = await sizeOf(installer.updatesDir);
+        installer.tidy();
+        freed = before - (await sizeOf(installer.updatesDir));
+      }
+    } else if (id === 'vectors' || id === 'models') {
+      if (rebuild.running()) throw new ApiError(409, N_('Зачекайте, доки бібліотека збереться'));
+      if (coresTest.running())
+        throw new ApiError(409, N_('Зачекайте, доки закінчиться перевірка ядер'));
+      if (vectors.running())
+        throw new ApiError(409, N_('Зачекайте, доки обчисляться вектори, або зупиніть їх'));
+      if (id === 'vectors') {
+        closeDb(); // the library's connection holds vectors.db attached
+        freed = await removeAll(dbFiles(d('vectors.db')));
+      } else {
+        if (!isEmbedModelId(sub)) throw new ApiError(404, N_('Немає такої моделі'));
+        freed = await sizeOf(d('models', sub));
+        if (getServerSettings().semantic.model === sub) await queryEmbedder.release();
+        await models.remove(sub);
+      }
+      notifySemantic({});
+    } else if (id === 'backups-old') {
+      freed = await oneAtATime(async () => removeAll(await oldBackups(backupsDir(dataDir))));
+    } else {
+      const places: Partial<Record<string, string>> = {
+        'album-cache': d('album-cache'),
+        'video-cache': d('video-cache'),
+        'images-trash': d('images', '.trash'),
+        'documents-trash': path.join(documents.dir(), '.trash'),
+        'logs-old': d('standby.log.old'),
+      };
+      const at = places[id];
+      if (!at) throw new ApiError(400, N_('Цього прибрати не можна'));
+      freed = await removeAll([at]);
+    }
+    console.log(`[server] disk: «${id}${sub ? ` ${sub}` : ''}» removed, ${freed} bytes freed`);
+    res.json({ freed });
   }),
 );
 app.post('/api/semantic/stop', requireLocalControl, (_req, res) => {
