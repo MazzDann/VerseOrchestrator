@@ -4,12 +4,15 @@ A document is a text file of yours that the app shows one paragraph at a time: a
 lecture, a talk, notes. The document's headings split it into sections, and each paragraph,
 quote or list item becomes a slide of its own — the way a song's stanza does.
 
-The app reads three formats:
+The app reads four formats:
 
 - **Word** (`.docx`): headings are paragraphs in the “Heading 1”, “Heading 2” and other
   heading styles, and in “Title” and “Subtitle”. Paragraphs in a “Quote” style become quotes,
   numbered and bulleted lists become items.
 - **Markdown** (`.md`): `#` headings, `>` quotes, `-`, `*` or `1.` items.
+- **PDF** (`.pdf`): headings are lines in a clearly bigger font; the app rebuilds paragraphs from
+  indents and the space between lines, joins hyphenated words, and skips page numbers and running
+  headers. A scanned PDF (only pictures of pages) holds no text — the app doesn't add it.
 - **Plain text** (`.txt`): an empty line separates paragraphs. With no empty lines at all, each
   line is a paragraph. Files in UTF-8, UTF-16 and Windows-1251 read the same.
 
@@ -33,7 +36,7 @@ There are three ways to add a document:
 
 - Put the files into the documents folder. To open it, click **Documents** at the top, then the
   folder icon **Open the documents folder** on the left.
-- Drag `.docx`, `.md` or `.txt` files into the control window. The app copies them into the
+- Drag `.docx`, `.md`, `.txt` or `.pdf` files into the control window. The app copies them into the
   documents folder and opens the last one.
 - Click **Documents** at the top, then **Add…**, and choose the files.
 

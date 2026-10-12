@@ -21,7 +21,8 @@ export interface ParsedDocument {
   units: DocUnit[];
 }
 
-export type DocumentKind = 'docx' | 'md' | 'txt';
+/** `pdf` (1.17.0-beta.3) is read by the server apart (pdf.js in a child process, pdf.ts) */
+export type DocumentKind = 'docx' | 'md' | 'txt' | 'pdf';
 
 /** The version of these readers: a document read by an older one is read again. */
 /** 2 — 1.17.0-beta.2: Bible references found in the units */
@@ -39,7 +40,7 @@ export function documentKind(fileName: string): DocumentKind | null {
   const base = fileName.replace(/^.*[\\/]/, '');
   // Word's lock files («~$проповідь.docx») and a Mac's resource forks («._x.md») are not documents
   if (base.startsWith('~$') || base.startsWith('._') || base.startsWith('.')) return null;
-  const m = /\.(docx|md|markdown|txt)$/i.exec(base);
+  const m = /\.(docx|md|markdown|txt|pdf)$/i.exec(base);
   if (!m) return null;
   const ext = m[1].toLowerCase();
   return ext === 'markdown' ? 'md' : (ext as DocumentKind);
@@ -49,7 +50,7 @@ export function documentKind(fileName: string): DocumentKind | null {
 export function documentTitle(fileName: string): string {
   return fileName
     .replace(/^.*[\\/]/, '')
-    .replace(/\.(docx|md|markdown|txt)$/i, '')
+    .replace(/\.(docx|md|markdown|txt|pdf)$/i, '')
     .normalize('NFC')
     .trim();
 }
@@ -57,7 +58,7 @@ export function documentTitle(fileName: string): string {
 /** Read a document file; null when it isn't readable or holds no text. */
 export function parseDocument(bytes: Uint8Array, fileName: string): ParsedDocument | null {
   const kind = documentKind(fileName);
-  if (!kind) return null;
+  if (!kind || kind === 'pdf') return null;
   const units =
     kind === 'docx'
       ? readDocx(bytes)

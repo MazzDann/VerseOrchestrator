@@ -41,7 +41,9 @@ export async function importDocuments(
   for (const file of files) {
     if (!isDocumentFile(file.name)) {
       notifications.show({
-        message: tr('«{file}» — не документ: додаються .docx, .md і .txt', { file: file.name }),
+        message: tr('«{file}» — не документ: додаються .docx, .md, .txt і .pdf', {
+          file: file.name,
+        }),
         color: 'gray',
       });
       continue;

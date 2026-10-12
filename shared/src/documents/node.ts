@@ -3,7 +3,14 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { normalizeForSearch } from '../normalize.js';
 import { DOCS_SCHEMA_SQL } from '../library/schema.js';
-import { DOC_READER, documentKind, documentTitle, parseDocument, type DocUnit } from './parse.js';
+import {
+  DOC_READER,
+  documentKind,
+  documentTitle,
+  parseDocument,
+  type DocUnit,
+  type ParsedDocument,
+} from './parse.js';
 import { bookResolver, scanReferences } from './refs.js';
 
 /**
@@ -105,14 +112,42 @@ export function docSections(units: Pick<DocUnit, 'kind'>[]): number[] {
   return units.map((u, i) => (u.kind === 'heading' ? (at = i) : at));
 }
 
+const stale = (d: StoredDoc | undefined, f: DocumentFile) =>
+  !d || d.size !== f.size || d.mtime !== f.mtime || d.reader !== DOC_READER;
+
+/**
+ * The files of a kind the library doesn't hold as they are now — a PDF is read apart, in a child
+ * process (1.17.0-beta.3): the caller reads these and hands them to writeLibraryDocuments.
+ */
+export function pendingDocuments(libraryPath: string, dir: string, kind: string): DocumentFile[] {
+  const files = listDocumentFiles(dir).filter((f) => documentKind(f.file) === kind);
+  if (files.length === 0) return [];
+  const db = new Database(libraryPath, { readonly: true, fileMustExist: true });
+  try {
+    const has = db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'documents'")
+      .get();
+    const stored = has
+      ? (db.prepare('SELECT id, file, size, mtime, reader FROM documents').all() as StoredDoc[])
+      : [];
+    const byFile = new Map(stored.map((d) => [d.file, d]));
+    return files.filter((f) => stale(byFile.get(f.file), f));
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * Bring the library's documents in line with the folder. `lib` is a writable connection to the
  * library (the builder's, inside or outside its transaction, or the server's short-lived one).
+ * `pre`: documents read already (a PDF, by the server's child process) — a PDF not in it is left
+ * as the library holds it (the builder reads none: the server reads them after a rebuild).
  */
 export function writeLibraryDocuments(
   lib: Database.Database,
   dir: string,
   log: (msg: string) => void = () => {},
+  pre?: ReadonlyMap<string, ParsedDocument | null>,
 ): DocumentsRefresh {
   lib.exec(DOCS_SCHEMA_SQL);
   const stored = lib
@@ -124,17 +159,18 @@ export function writeLibraryDocuments(
   const toRead: DocumentFile[] = [];
   for (const f of files) {
     seen.add(f.file);
-    const d = byFile.get(f.file);
-    if (!d || d.size !== f.size || d.mtime !== f.mtime || d.reader !== DOC_READER) toRead.push(f);
+    if (documentKind(f.file) === 'pdf' && !pre?.has(f.file)) continue;
+    if (stale(byFile.get(f.file), f)) toRead.push(f);
   }
   const gone = stored.filter((d) => !seen.has(d.file));
   const failed: string[] = [];
   // read the files before taking the write lock: the server keeps reading meanwhile
   const parsed = toRead.flatMap((f) => {
     const p = documentPath(dir, f.file);
-    let doc = null;
+    let doc: ParsedDocument | null = null;
     try {
-      doc = p ? parseDocument(fs.readFileSync(p), f.file) : null;
+      if (pre?.has(f.file)) doc = pre.get(f.file) ?? null;
+      else doc = p ? parseDocument(fs.readFileSync(p), f.file) : null;
     } catch {
       doc = null;
     }
@@ -229,11 +265,12 @@ export function refreshLibraryDocuments(
   libraryPath: string,
   dir: string,
   log?: (msg: string) => void,
+  pre?: ReadonlyMap<string, ParsedDocument | null>,
 ): DocumentsRefresh {
   const db = new Database(libraryPath, { fileMustExist: true });
   try {
     db.pragma('busy_timeout = 5000'); // the server may be reading
-    return writeLibraryDocuments(db, dir, log);
+    return writeLibraryDocuments(db, dir, log, pre);
   } finally {
     db.close();
   }

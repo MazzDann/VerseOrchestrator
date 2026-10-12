@@ -303,7 +303,7 @@ export function DocumentsPanel({
           leftSection={<IconFilePlus size={14} />}
           loading={adding}
           disabled={noServer}
-          title={serverTip(tr('Додати файли .docx, .md або .txt'))}
+          title={serverTip(tr('Додати файли .docx, .md, .txt або .pdf'))}
           onClick={() => fileInput.current?.click()}
         >
           {tr('Додати…')}
@@ -338,7 +338,7 @@ export function DocumentsPanel({
           type="file"
           multiple
           hidden
-          accept=".docx,.md,.markdown,.txt"
+          accept=".docx,.md,.markdown,.txt,.pdf"
           onChange={(e) => {
             const files = [...(e.currentTarget.files ?? [])];
             e.currentTarget.value = '';
@@ -428,7 +428,7 @@ export function DocumentsPanel({
         {!query.trim() && docs.length === 0 && listQuery.isSuccess && (
           <Text size="sm" c="dimmed" p="sm">
             {tr(
-              'Документів ще немає. Натисніть «Додати…» або перетягніть файли .docx, .md чи .txt у вікно; можна й покласти їх у папку документів (кнопка з текою).',
+              'Документів ще немає. Натисніть «Додати…» або перетягніть файли .docx, .md, .txt чи .pdf у вікно; можна й покласти їх у папку документів (кнопка з текою).',
             )}
           </Text>
         )}

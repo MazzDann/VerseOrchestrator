@@ -790,8 +790,8 @@ export const EN: Record<string, string> = {
   'Введіть назву': 'Type a name',
   'Перейменувати «{name}»': 'Rename «{name}»',
   'Відпустіть, щоб додати': 'Drop to add',
-  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt) — у «Документи».':
-    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео», a document (.docx, .md, .txt) goes to «Документи».',
+  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt, .pdf) — у «Документи».':
+    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео», a document (.docx, .md, .txt, .pdf) goes to «Документи».',
   'Не зображення, не відео й не документ — не додано: {names}':
     'Not a picture, a video or a document — not added: {names}',
   'Папка «{name}» порожня': 'The folder «{name}» is empty',
@@ -2351,19 +2351,19 @@ export const EN: Record<string, string> = {
   'Не вдалося прочитати: {names}': 'Couldn’t read: {names}',
   'Документи перечитано з папки': 'The documents were read from the folder again',
   'Документ: назва': 'Document: title',
-  'Додати файли .docx, .md або .txt': 'Add .docx, .md or .txt files',
+  'Додати файли .docx, .md, .txt або .pdf': 'Add .docx, .md, .txt or .pdf files',
   'Відкрити папку документів': 'Open the documents folder',
   'Перечитати папку документів': 'Read the documents folder again',
   'Нічого не знайдено за «{q}»': 'Nothing found for “{q}”',
-  'Документів ще немає. Натисніть «Додати…» або перетягніть файли .docx, .md чи .txt у вікно; можна й покласти їх у папку документів (кнопка з текою).':
-    'No documents yet. Click “Add…” or drag .docx, .md or .txt files into the window; you can also put them into the documents folder (the folder button).',
+  'Документів ще немає. Натисніть «Додати…» або перетягніть файли .docx, .md, .txt чи .pdf у вікно; можна й покласти їх у папку документів (кнопка з текою).':
+    'No documents yet. Click “Add…” or drag .docx, .md, .txt or .pdf files into the window; you can also put them into the documents folder (the folder button).',
   'Видалити документ (файл — у кошик папки)':
     'Delete the document (its file goes to the folder’s trash)',
   'Видалити документ': 'Delete the document',
   'Виберіть документ ліворуч — його абзаци стануть тут, як строфи пісні.':
     'Choose a document on the left — its paragraphs appear here, like a song’s stanzas.',
-  '«{file}» — не документ: додаються .docx, .md і .txt':
-    '“{file}” is not a document: .docx, .md and .txt files are added',
+  '«{file}» — не документ: додаються .docx, .md, .txt і .pdf':
+    '“{file}” is not a document: .docx, .md, .txt and .pdf files are added',
   '«{file}» уже є в документах': '“{file}” is already in the documents',
   '«{file}» замінено новішим: стару копію відкладено':
     '“{file}” was replaced with the newer one: the old copy was put aside',
@@ -2375,7 +2375,8 @@ export const EN: Record<string, string> = {
     'The document “{name}” is no longer in the documents folder',
   'Бібліотеки ще немає — спершу пересканіть модулі':
     'There is no library yet — rescan the modules first',
-  'Документ має бути .docx, .md або .txt': 'A document must be a .docx, .md or .txt file',
+  'Документ має бути .docx, .md, .txt або .pdf':
+    'A document must be a .docx, .md, .txt or .pdf file',
   'Не вдалося прочитати «{file}» — у ньому немає тексту або файл пошкоджено':
     'Couldn’t read “{file}” — it holds no text or the file is damaged',
   'Така назва файлу не підходить — перейменуйте його': 'This file name won’t do — rename the file',

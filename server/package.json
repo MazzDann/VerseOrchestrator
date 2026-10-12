@@ -13,6 +13,7 @@
     "better-sqlite3": "^12.11.1",
     "express": "^4.21.2",
     "onnxruntime-node": "^1.30.0",
+    "unpdf": "1.8.1",
     "tsx": "^4.19.2",
     "ws": "^8.21.3"
   },

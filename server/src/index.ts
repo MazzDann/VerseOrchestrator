@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -64,6 +65,7 @@ import {
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
 import { createDocuments, openFolder } from './documents.js';
+import { readPdfs } from './pdfReader.js';
 import { createRebuildJob, type BuilderProcess } from './rebuildJob.js';
 import { OPEN_FRESH_MS, createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
 import { readLayout } from './layout.js';
@@ -223,11 +225,7 @@ const rebuild = createRebuildJob({
     closeDb(); // the next read opens the new library
     // a file put into the documents folder while the builder ran
     setTimeout(() => {
-      try {
-        documents.refresh();
-      } catch (err) {
-        console.warn(`[server] documents: ${(err as Error).message}`);
-      }
+      documents.refresh().catch((err: Error) => console.warn(`[server] documents: ${err.message}`));
     }, 0).unref();
   },
   onChange: (s) => {
@@ -2346,12 +2344,20 @@ const documents = createDocuments({
   notify: notifyDocuments,
   log: (m) => console.log(`[server] ${m}`),
 });
-try {
-  documents.refresh();
-} catch (err) {
-  console.warn(`[server] documents: ${(err as Error).message}`);
-}
+documents.refresh().catch((err: Error) => console.warn(`[server] documents: ${err.message}`));
 documents.watch();
+
+/** Does a dropped file read as a document? A PDF is tried in the reader's child (1.17.0-beta.3). */
+async function readableDocument(bytes: Uint8Array, name: string): Promise<boolean> {
+  if (documentKind(name) !== 'pdf') return !!parseDocument(bytes, name);
+  const tmp = path.join(os.tmpdir(), `vo-doc-${process.pid}-${Date.now()}.pdf`);
+  fs.writeFileSync(tmp, bytes);
+  try {
+    return (await readPdfs([{ file: name, path: tmp }])).get(name) != null;
+  } finally {
+    fs.rmSync(tmp, { force: true });
+  }
+}
 
 /** a document's file by its id in the library */
 async function documentFile(idParam: string): Promise<string> {
@@ -2412,8 +2418,9 @@ app.post(
       throw new ApiError(409, N_('Бібліотеки ще немає — спершу пересканіть модулі'));
     const name = String(req.query.name ?? '');
     const bytes = req.body instanceof Buffer ? new Uint8Array(req.body) : new Uint8Array();
-    if (!documentKind(name)) throw new ApiError(400, N_('Документ має бути .docx, .md або .txt'));
-    if (!parseDocument(bytes, name))
+    if (!documentKind(name))
+      throw new ApiError(400, N_('Документ має бути .docx, .md, .txt або .pdf'));
+    if (!(await readableDocument(bytes, name)))
       throw new ApiError(
         400,
         N_('Не вдалося прочитати «{file}» — у ньому немає тексту або файл пошкоджено'),
@@ -2423,7 +2430,7 @@ app.post(
       );
     const added = addDocumentFile(documents.dir(), name, bytes);
     if (!added) throw new ApiError(400, N_('Така назва файлу не підходить — перейменуйте його'));
-    documents.refresh();
+    await documents.refresh();
     const doc = (await library().listDocuments()).find((x) => x.file === added.file) ?? null;
     res.json({ ...added, id: doc?.id ?? null });
   }),
@@ -2437,7 +2444,7 @@ app.delete(
     const trashed = trashDocument(documents.dir(), file);
     if (!trashed)
       throw new ApiError(404, N_('Документ не знайдено — можливо, файл прибрали з папки'));
-    documents.refresh();
+    await documents.refresh();
     res.json({ trashed });
   }),
 );
@@ -2454,7 +2461,7 @@ app.post(
         409,
         N_('Не вдалося повернути документ: його місце зайняте або копії вже немає'),
       );
-    documents.refresh();
+    await documents.refresh();
     res.json({ file });
   }),
 );
@@ -2464,7 +2471,7 @@ app.post(
   wrap(async (_req, res) => {
     notDuringRebuild();
     documents.watch(); // a folder made or moved meanwhile
-    const r = documents.refresh();
+    const r = await documents.refresh();
     res.json(r ?? { documents: 0, read: 0, removed: 0, failed: [], changed: false });
   }),
 );
