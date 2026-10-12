@@ -1344,28 +1344,6 @@ export const api = {
     return RebuildStateSchema.parse(await res.json());
   },
   rebuildState: () => getJson('/api/rebuild', RebuildStateSchema),
-  /** «Модулі» (1.15.0-beta.1): Module's catalog, kept by the server a day (`refresh` asks again) */
-  catalog: (refresh = false) =>
-    getJson(`/api/catalog${refresh ? '?refresh=1' : ''}`, CatalogSchema),
-  catalogQueue: () => getJson('/api/catalog/queue', CatalogQueueSchema),
-  downloadModule: async (fil: string): Promise<CatalogQueue> => {
-    const res = await request('/api/catalog/download', {
-      method: 'POST',
-      headers: { ...CONTROL_HEADERS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fil }),
-    });
-    if (!res.ok) throw await failure(res);
-    return CatalogQueueSchema.parse(await res.json());
-  },
-  cancelDownload: async (fil: string): Promise<CatalogQueue> => {
-    const res = await request('/api/catalog/cancel', {
-      method: 'POST',
-      headers: { ...CONTROL_HEADERS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fil }),
-    });
-    if (!res.ok) throw await failure(res);
-    return CatalogQueueSchema.parse(await res.json());
-  },
   /** «Пошук за змістом» (1.15.0-beta.2): the models, the vectors of each translation, the job */
   semantic: () => getJson('/api/semantic', SemanticSchema),
   setSemanticModel: (model: EmbedModelId | null) => sendSemantic('/api/semantic', 'PUT', { model }),
@@ -1471,7 +1449,7 @@ async function sendSemantic(url: string, method: string, body?: object): Promise
   return SemanticSchema.parse(await res.json());
 }
 
-/** «Модулі» (1.15.0-beta.1, server/src/catalog.ts). */
+/** «Модулі» (server/src/moduleFiles.ts). */
 export const MODULE_KIND_IDS = [
   'bibles',
   'dictionaries',
@@ -1481,45 +1459,6 @@ export const MODULE_KIND_IDS = [
 ] as const;
 export type ModuleKindId = (typeof MODULE_KIND_IDS)[number];
 const ModuleKindSchema = z.enum(MODULE_KIND_IDS);
-export const CatalogRowSchema = z.object({
-  fil: z.string(),
-  abbr: z.string(),
-  kind: ModuleKindSchema,
-  lang: z.string(),
-  title: z.string(),
-  titles: z.record(z.string()).optional(),
-  size: z.number(),
-  updated: z.string(),
-  info: z.string().optional(),
-  licence: z.string().optional(),
-  region: z.string().optional(),
-});
-export type CatalogRow = z.infer<typeof CatalogRowSchema>;
-const CatalogSchema = z.object({
-  version: z.number(),
-  fetchedAt: z.number(),
-  stale: z.boolean().optional(),
-  entries: z.array(CatalogRowSchema),
-});
-const KeyedNoteSchema = z.object({ key: z.string(), vars: z.record(z.string()).optional() });
-export const CatalogQueueSchema = z.object({
-  items: z.array(
-    z.object({
-      fil: z.string(),
-      abbr: z.string(),
-      phase: z.enum(['waiting', 'downloading', 'placing', 'done', 'failed', 'cancelled']),
-      got: z.number(),
-      total: z.number(),
-      files: z
-        .array(
-          z.object({ name: z.string(), kind: ModuleKindSchema, present: z.boolean().optional() }),
-        )
-        .optional(),
-      note: KeyedNoteSchema.optional(),
-    }),
-  ),
-});
-export type CatalogQueue = z.infer<typeof CatalogQueueSchema>;
 const SelectionListSchema = z.array(z.string()).nullable();
 const ModulesSchema = z.object({
   dir: z.string(),

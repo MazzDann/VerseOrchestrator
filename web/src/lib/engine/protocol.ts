@@ -64,7 +64,7 @@ export interface ReopenResult {
   reopenMs: number;
 }
 
-/** `convert`: a segment ready to merge — the input itself, or a converted Module module. */
+/** `convert`: a segment ready to merge — the input itself, or a converted module. */
 export interface ConvertResult {
   bytes: ArrayBuffer;
   /** null when the file already was a segment */

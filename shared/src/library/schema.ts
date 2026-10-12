@@ -1,5 +1,5 @@
 /**
- * DDL for the library database — our own clean schema (not Module's). ONE schema for
+ * DDL for the library database — our own clean schema (not the modules' own). ONE schema for
  * every engine (driver.ts): the builder writes it with better-sqlite3, the browser can
  * create it in sql.js. (FTS5 is SQLite-only; a Postgres engine maps it separately.)
  */
@@ -42,7 +42,7 @@ CREATE TABLE verses (
   chapter        INTEGER NOT NULL,
   verse          INTEGER NOT NULL,
   text           TEXT,       -- clean display text (tags + Strong/morphology stripped)
-  text_raw       TEXT        -- original Module markup (Strong/red-letter tags); NULL when it
+  text_raw       TEXT        -- original module markup (Strong/red-letter tags); NULL when it
                              -- equals text (no markup) — readers fall back to text
 );
 CREATE INDEX idx_verses_loc ON verses (translation_id, book_number, chapter, verse);
@@ -82,7 +82,7 @@ CREATE VIRTUAL TABLE verses_fts USING fts5 (
 -- the search planner tell a rare word from a frequent one before choosing a strategy.
 CREATE VIRTUAL TABLE verses_fts_vocab USING fts5vocab('verses_fts', 'row');
 
--- Section titles inside a translation (Module's 'stories' / 'subheadings' tables, 1.16.0-beta.2): shown
+-- Section titles inside a translation (the module's 'stories' / 'subheadings' tables, 1.16.0-beta.2): shown
 -- before their verse; 'ord' keeps several at one verse in order.
 CREATE TABLE subheadings (
   translation_id INTEGER NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE subheadings (
   PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
 );
 
--- Separate section-title sets (Module's *.subheadings.SQLite3, 1.16.0-beta.3): shown over the
+-- Separate section-title sets (the module's *.subheadings.SQLite3, 1.16.0-beta.3): shown over the
 -- translation the user pairs a set with, at the places the set holds.
 CREATE TABLE subheading_sets (
   id       INTEGER PRIMARY KEY,
@@ -134,7 +134,7 @@ CREATE TABLE dictionary_entries (
 );
 CREATE INDEX idx_dict_topic ON dictionary_entries (topic_norm, dictionary_id);
 
--- Grammar codes a dictionary explains (Module's morphology_indications, 1.16.0-beta.2): «V» Verb,
+-- Grammar codes a dictionary explains (the module's morphology_indications, 1.16.0-beta.2): «V» Verb,
 -- «-AAI» for «V» Aor Act Ind, «-3S» 3rd Sing; applicable_to '' = any part of speech.
 CREATE TABLE morphology (
   dictionary_id INTEGER NOT NULL,
@@ -147,7 +147,7 @@ CREATE TABLE morphology (
 DROP TABLE IF EXISTS cross_references;
 DROP TABLE IF EXISTS commentaries;
 
--- Cross-references (a verse → related passages), book/chapter/verse keyed (Module numbering).
+-- Cross-references (a verse → related passages), book/chapter/verse keyed (the modules’ numbering).
 CREATE TABLE cross_references (
   book           INTEGER NOT NULL,
   chapter        INTEGER NOT NULL,

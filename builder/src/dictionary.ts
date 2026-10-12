@@ -20,7 +20,7 @@ function tableExists(db: Database.Database, name: string): boolean {
   return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
 }
 
-/** Read a Module `*.dictionary.SQLite3` module. Returns null if not a dictionary. */
+/** Read a `*.dictionary.SQLite3` module. Returns null if not a dictionary. */
 export function readDictionary(path: string): DictModule | null {
   const db = new Database(path, { readonly: true, fileMustExist: true });
   try {

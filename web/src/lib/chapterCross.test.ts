@@ -73,7 +73,7 @@ describe('notices', () => {
 });
 
 describe('across a book’s edge (1.4.0)', () => {
-  // Module numbers: Luke 490, John 500, Acts 510
+  // canonical numbers: Luke 490, John 500, Acts 510
   const books = [500, 490, 510];
   const chaptersOf = async (book: number) =>
     ({ 490: [1, 2, 24], 500: [1, 21], 510: [2, 1, 28] })[book] ?? [];

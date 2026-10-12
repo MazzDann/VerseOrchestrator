@@ -8,7 +8,7 @@ export interface StrongToken {
 const squash = (t: string) => t.replace(/\s+/g, ' ').trim();
 
 /**
- * Parse Module raw verse markup into tokens, attaching each `<S>####</S>`
+ * Parse raw module verse markup into tokens, attaching each `<S>####</S>`
  * Strong number to the text segment that precedes it. A `<m>CODE</m>` grammar
  * code (1.16.0-beta.2) belongs to the word right before it: the one a Strong
  * number has just closed, or a word without a number. Other tags are dropped.

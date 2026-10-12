@@ -260,7 +260,7 @@ function holdsLibrary(file: string): boolean {
 }
 
 /**
- * Where the texts come from: the server library, or Module modules to build it from (the
+ * Where the texts come from: the server library, or modules to build it from (the
  * builder's order — builder/src/build.ts resolveModulesDir), or the segments the browser
  * engines read on their own («у браузері»), or nothing yet.
  */
@@ -272,7 +272,7 @@ export function libraryState(dir: string, env: NodeJS.ProcessEnv = process.env):
     env.MODULES_DIR,
     path.join(dir, 'modules'),
     path.join(dataDir, 'modules'),
-    path.join(dir, 'old', 'Module'),
+    path.join(dir, 'old', 'modules'),
   ];
   for (const m of candidates) if (m && hasModules(m)) return { kind: 'build', modules: m };
   if (fs.existsSync(path.join(dataDir, 'segments', 'manifest.json'))) return { kind: 'browser' };
@@ -770,7 +770,7 @@ async function main(argv: string[]): Promise<number> {
     if (!opts.check) return 1;
   }
 
-  // 3. The library: the server's, or built from Module modules, or the browser's segments
+  // 3. The library: the server's, or built from modules, or the browser's segments
   const lib = libraryState(root);
   if (lib.kind === 'ready') say(`✓ ${tr('Бібліотека на місці')}`);
   else if (lib.kind === 'build' && opts.check)
@@ -778,7 +778,7 @@ async function main(argv: string[]): Promise<number> {
   else if (lib.kind === 'build') {
     const t = Date.now();
     say(
-      `… ${tr('Збираю бібліотеку з модулів Module ({modules}; кілька хвилин)', { modules: lib.modules })}`,
+      `… ${tr('Збираю бібліотеку з модулів ({modules}; кілька хвилин)', { modules: lib.modules })}`,
     );
     try {
       await run('npm', ['run', 'build:library'], root, log, { inherit: true });
@@ -792,7 +792,7 @@ async function main(argv: string[]): Promise<number> {
     );
   } else {
     say(
-      `! ${tr('Бібліотеки немає: покладіть модулі Module (*.SQLite3) у папку modules/ і\n  запустіть ще раз. Застосунок запуститься, але без текстів.')}`,
+      `! ${tr('Бібліотеки немає: покладіть модулі (*.SQLite3) у папку modules/ і\n  запустіть ще раз. Застосунок запуститься, але без текстів.')}`,
     );
   }
 

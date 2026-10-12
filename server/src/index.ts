@@ -26,7 +26,6 @@ import {
   pauseLive,
   isRemoteOnline,
   notifyAllowed,
-  notifyCatalog,
   notifySemantic,
   notifyRemotesChanged,
   notifyRebuild,
@@ -162,7 +161,7 @@ import {
   type RestoreParts,
 } from './backup.js';
 import { zipToFile } from './zip.js';
-import { createCatalog, forPage, listModuleFiles } from './catalog.js';
+import { createModuleFiles, listModuleFiles } from './moduleFiles.js';
 import { createModelStore, modelInstalled } from './models.js';
 import { createCoresTest, sampleVerses } from './coresTest.js';
 import { coreLimit, cpuInfo, createQueryEmbedder, openChildEmbedder } from './embedding.js';
@@ -215,11 +214,6 @@ const rebuild = createRebuildJob({
     notifyRebuild(s);
     // a rebuild rewrites library.db under the vector job: it stops (the books in stay)
     if (s.phase === 'running') stopVectors();
-    // «Модулі»: a download came while a build ran — the next build takes it (1.15.0-beta.1)
-    if (s.phase !== 'running' && rebuildWanted) {
-      rebuildWanted = false;
-      setImmediate(rebuildForCatalog);
-    }
     if (s.phase === 'running' && s.step === 0) console.log(`[server] rebuild ${s.id}: started`);
     else if (s.phase !== 'running')
       console.log(
@@ -2309,12 +2303,11 @@ app.post('/api/rebuild', requireLocalControl, (_req, res) => {
   res.status(202).json(rebuild.start());
 });
 
-// --- «Модулі» (1.15.0-beta.1, catalog.ts): Module's catalog, a download into modules/, the selection
+// --- «Модулі» (moduleFiles.ts): the module files in modules/ and the selection ---------------------
 
 /**
  * Where the builder reads modules from (build.ts `resolveModulesDir`): MODULES_DIR, else the
- * project's modules/ or data/modules with Bibles in it. A first download goes to modules/ — which
- * the builder then finds.
+ * project's modules/ or data/modules with Bibles in it.
  */
 function modulesDir(): string {
   if (process.env.MODULES_DIR) return path.resolve(process.env.MODULES_DIR);
@@ -2323,54 +2316,14 @@ function modulesDir(): string {
   return path.join(repoRoot, 'modules');
 }
 
-/** A download came: the library is rebuilt now, or after the build under way. */
-let rebuildWanted = false;
-function rebuildForCatalog(): void {
-  if (rebuild.running()) {
-    rebuildWanted = true;
-    return;
-  }
-  // a backup or a version change in progress: left to «Зібрати бібліотеку» (the panel offers it)
-  if (backupBusy() || swapPending || installer?.notNow()) {
-    console.warn('[catalog] the library is not rebuilt now (a backup or an update is under way)');
-    return;
-  }
-  lastImport = null;
-  rebuild.start();
-}
-
-const catalog = createCatalog({
-  dataDir,
+const moduleFiles = createModuleFiles({
   modulesDir,
-  version: appVersion,
   selection: () => getServerSettings().library,
   setSelection: (sel) => setLibrarySelection(sel),
-  rebuild: rebuildForCatalog,
-  onChange: notifyCatalog,
 });
 
-app.get(
-  '/api/catalog',
-  requireLocal,
-  wrap(async (req, res) => res.json(forPage(await catalog.catalog(req.query.refresh === '1')))),
-);
-app.get('/api/catalog/queue', requireLocal, (_req, res) => {
-  res.json(catalog.queue());
-});
-app.post(
-  '/api/catalog/download',
-  requireLocalControl,
-  json,
-  wrap((req, res) => res.json(catalog.enqueue(String(req.body?.fil ?? '')))),
-);
-app.post(
-  '/api/catalog/cancel',
-  requireLocalControl,
-  json,
-  wrap((req, res) => res.json(catalog.cancel(String(req.body?.fil ?? '')))),
-);
 app.get('/api/modules', requireLocal, (_req, res) => {
-  res.json(catalog.modules());
+  res.json(moduleFiles.modules());
 });
 app.put(
   '/api/modules/selection',
@@ -2381,7 +2334,7 @@ app.put(
     const files: unknown = req.body?.files;
     if (!MODULE_KINDS.includes(kind) || !Array.isArray(files))
       throw new ApiError(400, N_('Очікую { kind, files }'));
-    res.json(catalog.select(kind, files.map(String)));
+    res.json(moduleFiles.select(kind, files.map(String)));
   }),
 );
 

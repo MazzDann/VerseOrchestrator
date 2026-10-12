@@ -4,7 +4,7 @@
  * modules folder (e.g. "UKRK.SQLite3", "Strong.dictionary.SQLite3").
  *
  * `null` means "every file of that kind". That is only allowed while the folder is
- * small (LIBRARY_ALL_LIMIT): a bulk-downloaded catalog holds thousands of modules and
+ * small (LIBRARY_ALL_LIMIT): a folder of bulk-collected files can hold thousands of modules and
  * importing all of them would produce a multi-GB library.
  */
 export interface LibrarySelection {

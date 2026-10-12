@@ -20,7 +20,7 @@ portable/
 
 # Third-party texts have their own licences (many translations and song collections are
 # still under copyright) — keep them out of the repository wherever they end up:
-# Module modules, downloaded module archives, generated libraries/segments, song decks
+# modules, downloaded module archives, generated libraries/segments, song decks
 # and song bundles
 *.SQLite3
 *.sqlite3

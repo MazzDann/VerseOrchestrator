@@ -131,7 +131,7 @@ export interface TextSegment {
 }
 
 /**
- * Split a verse's raw Module markup into display segments, marking the words of
+ * Split a verse's raw module markup into display segments, marking the words of
  * Jesus (`<J>…</J>`, "red-letter") while stripping all other markup. Adjacent
  * segments are word-groups, so the renderer joins them with a single space.
  */
@@ -159,7 +159,7 @@ export function parseRedLetter(raw: string): TextSegment[] {
 }
 
 /**
- * Extract the unique Strong's numbers embedded in a verse's raw Module markup
+ * Extract the unique Strong's numbers embedded in a verse's raw module markup
  * (`<S>7225</S>`), in first-seen order. Feeds the concordance index so we can
  * answer "which verses use this Strong number" without re-scanning text at query
  * time. Mirrors the tag shape used by the web parser (`parseStrongTokens`).
@@ -182,7 +182,7 @@ export function strongNumbers(raw: string): number[] {
 
 /**
  * Which Strong's lexicon a number in a verse refers to: Greek ('G') in the New Testament
- * (Module book numbers ≥ 470) and in Greek Old Testaments (LXX — module language el/grc),
+ * (canonical book numbers ≥ 470) and in Greek Old Testaments (LXX — module language el/grc),
  * otherwise Hebrew ('H'). The number alone is ambiguous: H2424 and G2424 are different words.
  */
 export function strongLangFor(bookNumber: number, moduleLanguage?: string): 'H' | 'G' {

@@ -21,7 +21,7 @@ import {
 } from '@vo/shared';
 
 /**
- * A raw Module module dropped into the browser is converted into a segment by the
+ * A raw module dropped into the browser is converted into a segment by the
  * shared converter (the worker runs it on SQLite-WASM; here on better-sqlite3), then
  * merged like any server segment.
  */
@@ -49,7 +49,7 @@ const driver = (db: Database.Database): SqlDriver => ({
   get: async (sql, p = []) => db.prepare(sql).get(...p) as never,
 });
 
-/** A Module file with the given DDL/DML. */
+/** A module file with the given DDL/DML. */
 function module(name: string, sql: string): Database.Database {
   const db = open(path.join(dir, name));
   db.exec(sql);
@@ -93,7 +93,7 @@ afterAll(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-describe('Module → segment conversion', () => {
+describe('module → segment conversion', () => {
   it('a Bible: builder rules for text, markup, search text and Strongs; ids in the dropped range', () => {
     const src = module('TST.SQLite3', BIBLE);
     const id = droppedId(12345);

@@ -13,7 +13,7 @@ import {
   strongLang,
 } from '@vo/shared';
 import { SCHEMA_SQL } from './schema.js';
-import { readModule } from './module.js';
+import { readModule } from './bibleModule.js';
 import { readDictionary } from './dictionary.js';
 import { readCrossrefs, readCommentaries, readSubheadingSet } from './extras.js';
 import { writeLibrarySongs } from '@vo/shared';
@@ -29,17 +29,17 @@ const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json');
 
 /**
  * Pick the modules folder: $MODULES_DIR, else the project `modules/` folder,
- * else `data/modules`, else fall back to the reference copy in `old/Module`.
+ * else `data/modules`, else fall back to the reference copy in `old/modules`.
  */
 function resolveModulesDir(): string {
   if (process.env.MODULES_DIR) return path.resolve(process.env.MODULES_DIR);
   for (const dir of [path.join(repoRoot, 'modules'), path.join(DATA_DIR, 'modules')]) {
     if (fs.existsSync(dir) && listModuleFiles(dir).length > 0) return dir;
   }
-  return path.join(repoRoot, 'old', 'Module');
+  return path.join(repoRoot, 'old', 'modules');
 }
 
-// Not Bible texts: companion modules (imported separately) and Module content types
+// Not Bible texts: companion modules (imported separately) and other content types
 // the app doesn't use (devotionals, reading plans, bundles).
 const SKIP =
   /\.(commentaries|dictionary|crossreferences|subheadings|devotions|plan|bundle|referencedata)\.SQLite3$/i;
@@ -185,8 +185,8 @@ function buildOnce(): void {
         continue;
       }
       if (!mod) {
-        // A selected Bible that has no books/verses — e.g. a catalog download that saved a
-        // commentary module under the Bible's file name. Say so loudly: silently skipping it
+        // A selected Bible that has no books/verses — e.g. a file that is really a
+        // commentary module, kept under the Bible's file name. Say so loudly: silently skipping it
         // would quietly shrink the library.
         notBibles.push(name);
         console.warn(`[builder]   ! ${name} is not a Bible module (no books/verses) — skipped`);

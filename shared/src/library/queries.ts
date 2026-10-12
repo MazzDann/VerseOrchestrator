@@ -385,7 +385,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       [norm],
     );
 
-    // OT books (Module number < 470) prefer the Hebrew (H) entry; NT prefer Greek (G).
+    // OT books (canonical number < 470) prefer the Hebrew (H) entry; NT prefer Greek (G).
     const want = book != null && book < 470 ? 'H' : 'G';
     const rank = (r: AnyRow): number => {
       const tag = (r.strong_lang || '').toUpperCase();
@@ -635,7 +635,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
   }
 
   /**
-   * Resolve a (normalized) book token to canonical Module book numbers, matching
+   * Resolve a (normalized) book token to canonical book numbers, matching
    * forgivingly across ALL translations' names (any language), not just the selected
    * ones. Three ways a token can match a stored name, scored best-first:
    *   1. the name starts with the token            ("ів" → "Ів", "john" → "John");
@@ -725,7 +725,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     }
     const bookNumber = chosen ?? firstStartOk ?? candidates[0];
 
-    // Module book numbers are canonical across modules, so the book resolved from
+    // Book numbers are canonical across modules, so the book resolved from
     // ANY translation's names is fetched from each SELECTED translation. This makes
     // reference search cross-translation: type the book in any language and read it
     // in the chosen translation (e.g. an English name to read a Hebrew text).

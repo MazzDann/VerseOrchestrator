@@ -14,7 +14,7 @@ For this guide you need:
 - a computer with Windows, macOS, or Linux and the Chrome or Edge browser;
 - the app extracted from the archive for your system — see
   [Download the app](install.md#download-the-app);
-- Module modules with Bible translations (`*.SQLite3` files) in the app's `modules/`
+- module files with Bible translations (`*.SQLite3` files) in the app's `modules/`
   folder.
 
 A second monitor or a projector is optional: the presentation window works on one screen

@@ -1,6 +1,6 @@
 import type { Row } from './driver.js';
 import { ftsRow, ftsSourceSql, SEGMENT_TABLES } from './merge.js';
-import type { SyncConn } from './module.js';
+import type { SyncConn } from './moduleFormat.js';
 
 /**
  * The library in PostgreSQL (PGlite — Postgres compiled to WASM — in the browser). Same
@@ -10,7 +10,7 @@ import type { SyncConn } from './module.js';
  *     with to_tsvector('simple', text_norm) — the text is already normalized by
  *     normalizeForSearch, so the 'simple' configuration (no stemming, no stop words)
  *     indexes exactly the words the SQLite index has;
- *   - verse ids are BIGINT (dropped modules use ids ≥ 10^11, see module.ts).
+ *   - verse ids are BIGINT (dropped modules use ids ≥ 10^11, see moduleFormat.ts).
  * Data arrives as the same segments the SQLite engine merges: read with SQLite, bulk-
  * loaded here with COPY (loadSegmentPg).
  */
@@ -108,7 +108,7 @@ CREATE TABLE subheadings (
   PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
 );
 
--- Separate section-title sets (Module's *.subheadings.SQLite3, 1.16.0-beta.3): shown over the
+-- Separate section-title sets (the module's *.subheadings.SQLite3, 1.16.0-beta.3): shown over the
 -- translation the user pairs a set with, at the places the set holds.
 CREATE TABLE subheading_sets (
   id       INTEGER PRIMARY KEY,
@@ -126,7 +126,7 @@ CREATE TABLE set_subheadings (
   PRIMARY KEY (set_id, book_number, chapter, verse, ord)
 );
 
--- Grammar codes a dictionary explains (Module's morphology_indications, 1.16.0-beta.2): «V» Verb,
+-- Grammar codes a dictionary explains (the module's morphology_indications, 1.16.0-beta.2): «V» Verb,
 -- «-AAI» for «V» Aor Act Ind, «-3S» 3rd Sing; applicable_to '' = any part of speech.
 CREATE TABLE morphology (
   dictionary_id INTEGER NOT NULL,
@@ -174,7 +174,7 @@ CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
  * (review of 1.16.0-beta.2 — a new segment's COPY into a missing table failed the whole load).
  */
 export const PG_ADDED_SQL = /* sql */ `
--- Grammar codes a dictionary explains (Module's morphology_indications, 1.16.0-beta.2): «V» Verb,
+-- Grammar codes a dictionary explains (the module's morphology_indications, 1.16.0-beta.2): «V» Verb,
 -- «-AAI» for «V» Aor Act Ind, «-3S» 3rd Sing; applicable_to '' = any part of speech.
 CREATE TABLE IF NOT EXISTS morphology (
   dictionary_id INTEGER NOT NULL,
@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS subheadings (
   title          TEXT NOT NULL,
   PRIMARY KEY (translation_id, book_number, chapter, verse, ord)
 );
--- Separate section-title sets (Module's *.subheadings.SQLite3, 1.16.0-beta.3): shown over the
+-- Separate section-title sets (the module's *.subheadings.SQLite3, 1.16.0-beta.3): shown over the
 -- translation the user pairs a set with, at the places the set holds.
 CREATE TABLE IF NOT EXISTS subheading_sets (
   id       INTEGER PRIMARY KEY,

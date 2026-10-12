@@ -33,7 +33,7 @@ stays, run `npm ci` in the app's folder and start the app again.
 
 ### “No library” or “Couldn't build the library”
 
-“No library” means there are no Module modules in the `modules/` folder. The app starts,
+“No library” means there are no module files in the `modules/` folder. The app starts,
 but without texts: the control window shows “No library yet” and what to do. Put
 `*.SQLite3` modules into `modules/` and click **Rescan modules** there — no need to restart
 the app. See also [Add texts and songs](install.md#add-texts-and-songs).

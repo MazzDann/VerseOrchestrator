@@ -5,7 +5,7 @@
  *
  * A marker in `app/` says where the user's folders are, relative to it. The entry points (the
  * launcher, the waiter) turn it into the environment every other part already reads:
- * VO_DATA_DIR (settings, library, songs, logs) and MODULES_DIR (the Module files). A project
+ * VO_DATA_DIR (settings, library, songs, logs) and MODULES_DIR (the module files). A project
  * checkout has no marker and keeps its `data/` and `modules/` as before.
  *
  * Like launcher.ts: only node: imports and no TS-only syntax (plain Node runs it).
@@ -18,7 +18,7 @@ export const LAYOUT_MARKER = '.vo-portable';
 export interface Layout {
   /** the user's data folder (absolute) */
   data: string;
-  /** where the user puts Module modules (absolute) */
+  /** where the user puts modules (absolute) */
   modules: string;
 }
 

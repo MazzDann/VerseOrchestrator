@@ -6,7 +6,7 @@
  * English (KJV), the Hebrew one that counts a psalm's superscription as verse 1 (Ps 22 has 32
  * verses, not 31), and the Greek/Synodal one that joins Ps 9+10 and 114+115 and splits 116 and 147
  * (its Ps 22 is the English Ps 23); Malachi has 3 or 4 chapters, Joel 3 or 4, Esther and Daniel
- * carry Greek additions. Nothing in a Module module says which numbering it uses.
+ * carry Greek additions. Nothing in a module says which numbering it uses.
  *
  * The numbering can be recovered from the shape of the text alone: each book's sequence of
  * chapter lengths (verse counts) in one translation is aligned to another's by dynamic
@@ -34,7 +34,7 @@ const MERGE = 2;
  * (Daniel's Susanna, a Ps 151) stays apart instead of being glued to a neighbour by a split.
  */
 const GAP = 1;
-/** The Psalms (Module book number): their extra verses are superscriptions, at the start. */
+/** The Psalms (canonical book number): their extra verses are superscriptions, at the start. */
 export const PSALMS = 230;
 /** How many chapter steps a run may take to balance a verse moved across chapter edges. */
 const RUN_STEPS = 3;
