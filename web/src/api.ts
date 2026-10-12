@@ -1371,6 +1371,10 @@ export const api = {
   setSemanticModel: (model: EmbedModelId | null) => sendSemantic('/api/semantic', 'PUT', { model }),
   /** «Увесь процесор» (1.15.1): vectors made on the whole processor */
   setSemanticFullCpu: (fullCpu: boolean) => sendSemantic('/api/semantic', 'PUT', { fullCpu }),
+  /** «Підібрати ще раз»: measures 1, 2, 3 … cores again and keeps the fastest */
+  testCores: () => sendSemantic('/api/semantic/cores-test', 'POST'),
+  /** «Ядра процесора»: at most how many cores make the vectors, null = all the app may take */
+  setSemanticThreads: (threads: number | null) => sendSemantic('/api/semantic', 'PUT', { threads }),
   downloadModel: (id: EmbedModelId) => sendSemantic(`/api/semantic/models/${id}`, 'POST'),
   cancelModel: () => sendSemantic('/api/semantic/models-cancel', 'POST'),
   removeModel: (id: EmbedModelId) => sendSemantic(`/api/semantic/models/${id}`, 'DELETE'),
@@ -1413,6 +1417,21 @@ export const SemanticSchema = z.object({
   model: EmbedModelIdSchema.nullable(),
   // 1.15.1; a 1.15.0 server answers without it
   fullCpu: z.boolean().default(false),
+  // «Ядра процесора»; a server before it answers without them (and shows its switch)
+  threads: z.number().nullable().default(null),
+  cpu: z.object({ all: z.number(), max: z.number() }).optional(),
+  // what the job found best per model, for the current limit
+  tuned: z.record(z.object({ cap: z.number(), threads: z.number(), rate: z.number() })).default({}),
+  coresTest: z
+    .object({
+      phase: z.enum(['idle', 'running', 'done', 'failed', 'stopped']),
+      current: z.number().nullable(),
+      total: z.number(),
+      results: z.array(z.object({ threads: z.number(), rate: z.number() })),
+      best: z.number().nullable(),
+      error: z.string().nullable(),
+    })
+    .optional(),
   models: z.array(
     z.object({
       id: EmbedModelIdSchema,

@@ -6,6 +6,7 @@ import {
   Progress,
   ScrollArea,
   SegmentedControl,
+  Slider,
   Stack,
   Switch,
   Text,
@@ -36,6 +37,13 @@ const MINUTES: Record<EmbedModelId, { half: number; full: number }> = {
   precise: { half: 24, full: 12.5 },
 };
 
+/** Minutes a Bible takes: by the speed the job found here, else the PC's half-processor number. */
+function estimate(id: EmbedModelId, s: SemanticState): number {
+  const rate = s.tuned?.[id]?.rate;
+  if (!s.cpu) return MINUTES[id][s.fullCpu ? 'full' : 'half'];
+  return rate ? Math.max(0.5, Math.round((31_000 / rate / 60) * 2) / 2) : MINUTES[id].half;
+}
+
 export function SemanticSection({ active }: { active: boolean }) {
   const ui = useLang();
   const queryClient = useQueryClient();
@@ -48,6 +56,7 @@ export function SemanticSection({ active }: { active: boolean }) {
     // every second while a model comes or vectors are made (the hub tells a control window too)
     refetchInterval: (x) =>
       x.state.data?.job.phase === 'running' ||
+      x.state.data?.coresTest?.phase === 'running' ||
       x.state.data?.models.some((m) => m.download.phase === 'downloading')
         ? 1000
         : false,
@@ -84,7 +93,14 @@ export function SemanticSection({ active }: { active: boolean }) {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missingKey, mainId]);
-  const minutes = model ? MINUTES[model.id][s?.fullCpu ? 'full' : 'half'] : 0;
+  const minutes = model && s ? estimate(model.id, s) : 0;
+  // «Ядра процесора»: the slider moves freely, the choice is saved when it's let go
+  const cores = s?.cpu ? Math.min(s.cpu.max, Math.max(1, s.threads ?? s.cpu.max)) : 0;
+  // what the job found best for the chosen model under this limit
+  const found = chosen ? s?.tuned?.[chosen] : undefined;
+  const [coresDraft, setCoresDraft] = useState<number | null>(null);
+  const test = s?.coresTest;
+  const testing = test?.phase === 'running';
 
   return (
     <Stack gap={6}>
@@ -215,16 +231,106 @@ export function SemanticSection({ active }: { active: boolean }) {
                   </ScrollArea.Autosize>
                 </>
               )}
-              <Switch
-                size="xs"
-                label={tr('Увесь процесор')}
-                description={tr(
-                  'Швидше: «Точна» — удвічі, «Швидка» — в 1,4 раза. Поки вектори обчислюються, показ може пригальмовувати.',
-                )}
-                checked={s.fullCpu}
-                disabled={busy || job?.phase === 'running'}
-                onChange={(e) => void act(() => api.setSemanticFullCpu(e.currentTarget.checked))}
-              />
+              {!s.cpu ? (
+                // a 1.15.1–1.16.0-beta.5 server: its switch
+                <Switch
+                  size="xs"
+                  label={tr('Увесь процесор')}
+                  description={tr(
+                    'Швидше: «Точна» — удвічі, «Швидка» — в 1,4 раза. Поки вектори обчислюються, показ може пригальмовувати.',
+                  )}
+                  checked={s.fullCpu}
+                  disabled={busy || job?.phase === 'running'}
+                  onChange={(e) => void act(() => api.setSemanticFullCpu(e.currentTarget.checked))}
+                />
+              ) : (
+                <Stack gap={4}>
+                  <Text size="sm">
+                    {tr('Ядра процесора: не більше {n} з {all}', {
+                      n: fmtNumber(coresDraft ?? cores),
+                      all: fmtNumber(s.cpu.all),
+                    })}
+                  </Text>
+                  {s.cpu.max > 1 && (
+                    <Slider
+                      size="xs"
+                      min={1}
+                      max={s.cpu.max}
+                      step={1}
+                      value={coresDraft ?? cores}
+                      onChange={setCoresDraft}
+                      onChangeEnd={(v) => {
+                        const cpu = s.cpu!;
+                        void act(() => api.setSemanticThreads(v === cpu.max ? null : v)).finally(
+                          () => setCoresDraft(null),
+                        );
+                      }}
+                      label={null}
+                      disabled={busy || testing || job?.phase === 'running'}
+                      thumbLabel={tr('Ядра процесора')}
+                    />
+                  )}
+                  <Text size="xs" c="dimmed">
+                    {tr(
+                      'Скільки з них брати, застосунок добирає сам: на початку обчислення пробує 1, 2, 3 … ядра й бере найменше число, що дає майже найвищу швидкість, — більше ядер не завжди швидше. Одне ядро завжди лишається вільним, а вектори обчислюються з найнижчим пріоритетом, тож комп’ютер не зависає.',
+                    )}
+                  </Text>
+                  {testing && test ? (
+                    <Group gap="xs" wrap="nowrap">
+                      <Progress
+                        style={{ flex: 1 }}
+                        value={(test.results.length / Math.max(1, test.total)) * 100}
+                        aria-label={tr('Перевірка ядер')}
+                      />
+                      <Button
+                        size="xs"
+                        variant="default"
+                        onClick={() => void act(() => api.stopVectors())}
+                      >
+                        {tr('Зупинити')}
+                      </Button>
+                    </Group>
+                  ) : (
+                    found &&
+                    s.cpu.max > 1 && (
+                      <Group gap="xs" wrap="nowrap">
+                        <Text size="xs" style={{ flex: 1 }}>
+                          {tr('Найшвидше для цієї моделі: {n} — {rate} віршів за секунду.', {
+                            n: fmtNumber(found.threads),
+                            rate: fmtNumber(found.rate),
+                          })}
+                        </Text>
+                        <Button
+                          size="xs"
+                          variant="default"
+                          loading={busy}
+                          disabled={job?.phase === 'running'}
+                          onClick={() => void act(() => api.testCores())}
+                        >
+                          {tr('Підібрати ще раз')}
+                        </Button>
+                      </Group>
+                    )
+                  )}
+                  {(testing || test?.phase === 'failed') && test && (
+                    <Text size="xs" c={testing ? 'dimmed' : 'orange'} aria-live="polite">
+                      {testing
+                        ? tr('Добираю число ядер: {done} з {total}…', {
+                            done: fmtNumber(test.results.length),
+                            total: fmtNumber(test.total),
+                          })
+                        : tr('Перевірка не вдалася: {error}', { error: test.error ?? '' })}
+                    </Text>
+                  )}
+                  {test && test.results.length > 0 && (testing || test.phase === 'done') && (
+                    <Text size="xs" c="dimmed">
+                      {test.results
+                        .map((r) => `${fmtNumber(r.threads)} — ${fmtNumber(r.rate)}`)
+                        .join(' · ')}
+                    </Text>
+                  )}
+                </Stack>
+              )}
               {job?.phase === 'running' ? (
                 <Stack gap={4}>
                   <Group gap="xs" wrap="nowrap">
@@ -251,7 +357,9 @@ export function SemanticSection({ active }: { active: boolean }) {
                           total: fmtNumber(job.current.total),
                           rate: String(job.rate),
                         }) + (job.left ? ` · ${tr('далі ще {n}', { n: String(job.left) })}` : '')
-                      : tr('Готую модель…')}
+                      : testing
+                        ? tr('Добираю число ядер…')
+                        : tr('Готую модель…')}
                   </Text>
                 </Stack>
               ) : (
@@ -261,7 +369,7 @@ export function SemanticSection({ active }: { active: boolean }) {
                       size="xs"
                       variant="light"
                       loading={busy}
-                      disabled={picked.length === 0}
+                      disabled={picked.length === 0 || testing}
                       onClick={() => void act(() => api.computeVectors(picked.map(Number)))}
                     >
                       {tr('Обчислити для вибраних: {n} (≈ {min} хв)', {

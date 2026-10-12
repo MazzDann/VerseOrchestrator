@@ -49,6 +49,7 @@ import {
 import {
   getServerSettings,
   initServerSettings,
+  sanitizeThreads,
   setLibrarySelection,
   updateServerSettings,
   validStandbyPort,
@@ -163,7 +164,8 @@ import {
 import { zipToFile } from './zip.js';
 import { createCatalog, forPage, listModuleFiles } from './catalog.js';
 import { createModelStore, modelInstalled } from './models.js';
-import { createQueryEmbedder, jobThreads, openEmbedder } from './embedding.js';
+import { createCoresTest, sampleVerses } from './coresTest.js';
+import { coreLimit, cpuInfo, createQueryEmbedder, openChildEmbedder } from './embedding.js';
 import { createVectorJob, listTranslations, readVectorSets } from './vectorJob.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
@@ -2395,7 +2397,18 @@ setLibraryOptions({ embed: (text) => queryEmbedder.embed(text) });
 const vectors = createVectorJob({
   dataDir,
   libraryPath,
-  open: (model) => openEmbedder(dataDir, model, jobThreads(getServerSettings().semantic.fullCpu)),
+  open: async (model) => {
+    // the cores this job takes: found once per model and limit (coresTest.ts), then remembered
+    const { threads, tuned } = getServerSettings().semantic;
+    const cap = coreLimit(threads);
+    const known = tuned[model];
+    let n = known && known.cap === cap ? known.threads : cap === 1 ? 1 : null;
+    if (n === null) {
+      n = await coresTest.measure(model, cap);
+      if (n === null && coresTest.state().phase === 'stopped') throw new Error('stopped');
+    }
+    return openChildEmbedder(dataDir, model, n ?? cap);
+  },
   onChange: (s) => notifySemantic(s),
   // a library connection opened before data/vectors.db was made attaches it when reopened
   onSet: () => {
@@ -2403,9 +2416,20 @@ const vectors = createVectorJob({
     notifySemantic({});
   },
 });
+// «Ядра процесора»: the job finds how many of them make vectors fastest (or a button asks again)
+const coresTest = createCoresTest({
+  open: (model, threads) => openChildEmbedder(dataDir, model, threads),
+  sample: () => sampleVerses(libraryPath),
+  onChange: () => notifySemantic({}),
+  onBest: (model, cap, best) =>
+    updateServerSettings({
+      semantic: { tuned: { ...getServerSettings().semantic.tuned, [model]: { cap, ...best } } },
+    }),
+});
 /** A rebuild started: the vector job stops (declared here, the rebuild job is set up first). */
 function stopVectors(): void {
   vectors.stop();
+  coresTest.stop();
 }
 
 function semanticState() {
@@ -2413,7 +2437,16 @@ function semanticState() {
   const sets = chosen ? readVectorSets(dataDir, chosen) : new Map();
   return {
     model: chosen,
-    fullCpu: getServerSettings().semantic.fullCpu,
+    threads: getServerSettings().semantic.threads,
+    cpu: cpuInfo(),
+    // what the job found best for this limit, per model
+    tuned: Object.fromEntries(
+      Object.entries(getServerSettings().semantic.tuned).filter(
+        ([, v]) => v.cap === coreLimit(getServerSettings().semantic.threads),
+      ),
+    ),
+    // for a 1.15.1–1.16.0-beta.5 control window: «Увесь процесор» on = every core it may take
+    fullCpu: coreLimit(getServerSettings().semantic.threads) >= cpuInfo().max,
     models: EMBED_MODEL_IDS.map((id) => ({
       id,
       name: EMBED_MODELS[id].name,
@@ -2433,6 +2466,7 @@ function semanticState() {
       };
     }),
     job: vectors.state(),
+    coresTest: coresTest.state(),
   };
 }
 
@@ -2444,16 +2478,30 @@ app.put(
   requireLocalControl,
   json,
   wrap(async (req, res) => {
-    // the model, «Увесь процесор» — either or both
-    const { model, fullCpu } = (req.body ?? {}) as { model?: unknown; fullCpu?: unknown };
+    // the model, «Ядра процесора» (null = «Авто») — either or both; `fullCpu` from an older window
+    const { model, threads, fullCpu } = (req.body ?? {}) as {
+      model?: unknown;
+      threads?: unknown;
+      fullCpu?: unknown;
+    };
     if (model !== undefined && model !== null && !isEmbedModelId(model))
       throw new ApiError(400, N_('Очікую { model }'));
     if (fullCpu !== undefined && typeof fullCpu !== 'boolean')
       throw new ApiError(400, N_('Очікую { model }'));
+    if (threads !== undefined && threads !== null && sanitizeThreads(threads) === null)
+      throw new ApiError(400, N_('Очікую { model }'));
+    const cores =
+      threads !== undefined
+        ? sanitizeThreads(threads)
+        : fullCpu !== undefined
+          ? fullCpu
+            ? 64
+            : null
+          : undefined;
     updateServerSettings({
       semantic: {
         ...(model !== undefined ? { model } : {}),
-        ...(fullCpu !== undefined ? { fullCpu } : {}),
+        ...(cores !== undefined ? { threads: cores } : {}),
       },
     });
     if (model !== undefined) await queryEmbedder.release();
@@ -2498,6 +2546,8 @@ app.post(
     if (!model || !modelInstalled(dataDir, model))
       throw new ApiError(409, N_('Спершу виберіть і завантажте модель'));
     if (rebuild.running()) throw new ApiError(409, N_('Зачекайте, доки бібліотека збереться'));
+    if (coresTest.running())
+      throw new ApiError(409, N_('Зачекайте, доки закінчиться перевірка ядер'));
     const ids = Array.isArray(req.body?.translations)
       ? (req.body.translations as unknown[]).map(Number).filter((n) => Number.isInteger(n))
       : null;
@@ -2507,8 +2557,23 @@ app.post(
 );
 app.post('/api/semantic/stop', requireLocalControl, (_req, res) => {
   vectors.stop();
+  coresTest.stop();
   res.json(semanticState());
 });
+app.post(
+  '/api/semantic/cores-test',
+  requireLocalControl,
+  wrap((_req, res) => {
+    const model = getServerSettings().semantic.model;
+    if (!model || !modelInstalled(dataDir, model))
+      throw new ApiError(409, N_('Спершу виберіть і завантажте модель'));
+    if (rebuild.running()) throw new ApiError(409, N_('Зачекайте, доки бібліотека збереться'));
+    if (vectors.state().phase === 'running')
+      throw new ApiError(409, N_('Зачекайте, доки вектори обчисляться'));
+    void coresTest.measure(model, coreLimit(getServerSettings().semantic.threads));
+    res.json(semanticState());
+  }),
+);
 /** A query's vector — for the browser's engines, which hold the vectors but not the model. */
 app.get(
   '/api/embed',
