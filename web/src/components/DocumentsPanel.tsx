@@ -88,6 +88,10 @@ export function DocumentsPanel({
   });
   // a unit found by the text search or a verse's «У документах»: shown in sight, marked
   const [found, setFound] = useState<{ docId: number; ord: number } | null>(null);
+  // another document opened: the mark goes (coming back must not scroll to an old find)
+  useEffect(() => {
+    setFound((f) => (f && f.docId !== docId ? null : f));
+  }, [docId]);
   // a document an import, a drop or a verse's «У документах» asks to open
   const askedOpen = useDocOpen((s) => s.id);
   useEffect(() => {

@@ -161,7 +161,8 @@ export function writeLibraryDocuments(
   const insRef = lib.prepare(
     'INSERT OR IGNORE INTO doc_refs (document_id, ord, pos, len, book_number, chapter, verse_from, verse_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   );
-  // Bible references by the library's own book names (1.17.0-beta.2); none without a Bible
+  // Bible references by the library's own book names (1.17.0-beta.2); none without a Bible. The
+  // names change only with a rebuild, and the builder reads every document again in it
   const hasBooks = !!lib
     .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'book_names'")
     .get();
