@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import type { Embedder } from '@vo/shared/embed';
+import type { Embedder, EmbedModelId } from '@vo/shared/embed';
 
 /**
  * «Перевірити, скільки ядер найкраще»: the chosen model makes the same verses on 1, 2, 3 … cores in
@@ -38,11 +38,15 @@ export function pickBest(results: { threads: number; rate: number }[]): number |
 const BATCH = 32;
 
 export function createCoresTest(d: {
-  open: (threads: number) => Promise<Embedder & { release: () => Promise<void> }>;
+  open: (
+    model: EmbedModelId,
+    threads: number,
+  ) => Promise<Embedder & { release: () => Promise<void> }>;
   /** the verses to make, shortest first like the job */
   sample: () => string[];
   onChange: () => void;
-  onBest: (threads: number) => void;
+  /** the fewest cores within 5 % of the fastest, for this model and limit */
+  onBest: (model: EmbedModelId, cap: number, best: { threads: number; rate: number }) => void;
   now?: () => number;
 }) {
   const now = d.now ?? (() => performance.now());
@@ -59,40 +63,51 @@ export function createCoresTest(d: {
     s = { ...s, ...p };
     d.onChange();
   };
-  async function run(counts: number[]) {
-    const texts = d.sample();
+  async function run(model: EmbedModelId, counts: number[]): Promise<number | null> {
+    const cap = counts[counts.length - 1];
     try {
+      const texts = d.sample();
       if (texts.length < BATCH) throw new Error('too few verses');
       for (const n of counts) {
-        if (stopping) return set({ phase: 'stopped', current: null });
+        if (stopping) break;
         set({ current: n });
-        const e = await d.open(n);
+        const e = await d.open(model, n);
         try {
           await e.embed(texts.slice(0, BATCH), 'passage'); // warm-up, not counted
           const t0 = now();
           for (let k = 0; k < texts.length && !stopping; k += BATCH)
             await e.embed(texts.slice(k, k + BATCH), 'passage');
-          if (stopping) return set({ phase: 'stopped', current: null });
+          if (stopping) break;
           const rate = Math.round(texts.length / ((now() - t0) / 1000 || 1));
           set({ results: [...s.results, { threads: n, rate }] });
         } finally {
           await e.release().catch(() => undefined);
         }
       }
+      if (stopping) {
+        set({ phase: 'stopped', current: null });
+        return null;
+      }
       const best = pickBest(s.results);
-      if (best !== null) d.onBest(best);
+      if (best !== null) d.onBest(model, cap, s.results.find((r) => r.threads === best)!);
       set({ phase: 'done', current: null, best });
+      return best;
     } catch (e) {
       set({ phase: 'failed', current: null, error: (e as Error).message });
+      return null;
+    } finally {
+      stopping = false;
     }
   }
+  let pending: Promise<number | null> | null = null;
   return {
     state: () => s,
     running: () => s.phase === 'running',
-    start(max: number) {
-      if (s.phase === 'running') return;
+    /** measures 1 … cap cores (or joins a measure under way): the best count, null if stopped or failed */
+    measure(model: EmbedModelId, cap: number): Promise<number | null> {
+      if (s.phase === 'running' && pending) return pending;
       stopping = false;
-      const counts = coreCounts(max);
+      const counts = coreCounts(cap);
       s = {
         phase: 'running',
         current: null,
@@ -102,8 +117,10 @@ export function createCoresTest(d: {
         error: null,
       };
       d.onChange();
-      void run(counts);
+      pending = run(model, counts);
+      return pending;
     },
+    /** whether a stop was asked (the job that waits for a measure ends as stopped, not failed) */
     stop() {
       if (s.phase === 'running') stopping = true;
     },

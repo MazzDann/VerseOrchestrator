@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
@@ -50,35 +50,22 @@ export async function openEmbedder(
   return { ...e, release: () => session.release() };
 }
 
-/** Apple Silicon's performance cores (sysctl hw.perflevel0), null elsewhere or unknown. */
-function appleFastCores(): number | null {
-  if (process.platform !== 'darwin' || process.arch !== 'arm64') return null;
-  const r = spawnSync('sysctl', ['-n', 'hw.perflevel0.logicalcpu'], {
-    encoding: 'utf8',
-    timeout: 2000,
-  });
-  const n = Number.parseInt(r.stdout ?? '', 10);
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
-let fastCores: number | null | undefined;
-
 /**
  * «Ядра процесора» for the vectors: `all` the processor has, at most `max` of them — one always left
- * to the show and the system — and `auto`, what «Авто» takes: half, or on Apple Silicon its fast cores
- * less one. Measured: the PC (i3-10100F, 4 cores / 8 threads) «Швидка» 110 v/s on 4, 154 on 8, «Точна»
- * 22 → 42; two or four sessions side by side gave nothing (111 / 81), nor did the GPU (GTX 1650,
- * DirectML, fp16: 131–135). A MacBook Air M4 (4 fast + 6 efficiency cores; 3 000 verses, «Швидка»):
- * 2 → 231, 3 → 284, 4 → 263, 5 → 242, 8 → 227, 10 → 161 v/s — the efficiency cores hold the rest back.
+ * to the show and the system. How many of those a job takes it finds itself (coresTest.ts): more is
+ * not always faster. Measured: the PC (i3-10100F, 4 cores / 8 threads) «Швидка» 110 v/s on 4, 154 on
+ * 8, «Точна» 22 → 42; two or four sessions side by side gave nothing (111 / 81), nor did the GPU
+ * (GTX 1650, DirectML, fp16: 131–135). A MacBook Air M4 (4 fast + 6 efficiency cores; 3 000 verses,
+ * «Швидка»): 2 → 231, 3 → 284, 4 → 263, 5 → 242, 8 → 227, 10 → 161 v/s — the efficiency cores hold
+ * the rest back.
  */
-export function cpuInfo(all = os.availableParallelism(), fast = (fastCores ??= appleFastCores())) {
-  const max = Math.max(1, all - 1);
-  const auto = Math.min(max, fast ? Math.max(2, fast - 1) : Math.max(1, Math.floor(all / 2)));
-  return { all, max, auto, fast };
+export function cpuInfo(all = os.availableParallelism()) {
+  return { all, max: Math.max(1, all - 1) };
 }
 
-/** The cores a job takes: the chosen number within this computer's limit, or «Авто». */
-export const jobThreads = (threads: number | null, cpu = cpuInfo()) =>
-  Math.min(cpu.max, Math.max(1, threads ?? cpu.auto));
+/** «Не більше N ядер»: the chosen limit within this computer's, or all it may take (null). */
+export const coreLimit = (threads: number | null, cpu = cpuInfo()) =>
+  Math.min(cpu.max, Math.max(1, threads ?? cpu.max));
 
 const TASKPOLICY = '/usr/sbin/taskpolicy';
 

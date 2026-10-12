@@ -1749,23 +1749,18 @@ export const EN: Record<string, string> = {
   'Виберіть переклади, для яких обчислити вектори:': 'Choose the translations to make vectors for:',
   'Увесь процесор': 'The whole processor',
   'Ядра процесора': 'Processor cores',
-  'Перевірити, скільки ядер найкраще': 'Find the best number of cores',
+  'Ядра процесора: не більше {n} з {all}': 'Processor cores: at most {n} of {all}',
+  'Скільки з них брати, застосунок добирає сам: на початку обчислення пробує 1, 2, 3 … ядра й бере найменше число, що дає майже найвищу швидкість, — більше ядер не завжди швидше. Одне ядро завжди лишається вільним, а вектори обчислюються з найнижчим пріоритетом, тож комп’ютер не зависає.':
+    'The app finds how many of them to use: at the start it tries 1, 2, 3 … cores and takes the fewest that give nearly the top speed — more cores are not always faster. One core is always left free, and the vectors are made at the lowest priority, so the computer doesn’t freeze.',
+  'Найшвидше для цієї моделі: {n} — {rate} віршів за секунду.':
+    'Fastest for this model: {n} — {rate} verses a second.',
+  'Підібрати ще раз': 'Find again',
+  'Добираю число ядер: {done} з {total}…': 'Finding the number of cores: {done} of {total}…',
+  'Добираю число ядер…': 'Finding the number of cores…',
   'Перевірка ядер': 'Cores test',
-  'Перевіряю ядра: {done} з {total}. Поки триває, не навантажуйте комп’ютер.':
-    'Testing the cores: {done} of {total}. While it runs, keep the computer free.',
-  'Вибрано: {n} — найшвидше ({rate} віршів за секунду).':
-    'Chosen: {n} — the fastest ({rate} verses a second).',
   'Перевірка не вдалася: {error}': 'The test failed: {error}',
-  'Хвилина-дві: модель обчислює ті самі вірші на 1, 2, 3 … ядрах, і вибирається найшвидше.':
-    'A minute or two: the model makes the same verses on 1, 2, 3 … cores, and the fastest is chosen.',
   'Зачекайте, доки закінчиться перевірка ядер': 'Wait until the cores test ends',
   'Зачекайте, доки вектори обчисляться': 'Wait until the vectors are made',
-  'Ядра процесора: {n} з {all}': 'Processor cores: {n} of {all}',
-  рекомендовано: 'recommended',
-  'Більше ядер — швидше, але показ може пригальмовувати. Одне ядро завжди лишається вільним, а вектори обчислюються з найнижчим пріоритетом, тож комп’ютер не зависає.':
-    'More cores are faster, but the show may slow down. One core is always left free, and the vectors are made at the lowest priority, so the computer doesn’t freeze.',
-  'Швидких ядер тут: {fast} — більше за них обчислює повільніше.':
-    'Fast cores here: {fast} — more than that computes slower.',
   'Швидше: «Точна» — удвічі, «Швидка» — в 1,4 раза. Поки вектори обчислюються, показ може пригальмовувати.':
     'Faster: «Точна» twice, «Швидка» 1.4 times. While the vectors are made, the show may slow down.',
   'Обчислити для вибраних: {n} (≈ {min} хв)': 'Make them for the chosen: {n} (≈ {min} min)',

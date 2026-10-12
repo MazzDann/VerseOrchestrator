@@ -28,10 +28,18 @@ describe('the browser choice in settings.json (2026-10-01)', () => {
   });
 
   it('«Пошук за змістом»: a known model or none; «Ядра процесора» a whole number or «Авто»', () => {
-    expect(sanitizeServerSettings({}).semantic).toEqual({ model: null, threads: null });
+    expect(sanitizeServerSettings({}).semantic).toEqual({ model: null, threads: null, tuned: {} });
     expect(sanitizeServerSettings({ semantic: { model: 'precise', threads: 3 } }).semantic).toEqual(
-      { model: 'precise', threads: 3 },
+      { model: 'precise', threads: 3, tuned: {} },
     );
+    // what the job found best, per known model
+    expect(
+      sanitizeServerSettings({
+        semantic: {
+          tuned: { fast: { cap: 9, threads: 4, rate: 354 }, slow: { cap: 1 }, precise: { cap: 0 } },
+        },
+      }).semantic.tuned,
+    ).toEqual({ fast: { cap: 9, threads: 4, rate: 354 } });
     for (const threads of [0, -2, 2.5, '4', true])
       expect(sanitizeServerSettings({ semantic: { threads } }).semantic.threads).toBeNull();
     expect(sanitizeServerSettings({ semantic: { threads: 500 } }).semantic.threads).toBe(64);
@@ -40,7 +48,7 @@ describe('the browser choice in settings.json (2026-10-01)', () => {
     expect(sanitizeServerSettings({ semantic: { fullCpu: false } }).semantic.threads).toBeNull();
     expect(
       sanitizeServerSettings({ semantic: { model: 'slow', fullCpu: 'yes' } }).semantic,
-    ).toEqual({ model: null, threads: null });
+    ).toEqual({ model: null, threads: null, tuned: {} });
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-settings-'));
     dirs.push(dir);
     initServerSettings(path.join(dir, 'settings.json'));
@@ -49,6 +57,7 @@ describe('the browser choice in settings.json (2026-10-01)', () => {
     expect(updateServerSettings({ semantic: { threads: 2 } }).semantic).toEqual({
       model: 'fast',
       threads: 2,
+      tuned: {},
     });
     expect(updateServerSettings({ semantic: { threads: null } }).semantic.threads).toBeNull();
   });

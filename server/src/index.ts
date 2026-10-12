@@ -165,7 +165,7 @@ import { zipToFile } from './zip.js';
 import { createCatalog, forPage, listModuleFiles } from './catalog.js';
 import { createModelStore, modelInstalled } from './models.js';
 import { createCoresTest, sampleVerses } from './coresTest.js';
-import { cpuInfo, createQueryEmbedder, jobThreads, openChildEmbedder } from './embedding.js';
+import { coreLimit, cpuInfo, createQueryEmbedder, openChildEmbedder } from './embedding.js';
 import { createVectorJob, listTranslations, readVectorSets } from './vectorJob.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
@@ -2397,8 +2397,18 @@ setLibraryOptions({ embed: (text) => queryEmbedder.embed(text) });
 const vectors = createVectorJob({
   dataDir,
   libraryPath,
-  open: (model) =>
-    openChildEmbedder(dataDir, model, jobThreads(getServerSettings().semantic.threads)),
+  open: async (model) => {
+    // the cores this job takes: found once per model and limit (coresTest.ts), then remembered
+    const { threads, tuned } = getServerSettings().semantic;
+    const cap = coreLimit(threads);
+    const known = tuned[model];
+    let n = known && known.cap === cap ? known.threads : cap === 1 ? 1 : null;
+    if (n === null) {
+      n = await coresTest.measure(model, cap);
+      if (n === null && coresTest.state().phase === 'stopped') throw new Error('stopped');
+    }
+    return openChildEmbedder(dataDir, model, n ?? cap);
+  },
   onChange: (s) => notifySemantic(s),
   // a library connection opened before data/vectors.db was made attaches it when reopened
   onSet: () => {
@@ -2406,16 +2416,15 @@ const vectors = createVectorJob({
     notifySemantic({});
   },
 });
-// «Перевірити, скільки ядер найкраще»: the chosen model on 1, 2, 3 … cores, the best one kept
+// «Ядра процесора»: the job finds how many of them make vectors fastest (or a button asks again)
 const coresTest = createCoresTest({
-  open: (threads) => {
-    const model = getServerSettings().semantic.model;
-    if (!model) return Promise.reject(new Error('no model'));
-    return openChildEmbedder(dataDir, model, threads);
-  },
+  open: (model, threads) => openChildEmbedder(dataDir, model, threads),
   sample: () => sampleVerses(libraryPath),
   onChange: () => notifySemantic({}),
-  onBest: (n) => updateServerSettings({ semantic: { threads: n === cpuInfo().auto ? null : n } }),
+  onBest: (model, cap, best) =>
+    updateServerSettings({
+      semantic: { tuned: { ...getServerSettings().semantic.tuned, [model]: { cap, ...best } } },
+    }),
 });
 /** A rebuild started: the vector job stops (declared here, the rebuild job is set up first). */
 function stopVectors(): void {
@@ -2430,8 +2439,14 @@ function semanticState() {
     model: chosen,
     threads: getServerSettings().semantic.threads,
     cpu: cpuInfo(),
+    // what the job found best for this limit, per model
+    tuned: Object.fromEntries(
+      Object.entries(getServerSettings().semantic.tuned).filter(
+        ([, v]) => v.cap === coreLimit(getServerSettings().semantic.threads),
+      ),
+    ),
     // for a 1.15.1–1.16.0-beta.5 control window: «Увесь процесор» on = every core it may take
-    fullCpu: jobThreads(getServerSettings().semantic.threads) >= cpuInfo().max,
+    fullCpu: coreLimit(getServerSettings().semantic.threads) >= cpuInfo().max,
     models: EMBED_MODEL_IDS.map((id) => ({
       id,
       name: EMBED_MODELS[id].name,
@@ -2555,7 +2570,7 @@ app.post(
     if (rebuild.running()) throw new ApiError(409, N_('Зачекайте, доки бібліотека збереться'));
     if (vectors.state().phase === 'running')
       throw new ApiError(409, N_('Зачекайте, доки вектори обчисляться'));
-    coresTest.start(cpuInfo().max);
+    void coresTest.measure(model, coreLimit(getServerSettings().semantic.threads));
     res.json(semanticState());
   }),
 );

@@ -42,10 +42,15 @@ export interface ServerSettings {
   backups: { auto: boolean };
   /**
    * «Пошук за змістом» (1.15.0-beta.2): the model «~ …» asks — none until one is chosen; `threads`
-   * («Ядра процесора»): how many cores make the vectors, null = «Авто» (embedding.ts cpuInfo; a
-   * number above this computer's limit takes the limit — so 1.15.1's `fullCpu: true` reads as 64)
+   * («Ядра процесора»): at most how many cores make the vectors, null = all the app may take
+   * (embedding.ts coreLimit; 1.15.1's `fullCpu: true` reads as 64 = the same)
    */
-  semantic: { model: EmbedModelId | null; threads: number | null };
+  semantic: {
+    model: EmbedModelId | null;
+    threads: number | null;
+    /** what the job found best per model (coresTest.ts), for the limit it was found under */
+    tuned: Partial<Record<EmbedModelId, { cap: number; threads: number; rate: number }>>;
+  };
 }
 
 /** «Ядра процесора»: a whole number from 1 on (64 at most), else «Авто»; 1.15.1's «Увесь процесор» = all. */
@@ -55,6 +60,18 @@ export function sanitizeThreads(threads: unknown, fullCpu?: unknown): number | n
   return threads === undefined && fullCpu === true ? 64 : null;
 }
 
+function sanitizeTuned(v: unknown): ServerSettings['semantic']['tuned'] {
+  const out: ServerSettings['semantic']['tuned'] = {};
+  if (!v || typeof v !== 'object') return out;
+  const whole = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 1;
+  for (const [id, t] of Object.entries(v as Record<string, unknown>)) {
+    const r = t as { cap?: unknown; threads?: unknown; rate?: unknown } | null;
+    if (isEmbedModelId(id) && r && whole(r.cap) && whole(r.threads) && typeof r.rate === 'number')
+      out[id] = { cap: r.cap, threads: r.threads, rate: r.rate };
+  }
+  return out;
+}
+
 export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   version: 1,
   remotes: { persist: true },
@@ -62,7 +79,7 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   updates: { check: true },
   launch: DEFAULT_LAUNCH,
   backups: { auto: true },
-  semantic: { model: null, threads: null },
+  semantic: { model: null, threads: null, tuned: {} },
 };
 
 /** The app's own ports (web dev server, API / single-process app) — not for the waiter. */
@@ -94,7 +111,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     };
     launch?: unknown;
     backups?: { auto?: unknown };
-    semantic?: { model?: unknown; threads?: unknown; fullCpu?: unknown };
+    semantic?: { model?: unknown; threads?: unknown; fullCpu?: unknown; tuned?: unknown };
   };
   const idle = Number(r.standby?.idleMinutes);
   const out: ServerSettings = {
@@ -128,6 +145,7 @@ export function sanitizeServerSettings(raw: unknown): ServerSettings {
     semantic: {
       model: isEmbedModelId(r.semantic?.model) ? r.semantic.model : null,
       threads: sanitizeThreads(r.semantic?.threads, r.semantic?.fullCpu),
+      tuned: sanitizeTuned(r.semantic?.tuned),
     },
   };
   const channel = r.updates?.channel;

@@ -39,7 +39,7 @@ describe('«Перевірити, скільки ядер найкраще»', (
     let released = 0;
     let best: number | null = null;
     const t = createCoresTest({
-      open: async (n) => {
+      open: async (_model, n) => {
         opened.push(n);
         return {
           model: {} as never,
@@ -52,11 +52,13 @@ describe('«Перевірити, скільки ядер найкраще»', (
       },
       sample: () => Array.from({ length: 320 }, (_, i) => `v${i}`),
       onChange: () => undefined,
-      onBest: (n) => (best = n),
+      onBest: (_model, cap, b) => {
+        best = b.threads;
+        expect(cap).toBe(3);
+      },
       now: () => clock,
     });
-    t.start(3);
-    await new Promise((r) => setTimeout(r, 10));
+    expect(await t.measure('fast', 3)).toBe(2);
     expect(t.state().phase).toBe('done');
     expect(t.state().results).toEqual([
       { threads: 1, rate: 100 },

@@ -37,16 +37,11 @@ const MINUTES: Record<EmbedModelId, { half: number; full: number }> = {
   precise: { half: 24, full: 12.5 },
 };
 
-/**
- * Minutes for the chosen cores: «Авто» or more of them ≈ the measured half / full; fewer than «Авто»
- * take longer about in proportion. Rough — the job's own line shows the real speed.
- */
+/** Minutes a Bible takes: by the speed the job found here, else the PC's half-processor number. */
 function estimate(id: EmbedModelId, s: SemanticState): number {
-  const m = MINUTES[id];
-  if (!s.cpu) return m[s.fullCpu ? 'full' : 'half'];
-  const cores = Math.min(s.cpu.max, Math.max(1, s.threads ?? s.cpu.auto));
-  if (cores > s.cpu.auto) return m.full;
-  return Math.round(((m.half * s.cpu.auto) / cores) * 10) / 10;
+  const rate = s.tuned?.[id]?.rate;
+  if (!s.cpu) return MINUTES[id][s.fullCpu ? 'full' : 'half'];
+  return rate ? Math.max(0.5, Math.round((31_000 / rate / 60) * 2) / 2) : MINUTES[id].half;
 }
 
 export function SemanticSection({ active }: { active: boolean }) {
@@ -100,7 +95,9 @@ export function SemanticSection({ active }: { active: boolean }) {
   }, [missingKey, mainId]);
   const minutes = model && s ? estimate(model.id, s) : 0;
   // «Ядра процесора»: the slider moves freely, the choice is saved when it's let go
-  const cores = s?.cpu ? Math.min(s.cpu.max, Math.max(1, s.threads ?? s.cpu.auto)) : 0;
+  const cores = s?.cpu ? Math.min(s.cpu.max, Math.max(1, s.threads ?? s.cpu.max)) : 0;
+  // what the job found best for the chosen model under this limit
+  const found = chosen ? s?.tuned?.[chosen] : undefined;
   const [coresDraft, setCoresDraft] = useState<number | null>(null);
   const test = s?.coresTest;
   const testing = test?.phase === 'running';
@@ -249,11 +246,10 @@ export function SemanticSection({ active }: { active: boolean }) {
               ) : (
                 <Stack gap={4}>
                   <Text size="sm">
-                    {tr('Ядра процесора: {n} з {all}', {
+                    {tr('Ядра процесора: не більше {n} з {all}', {
                       n: fmtNumber(coresDraft ?? cores),
                       all: fmtNumber(s.cpu.all),
                     })}
-                    {(coresDraft ?? cores) === s.cpu.auto ? ` · ${tr('рекомендовано')}` : ''}
                   </Text>
                   {s.cpu.max > 1 && (
                     <Slider
@@ -265,11 +261,10 @@ export function SemanticSection({ active }: { active: boolean }) {
                       onChange={setCoresDraft}
                       onChangeEnd={(v) => {
                         const cpu = s.cpu!;
-                        void act(() => api.setSemanticThreads(v === cpu.auto ? null : v)).finally(
+                        void act(() => api.setSemanticThreads(v === cpu.max ? null : v)).finally(
                           () => setCoresDraft(null),
                         );
                       }}
-                      marks={[{ value: s.cpu.auto }]}
                       label={null}
                       disabled={busy || testing || job?.phase === 'running'}
                       thumbLabel={tr('Ядра процесора')}
@@ -277,11 +272,8 @@ export function SemanticSection({ active }: { active: boolean }) {
                   )}
                   <Text size="xs" c="dimmed">
                     {tr(
-                      'Більше ядер — швидше, але показ може пригальмовувати. Одне ядро завжди лишається вільним, а вектори обчислюються з найнижчим пріоритетом, тож комп’ютер не зависає.',
+                      'Скільки з них брати, застосунок добирає сам: на початку обчислення пробує 1, 2, 3 … ядра й бере найменше число, що дає майже найвищу швидкість, — більше ядер не завжди швидше. Одне ядро завжди лишається вільним, а вектори обчислюються з найнижчим пріоритетом, тож комп’ютер не зависає.',
                     )}
-                    {s.cpu.fast
-                      ? ` ${tr('Швидких ядер тут: {fast} — більше за них обчислює повільніше.', { fast: fmtNumber(s.cpu.fast) })}`
-                      : ''}
                   </Text>
                   {testing && test ? (
                     <Group gap="xs" wrap="nowrap">
@@ -299,9 +291,15 @@ export function SemanticSection({ active }: { active: boolean }) {
                       </Button>
                     </Group>
                   ) : (
-                    model?.installed &&
+                    found &&
                     s.cpu.max > 1 && (
-                      <Group>
+                      <Group gap="xs" wrap="nowrap">
+                        <Text size="xs" style={{ flex: 1 }}>
+                          {tr('Найшвидше для цієї моделі: {n} — {rate} віршів за секунду.', {
+                            n: fmtNumber(found.threads),
+                            rate: fmtNumber(found.rate),
+                          })}
+                        </Text>
                         <Button
                           size="xs"
                           variant="default"
@@ -309,36 +307,22 @@ export function SemanticSection({ active }: { active: boolean }) {
                           disabled={job?.phase === 'running'}
                           onClick={() => void act(() => api.testCores())}
                         >
-                          {tr('Перевірити, скільки ядер найкраще')}
+                          {tr('Підібрати ще раз')}
                         </Button>
                       </Group>
                     )
                   )}
-                  <Text size="xs" c="dimmed" aria-live="polite">
-                    {testing && test
-                      ? tr(
-                          'Перевіряю ядра: {done} з {total}. Поки триває, не навантажуйте комп’ютер.',
-                          {
+                  {(testing || test?.phase === 'failed') && test && (
+                    <Text size="xs" c={testing ? 'dimmed' : 'orange'} aria-live="polite">
+                      {testing
+                        ? tr('Добираю число ядер: {done} з {total}…', {
                             done: fmtNumber(test.results.length),
                             total: fmtNumber(test.total),
-                          },
-                        )
-                      : test?.phase === 'done' && test.best !== null
-                        ? tr('Вибрано: {n} — найшвидше ({rate} віршів за секунду).', {
-                            n: fmtNumber(test.best),
-                            rate: fmtNumber(
-                              test.results.find((r) => r.threads === test.best)?.rate ?? 0,
-                            ),
                           })
-                        : test?.phase === 'failed'
-                          ? tr('Перевірка не вдалася: {error}', { error: test.error ?? '' })
-                          : model?.installed && s.cpu.max > 1
-                            ? tr(
-                                'Хвилина-дві: модель обчислює ті самі вірші на 1, 2, 3 … ядрах, і вибирається найшвидше.',
-                              )
-                            : ''}
-                  </Text>
-                  {test && test.results.length > 0 && (
+                        : tr('Перевірка не вдалася: {error}', { error: test.error ?? '' })}
+                    </Text>
+                  )}
+                  {test && test.results.length > 0 && (testing || test.phase === 'done') && (
                     <Text size="xs" c="dimmed">
                       {test.results
                         .map((r) => `${fmtNumber(r.threads)} — ${fmtNumber(r.rate)}`)
@@ -373,7 +357,9 @@ export function SemanticSection({ active }: { active: boolean }) {
                           total: fmtNumber(job.current.total),
                           rate: String(job.rate),
                         }) + (job.left ? ` · ${tr('далі ще {n}', { n: String(job.left) })}` : '')
-                      : tr('Готую модель…')}
+                      : testing
+                        ? tr('Добираю число ядер…')
+                        : tr('Готую модель…')}
                   </Text>
                 </Stack>
               ) : (

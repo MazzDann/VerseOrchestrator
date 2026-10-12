@@ -196,6 +196,8 @@ export function createVectorJob(d: {
         (t) => t.source_hash && (!ids || ids.includes(t.id)) && !sets.get(t.source_hash)?.done,
       );
       embedder = await d.open(model);
+      // the speed counts from here: opening may first measure the cores (index.ts)
+      const began = Date.now();
       const verses = lib.prepare(
         `SELECT v.book_number b, v.chapter c, v.verse n, v.text FROM verses v
          JOIN translations t ON t.id = v.translation_id
@@ -247,7 +249,7 @@ export function createVectorJob(d: {
             part.forEach((r, j) => vec.set(r, out[j]));
             made += part.length;
             s.current.done += part.length;
-            s.rate = Math.round(made / ((Date.now() - (s.startedAt ?? Date.now())) / 1000 || 1));
+            s.rate = Math.round(made / ((Date.now() - began) / 1000 || 1));
             changed(false);
           }
           s.current.done += list.length - withText.length;
@@ -271,7 +273,8 @@ export function createVectorJob(d: {
         d.onSet?.();
       }
     } catch (err) {
-      if (err instanceof Stopped) end = 'stopped';
+      // a stop while the cores were being measured (index.ts open) is a stop too
+      if (err instanceof Stopped || stopping) end = 'stopped';
       else {
         end = 'failed';
         s.error = {
