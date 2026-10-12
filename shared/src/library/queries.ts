@@ -16,13 +16,13 @@ import { nearest, type ChapterVectors } from '../embed/vectors.js';
 import {
   blendVectors,
   capitalizeWords,
-  CLOSENESS_CUT,
   closenessOf,
+  DEFAULT_RANKING,
   inQueryLanguage,
   MEANING_MIN,
   meaningStems,
-  WORDS_WEIGHT,
 } from './meaning.js';
+import { EMBED_MODELS, isEmbedModelId } from '../embed/models.js';
 
 /**
  * Every read the app makes against a library database, written once against the
@@ -1077,7 +1077,11 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
         h.words = stems.reduce((w, st, i) => (t.includes(` ${st}`) ? w + idf[i] : w), 0) / total;
       }
     }
-    const score = (h: Place) => (1 - WORDS_WEIGHT) * h.cos + WORDS_WEIGHT * h.words;
+    // each model its own weights (measured: EMBED_MODELS `ranking`)
+    const { wordsWeight, cut } = isEmbedModelId(asked.model)
+      ? EMBED_MODELS[asked.model].ranking
+      : DEFAULT_RANKING;
+    const score = (h: Place) => (1 - wordsWeight) * h.cos + wordsWeight * h.words;
     // the closer first; a tie by place, the same on every engine
     const order = (x: Place, y: Place) =>
       score(y) - score(x) ||
@@ -1096,7 +1100,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     const best = Math.max(...ranked.map(score));
     // far below the best: left out — a few always stay
     const hits = ranked
-      .filter((h, i) => i < MEANING_MIN || best - score(h) <= CLOSENESS_CUT)
+      .filter((h, i) => i < MEANING_MIN || best - score(h) <= cut)
       .slice(0, MEANING_LIMIT);
     // the places as a table joined on the verses' index — 60 ORed conditions scanned every verse
     const rows = await db.all<AnyRow>(
@@ -1115,7 +1119,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       .map((r): SearchResult => {
         const res = rowToResult(r);
         const i = at.get(placeKey(res.translationId, res.bookNumber, res.chapter, res.verse)) ?? 0;
-        return { ...res, closeness: closenessOf(best - score(hits[i])) };
+        return { ...res, closeness: closenessOf(best - score(hits[i]), cut) };
       })
       .sort(
         (x, y) =>
