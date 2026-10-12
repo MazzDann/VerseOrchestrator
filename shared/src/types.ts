@@ -20,11 +20,11 @@ export interface Verse {
   chapter: number;
   verse: number;
   text: string;
-  /** Original Module markup (with `<S>` Strong tags); present only where needed. */
+  /** Original module markup (with `<S>` Strong tags); present only where needed. */
   textRaw?: string;
 }
 
-/** A set of section titles of its own, Module's *.subheadings.SQLite3 (1.16.0-beta.3). */
+/** A set of section titles of its own, the module's *.subheadings.SQLite3 (1.16.0-beta.3). */
 export interface SubheadingSet {
   id: number;
   /** the file's name without the extensions — «KJV-s», «Хом-д» */

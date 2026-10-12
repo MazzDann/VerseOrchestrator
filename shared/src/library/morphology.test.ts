@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { explainMorphology, morphologyKeys, type MorphologyCandidate } from './morphology';
-import { readMorphology } from './module';
+import { readMorphology } from './moduleFormat';
 
 const row = (indication: string, meaning: string, applicableTo = '', dictionary = 'Strong') =>
   ({ dictionary, indication, applicableTo, meaning }) satisfies MorphologyCandidate;

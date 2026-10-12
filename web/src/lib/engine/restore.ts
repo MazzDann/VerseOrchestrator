@@ -1,6 +1,6 @@
 import { api, SegmentManifestSchema, type SegmentInfo } from '../../api';
 import { effectiveSource, useDataSource } from '../../dataSourceStore';
-import type { ModuleKind } from '@vo/shared';
+import type { ModuleFileKind } from '@vo/shared';
 import { localEngine } from './index';
 import { fmtNumber, N_, Nn_, tr, trn } from '../../i18n';
 import type { EngineKind, SegmentCounts, SegmentUnit } from './protocol';
@@ -120,7 +120,7 @@ export function segmentItems(c: Pick<SegmentCounts, 'items' | 'unit'>): string {
   return trn(c.items, UNIT_FORMS[c.unit]);
 }
 
-const KIND_LABEL: Record<ModuleKind, string> = {
+const KIND_LABEL: Record<ModuleFileKind, string> = {
   bible: N_('Біблія'),
   dictionary: N_('словник'),
   commentaries: N_('коментарі'),
@@ -135,7 +135,7 @@ export interface Dropped {
 }
 
 /**
- * Add a dropped file: a raw Module module (.SQLite3) is converted into a segment first
+ * Add a dropped file: a raw module (.SQLite3) is converted into a segment first
  * (in the worker); a segment (.vodb / .vodb.gz) goes in as is. What's cached is the
  * SEGMENT — a reload merges it directly, no second conversion. Returns its key.
  */

@@ -18,7 +18,7 @@ export function setFor(
   return sets.find((s) => setStem(s.abbr) === own)?.abbr ?? '';
 }
 
-/** A set's name without its Module tail: «KJV-s» → «kjv», «RST-п» → «rst», «Геце-д(у)» → «геце». */
+/** A set's name without its module tail: «KJV-s» → «kjv», «RST-п» → «rst», «Геце-д(у)» → «геце». */
 export function setStem(abbr: string): string {
-  return abbr.toLowerCase().replace(/-[sпд](\([^)]*\))?$/u, ''); // i18n-ignore: Module's name tails
+  return abbr.toLowerCase().replace(/-[sпд](\([^)]*\))?$/u, ''); // i18n-ignore: the module's name tails
 }

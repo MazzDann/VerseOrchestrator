@@ -53,7 +53,7 @@ The queries branch on `dialect` only for schema probes and text search. A parity
 real data, every query without a row limit returned identical results on all three
 engines.
 
-Normalization (`shared/src/normalize.ts`) happens once, when the library is built: Module
+Normalization (`shared/src/normalize.ts`) happens once, when the library is built: the module
 markup goes (Strong's numbers, footnotes, and morphology codes with their content), letters
 are lowercased, accents and other combining marks are removed (й → и, ї → і), and
 punctuation becomes spaces. The same function normalizes the user's query, so matching
@@ -68,8 +68,8 @@ that lists their SHA-256 hashes. The browser downloads only the segments you cho
 checks them against the manifest, keeps them in Cache Storage by hash, and merges them
 into its local database (`shared/src/library/merge.ts`).
 
-The browser can also take raw Module modules — dropped or picked — and convert them in
-the worker with the same rules the builder uses (`shared/src/library/module.ts`). The
+The browser can also take raw module files — dropped or picked — and convert them in
+the worker with the same rules the builder uses (`shared/src/library/moduleFormat.ts`). The
 converted segment is cached, so a reload doesn't convert again.
 
 ## Measurements

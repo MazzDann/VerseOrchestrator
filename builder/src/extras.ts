@@ -24,7 +24,7 @@ function tableExists(db: Database.Database, name: string): boolean {
   return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
 }
 
-/** Read a Module `*.crossreferences.SQLite3` module (table `cross_references`). */
+/** Read a `*.crossreferences.SQLite3` module (table `cross_references`). */
 export function readCrossrefs(path: string): CrossRef[] {
   const db = new Database(path, { readonly: true, fileMustExist: true });
   try {
@@ -48,7 +48,7 @@ export function readCrossrefs(path: string): CrossRef[] {
   }
 }
 
-/** Read a Module `*.commentaries.SQLite3` module (table `commentaries`). */
+/** Read a `*.commentaries.SQLite3` module (table `commentaries`). */
 export function readCommentaries(path: string): CommentaryEntry[] {
   const db = new Database(path, { readonly: true, fileMustExist: true });
   try {
@@ -60,7 +60,7 @@ export function readCommentaries(path: string): CommentaryEntry[] {
   }
 }
 
-/** A Module `*.subheadings.SQLite3` set (1.16.0-beta.3): its name, language and titles. */
+/** A `*.subheadings.SQLite3` set (1.16.0-beta.3): its name, language and titles. */
 export function readSubheadingSet(path: string): {
   title: string;
   language: string;

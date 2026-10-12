@@ -36,7 +36,7 @@ const mb = (b: number) =>
   tr('{n} МБ', { n: fmtNumber(b / 1048576, { maximumFractionDigits: b < 10 * 1048576 ? 1 : 0 }) });
 const segs = (n: number) => trn(n, '{n} сегм.|{n} сегм.|{n} сегм.');
 
-/** Module modules (converted in the browser) and ready segments. */
+/** modules (converted in the browser) and ready segments. */
 const DROPPABLE = /\.(sqlite3|vodb|vodb\.gz)$/i;
 
 /**
@@ -135,7 +135,7 @@ export function DataSourceSection() {
     const list = [...files].filter((f) => DROPPABLE.test(f.name));
     if (list.length === 0) {
       notifications.show({
-        message: tr('Підходять модулі Module (.SQLite3) і сегменти (.vodb / .vodb.gz)'),
+        message: tr('Підходять модулі (.SQLite3) і сегменти (.vodb / .vodb.gz)'),
         color: 'red',
       });
       return;
@@ -318,7 +318,7 @@ export function DataSourceSection() {
       {manifest.isError ? (
         <Text size="xs" c="dimmed">
           {tr(
-            'Сегменти на сервері не зібрано (npm run build:segments). Можна додати модулі Module чи сегменти файлами — нижче.',
+            'Сегменти на сервері не зібрано (npm run build:segments). Можна додати модулі .SQLite3 чи сегменти файлами — нижче.',
           )}
         </Text>
       ) : (
@@ -455,7 +455,7 @@ export function DataSourceSection() {
           <IconDatabase size={14} />
           <Text size="xs" c="dimmed">
             {tr(
-              'Перетягніть сюди модулі Module (.SQLite3) — Біблії, словники, коментарі, посилання — або сегменти .vodb',
+              'Перетягніть сюди модулі (.SQLite3) — Біблії, словники, коментарі, посилання — або сегменти .vodb',
             )}
           </Text>
         </Group>

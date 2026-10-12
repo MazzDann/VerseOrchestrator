@@ -6,7 +6,7 @@ docs. How the code is organized is in [Architecture](architecture.md).
 
 ## Set up
 
-You need Node.js 24 (22.18 at least) and, to see real texts, some Module modules in
+You need Node.js 24 (22.18 at least) and, to see real texts, some module files in
 `modules/` (see [Modules and copyright](../../README.md#modules-and-copyright)). The tests
 don't need modules: they build small in-memory fixtures. Version managers such as fnm,
 nodenv, and asdf pick Node 24 from `.node-version`.

@@ -66,7 +66,7 @@ import { PresetsSection } from './PresetsSection';
 import { DataSourceSection } from './DataSourceSection';
 import { SemanticSection } from './SemanticSection';
 import { SubheadingSetPicker } from './SubheadingSetPicker';
-import { useModulesPanel } from '../lib/catalog';
+import { useModulesPanel } from '../lib/modules';
 import { rebuildProgress, useRebuildLibrary } from '../lib/rebuild';
 import { StandbySection } from './StandbySection';
 import { UpdateSection } from './UpdateSection';
@@ -1105,7 +1105,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               <Text size="xs" c="dimmed" mb={8}>
                 {tr('Перебудувати з папок modules/ і songs/ після додавання перекладу чи пісні.')}
               </Text>
-              {/* «Модулі» (1.15.0-beta.1): Module's catalog, and which modules the library takes */}
+              {/* «Модулі»: which module files the library takes */}
               <Button
                 variant="light"
                 fullWidth
@@ -1115,7 +1115,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 title={serverAvailable === false ? tr(NEEDS_SERVER) : undefined}
                 onClick={() => useModulesPanel.getState().show()}
               >
-                {tr('Модулі: каталог і вибір…')}
+                {tr('Модулі: вибір для бібліотеки…')}
               </Button>
               <Group gap="xs" wrap="nowrap">
                 <Button

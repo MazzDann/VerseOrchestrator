@@ -180,7 +180,7 @@ describe('launcher', () => {
       kind: 'build',
       modules: path.join(modules, 'modules'),
     });
-    expect(libraryState(project({ 'old/Module/UKRK.SQLite3': 'x' }), {}).kind).toBe('build');
+    expect(libraryState(project({ 'old/modules/UKRK.SQLite3': 'x' }), {}).kind).toBe('build');
     expect(libraryState(project({ 'data/segments/manifest.json': '{}' }), {}).kind).toBe('browser');
     expect(libraryState(project({ 'README.md': '' }), {}).kind).toBe('missing');
     // LIBRARY_DB / VO_DATA_DIR win, as they do for the server and the builder

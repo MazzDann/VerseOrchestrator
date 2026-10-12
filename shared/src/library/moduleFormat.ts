@@ -9,21 +9,21 @@ import type { Row, SqlParam } from './driver.js';
 import { fill, N_, type Vars } from '../i18n/index.js';
 
 /**
- * Module modules → our schema. The builder imports a whole modules folder into
+ * modules → our schema. The builder imports a whole modules folder into
  * library.db; a browser engine converts ONE dropped module into a segment (segments.ts
  * layout, incl. verses_norm) and merges it like any other. Row-level rules live here so
  * both produce the same text, search normalization and Strong index.
  */
 
-export type ModuleKind =
+export type ModuleFileKind =
   | 'bible'
   | 'dictionary'
   | 'commentaries'
   | 'crossreferences'
   | 'subheadings';
 
-/** What a Module file is, from its table names; null when it's none we import. */
-export function moduleKind(tables: string[]): ModuleKind | null {
+/** What a module file is, from its table names; null when it's none we import. */
+export function moduleFileKind(tables: string[]): ModuleFileKind | null {
   const has = new Set(tables.map((t) => t.toLowerCase()));
   if (has.has('books') && has.has('verses')) return 'bible';
   if (has.has('dictionary')) return 'dictionary';
@@ -43,7 +43,7 @@ export interface Subheading {
 }
 
 /**
- * A translation's section titles (1.16.0-beta.2): Module keeps them in a `stories` table (column
+ * A translation's section titles (1.16.0-beta.2): a module keeps them in a `stories` table (column
  * `title`) inside the Bible module, or in a `subheadings` table (column `subheading`); both may have
  * `order_if_several`. Markup is stripped; empty titles are left out.
  */
@@ -99,7 +99,7 @@ export interface MorphologyRow {
 }
 
 /**
- * The grammar codes a dictionary explains (1.16.0-beta.2): Module's `morphology_indications`
+ * The grammar codes a dictionary explains (1.16.0-beta.2): the module's `morphology_indications`
  * (indication, applicable_to, meaning) — Strong's dictionary carries 4171 for the Greek (RMAC) and
  * Hebrew (OSHB) codes. An odd table never fails the module.
  */
@@ -128,7 +128,7 @@ export function readMorphology(
   return out;
 }
 
-/** File name without the Module extensions: "UKRK.SQLite3" → "UKRK". */
+/** File name without the module extensions: "UKRK.SQLite3" → "UKRK". */
 export function moduleLabel(fileName: string): string {
   return fileName
     .replace(/\.SQLite3$/i, '')
@@ -300,7 +300,7 @@ export function moduleHash(bytes: Uint8Array): number {
 }
 
 export interface Converted {
-  kind: ModuleKind;
+  kind: ModuleFileKind;
   /** label shown in the UI (translation abbr / dictionary / commentary name) */
   abbr: string;
   title: string;
@@ -351,7 +351,7 @@ function bulk(
 }
 
 /**
- * Convert the Module module open as `src` into `out` — an empty database with
+ * Convert the module open as `src` into `out` — an empty database with
  * SCHEMA_SQL and SEGMENT_NORM_TABLE_SQL (i.e. a segment). Run it inside a transaction.
  */
 export function convertModule(
@@ -362,11 +362,11 @@ export function convertModule(
   const tables = src
     .all("SELECT name FROM sqlite_master WHERE type = 'table'")
     .map((r) => String(r.name));
-  const kind = moduleKind(tables);
+  const kind = moduleFileKind(tables);
   if (!kind) {
     throw new ModuleError(
       N_(
-        'Це не модуль Module, який можна імпортувати (Біблія, словник, коментарі, перехресні посилання чи підзаголовки)',
+        'Це не модуль .SQLite3, який можна імпортувати (Біблія, словник, коментарі, перехресні посилання чи підзаголовки)',
       ),
     );
   }

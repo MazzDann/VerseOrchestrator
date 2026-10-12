@@ -1,26 +1,26 @@
 import Database from 'better-sqlite3';
 import { bibleMeta, readSubheadings, type BibleMeta, type Subheading } from '@vo/shared';
 
-export type ModuleInfo = BibleMeta;
+export type BibleModuleInfo = BibleMeta;
 
-export interface ModuleBook {
+export interface BibleModuleBook {
   book_color: string | null;
   book_number: number;
   short_name: string | null;
   long_name: string | null;
 }
 
-export interface ModuleVerse {
+export interface BibleModuleVerse {
   book_number: number;
   chapter: number;
   verse: number;
   text: string | null;
 }
 
-export interface ModuleModule {
-  info: ModuleInfo;
-  books: ModuleBook[];
-  verses: ModuleVerse[];
+export interface BibleModule {
+  info: BibleModuleInfo;
+  books: BibleModuleBook[];
+  verses: BibleModuleVerse[];
   /** section titles (1.16.0-beta.2) */
   subheadings: Subheading[];
 }
@@ -30,11 +30,11 @@ function tableExists(db: Database.Database, name: string): boolean {
 }
 
 /**
- * Read a Module `.SQLite3` module. Returns null if the file is not a Bible text
+ * Read a `.SQLite3` module. Returns null if the file is not a Bible text
  * module (e.g. a commentary, dictionary, cross-reference or cache file), i.e. it
  * lacks the `books`/`verses` tables.
  */
-export function readModule(path: string): ModuleModule | null {
+export function readModule(path: string): BibleModule | null {
   const db = new Database(path, { readonly: true, fileMustExist: true });
   try {
     if (!tableExists(db, 'books') || !tableExists(db, 'verses')) return null;
@@ -53,11 +53,11 @@ export function readModule(path: string): ModuleModule | null {
       .prepare(
         'SELECT book_color, book_number, short_name, long_name FROM books ORDER BY book_number',
       )
-      .all() as ModuleBook[];
+      .all() as BibleModuleBook[];
 
     const verses = db
       .prepare('SELECT book_number, chapter, verse, text FROM verses')
-      .all() as ModuleVerse[];
+      .all() as BibleModuleVerse[];
 
     if (books.length === 0 || verses.length === 0) return null;
 

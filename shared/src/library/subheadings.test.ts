@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { readSubheadings } from './module';
+import { readSubheadings } from './moduleFormat';
 
-describe('section titles from a Module module (1.16.0-beta.2)', () => {
+describe('section titles from a module (1.16.0-beta.2)', () => {
   it('reads «stories» (title) or «subheadings» (subheading), markup stripped, empty left out', () => {
     const rows = {
       stories: [

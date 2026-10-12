@@ -8,7 +8,7 @@ window you place on a second monitor, with state synced live between the windows
 Viewers can follow along on their phones, and a speaker can step through the show from
 their own phone.
 
-The primary content is the **Bible** (Module modules), but the model — _containers →
+The primary content is the **Bible** (module files), but the model — _containers →
 sections → numbered units_ (books → chapters → verses) with full-text search — applies
 to any structured book (reference works, normative documents, manuals). The interface
 is Ukrainian and English; search is case- and diacritic-insensitive and handles any module
@@ -33,7 +33,7 @@ Checksums, release notes, and earlier versions are on the [Releases](https://git
 To start the app:
 
 1. Extract the archive to a folder of your choice.
-2. Put Module modules (`*.SQLite3`) in its `modules/` folder.
+2. Put module files (`*.SQLite3`) in its `modules/` folder.
 3. Run `start.cmd` (Windows), `start.command` (macOS), or `./start.sh` (Linux).
 
 The archive carries its own Node.js and needs no internet connection. On the first start,
@@ -73,10 +73,10 @@ Feedback is public — don't include personal data.
 ## Run from the source
 
 To run the app from a clone of this repository, you need **Node.js 22.18 or later**
-(24 LTS recommended) and Module modules. A release archive or a portable copy carries its
+(24 LTS recommended) and module files. A release archive or a portable copy carries its
 own Node.js.
 
-1. Put your Module Bible modules (`*.SQLite3`) into a `modules/` folder at the
+1. Put your Bible module files (`*.SQLite3`) into a `modules/` folder at the
    repository root, for example `modules/KJV+.SQLite3`.
 2. Start the launcher for your system:
 
@@ -114,8 +114,7 @@ In a terminal, you can pass these options to any launcher (for example,
 ## Modules and copyright
 
 The repository doesn't ship modules: they are large and have their own licensing. You
-provide them in the standard **Module** `.SQLite3` format, which the Module app's
-module catalog offers. Next to Bible translations, the library also imports Strong's
+provide them as `.SQLite3` module files. Next to Bible translations, the library also imports Strong's
 dictionaries (`*.dictionary.SQLite3`), cross-references (`*.crossreferences.SQLite3`),
 and commentaries (`*.commentaries.SQLite3`) for the «Стронг» and «Контекст» tabs, and
 songs from song bundles (`data/songs/*.vosongs`, one file per songbook), which the app
@@ -129,7 +128,7 @@ imported module, so don't publish it with copyrighted translations inside. `.git
 keeps modules, the library, segments, songs, and builds out of the repository.
 
 The builder looks for modules in this order: `$MODULES_DIR`, `modules/`,
-`data/modules/`, `old/Module/`.
+`data/modules/`, `old/modules/`.
 
 ## Development
 
@@ -138,7 +137,7 @@ run the development servers:
 
 ```bash
 npm ci
-npm run build:library   # Module *.SQLite3 -> data/library.db
+npm run build:library   # *.SQLite3 -> data/library.db
 npm run dev             # API server :8787 + web app :5173
 ```
 
@@ -181,9 +180,9 @@ what it was built from, so `npm start` rebuilds it after a pull or a checkout.
 An npm-workspaces monorepo on Node.js 24 and TypeScript:
 
 - **`shared/`**: library queries written once for every database engine, the SQLite and
-  Postgres schemas, Module conversion rules, segments, song bundles and the `.pptx`
+  Postgres schemas, module conversion rules, segments, song bundles and the `.pptx`
   reader, text normalization, and reference parsing.
-- **`builder/`**: converts Module modules and the song bundles into one merged
+- **`builder/`**: converts module files and the song bundles into one merged
   `data/library.db` with a normalized full-text index, and into segments for the
   browser. It runs as its own process, so the app never freezes.
 - **`server/`**: Express + better-sqlite3, a read-only library API on the loopback

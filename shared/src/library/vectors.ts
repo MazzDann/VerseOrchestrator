@@ -1,4 +1,4 @@
-import type { SyncConn } from './module.js';
+import type { SyncConn } from './moduleFormat.js';
 import type { PgConn } from './postgres.js';
 
 /**

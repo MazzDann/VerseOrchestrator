@@ -155,7 +155,7 @@ Everything the app remembers is in its folder:
 
 | Path                 | What's there                                                                                             |
 | -------------------- | -------------------------------------------------------------------------------------------------------- |
-| `modules/`           | Module modules (`*.SQLite3`) the library is built from                                                  |
+| `modules/`           | module files (`*.SQLite3`) the library is built from                                                     |
 | `songs/`             | songs in presentations (`*.pptx`) that the app moves into a bundle                                       |
 | `data/songs/`        | song bundles (`*.vosongs`)                                                                               |
 | `data/images/`       | images to show: two files for each and `index.json`; in `.trash/`, the last twenty deleted               |
@@ -166,7 +166,6 @@ Everything the app remembers is in its folder:
 | `data/backups/`      | the state that restoring a backup, a carry-over from another copy, or **Go back to how it was** replaced |
 | `data/backups/auto/` | the automatic backups: daily ones and those made before a version change                                 |
 | `data/library.db`    | the library: translations, dictionaries, commentaries, songs, and the search index                       |
-| `data/catalog/`      | the saved Module catalog list (the app refreshes it itself; not in the backup)                          |
 | `data/models/`       | the models for search by meaning (downloaded with a button; not in the backup)                           |
 | `data/vectors.db`    | the verses' vectors for search by meaning (the app makes them itself; not in the backup)                 |
 | `data/ui-state.json` | appearance settings, presets, hotkeys, the running order, and programs                                   |
@@ -190,7 +189,7 @@ it:
 | --------------- | ------------------------------------------------- | --------------------------------------------------------- |
 | `VO_DATA_DIR`   | the data folder                                   | `data/`; in a portable copy, `data/` next to `app/`       |
 | `LIBRARY_DB`    | the library file                                  | `data/library.db`                                         |
-| `MODULES_DIR`   | the folder with Module modules                   | `modules/`; in a portable copy, `modules/` next to `app/` |
+| `MODULES_DIR`   | the folder with module files                      | `modules/`; in a portable copy, `modules/` next to `app/` |
 | `SONGS_DIR`     | the folder with `.pptx` songs                     | `songs/`                                                  |
 | `VO_UPDATE_URL` | the address where the app asks about new versions | the project's release list on GitHub                      |
 

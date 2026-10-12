@@ -17,7 +17,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { EMBED_MODELS, N_ } from '@vo/shared';
 import { api, type EmbedModelId, type SemanticState } from '../api';
 import { fmtNumber, tr, useLang } from '../i18n';
-import { formatSize, langName } from '../lib/catalog';
+import { formatSize, langName } from '../lib/modules';
 import { onePerLanguage } from '../lib/vectorPick';
 import { useServer } from '../serverStore';
 import { useStore } from '../store';

@@ -185,7 +185,7 @@ export function howToStart(
     o.withLibrary
       ? tr('Тексти: бібліотеку вже додано.', undefined, lang)
       : tr(
-          'Тексти: покладіть модулі Module (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).',
+          'Тексти: покладіть модулі (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).',
           undefined,
           lang,
         ),

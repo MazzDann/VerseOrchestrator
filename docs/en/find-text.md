@@ -43,7 +43,7 @@ If the main translation has section titles (such as “The Creation”), they st
 over their verses. To hide them, turn off **Section titles over the verses** in **Settings** →
 **App**.
 
-Section titles also come as Module modules of their own (`*.subheadings.SQLite3`, such as
+Section titles also come as module files of their own (`*.subheadings.SQLite3`, such as
 «Хом-д» or «KJV-s»; **Modules** downloads them). Choose a set for the main translation in
 **App** → **Section titles for …**: **The translation’s own** or one of the sets. A set named
 after the translation (KJV-s for KJV) is on by itself. A set stands at the places it holds: one
@@ -180,7 +180,7 @@ order](running-order.md#where-the-running-order-is).
 ## Study the text
 
 On the right, above the monitors, there are tabs for studying the chosen verse. They work
-when the library has the matching Module modules:
+when the library has the matching module files:
 
 - **Strong's** — appears when the main translation has Strong's numbers. Click a word of
   the chosen verse to see its meaning from the dictionary. **To screen with Strong's**

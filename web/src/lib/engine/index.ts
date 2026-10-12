@@ -36,7 +36,7 @@ export interface Engine {
   /** Merge one segment (gzip'd or raw SQLite bytes). The buffer is transferred, not copied. */
   add(key: string, bytes: ArrayBuffer): Promise<SegmentCounts & { ms: number }>;
   /**
-   * A dropped file → segment bytes: a raw Module module is converted (in the worker),
+   * A dropped file → segment bytes: a raw module is converted (in the worker),
    * a segment comes back as is. The buffer is transferred there and back.
    */
   convert(name: string, bytes: ArrayBuffer): Promise<ConvertResult>;

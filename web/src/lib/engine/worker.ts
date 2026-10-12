@@ -43,7 +43,7 @@ import {
  *   add     → inflate gzip (DecompressionStream) → ATTACH ':memory:' + sqlite3_deserialize
  *             the bytes into it → copy tables (mergeSql) → rebuild its FTS rows → DETACH;
  *             PGlite: the segment is read with SQLite and COPY'd in (loadSegmentPg)
- *   convert → a raw Module module (.SQLite3) → a segment, with the builder's rules
+ *   convert → a raw module (.SQLite3) → a segment, with the builder's rules
  *             (@vo/shared convertModule), for the main thread to cache and `add`
  *   query   → rows as plain objects, for the main thread's SqlDriver
  */
@@ -209,7 +209,7 @@ function deserialize(s3: Sqlite3Static, conn: Database, schema: string, raw: Uin
 
 // shown by the page through tr (lib/engine/index.ts): the worker has no interface language
 const NOT_SQLITE = N_(
-  'Це не файл бази SQLite (очікується модуль Module .SQLite3 або сегмент .vodb / .vodb.gz)',
+  'Це не файл бази SQLite (очікується модуль .SQLite3 або сегмент .vodb / .vodb.gz)',
 );
 
 /** What the attached segment mostly holds — for the UI («31 102 вірші», «14 250 статей»). */
@@ -245,7 +245,9 @@ const vectorCounts = (n: number, bytes: number): SegmentCounts => ({
   bytes,
 });
 
-const NOT_SEGMENT = N_('Це не сегмент бібліотеки — модулі Module спершу перетворюються (convert)');
+const NOT_SEGMENT = N_(
+  'Це не сегмент бібліотеки — модулі .SQLite3 спершу перетворюються (convert)',
+);
 
 async function add(key: string, gz: ArrayBuffer): Promise<SegmentCounts> {
   if (engine === 'pglite') await openPg(); // brings back what the persisted DB holds
@@ -375,7 +377,7 @@ function syncConn(conn: Database): SyncConn {
 }
 
 /**
- * A dropped file → segment bytes for `add`. Segments pass through untouched; a Module
+ * A dropped file → segment bytes for `add`. Segments pass through untouched; a module
  * module is converted in two throwaway in-memory databases (the module, and the new
  * segment with our schema), then exported — so the main thread caches the CONVERTED
  * segment and a reload never converts again.

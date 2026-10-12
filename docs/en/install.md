@@ -29,13 +29,13 @@ To install the app:
 
 At the top of the app's folder there is only what you need:
 
-| What                                        | What for                                                     |
-| ------------------------------------------- | ------------------------------------------------------------ |
-| `start.cmd`, `start.command`, or `start.sh` | starting the app                                             |
-| `modules/`                                  | Module modules: the app builds its library from them        |
-| `data/`                                     | your data: settings, library, songs                          |
-| `ЯК ЗАПУСТИТИ.txt`, `HOW TO START.txt`      | how to start and switch off the app                          |
-| `app/`                                      | the app itself: code, Node.js, packages, the built interface |
+| What                                        | What for                                                        |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| `start.cmd`, `start.command`, or `start.sh` | starting the app                                                |
+| `modules/`                                  | module files (`.SQLite3`): the app builds its library from them |
+| `data/`                                     | your data: settings, library, songs                             |
+| `ЯК ЗАПУСТИТИ.txt`, `HOW TO START.txt`      | how to start and switch off the app                             |
+| `app/`                                      | the app itself: code, Node.js, packages, the built interface    |
 
 The archive already contains Node.js, so there is nothing else to install. The archives'
 checksums are in the `SHA256SUMS.txt` file on the
@@ -60,31 +60,14 @@ You can also run the app from a clone of the repository — developers do; see t
 
 ## Add texts and songs
 
-The app reads texts from Module modules — `*.SQLite3` files.
+The app reads texts from module files — `*.SQLite3`. You put
+the files into the app's `modules/` folder yourself; the app downloads nothing.
 
-### Download modules from the Module catalog
+The **Modules…** window (**Settings** → **Data** → **Modules: choice for the library…**, or the
+button in the middle of the window while there is no library yet) shows the files in the
+`modules/` folder. Tick the ones to take into the library and click **Build the library**.
 
-The easiest way is to take modules from the Module catalog right in the app (you need the
-internet):
-
-1. In the control window, open **Settings** → **Data** and click **Modules: catalog and
-   choice…**. While there is no library yet, the middle of the window has a **Download
-   translations…** button.
-2. On the **Module catalog** tab, choose the kind — **Bibles**, **Dictionaries**,
-   **Commentaries**, or **Cross-references** — and the language. The interface language comes
-   first; to see them all, choose **All languages**. To find a module, type its name or
-   abbreviation.
-3. Click a module — its description appears below the list — and click **Download**.
-
-The app downloads modules one at a time from the Module mirrors into the `modules/` folder and
-builds the library itself when the queue is done. Next to a module you see how much has come,
-then **in the library**. The texts belong to their rights holders; the app takes the module
-list from the Module catalog and looks at it once a day.
-
-The **In the library** tab shows the modules in the `modules/` folder. Tick the ones to take
-into the library and click **Build the library**.
-
-### Add modules by hand
+### Add module files
 
 1. Copy the modules into the app's `modules/` folder:
    - Bible translations, for example `KJV.SQLite3`;
@@ -101,7 +84,7 @@ window shows the rebuild. To interrupt it, click **Stop** — the library stays 
 the rebuild.
 
 Put only the modules you need in `modules/`. If there are more than 60 modules of one kind,
-for example a whole Module catalog, the app doesn't take them into the library until you
+for example a whole collection of them, the app doesn't take them into the library until you
 list the files you need in `data/settings.json` → `library` (the `bibles`, `dictionaries`,
 `commentaries`, and `crossreferences` lists).
 
@@ -486,7 +469,7 @@ At the top of the copy there is only what a user needs:
 | What                                        | What for                                                              |
 | ------------------------------------------- | --------------------------------------------------------------------- |
 | `start.cmd`, `start.command`, or `start.sh` | starting: the file for the system the copy was made for               |
-| `modules/`                                  | Module modules: the app builds its library from them                 |
+| `modules/`                                  | module files (`.SQLite3`): the app builds its library from them       |
 | `data/`                                     | your data: settings, library, songs                                   |
 | `HOW TO START.txt`                          | how to start and switch off the copy (in the start window's language) |
 | `app/`                                      | the app itself: code, Node.js, packages, the built interface          |
