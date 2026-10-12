@@ -123,6 +123,11 @@ example `~ love your enemies` or `~ about forgiveness`. The app finds verses tha
 same thing, even in other words or another language: for `~ God so loved the world` it shows
 John 3:16 in Ukrainian too. Above the results it says **By meaning**, the nearest first.
 
+Translations in the query's language come first, other languages after. The query's words
+found in a verse count too, the rare ones most, such as names: `~ Paul leaves Athens` finds
+Acts 18:1. Three dots by a place show how close it is to the best one: ●●● — very close,
+●●○ — close, ●○○ — related. Far places are left out.
+
 This needs a model and the translations' vectors. Set them up once in **Settings** →
 **Data** → **Search by meaning**:
 

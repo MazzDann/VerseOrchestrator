@@ -45,4 +45,6 @@ export interface StrongDefinition {
 export interface SearchResult extends Verse {
   longName: string;
   shortName: string;
+  /** «~ …» only: 3 — as close as the best, 2 — close, 1 — related (1.16.0-beta.4) */
+  closeness?: 1 | 2 | 3;
 }
