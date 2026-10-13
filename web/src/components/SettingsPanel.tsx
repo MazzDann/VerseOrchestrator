@@ -34,6 +34,7 @@ import {
   IconSearch,
 } from '@tabler/icons-react';
 import { findSettings, textHolds, useSettingsFind } from '../lib/settingsSearch';
+import { inDesktop } from '../lib/desktop';
 import { notifications } from '@mantine/notifications';
 import {
   useSettings,
@@ -214,6 +215,18 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
 
   const inSettingsWindow =
     typeof window !== 'undefined' && window.location.pathname === '/settings';
+  // the desktop app's settings window: the keyboard is in its search whenever the window comes
+  // forward with nothing else focused (the shell keeps it above the control window)
+  useEffect(() => {
+    if (!inSettingsWindow || !inDesktop()) return;
+    const toSearch = () => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      document.querySelector<HTMLInputElement>('[data-settings-find]')?.focus();
+    };
+    toSearch();
+    window.addEventListener('focus', toSearch);
+    return () => window.removeEventListener('focus', toSearch);
+  }, [inSettingsWindow]);
 
   const fonts = FONT_OPTIONS.map((f) => ({ ...f, label: tr(f.label) }));
   const fontLabel = fonts.find((f) => f.value === a.scriptureFont)?.label ?? tr('власний');
@@ -1216,7 +1229,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             <CopyImportSection />
             <FeedbackSection />
             <StandbySection active={openSections.includes('app')} />
-            <BrowserSection active={openSections.includes('app')} />
+            {/* the desktop app is its own window: no browser to choose */}
+            {!inDesktop() && <BrowserSection active={openSections.includes('app')} />}
             <ShortcutSection />
             <ShutdownSection />
           </Section>

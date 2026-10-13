@@ -15,6 +15,7 @@ import {
   type ScreenInfo,
 } from './lib/screens';
 import { delegateFullscreen } from './lib/fullscreen';
+import { inDesktop } from './lib/desktop';
 import { watchOpenedAsTab } from './lib/tabNotice';
 import { useSettings } from './settingsStore';
 
@@ -236,10 +237,11 @@ export async function openOutput(
     if (screen) place(w, screen); // some browsers ignore left/top in the features
     // no screen of its own among several: it opened next to the control window — lent the next
     // click it would go full screen over it (review, 2026-10-10); with one screen, as before
-    if (fullscreen && (screen || !several)) lendNextClick(name);
+    // (the desktop shell puts it fullscreen itself, with no click)
+    if (fullscreen && (screen || !several) && !inDesktop()) lendNextClick(name);
   }
   // LibreWolf may have made it a tab of this window (lib/tabNotice.ts)
-  if (w) watchOpenedAsTab(kind, name);
+  if (w && !inDesktop()) watchOpenedAsTab(kind, name);
   return !!w;
 }
 

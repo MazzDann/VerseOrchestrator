@@ -36,6 +36,27 @@ export function outputPage(url: string, origin: string): OutputPage {
   return m ? (m[1] as OutputPage) : null;
 }
 
+/**
+ * What a window the control window opens is: another control window (never — the one is brought
+ * forward), the settings (a window of the control window's own), an output page, another page of
+ * the app (/bench), or an address outside it (the system's browser).
+ */
+export type PageKind = 'control' | 'settings' | 'output' | 'app' | 'external';
+
+export function pageKind(url: string, origin: string): PageKind {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return 'external';
+  }
+  if (u.origin !== origin) return 'external';
+  if (u.pathname === '/' || u.pathname === '/index.html') return 'control';
+  if (/^\/settings\/?$/.test(u.pathname)) return 'settings';
+  if (outputPage(url, origin)) return 'output';
+  return 'app';
+}
+
 /** `left=…,top=…,width=…,height=…` from window.open's features; absent ones undefined. */
 export function featureRect(features: string): Partial<Rect> {
   const out: Partial<Rect> = {};
