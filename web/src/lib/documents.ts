@@ -12,8 +12,38 @@ import { DOC_KEYS } from './songKeys';
  * the truth: a file put there by hand comes in by itself.
  */
 
+const extOf = (name: string): string => (/\.([^./\\]+)$/.exec(name)?.[1] ?? '').toLowerCase();
+
+/**
+ * What the app's computer converts (server/src/convert.ts — a Mac: .pages, .rtf, .doc … into the
+ * library as documents, .key into «Пісні» as a .pptx); none elsewhere. Asked once per page.
+ */
+export type ConvertKind = { ext: string; to: 'docx' | 'pptx' };
+let kinds: ConvertKind[] = [];
+let asked: Promise<ConvertKind[]> | null = null;
+export const loadConvertKinds = (): Promise<ConvertKind[]> =>
+  (asked ??= api
+    .convertKinds()
+    .then((r) => (kinds = r.kinds))
+    .catch(() => {
+      asked = null; // an older server, or none yet: asked again next time
+      return [];
+    }));
+/** A Mac's document kind the server reads by converting it (sent as it is). */
+export const isConvertedDocument = (name: string): boolean =>
+  kinds.some((k) => k.to === 'docx' && k.ext === extOf(name));
+/** A presentation the server turns into a .pptx first (Keynote). */
+export const isConvertedSong = (name: string): boolean =>
+  kinds.some((k) => k.to === 'pptx' && k.ext === extOf(name));
+/** The file picker's list: the app's own kinds and, on a Mac, the converted ones. */
+export const documentAccept = (): string =>
+  ['.docx', '.md', '.markdown', '.txt', '.pdf']
+    .concat(kinds.filter((k) => k.to === 'docx').map((k) => `.${k.ext}`))
+    .join(',');
+
 /** Is this a file the documents take (by its name)? */
-export const isDocumentFile = (name: string): boolean => documentKind(name) !== null;
+export const isDocumentFile = (name: string): boolean =>
+  documentKind(name) !== null || isConvertedDocument(name);
 
 /**
  * A document to open — after an import, or from a verse's «У документах» (1.17.0-beta.2), then

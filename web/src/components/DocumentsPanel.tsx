@@ -24,7 +24,13 @@ import { stepDirection } from '../hotkeys';
 import { inOverlay, isResizeKey, isTextEntry } from '../lib/keyScroll';
 import { noticeOnce } from '../lib/noticeOnce';
 import { useSettings } from '../settingsStore';
-import { importDocuments, refreshDocuments, useDocOpen } from '../lib/documents';
+import {
+  documentAccept,
+  importDocuments,
+  loadConvertKinds,
+  refreshDocuments,
+  useDocOpen,
+} from '../lib/documents';
 
 interface Props {
   open: boolean;
@@ -75,6 +81,10 @@ export function DocumentsPanel({
   const serverAvailable = useServer((s) => s.available);
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
+  // on a Mac the picker takes Pages, RTF, Word 97 … too (lib/documents.ts loadConvertKinds)
+  // re-rendered once the kinds come: the list then has them
+  useQuery({ queryKey: ['convert-kinds'], queryFn: loadConvertKinds, staleTime: Infinity });
+  const accept = documentAccept();
   const [adding, setAdding] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   /** the last deleted document, with «Скасувати», until the panel closes */
@@ -338,7 +348,7 @@ export function DocumentsPanel({
           type="file"
           multiple
           hidden
-          accept=".docx,.md,.markdown,.txt,.pdf"
+          accept={accept}
           onChange={(e) => {
             const files = [...(e.currentTarget.files ?? [])];
             e.currentTarget.value = '';

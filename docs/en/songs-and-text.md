@@ -26,6 +26,10 @@ is running (`start.cmd`, `start.command`, or `./start.sh`).
 The quickest way is to drag `.pptx` files into the control window, anywhere: **Songs** opens with
 the import, the files already read — only the bundle is left to choose.
 
+On a Mac you can drag a **Keynote** presentation (`.key`) the same way: the app asks Keynote to
+save it as `.pptx` and goes on with that. Keynote must be installed; the first time, macOS asks
+whether the app may control it — allow it.
+
 To import songs:
 
 1. At the top, click **Songs**. The song search and list appear on the left instead of the

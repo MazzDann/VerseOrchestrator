@@ -64,6 +64,7 @@ import {
 } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
+import { converterFor, convertBytes, converters, type Converter } from './convert.js';
 import { createDocuments, openFolder } from './documents.js';
 import { readPdfs } from './pdfReader.js';
 import { dbFiles, diskParts, oldBackups, removeAll, sizeOf } from './diskSpace.js';
@@ -94,6 +95,8 @@ import {
   DOC_FILE_MAX,
   restoreDocument,
   trashDocument,
+  documentPath,
+  isConvertedDocument,
 } from '@vo/shared/documents-node';
 import {
   documentKind,
@@ -109,6 +112,7 @@ import {
   parseDocument,
   sameBundleName,
   type ModuleKind,
+  type ParsedDocument,
 } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
@@ -2460,6 +2464,51 @@ app.get(
     res.json(doc);
   }),
 );
+/**
+ * A Mac's own formats (convert.ts, macOS only): what this computer turns into a .docx (a document)
+ * or a .pptx (a song) — the control window converts a dropped one first, then takes it as usual.
+ */
+app.get('/api/convert', requireLocal, (_req, res) => {
+  res.json({ kinds: converters().map(({ ext, to }) => ({ ext, to })) });
+});
+/** A conversion that failed, in words: a damaged file, or the app not allowed to be controlled. */
+const convertRefusal = (c: Converter, name: string) =>
+  new ApiError(
+    422,
+    c.via === 'textutil'
+      ? N_('Не вдалося перетворити «{file}» — можливо, файл пошкоджено')
+      : N_(
+          'Не вдалося перетворити «{file}» через {app}: дозвольте керувати ним (Системні параметри → Приватність і безпека → Автоматизація) і спробуйте ще раз',
+        ),
+    { file: name.replace(/^.*[\\/]/, ''), app: c.via === 'pages' ? 'Pages' : 'Keynote' },
+  );
+/** A presentation with its pictures and video runs to hundreds of MB (review): this much at most. */
+const CONVERT_MAX = 512 * 1024 * 1024;
+app.post(
+  '/api/convert',
+  requireLocalControl,
+  (req, res, next) =>
+    express.raw({ type: () => true, limit: CONVERT_MAX })(req, res, (err?: unknown) => {
+      // the body parser's refusal, in words (no handler after it would key it)
+      if ((err as { type?: string } | undefined)?.type === 'entity.too.large')
+        res.status(413).json(keyedError(N_('Файл завеликий — до 512 МБ')));
+      else next(err);
+    }),
+  wrap(async (req, res) => {
+    const name = String(req.query.name ?? '');
+    const c = converterFor(name);
+    if (!c) throw new ApiError(400, N_('Цей формат тут не перетворюється'));
+    const bytes = req.body instanceof Buffer ? new Uint8Array(req.body) : new Uint8Array();
+    try {
+      const out = await convertBytes(c, bytes, name);
+      res.setHeader('X-VO-Name', encodeURIComponent(out.name));
+      res.type('application/octet-stream').send(out.bytes);
+    } catch (e) {
+      console.warn(`[convert] ${name}: ${(e as Error).message}`);
+      throw convertRefusal(c, name);
+    }
+  }),
+);
 /** A dropped file: checked, written into the folder, read into the library at once. */
 app.post(
   '/api/documents/import',
@@ -2471,9 +2520,22 @@ app.post(
       throw new ApiError(409, N_('Бібліотеки ще немає — спершу пересканіть модулі'));
     const name = String(req.query.name ?? '');
     const bytes = req.body instanceof Buffer ? new Uint8Array(req.body) : new Uint8Array();
-    if (!documentKind(name))
+    if (!documentKind(name) && !isConvertedDocument(name))
       throw new ApiError(400, N_('Документ має бути .docx, .md, .txt або .pdf'));
-    if (!(await readableDocument(bytes, name)))
+    // a Mac's own format (convert.ts): read here through its conversion — the file goes into the
+    // folder as it is, its reading straight into the library (documents.ts, no .docx beside it)
+    let converted: ParsedDocument | null = null;
+    if (isConvertedDocument(name)) {
+      const c = converterFor(name)!;
+      try {
+        const out = await convertBytes(c, bytes, name);
+        converted = parseDocument(out.bytes, out.name);
+      } catch (e) {
+        console.warn(`[convert] ${name}: ${(e as Error).message}`);
+        throw convertRefusal(c, name);
+      }
+    }
+    if (isConvertedDocument(name) ? !converted : !(await readableDocument(bytes, name)))
       throw new ApiError(
         400,
         N_('Не вдалося прочитати «{file}» — у ньому немає тексту або файл пошкоджено'),
@@ -2483,6 +2545,16 @@ app.post(
       );
     const added = addDocumentFile(documents.dir(), name, bytes);
     if (!added) throw new ApiError(400, N_('Така назва файлу не підходить — перейменуйте його'));
+    if (converted) {
+      const at = documentPath(documents.dir(), added.file);
+      const st = at ? fs.statSync(at) : null;
+      if (st)
+        documents.seedConverted(added.file, {
+          doc: converted,
+          size: st.size,
+          mtime: Math.floor(st.mtimeMs),
+        });
+    }
     await documents.refresh();
     const doc = (await library().listDocuments()).find((x) => x.file === added.file) ?? null;
     res.json({ ...added, id: doc?.id ?? null });
@@ -2524,6 +2596,7 @@ app.post(
   wrap(async (_req, res) => {
     notDuringRebuild();
     documents.watch(); // a folder made or moved meanwhile
+    documents.retryConversions();
     const r = await documents.refresh();
     res.json(r ?? { documents: 0, read: 0, removed: 0, failed: [], changed: false });
   }),

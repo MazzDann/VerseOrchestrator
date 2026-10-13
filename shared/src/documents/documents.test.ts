@@ -21,6 +21,8 @@ import {
   stableDocId,
   trashDocument,
   writeLibraryDocuments,
+  safeDocumentName,
+  setExtraDocumentKinds,
 } from './node.js';
 
 const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
@@ -179,6 +181,32 @@ describe('the folder and the library', () => {
     if (dir) fs.rmSync(dir, { recursive: true, force: true });
   });
   const lib = () => new Database(':memory:');
+
+  it('a Mac’s converted kinds: listed, read only as converted, kept by their own kind', () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-docs-'));
+    fs.writeFileSync(path.join(dir, 'Проповідь.pages'), 'x');
+    fs.writeFileSync(path.join(dir, 'Лекція.md'), '# Л\n\nтекст');
+    setExtraDocumentKinds(['pages']);
+    try {
+      expect(listDocumentFiles(dir).map((f) => f.file)).toEqual(['Лекція.md', 'Проповідь.pages']);
+      const db = lib();
+      // not converted yet: not in, and nothing failed
+      expect(writeLibraryDocuments(db, dir)).toMatchObject({ documents: 1, failed: [] });
+      const f = listDocumentFiles(dir).find((x) => x.file === 'Проповідь.pages')!;
+      const doc = { units: [{ kind: 'para' as const, level: 0, text: 'З Pages' }] };
+      const pre = new Map([[f.file, { doc, size: f.size, mtime: f.mtime }]]);
+      expect(writeLibraryDocuments(db, dir, undefined, pre)).toMatchObject({ documents: 2 });
+      expect(
+        db.prepare('SELECT kind, title FROM documents WHERE file = ?').get('Проповідь.pages'),
+      ).toEqual({ kind: 'pages', title: 'Проповідь' });
+      expect(safeDocumentName('a/Нова.pages')).toBe('Нова.pages');
+    } finally {
+      setExtraDocumentKinds([]);
+    }
+    // elsewhere (no conversion): not a document
+    expect(listDocumentFiles(dir).map((f) => f.file)).toEqual(['Лекція.md']);
+    expect(safeDocumentName('Нова.pages')).toBeNull();
+  });
 
   it('reads what changed, keeps what didn’t, drops what’s gone', () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-docs-'));

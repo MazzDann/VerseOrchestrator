@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import {
   documentPath,
+  isConvertedDocument,
+  setExtraDocumentKinds,
   documentsDir,
   pendingDocuments,
   refreshLibraryDocuments,
@@ -10,6 +12,8 @@ import {
   type DocumentsRefresh,
   type PreRead,
 } from '@vo/shared/documents-node';
+import { parseDocument, type ParsedDocument } from '@vo/shared';
+import { converterFor, convertBytes, converters } from './convert.js';
 import { readPdfs, type PdfResult } from './pdfReader.js';
 
 /**
@@ -38,10 +42,89 @@ export function createDocuments(d: {
   const unreadable = new Map<string, string>();
   const stamp = (f: DocumentFile) => `${f.size}:${f.mtime}`;
 
+  // a Mac's own formats (.pages, .rtf, .doc …, convert.ts): kinds of their own here, read by
+  // converting them in the background — Pages may take seconds, or wait for macOS's question,
+  // and a request that refreshes (an import, a deletion) shouldn't (review)
+  const convertedKinds = converters()
+    .filter((c) => c.to === 'docx')
+    .map((c) => c.ext);
+  setExtraDocumentKinds(convertedKinds);
+  /** what a conversion read, by file, with its size and time then (null: it gave nothing) */
+  const converted = new Map<string, PreRead>();
+  /**
+   * When a conversion gave nothing, by file: Pages refused (macOS's question not answered yet) or
+   * took too long — tried again after a while, or at once on «Пересканувати» (review)
+   */
+  const failedAt = new Map<string, number>();
+  const RETRY_MS = 10 * 60_000;
+  let converting = false;
+  let convertAgain = false;
+  function convertInBackground(at: string): void {
+    if (convertedKinds.length === 0) return;
+    if (converting) {
+      convertAgain = true;
+      return;
+    }
+    converting = true;
+    void (async () => {
+      const waiting = pendingDocuments(d.libraryPath, at, isConvertedDocument);
+      // what the library holds now, or a file gone: its reading is no longer needed (review)
+      const names = new Set(waiting.map((f) => f.file));
+      for (const file of converted.keys())
+        if (!names.has(file)) {
+          converted.delete(file);
+          failedAt.delete(file);
+        }
+      const pending = waiting.filter((f) => {
+        const had = converted.get(f.file);
+        if (!had || had.size !== f.size || had.mtime !== f.mtime) return true;
+        // read already as it is now: not again until it changes; one that failed after a while
+        return !had.doc && Date.now() - (failedAt.get(f.file) ?? 0) > RETRY_MS;
+      });
+      let read = 0;
+      for (const f of pending) {
+        const p = documentPath(at, f.file);
+        const c = converterFor(f.file);
+        if (!p || !c) continue;
+        let doc: ParsedDocument | null = null;
+        try {
+          const out = await convertBytes(c, fs.readFileSync(p), f.file);
+          doc = parseDocument(out.bytes, out.name);
+        } catch (e) {
+          d.log(`documents: not converted ${f.file}: ${(e as Error).message}`);
+        }
+        converted.set(f.file, { doc, size: f.size, mtime: f.mtime });
+        if (doc) failedAt.delete(f.file);
+        else failedAt.set(f.file, Date.now());
+        read++;
+      }
+      if (read > 0) await refresh();
+    })()
+      .catch((e: Error) => d.log(`documents: conversion: ${e.message}`))
+      .finally(() => {
+        converting = false;
+        if (convertAgain) {
+          convertAgain = false;
+          convertInBackground(at);
+        }
+      });
+  }
+  /** A dropped file converted already (the import read it to check it): not converted again. */
+  function seedConverted(file: string, read: PreRead): void {
+    converted.set(file, read);
+    failedAt.delete(file);
+  }
+  /** «Пересканувати»: the conversions that failed are tried again now. */
+  function retryConversions(): void {
+    failedAt.clear();
+  }
+
   async function refreshNow(): Promise<DocumentsRefresh | null> {
     if (!fs.existsSync(d.libraryPath) || d.rebuilding()) return null;
     const started = Date.now();
     const at = dir();
+    // a Mac's own formats: converted in the background, taken below once read
+    convertInBackground(at);
     // PDFs first, apart in a child process (pdfReader.ts); the rest is read in the write below
     const pdfs = pendingDocuments(d.libraryPath, at, 'pdf').filter(
       (f) => unreadable.get(f.file) !== stamp(f),
@@ -64,6 +147,7 @@ export function createDocuments(d: {
     }
     // a rebuild that began while the PDFs were read rewrites the library itself
     if (d.rebuilding()) return null;
+    for (const [file, read] of converted) pre.set(file, read);
     const r = refreshLibraryDocuments(d.libraryPath, at, d.log, pre);
     if (r.changed) {
       d.closeDb();
@@ -122,7 +206,7 @@ export function createDocuments(d: {
     if (timer) clearTimeout(timer);
   }
 
-  return { dir, refresh, watch, stop };
+  return { dir, refresh, watch, stop, seedConverted, retryConversions };
 }
 
 /** Show a folder in the system's file manager (from the home folder: never a cwd inside app/). */

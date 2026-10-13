@@ -48,11 +48,14 @@ export function documentKind(fileName: string): DocumentKind | null {
 
 /** A document's title: its file name without the extension, in one Unicode form. */
 export function documentTitle(fileName: string): string {
-  return fileName
-    .replace(/^.*[\\/]/, '')
-    .replace(/\.(docx|md|markdown|txt|pdf)$/i, '')
-    .normalize('NFC')
-    .trim();
+  return (
+    fileName
+      .replace(/^.*[\\/]/, '')
+      // the app's own kinds and a Mac's converted ones (convert.ts)
+      .replace(/\.(docx|md|markdown|txt|pdf|pages|rtf|doc|odt|wordml|html?|webarchive)$/i, '')
+      .normalize('NFC')
+      .trim()
+  );
 }
 
 /** Read a document file; null when it isn't readable or holds no text. */

@@ -5,7 +5,13 @@ import { api } from '../../api';
 import { type MediaTab } from '../../components/ImagesPanel';
 import { droppedKind, readFolder, useDrop } from '../../lib/drop';
 import { tr, trn } from '../../i18n';
-import { importDocuments, useDocOpen } from '../../lib/documents';
+import {
+  importDocuments,
+  isConvertedDocument,
+  isConvertedSong,
+  loadConvertKinds,
+  useDocOpen,
+} from '../../lib/documents';
 import { addToBrowserLibrary } from '../../lib/browserLibrary';
 import { effectiveSource } from '../../dataSourceStore';
 import { NEEDS_SERVER } from '../../serverStore';
@@ -96,9 +102,29 @@ export function useMediaDrop({
     const by = new Map<string, File[]>();
     const others: string[] = [];
     const folders: FileSystemDirectoryEntry[] = [];
-    for (const { entry, file } of entries) {
+    // a Mac's own formats (convert.ts): a document (.pages, .rtf, .doc …) goes as it is, the
+    // server reads it into the library; a Keynote file becomes a .pptx for «Пісні» first
+    if (server) await loadConvertKinds();
+    for (const { entry, file: dropped } of entries) {
       if (entry?.isDirectory) folders.push(entry as FileSystemDirectoryEntry);
-      else if (file) {
+      else if (dropped) {
+        let file = dropped;
+        if (isConvertedDocument(file.name)) {
+          by.set('document', [...(by.get('document') ?? []), file]);
+          continue;
+        }
+        if (isConvertedSong(file.name))
+          try {
+            notifications.show({
+              message: tr('Перетворюю «{file}»…', { file: file.name }),
+              color: 'gray',
+              autoClose: 2500,
+            });
+            file = await api.convertFile(file);
+          } catch (e) {
+            notifications.show({ message: tr((e as Error).message), color: 'red' });
+            continue;
+          }
         const kind = droppedKind(file);
         if (kind === 'other') others.push(file.name);
         else by.set(kind, [...(by.get(kind) ?? []), file]);
