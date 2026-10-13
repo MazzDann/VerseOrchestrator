@@ -76,20 +76,58 @@ function exportScript(app: 'Pages' | 'Keynote', as: string): string {
   ].join('\n');
 }
 
-function run(cmd: string, args: string[]): Promise<void> {
+/** A conversion that ran out of time — Pages / Keynote waiting for macOS's question, or stuck. */
+export class ConvertTimeout extends Error {}
+
+function run(cmd: string, args: string[], timeout = TIMEOUT_MS): Promise<void> {
   return new Promise((resolve, reject) =>
-    execFile(cmd, args, { timeout: TIMEOUT_MS, cwd: os.tmpdir() }, (err, _out, stderr) =>
-      err ? reject(new Error(String(stderr || err.message).trim())) : resolve(),
-    ),
+    execFile(cmd, args, { timeout, cwd: os.tmpdir() }, (err, _out, stderr) => {
+      if (!err) return resolve();
+      const msg = String(stderr || err.message).trim();
+      reject(err.killed ? new ConvertTimeout(msg || 'timed out') : new Error(msg));
+    }),
   );
+}
+
+/**
+ * The document a timed-out export left open (osascript was stopped before its `close`): closed
+ * unsaved by its file (the PC's review of #14). Best effort, briefly — the app may still wait.
+ */
+export function closeLeftOpen(app: 'Pages' | 'Keynote', file: string): Promise<void> {
+  const script = [
+    'on run argv',
+    `  tell application "${app}"`,
+    '    repeat with d in (every document)',
+    '      try',
+    '        if POSIX path of ((file of d) as alias) is (item 1 of argv) then close d saving no',
+    '      end try',
+    '    end repeat',
+    '  end tell',
+    'end run',
+  ].join('\n');
+  // the app reports the real path: /var/folders/… is /private/var/folders/… there (Mac check)
+  let real = file;
+  try {
+    real = fs.realpathSync(file);
+  } catch {
+    /* gone: the path as given */
+  }
+  return run(OSASCRIPT, ['-e', script, real], 15_000).catch(() => undefined);
 }
 
 /** Converts the file at `from` into `to` (a path ending in .docx / .pptx). */
 export async function convertFile(c: Converter, from: string, to: string): Promise<void> {
   if (c.via === 'textutil') await run(TEXTUTIL, ['-convert', 'docx', '-output', to, from]);
-  else if (c.via === 'pages')
-    await run(OSASCRIPT, ['-e', exportScript('Pages', 'Microsoft Word'), from, to]);
-  else await run(OSASCRIPT, ['-e', exportScript('Keynote', 'Microsoft PowerPoint'), from, to]);
+  else {
+    const app = c.via === 'pages' ? 'Pages' : 'Keynote';
+    const as = c.via === 'pages' ? 'Microsoft Word' : 'Microsoft PowerPoint';
+    try {
+      await run(OSASCRIPT, ['-e', exportScript(app, as), from, to]);
+    } catch (e) {
+      if (e instanceof ConvertTimeout) await closeLeftOpen(app, from);
+      throw e;
+    }
+  }
   if (!fs.existsSync(to)) throw new Error('nothing was written');
 }
 
