@@ -190,7 +190,10 @@ if (process.platform === 'darwin') {
   };
   for (const [key, text] of Object.entries(why))
     execFileSync('plutil', ['-replace', key, '-string', text, plist]);
-  // the app's icon (assets/icon.icns: web/public/icon.svg in macOS's icon grid, made with iconutil)
+  // the app's icon (assets/icon.icns from assets/icon-mac.svg, made with iconutil): edge to edge —
+  // macOS 26 rounds a full square itself, and put the older grid's icon (a transparent margin) on a
+  // light plate, a white rim in a dark Dock (the user, 2026-10-13). macOS 13–15 show it square; an
+  // Assets.car icon for both (Icon Composer, Xcode 26's actool) would need Xcode on the runner
   fs.copyFileSync(
     path.join(here, '..', 'assets', 'icon.icns'),
     path.join(appDir, 'Contents', 'Resources', 'electron.icns'),

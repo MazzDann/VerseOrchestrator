@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <!-- web/public/icon.svg inside macOS's icon grid: the 824 px rounded square in a 1024 px canvas -->
-  <g transform="translate(100 100) scale(13.7333) translate(-2 -2)">
-    <rect x="2" y="2" width="60" height="60" rx="13.4" fill="#5b7fb9"/>
-    <rect x="11" y="14" width="42" height="30" rx="4" fill="none" stroke="#f4f4f2" stroke-width="4"/>
-    <path d="M19 25h26M19 33h17M24 52h16" fill="none" stroke="#f4f4f2" stroke-width="4" stroke-linecap="round"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 2 60 60">
+  <!-- web/public/icon.svg edge to edge: macOS 26 rounds a full square itself; one with a transparent
+       margin (Apple's older 824/1024 grid) it puts on a light plate — a white rim in the Dock -->
+  <rect x="0" y="0" width="64" height="64" fill="#5b7fb9"/>
+  <rect x="11" y="14" width="42" height="30" rx="4" fill="none" stroke="#f4f4f2" stroke-width="4"/>
+  <path d="M19 25h26M19 33h17M24 52h16" fill="none" stroke="#f4f4f2" stroke-width="4" stroke-linecap="round"/>
 </svg>
