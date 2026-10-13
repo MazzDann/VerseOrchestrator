@@ -13,7 +13,7 @@ import {
   type PreRead,
 } from '@vo/shared/documents-node';
 import { parseDocument, type ParsedDocument } from '@vo/shared';
-import { converterFor, convertBytes, converters } from './convert.js';
+import { converterFor, convertBytes, converters, ConvertTimeout } from './convert.js';
 import { readPdfs, type PdfResult } from './pdfReader.js';
 
 /**
@@ -82,16 +82,26 @@ export function createDocuments(d: {
         return !had.doc && Date.now() - (failedAt.get(f.file) ?? 0) > RETRY_MS;
       });
       let read = 0;
+      // an app that ran out of time (macOS's question unanswered): its other files wait with it,
+      // not 120 s each one after another (the PC's review of #14) — till the retry or a rescan
+      const stalled = new Set<string>();
       for (const f of pending) {
         const p = documentPath(at, f.file);
         const c = converterFor(f.file);
         if (!p || !c) continue;
+        if (stalled.has(c.via)) {
+          // as if it failed too: tried again with the one that timed out
+          converted.set(f.file, { doc: null, size: f.size, mtime: f.mtime });
+          failedAt.set(f.file, Date.now());
+          continue;
+        }
         let doc: ParsedDocument | null = null;
         try {
           const out = await convertBytes(c, fs.readFileSync(p), f.file);
           doc = parseDocument(out.bytes, out.name);
         } catch (e) {
           d.log(`documents: not converted ${f.file}: ${(e as Error).message}`);
+          if (e instanceof ConvertTimeout) stalled.add(c.via);
         }
         converted.set(f.file, { doc, size: f.size, mtime: f.mtime });
         if (doc) failedAt.delete(f.file);
