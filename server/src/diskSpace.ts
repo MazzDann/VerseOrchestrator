@@ -17,6 +17,7 @@ export type DiskPartId =
   | 'segments'
   | 'modules'
   | 'vectors'
+  | 'stats'
   | 'models'
   | 'album-cache'
   | 'video-cache'
@@ -111,6 +112,8 @@ export async function diskParts(p: DiskPlaces): Promise<DiskPart[]> {
   add('modules', (await sizeOf(p.modulesDir)) - docsTrash, false);
   add('segments', await sizeOf(d('segments')), false);
   add('vectors', await sum(dbFiles(d('vectors.db'))), true);
+  // «Статистика показу» (1.18.0-beta.4): the operator's history — cleared on its own page only
+  add('stats', await sum(dbFiles(d('stats.db'))), false);
   try {
     for (const m of fs.readdirSync(d('models'), { withFileTypes: true }))
       if (m.isDirectory()) add('models', await sizeOf(d('models', m.name)), true, m.name);

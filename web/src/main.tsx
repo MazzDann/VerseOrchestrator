@@ -28,6 +28,7 @@ const Remote = lazy(() => import('./pages/Remote').then((m) => ({ default: m.Rem
 const Desk = lazy(() => import('./pages/Desk').then((m) => ({ default: m.Desk })));
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 const Bench = lazy(() => import('./pages/Bench').then((m) => ({ default: m.Bench })));
+const Stats = lazy(() => import('./pages/Stats').then((m) => ({ default: m.Stats })));
 const BenchPeer = lazy(() => import('./pages/BenchPeer').then((m) => ({ default: m.BenchPeer })));
 
 // networkMode 'always' (1.12.2): the library is on this computer (the server or the browser),
@@ -98,6 +99,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/bench" element={<Bench />} />
                 <Route path="/bench/peer" element={<BenchPeer />} />
+                <Route path="/stats" element={<Stats />} />
               </Routes>
             </Suspense>
           </PageGuard>

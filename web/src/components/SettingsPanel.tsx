@@ -29,6 +29,7 @@ import {
   IconTrash,
   IconRefresh,
   IconBooks,
+  IconChartBar,
   IconDatabaseImport,
   IconExternalLink,
   IconSearch,
@@ -1171,6 +1172,27 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             )}
             {/* «Пошук за змістом» (1.15.0-beta.2): «~ …», the model, the vectors */}
             <SemanticSection active={openSections.includes('data')} />
+            {/* «Статистика показу» (1.18.0-beta.4): what was on screen — a page of its own */}
+            <div>
+              <Text size="sm" fw={500} mb={2}>
+                {tr('Статистика показу')}
+              </Text>
+              <Text size="xs" c="dimmed" mb={8}>
+                {tr(
+                  'Що, коли й скільки було на екрані: пісні, книги Біблії, документи, звіт за день.',
+                )}
+              </Text>
+              <Button
+                variant="light"
+                fullWidth
+                leftSection={<IconChartBar size={16} />}
+                disabled={serverAvailable === false}
+                title={serverAvailable === false ? tr(NEEDS_SERVER) : undefined}
+                onClick={() => window.open('/stats', 'vo-stats')}
+              >
+                {tr('Відкрити статистику')}
+              </Button>
+            </div>
             {/* «Місце на диску» (1.17.0-beta.4): what the app keeps, and «Прибрати» */}
             {!inSettingsWindow && <DiskSection active={openSections.includes('data')} />}
           </Section>

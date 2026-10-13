@@ -35,7 +35,9 @@ import {
   publishLive,
   viewerCount,
   controlWindowsRoute,
+  onScreen,
 } from './live.js';
+import { createStats, localDay, shownOf, statsCsv, statsPath } from './stats.js';
 import {
   createPairing,
   initRemoteStore,
@@ -3041,6 +3043,50 @@ setTimeout(() => {
   void dailyBackup();
   setInterval(() => void dailyBackup(), AUTO_EVERY_MS).unref();
 }, AUTO_FIRST_MS).unref();
+
+// «Статистика показу» (1.18.0-beta.4, stats.ts): what the control window in charge puts on screen,
+// in data/stats.db — read on this computer only (the page /stats), cleared by the operator
+const stats = createStats(statsPath(dataDir));
+onScreen((screen) => stats.note(shownOf(screen)));
+process.on('exit', () => {
+  try {
+    stats.shutdown();
+  } catch {
+    /* closed already */
+  }
+});
+const period = (q: Record<string, unknown>) => {
+  const from = Number(q.from);
+  const to = Number(q.to);
+  return {
+    from: Number.isFinite(from) && from > 0 ? from : 0,
+    to: Number.isFinite(to) && to > 0 ? to : Date.now() + 1,
+  };
+};
+app.get('/api/stats', requireLocal, (req, res) => {
+  const { from, to } = period(req.query);
+  res.json(stats.summary(from, to));
+});
+app.get('/api/stats/day', requireLocal, (req, res) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(req.query.day ?? ''));
+  if (!m) throw new ApiError(400, N_('Немає такого дня'));
+  const start = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
+  const end = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 1).getTime();
+  res.json({ day: localDay(start), rows: stats.rows(start, end), now: Date.now() });
+});
+app.get('/api/stats/export', requireLocal, (req, res) => {
+  const { from, to } = period(req.query);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="verseorchestrator-stats-${localDay(Date.now())}.csv"`,
+  );
+  res.send(statsCsv(stats.rows(from, to)));
+});
+app.delete('/api/stats', requireLocalControl, (_req, res) => {
+  stats.clear();
+  res.json({ ok: true });
+});
 
 const server = app.listen(PORT, HOST, () => {
   const port = (server.address() as AddressInfo).port;

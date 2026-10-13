@@ -2493,4 +2493,50 @@ export const EN: Record<string, string> = {
     'Couldn’t convert «{file}» — the file may be damaged',
   'Не вдалося перетворити «{file}» через {app}: дозвольте керувати ним (Системні параметри → Приватність і безпека → Автоматизація) і спробуйте ще раз':
     'Couldn’t convert «{file}» through {app}: allow controlling it (System Settings → Privacy & Security → Automation) and try again',
+  // «Статистика показу» (1.18.0-beta.4)
+  'Статистика показу': 'Show statistics',
+  'Що й коли було на екрані; очищується на сторінці статистики.':
+    'What was on screen and when; cleared on the statistics page.',
+  'Що, коли й скільки було на екрані: пісні, книги Біблії, документи, звіт за день.':
+    'What was on screen, when and for how long: songs, the Bible’s books, documents, a day’s report.',
+  'Відкрити статистику': 'Open the statistics',
+  '{n} с': '{n} s',
+  '{h} год {m} хв': '{h} h {m} min',
+  '{n} показ|{n} покази|{n} показів': '{n} showing|{n} showings',
+  '7 днів': '7 days',
+  '30 днів': '30 days',
+  Рік: 'Year',
+  Усе: 'All',
+  'Експорт CSV': 'Export CSV',
+  'Статистику веде сервер застосунку. Запустіть застосунок (start.cmd, start.command або start.sh) — без нього, у режимі «у браузері», покази не записуються.':
+    'The app’s server keeps the statistics. Start the app (start.cmd, start.command or start.sh) — without it, in the “in the browser” mode, showings aren’t recorded.',
+  'За цей час нічого не показано. Застосунок записує все, що виходить на екран: уривки, пісні, документи, зображення — з датою й тривалістю.':
+    'Nothing was shown in this time. The app records everything that goes on screen: passages, songs, documents, pictures — with the date and how long.',
+  Показів: 'Showings',
+  'Днів із показом': 'Days with showings',
+  'Покази по днях': 'Showings by day',
+  'Покази по місяцях': 'Showings by month',
+  'Пісень за цей час не показували.': 'No songs were shown in this time.',
+  '{shows}, на екрані {time}, востаннє {date}': '{shows}, on screen {time}, last on {date}',
+  'Давно не співали': 'Not sung for a while',
+  'Пісні, які показували раніше, але не за останні вісім тижнів.':
+    'Songs shown before, but not in the last eight weeks.',
+  '{shows}, востаннє {date}': '{shows}, last on {date}',
+  'Книги Біблії': 'The Bible’s books',
+  'Уривків за цей час не показували.': 'No passages were shown in this time.',
+  'Найчастіші уривки': 'Most shown passages',
+  'Документів за цей час не показували.': 'No documents were shown in this time.',
+  'Що показували': 'What was shown',
+  '{shows}, на екрані {time}': '{shows}, on screen {time}',
+  'без показів': 'not shown',
+  'Звіт показу': 'Show report',
+  День: 'Day',
+  Час: 'Time',
+  Що: 'What',
+  'з пульта «{name}»': 'from the remote “{name}”',
+  'Очистити статистику': 'Clear the statistics',
+  'Видалити всю статистику показу? Повернути її не вийде.':
+    'Delete all the show statistics? They can’t be brought back.',
+  'Статистику очищено': 'Statistics cleared',
+  'Немає такого дня': 'No such day',
 };

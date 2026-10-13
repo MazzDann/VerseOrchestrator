@@ -1916,3 +1916,117 @@ form.vo-remote-countdown {
 .vo-doc-ref:focus-visible {
   outline: 2px solid var(--mantine-color-brand-filled);
 }
+
+/*
+ * «Статистика показу» (1.18.0-beta.4, pages/Stats.tsx): one hue — the accent — for every mark.
+ * Bars grow from one baseline with a rounded data end; the cells' depth mixes the accent into
+ * the surface, so both schemes read the same way (more = more ink).
+ */
+.vo-stat-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vo-stat-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr) 2.5rem;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.vo-stat-bar:hover {
+  background: var(--mantine-color-default-hover);
+}
+.vo-stat-bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vo-stat-bar-track {
+  display: block;
+  height: 10px;
+}
+.vo-stat-bar-fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  background: var(--mantine-primary-color-filled);
+}
+.vo-stat-bar-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--mantine-color-dimmed);
+}
+.vo-stat-cols {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 120px;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+.vo-stat-col {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  min-width: 0;
+  border-radius: 4px 4px 0 0;
+}
+.vo-stat-col:hover {
+  background: var(--mantine-color-default-hover);
+}
+.vo-stat-col-fill {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: var(--mantine-primary-color-filled);
+}
+.vo-stat-col-axis {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--mantine-color-dimmed);
+}
+.vo-stat-col-axis > span {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+}
+.vo-stat-books {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.2rem, 1fr));
+  gap: 2px;
+}
+.vo-stat-book {
+  padding: 3px 2px;
+  border-radius: 4px;
+  font-size: 11px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: color-mix(
+    in srgb,
+    var(--mantine-primary-color-filled) calc(var(--v) * 100%),
+    var(--mantine-color-body)
+  );
+}
+.vo-stat-book[data-zero] {
+  background: transparent;
+  outline: 1px dashed var(--mantine-color-default-border);
+  outline-offset: -1px;
+  color: var(--mantine-color-dimmed);
+}
+.vo-stat-book[data-deep] {
+  color: var(--mantine-color-white);
+}
+/* the last day's label ends at the chart's right edge */
+.vo-stat-col-axis > span[data-last] {
+  display: flex;
+  justify-content: flex-end;
+}
