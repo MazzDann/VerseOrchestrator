@@ -79,6 +79,45 @@ function putStub(resources) {
   fs.rmSync(path.join(resources, 'default_app.asar'), { force: true });
 }
 
+/**
+ * The app's icon and name on the .exe (Explorer, the taskbar, «Властивості»): its resources
+ * rewritten with resedit — pure JavaScript, what Electron's own packager uses since rcedit was
+ * dropped (rcedit is deprecated on npm). The program runs the same without it: a failure says so.
+ */
+async function brandExe(exe, ico) {
+  try {
+    const ResEdit = await import('resedit');
+    const pe = ResEdit.NtExecutable.from(fs.readFileSync(exe), { ignoreCert: true });
+    const res = ResEdit.NtExecutableResource.from(pe);
+    const icon = ResEdit.Data.IconFile.from(fs.readFileSync(ico));
+    // Electron's own icon group: replaced in place, every size of ours (16…256)
+    const groups = ResEdit.Resource.IconGroupEntry.fromEntries(res.entries);
+    const group = groups[0];
+    ResEdit.Resource.IconGroupEntry.replaceIconsForResource(
+      res.entries,
+      group ? group.id : 1,
+      group ? group.lang : 1033,
+      icon.icons.map((i) => i.data),
+    );
+    const info = ResEdit.Resource.VersionInfo.fromEntries(res.entries)[0];
+    if (info) {
+      for (const lang of info.getAllLanguagesForStringValues())
+        info.setStringValues(lang, {
+          ProductName: 'VerseOrchestrator',
+          FileDescription: 'VerseOrchestrator',
+          InternalName: 'VerseOrchestrator',
+          OriginalFilename: 'VerseOrchestrator.exe',
+          CompanyName: 'VerseOrchestrator',
+        });
+      info.outputToResourceEntries(res.entries);
+    }
+    res.outputResource(pe);
+    fs.writeFileSync(exe, Buffer.from(pe.generate()));
+  } catch (e) {
+    console.warn(`the .exe keeps Electron's icon: ${e.message}`);
+  }
+}
+
 /** Chromium's interface languages: the two the app speaks (the rest is ~40 MB). */
 function pruneLocales(dir) {
   if (!fs.existsSync(dir)) return;
@@ -106,6 +145,7 @@ if (process.platform === 'darwin') {
   if (process.platform === 'win32') {
     const exe = path.join(to, 'VerseOrchestrator.exe');
     fs.renameSync(path.join(to, 'electron.exe'), exe);
+    await brandExe(exe, path.join(top, 'app', 'web', 'dist', 'icon.ico'));
   } else {
     fs.renameSync(path.join(to, 'electron'), path.join(to, 'verseorchestrator'));
   }
