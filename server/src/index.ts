@@ -2547,6 +2547,7 @@ app.post(
   wrap(async (_req, res) => {
     notDuringRebuild();
     documents.watch(); // a folder made or moved meanwhile
+    documents.retryConversions();
     const r = await documents.refresh();
     res.json(r ?? { documents: 0, read: 0, removed: 0, failed: [], changed: false });
   }),

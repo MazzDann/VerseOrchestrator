@@ -51,6 +51,12 @@ export function createDocuments(d: {
   setExtraDocumentKinds(convertedKinds);
   /** what a conversion read, by file, with its size and time then (null: it gave nothing) */
   const converted = new Map<string, PreRead>();
+  /**
+   * When a conversion gave nothing, by file: Pages refused (macOS's question not answered yet) or
+   * took too long — tried again after a while, or at once on «Пересканувати» (review)
+   */
+  const failedAt = new Map<string, number>();
+  const RETRY_MS = 10 * 60_000;
   let converting = false;
   let convertAgain = false;
   function convertInBackground(at: string): void {
@@ -61,10 +67,19 @@ export function createDocuments(d: {
     }
     converting = true;
     void (async () => {
-      const pending = pendingDocuments(d.libraryPath, at, isConvertedDocument).filter((f) => {
+      const waiting = pendingDocuments(d.libraryPath, at, isConvertedDocument);
+      // what the library holds now, or a file gone: its reading is no longer needed (review)
+      const names = new Set(waiting.map((f) => f.file));
+      for (const file of converted.keys())
+        if (!names.has(file)) {
+          converted.delete(file);
+          failedAt.delete(file);
+        }
+      const pending = waiting.filter((f) => {
         const had = converted.get(f.file);
-        // read already (or failed) as it is now: not again until it changes
-        return !had || had.size !== f.size || had.mtime !== f.mtime;
+        if (!had || had.size !== f.size || had.mtime !== f.mtime) return true;
+        // read already as it is now: not again until it changes; one that failed after a while
+        return !had.doc && Date.now() - (failedAt.get(f.file) ?? 0) > RETRY_MS;
       });
       let read = 0;
       for (const f of pending) {
@@ -79,6 +94,8 @@ export function createDocuments(d: {
           d.log(`documents: not converted ${f.file}: ${(e as Error).message}`);
         }
         converted.set(f.file, { doc, size: f.size, mtime: f.mtime });
+        if (doc) failedAt.delete(f.file);
+        else failedAt.set(f.file, Date.now());
         read++;
       }
       if (read > 0) await refresh();
@@ -95,6 +112,11 @@ export function createDocuments(d: {
   /** A dropped file converted already (the import read it to check it): not converted again. */
   function seedConverted(file: string, read: PreRead): void {
     converted.set(file, read);
+    failedAt.delete(file);
+  }
+  /** «Пересканувати»: the conversions that failed are tried again now. */
+  function retryConversions(): void {
+    failedAt.clear();
   }
 
   async function refreshNow(): Promise<DocumentsRefresh | null> {
@@ -184,7 +206,7 @@ export function createDocuments(d: {
     if (timer) clearTimeout(timer);
   }
 
-  return { dir, refresh, watch, stop, seedConverted };
+  return { dir, refresh, watch, stop, seedConverted, retryConversions };
 }
 
 /** Show a folder in the system's file manager (from the home folder: never a cwd inside app/). */
