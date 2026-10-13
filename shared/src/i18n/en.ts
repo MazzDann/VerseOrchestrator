@@ -2485,5 +2485,5 @@ export const EN: Record<string, string> = {
     'modules/ already holds another “{file}” — rename one of them',
   'Це не файл векторів (vectors.db з іншої копії застосунку)':
     'This is no vectors file (vectors.db from another copy of the app)',
-  'Модуль — це файл .SQLite3 (MyBible)': 'A module is a .SQLite3 file (MyBible)',
+  'Модуль — це файл .SQLite3': 'A module is a .SQLite3 file',
 };

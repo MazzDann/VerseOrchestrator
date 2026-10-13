@@ -2553,8 +2553,7 @@ app.post(
   wrap(async (req, res) => {
     notDuringRebuild();
     const name = String(req.query.name ?? '');
-    if (!/\.sqlite3$/i.test(name))
-      throw new ApiError(400, N_('Модуль — це файл .SQLite3 (MyBible)'));
+    if (!/\.sqlite3$/i.test(name)) throw new ApiError(400, N_('Модуль — це файл .SQLite3'));
     const dir = modulesDir();
     fs.mkdirSync(dir, { recursive: true });
     const tmp = path.join(dir, `.drop-${randomUUID()}.part`);
