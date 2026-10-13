@@ -43,31 +43,44 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { app, dialog } from 'electron';
 
-let dir = path.dirname(process.execPath);
-let main = null;
 // macOS keeps Documents, Desktop, Downloads and flash drives from an app until the user allows it:
 // a copy there reads as «not found» unless the refusal is told apart (Mac check of feat/desktop)
-let denied = false;
-for (let i = 0; i < 7 && !main; i++) {
-  const at = path.join(dir, 'app', 'desktop', 'dist', 'main.js');
-  try {
-    fs.statSync(at);
-    main = at;
-  } catch (e) {
-    if (e.code === 'EPERM' || e.code === 'EACCES') denied = true;
+function look() {
+  let dir = path.dirname(process.execPath);
+  let denied = false;
+  for (let i = 0; i < 7; i++) {
+    const at = path.join(dir, 'app', 'desktop', 'dist', 'main.js');
+    try {
+      fs.statSync(at);
+      return { main: at, denied };
+    } catch (e) {
+      if (e.code === 'EPERM' || e.code === 'EACCES') denied = true;
+    }
+    dir = path.dirname(dir);
   }
-  dir = path.dirname(dir);
+  return { main: null, denied };
 }
-if (main) await import(pathToFileURL(main).href);
-else {
-  await app.whenReady();
+function missing(denied) {
   dialog.showErrorBox(
     'VerseOrchestrator',
     denied
-      ? 'macOS не дає застосунку доступу до теки, де він лежить (Документи, Робочий стіл, Завантаження чи флешка). Дозвольте: Системні параметри → Приватність і безпека → Файли та папки → VerseOrchestrator — або перенесіть теку застосунку, наприклад, у свою домашню теку.\n\nmacOS keeps the app from the folder it is in (Documents, Desktop, Downloads or a flash drive). Allow it: System Settings → Privacy & Security → Files & Folders → VerseOrchestrator — or move the app’s folder, say, into your home folder.'
-      : 'Поруч із програмою немає app/desktop — розпакуйте архів ще раз.\n\napp/desktop is missing next to the program — unpack the archive again.',
+      ? 'macOS не дає застосунку доступу до теки, де він лежить (Документи, Робочий стіл, Завантаження чи флешка). Дозвольте: Системні параметри → Приватність і безпека → Файли та папки → VerseOrchestrator — або перенесіть теку застосунку, наприклад, у свою домашню теку.\\n\\nmacOS keeps the app from the folder it is in (Documents, Desktop, Downloads or a flash drive). Allow it: System Settings → Privacy & Security → Files & Folders → VerseOrchestrator — or move the app’s folder, say, into your home folder.'
+      : 'Поруч із програмою немає app/desktop — розпакуйте архів ще раз.\\n\\napp/desktop is missing next to the program — unpack the archive again.',
   );
   app.quit();
+}
+if (process.platform === 'darwin') {
+  // macOS asks for such a folder only once the app has launched — and awaiting «ready» here, at the
+  // top, would hold «ready» back for good (the Mac check: the app bounced in the Dock and stopped)
+  void app.whenReady().then(async () => {
+    const found = look();
+    if (found.main) await import(pathToFileURL(found.main).href);
+    else missing(found.denied);
+  });
+} else {
+  const found = look();
+  if (found.main) await import(pathToFileURL(found.main).href);
+  else void app.whenReady().then(() => missing(found.denied));
 }
 `;
 function putStub(resources) {
@@ -75,6 +88,8 @@ function putStub(resources) {
   fs.rmSync(to, { recursive: true, force: true });
   fs.mkdirSync(to, { recursive: true });
   fs.writeFileSync(path.join(to, 'main.js'), STUB);
+  // a stub that doesn't parse is a dialog at every start: checked here, not on the user's screen
+  execFileSync(process.execPath, ['--check', path.join(to, 'main.js')]);
   fs.writeFileSync(
     path.join(to, 'package.json'),
     JSON.stringify(

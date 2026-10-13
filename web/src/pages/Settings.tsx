@@ -43,6 +43,17 @@ export function Settings() {
       window.removeEventListener('resize', onResize);
     };
   }, []);
+  // opened from the panel: at the section it was showing (openSettingsWindow `at`)
+  useEffect(() => {
+    const at = new URLSearchParams(location.search).get('at');
+    if (!at) return;
+    const t = setTimeout(() => {
+      document
+        .querySelector(`[data-settings-section="${CSS.escape(at)}"]`)
+        ?.scrollIntoView({ block: 'start' });
+    }, 50);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <ScrollArea style={{ height: '100vh' }} type="auto">
       <Box maw={560} mx="auto" px="md" py="lg">

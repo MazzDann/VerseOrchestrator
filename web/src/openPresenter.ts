@@ -345,7 +345,7 @@ let settingsWin: Window | null = null;
  * ask): where the panel was and its size — the panel closes; else on a secondary screen if
  * possible. Already open: brought forward (this window opened it, so it may).
  */
-export async function openSettingsWindow(from?: DOMRect): Promise<Window | null> {
+export async function openSettingsWindow(from?: DOMRect, at?: string): Promise<Window | null> {
   if (settingsWin && !settingsWin.closed) {
     if (from) {
       const b = screenBox(from);
@@ -363,6 +363,8 @@ export async function openSettingsWindow(from?: DOMRect): Promise<Window | null>
     const s = (await defaultScreen('other')).screen;
     if (s) features += `,left=${s.x},top=${s.y}`;
   }
-  settingsWin = window.open(`${location.origin}/settings`, 'vo-settings', features);
+  // `at`: the section to show first — the one the panel was showing
+  const query = at ? `?at=${encodeURIComponent(at)}` : '';
+  settingsWin = window.open(`${location.origin}/settings${query}`, 'vo-settings', features);
   return settingsWin;
 }

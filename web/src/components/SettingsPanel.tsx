@@ -255,11 +255,16 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
           size="xs"
           leftSection={<IconExternalLink size={14} />}
           onClick={(e) => {
-            // the window takes the panel's place and size; the panel goes (1.1.0)
-            const panel = e.currentTarget.closest('[data-floating-panel]');
-            void openSettingsWindow(panel?.getBoundingClientRect()).then((w) => {
-              if (w) onDetach?.();
-            });
+            // the window takes the panel's place and size; the panel goes (1.1.0) — the «Вигляд»
+            // tab's too, and the window opens at the section the panel shows (Mac check, 1.18)
+            const panel =
+              e.currentTarget.closest('[data-floating-panel]') ??
+              e.currentTarget.closest('[data-settings-host]');
+            void openSettingsWindow(panel?.getBoundingClientRect(), sectionInView(panel)).then(
+              (w) => {
+                if (w) onDetach?.();
+              },
+            );
           }}
         >
           {tr('Відкрити окремим вікном')}
@@ -1318,6 +1323,16 @@ function SettingsHits({
 }
 
 /** One collapsible settings group: title + a dimmed one-line summary of current values. */
+/** The section at the top of the panel's view: the separate window opens at it. */
+function sectionInView(panel: Element | null): string | undefined {
+  if (!panel) return undefined;
+  const top = panel.getBoundingClientRect().top;
+  const items = [...panel.querySelectorAll<HTMLElement>('[data-settings-section]')];
+  // the last one whose top is above the view's top (+ a header's height), else the first
+  const seen = items.filter((el) => el.getBoundingClientRect().top <= top + 48);
+  return (seen[seen.length - 1] ?? items[0])?.dataset.settingsSection;
+}
+
 function Section({
   value,
   title,
@@ -1332,7 +1347,7 @@ function Section({
   const shown = useContext(FindContext);
   if (shown && !shown.has(value)) return null;
   return (
-    <Accordion.Item value={value}>
+    <Accordion.Item value={value} data-settings-section={value}>
       <Accordion.Control>
         <Text size="sm" fw={600}>
           {title}

@@ -427,7 +427,7 @@ export function StudyPanels({
           </ScrollArea>
         )}
         {mode === 'settings' && (
-          <ScrollArea style={{ flex: 1 }}>
+          <ScrollArea style={{ flex: 1 }} data-settings-host>
             <Group gap={6} px="md" pt="sm">
               <IconAdjustments size={16} />
               <Text fw={600} size="sm">
@@ -436,7 +436,8 @@ export function StudyPanels({
             </Group>
             {/* the full width of the window below the centre is too wide for a form */}
             <Box maw={compact ? 640 : undefined}>
-              <SettingsPanel />
+              {/* in a window of their own, the tab gives the place back to the preview */}
+              <SettingsPanel onDetach={() => setMode('preview')} />
             </Box>
           </ScrollArea>
         )}
