@@ -34,6 +34,7 @@ import {
   IconSearch,
 } from '@tabler/icons-react';
 import { findSettings, textHolds, useSettingsFind } from '../lib/settingsSearch';
+import { inDesktop } from '../lib/desktop';
 import { notifications } from '@mantine/notifications';
 import {
   useSettings,
@@ -77,6 +78,7 @@ import { FeedbackSection } from './FeedbackSection';
 import { ShutdownSection } from './ShutdownSection';
 import { ShortcutSection } from './ShortcutSection';
 import { BrowserSection } from './BrowserSection';
+import { DesktopSection } from './DesktopSection';
 import { useEffectiveSource } from '../dataSourceStore';
 import { useServer, NEEDS_SERVER, versionHeading } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
@@ -214,6 +216,18 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
 
   const inSettingsWindow =
     typeof window !== 'undefined' && window.location.pathname === '/settings';
+  // the desktop app's settings window: the keyboard is in its search whenever the window comes
+  // forward with nothing else focused (the shell keeps it above the control window)
+  useEffect(() => {
+    if (!inSettingsWindow || !inDesktop()) return;
+    const toSearch = () => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      document.querySelector<HTMLInputElement>('[data-settings-find]')?.focus();
+    };
+    toSearch();
+    window.addEventListener('focus', toSearch);
+    return () => window.removeEventListener('focus', toSearch);
+  }, [inSettingsWindow]);
 
   const fonts = FONT_OPTIONS.map((f) => ({ ...f, label: tr(f.label) }));
   const fontLabel = fonts.find((f) => f.value === a.scriptureFont)?.label ?? tr('власний');
@@ -241,11 +255,16 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
           size="xs"
           leftSection={<IconExternalLink size={14} />}
           onClick={(e) => {
-            // the window takes the panel's place and size; the panel goes (1.1.0)
-            const panel = e.currentTarget.closest('[data-floating-panel]');
-            void openSettingsWindow(panel?.getBoundingClientRect()).then((w) => {
-              if (w) onDetach?.();
-            });
+            // the window takes the panel's place and size; the panel goes (1.1.0) — the «Вигляд»
+            // tab's too, and the window opens at the section the panel shows (Mac check, 1.18)
+            const panel =
+              e.currentTarget.closest('[data-floating-panel]') ??
+              e.currentTarget.closest('[data-settings-host]');
+            void openSettingsWindow(panel?.getBoundingClientRect(), sectionInView(panel)).then(
+              (w) => {
+                if (w) onDetach?.();
+              },
+            );
           }}
         >
           {tr('Відкрити окремим вікном')}
@@ -1216,7 +1235,10 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             <CopyImportSection />
             <FeedbackSection />
             <StandbySection active={openSections.includes('app')} />
-            <BrowserSection active={openSections.includes('app')} />
+            {/* the desktop app is its own window: no browser to choose */}
+            {/* a browser: the way over to the desktop app (1.18.0-beta.1) */}
+            {!inDesktop() && <DesktopSection active={openSections.includes('app')} />}
+            {!inDesktop() && <BrowserSection active={openSections.includes('app')} />}
             <ShortcutSection />
             <ShutdownSection />
           </Section>
@@ -1301,6 +1323,16 @@ function SettingsHits({
 }
 
 /** One collapsible settings group: title + a dimmed one-line summary of current values. */
+/** The section at the top of the panel's view: the separate window opens at it. */
+function sectionInView(panel: Element | null): string | undefined {
+  if (!panel) return undefined;
+  const top = panel.getBoundingClientRect().top;
+  const items = [...panel.querySelectorAll<HTMLElement>('[data-settings-section]')];
+  // the last one whose top is above the view's top (+ a header's height), else the first
+  const seen = items.filter((el) => el.getBoundingClientRect().top <= top + 48);
+  return (seen[seen.length - 1] ?? items[0])?.dataset.settingsSection;
+}
+
 function Section({
   value,
   title,
@@ -1315,7 +1347,7 @@ function Section({
   const shown = useContext(FindContext);
   if (shown && !shown.has(value)) return null;
   return (
-    <Accordion.Item value={value}>
+    <Accordion.Item value={value} data-settings-section={value}>
       <Accordion.Control>
         <Text size="sm" fw={600}>
           {title}

@@ -99,6 +99,13 @@ jobs:
       - run: npm ci
       # a copy for everyone: no settings of this machine, no library (docs/install.md)
       - run: npm run portable -- --release
+      # the desktop app (Electron) in the same copy: start.cmd / start.command / start.sh open it
+      # (desktop/scripts/pack.mjs — Electron for this runner's system comes with its npm ci)
+      - name: Desktop app
+        shell: bash
+        run: |
+          (cd desktop && npm ci && npm run build)
+          node desktop/scripts/pack.mjs "$(ls -d portable/VerseOrchestrator-*)"
       - name: Archive
         shell: bash
         run: |

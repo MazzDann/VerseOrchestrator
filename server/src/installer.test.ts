@@ -19,7 +19,7 @@ import {
   TOP_FILES_DIR,
   unpackCommand,
 } from './installer';
-import { LAYOUT_MARKER } from './layout';
+import { LAYOUT_MARKER, shellDirName } from './layout';
 import { runSwap, type SwapPlan, type SwapResult } from './swap';
 import type { LatestRelease } from './updates';
 
@@ -66,10 +66,15 @@ const PLATFORM = process.platform === 'darwin' ? 'linux' : process.platform;
  */
 function served(
   version: string,
-  opts: { badSum?: boolean; offline?: boolean; gate?: Promise<unknown> } = {},
+  opts: { badSum?: boolean; offline?: boolean; gate?: Promise<unknown>; shell?: boolean } = {},
 ) {
   const work = tempDir();
-  releaseFolder(work, version);
+  const folder = releaseFolder(work, version);
+  if (opts.shell) {
+    // the desktop app next to app/ (1.18.0-beta.1)
+    fs.mkdirSync(path.join(folder, shellDirName(PLATFORM)));
+    fs.writeFileSync(path.join(folder, shellDirName(PLATFORM), 'shell.bin'), 'electron');
+  }
   const archive = path.join(work, 'VerseOrchestrator-linux-x64.tar.gz');
   const r = spawnSync(TAR, ['-czf', archive, '-C', work, `VerseOrchestrator-${version}-linux-x64`]);
   expect(r.status).toBe(0);
@@ -170,6 +175,14 @@ describe('installing an update (1.0.0)', () => {
     ).toMatchObject({ version: '1.3.1' });
     expect(fs.existsSync(prev)).toBe(false);
     expect(inst.previousVersion()).toBeNull();
+  });
+
+  it('keeps the desktop app of the release for the swap (1.18.0-beta.1)', async () => {
+    const { latest, fetch } = served('1.0.1', { shell: true });
+    const { dataDir, inst } = await install(latest, fetch);
+    expect(inst.state()).toMatchObject({ phase: 'ready', error: null });
+    const kept = path.join(dataDir, 'updates', TOP_FILES_DIR, '1.0.1', shellDirName(PLATFORM));
+    expect(fs.readFileSync(path.join(kept, 'shell.bin'), 'utf8')).toBe('electron');
   });
 
   it('downloads, checks and unpacks next to the running app', async () => {

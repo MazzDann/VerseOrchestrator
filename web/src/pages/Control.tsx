@@ -25,6 +25,7 @@ import { type Slide, type SlideCountdown, type SlideCover } from '../presenterBu
 import { type CountdownPlace } from '../lib/countdown';
 import { strongLangFor } from '@vo/shared';
 import { SearchPanel } from '../components/SearchPanel';
+import { DesktopHint } from '../components/DesktopHint';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { SongsPanel } from '../components/SongsPanel';
 import { DocumentsPanel } from '../components/DocumentsPanel';
@@ -1225,6 +1226,7 @@ export function Control() {
   return (
     <>
       {dragging && <DropOverlay />}
+      <DesktopHint />
       <AppShell
         header={{ height: 56 }}
         navbar={{ width: layout.navWidth, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}

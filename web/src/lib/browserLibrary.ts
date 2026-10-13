@@ -4,7 +4,7 @@ import { useDataSource } from '../dataSourceStore';
 import { tr } from '../i18n';
 import { addDroppedFile, type Dropped } from './engine/restore';
 
-/** The files the browser's engine takes: MyBible modules (converted here) and library segments. */
+/** The files the browser's engine takes: modules (.SQLite3, converted here) and library segments. */
 export const BROWSER_DROPPABLE = /\.(sqlite3|vodb|vodb\.gz)$/i;
 
 /**

@@ -150,6 +150,27 @@ The start window speaks the same language from the next start of the app. Viewer
 and the speaker remote show their browser's language, as does the page that appears while
 the app starts.
 
+## Move to the desktop app
+
+The app can run in its own window, with no browser: output windows go fullscreen on the other
+screen by themselves, sound plays with no click, and there is always one control window. A
+release copy has it next to the `app` folder (**VerseOrchestrator.app** on macOS, the `shell`
+folder on Windows and Linux), and the start file opens it.
+
+A copy updated from a version that ran in the browser doesn't have it yet. Open **Settings** →
+**App** → **The desktop app** and press **Install the app**: this version's archive comes from
+GitHub, and only the app is kept from it. Then press **Open the app** — it takes over, and the
+browser tab can be closed. So that the browser keeps none of the app's data, press **Clear the
+data from this browser**: the settings and the running order stay with the app (in the `data`
+folder).
+
+On macOS, if the app's folder is in Documents, Desktop, Downloads or on a flash drive, macOS asks
+the first time whether VerseOrchestrator may use that folder — allow it (or later in **System
+Settings** → **Privacy & Security** → **Files & Folders**).
+
+On macOS the app isn't signed: the first time, open it with a right-click → **Open**, or in
+**System Settings** → **Privacy & Security** → **Open Anyway**.
+
 ## Choose the browser
 
 The start file opens the control window in the system browser. To open it in another

@@ -67,7 +67,11 @@ export async function clearBrowserData(): Promise<void> {
     /* no Cache Storage (plain http on another host) */
   }
   try {
-    const dbs = (await indexedDB.databases?.()) ?? [];
+    // Firefox before 126 lists none: the PGlite snapshot by its name all the same (review)
+    const listed = (await indexedDB.databases?.()) ?? [];
+    const dbs = listed.some((d) => d.name === PG_SNAPSHOT_DB)
+      ? listed
+      : [...listed, { name: PG_SNAPSHOT_DB }];
     await Promise.all(
       dbs.map(
         (d) =>
@@ -81,6 +85,15 @@ export async function clearBrowserData(): Promise<void> {
     );
   } catch {
     /* no IndexedDB */
+  }
+  try {
+    // the browser engine's private files (SQLite-WASM, OPFS)
+    const root = await navigator.storage?.getDirectory?.();
+    if (root)
+      for await (const name of (root as unknown as { keys(): AsyncIterable<string> }).keys())
+        await root.removeEntry(name, { recursive: true }).catch(() => undefined);
+  } catch {
+    /* no private files */
   }
   // a write another window made before it heard us
   setTimeout(wipe, 500);

@@ -80,4 +80,19 @@ describe('the update swap (1.0.0)', () => {
     expect(fs.readFileSync(path.join(top, 'HOW TO START.txt'), 'utf8')).toBe('notes');
     expect(versionIn(top, 'data')).toBe('mine');
   });
+
+  it('brings the desktop app when the copy has none, keeps the one it has (1.18.0-beta.1)', () => {
+    const top = release({ app: '1.0.1' });
+    const from = release({});
+    fs.mkdirSync(path.join(from, 'shell'));
+    fs.writeFileSync(path.join(from, 'shell', 'verseorchestrator'), 'new');
+    copyTopFiles(from, top);
+    expect(fs.readFileSync(path.join(top, 'shell', 'verseorchestrator'), 'utf8')).toBe('new');
+    // one already there may be running: left as it is
+    const again = release({});
+    fs.mkdirSync(path.join(again, 'shell'));
+    fs.writeFileSync(path.join(again, 'shell', 'verseorchestrator'), 'newer');
+    copyTopFiles(again, top);
+    expect(fs.readFileSync(path.join(top, 'shell', 'verseorchestrator'), 'utf8')).toBe('new');
+  });
 });
