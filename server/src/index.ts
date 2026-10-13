@@ -75,6 +75,7 @@ import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
 import { createGitSync } from './gitSync.js';
 import { STAMP_FILE } from './uiStamp.js';
+import { createShellInstaller, openShell, shellPresent } from './desktopShell.js';
 import { createInstaller, hasRollback, updatesBack } from './installer.js';
 import { precompressed } from './precompressed.js';
 import {
@@ -547,6 +548,49 @@ const installer = releaseTop
 // the swap starts runs before the helper writes its result, so what it holds stays till then)
 installer?.tidy();
 
+// «Встановити застосунок» (1.18.0-beta.1, desktopShell.ts): the desktop app next to app/ — fetched from this
+// version's archive when the copy has none (one updated from a browser version), opened on request
+const shellInstaller =
+  releaseTop && installer
+    ? createShellInstaller({
+        top: releaseTop,
+        updatesDir: installer.updatesDir,
+        current: appVersion,
+      })
+    : null;
+const desktopState = () => ({
+  // a release has its folder; a clone runs it from desktop/ (`npm start` there)
+  release: !!releaseTop,
+  present: releaseTop ? shellPresent(releaseTop) : false,
+  install: shellInstaller?.state() ?? null,
+});
+app.get('/api/desktop', requireLocal, (_req, res) => {
+  res.json(desktopState());
+});
+app.post(
+  '/api/desktop/install',
+  requireLocalControl,
+  wrap((_req, res) => {
+    if (!shellInstaller)
+      throw new ApiError(409, N_('Застосунок встановлюється лише в копію-реліз'));
+    const busy = installer?.state().phase;
+    if (swapPending || (busy && busy !== 'idle' && busy !== 'error' && busy !== 'ready'))
+      throw new ApiError(409, N_('Зачекайте, доки закінчиться оновлення'));
+    shellInstaller.start();
+    res.json(desktopState());
+  }),
+);
+app.post(
+  '/api/desktop/open',
+  requireLocalControl,
+  wrap((_req, res) => {
+    if (!releaseTop || !shellPresent(releaseTop))
+      throw new ApiError(409, N_('Спершу встановіть застосунок'));
+    openShell(releaseTop, Number(process.env.VO_STANDBY_PORT) || getServerSettings().standby.port);
+    res.json(desktopState());
+  }),
+);
+
 /**
  * The pin a swap to this version decided (1.6.3) takes effect once that swap went well — this
  * version answers — so a swap that fails keeps the pin the version before had.
@@ -619,6 +663,8 @@ function refuseIfNotNow(inst: NonNullable<typeof installer>) {
   if (rebuilding())
     throw new ApiError(409, N_('Бібліотека саме перебудовується — спробуйте за хвилину'));
   if (swapPending) throw new ApiError(409, N_('Застосунок саме готується до зміни версії'));
+  if (shellInstaller?.busy())
+    throw new ApiError(409, N_('Зачекайте, доки встановиться застосунок'));
   const why = inst.notNow();
   if (why) throw new ApiError(409, why);
 }
@@ -656,6 +702,9 @@ app.post(
       throw new ApiError(409, N_('Оновлювати сам уміє лише застосунок з архіву релізу'));
     // a version change waiting for its backup: a download now would empty data/updates under it
     if (swapPending) throw new ApiError(409, N_('Застосунок саме готується до зміни версії'));
+    // the desktop app coming (1.18.0-beta.1): it unpacks in data/updates too
+    if (shellInstaller?.busy())
+      throw new ApiError(409, N_('Зачекайте, доки встановиться застосунок'));
     // the version picked in the dropdown (1.6.2), newer or older; none: the newest
     const wanted = typeof req.body?.version === 'string' ? req.body.version : null;
     if (!wanted && (!s.available || !s.latest)) throw new ApiError(409, N_('Новішої версії немає'));
@@ -2577,8 +2626,7 @@ app.post(
   wrap(async (req, res) => {
     notDuringRebuild();
     const name = String(req.query.name ?? '');
-    if (!/\.sqlite3$/i.test(name))
-      throw new ApiError(400, N_('Модуль — це файл .SQLite3 (MyBible)'));
+    if (!/\.sqlite3$/i.test(name)) throw new ApiError(400, N_('Модуль — це файл .SQLite3'));
     const dir = modulesDir();
     fs.mkdirSync(dir, { recursive: true });
     const tmp = path.join(dir, `.drop-${randomUUID()}.part`);

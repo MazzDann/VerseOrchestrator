@@ -82,7 +82,8 @@ describe('browser data («Вимкнути повністю», 0.7.1)', () => {
     expect(stoppedThere).toBe(true);
     expect(local.map.size).toBe(0);
     expect(deletedCaches).toEqual(['vo-segments-v1', 'vo-segments-v2']);
-    expect(deletedDbs).toEqual(['/pglite/vo']); // a blocked deletion doesn't hang the shutdown
+    // a blocked deletion doesn't hang the shutdown; the PGlite snapshot goes by its name too (1.18.0-beta.1)
+    expect(deletedDbs).toEqual(['/pglite/vo', 'vo-pglite-snapshot']);
     // a store in this window re-saving afterwards writes nothing
     (
       Storage as unknown as { prototype: { setItem: (k: string, v: string) => void } }

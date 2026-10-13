@@ -12,7 +12,7 @@ export type DroppedKind =
   | 'video'
   /** a .docx / .md / .txt / .pdf (1.17.0) */
   | 'document'
-  /** a MyBible module (1.17.1): into the library */
+  /** a module (.SQLite3, 1.17.1): into the library */
   | 'module'
   /** a library segment (.vodb): into the browser's engine */
   | 'segment'

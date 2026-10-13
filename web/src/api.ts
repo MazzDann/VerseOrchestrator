@@ -970,6 +970,10 @@ export const api = {
   },
   /** Server options (data/settings.json) — not secrets. */
   serverSettings: () => getJson('/api/server-settings', ServerSettingsSchema),
+  /** «Окремий застосунок» (1.18.0-beta.1, server/src/desktopShell.ts): the desktop app next to app/ */
+  desktop: () => getJson('/api/desktop', DesktopStateSchema),
+  installDesktop: () => sendDesktop('/api/desktop/install'),
+  openDesktop: () => sendDesktop('/api/desktop/open'),
   /** The browsers on this computer, for «Відкривати вікно керування в…». */
   browsers: () => getJson('/api/browsers', BrowsersSchema),
   /**
@@ -1641,6 +1645,27 @@ export const SemanticSchema = z.object({
   job: VectorJobSchema,
 });
 export type SemanticState = z.infer<typeof SemanticSchema>;
+
+/** «Окремий застосунок» (1.18.0-beta.1): the desktop app — in a release, there or fetched; a clone has none. */
+export const DesktopStateSchema = z.object({
+  release: z.boolean(),
+  present: z.boolean(),
+  install: z
+    .object({
+      phase: z.enum(['idle', 'download', 'verify', 'unpack', 'done', 'error']),
+      received: z.number(),
+      total: z.number(),
+      error: z.string().nullable(),
+    })
+    .nullable(),
+});
+export type DesktopState = z.infer<typeof DesktopStateSchema>;
+
+async function sendDesktop(url: string): Promise<DesktopState> {
+  const res = await request(url, { method: 'POST', headers: CONTROL_HEADERS });
+  if (!res.ok) throw await failure(res);
+  return DesktopStateSchema.parse(await res.json());
+}
 
 async function sendSemantic(url: string, method: string, body?: object): Promise<SemanticState> {
   const res = await request(url, {

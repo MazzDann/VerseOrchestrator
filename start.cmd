@@ -9,6 +9,12 @@ if exist "%~dp0app\start.cmd" (
   call "%~dp0app\start.cmd" %*
   exit /b
 )
+rem the desktop app beside app\ (a release, feat/desktop) is the app's window - no browser needed;
+rem started with no options (they are the launcher's: --off, --check, --port ...)
+if "%~1"=="" if exist "%~dp0..\shell\VerseOrchestrator.exe" (
+  start "" "%~dp0..\shell\VerseOrchestrator.exe"
+  exit /b 0
+)
 cd /d "%~dp0"
 chcp 65001 >nul
 rem a portable copy (npm run portable) carries its own Node, npm included
