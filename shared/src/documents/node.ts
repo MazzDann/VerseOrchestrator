@@ -20,6 +20,25 @@ import { bookResolver, scanReferences } from './refs.js';
  * reader's version), so a rescan of an unchanged folder costs a directory listing.
  */
 
+/**
+ * Kinds this process reads by converting them first (the server on macOS: .pages, .rtf, .doc …,
+ * server/src/convert.ts): listed, kept and restored like the rest, but read only from what the
+ * caller converted (`pre`, like a PDF) — the builder never sets them and reads none.
+ */
+let extraKinds: readonly string[] = [];
+export function setExtraDocumentKinds(exts: readonly string[]): void {
+  extraKinds = exts.map((e) => e.toLowerCase());
+}
+const extOf = (name: string): string => (/\.([^./\\]+)$/.exec(name)?.[1] ?? '').toLowerCase();
+/** A converted kind (an extra one), not one parseDocument reads itself. */
+export const isConvertedDocument = (name: string): boolean =>
+  !documentKind(name) &&
+  extraKinds.includes(extOf(name)) &&
+  !/^(~\$|\._|\.)/.test(name.replace(/^.*[\\/]/, ''));
+/** A document this process takes: one of the app's own kinds, or a converted one. */
+export const isDocumentName = (name: string): boolean =>
+  !!documentKind(name) || isConvertedDocument(name);
+
 export const DOCUMENTS_FOLDER = 'documents';
 export const documentsDir = (modulesDir: string): string => path.join(modulesDir, DOCUMENTS_FOLDER);
 
@@ -53,7 +72,7 @@ export function listDocumentFiles(dir: string): DocumentFile[] {
       const rel = sub ? `${sub}/${d.name}` : d.name;
       if (d.isDirectory()) {
         if (depth < DEPTH) walk(rel, depth + 1);
-      } else if (d.isFile() && documentKind(d.name)) {
+      } else if (d.isFile() && isDocumentName(d.name)) {
         const st = fs.statSync(path.join(dir, rel), { throwIfNoEntry: false });
         if (st && st.size <= DOC_FILE_MAX)
           out.push({ file: rel.normalize('NFC'), size: st.size, mtime: Math.floor(st.mtimeMs) });
@@ -126,8 +145,14 @@ const stale = (d: StoredDoc | undefined, f: DocumentFile) =>
  * The files of a kind the library doesn't hold as they are now — a PDF is read apart, in a child
  * process (1.17.0-beta.3): the caller reads these and hands them to writeLibraryDocuments.
  */
-export function pendingDocuments(libraryPath: string, dir: string, kind: string): DocumentFile[] {
-  const files = listDocumentFiles(dir).filter((f) => documentKind(f.file) === kind);
+export function pendingDocuments(
+  libraryPath: string,
+  dir: string,
+  kind: string | ((file: string) => boolean),
+): DocumentFile[] {
+  const files = listDocumentFiles(dir).filter((f) =>
+    typeof kind === 'string' ? documentKind(f.file) === kind : kind(f.file),
+  );
   if (files.length === 0) return [];
   const db = new Database(libraryPath, { readonly: true, fileMustExist: true });
   try {
@@ -166,7 +191,8 @@ export function writeLibraryDocuments(
   const toRead: DocumentFile[] = [];
   for (const f of files) {
     seen.add(f.file);
-    if (documentKind(f.file) === 'pdf') {
+    // a PDF and a converted file are read apart: only what the caller read is taken
+    if (documentKind(f.file) === 'pdf' || isConvertedDocument(f.file)) {
       const p = pre?.get(f.file);
       // not read, or saved again while it was read: left for the next refresh
       if (!p || p.size !== f.size || p.mtime !== f.mtime) continue;
@@ -242,7 +268,7 @@ export function writeLibraryDocuments(
         id,
         f.file,
         documentTitle(f.file),
-        documentKind(f.file),
+        documentKind(f.file) ?? extOf(f.file),
         doc.units.length,
         f.size,
         f.mtime,
@@ -292,8 +318,7 @@ export function refreshLibraryDocuments(
 /** A file name that's safe on every system the folder may travel to. */
 export function safeDocumentName(name: string): string | null {
   const base = name.replace(/^.*[\\/]/, '').normalize('NFC');
-  const kind = documentKind(base);
-  if (!kind) return null;
+  if (!isDocumentName(base)) return null;
   const clean = base
     // eslint-disable-next-line no-control-regex -- control characters are in no file name
     .replace(/[<>:"|?*\u0000-\u001f]/g, '_')
@@ -352,7 +377,7 @@ export function restoreDocument(dir: string, trashed: string): string | null {
   const to = path.resolve(root, file);
   const rel = path.relative(root, to);
   if (
-    !documentKind(rel) ||
+    !isDocumentName(rel) ||
     rel.startsWith('..') ||
     path.isAbsolute(rel) ||
     rel.split(path.sep).some((part) => part.startsWith('.'))

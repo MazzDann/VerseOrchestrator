@@ -5,7 +5,13 @@ import { api } from '../../api';
 import { type MediaTab } from '../../components/ImagesPanel';
 import { droppedKind, readFolder, useDrop } from '../../lib/drop';
 import { tr, trn } from '../../i18n';
-import { importDocuments, useDocOpen } from '../../lib/documents';
+import {
+  importDocuments,
+  isConvertedDocument,
+  isConvertedSong,
+  loadConvertKinds,
+  useDocOpen,
+} from '../../lib/documents';
 import { addToBrowserLibrary } from '../../lib/browserLibrary';
 import { effectiveSource } from '../../dataSourceStore';
 import { NEEDS_SERVER } from '../../serverStore';
@@ -21,18 +27,6 @@ import { NEEDS_SERVER } from '../../serverStore';
  * browser's engine), a segment → this browser's engine, a presentation → «Пісні»'s import, another
  * copy's vectors.db → the vectors.
  */
-const extOf = (name: string): string => (/\.([^./\\]+)$/.exec(name)?.[1] ?? '').toLowerCase();
-/** What the app's computer converts — asked once, kept for the page's life. */
-let convertKinds: Promise<string[]> | null = null;
-const convertible = (): Promise<string[]> =>
-  (convertKinds ??= api
-    .convertKinds()
-    .then((r) => r.kinds.map((k) => k.ext))
-    .catch(() => {
-      convertKinds = null; // an older server, or none yet: asked again next time
-      return [];
-    }));
-
 export function useMediaDrop({
   openMedia,
   openDocs,
@@ -108,13 +102,18 @@ export function useMediaDrop({
     const by = new Map<string, File[]>();
     const others: string[] = [];
     const folders: FileSystemDirectoryEntry[] = [];
-    // a Mac's own formats (.pages, .key, .rtf, .doc, .odt …): the app's computer converts them first
-    const kinds = server ? await convertible() : [];
+    // a Mac's own formats (convert.ts): a document (.pages, .rtf, .doc …) goes as it is, the
+    // server reads it into the library; a Keynote file becomes a .pptx for «Пісні» first
+    if (server) await loadConvertKinds();
     for (const { entry, file: dropped } of entries) {
       if (entry?.isDirectory) folders.push(entry as FileSystemDirectoryEntry);
       else if (dropped) {
         let file = dropped;
-        if (droppedKind(file) === 'other' && kinds.includes(extOf(file.name)))
+        if (isConvertedDocument(file.name)) {
+          by.set('document', [...(by.get('document') ?? []), file]);
+          continue;
+        }
+        if (isConvertedSong(file.name))
           try {
             notifications.show({
               message: tr('Перетворюю «{file}»…', { file: file.name }),

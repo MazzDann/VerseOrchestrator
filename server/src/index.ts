@@ -64,7 +64,7 @@ import {
 } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
-import { converterFor, convertBytes, converters } from './convert.js';
+import { converterFor, convertBytes, converters, type Converter } from './convert.js';
 import { createDocuments, openFolder } from './documents.js';
 import { readPdfs } from './pdfReader.js';
 import { dbFiles, diskParts, oldBackups, removeAll, sizeOf } from './diskSpace.js';
@@ -94,6 +94,8 @@ import {
   DOC_FILE_MAX,
   restoreDocument,
   trashDocument,
+  documentPath,
+  isConvertedDocument,
 } from '@vo/shared/documents-node';
 import {
   documentKind,
@@ -109,6 +111,7 @@ import {
   parseDocument,
   sameBundleName,
   type ModuleKind,
+  type ParsedDocument,
 } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
@@ -2419,6 +2422,17 @@ app.get(
 app.get('/api/convert', requireLocal, (_req, res) => {
   res.json({ kinds: converters().map(({ ext, to }) => ({ ext, to })) });
 });
+/** A conversion that failed, in words: a damaged file, or the app not allowed to be controlled. */
+const convertRefusal = (c: Converter, name: string) =>
+  new ApiError(
+    422,
+    c.via === 'textutil'
+      ? N_('Не вдалося перетворити «{file}» — можливо, файл пошкоджено')
+      : N_(
+          'Не вдалося перетворити «{file}» через {app}: дозвольте керувати ним (Системні параметри → Приватність і безпека → Автоматизація) і спробуйте ще раз',
+        ),
+    { file: name.replace(/^.*[\\/]/, ''), app: c.via === 'pages' ? 'Pages' : 'Keynote' },
+  );
 /** A presentation with its pictures and video runs to hundreds of MB (review): this much at most. */
 const CONVERT_MAX = 512 * 1024 * 1024;
 app.post(
@@ -2442,15 +2456,7 @@ app.post(
       res.type('application/octet-stream').send(out.bytes);
     } catch (e) {
       console.warn(`[convert] ${name}: ${(e as Error).message}`);
-      throw new ApiError(
-        422,
-        c.via === 'textutil'
-          ? N_('Не вдалося перетворити «{file}» — можливо, файл пошкоджено')
-          : N_(
-              'Не вдалося перетворити «{file}» через {app}: дозвольте керувати ним (Системні параметри → Приватність і безпека → Автоматизація) і спробуйте ще раз',
-            ),
-        { file: name.replace(/^.*[\\/]/, ''), app: c.via === 'pages' ? 'Pages' : 'Keynote' },
-      );
+      throw convertRefusal(c, name);
     }
   }),
 );
@@ -2465,9 +2471,22 @@ app.post(
       throw new ApiError(409, N_('Бібліотеки ще немає — спершу пересканіть модулі'));
     const name = String(req.query.name ?? '');
     const bytes = req.body instanceof Buffer ? new Uint8Array(req.body) : new Uint8Array();
-    if (!documentKind(name))
+    if (!documentKind(name) && !isConvertedDocument(name))
       throw new ApiError(400, N_('Документ має бути .docx, .md, .txt або .pdf'));
-    if (!(await readableDocument(bytes, name)))
+    // a Mac's own format (convert.ts): read here through its conversion — the file goes into the
+    // folder as it is, its reading straight into the library (documents.ts, no .docx beside it)
+    let converted: ParsedDocument | null = null;
+    if (isConvertedDocument(name)) {
+      const c = converterFor(name)!;
+      try {
+        const out = await convertBytes(c, bytes, name);
+        converted = parseDocument(out.bytes, out.name);
+      } catch (e) {
+        console.warn(`[convert] ${name}: ${(e as Error).message}`);
+        throw convertRefusal(c, name);
+      }
+    }
+    if (isConvertedDocument(name) ? !converted : !(await readableDocument(bytes, name)))
       throw new ApiError(
         400,
         N_('Не вдалося прочитати «{file}» — у ньому немає тексту або файл пошкоджено'),
@@ -2477,6 +2496,16 @@ app.post(
       );
     const added = addDocumentFile(documents.dir(), name, bytes);
     if (!added) throw new ApiError(400, N_('Така назва файлу не підходить — перейменуйте його'));
+    if (converted) {
+      const at = documentPath(documents.dir(), added.file);
+      const st = at ? fs.statSync(at) : null;
+      if (st)
+        documents.seedConverted(added.file, {
+          doc: converted,
+          size: st.size,
+          mtime: Math.floor(st.mtimeMs),
+        });
+    }
     await documents.refresh();
     const doc = (await library().listDocuments()).find((x) => x.file === added.file) ?? null;
     res.json({ ...added, id: doc?.id ?? null });

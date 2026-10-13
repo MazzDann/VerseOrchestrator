@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import {
   documentPath,
+  isConvertedDocument,
+  setExtraDocumentKinds,
   documentsDir,
   pendingDocuments,
   refreshLibraryDocuments,
@@ -10,7 +12,8 @@ import {
   type DocumentsRefresh,
   type PreRead,
 } from '@vo/shared/documents-node';
-import { convertDocumentsFolder, converters } from './convert.js';
+import { parseDocument, type ParsedDocument } from '@vo/shared';
+import { converterFor, convertBytes, converters } from './convert.js';
 import { readPdfs, type PdfResult } from './pdfReader.js';
 
 /**
@@ -39,23 +42,47 @@ export function createDocuments(d: {
   const unreadable = new Map<string, string>();
   const stamp = (f: DocumentFile) => `${f.size}:${f.mtime}`;
 
+  // a Mac's own formats (.pages, .rtf, .doc …, convert.ts): kinds of their own here, read by
+  // converting them in the background — Pages may take seconds, or wait for macOS's question,
+  // and a request that refreshes (an import, a deletion) shouldn't (review)
+  const convertedKinds = converters()
+    .filter((c) => c.to === 'docx')
+    .map((c) => c.ext);
+  setExtraDocumentKinds(convertedKinds);
+  /** what a conversion read, by file, with its size and time then (null: it gave nothing) */
+  const converted = new Map<string, PreRead>();
   let converting = false;
   let convertAgain = false;
-  const convertFailed = new Map<string, string>();
   function convertInBackground(at: string): void {
-    if (converters().length === 0) return;
+    if (convertedKinds.length === 0) return;
     if (converting) {
       convertAgain = true;
       return;
     }
     converting = true;
-    void convertDocumentsFolder(
-      at,
-      converters(),
-      (m) => d.log(`documents: ${m}`),
-      undefined,
-      convertFailed,
-    )
+    void (async () => {
+      const pending = pendingDocuments(d.libraryPath, at, isConvertedDocument).filter((f) => {
+        const had = converted.get(f.file);
+        // read already (or failed) as it is now: not again until it changes
+        return !had || had.size !== f.size || had.mtime !== f.mtime;
+      });
+      let read = 0;
+      for (const f of pending) {
+        const p = documentPath(at, f.file);
+        const c = converterFor(f.file);
+        if (!p || !c) continue;
+        let doc: ParsedDocument | null = null;
+        try {
+          const out = await convertBytes(c, fs.readFileSync(p), f.file);
+          doc = parseDocument(out.bytes, out.name);
+        } catch (e) {
+          d.log(`documents: not converted ${f.file}: ${(e as Error).message}`);
+        }
+        converted.set(f.file, { doc, size: f.size, mtime: f.mtime });
+        read++;
+      }
+      if (read > 0) await refresh();
+    })()
       .catch((e: Error) => d.log(`documents: conversion: ${e.message}`))
       .finally(() => {
         converting = false;
@@ -65,14 +92,16 @@ export function createDocuments(d: {
         }
       });
   }
+  /** A dropped file converted already (the import read it to check it): not converted again. */
+  function seedConverted(file: string, read: PreRead): void {
+    converted.set(file, read);
+  }
 
   async function refreshNow(): Promise<DocumentsRefresh | null> {
     if (!fs.existsSync(d.libraryPath) || d.rebuilding()) return null;
     const started = Date.now();
     const at = dir();
-    // a Mac's own formats (.pages, .rtf, .doc, .odt …) get a .docx next to them (convert.ts) — in
-    // the background: Pages may take seconds, or wait for macOS's question, and a request that
-    // refreshes (an import, a deletion) shouldn't (review); the .docx it writes wakes the watcher
+    // a Mac's own formats: converted in the background, taken below once read
     convertInBackground(at);
     // PDFs first, apart in a child process (pdfReader.ts); the rest is read in the write below
     const pdfs = pendingDocuments(d.libraryPath, at, 'pdf').filter(
@@ -96,6 +125,7 @@ export function createDocuments(d: {
     }
     // a rebuild that began while the PDFs were read rewrites the library itself
     if (d.rebuilding()) return null;
+    for (const [file, read] of converted) pre.set(file, read);
     const r = refreshLibraryDocuments(d.libraryPath, at, d.log, pre);
     if (r.changed) {
       d.closeDb();
@@ -154,7 +184,7 @@ export function createDocuments(d: {
     if (timer) clearTimeout(timer);
   }
 
-  return { dir, refresh, watch, stop };
+  return { dir, refresh, watch, stop, seedConverted };
 }
 
 /** Show a folder in the system's file manager (from the home folder: never a cwd inside app/). */

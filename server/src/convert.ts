@@ -4,9 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 /**
- * Files from a Mac's own apps, turned into what the app reads (macOS only — the user's ask,
+ * Files from a Mac's own apps, read as what the app reads (macOS only — the user's ask,
  * 2026-10-13): Pages (.pages) and the formats macOS itself reads (.rtf, .doc, .odt, .html,
- * .webarchive) → a Word .docx, a document; Keynote (.key) → a PowerPoint .pptx, a song.
+ * .webarchive) through a Word .docx straight into the library — no file is left beside them
+ * (documents.ts); Keynote (.key) → a PowerPoint .pptx for «Пісні»'s import.
  * `textutil` is part of macOS; Pages and Keynote do their own export when they're installed
  * (AppleScript — macOS asks once whether the app may control them).
  */
@@ -109,131 +110,4 @@ export async function convertBytes(
   } finally {
     fs.rmSync(work, { recursive: true, force: true });
   }
-}
-
-/**
- * What the documents folder converted: target (the .docx made) → its source and both files'
- * size and time. Kept in the folder itself, hidden (the folder's listing skips dot files).
- */
-export const CONVERTED_RECORD = '.converted.json';
-interface Made {
-  source: string;
-  sourceSize: number;
-  sourceMtime: number;
-  size: number;
-  mtime: number;
-}
-
-const stamp = (p: string): { size: number; mtime: number } | null => {
-  const st = fs.statSync(p, { throwIfNoEntry: false });
-  return st?.isFile() ? { size: st.size, mtime: Math.floor(st.mtimeMs) } : null;
-};
-
-/**
- * The documents folder: a .pages / .rtf / .doc / .odt put there gets a .docx next to it (the
- * library reads that); a source changed makes it again; a source gone takes its .docx with it —
- * only one this made and nobody changed since. A .docx of the same name that this didn't make is
- * left alone (the user's own). Keynote files are songs, not documents: not here.
- */
-export async function convertDocumentsFolder(
-  dir: string,
-  list: Converter[] = converters(),
-  log: (msg: string) => void = () => {},
-  convert: typeof convertFile = convertFile,
-  /** sources that failed, by their size and time: not tried again until they change (review) */
-  failed: Map<string, string> = new Map(),
-): Promise<number> {
-  const docs = list.filter((c) => c.to === 'docx');
-  if (docs.length === 0 || !fs.existsSync(dir)) return 0;
-  const recordPath = path.join(dir, CONVERTED_RECORD);
-  let record: Record<string, Made> = {};
-  try {
-    record = JSON.parse(fs.readFileSync(recordPath, 'utf8')) as Record<string, Made>;
-  } catch {
-    /* none yet */
-  }
-  const sources: string[] = [];
-  const walk = (sub: string, depth: number) => {
-    let names: fs.Dirent[];
-    try {
-      names = fs.readdirSync(path.join(dir, sub), { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const d of names) {
-      if (d.name.startsWith('.') || d.name.startsWith('~$')) continue;
-      const rel = sub ? `${sub}/${d.name}` : d.name;
-      if (d.isDirectory()) {
-        if (depth < 3) walk(rel, depth + 1);
-      } else if (d.isFile() && docs.some((c) => c.ext === extOf(d.name))) sources.push(rel);
-    }
-  };
-  walk('', 0);
-  sources.sort();
-  let made = 0;
-  let changed = false;
-  // written after each conversion: a pass cut short leaves no .docx unaccounted for (review)
-  const save = () => {
-    const tmp = `${recordPath}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(record, null, 1));
-    fs.renameSync(tmp, recordPath);
-  };
-  const live = new Set<string>();
-  for (const rel of sources) {
-    const c = docs.find((x) => x.ext === extOf(rel))!;
-    const target = convertedName(rel, 'docx');
-    const src = stamp(path.join(dir, rel));
-    if (!src) continue;
-    // two sources for one .docx (Лекція.rtf and Лекція.pages): the first by name keeps it (review)
-    if (live.has(target)) continue;
-    live.add(target);
-    const was = record[target];
-    const now = stamp(path.join(dir, target));
-    if (was && was.source !== rel) continue; // another source's
-    if (now && !was) continue; // the user's own .docx of that name
-    // made from this very source: kept — even when the .docx was deleted in the app (its
-    // «Скасувати» needs the place free) — until the source changes (review)
-    if (was && was.sourceSize === src.size && was.sourceMtime === src.mtime) continue;
-    if (now && was && (was.size !== now.size || was.mtime !== now.mtime)) continue; // edited since
-    const key = `${src.size}:${src.mtime}`;
-    if (failed.get(rel) === key) continue;
-    // made in a hidden folder first: the folder's watcher never reads a half-written .docx
-    const work = path.join(dir, '.converting');
-    const part = path.join(work, path.basename(target));
-    try {
-      fs.mkdirSync(work, { recursive: true });
-      fs.rmSync(part, { force: true });
-      await convert(c, path.join(dir, rel), part);
-      fs.renameSync(part, path.join(dir, target));
-      const t = stamp(path.join(dir, target))!;
-      record[target] = {
-        source: rel,
-        sourceSize: src.size,
-        sourceMtime: src.mtime,
-        size: t.size,
-        mtime: t.mtime,
-      };
-      made++;
-      changed = true;
-      failed.delete(rel);
-      save();
-      log(`converted ${rel} → ${target}`);
-    } catch (e) {
-      fs.rmSync(part, { force: true });
-      failed.set(rel, key);
-      log(`not converted ${rel}: ${(e as Error).message}`);
-    }
-  }
-  // a source taken away: its .docx goes too, if this made it and it's as made
-  for (const [target, was] of Object.entries(record)) {
-    if (live.has(target)) continue;
-    const now = stamp(path.join(dir, target));
-    if (now && now.size === was.size && now.mtime === was.mtime)
-      fs.rmSync(path.join(dir, target), { force: true });
-    delete record[target];
-    changed = true;
-  }
-  fs.rmSync(path.join(dir, '.converting'), { recursive: true, force: true });
-  if (changed) save();
-  return made;
 }
