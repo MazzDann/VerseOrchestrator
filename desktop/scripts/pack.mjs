@@ -7,6 +7,7 @@
 //   - shell/ (Windows, Linux) or VerseOrchestrator.app (macOS) — Electron itself, with a stub app
 //     that finds app/ and runs that code. Electron changes rarely; a new one comes in a new archive.
 // Run after `npm ci && npm run build` in desktop/ (Electron for THIS system comes with npm ci).
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
