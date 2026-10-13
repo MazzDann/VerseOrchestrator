@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   app,
   BrowserWindow,
+  dialog,
   Menu,
   powerSaveBlocker,
   screen,
@@ -35,8 +36,21 @@ import { featureRect, outputPage, pageKind, placeOutput, type Display } from './
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-/** the repository (dev) or the release's app/ folder: where server/src/launcher.ts is */
-const appRoot = process.env.VO_APP_ROOT ?? path.resolve(here, '..', '..');
+/**
+ * Where server/src/launcher.ts is: the repository (dev), or the release's app/ folder — found up
+ * from the shell (desktop/VerseOrchestrator.exe, VerseOrchestrator.app/Contents/MacOS/…).
+ */
+function findAppRoot(): string {
+  if (process.env.VO_APP_ROOT) return process.env.VO_APP_ROOT;
+  let dir = app.isPackaged ? path.dirname(process.execPath) : path.resolve(here, '..', '..');
+  for (let i = 0; i < 7; i++) {
+    for (const at of [dir, path.join(dir, 'app')])
+      if (fs.existsSync(path.join(at, 'server', 'src', 'launcher.ts'))) return at;
+    dir = path.dirname(dir);
+  }
+  return path.resolve(here, '..', '..');
+}
+const appRoot = findAppRoot();
 const PORT = Number(process.env.VO_PORT ?? 4747);
 const ORIGIN = `http://localhost:${PORT}`;
 const HEADERS = { 'X-VO-Control': '1' };
@@ -67,10 +81,16 @@ async function answers(): Promise<boolean> {
 }
 
 let launcher: ChildProcess | null = null;
+/**
+ * The app on the port was started by this shell: it stops at quit — even after an update, when
+ * the swap started a new waiter of its own (server/src/swap.ts) and `launcher` is gone.
+ */
+let ownsApp = false;
 
 /** The app on PORT: the one already running, or the launcher started now (and waited for). */
 async function startApp(): Promise<void> {
   if (await answers()) return;
+  ownsApp = true;
   launcher = spawn(
     nodeRuntime(),
     [
@@ -162,6 +182,8 @@ function openControl(): BrowserWindow {
   win.once('ready-to-show', () => {
     if (!kept || kept.maximized) win.maximize();
     win.show();
+    // a moment for the page to settle before a question over it
+    setTimeout(() => void offerUpdate(win), 2500);
   });
   win.on('close', () => keepPlace(win));
   // the settings come back with the control window, above it
@@ -258,6 +280,103 @@ function openControl(): BrowserWindow {
 /** the fullscreen decided for an output window between its handler and its creation */
 const pendingFullscreen = new Map<string, boolean>();
 
+// ── a new version offered at the start (the author: «при знайдені нового пропонувати при запуску») ──
+
+const uk = () => app.getLocale().toLowerCase().startsWith('uk');
+const say = (ua: string, en: string) => (uk() ? ua : en);
+
+interface UpdateAnswer {
+  current?: string;
+  available?: boolean;
+  enabled?: boolean;
+  pinned?: boolean;
+  latest?: { version?: string } | null;
+  installer?: { phase?: string; received?: number; total?: number; error?: unknown } | null;
+}
+
+async function updateState(fresh = false): Promise<UpdateAnswer | null> {
+  try {
+    const r = await fetch(`${ORIGIN}/api/update${fresh ? '?fresh=1' : ''}`, { headers: HEADERS });
+    return r.ok ? ((await r.json()) as UpdateAnswer) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * At the start: a newer version on the chosen channel (Налаштування → Оновлення) is offered in a
+ * dialog of the app's own — «Оновити зараз» downloads it, swaps app/ (the shell's code with it) and
+ * the windows come back on the new version. Not for a version chosen to stay on (pinned), nor
+ * with the checks off, nor in a repository copy (it updates by git).
+ */
+async function offerUpdate(win: BrowserWindow): Promise<void> {
+  const u = await updateState(true);
+  const version = u?.latest?.version;
+  if (!u?.available || !version || u.pinned || u.enabled === false || !u.installer) return;
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'info',
+    title: 'VerseOrchestrator',
+    message: say(`Вийшла нова версія — ${version}`, `A new version is out — ${version}`),
+    detail: say(
+      `Зараз у вас ${u.current}. Оновлення займе хвилину; дані й налаштування лишаються, а попередню версію можна повернути в «Оновлення».`,
+      `You have ${u.current}. The update takes a minute; your data and settings stay, and the previous version can be brought back in «Оновлення».`,
+    ),
+    buttons: [say('Оновити зараз', 'Update now'), say('Пізніше', 'Later')],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (response === 0) await updateNow(win, version);
+}
+
+async function updateNow(win: BrowserWindow, version: string): Promise<void> {
+  const post = (p: string, body?: object) =>
+    fetch(`${ORIGIN}${p}`, {
+      method: 'POST',
+      headers: { ...HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+  const fail = (why: string) => {
+    win.setProgressBar(-1);
+    dialog.showErrorBox(
+      'VerseOrchestrator',
+      say(
+        `Не вдалося оновити: ${why}\nСпробуйте ще раз у «Оновлення».`,
+        `The update failed: ${why}\nTry again in «Оновлення».`,
+      ),
+    );
+  };
+  const started = await post('/api/update/download').catch(() => null);
+  if (!started?.ok)
+    return fail(started ? await started.text() : say('немає зв’язку', 'no connection'));
+  // the download's progress on the taskbar / Dock icon
+  for (let i = 0; i < 1800; i++) {
+    const s = await updateState();
+    const phase = s?.installer?.phase;
+    if (phase === 'ready') break;
+    if (phase === 'error') return fail(JSON.stringify(s?.installer?.error ?? ''));
+    const { received = 0, total = 0 } = s?.installer ?? {};
+    win.setProgressBar(total > 0 ? received / total : 2); // 2: «working», no share known
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  win.setProgressBar(2);
+  const restarted = await post('/api/update/restart').catch(() => null);
+  if (!restarted?.ok)
+    return fail(restarted ? await restarted.text() : say('немає зв’язку', 'no connection'));
+  // the new version answers: the windows show it
+  for (let i = 0; i < 360; i++) {
+    try {
+      const h = (await (await fetch(`${ORIGIN}/api/health`)).json()) as { version?: string };
+      if (h.version === version) break;
+    } catch {
+      /* restarting */
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  win.setProgressBar(-1);
+  win.reload();
+}
+
 /** A screen unplugged: its fullscreen windows come back as windows on the control window's screen. */
 function followDisplays(): void {
   screen.on('display-removed', () => {
@@ -325,7 +444,7 @@ else {
   app.on('window-all-closed', () => app.quit());
   app.on('before-quit', () => {
     // the app this shell started stops with it; one it found running stays
-    if (launcher)
+    if (ownsApp)
       void fetch(`${ORIGIN}/__standby/shutdown`, { method: 'POST', headers: HEADERS }).catch(
         () => {},
       );
