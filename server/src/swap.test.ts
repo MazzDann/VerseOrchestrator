@@ -81,7 +81,7 @@ describe('the update swap (1.0.0)', () => {
     expect(versionIn(top, 'data')).toBe('mine');
   });
 
-  it('brings the desktop app when the copy has none, keeps the one it has (1.17.2)', () => {
+  it('brings the desktop app when the copy has none, keeps the one it has (1.18.0-beta.1)', () => {
     const top = release({ app: '1.0.1' });
     const from = release({});
     fs.mkdirSync(path.join(from, 'shell'));

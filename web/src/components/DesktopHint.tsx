@@ -8,7 +8,7 @@ import { useServer } from '../serverStore';
 const SEEN = 'vo:desktop-hint';
 
 /**
- * Once per browser (1.17.2): a release copy run in a browser hears that it can move to its own
+ * Once per browser (1.18.0-beta.1): a release copy run in a browser hears that it can move to its own
  * window — «Налаштування вигляду → Застосунок → Окремий застосунок» (DesktopSection.tsx).
  */
 export function DesktopHint() {

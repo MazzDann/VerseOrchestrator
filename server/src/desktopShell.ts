@@ -11,7 +11,7 @@ import { releaseAsset, shellDirName } from './layout.js';
 import { pickReleases, RELEASES_URL } from './updates.js';
 
 /**
- * «Встановити застосунок» (1.17.2): the desktop app (Electron, desktop/) next to app/ in a release —
+ * «Встановити застосунок» (1.18.0-beta.1): the desktop app (Electron, desktop/) next to app/ in a release —
  * `VerseOrchestrator.app` on macOS, `shell/` elsewhere. A release archive brings it; a copy updated
  * from a browser version (≤ 1.17.1 dropped every folder but app/) gets it here from its own
  * version's archive, and later updates carry it over (installer.ts, swap.ts copyTopFiles).

@@ -970,7 +970,7 @@ export const api = {
   },
   /** Server options (data/settings.json) — not secrets. */
   serverSettings: () => getJson('/api/server-settings', ServerSettingsSchema),
-  /** «Окремий застосунок» (1.17.2, server/src/desktopShell.ts): the desktop app next to app/ */
+  /** «Окремий застосунок» (1.18.0-beta.1, server/src/desktopShell.ts): the desktop app next to app/ */
   desktop: () => getJson('/api/desktop', DesktopStateSchema),
   installDesktop: () => sendDesktop('/api/desktop/install'),
   openDesktop: () => sendDesktop('/api/desktop/open'),
@@ -1629,7 +1629,7 @@ export const SemanticSchema = z.object({
 });
 export type SemanticState = z.infer<typeof SemanticSchema>;
 
-/** «Окремий застосунок» (1.17.2): the desktop app — in a release, there or fetched; a clone has none. */
+/** «Окремий застосунок» (1.18.0-beta.1): the desktop app — in a release, there or fetched; a clone has none. */
 export const DesktopStateSchema = z.object({
   release: z.boolean(),
   present: z.boolean(),

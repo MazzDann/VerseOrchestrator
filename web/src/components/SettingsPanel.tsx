@@ -1236,7 +1236,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             <FeedbackSection />
             <StandbySection active={openSections.includes('app')} />
             {/* the desktop app is its own window: no browser to choose */}
-            {/* a browser: the way over to the desktop app (1.17.2) */}
+            {/* a browser: the way over to the desktop app (1.18.0-beta.1) */}
             {!inDesktop() && <DesktopSection active={openSections.includes('app')} />}
             {!inDesktop() && <BrowserSection active={openSections.includes('app')} />}
             <ShortcutSection />

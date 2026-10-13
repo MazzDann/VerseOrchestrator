@@ -373,7 +373,7 @@ export function createInstaller(o: InstallerOptions) {
       const release = path.dirname(found.app);
       for (const e of fs.readdirSync(release, { withFileTypes: true }))
         if (e.isFile()) fs.renameSync(path.join(release, e.name), path.join(topFiles, e.name));
-      // …and the desktop app (1.17.2): swap.ts brings it next to app/ when the copy has none
+      // …and the desktop app (1.18.0-beta.1): swap.ts brings it next to app/ when the copy has none
       // (optional: a shell that won't move leaves the update as it is — review)
       const shell = path.join(release, shellDirName(platform));
       if (fs.existsSync(shell))

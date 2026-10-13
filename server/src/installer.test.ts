@@ -71,7 +71,7 @@ function served(
   const work = tempDir();
   const folder = releaseFolder(work, version);
   if (opts.shell) {
-    // the desktop app next to app/ (1.17.2)
+    // the desktop app next to app/ (1.18.0-beta.1)
     fs.mkdirSync(path.join(folder, shellDirName(PLATFORM)));
     fs.writeFileSync(path.join(folder, shellDirName(PLATFORM), 'shell.bin'), 'electron');
   }
@@ -177,7 +177,7 @@ describe('installing an update (1.0.0)', () => {
     expect(inst.previousVersion()).toBeNull();
   });
 
-  it('keeps the desktop app of the release for the swap (1.17.2)', async () => {
+  it('keeps the desktop app of the release for the swap (1.18.0-beta.1)', async () => {
     const { latest, fetch } = served('1.0.1', { shell: true });
     const { dataDir, inst } = await install(latest, fetch);
     expect(inst.state()).toMatchObject({ phase: 'ready', error: null });

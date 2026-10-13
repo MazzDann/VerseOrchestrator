@@ -544,7 +544,7 @@ const installer = releaseTop
 // the swap starts runs before the helper writes its result, so what it holds stays till then)
 installer?.tidy();
 
-// «Встановити застосунок» (1.17.2, desktopShell.ts): the desktop app next to app/ — fetched from this
+// «Встановити застосунок» (1.18.0-beta.1, desktopShell.ts): the desktop app next to app/ — fetched from this
 // version's archive when the copy has none (one updated from a browser version), opened on request
 const shellInstaller =
   releaseTop && installer
@@ -698,7 +698,7 @@ app.post(
       throw new ApiError(409, N_('Оновлювати сам уміє лише застосунок з архіву релізу'));
     // a version change waiting for its backup: a download now would empty data/updates under it
     if (swapPending) throw new ApiError(409, N_('Застосунок саме готується до зміни версії'));
-    // the desktop app coming (1.17.2): it unpacks in data/updates too
+    // the desktop app coming (1.18.0-beta.1): it unpacks in data/updates too
     if (shellInstaller?.busy())
       throw new ApiError(409, N_('Зачекайте, доки встановиться застосунок'));
     // the version picked in the dropdown (1.6.2), newer or older; none: the newest

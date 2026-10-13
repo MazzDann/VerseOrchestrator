@@ -10,7 +10,7 @@ import { formatSize } from '../lib/modules';
 import { useServer } from '../serverStore';
 
 /**
- * «Окремий застосунок» (1.17.2): in a browser, the way over to the desktop app (desktop/, Electron).
+ * «Окремий застосунок» (1.18.0-beta.1): in a browser, the way over to the desktop app (desktop/, Electron).
  * A release copy has it next to app/ or fetches it from its own version's archive; «Відкрити
  * застосунок» starts it on this app (it takes over as the control window, this tab goes standby),
  * and «Прибрати дані з цього браузера» clears what this browser kept for the app (browserData.ts,

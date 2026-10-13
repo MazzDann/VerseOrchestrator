@@ -144,13 +144,13 @@ export async function rollbackFolders(top: string): Promise<void> {
   await renameRetry(path.join(top, 'app.previous'), path.join(top, 'app'));
 }
 
-/** The release's top files replace the old ones (folders — data/, modules/ — are left alone). */
 /** The desktop app's folder next to app/ (desktopShell.ts shellDirName; macOS, elsewhere). */
 const SHELL_DIRS = ['VerseOrchestrator.app', 'shell'];
 
+/** The release's top files replace the old ones (folders — data/, modules/ — are left alone). */
 export function copyTopFiles(from: string, top: string): void {
   for (const e of fs.readdirSync(from, { withFileTypes: true })) {
-    // the desktop app (1.17.2, desktopShell.ts): brought once, when the copy has none — one already
+    // the desktop app (1.18.0-beta.1, desktopShell.ts): brought once, when the copy has none — one already
     // there may be running this very swap, and Electron itself changes with a new archive only
     if (e.isDirectory() && SHELL_DIRS.includes(e.name)) {
       const to = path.join(top, e.name);

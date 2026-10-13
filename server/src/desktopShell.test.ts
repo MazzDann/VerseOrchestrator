@@ -23,7 +23,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
 
-describe('«Встановити застосунок» (1.17.2)', () => {
+describe('«Встановити застосунок» (1.18.0-beta.1)', () => {
   it('finds the desktop app next to app/ on each system', () => {
     expect(shellProgram('/t', 'darwin')).toBe(path.join('/t', 'VerseOrchestrator.app'));
     expect(shellProgram('/t', 'win32')).toBe(path.join('/t', 'shell', 'VerseOrchestrator.exe'));
@@ -54,54 +54,62 @@ describe('«Встановити застосунок» (1.17.2)', () => {
     expect(await adoptShell(release, top, 'linux')).toBe(false);
   });
 
-  it('downloads this version’s archive and keeps only the desktop app', async () => {
-    const work = tempDir();
-    const rel = path.join(work, 'VerseOrchestrator-1.17.2-linux-x64');
-    fs.mkdirSync(path.join(rel, 'app'), { recursive: true });
-    fs.writeFileSync(path.join(rel, 'app', 'package.json'), JSON.stringify({ version: '1.17.2' }));
-    fs.writeFileSync(path.join(rel, 'app', LAYOUT_MARKER), '{}');
-    fs.mkdirSync(path.join(rel, 'shell'));
-    fs.writeFileSync(path.join(rel, 'shell', 'verseorchestrator'), 'electron');
-    const archive = path.join(work, 'a.tar.gz');
-    expect(spawnSync('tar', ['-czf', archive, '-C', work, path.basename(rel)]).status).toBe(0);
-    const bytes = fs.readFileSync(archive);
-    const sum = createHash('sha256').update(bytes).digest('hex');
-    const name = 'VerseOrchestrator-linux-x64.tar.gz';
-    const releases = [
-      { tag_name: 'v1.17.3', assets: [] },
-      {
-        tag_name: 'v1.17.2',
-        assets: [
-          { name, browser_download_url: 'https://dl/a', size: bytes.length },
-          { name: 'SHA256SUMS.txt', browser_download_url: 'https://dl/sums' },
-        ],
-      },
-    ];
-    const fetch = vi.fn(async (url: string | URL | Request) =>
-      String(url) === 'https://dl/a'
-        ? new Response(bytes)
-        : String(url) === 'https://dl/sums'
-          ? new Response(`${sum}  ${name}\n`)
-          : Response.json(releases),
-    ) as unknown as typeof globalThis.fetch;
-    const top = tempDir();
-    const updatesDir = path.join(top, 'data', 'updates');
-    const inst = createShellInstaller({
-      top,
-      updatesDir,
-      current: '1.17.2',
-      fetch,
-      platform: 'linux',
-      arch: 'x64',
-    });
-    inst.start();
-    await vi.waitFor(() => expect(inst.state().phase).toMatch(/done|error/), { timeout: 15_000 });
-    expect(inst.state()).toMatchObject({ phase: 'done', error: null, received: bytes.length });
-    expect(fs.readFileSync(shellProgram(top, 'linux'), 'utf8')).toBe('electron');
-    // nothing else of the archive stays
-    expect(fs.existsSync(path.join(top, 'app'))).toBe(false);
-    expect(fs.existsSync(path.join(updatesDir, 'desktop'))).toBe(false);
-  });
+  // a .tar.gz unpacked by tar with absolute paths: Git's tar on Windows reads «C:» as a host (a
+  // release there unpacks a .zip with the system's own tar — installer.ts unpackCommand)
+  it.skipIf(process.platform === 'win32')(
+    'downloads this version’s archive and keeps only the desktop app',
+    async () => {
+      const work = tempDir();
+      const rel = path.join(work, 'VerseOrchestrator-1.17.2-linux-x64');
+      fs.mkdirSync(path.join(rel, 'app'), { recursive: true });
+      fs.writeFileSync(
+        path.join(rel, 'app', 'package.json'),
+        JSON.stringify({ version: '1.17.2' }),
+      );
+      fs.writeFileSync(path.join(rel, 'app', LAYOUT_MARKER), '{}');
+      fs.mkdirSync(path.join(rel, 'shell'));
+      fs.writeFileSync(path.join(rel, 'shell', 'verseorchestrator'), 'electron');
+      const archive = path.join(work, 'a.tar.gz');
+      expect(spawnSync('tar', ['-czf', archive, '-C', work, path.basename(rel)]).status).toBe(0);
+      const bytes = fs.readFileSync(archive);
+      const sum = createHash('sha256').update(bytes).digest('hex');
+      const name = 'VerseOrchestrator-linux-x64.tar.gz';
+      const releases = [
+        { tag_name: 'v1.17.3', assets: [] },
+        {
+          tag_name: 'v1.17.2',
+          assets: [
+            { name, browser_download_url: 'https://dl/a', size: bytes.length },
+            { name: 'SHA256SUMS.txt', browser_download_url: 'https://dl/sums' },
+          ],
+        },
+      ];
+      const fetch = vi.fn(async (url: string | URL | Request) =>
+        String(url) === 'https://dl/a'
+          ? new Response(bytes)
+          : String(url) === 'https://dl/sums'
+            ? new Response(`${sum}  ${name}\n`)
+            : Response.json(releases),
+      ) as unknown as typeof globalThis.fetch;
+      const top = tempDir();
+      const updatesDir = path.join(top, 'data', 'updates');
+      const inst = createShellInstaller({
+        top,
+        updatesDir,
+        current: '1.17.2',
+        fetch,
+        platform: 'linux',
+        arch: 'x64',
+      });
+      inst.start();
+      await vi.waitFor(() => expect(inst.state().phase).toMatch(/done|error/), { timeout: 15_000 });
+      expect(inst.state()).toMatchObject({ phase: 'done', error: null, received: bytes.length });
+      expect(fs.readFileSync(shellProgram(top, 'linux'), 'utf8')).toBe('electron');
+      // nothing else of the archive stays
+      expect(fs.existsSync(path.join(top, 'app'))).toBe(false);
+      expect(fs.existsSync(path.join(updatesDir, 'desktop'))).toBe(false);
+    },
+  );
 
   it('says so when the release has no desktop app for this version', async () => {
     const top = tempDir();

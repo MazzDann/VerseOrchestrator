@@ -65,7 +65,7 @@ export function applyLayout(root: string, env: NodeJS.ProcessEnv = process.env):
 }
 
 /**
- * The desktop app's folder next to app/ in a release (1.17.2, desktopShell.ts): `VerseOrchestrator.app`
+ * The desktop app's folder next to app/ in a release (1.18.0-beta.1, desktopShell.ts): `VerseOrchestrator.app`
  * on macOS, `shell/` elsewhere (desktop/scripts/pack.mjs makes them; swap.ts keeps its own copy).
  */
 export const shellDirName = (platform: string = process.platform): string =>
