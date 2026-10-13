@@ -10,7 +10,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -107,19 +106,6 @@ if (process.platform === 'darwin') {
   if (process.platform === 'win32') {
     const exe = path.join(to, 'VerseOrchestrator.exe');
     fs.renameSync(path.join(to, 'electron.exe'), exe);
-    // the app's icon and name on the .exe (rcedit, Electron's own tool) — it works without them too
-    try {
-      const rcedit = createRequire(import.meta.url)('rcedit');
-      await (rcedit.rcedit ?? rcedit.default ?? rcedit)(exe, {
-        icon: path.join(top, 'app', 'web', 'dist', 'icon.ico'),
-        'version-string': {
-          ProductName: 'VerseOrchestrator',
-          FileDescription: 'VerseOrchestrator',
-        },
-      });
-    } catch (e) {
-      console.warn(`the .exe keeps Electron's icon: ${e.message}`);
-    }
   } else {
     fs.renameSync(path.join(to, 'electron'), path.join(to, 'verseorchestrator'));
   }

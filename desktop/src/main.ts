@@ -56,6 +56,15 @@ const ORIGIN = `http://localhost:${PORT}`;
 const HEADERS = { 'X-VO-Control': '1' };
 const PRELOAD = path.join(here, 'preload.cjs');
 
+/** The app's icon on its windows and the taskbar (the .exe keeps Electron's: no tool for it here). */
+const ICON = path.join(
+  appRoot,
+  'web',
+  'dist',
+  process.platform === 'win32' ? 'icon.ico' : 'icon.png',
+);
+const icon = fs.existsSync(ICON) ? ICON : undefined;
+
 /** Every window's page settings: isolated, sandboxed, sound without a click first. */
 const PAGE = {
   contextIsolation: true,
@@ -177,6 +186,7 @@ function openControl(): BrowserWindow {
     backgroundColor: '#1e2025',
     autoHideMenuBar: true,
     title: 'VerseOrchestrator',
+    icon,
     webPreferences: PAGE,
   });
   win.once('ready-to-show', () => {
