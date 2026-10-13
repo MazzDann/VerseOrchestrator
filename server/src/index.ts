@@ -2508,7 +2508,7 @@ app.post(
       throw new ApiError(400, N_('Модуль — це файл .SQLite3 (MyBible)'));
     const dir = modulesDir();
     fs.mkdirSync(dir, { recursive: true });
-    const tmp = path.join(dir, `.drop-${process.pid}-${Date.now()}.part`);
+    const tmp = path.join(dir, `.drop-${randomUUID()}.part`);
     try {
       await receiveFile(req, tmp);
       const added = placeModule(tmp, name, dir);
@@ -2796,7 +2796,7 @@ app.post(
       throw new ApiError(409, N_('Зачекайте, доки закінчиться перевірка ядер'));
     if (vectors.running())
       throw new ApiError(409, N_('Зачекайте, доки обчисляться вектори, або зупиніть їх'));
-    const tmp = path.join(dataDir, `.vectors-drop-${process.pid}-${Date.now()}.part`);
+    const tmp = path.join(dataDir, `.vectors-drop-${randomUUID()}.part`);
     try {
       await receiveFile(req, tmp);
       closeDb(); // the library's connection holds vectors.db attached

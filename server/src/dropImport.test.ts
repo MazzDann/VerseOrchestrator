@@ -24,6 +24,8 @@ describe('a module dropped anywhere (1.17.1)', () => {
     );
     expect(moduleFileName('UBIO.dictionary.SQLite3', 'bible')).toBe('UBIO.SQLite3');
     expect(moduleFileName('CON.SQLite3', 'bible')).toBeNull();
+    // every kind suffix away: «.plan» left in a Bible's name would make the builder skip it
+    expect(moduleFileName('X.plan.dictionary.SQLite3', 'bible')).toBe('X.SQLite3');
   });
 
   it('goes into modules/, never over another file; what is no module is refused', () => {

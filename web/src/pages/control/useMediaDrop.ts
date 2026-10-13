@@ -129,12 +129,12 @@ export function useMediaDrop({
     // a module or a segment: into the library (before the rest — a rescan takes a while)
     const modules = of('module');
     const segments = of('segment');
-    if (modules.length > 0 && server && effectiveSource() === 'server')
-      await modulesToServer(modules);
-    else if (modules.length + segments.length > 0)
-      await addToBrowserLibrary([...modules, ...segments], queryClient);
-    if (segments.length > 0 && server && effectiveSource() === 'server')
-      await addToBrowserLibrary(segments, queryClient);
+    // modules to the server's library when it serves the reads, else (and segments always) to
+    // this browser's engine — once for all of them
+    const toServer = server && effectiveSource() === 'server';
+    const toBrowser = [...(toServer ? [] : modules), ...segments];
+    if (toServer && modules.length > 0) await modulesToServer(modules);
+    if (toBrowser.length > 0) await addToBrowserLibrary(toBrowser, queryClient);
     if (!server) return;
     if (of('song').length > 0) {
       useDrop.getState().addSongs(of('song'));

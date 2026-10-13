@@ -28,6 +28,12 @@ export function receiveFile(
   max = DROP_FILE_MAX,
 ): Promise<number> {
   return new Promise((resolve, reject) => {
+    // a size the browser says up front: refused before a byte is read
+    const said = Number(req.headers['content-length']);
+    if (Number.isFinite(said) && said > max) {
+      reject(new LibraryError(413, N_('Файл завеликий')));
+      return;
+    }
     const out = fs.createWriteStream(file);
     let bytes = 0;
     let failed = false;
@@ -37,6 +43,8 @@ export function receiveFile(
       req.unpipe(out);
       out.destroy();
       fs.rmSync(file, { force: true });
+      // no size said and too much sent: the rest is not read (the connection goes)
+      if (bytes > max) req.destroy();
       reject(e);
     };
     req.on('data', (chunk: Buffer) => {
@@ -119,12 +127,12 @@ const KIND: Record<ModuleFileKind, ModuleKind> = {
  */
 export function moduleFileName(dropped: string, kind: ModuleFileKind): string | null {
   const base = dropped.replace(/^.*[\\/]/, '').normalize('NFC');
-  const stem = base
-    .replace(/\.sqlite3$/i, '')
-    .replace(
-      /\.(dictionary|commentaries|crossreferences|subheadings|devotions|plan|bundle|referencedata)$/i,
-      '',
-    )
+  // every kind suffix away («X.plan.dictionary» too): the builder skips names that keep one
+  const kindSuffix =
+    /\.(dictionary|commentaries|crossreferences|subheadings|devotions|plan|bundle|referencedata)$/i;
+  let named = base.replace(/\.sqlite3$/i, '');
+  while (kindSuffix.test(named)) named = named.replace(kindSuffix, '');
+  const stem = named
     // eslint-disable-next-line no-control-regex -- control characters are in no file name
     .replace(/[<>:"|?*\u0000-\u001f]/g, '_')
     .replace(/[. ]+$/, '')
