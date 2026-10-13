@@ -7,15 +7,36 @@ import { create } from 'zustand';
  * it on disk (server/src/locate.ts).
  */
 
-export type DroppedKind = 'image' | 'video' | 'other';
+export type DroppedKind =
+  | 'image'
+  | 'video'
+  /** a .docx / .md / .txt / .pdf (1.17.0) */
+  | 'document'
+  /** a MyBible module (1.17.1): into the library */
+  | 'module'
+  /** a library segment (.vodb): into the browser's engine */
+  | 'segment'
+  /** a song in a presentation (1.17.1): «Пісні» → import */
+  | 'song'
+  /** another copy's vectors.db (1.17.1) */
+  | 'vectors'
+  | 'other';
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif|bmp|heic|heif|hif)$/i;
 const VIDEO_EXT = /\.(mp4|m4v|mov|webm|mkv|ogv)$/i;
+const DOC_EXT = /\.(docx|md|markdown|txt|pdf)$/i;
 
 /** What a dropped file is, by its type or, when the system gives none, by its name. */
 export function droppedKind(file: { name: string; type: string }): DroppedKind {
-  if (file.type.startsWith('image/') || IMAGE_EXT.test(file.name)) return 'image';
-  if (file.type.startsWith('video/') || VIDEO_EXT.test(file.name)) return 'video';
+  const name = file.name.replace(/^.*[\\/]/, '');
+  if (file.type.startsWith('image/') || IMAGE_EXT.test(name)) return 'image';
+  if (file.type.startsWith('video/') || VIDEO_EXT.test(name)) return 'video';
+  if (/\.sqlite3$/i.test(name)) return 'module';
+  if (/\.vodb(\.gz)?$/i.test(name)) return 'segment';
+  if (/\.pptx$/i.test(name) && !name.startsWith('~$')) return 'song';
+  // the vectors file travels by its name (data/vectors.db), a copy perhaps renamed
+  if (/^vectors.*\.db$/i.test(name)) return 'vectors';
+  if (DOC_EXT.test(name) && !name.startsWith('~$') && !name.startsWith('.')) return 'document';
   return 'other';
 }
 
@@ -59,6 +80,10 @@ interface DropState {
   pick: { kind: 'album' | 'video'; start?: string } | null;
   addImages: (files: File[]) => void;
   takeImages: () => File[];
+  /** presentations dropped (1.17.1): «Пісні» opens its import with them */
+  songs: File[];
+  addSongs: (files: File[]) => void;
+  takeSongs: () => File[];
   openPicker: (kind: 'album' | 'video', start?: string) => void;
   pickerOpened: () => void;
 }
@@ -70,6 +95,13 @@ export const useDrop = create<DropState>((set, get) => ({
   takeImages: () => {
     const files = get().images;
     if (files.length > 0) set({ images: [] });
+    return files;
+  },
+  songs: [],
+  addSongs: (files) => set((s) => ({ songs: [...s.songs, ...files] })),
+  takeSongs: () => {
+    const files = get().songs;
+    if (files.length > 0) set({ songs: [] });
     return files;
   },
   // the first one asked keeps the picker: several not found at once each say so in a notice (review)

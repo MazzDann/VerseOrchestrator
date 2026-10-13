@@ -1332,6 +1332,30 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return z.object({ freed: z.number() }).parse(await res.json());
   },
+  /** A module dropped anywhere (1.17.1): into modules/ and the library's selection (rescan after). */
+  importModule: async (file: File) => {
+    const res = await request(`/api/modules/import?name=${encodeURIComponent(file.name)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', ...CONTROL_HEADERS },
+      body: file,
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({ file: z.string(), kind: z.string(), same: z.boolean() })
+      .parse(await res.json());
+  },
+  /** Another copy's vectors.db dropped (1.17.1): the sets this copy lacks come in. */
+  importVectors: async (file: File) => {
+    const res = await request('/api/semantic/import-vectors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', ...CONTROL_HEADERS },
+      body: file,
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({ sets: z.number(), verses: z.number(), kept: z.number() })
+      .parse(await res.json());
+  },
   /** Where the documents folder is (1.17.0-beta.1). */
   documentsFolder: () => getJson('/api/documents/folder', z.object({ dir: z.string() })),
   /** Put a file into the documents folder and read it into the library at once. */

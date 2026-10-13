@@ -178,7 +178,8 @@ import { createModuleFiles, listModuleFiles } from './moduleFiles.js';
 import { createModelStore, modelInstalled } from './models.js';
 import { createCoresTest, sampleVerses } from './coresTest.js';
 import { coreLimit, cpuInfo, createQueryEmbedder, openChildEmbedder } from './embedding.js';
-import { createVectorJob, listTranslations, readVectorSets } from './vectorJob.js';
+import { createVectorJob, listTranslations, readVectorSets, vectorsPath } from './vectorJob.js';
+import { mergeVectors, placeModule, receiveFile } from './dropImport.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
 
@@ -2492,6 +2493,35 @@ const moduleFiles = createModuleFiles({
 app.get('/api/modules', requireLocal, (_req, res) => {
   res.json(moduleFiles.modules());
 });
+/**
+ * A module dropped anywhere on the control window (1.17.1): written into modules/ (never over
+ * another file), named by its kind, taken into the library's selection. The page rescans once
+ * after all its files.
+ */
+app.post(
+  '/api/modules/import',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const name = String(req.query.name ?? '');
+    if (!/\.sqlite3$/i.test(name))
+      throw new ApiError(400, N_('Модуль — це файл .SQLite3 (MyBible)'));
+    const dir = modulesDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = path.join(dir, `.drop-${process.pid}-${Date.now()}.part`);
+    try {
+      await receiveFile(req, tmp);
+      const added = placeModule(tmp, name, dir);
+      if (!added.same) moduleFiles.add(added.kind, added.file);
+      console.log(
+        `[server] modules: «${name}» → ${added.file}${added.same ? ' (already there)' : ''}`,
+      );
+      res.json(added);
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
+  }),
+);
 app.put(
   '/api/modules/selection',
   requireLocalControl,
@@ -2751,6 +2781,35 @@ app.post(
     }
     console.log(`[server] disk: «${id}${sub ? ` ${sub}` : ''}» removed, ${freed} bytes freed`);
     res.json({ freed });
+  }),
+);
+/**
+ * A vectors file dropped anywhere (1.17.1): another copy's data/vectors.db merged into this one's —
+ * the sets this copy lacks come in whole (vectors.db travels, 1.16.0-beta.1).
+ */
+app.post(
+  '/api/semantic/import-vectors',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    if (rebuild.running()) throw new ApiError(409, N_('Зачекайте, доки бібліотека збереться'));
+    if (coresTest.running())
+      throw new ApiError(409, N_('Зачекайте, доки закінчиться перевірка ядер'));
+    if (vectors.running())
+      throw new ApiError(409, N_('Зачекайте, доки обчисляться вектори, або зупиніть їх'));
+    const tmp = path.join(dataDir, `.vectors-drop-${process.pid}-${Date.now()}.part`);
+    try {
+      await receiveFile(req, tmp);
+      closeDb(); // the library's connection holds vectors.db attached
+      const merged = mergeVectors(tmp, vectorsPath(dataDir));
+      closeDb();
+      notifySemantic({});
+      console.log(
+        `[server] vectors: ${merged.sets} sets (${merged.verses} verses) in, ${merged.kept} kept`,
+      );
+      res.json(merged);
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
   }),
 );
 app.post('/api/semantic/stop', requireLocalControl, (_req, res) => {

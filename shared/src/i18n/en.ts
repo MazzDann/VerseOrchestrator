@@ -790,10 +790,6 @@ export const EN: Record<string, string> = {
   'Введіть назву': 'Type a name',
   'Перейменувати «{name}»': 'Rename «{name}»',
   'Відпустіть, щоб додати': 'Drop to add',
-  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt, .pdf) — у «Документи».':
-    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео», a document (.docx, .md, .txt, .pdf) goes to «Документи».',
-  'Не зображення, не відео й не документ — не додано: {names}':
-    'Not a picture, a video or a document — not added: {names}',
   'Папка «{name}» порожня': 'The folder «{name}» is empty',
   'Папку «{name}» не знайдено на диску — виберіть її.':
     'The folder «{name}» was not found on the disk — choose it.',
@@ -2439,4 +2435,26 @@ export const EN: Record<string, string> = {
   'Так, очистити': 'Yes, clear',
   'Цього тут немає': 'There is none here',
   'Цього прибрати не можна': 'This can’t be removed',
+  // a drop anywhere (1.17.1)
+  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Пісні», модуль (.SQLite3) — у бібліотеку, vectors.db — у вектори.':
+    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео», a document (.docx, .md, .txt, .pdf) to «Документи», a presentation (.pptx) to «Пісні», a module (.SQLite3) into the library, vectors.db into the vectors.',
+  'Цього застосунок не бере — не додано: {names}':
+    'The app doesn’t take these — not added: {names}',
+  'Додаю модуль {file}…': 'Adding the module {file}…',
+  'Модуль «{file}» уже є в modules/': 'The module “{file}” is already in modules/',
+  'Модуль додано: {file}': 'Module added: {file}',
+  'Бібліотека перебудовується з новими модулями — це триває хвилину-дві.':
+    'The library is being rebuilt with the new modules — it takes a minute or two.',
+  'Вектори додано: {n} набір ({verses} віршів)|Вектори додано: {n} набори ({verses} віршів)|Вектори додано: {n} наборів ({verses} віршів)':
+    'Vectors added: {n} set ({verses} verses)|Vectors added: {n} sets ({verses} verses)',
+  'Нових векторів у файлі немає — ці набори тут уже є':
+    'No new vectors in the file — these sets are here already',
+  'Не вдалося додати вектори: {error}': 'Couldn’t add the vectors: {error}',
+  'Файл завеликий': 'The file is too big',
+  'Це не модуль, який бере бібліотека: «{file}»': 'This is no module the library takes: “{file}”',
+  'У modules/ уже є інший «{file}» — перейменуйте один із них':
+    'modules/ already holds another “{file}” — rename one of them',
+  'Це не файл векторів (vectors.db з іншої копії застосунку)':
+    'This is no vectors file (vectors.db from another copy of the app)',
+  'Модуль — це файл .SQLite3 (MyBible)': 'A module is a .SQLite3 file (MyBible)',
 };

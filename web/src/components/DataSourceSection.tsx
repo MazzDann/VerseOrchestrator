@@ -21,15 +21,14 @@ import { useServer } from '../serverStore';
 import { ENGINE_LABEL, localEngine } from '../lib/engine';
 import type { EngineKind, LoadedSegment } from '../lib/engine/protocol';
 import {
-  addDroppedFile,
   getManifest,
   loadSegments,
   segmentItems,
   segmentLabel,
   switchEngine,
-  type Dropped,
 } from '../lib/engine/restore';
 import { cacheAvailable, cacheUsage, clearCache, requestPersistence } from '../lib/engine/cache';
+import { addToBrowserLibrary, BROWSER_DROPPABLE } from '../lib/browserLibrary';
 import { fmtNumber, tr, trn, useLang } from '../i18n';
 
 const mb = (b: number) =>
@@ -37,7 +36,7 @@ const mb = (b: number) =>
 const segs = (n: number) => trn(n, '{n} сегм.|{n} сегм.|{n} сегм.');
 
 /** modules (converted in the browser) and ready segments. */
-const DROPPABLE = /\.(sqlite3|vodb|vodb\.gz)$/i;
+const DROPPABLE = BROWSER_DROPPABLE;
 
 /**
  * «Джерело даних»: read the library from the server, or from the browser engine
@@ -141,36 +140,12 @@ export function DataSourceSection() {
       return;
     }
     setProgress({ done: 0, total: list.length, label: '' });
-    const added: Dropped[] = [];
     try {
-      for (const [i, f] of list.entries()) {
-        const r = await addDroppedFile(f, (stage) =>
-          setProgress({
-            done: i,
-            total: list.length,
-            label: `${stage === 'convert' ? tr('Перетворення') : tr('Збирання')}: ${f.name}`,
-          }),
-        );
-        added.push(r);
-      }
-    } catch (e) {
-      notifications.show({
-        message: tr('Не вдалося додати файл: {error}', { error: tr((e as Error).message) }),
-        color: 'red',
-      });
+      // the same as a drop anywhere on the window (1.17.1, lib/browserLibrary.ts)
+      await addToBrowserLibrary(list, qc, (done, total, label) =>
+        setProgress({ done, total, label }),
+      );
     } finally {
-      // whatever made it in before a failure stays (and is remembered)
-      if (added.length > 0) {
-        const keys = useDataSource.getState().segments;
-        setSegments([...keys, ...added.map((d) => d.key).filter((k) => !keys.includes(k))]);
-        setSource('local');
-        switchedData();
-        notifications.show({
-          message: added.map((d) => d.summary).join('\n'),
-          color: 'green',
-          autoClose: 4000,
-        });
-      }
       setProgress(null);
       refreshStatus();
     }
