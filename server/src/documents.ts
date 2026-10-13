@@ -10,6 +10,7 @@ import {
   type DocumentsRefresh,
   type PreRead,
 } from '@vo/shared/documents-node';
+import { convertDocumentsFolder, converters } from './convert.js';
 import { readPdfs, type PdfResult } from './pdfReader.js';
 
 /**
@@ -38,10 +39,41 @@ export function createDocuments(d: {
   const unreadable = new Map<string, string>();
   const stamp = (f: DocumentFile) => `${f.size}:${f.mtime}`;
 
+  let converting = false;
+  let convertAgain = false;
+  const convertFailed = new Map<string, string>();
+  function convertInBackground(at: string): void {
+    if (converters().length === 0) return;
+    if (converting) {
+      convertAgain = true;
+      return;
+    }
+    converting = true;
+    void convertDocumentsFolder(
+      at,
+      converters(),
+      (m) => d.log(`documents: ${m}`),
+      undefined,
+      convertFailed,
+    )
+      .catch((e: Error) => d.log(`documents: conversion: ${e.message}`))
+      .finally(() => {
+        converting = false;
+        if (convertAgain) {
+          convertAgain = false;
+          convertInBackground(at);
+        }
+      });
+  }
+
   async function refreshNow(): Promise<DocumentsRefresh | null> {
     if (!fs.existsSync(d.libraryPath) || d.rebuilding()) return null;
     const started = Date.now();
     const at = dir();
+    // a Mac's own formats (.pages, .rtf, .doc, .odt …) get a .docx next to them (convert.ts) — in
+    // the background: Pages may take seconds, or wait for macOS's question, and a request that
+    // refreshes (an import, a deletion) shouldn't (review); the .docx it writes wakes the watcher
+    convertInBackground(at);
     // PDFs first, apart in a child process (pdfReader.ts); the rest is read in the write below
     const pdfs = pendingDocuments(d.libraryPath, at, 'pdf').filter(
       (f) => unreadable.get(f.file) !== stamp(f),

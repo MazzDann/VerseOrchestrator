@@ -64,6 +64,7 @@ import {
 } from './autostart.js';
 import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
+import { converterFor, convertBytes, converters } from './convert.js';
 import { createDocuments, openFolder } from './documents.js';
 import { readPdfs } from './pdfReader.js';
 import { dbFiles, diskParts, oldBackups, removeAll, sizeOf } from './diskSpace.js';
@@ -2409,6 +2410,48 @@ app.get(
     const doc = await library().getDocument(asInt(req.params.id, 'document id'));
     if (!doc) throw new ApiError(404, N_('Документ не знайдено — можливо, файл прибрали з папки'));
     res.json(doc);
+  }),
+);
+/**
+ * A Mac's own formats (convert.ts, macOS only): what this computer turns into a .docx (a document)
+ * or a .pptx (a song) — the control window converts a dropped one first, then takes it as usual.
+ */
+app.get('/api/convert', requireLocal, (_req, res) => {
+  res.json({ kinds: converters().map(({ ext, to }) => ({ ext, to })) });
+});
+/** A presentation with its pictures and video runs to hundreds of MB (review): this much at most. */
+const CONVERT_MAX = 512 * 1024 * 1024;
+app.post(
+  '/api/convert',
+  requireLocalControl,
+  (req, res, next) =>
+    express.raw({ type: () => true, limit: CONVERT_MAX })(req, res, (err?: unknown) => {
+      // the body parser's refusal, in words (no handler after it would key it)
+      if ((err as { type?: string } | undefined)?.type === 'entity.too.large')
+        res.status(413).json(keyedError(N_('Файл завеликий — до 512 МБ')));
+      else next(err);
+    }),
+  wrap(async (req, res) => {
+    const name = String(req.query.name ?? '');
+    const c = converterFor(name);
+    if (!c) throw new ApiError(400, N_('Цей формат тут не перетворюється'));
+    const bytes = req.body instanceof Buffer ? new Uint8Array(req.body) : new Uint8Array();
+    try {
+      const out = await convertBytes(c, bytes, name);
+      res.setHeader('X-VO-Name', encodeURIComponent(out.name));
+      res.type('application/octet-stream').send(out.bytes);
+    } catch (e) {
+      console.warn(`[convert] ${name}: ${(e as Error).message}`);
+      throw new ApiError(
+        422,
+        c.via === 'textutil'
+          ? N_('Не вдалося перетворити «{file}» — можливо, файл пошкоджено')
+          : N_(
+              'Не вдалося перетворити «{file}» через {app}: дозвольте керувати ним (Системні параметри → Приватність і безпека → Автоматизація) і спробуйте ще раз',
+            ),
+        { file: name.replace(/^.*[\\/]/, ''), app: c.via === 'pages' ? 'Pages' : 'Keynote' },
+      );
+    }
   }),
 );
 /** A dropped file: checked, written into the folder, read into the library at once. */

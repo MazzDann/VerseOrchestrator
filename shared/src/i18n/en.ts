@@ -2457,4 +2457,11 @@ export const EN: Record<string, string> = {
   'Це не файл векторів (vectors.db з іншої копії застосунку)':
     'This is no vectors file (vectors.db from another copy of the app)',
   'Модуль — це файл .SQLite3 (MyBible)': 'A module is a .SQLite3 file (MyBible)',
+  'Перетворюю «{file}»…': 'Converting «{file}»…',
+  'Файл завеликий — до 512 МБ': 'The file is too big — up to 512 MB',
+  'Цей формат тут не перетворюється': 'This format isn’t converted here',
+  'Не вдалося перетворити «{file}» — можливо, файл пошкоджено':
+    'Couldn’t convert «{file}» — the file may be damaged',
+  'Не вдалося перетворити «{file}» через {app}: дозвольте керувати ним (Системні параметри → Приватність і безпека → Автоматизація) і спробуйте ще раз':
+    'Couldn’t convert «{file}» through {app}: allow controlling it (System Settings → Privacy & Security → Automation) and try again',
 };

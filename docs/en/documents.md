@@ -40,6 +40,12 @@ There are three ways to add a document:
   documents folder and opens the last one.
 - Click **Documents** at the top, then **Add…**, and choose the files.
 
+On a Mac the app also takes files from macOS's own apps: **Pages** (`.pages`), and `.rtf`, `.doc`,
+`.odt`, `.html` and `.webarchive`. A dropped one is converted to `.docx` first; for one in the
+documents folder it makes a `.docx` next to it, updated when the file changes and removed when the
+file goes. Pages files are converted by Pages itself, so it must be installed; the first time,
+macOS asks whether the app may control Pages — allow it.
+
 If a file of that name is already there with other content, the app replaces it with the newer
 one and puts the old copy aside in the hidden `.trash` folder inside the documents folder. It
 keeps the last 20 deleted or replaced files.

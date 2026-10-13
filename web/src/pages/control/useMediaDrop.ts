@@ -21,6 +21,18 @@ import { NEEDS_SERVER } from '../../serverStore';
  * browser's engine), a segment → this browser's engine, a presentation → «Пісні»'s import, another
  * copy's vectors.db → the vectors.
  */
+const extOf = (name: string): string => (/\.([^./\\]+)$/.exec(name)?.[1] ?? '').toLowerCase();
+/** What the app's computer converts — asked once, kept for the page's life. */
+let convertKinds: Promise<string[]> | null = null;
+const convertible = (): Promise<string[]> =>
+  (convertKinds ??= api
+    .convertKinds()
+    .then((r) => r.kinds.map((k) => k.ext))
+    .catch(() => {
+      convertKinds = null; // an older server, or none yet: asked again next time
+      return [];
+    }));
+
 export function useMediaDrop({
   openMedia,
   openDocs,
@@ -96,9 +108,24 @@ export function useMediaDrop({
     const by = new Map<string, File[]>();
     const others: string[] = [];
     const folders: FileSystemDirectoryEntry[] = [];
-    for (const { entry, file } of entries) {
+    // a Mac's own formats (.pages, .key, .rtf, .doc, .odt …): the app's computer converts them first
+    const kinds = server ? await convertible() : [];
+    for (const { entry, file: dropped } of entries) {
       if (entry?.isDirectory) folders.push(entry as FileSystemDirectoryEntry);
-      else if (file) {
+      else if (dropped) {
+        let file = dropped;
+        if (droppedKind(file) === 'other' && kinds.includes(extOf(file.name)))
+          try {
+            notifications.show({
+              message: tr('Перетворюю «{file}»…', { file: file.name }),
+              color: 'gray',
+              autoClose: 2500,
+            });
+            file = await api.convertFile(file);
+          } catch (e) {
+            notifications.show({ message: tr((e as Error).message), color: 'red' });
+            continue;
+          }
         const kind = droppedKind(file);
         if (kind === 'other') others.push(file.name);
         else by.set(kind, [...(by.get(kind) ?? []), file]);

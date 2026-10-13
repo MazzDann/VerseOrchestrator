@@ -1359,6 +1359,23 @@ export const api = {
   /** Where the documents folder is (1.17.0-beta.1). */
   documentsFolder: () => getJson('/api/documents/folder', z.object({ dir: z.string() })),
   /** Put a file into the documents folder and read it into the library at once. */
+  /** A Mac's own formats the app's computer converts (server/src/convert.ts): none elsewhere */
+  convertKinds: () =>
+    getJson(
+      '/api/convert',
+      z.object({ kinds: z.array(z.object({ ext: z.string(), to: z.enum(['docx', 'pptx']) })) }),
+    ),
+  /** …and one converted: a .docx or a .pptx under the same name */
+  convertFile: async (file: File): Promise<File> => {
+    const res = await request(`/api/convert?name=${encodeURIComponent(file.name)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', ...CONTROL_HEADERS },
+      body: file,
+    });
+    if (!res.ok) throw await failure(res);
+    const name = decodeURIComponent(res.headers.get('X-VO-Name') ?? file.name);
+    return new File([await res.blob()], name);
+  },
   importDocument: async (file: File) => {
     const res = await request(`/api/documents/import?name=${encodeURIComponent(file.name)}`, {
       method: 'POST',
