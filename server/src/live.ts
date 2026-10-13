@@ -528,6 +528,22 @@ function onResult(msg: Record<string, unknown>) {
 }
 
 /** Attach the WebSocket endpoint to the HTTP server (upgrade on WS_PATH only). */
+/**
+ * «Статистика показу» (1.18.0-beta.4, stats.ts): what the control window in charge has on screen —
+ * its screen summary as it comes for the remotes, null when no control window is left.
+ */
+let screenListener: ((screen: unknown) => void) | null = null;
+export function onScreen(fn: ((screen: unknown) => void) | null): void {
+  screenListener = fn;
+}
+const tellScreen = (screen: unknown) => {
+  try {
+    screenListener?.(screen);
+  } catch {
+    /* the statistics never stop the hub */
+  }
+};
+
 export function attachLiveHub(server: Server, appVersion?: string, appBuild?: string): void {
   wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES });
 
@@ -585,6 +601,7 @@ export function attachLiveHub(server: Server, appVersion?: string, appBuild?: st
           preview: msg.preview ?? null,
         };
         for (const c of sockets('remote')) send(c, { type: 'screen', ...screenState });
+        tellScreen(screenState.screen);
       } else if (msg?.type === 'slides' && m.role === 'control' && isActiveControl(ws)) {
         slidesState = { live: msg.live ?? null, next: msg.next ?? null };
         const frame = slidesFrame();
@@ -598,6 +615,7 @@ export function attachLiveHub(server: Server, appVersion?: string, appBuild?: st
         // failover: the oldest control window still here takes charge
         const next = sockets('control').find((c) => c !== ws && c.readyState === WebSocket.OPEN);
         setActiveControl(next ?? null);
+        if (!next) tellScreen(null);
       }
     });
     // Everyone gets the current slide immediately (viewers read it, remotes show it).

@@ -104,6 +104,7 @@ const DiskPartSchema = z.object({
     'segments',
     'modules',
     'vectors',
+    'stats',
     'models',
     'album-cache',
     'video-cache',
@@ -120,6 +121,65 @@ const DiskPartSchema = z.object({
   removable: z.boolean(),
 });
 export type DiskPart = z.infer<typeof DiskPartSchema>;
+/** «Статистика показу» (1.18.0-beta.4, server/src/stats.ts): what was on screen, summed up. */
+const ShownKindSchema = z.enum([
+  'verses',
+  'song',
+  'doc',
+  'text',
+  'picture',
+  'album',
+  'video',
+  'cover',
+  'countdown',
+  'qr',
+]);
+export type ShownKind = z.infer<typeof ShownKindSchema>;
+const StatsSummarySchema = z.object({
+  from: z.number(),
+  to: z.number(),
+  total: z.object({ shows: z.number(), ms: z.number(), days: z.number() }),
+  kinds: z.array(z.object({ kind: ShownKindSchema, shows: z.number(), ms: z.number() })),
+  songs: z.array(
+    z.object({
+      songId: z.number(),
+      label: z.string(),
+      shows: z.number(),
+      ms: z.number(),
+      last: z.number(),
+    }),
+  ),
+  books: z.array(z.object({ book: z.number(), shows: z.number(), ms: z.number() })),
+  passages: z.array(
+    z.object({ label: z.string(), book: z.number(), shows: z.number(), last: z.number() }),
+  ),
+  docs: z.array(
+    z.object({
+      docId: z.number(),
+      label: z.string(),
+      shows: z.number(),
+      ms: z.number(),
+      last: z.number(),
+    }),
+  ),
+  days: z.array(z.object({ day: z.string(), shows: z.number(), ms: z.number() })),
+  forgotten: z.array(
+    z.object({ songId: z.number(), label: z.string(), shows: z.number(), last: z.number() }),
+  ),
+});
+export type StatsSummary = z.infer<typeof StatsSummarySchema>;
+const ShownRowSchema = z.object({
+  id: z.number(),
+  at: z.number(),
+  until: z.number().nullable(),
+  kind: ShownKindSchema,
+  label: z.string(),
+  detail: z.string().nullable(),
+  by: z.string().nullable(),
+  /** time off screen in between (a «Очистити» and back): not time on screen */
+  gap: z.number(),
+});
+export type ShownRow = z.infer<typeof ShownRowSchema>;
 /** A document (1.17.0-beta.1): a file of modules/documents read into the library. */
 const DocumentInfoSchema = z.object({
   id: z.number(),
@@ -1324,6 +1384,20 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return z.object({ name: z.string() }).parse(await res.json());
+  },
+  /** «Статистика показу» (1.18.0-beta.4): the showings that began in [from, to). */
+  stats: (from: number, to: number) =>
+    getJson(`/api/stats?from=${from}&to=${to}`, StatsSummarySchema),
+  /** A day's report: every showing of that day (the computer's own calendar), oldest first. */
+  statsDay: (day: string) =>
+    getJson(
+      `/api/stats/day?day=${encodeURIComponent(day)}`,
+      z.object({ day: z.string(), rows: z.array(ShownRowSchema), now: z.number() }),
+    ),
+  statsExportUrl: (from: number, to: number) => `/api/stats/export?from=${from}&to=${to}`,
+  clearStats: async () => {
+    const res = await request('/api/stats', { method: 'DELETE', headers: CONTROL_HEADERS });
+    if (!res.ok) throw await failure(res);
   },
   /** «Місце на диску» (1.17.0-beta.4): what the app keeps on disk, part by part. */
   disk: () => getJson('/api/disk', z.object({ parts: z.array(DiskPartSchema), ms: z.number() })),

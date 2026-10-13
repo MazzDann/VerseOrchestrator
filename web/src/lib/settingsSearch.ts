@@ -142,6 +142,11 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   ),
   e('data', N_('Джерело даних'), 'data source browser server'),
   e('data', N_('Порівняти рушії бази'), 'engines benchmark'),
+  e(
+    'data',
+    N_('Статистика показу'),
+    'statistics stats report songs books charts history звіт пісні графіки історія', // i18n-ignore: Ukrainian search words
+  ),
   e('app', N_('Оновлення'), 'update version release'),
   e('app', N_('Перевіряти оновлення'), 'update check'),
   e('app', N_('Канал оновлень'), 'channel beta stable'),
