@@ -39,6 +39,7 @@ import { inOverlay, isFormField, isResizeKey, isTextEntry } from '../lib/keyScro
 import { noticeOnce } from '../lib/noticeOnce';
 import { useSettings } from '../settingsStore';
 import { SONG_KEYS } from '../lib/songKeys';
+import { useDrop } from '../lib/drop';
 
 interface Props {
   open: boolean;
@@ -117,6 +118,19 @@ export function SongsPanel({
   const [bundle, setBundle] = useState('');
   /** the import view (0.10.1) instead of the search */
   const [importing, setImporting] = useState(false);
+  /** presentations dropped anywhere on the window (1.17.1): the import opens with them */
+  const [dropped, setDropped] = useState<File[] | undefined>(undefined);
+  const droppedSongs = useDrop((s) => s.songs.length);
+  useEffect(() => {
+    if (!open || droppedSongs === 0) return;
+    setDropped(useDrop.getState().takeSongs());
+    setManaging(false);
+    setImporting(true);
+  }, [open, droppedSongs]);
+  // the import closed: the next one opens empty
+  useEffect(() => {
+    if (!importing) setDropped(undefined);
+  }, [importing]);
   /** «Бандли пісень» (1.4.0): rename / delete bundles, instead of the search */
   const [managing, setManaging] = useState(false);
   /** the last import, with its «Скасувати» (1.4.0), until the panel closes */
@@ -454,6 +468,7 @@ export function SongsPanel({
       <div className="vo-workspace">
         {importing ? (
           <SongImport
+            initialFiles={dropped}
             preferred={inBundle}
             onBack={() => setImporting(false)}
             onClose={() => setImporting(false)}

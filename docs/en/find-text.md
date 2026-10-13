@@ -154,7 +154,8 @@ If no model is chosen or there are no vectors yet, the line under the search fie
 to do.
 
 To avoid making the vectors again on another computer (or to put them in a data pack), copy
-the `data/vectors.db` file into that copy's `data/` folder, and the `data/models/` folder too if
+drag the `data/vectors.db` file into that copy's control window (the app adds the sets it lacks)
+or copy it into that copy's `data/` folder, and the `data/models/` folder too if
 you like — then the model needn't be downloaded. Vectors belong to a translation's text, so
 they fit as soon as the same translations are there.
 

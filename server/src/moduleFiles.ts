@@ -76,6 +76,18 @@ export function createModuleFiles(d: ModuleFilesDeps) {
       files: listModuleFiles(d.modulesDir()),
       selection: d.selection() ?? null,
     }),
+    /**
+     * A file just put into modules/ (dropped, 1.17.1) joins the library: a kind taken «all» stays
+     * so, a list of chosen files gains it.
+     */
+    add(kind: ModuleKind, file: string): LibrarySelection {
+      const sel = selectionNow();
+      const now = sel[kind];
+      if (now == null || now.some((f) => f.toLowerCase() === file.toLowerCase())) return sel;
+      const next = { ...sel, [kind]: [...now, file] };
+      d.setSelection(next);
+      return next;
+    },
     /** «У бібліотеці»: which files of a kind the library takes (names that are in modules/) */
     select(kind: ModuleKind, files: string[]): LibrarySelection {
       const have = new Map(listModuleFiles(d.modulesDir())[kind].map((f) => [f.toLowerCase(), f]));

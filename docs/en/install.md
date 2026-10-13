@@ -67,6 +67,17 @@ The **Modules…** window (**Settings** → **Data** → **Modules: choice for t
 button in the middle of the window while there is no library yet) shows the files in the
 `modules/` folder. Tick the ones to take into the library and click **Build the library**.
 
+### Drag a module into the window
+
+The easiest way is to drag a `.SQLite3` module file into the control window, anywhere. The app
+puts it into the `modules/` folder (a dictionary, commentaries, cross-references or a set of
+section titles gets its kind in the name, for example `Strong.dictionary.SQLite3`), takes it into
+the library, and rescans the modules. A file with the same name but other content is never
+overwritten — rename one of them.
+
+Everything else the app takes is dragged in the same way: documents, presentations with songs,
+pictures, videos, a folder of photos, and the vectors file `vectors.db` from another copy.
+
 ### Add module files
 
 1. Copy the modules into the app's `modules/` folder:

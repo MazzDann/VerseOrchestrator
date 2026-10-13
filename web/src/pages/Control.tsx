@@ -1217,7 +1217,9 @@ export function Control() {
   const { dragging } = useMediaDrop({
     openMedia: (tab) => setPlace({ ws: 'media', tab }),
     openDocs: () => setPlace((p) => ({ ...p, ws: 'docs' })),
-    enabled: isLeader && serverAvailable !== false,
+    openSongs: () => setPlace((p) => ({ ...p, ws: 'songs' })),
+    enabled: isLeader,
+    server: serverAvailable !== false,
   });
 
   return (

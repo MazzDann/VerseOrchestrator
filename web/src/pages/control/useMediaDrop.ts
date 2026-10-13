@@ -5,7 +5,10 @@ import { api } from '../../api';
 import { type MediaTab } from '../../components/ImagesPanel';
 import { droppedKind, readFolder, useDrop } from '../../lib/drop';
 import { tr, trn } from '../../i18n';
-import { importDocuments, isDocumentFile, useDocOpen } from '../../lib/documents';
+import { importDocuments, useDocOpen } from '../../lib/documents';
+import { addToBrowserLibrary } from '../../lib/browserLibrary';
+import { effectiveSource } from '../../dataSourceStore';
+import { NEEDS_SERVER } from '../../serverStore';
 
 /**
  * Files and folders dropped anywhere on the control window (1.14.0-beta.1, the author's Q14):
@@ -13,25 +16,35 @@ import { importDocuments, isDocumentFile, useDocOpen } from '../../lib/documents
  * and its files' sizes, a video → «Відео», found the same way; what is found nowhere opens the
  * folder picker. `dragging`: files are over the window (the overlay says what a drop does). A drop
  * a part of the page took itself (the library's modules in «Джерело даних») is left to it.
+ * Since 1.17.1 (the user's ask: everything droppable anywhere, not only in the settings): a document
+ * → «Документи», a module → the library (the server's modules/ and a rescan; without a server, this
+ * browser's engine), a segment → this browser's engine, a presentation → «Пісні»'s import, another
+ * copy's vectors.db → the vectors.
  */
 export function useMediaDrop({
   openMedia,
   openDocs,
+  openSongs,
   enabled,
+  server,
 }: {
   openMedia: (tab: MediaTab) => void;
-  /** «Документи» (1.17.0-beta.1): a dropped .docx / .md / .txt goes there */
+  /** «Документи» (1.17.0-beta.1): a dropped .docx / .md / .txt / .pdf goes there */
   openDocs: () => void;
-  /** the leading control window with its server (a standby window or the desk adds nothing) */
+  /** «Пісні» (1.17.1): dropped presentations open its import */
+  openSongs: () => void;
+  /** the leading control window (a standby window or the desk adds nothing) */
   enabled: boolean;
+  /** the app's server answers: pictures, videos, albums, documents, vectors need it */
+  server: boolean;
 }) {
   const queryClient = useQueryClient();
   const [dragging, setDragging] = useState(false);
   // the overlay goes when no dragover came for a moment: an enter / leave count stuck when a node
   // under the pointer went away mid-drag, or Esc ended the drag outside (review)
   const quiet = useRef(0);
-  const live = useRef({ openMedia, openDocs, enabled });
-  live.current = { openMedia, openDocs, enabled };
+  const live = useRef({ openMedia, openDocs, openSongs, enabled, server });
+  live.current = { openMedia, openDocs, openSongs, enabled, server };
 
   useEffect(() => {
     const files = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
@@ -79,39 +92,137 @@ export function useMediaDrop({
   }, []);
 
   const take = async (entries: { entry: FileSystemEntry | null; file: File | null }[]) => {
-    const { openMedia } = live.current;
-    const images: File[] = [];
-    const videos: File[] = [];
-    const docs: File[] = [];
+    const { openMedia, server } = live.current;
+    const by = new Map<string, File[]>();
     const others: string[] = [];
     const folders: FileSystemDirectoryEntry[] = [];
     for (const { entry, file } of entries) {
       if (entry?.isDirectory) folders.push(entry as FileSystemDirectoryEntry);
       else if (file) {
         const kind = droppedKind(file);
-        if (kind === 'image') images.push(file);
-        else if (kind === 'video') videos.push(file);
-        else if (isDocumentFile(file.name)) docs.push(file);
-        else others.push(file.name);
+        if (kind === 'other') others.push(file.name);
+        else by.set(kind, [...(by.get(kind) ?? []), file]);
       }
     }
+    const of = (kind: string) => by.get(kind) ?? [];
     if (others.length > 0)
       notifications.show({
-        message: tr('Не зображення, не відео й не документ — не додано: {names}', {
+        message: tr('Цього застосунок не бере — не додано: {names}', {
           names: others.slice(0, 3).join(', '),
         }),
         color: 'gray',
       });
-    if (images.length > 0) {
-      useDrop.getState().addImages(images);
+    // what only the app's server keeps: said once, the rest goes on
+    const serverOnly = [
+      ...of('image'),
+      ...of('video'),
+      ...of('document'),
+      ...of('song'),
+      ...of('vectors'),
+    ];
+    if (!server && (serverOnly.length > 0 || folders.length > 0)) {
+      notifications.show({
+        message: `${tr(NEEDS_SERVER)} — ${[...serverOnly.map((f) => f.name), ...folders.map((d) => d.name)].slice(0, 3).join(', ')}`,
+        color: 'orange',
+      });
+    }
+    // a module or a segment: into the library (before the rest — a rescan takes a while)
+    const modules = of('module');
+    const segments = of('segment');
+    // modules to the server's library when it serves the reads, else (and segments always) to
+    // this browser's engine — once for all of them
+    const toServer = server && effectiveSource() === 'server';
+    const toBrowser = [...(toServer ? [] : modules), ...segments];
+    if (toServer && modules.length > 0) await modulesToServer(modules);
+    if (toBrowser.length > 0) await addToBrowserLibrary(toBrowser, queryClient);
+    if (!server) return;
+    if (of('song').length > 0) {
+      useDrop.getState().addSongs(of('song'));
+      live.current.openSongs();
+    }
+    if (of('image').length > 0) {
+      useDrop.getState().addImages(of('image'));
       openMedia('images');
     }
     for (const dir of folders) await folderToAlbum(dir);
-    for (const v of videos) await fileToVideo(v);
-    if (docs.length > 0) {
+    for (const v of of('video')) await fileToVideo(v);
+    if (of('document').length > 0) {
       live.current.openDocs();
-      const last = await importDocuments(docs, queryClient);
+      const last = await importDocuments(of('document'), queryClient);
       if (last != null) useDocOpen.getState().open(last);
+    }
+    for (const f of of('vectors')) await vectorsToServer(f);
+  };
+
+  /** Modules into the server's modules/ and the library's selection, then one rescan for them all. */
+  const modulesToServer = async (files: File[]) => {
+    const added: string[] = [];
+    for (const f of files) {
+      const id = notifications.show({
+        message: tr('Додаю модуль {file}…', { file: f.name }),
+        loading: true,
+        autoClose: false,
+      });
+      try {
+        const r = await api.importModule(f);
+        if (!r.same) added.push(r.file);
+        notifications.update({
+          id,
+          message: r.same
+            ? tr('Модуль «{file}» уже є в modules/', { file: r.file })
+            : tr('Модуль додано: {file}', { file: r.file }),
+          color: r.same ? 'gray' : 'green',
+          loading: false,
+          autoClose: 3000,
+        });
+      } catch (e) {
+        notifications.update({
+          id,
+          message: tr('Не вдалося додати «{file}»: {error}', {
+            file: f.name,
+            error: tr((e as Error).message),
+          }),
+          color: 'red',
+          loading: false,
+          autoClose: false,
+        });
+      }
+    }
+    if (added.length === 0) return;
+    try {
+      await api.rebuild();
+      notifications.show({
+        message: tr('Бібліотека перебудовується з новими модулями — це триває хвилину-дві.'),
+        color: 'gray',
+        autoClose: 5000,
+      });
+    } catch (e) {
+      notifications.show({ message: tr((e as Error).message), color: 'red' });
+    }
+  };
+
+  /** Another copy's vectors.db: the sets this copy lacks come in. */
+  const vectorsToServer = async (file: File) => {
+    try {
+      const r = await api.importVectors(file);
+      await queryClient.invalidateQueries({ queryKey: ['semantic'] });
+      notifications.show({
+        message:
+          r.sets > 0
+            ? trn(
+                r.sets,
+                'Вектори додано: {n} набір ({verses} віршів)|Вектори додано: {n} набори ({verses} віршів)|Вектори додано: {n} наборів ({verses} віршів)',
+                { verses: r.verses },
+              )
+            : tr('Нових векторів у файлі немає — ці набори тут уже є'),
+        color: r.sets > 0 ? 'green' : 'gray',
+        autoClose: 4000,
+      });
+    } catch (e) {
+      notifications.show({
+        message: tr('Не вдалося додати вектори: {error}', { error: tr((e as Error).message) }),
+        color: 'red',
+      });
     }
   };
 

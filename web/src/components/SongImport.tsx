@@ -48,10 +48,13 @@ async function readSongs(files: File[], onProgress: (done: number) => void): Pro
  */
 export function SongImport({
   preferred,
+  initialFiles,
   onDone,
   onBack,
   onClose,
 }: {
+  /** presentations dropped anywhere on the window (1.17.1): read at once */
+  initialFiles?: File[];
   /** the bundle the songs panel is filtered to: where to by default */
   preferred: string;
   /** after an import: the bundle the songs went into, and how many were new / replaced */
@@ -84,7 +87,7 @@ export function SongImport({
     setTarget(shown?.id ?? (all.length === 1 ? all[0].id : all.length === 0 ? NEW : null));
   }, [bundles.data, target, preferred]);
 
-  const pick = async (list: FileList | null) => {
+  const pick = async (list: FileList | File[] | null) => {
     const files = [...(list ?? [])].filter((f) => isSongFile(f.webkitRelativePath || f.name));
     if (files.length === 0) {
       notifications.show({
@@ -102,6 +105,12 @@ export function SongImport({
       setReading(null);
     }
   };
+
+  // dropped files: read as if picked
+  useEffect(() => {
+    if (initialFiles?.length) void pick(initialFiles);
+    // once, for the files the panel was opened with
+  }, [initialFiles]);
 
   const count = found?.songs.length ?? 0;
   const trimmed = name.trim();
