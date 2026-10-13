@@ -5,7 +5,7 @@ import path from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { N_ } from '@vo/shared';
-import { LAYOUT_MARKER } from './layout.js';
+import { LAYOUT_MARKER, shellDirName } from './layout.js';
 import type { SwapPlan, SwapResult } from './swap.js';
 import { compareVersions, type LatestRelease, type Pin } from './updates.js';
 
@@ -373,6 +373,15 @@ export function createInstaller(o: InstallerOptions) {
       const release = path.dirname(found.app);
       for (const e of fs.readdirSync(release, { withFileTypes: true }))
         if (e.isFile()) fs.renameSync(path.join(release, e.name), path.join(topFiles, e.name));
+      // …and the desktop app (1.17.2): swap.ts brings it next to app/ when the copy has none
+      // (optional: a shell that won't move leaves the update as it is — review)
+      const shell = path.join(release, shellDirName(platform));
+      if (fs.existsSync(shell))
+        try {
+          renameSoon(shell, path.join(topFiles, shellDirName(platform)));
+        } catch (e) {
+          console.warn(`[updates] the desktop app stays out: ${(e as Error).message}`);
+        }
       // app.next is whole: what is left of the download (after a copy, the whole unpacked app)
       // goes, and one the system won't let go of waits for the next download or tidy() — it
       // doesn't undo the update (Mac check of 1.10.1)

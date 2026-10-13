@@ -1743,6 +1743,35 @@ export const EN: Record<string, string> = {
   'Виберіть переклади, для яких обчислити вектори:': 'Choose the translations to make vectors for:',
   'Увесь процесор': 'The whole processor',
   'Ядра процесора': 'Processor cores',
+  'Окремий застосунок': 'The desktop app',
+  'VerseOrchestrator тепер може працювати у власному вікні, без браузера: «Налаштування вигляду» → «Застосунок» → «Окремий застосунок».':
+    'VerseOrchestrator can now run in its own window, with no browser: Settings → App → The desktop app.',
+  'VerseOrchestrator може працювати у власному вікні, без браузера: вікна виводу самі стають на весь екран на іншому екрані, звук іде без кліку, а вікно керування завжди одне.':
+    'VerseOrchestrator can run in its own window, with no browser: output windows go fullscreen on the other screen by themselves, sound plays with no click, and there is always one control window.',
+  'У копії-репозиторії застосунок запускається з теки desktop/: npm start.':
+    'In a repository copy, the app starts from the desktop/ folder: npm start.',
+  'Завантажую застосунок: {got} з {total}': 'Downloading the app: {got} of {total}',
+  'Перевіряю архів…': 'Checking the archive…',
+  'Встановити застосунок': 'Install the app',
+  'Завантажиться архів цієї версії з GitHub (близько 230 МБ), з нього лишиться сам застосунок.':
+    'This version’s archive comes from GitHub (about 230 MB); only the app is kept from it.',
+  'Відкрити застосунок': 'Open the app',
+  'Застосунок відкривається й бере керування на себе. Коли він з’явиться, цю вкладку можна закрити. Щоб цей браузер не зберігав даних застосунку, приберіть їх — налаштування лишаться в застосунку.':
+    'The app is opening and takes over. Once it’s there, you can close this tab. So that this browser keeps none of the app’s data, clear it — the settings stay with the app.',
+  'Відтепер файл запуску відкриває застосунок. Перейшовши, приберіть дані застосунку з браузера — налаштування лишаються в застосунку.':
+    'From now on the start file opens the app. Once you’ve moved over, clear the app’s data from the browser — the settings stay with the app.',
+  'Прибрати дані з цього браузера': 'Clear the data from this browser',
+  'Застосунок встановлюється лише в копію-реліз': 'The app installs into a release copy only',
+  'Зачекайте, доки закінчиться оновлення': 'Wait until the update ends',
+  'Спершу встановіть застосунок': 'Install the app first',
+  'Не вдалося завантажити застосунок: немає зв’язку з GitHub':
+    'Couldn’t download the app: no connection to GitHub',
+  'Для цієї версії й системи в релізі немає застосунку':
+    'The release has no app for this version and system',
+  'Архів застосунку пошкоджено: контрольна сума не збігається':
+    'The app’s archive is damaged: the checksum doesn’t match',
+  'Не вдалося встановити застосунок': 'Couldn’t install the app',
+  'Зачекайте, доки встановиться застосунок': 'Wait until the app is installed',
   'Ядра процесора: не більше {n} з {all}': 'Processor cores: at most {n} of {all}',
   'Скільки з них брати, застосунок добирає сам: на початку обчислення пробує 1, 2, 3 … ядра й бере найменше число, що дає майже найвищу швидкість, — більше ядер не завжди швидше. Одне ядро завжди лишається вільним, а вектори обчислюються з найнижчим пріоритетом, тож комп’ютер не зависає.':
     'The app finds how many of them to use: at the start it tries 1, 2, 3 … cores and takes the fewest that give nearly the top speed — more cores are not always faster. One core is always left free, and the vectors are made at the lowest priority, so the computer doesn’t freeze.',

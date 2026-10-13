@@ -45,15 +45,28 @@ import { app, dialog } from 'electron';
 
 let dir = path.dirname(process.execPath);
 let main = null;
+// macOS keeps Documents, Desktop, Downloads and flash drives from an app until the user allows it:
+// a copy there reads as «not found» unless the refusal is told apart (Mac check of feat/desktop)
+let denied = false;
 for (let i = 0; i < 7 && !main; i++) {
   const at = path.join(dir, 'app', 'desktop', 'dist', 'main.js');
-  if (fs.existsSync(at)) main = at;
+  try {
+    fs.statSync(at);
+    main = at;
+  } catch (e) {
+    if (e.code === 'EPERM' || e.code === 'EACCES') denied = true;
+  }
   dir = path.dirname(dir);
 }
 if (main) await import(pathToFileURL(main).href);
 else {
   await app.whenReady();
-  dialog.showErrorBox('VerseOrchestrator', 'app/desktop is missing next to the program — unpack the archive again.');
+  dialog.showErrorBox(
+    'VerseOrchestrator',
+    denied
+      ? 'macOS не дає застосунку доступу до теки, де він лежить (Документи, Робочий стіл, Завантаження чи флешка). Дозвольте: Системні параметри → Приватність і безпека → Файли та папки → VerseOrchestrator — або перенесіть теку застосунку, наприклад, у свою домашню теку.\n\nmacOS keeps the app from the folder it is in (Documents, Desktop, Downloads or a flash drive). Allow it: System Settings → Privacy & Security → Files & Folders → VerseOrchestrator — or move the app’s folder, say, into your home folder.'
+      : 'Поруч із програмою немає app/desktop — розпакуйте архів ще раз.\n\napp/desktop is missing next to the program — unpack the archive again.',
+  );
   app.quit();
 }
 `;
@@ -137,6 +150,52 @@ if (process.platform === 'darwin') {
   const plist = path.join(appDir, 'Contents', 'Info.plist');
   for (const key of ['CFBundleName', 'CFBundleDisplayName'])
     execFileSync('plutil', ['-replace', key, '-string', 'VerseOrchestrator', plist]);
+  // its own id: macOS keeps permissions, the Dock's place and the window state per id — Electron's
+  // shared one mixed them with any other Electron app (Mac check of feat/desktop)
+  execFileSync('plutil', [
+    '-replace',
+    'CFBundleIdentifier',
+    '-string',
+    'io.github.mazzdann.verseorchestrator',
+    plist,
+  ]);
+  // why it asks for the folder it sits in (Documents, Desktop, Downloads, a flash drive): without
+  // these, macOS may refuse the files outright — a copy unpacked in Downloads didn't start (Mac check)
+  const why = {
+    NSDocumentsFolderUsageDescription:
+      'VerseOrchestrator читає свої файли й вашу бібліотеку з теки, де лежить застосунок.',
+    NSDesktopFolderUsageDescription:
+      'VerseOrchestrator читає свої файли й вашу бібліотеку з теки, де лежить застосунок.',
+    NSDownloadsFolderUsageDescription:
+      'VerseOrchestrator читає свої файли й вашу бібліотеку з теки, де лежить застосунок.',
+    NSRemovableVolumesUsageDescription:
+      'VerseOrchestrator читає свої файли, бібліотеку й альбоми з флешки чи зовнішнього диска.',
+    NSNetworkVolumesUsageDescription:
+      'VerseOrchestrator читає альбоми й відео з мережевої теки, коли ви їх туди покладете.',
+  };
+  for (const [key, text] of Object.entries(why))
+    execFileSync('plutil', ['-replace', key, '-string', text, plist]);
+  // the app's icon (assets/icon.icns: web/public/icon.svg in macOS's icon grid, made with iconutil)
+  fs.copyFileSync(
+    path.join(here, '..', 'assets', 'icon.icns'),
+    path.join(appDir, 'Contents', 'Resources', 'electron.icns'),
+  );
+  // Chromium's languages but two, like shell/locales elsewhere: 49 MB less
+  const res = path.join(
+    appDir,
+    'Contents',
+    'Frameworks',
+    'Electron Framework.framework',
+    'Versions',
+    'A',
+    'Resources',
+  );
+  for (const f of fs.readdirSync(res))
+    if (f.endsWith('.lproj') && !/^(en|uk)\.lproj$/.test(f))
+      fs.rmSync(path.join(res, f), { recursive: true, force: true });
+  // the changes above break Electron's signature: a quarantined copy would then be «damaged» (no
+  // «Open Anyway»). Signed again ad hoc, it is only «from an unidentified developer» (Mac check)
+  execFileSync('codesign', ['--force', '--deep', '--sign', '-', appDir]);
 } else {
   const to = path.join(top, 'shell');
   fs.rmSync(to, { recursive: true, force: true });

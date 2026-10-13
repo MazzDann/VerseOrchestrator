@@ -78,6 +78,7 @@ import { FeedbackSection } from './FeedbackSection';
 import { ShutdownSection } from './ShutdownSection';
 import { ShortcutSection } from './ShortcutSection';
 import { BrowserSection } from './BrowserSection';
+import { DesktopSection } from './DesktopSection';
 import { useEffectiveSource } from '../dataSourceStore';
 import { useServer, NEEDS_SERVER, versionHeading } from '../serverStore';
 import { openSettingsWindow } from '../openPresenter';
@@ -1230,6 +1231,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             <FeedbackSection />
             <StandbySection active={openSections.includes('app')} />
             {/* the desktop app is its own window: no browser to choose */}
+            {/* a browser: the way over to the desktop app (1.17.2) */}
+            {!inDesktop() && <DesktopSection active={openSections.includes('app')} />}
             {!inDesktop() && <BrowserSection active={openSections.includes('app')} />}
             <ShortcutSection />
             <ShutdownSection />

@@ -145,8 +145,34 @@ export async function rollbackFolders(top: string): Promise<void> {
 }
 
 /** The release's top files replace the old ones (folders — data/, modules/ — are left alone). */
+/** The desktop app's folder next to app/ (desktopShell.ts shellDirName; macOS, elsewhere). */
+const SHELL_DIRS = ['VerseOrchestrator.app', 'shell'];
+
 export function copyTopFiles(from: string, top: string): void {
   for (const e of fs.readdirSync(from, { withFileTypes: true })) {
+    // the desktop app (1.17.2, desktopShell.ts): brought once, when the copy has none — one already
+    // there may be running this very swap, and Electron itself changes with a new archive only
+    if (e.isDirectory() && SHELL_DIRS.includes(e.name)) {
+      const to = path.join(top, e.name);
+      if (fs.existsSync(to)) continue;
+      // on its own: a shell that can't come leaves the start files to be replaced all the same
+      try {
+        fs.renameSync(path.join(from, e.name), to);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'EXDEV') continue;
+        // data/ on another volume: copied (the bundle's links and modes kept) into a .part first,
+        // so a copy cut short is never taken for the app (review)
+        const part = `${to}.part`;
+        try {
+          fs.rmSync(part, { recursive: true, force: true });
+          fs.cpSync(path.join(from, e.name), part, { recursive: true, verbatimSymlinks: true });
+          fs.renameSync(part, to);
+        } catch {
+          fs.rmSync(part, { recursive: true, force: true });
+        }
+      }
+      continue;
+    }
     if (!e.isFile()) continue;
     const src = path.join(from, e.name);
     fs.copyFileSync(src, path.join(top, e.name));
