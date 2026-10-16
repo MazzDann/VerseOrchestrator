@@ -1,4 +1,4 @@
-# Show statistics
+# Statistics
 
 The app records everything that goes on screen: passages, songs, documents, pictures, videos,
 text, the cover and the countdown — with the time and how long it stayed. The
@@ -39,6 +39,22 @@ On the page:
 - **Documents** and **What was shown** — documents and kinds of showings by count.
 - **Show report** — everything that was on screen on the chosen day, in order: the time, what, how
   long. If a speaker remote put it there, the remote's name stands beside it.
+
+## What the library holds
+
+The **Library** tab on the same page counts what the library holds:
+
+- how many translations, verses and words, dictionary entries, songs and documents;
+- **Translations** — each translation: language, books, verses, words, Strong's numbers and
+  section titles;
+- **Dictionaries**, **Songs** (by bundle), **Commentaries and references**, **Documents** (their
+  paragraphs and Bible references);
+- **On disk** — how much space the library, modules, segments, vectors, pictures and statistics
+  take.
+
+The first time, a big library needs a second or two to count the words; after that the answer
+comes at once until the library changes. In the “in the browser” mode, the tab counts the
+browser's library.
 
 ## Save or clear
 

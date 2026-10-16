@@ -2497,8 +2497,6 @@ export const EN: Record<string, string> = {
   'Статистика показу': 'Show statistics',
   'Що й коли було на екрані; очищується на сторінці статистики.':
     'What was on screen and when; cleared on the statistics page.',
-  'Що, коли й скільки було на екрані: пісні, книги Біблії, документи, звіт за день.':
-    'What was on screen, when and for how long: songs, the Bible’s books, documents, a day’s report.',
   'Відкрити статистику': 'Open the statistics',
   '{n} с': '{n} s',
   '{h} год {m} хв': '{h} h {m} min',
@@ -2539,4 +2537,36 @@ export const EN: Record<string, string> = {
     'Delete all the show statistics? They can’t be brought back.',
   'Статистику очищено': 'Statistics cleared',
   'Немає такого дня': 'No such day',
+  // «Статистика бібліотеки» (1.18.0-beta.5)
+  'Що, коли й скільки було на екрані, і що є в бібліотеці: переклади, слова, словники, пісні.':
+    'What was on screen, when and for how long, and what the library holds: translations, words, dictionaries, songs.',
+  '{n} строфа|{n} строфи|{n} строф': '{n} stanza|{n} stanzas',
+  '{songs}, {stanzas}': '{songs}, {stanzas}',
+  Абзаців: 'Paragraphs',
+  Бібліотека: 'Library',
+  Віршів: 'Verses',
+  Документів: 'Documents',
+  Книг: 'Books',
+  'Коментарі й посилання': 'Commentaries and references',
+  Мова: 'Language',
+  'На диску': 'On disk',
+  'Номерів Стронга': "Strong's numbers",
+  Переклад: 'Translation',
+  Перекладів: 'Translations',
+  'Посилань на Біблію': 'Bible references',
+  Підзаголовків: 'Section titles',
+  'Пісень у бібліотеці немає.': 'The library has no songs.',
+  Пісень: 'Songs',
+  'Рахую вірші й слова…': 'Counting the verses and words…',
+  'Сегменти для браузера': 'Segments for the browser',
+  'Словникових статей': 'Dictionary entries',
+  'Словників у бібліотеці немає.': 'The library has no dictionaries.',
+  Слів: 'Words',
+  Статистика: 'Statistics',
+  'У бібліотеці немає перекладів.': 'The library has no translations.',
+  'У мегабайтах. Усе, що застосунок зберігає, — у «Налаштування вигляду» → «Дані» → «Місце на диску».':
+    'In megabytes. Everything the app keeps is in Settings → Data → Disk space.',
+  'словник Стронга': "Strong's dictionary",
+  // «Статистика» tabs (1.18.0-beta.5)
+  Покази: 'Showings',
 };

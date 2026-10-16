@@ -32,7 +32,7 @@ interface does; to switch the interface to English, see
   save and open next time.
 - [Slide appearance](appearance.md): font, colors, background, template, long passages,
   presets.
-- [Show statistics](statistics.md): what was on screen, when and how long — songs, the Bible's
+- [Statistics](statistics.md): what was on screen, when and how long, and what the library holds — songs, the Bible's
   books, documents, a day's report, a CSV export.
 
 ## Phones

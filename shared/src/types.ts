@@ -35,6 +35,38 @@ export interface SubheadingSet {
   titles: number;
 }
 
+/**
+ * «Статистика бібліотеки» (1.18.0-beta.5): what the library holds, counted — the same answer from
+ * every engine (queries.ts `libraryStats`). Words = runs between spaces, a fair count for a verse.
+ */
+export interface LibraryStats {
+  translations: {
+    id: number;
+    abbr: string;
+    title: string;
+    language: string;
+    hasStrong: boolean;
+    books: number;
+    verses: number;
+    words: number;
+    /** Strong numbers tagged in its verses (a concordance row each: a number once per verse) */
+    strongTags: number;
+    subheadings: number;
+  }[];
+  dictionaries: {
+    abbr: string;
+    name: string;
+    language: string;
+    strong: boolean;
+    entries: number;
+  }[];
+  commentaries: { source: string; notes: number }[];
+  crossReferences: number;
+  subheadingSets: { abbr: string; title: string; titles: number }[];
+  songs: { bundle: string; songs: number; stanzas: number }[];
+  documents: { documents: number; units: number; refs: number };
+}
+
 export interface StrongDefinition {
   dictionary: string;
   language: string;

@@ -3,6 +3,7 @@ import { parseReference } from '../reference.js';
 import { explainMorphology, morphologyKeys, type MorphologyMeaning } from './morphology.js';
 import type {
   Book,
+  LibraryStats,
   SearchResult,
   StrongDefinition,
   SubheadingSet,
@@ -1295,6 +1296,125 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     return rows.map((r) => ({ verse: Number(r.verse), title: String(r.title) }));
   }
 
+  /**
+   * «Статистика бібліотеки» (1.18.0-beta.5): every part of the library counted, in code-point order —
+   * the same numbers from SQLite on the server, SQLite-WASM and PGlite in the browser. A part an older
+   * library lacks counts as none.
+   */
+  async function libraryStats(): Promise<LibraryStats> {
+    // a stable sort over rows read by id: the same abbreviation twice keeps one order in every engine
+    const byKey =
+      <T>(key: (x: T) => string) =>
+      (a: T, b: T) =>
+        key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0;
+    const counts = async (sql: string) =>
+      new Map(
+        (await db.all<AnyRow>(sql)).map((r) => [Number(r.id), Number(r.n)] as [number, number]),
+      );
+    const one = async (table: string) =>
+      (await tableExists(table))
+        ? Number((await db.get<AnyRow>(`SELECT COUNT(*) AS n FROM ${table}`))?.n ?? 0)
+        : 0;
+
+    const verses = await db.all<AnyRow>(
+      `SELECT translation_id AS id, COUNT(*) AS n,
+         SUM(LENGTH(TRIM(text)) - LENGTH(REPLACE(TRIM(text), ' ', '')) + 1) AS words
+       FROM verses WHERE text IS NOT NULL AND TRIM(text) <> '' GROUP BY translation_id`,
+    );
+    const versesBy = new Map(verses.map((r) => [Number(r.id), r]));
+    const books = await counts(
+      'SELECT translation_id AS id, COUNT(*) AS n FROM books GROUP BY translation_id',
+    );
+    const strongs = (await tableExists('verse_strongs'))
+      ? await counts(
+          'SELECT translation_id AS id, COUNT(*) AS n FROM verse_strongs GROUP BY translation_id',
+        )
+      : new Map<number, number>();
+    const titles = (await tableExists('subheadings'))
+      ? await counts(
+          'SELECT translation_id AS id, COUNT(*) AS n FROM subheadings GROUP BY translation_id',
+        )
+      : new Map<number, number>();
+    const translations = (
+      await db.all<AnyRow>(
+        'SELECT id, abbr, title, language, has_strong FROM translations ORDER BY id',
+      )
+    )
+      .map((t) => {
+        const id = Number(t.id);
+        const v = versesBy.get(id);
+        return {
+          id,
+          abbr: String(t.abbr),
+          title: String(t.title ?? ''),
+          language: String(t.language ?? ''),
+          hasStrong: Number(t.has_strong) === 1,
+          books: books.get(id) ?? 0,
+          verses: Number(v?.n ?? 0),
+          words: Number(v?.words ?? 0),
+          strongTags: strongs.get(id) ?? 0,
+          subheadings: titles.get(id) ?? 0,
+        };
+      })
+      .sort(byKey((t) => t.abbr));
+
+    const dictionaries = (await tableExists('dictionaries'))
+      ? (
+          await db.all<AnyRow>(
+            `SELECT d.abbr, d.name, d.language, d.is_strong, COUNT(e.dictionary_id) AS entries
+             FROM dictionaries d LEFT JOIN dictionary_entries e ON e.dictionary_id = d.id
+             GROUP BY d.id, d.abbr, d.name, d.language, d.is_strong ORDER BY d.id`,
+          )
+        )
+          .map((r) => ({
+            abbr: String(r.abbr ?? ''),
+            name: String(r.name ?? ''),
+            language: String(r.language ?? ''),
+            strong: Number(r.is_strong) === 1,
+            entries: Number(r.entries),
+          }))
+          .sort(byKey((d) => d.abbr))
+      : [];
+    const commentaries = (await tableExists('commentaries'))
+      ? (await db.all<AnyRow>('SELECT source, COUNT(*) AS n FROM commentaries GROUP BY source'))
+          .map((r) => ({ source: String(r.source), notes: Number(r.n) }))
+          .sort(byKey((c) => c.source))
+      : [];
+    const songs =
+      (await tableExists('songs')) && (await columnExists('songs', 'bundle'))
+        ? (
+            await db.all<AnyRow>(
+              `SELECT s.bundle, COUNT(DISTINCT s.id) AS songs, COUNT(sl.song_id) AS stanzas
+               FROM songs s LEFT JOIN song_slides sl ON sl.song_id = s.id
+               GROUP BY s.bundle`,
+            )
+          )
+            .map((r) => ({
+              bundle: String(r.bundle ?? ''),
+              songs: Number(r.songs),
+              stanzas: Number(r.stanzas),
+            }))
+            .sort(byKey((s) => s.bundle))
+        : [];
+    return {
+      translations,
+      dictionaries,
+      commentaries,
+      crossReferences: await one('cross_references'),
+      subheadingSets: (await listSubheadingSets()).map((s) => ({
+        abbr: s.abbr,
+        title: s.title,
+        titles: s.titles,
+      })),
+      songs,
+      documents: {
+        documents: await one('documents'),
+        units: await one('doc_units'),
+        refs: await one('doc_refs'),
+      },
+    };
+  }
+
   /** The section-title sets in the library (1.16.0-beta.3), by name; an older library has none. */
   async function listSubheadingSets(): Promise<SubheadingSet[]> {
     if (!(await tableExists('subheading_sets'))) return [];
@@ -1446,6 +1566,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     getVerses,
     getSubheadings,
     listSubheadingSets,
+    libraryStats,
     getSetSubheadings,
     listDictionaries,
     lookupStrong,
