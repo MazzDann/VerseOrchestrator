@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VerseOrchestrator</title>
+    <link rel="icon" href="/icon.svg" />
+    <!--
+      Control went to the desktop app (1.18.1: «Відкрити застосунок», or the app installed from this
+      browser): the browser's control window closes itself; a tab the browser won't let a page close
+      comes here — a page with none of the app's code, so this tab keeps no second control window.
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font:
+          15px/1.5 Inter,
+          system-ui,
+          sans-serif;
+        background: #f3f3f1;
+        color: #1e2025;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #1e2025;
+          color: #e4e2dd;
+        }
+      }
+      main {
+        max-width: 34em;
+        padding: 24px 16px;
+      }
+      p {
+        margin: 0 0 10px;
+      }
+      .dim {
+        opacity: 0.7;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>
+        Застосунок VerseOrchestrator відкрився у власному вікні й керує показом. Цю вкладку можна
+        закрити.
+      </p>
+      <p class="dim">
+        VerseOrchestrator opened in its own window and runs the show. You can close this tab.
+      </p>
+    </main>
+  </body>
+</html>

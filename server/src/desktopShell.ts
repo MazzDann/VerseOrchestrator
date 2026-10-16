@@ -1,13 +1,13 @@
-import { spawn, type SpawnOptions } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { N_ } from '@vo/shared';
 import { checksumFor, copyAcross, findUnpackedApp, unpackCommand } from './installer.js';
 import { releaseAsset, shellDirName } from './layout.js';
+import { shellPresent } from './shellOpen.js';
 import { pickReleases, RELEASES_URL } from './updates.js';
 
 /**
@@ -17,44 +17,8 @@ import { pickReleases, RELEASES_URL } from './updates.js';
  * version's archive, and later updates carry it over (installer.ts, swap.ts copyTopFiles).
  */
 export { shellDirName };
-/** The program inside it, as a start file runs it. */
-export function shellProgram(top: string, platform: NodeJS.Platform = process.platform): string {
-  const dir = path.join(top, shellDirName(platform));
-  if (platform === 'darwin') return dir;
-  return path.join(dir, platform === 'win32' ? 'VerseOrchestrator.exe' : 'verseorchestrator');
-}
-
-export const shellPresent = (top: string, platform: NodeJS.Platform = process.platform): boolean =>
-  fs.existsSync(shellProgram(top, platform));
-
-/**
- * How the desktop app is opened for the app running on `port`: it finds it there, takes over as
- * the control window and leaves it running when it quits (desktop/src/main.ts). From the home
- * folder, never inside app/ (a swap would meet EBUSY — 1.8.8).
- */
-export function openShellCommand(
-  top: string,
-  port: number,
-  platform: NodeJS.Platform = process.platform,
-): [string, string[], SpawnOptions] {
-  const env: NodeJS.ProcessEnv = { ...process.env, VO_PORT: String(port) };
-  delete env.ELECTRON_RUN_AS_NODE;
-  const opts: SpawnOptions = { stdio: 'ignore', detached: true, cwd: os.homedir(), env };
-  // `open` starts it through Launch Services (its own Dock icon, not this process's child);
-  // --env hands it the port (macOS 13+, the shell's own minimum)
-  if (platform === 'darwin')
-    return ['/usr/bin/open', ['--env', `VO_PORT=${port}`, shellProgram(top, platform)], opts];
-  // Linux: --no-sandbox like start.sh (Ubuntu 24.04's AppArmor gives Chromium no sandbox)
-  const args = platform === 'linux' ? ['--no-sandbox'] : [];
-  return [shellProgram(top, platform), args, opts];
-}
-
-export function openShell(top: string, port: number): void {
-  const [cmd, args, opts] = openShellCommand(top, port);
-  const child = spawn(cmd, args, opts);
-  child.on('error', (e) => console.warn(`[desktop] not opened: ${e.message}`));
-  child.unref();
-}
+// opening it lives apart, with no @vo/shared, for the launcher (1.18.1)
+export { openShell, openShellCommand, shellPresent, shellProgram } from './shellOpen.js';
 
 /**
  * Moves the shell folder from a release unpacked in `release` (the folder holding its app/) to

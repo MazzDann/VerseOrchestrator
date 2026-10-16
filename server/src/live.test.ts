@@ -607,7 +607,13 @@ describe('speaker remote over the hub', () => {
     );
     expect(await zen.next('handover')).toEqual({ type: 'handover', browser: 'zen' });
     expect(await zen.next('hub')).toEqual({ type: 'hub', active: true });
-    expect(await old.next('hub')).toEqual({ type: 'hub', active: false, movedTo: 'Zen' });
+    expect(await old.next('hub')).toEqual({
+      type: 'hub',
+      active: false,
+      movedTo: 'Zen',
+      // the browser's id too (1.18.1): 'desktop' closes a browser's window
+      movedId: 'zen',
+    });
     expect(controlWindows()).toEqual({ open: 2, active: { browser: 'firefox' } });
     expect(handovers.peek(token)).toBeNull(); // used up
     // the same token again (a reconnect, a copied address): an ordinary control window

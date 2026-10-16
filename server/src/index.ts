@@ -123,7 +123,7 @@ import {
 } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
-import { handoverRoutes, spawnBrowser } from './handover.js';
+import { handoverRoutes, handovers, spawnBrowser } from './handover.js';
 import { createPeekGuard } from './peekGuard.js';
 import { CONTROL_HEADER, nodeFirstOnPath, portFree, waiterAt } from './standby.js';
 import {
@@ -593,7 +593,14 @@ app.post(
   wrap((_req, res) => {
     if (!releaseTop || !shellPresent(releaseTop))
       throw new ApiError(409, N_('Спершу встановіть застосунок'));
-    openShell(releaseTop, Number(process.env.VO_STANDBY_PORT) || getServerSettings().standby.port);
+    // the app's control window takes charge with a one-time token (1.18.1): the browser's window
+    // that asked hears «moved to the app» and closes itself
+    const token = handovers.issue({ id: 'desktop', name: 'VerseOrchestrator' });
+    openShell(
+      releaseTop,
+      Number(process.env.VO_STANDBY_PORT) || getServerSettings().standby.port,
+      token,
+    );
     res.json(desktopState());
   }),
 );

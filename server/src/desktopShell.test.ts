@@ -40,6 +40,22 @@ describe('«Встановити застосунок» (1.18.0-beta.1)', () => 
     expect(largs).toEqual(['--no-sandbox']);
     expect(lopts.env?.VO_PORT).toBe('4801');
     expect(lopts.env?.ELECTRON_RUN_AS_NODE).toBeUndefined();
+    // opened from a browser's control window (1.18.1): the app takes charge with a one-time token —
+    // an argument (an app already open hears it), on macOS through `open --env`
+    expect(openShellCommand('/t', 4801, 'win32', 'tok-123456')[1]).toEqual([
+      '--handover=tok-123456',
+    ]);
+    expect(openShellCommand('/t', 4801, 'linux', 'tok-123456')[1]).toEqual([
+      '--no-sandbox',
+      '--handover=tok-123456',
+    ]);
+    expect(openShellCommand('/t', 4801, 'darwin', 'tok-123456')[1]).toEqual([
+      '--env',
+      'VO_PORT=4801',
+      '--env',
+      'VO_HANDOVER=tok-123456',
+      path.join('/t', 'VerseOrchestrator.app'),
+    ]);
   });
 
   it('takes it from an unpacked release once', async () => {

@@ -160,7 +160,8 @@ folder on Windows and Linux), and the start file opens it.
 A copy updated from a version that ran in the browser doesn't have it yet. Open **Settings** →
 **App** → **The desktop app** and press **Install the app**: this version's archive comes from
 GitHub, and only the app is kept from it. Then press **Open the app** — it takes over, and the
-browser tab can be closed. So that the browser keeps none of the app's data, press **Clear the
+browser tab closes itself (or says the show is in the app). After **Install the app** it opens by
+itself. So that the browser keeps none of the app's data, press **Clear the
 data from this browser**: the settings and the running order stay with the app (in the `data`
 folder).
 
@@ -216,7 +217,8 @@ copy from the repository says `dev` and the branch there, for example
 
 ## Create a shortcut
 
-The shortcut starts the app and opens the control window as a window of its own — without
+When the app is next to the `app` folder, the shortcut opens it. Without it, the shortcut starts
+the app and opens the control window as a window of its own — without
 tabs or an address bar: in the browser chosen in **Open the control window in…** if it is
 built on Chromium; with **System browser**, in Chrome or Edge. Firefox, Zen, Safari, and Opera
 open it as a regular window.

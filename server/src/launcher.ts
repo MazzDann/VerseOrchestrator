@@ -55,6 +55,7 @@ import {
   type WaiterStatus,
 } from './standby.ts';
 import { needsBuild } from './uiStamp.ts';
+import { openShell, shellPresent } from './shellOpen.ts';
 import { versionLabel } from './versionLabel.ts';
 import {
   copyFolderOf,
@@ -82,6 +83,8 @@ export interface LaunchOptions {
   shortcut: boolean;
   /** open the control window even when one is open already (1.1.0) */
   newWindow: boolean;
+  /** a browser even when the desktop app is beside app/ (1.18.1: it opens otherwise) */
+  inBrowser: boolean;
 }
 
 /** The command line, or what is wrong with it. */
@@ -94,6 +97,7 @@ export function parseArgs(argv: string[]): LaunchOptions | string {
     app: false,
     shortcut: false,
     newWindow: false,
+    inBrowser: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -103,6 +107,7 @@ export function parseArgs(argv: string[]): LaunchOptions | string {
     else if (a === '--app') o.app = true;
     else if (a === '--shortcut') o.shortcut = true;
     else if (a === '--new-window') o.newWindow = true;
+    else if (a === '--browser') o.inBrowser = true;
     else if (a === '--port') {
       const port = Number(argv[++i]);
       if (!Number.isInteger(port) || port < 1024 || port > 65535)
@@ -110,7 +115,7 @@ export function parseArgs(argv: string[]): LaunchOptions | string {
       o.port = port;
     } else
       return tr(
-        'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window',
+        'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window, --browser',
         { arg: a },
       );
   }
@@ -551,6 +556,28 @@ export async function openControlWindowLines(
   return open && open.open > 0 ? lines(open.active, port) : null;
 }
 
+/**
+ * The control window: the desktop app when it is beside app/ (1.18.1 — a start that would open a
+ * browser opens it: the desktop shortcut's --app, a start with options), else the browser.
+ * `--browser` keeps the browser.
+ */
+function openUi(
+  url: string,
+  dataDir: string,
+  opts: LaunchOptions,
+  port: number,
+  running: LaunchSettings | null = null,
+): void {
+  const top = readLayout(root) ? path.dirname(root) : null;
+  // --new-window asks for a browser's second window: the app keeps one control window
+  if (top && !opts.inBrowser && !opts.newWindow && shellPresent(top)) {
+    say(`  ${tr('Відкриваю застосунок…')}`);
+    openShell(top, port);
+    return;
+  }
+  openBrowser(url, dataDir, opts.app, running);
+}
+
 function openBrowser(
   url: string,
   dataDir: string,
@@ -705,7 +732,7 @@ async function main(argv: string[]): Promise<number> {
       for (const line of lines) say(`  ${line}`);
     } else if (opts.browser)
       // in the browser chosen in the copy that runs — maybe not this one (runningLaunch)
-      openBrowser(`${local}/`, dataDir, opts.app, await runningLaunch(port, waiter));
+      openUi(`${local}/`, dataDir, opts, port, await runningLaunch(port, waiter));
     return 0;
   }
 
@@ -898,7 +925,7 @@ async function main(argv: string[]): Promise<number> {
     say(`✗ ${tr('Застосунок не запустився: {error}', { error: trError(err) })}`);
     return 1;
   }
-  if (opts.browser) openBrowser(`${local}/`, dataDir, opts.app);
+  if (opts.browser) openUi(`${local}/`, dataDir, opts, port);
 
   const stop = () => {
     stopping = true;

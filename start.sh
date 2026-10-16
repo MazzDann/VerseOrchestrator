@@ -5,8 +5,9 @@ cd "$(dirname "$0")" || exit 1
 # a release folder (npm run portable, 0.14.0) keeps the app in app/ next to this file
 if [ -f app/start.sh ]; then exec sh app/start.sh "$@"; fi
 # the desktop app beside app/ (a release, feat/desktop): it is the app's window, the browser is not
-# needed — started with no options (they are the launcher's: --off, --check, --port …)
-if [ $# -eq 0 ]; then
+# needed — started with no options (they are the launcher's: --off, --check, --port …) or with --app
+# alone, the desktop shortcut's (1.18.1: it opened the browser)
+if [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = --app ]; }; then
   if [ "$(uname)" = Darwin ] && [ -d ../VerseOrchestrator.app ]; then exec open ../VerseOrchestrator.app; fi
   # --no-sandbox: a system without unprivileged user namespaces (Ubuntu 24.04's AppArmor) gives
   # Chromium no sandbox without a setuid helper; the pages are the app's own (localhost) only

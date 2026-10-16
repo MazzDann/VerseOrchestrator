@@ -10,8 +10,12 @@ if exist "%~dp0app\start.cmd" (
   exit /b
 )
 rem the desktop app beside app\ (a release, feat/desktop) is the app's window - no browser needed;
-rem started with no options (they are the launcher's: --off, --check, --port ...)
-if "%~1"=="" if exist "%~dp0..\shell\VerseOrchestrator.exe" (
+rem started with no options (they are the launcher's: --off, --check, --port ...) or with --app
+rem alone, the desktop shortcut's (1.18.1: it opened the browser)
+set "VO_PLAIN="
+if "%~1"=="" set "VO_PLAIN=1"
+if "%~1"=="--app" if "%~2"=="" set "VO_PLAIN=1"
+if defined VO_PLAIN if exist "%~dp0..\shell\VerseOrchestrator.exe" (
   start "" "%~dp0..\shell\VerseOrchestrator.exe"
   exit /b 0
 )

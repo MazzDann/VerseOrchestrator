@@ -284,9 +284,23 @@ function openControl(): BrowserWindow {
     // the output windows go with the control window
     for (const w of BrowserWindow.getAllWindows()) w.close();
   });
-  void win.loadURL(`${ORIGIN}/`);
+  void win.loadURL(controlUrl(handoverOf(process.argv) ?? process.env.VO_HANDOVER));
   return win;
 }
+
+/**
+ * Opened by «Відкрити застосунок» / «Встановити застосунок» from a browser's control window
+ * (1.18.1, server desktopShell): a one-time token in `--handover=` (macOS: VO_HANDOVER) — the
+ * control window loads with it, the hub puts it in charge and tells the browser's window, which
+ * closes itself (handover.ts, the browser's control window).
+ */
+function handoverOf(argv: readonly string[]): string | undefined {
+  const a = argv.find((x) => x.startsWith('--handover='));
+  const t = a?.slice('--handover='.length);
+  return t && /^[\w-]{8,64}$/.test(t) ? t : undefined;
+}
+const controlUrl = (handover: string | undefined) =>
+  handover ? `${ORIGIN}/?handover=${encodeURIComponent(handover)}` : `${ORIGIN}/`;
 /** the fullscreen decided for an output window between its handler and its creation */
 const pendingFullscreen = new Map<string, boolean>();
 
@@ -446,10 +460,13 @@ function setMenu(): void {
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_e, argv) => {
     if (!control) return;
     if (control.isMinimized()) control.restore();
     control.focus();
+    // opened again from a browser's control window: this one takes charge (the token)
+    const token = handoverOf(argv);
+    if (token) void control.loadURL(controlUrl(token));
   });
   app.on('window-all-closed', () => app.quit());
   app.on('before-quit', () => {
