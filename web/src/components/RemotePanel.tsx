@@ -43,9 +43,11 @@ const ALL: RemoteCommand[] = [
   'countdown',
   // the speaker's timer (1.11.0-beta.2): a phone's — the desk has no buttons for it yet
   'timer',
+  // a document's paragraphs (1.18.0-beta.7): a phone's — the desk's search has no documents yet
+  'documents',
 ];
 const abilities = (kind: PairingKind): RemoteCommand[] =>
-  kind === 'desk' ? ALL.filter((c) => c !== 'timer') : ALL;
+  kind === 'desk' ? ALL.filter((c) => c !== 'timer' && c !== 'documents') : ALL;
 /** Without these a computer can't put its own verses on screen: said under the boxes. */
 const DESK_SHOWS: RemoteCommand[] = ['show', 'pick'];
 

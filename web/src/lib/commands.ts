@@ -76,10 +76,17 @@ export interface RemoteSong {
   stanza: number;
 }
 
-/** What a remote's cursor points at: a passage or a song stanza. */
+/** A paragraph of a document chosen on a remote (1.18.0-beta.7): the unit's place in its body. */
+export interface RemoteDoc {
+  docId: number;
+  unit: number;
+}
+
+/** What a remote's cursor points at: a passage, a song stanza or a document's paragraph. */
 export type RemoteTarget =
   | { kind: 'verses'; passage: RemotePassage }
-  | { kind: 'song'; song: RemoteSong };
+  | { kind: 'song'; song: RemoteSong }
+  | { kind: 'doc'; doc: RemoteDoc };
 
 /**
  * «Відлік» from a remote (1.9.0-beta.10): `start` one of `seconds` (or the saved length), `pause`
@@ -99,6 +106,7 @@ export interface RemoteTimer {
 export interface CommandArgs {
   passage?: RemotePassage;
   song?: RemoteSong;
+  doc?: RemoteDoc;
   /** an item of the shared running order, by id (0.6.9) */
   item?: string;
   countdown?: RemoteCountdown;
@@ -135,7 +143,20 @@ export interface SharedPlaylist {
 
 /** The command args for a target (what goes over the hub). */
 export const targetArgs = (t: RemoteTarget | null | undefined): CommandArgs =>
-  !t ? {} : t.kind === 'verses' ? { passage: t.passage } : { song: t.song };
+  !t
+    ? {}
+    : t.kind === 'verses'
+      ? { passage: t.passage }
+      : t.kind === 'song'
+        ? { song: t.song }
+        : { doc: t.doc };
+
+/** A document's paragraph as it arrives from the hub (the server already checked it) — or undefined. */
+export function asDoc(raw: unknown): RemoteDoc | undefined {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  if (!Number.isInteger(r.docId) || !Number.isInteger(r.unit)) return undefined;
+  return { docId: r.docId as number, unit: r.unit as number };
+}
 
 /** A song stanza as it arrives from the hub (the server already checked it) — or undefined. */
 export function asSong(raw: unknown): RemoteSong | undefined {

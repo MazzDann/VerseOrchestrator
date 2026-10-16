@@ -21,6 +21,8 @@ import { isUnreadable, readJson, writeJson } from './jsonFile.js';
  * `cover` and `countdown` (1.9.0-beta.10) are «Заставка» (the L key) and «Відлік» (start /
  * pause / take off) — asked for a control window on another computer (F1005-10). `timer`
  * (1.11.0-beta.2) — the speaker's own timer on «Сцена»: start, pause / go on, ±1 хв, off.
+ * `documents` (1.18.0-beta.7) is a permission like `songs`: a paragraph of a document chosen on
+ * the phone (`pick` / `show` + doc), and reading the documents from the phone at all (guards.ts).
  */
 export const REMOTE_COMMANDS = [
   'next',
@@ -34,6 +36,7 @@ export const REMOTE_COMMANDS = [
   'cover',
   'countdown',
   'timer',
+  'documents',
 ] as const;
 export type RemoteCommand = (typeof REMOTE_COMMANDS)[number];
 
@@ -384,6 +387,21 @@ export function sanitizeSong(raw: unknown): SongPick | null {
     return null;
   }
   return { songId: r.songId, stanza: r.stanza as number };
+}
+
+/** A paragraph of a document chosen on a phone (1.18.0-beta.7): the document and the unit. */
+export interface DocPick {
+  docId: number;
+  unit: number;
+}
+
+/** A document's paragraph from a phone, or null when it isn't one. */
+export function sanitizeDoc(raw: unknown): DocPick | null {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  if (!posInt(r.docId, 2 ** 31)) return null;
+  if (!Number.isInteger(r.unit) || (r.unit as number) < 0 || (r.unit as number) > 100_000)
+    return null;
+  return { docId: r.docId, unit: r.unit as number };
 }
 
 /**

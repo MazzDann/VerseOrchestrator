@@ -444,6 +444,46 @@ describe('speaker remote over the hub', () => {
     remote.ws.close();
   });
 
+  it('a document’s paragraph needs «Документи» (1.18.0-beta.7), a permission and not a command', async () => {
+    const p = createPairing('Документ', [...DEFAULT_ALLOWED, 'show', 'pick', 'songs']);
+    const control = client({ role: 'control' }, origin());
+    await control.next('welcome');
+    const remote = client({ role: 'remote', token: p.token });
+    await remote.next('welcome');
+    remote.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'pick', id: 'd0', doc: { docId: 7, unit: 2 } }),
+    );
+    expect(await remote.next('ack')).toMatchObject({
+      ok: false,
+      reason: 'Документи пульту не дозволено',
+    });
+    setPairingAllowed(p.id, [...DEFAULT_ALLOWED, 'show', 'documents']);
+    remote.ws.send(JSON.stringify({ type: 'command', cmd: 'documents', id: 'd1' }));
+    expect(await remote.next('ack')).toMatchObject({
+      ok: false,
+      reason: 'Ця дія пульту не дозволена',
+    });
+    remote.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'show', id: 'd2', doc: { docId: 7, unit: -1 } }),
+    );
+    expect(await remote.next('ack')).toMatchObject({ ok: false, reason: 'Неправильний абзац' });
+    // the running order takes passages and songs from a phone, not paragraphs
+    remote.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'queue', id: 'd3', doc: { docId: 7, unit: 0 } }),
+    );
+    expect((await remote.next('ack')).ok).toBe(false);
+    remote.ws.send(
+      JSON.stringify({ type: 'command', cmd: 'show', id: 'd4', doc: { docId: 7, unit: 2 } }),
+    );
+    const cmd = await control.next('command');
+    expect(cmd).toMatchObject({ cmd: 'show', doc: { docId: 7, unit: 2 } });
+    expect(cmd.song).toBeUndefined();
+    control.ws.send(JSON.stringify({ type: 'result', id: cmd.id, ok: true }));
+    expect(await remote.next('ack')).toMatchObject({ id: 'd4', ok: true });
+    control.ws.close();
+    remote.ws.close();
+  });
+
   it('the operator suggests a passage / stanza to one remote — only if it may choose that', async () => {
     const p = createPairing('Підказка', [...DEFAULT_ALLOWED, 'pick']);
     const other = createPairing('Інший', [...DEFAULT_ALLOWED, 'pick']);

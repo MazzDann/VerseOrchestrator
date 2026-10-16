@@ -55,6 +55,9 @@ function showsTarget(s: ScreenSummary | null, t: RemoteTarget | null): boolean {
   if (t.kind === 'song') {
     return src.kind === 'song' && src.songId === t.song.songId && src.stanza === t.song.stanza;
   }
+  if (t.kind === 'doc') {
+    return src.kind === 'doc' && src.docId === t.doc.docId && src.unit === t.doc.unit;
+  }
   const p = t.passage;
   return (
     src.kind === 'verses' &&
@@ -74,8 +77,12 @@ function screenTarget(s: ScreenSummary | null): RemoteTarget | null {
   }
   if (src?.kind === 'song')
     return { kind: 'song', song: { songId: src.songId, stanza: src.stanza } };
+  if (src?.kind === 'doc') return { kind: 'doc', doc: { docId: src.docId, unit: src.unit } };
   return null;
 }
+
+/** The permission a target needs: verses «Вибір віршів», a stanza «Пісні», a paragraph «Документи». */
+const NEEDS = { verses: 'pick', song: 'songs', doc: 'documents' } as const;
 
 /** A running-order item as a target the speaker's cursor can walk (a free text can't). */
 function entryTarget(e: PlaylistEntry): RemoteTarget | undefined {
@@ -332,8 +339,7 @@ export function Remote() {
     // `pick` / `queue` are allowed by what they carry: verses → «Вибір віршів», a stanza →
     // «Пісні», a running-order item or adding to it → «Послідовність»
     if (cmd !== 'pick' && cmd !== 'queue' && !allowed.includes(cmd)) return;
-    if (target?.kind === 'verses' && !allowed.includes('pick')) return;
-    if (target?.kind === 'song' && !allowed.includes('songs')) return;
+    if (target && !allowed.includes(NEEDS[target.kind])) return;
     if ((entry || cmd === 'queue') && !allowed.includes('playlist')) return;
     navigator.vibrate?.(12);
     const id = newCommandId();
@@ -346,10 +352,7 @@ export function Remote() {
           : targetArgs(target);
     // after an item is taken the speaker's cursor walks it — when they may choose that kind
     const walkable = entry ? entryTarget(entry) : cmd === 'queue' ? undefined : target;
-    const cursorAfter =
-      walkable && allowed.includes(walkable.kind === 'verses' ? 'pick' : 'songs')
-        ? walkable
-        : undefined;
+    const cursorAfter = walkable && allowed.includes(NEEDS[walkable.kind]) ? walkable : undefined;
     const sent = !!conn.current?.send({ type: 'command', cmd, id, ...args });
     const dropCursor = cmd === 'show' && entry?.kind === 'album';
     pending.current.set(id, { cmd, at: Date.now(), sent, args, target: cursorAfter, dropCursor });
@@ -396,10 +399,18 @@ export function Remote() {
     queryFn: () => api.song(songPick!.songId),
     enabled: !!songPick,
   });
+  // a document's paragraph (1.18.0-beta.7): the document read with this phone's token
+  const docPick = cursor?.kind === 'doc' ? cursor.doc : null;
+  const canDocs = allowed.includes('documents');
+  const cursorDoc = useQuery({
+    queryKey: ['remote-document', docPick?.docId],
+    queryFn: () => api.remoteDocument(token, docPick!.docId),
+    enabled: !!docPick && canDocs,
+  });
   const mineOnScreen = showsTarget(screen, cursor);
   const canVerses = allowed.includes('pick');
   const canSongs = allowed.includes('songs');
-  const canPick = canVerses || canSongs;
+  const canPick = canVerses || canSongs || canDocs;
   const canPlaylist = allowed.includes('playlist');
   const listAt = playlist ? playlist.items.findIndex((i) => i.id === playlist.currentId) : -1;
   const listCurrent = listAt >= 0 ? playlist!.items[listAt] : undefined;
@@ -413,7 +424,16 @@ export function Remote() {
   const walk = (delta: number) => {
     if (!cursor) return press(delta > 0 ? 'next' : 'prev');
     let next: RemoteTarget;
-    if (songPick) {
+    if (docPick) {
+      // the next / previous paragraph of the document (1.18.0-beta.7)
+      const count = cursorDoc.data?.body.length ?? 0;
+      if (count === 0) return flash(tr('Документ ще завантажується'));
+      const to = docPick.unit + delta;
+      if (to < 0 || to >= count) {
+        return flash(delta > 0 ? tr('Це останній абзац') : tr('Це перший абзац'));
+      }
+      next = { kind: 'doc', doc: { ...docPick, unit: to } };
+    } else if (songPick) {
       const count = cursorSong.data?.slides.length ?? 0;
       // its last stanza on screen (0.6.24): «Далі» empties the screen, again → the end,
       // «Назад» brings exactly that stanza back (lib/songEnd.ts)
@@ -559,7 +579,9 @@ export function Remote() {
     ? (cursorVerses.data?.find((v) => v.verse === passage.verses[0])?.text ?? '')
     : songPick
       ? (cursorSong.data?.slides[songPick.stanza]?.text ?? '')
-      : '';
+      : docPick
+        ? (cursorDoc.data?.body[docPick.unit]?.text ?? '')
+        : '';
   const cursorRef = passage
     ? formatReference(
         cursorBooks.data?.find((b) => b.bookNumber === passage.bookNumber) ?? null,
@@ -571,9 +593,14 @@ export function Remote() {
           n: songPick.stanza + 1,
           total: cursorSong.data.slides.length,
         })}`
-      : '';
+      : docPick && cursorDoc.data
+        ? `${cursorDoc.data.title} · ${tr('абзац {n}/{total}', {
+            n: docPick.unit + 1,
+            total: cursorDoc.data.body.length,
+          })}`
+        : '';
   // walking needs the right to choose what the cursor holds
-  const walks = passage ? canVerses : songPick ? canSongs : false;
+  const walks = passage ? canVerses : songPick ? canSongs : docPick ? canDocs : false;
 
   if (state.kind === 'denied') {
     return (
@@ -733,6 +760,8 @@ export function Remote() {
                 canShow={canShow}
                 verses={canVerses}
                 songs={canSongs}
+                documents={canDocs}
+                token={token}
                 onPick={(t, show) => {
                   if (t.kind === 'verses') remember(TRANSLATIONS_KEY, t.passage.translationIds);
                   press(show ? 'show' : 'pick', t);
@@ -920,11 +949,19 @@ export function Remote() {
                 disabled={!ready}
                 onClick={() => setPickerOpen(true)}
               >
-                {canVerses && canSongs
-                  ? tr('Вибрати вірш або пісню…')
-                  : canSongs
-                    ? tr('Вибрати пісню…')
-                    : tr('Вибрати вірш…')}
+                {canDocs
+                  ? canVerses && canSongs
+                    ? tr('Вибрати вірш, пісню чи документ…')
+                    : canVerses
+                      ? tr('Вибрати вірш чи документ…')
+                      : canSongs
+                        ? tr('Вибрати пісню чи документ…')
+                        : tr('Вибрати абзац документа…')
+                  : canVerses && canSongs
+                    ? tr('Вибрати вірш або пісню…')
+                    : canSongs
+                      ? tr('Вибрати пісню…')
+                      : tr('Вибрати вірш…')}
               </button>
             )}
 

@@ -79,18 +79,19 @@ does nothing there.
 
 Each permission is turned on separately for each remote:
 
-| Permission          | What the speaker can do                                                         |
-| ------------------- | ------------------------------------------------------------------------------- |
-| **Next**, **Back**  | step through the show                                                           |
-| **Hide text**       | hide the text and bring it back                                                 |
-| **Black screen**    | turn the black screen on and off                                                |
-| **To screen**       | put on screen what the operator prepared in the preview (the **Preview** block) |
-| **Choosing verses** | choose a verse on the phone                                                     |
-| **Songs**           | choose a song and a stanza                                                      |
-| **Running order**   | see the running order, show the next item, add the own choice to it             |
-| **Cover**           | turn the cover on and off                                                       |
-| **Countdown**       | start a countdown, pause it, remove it                                          |
-| **Speaker timer**   | start their own timer, pause it, add or take a minute, stop it (a phone only)   |
+| Permission          | What the speaker can do                                                          |
+| ------------------- | -------------------------------------------------------------------------------- |
+| **Next**, **Back**  | step through the show                                                            |
+| **Hide text**       | hide the text and bring it back                                                  |
+| **Black screen**    | turn the black screen on and off                                                 |
+| **To screen**       | put on screen what the operator prepared in the preview (the **Preview** block)  |
+| **Choosing verses** | choose a verse on the phone                                                      |
+| **Songs**           | choose a song and a stanza                                                       |
+| **Running order**   | see the running order, show the next item, add the own choice to it              |
+| **Cover**           | turn the cover on and off                                                        |
+| **Countdown**       | start a countdown, pause it, remove it                                           |
+| **Speaker timer**   | start their own timer, pause it, add or take a minute, stop it (a phone only)    |
+| **Documents**       | choose a document and a paragraph, see the documents on the phone (a phone only) |
 
 On a phone with **Countdown** there is a length field and **Start the countdown**: type minutes
 (5 or 7:30) or leave the field empty for the length saved in the control window. While the
@@ -124,6 +125,12 @@ opens the first verse found when no book matches what you typed.
 The choice becomes the speaker's own preview — the **Your preview** block. Now **Next** and
 **Back** step through it, and the operator's selection in the control window doesn't change.
 To step along with the operator again, the speaker taps ✕ in the **Your preview** block.
+
+With the **Documents** permission the choice has **Документи** (Documents) too: the speaker
+chooses a document (the **Document title…** field narrows the list), taps a paragraph and taps
+**To preview** or **To screen**. Then **Next** and **Back** step through that document's
+paragraphs, as through a song's stanzas. Without this permission no document reaches the phone at
+all: they are the operator's texts.
 
 While the speaker steps through their own preview, a **Remote** monitor with the phone's
 choice appears in the control window. With the buttons on that monitor the operator can put

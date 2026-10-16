@@ -14,6 +14,7 @@ import {
   asTimer,
   asPassage,
   asSong,
+  asDoc,
   commands,
   targetArgs,
   type RemoteTarget,
@@ -183,13 +184,16 @@ export function useHub({
           typeof f.cmd === 'string' &&
           f.cmd in REMOTE_LABEL &&
           f.cmd !== 'songs' &&
-          f.cmd !== 'playlist'
+          f.cmd !== 'playlist' &&
+          f.cmd !== 'documents'
         ) {
-          const cmd = f.cmd as Exclude<RemoteCommand, 'songs' | 'playlist'>;
+          const cmd = f.cmd as Exclude<RemoteCommand, 'songs' | 'playlist' | 'documents'>;
           const from = String(f.from ?? '');
           const id = typeof f.id === 'string' ? f.id : `ws-${Date.now()}`;
           const passage = asPassage(f.passage);
           const song = passage ? undefined : asSong(f.song);
+          // a document's paragraph (1.18.0-beta.7)
+          const doc = passage || song ? undefined : asDoc(f.doc);
           const item = typeof f.item === 'string' ? f.item : undefined;
           const countdown = asCountdown(f.countdown);
           const held = f.held === true; // a desk's key held down (1.10.6)
@@ -200,7 +204,7 @@ export function useHub({
               id,
               cmd,
               { kind: 'remote', name: from },
-              { passage, song, item, countdown, timer, held },
+              { passage, song, doc, item, countdown, timer, held },
             ),
           );
           void done.then((outcome) => {

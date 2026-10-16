@@ -10,6 +10,7 @@ import {
   sanitizeCountdown,
   sanitizeTimer,
   sanitizeSong,
+  sanitizeDoc,
   touchPairing,
   type RemoteAction,
 } from './remote.js';
@@ -421,10 +422,13 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   if (msg.passage !== undefined && !passage) return reject(N_('Неправильний уривок'));
   const song = msg.song === undefined || passage ? null : sanitizeSong(msg.song);
   if (msg.song !== undefined && !passage && !song) return reject(N_('Неправильна строфа'));
-  const rawItem = passage || song ? undefined : msg.item;
+  // a document's paragraph (1.18.0-beta.7)
+  const doc = msg.doc === undefined || passage || song ? null : sanitizeDoc(msg.doc);
+  if (msg.doc !== undefined && !passage && !song && !doc) return reject(N_('Неправильний абзац'));
+  const rawItem = passage || song || doc ? undefined : msg.item;
   const item = typeof rawItem === 'string' && /^[\w-]{1,80}$/.test(rawItem) ? rawItem : null;
   if (rawItem !== undefined && !item) return reject(N_('Неправильний елемент'));
-  if (cmd === 'pick' && !passage && !song && !item) return reject(N_('Не вибрано вірш'));
+  if (cmd === 'pick' && !passage && !song && !doc && !item) return reject(N_('Не вибрано вірш'));
   if (cmd === 'queue' && !passage && !song) return reject(N_('Нічого додати'));
   // «Відлік» says what to do with it (1.9.0-beta.10)
   const countdown = cmd === 'countdown' ? sanitizeCountdown(msg.countdown) : null;
@@ -437,6 +441,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   // each ability on its own, per remote
   if (passage && !p.allowed.includes('pick')) return reject(N_('Вибір віршів пульту не дозволено'));
   if (song && !p.allowed.includes('songs')) return reject(N_('Пісні пульту не дозволено'));
+  if (doc && !p.allowed.includes('documents')) return reject(N_('Документи пульту не дозволено'));
   if ((item || cmd === 'queue') && !p.allowed.includes('playlist')) {
     return reject(N_('Послідовність пульту не дозволено'));
   }
@@ -474,6 +479,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
       from: p.name,
       ...(passage ? { passage } : {}),
       ...(song ? { song } : {}),
+      ...(doc ? { doc } : {}),
       ...(item ? { item } : {}),
       ...(countdown ? { countdown } : {}),
       ...(timer ? { timer } : {}),

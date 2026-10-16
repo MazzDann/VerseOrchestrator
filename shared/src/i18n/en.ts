@@ -2589,4 +2589,17 @@ export const EN: Record<string, string> = {
   // «Графіки для дипломної» (1.18.0-beta.6), review
   'Не вдалося зберегти графік як PNG — збережіть SVG':
     'Couldn’t save the chart as PNG — save the SVG',
+  // «Документи на пульті» (1.18.0-beta.7)
+  'Вибрати абзац документа…': 'Choose a paragraph of a document…',
+  'Вибрати вірш чи документ…': 'Choose a verse or a document…',
+  'Вибрати вірш, пісню чи документ…': 'Choose a verse, a song or a document…',
+  'Вибрати пісню чи документ…': 'Choose a song or a document…',
+  Документ: 'Document',
+  'Документи пульту не дозволено': 'Documents aren’t allowed for this remote',
+  'Документів немає.': 'There are no documents.',
+  'Назва документа…': 'Document title…',
+  'Неправильний абзац': 'Invalid paragraph',
+  'Пульту це не дозволено': 'This remote isn’t allowed to do that',
+  'Такого абзацу немає': 'There is no such paragraph',
+  'абзац {n}/{total}': 'paragraph {n}/{total}',
 };

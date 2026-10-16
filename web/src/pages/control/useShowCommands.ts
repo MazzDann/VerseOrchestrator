@@ -26,6 +26,7 @@ import {
   type RemoteTimer,
   type RemotePassage,
   type RemoteSong,
+  type RemoteDoc,
   type RemoteTarget,
   type ShowToggle,
   toggleOf,
@@ -198,7 +199,9 @@ export function useShowCommands({
       ? { kind: 'verses', passage: args.passage }
       : args.song
         ? { kind: 'song', song: args.song }
-        : null;
+        : args.doc
+          ? { kind: 'doc', doc: args.doc }
+          : null;
     if (cmd === 'show') return target ? showRemote(target, by) : showPreview();
     if (cmd === 'pick') {
       return target
@@ -292,8 +295,34 @@ export function useShowCommands({
     };
   }
 
+  /**
+   * A document's paragraph chosen on a remote (1.18.0-beta.7), in the operator's style — as the
+   * documents panel puts one on screen; «абзац 3 з 40» on «Сцена».
+   */
+  async function remoteDocSlide(p: RemoteDoc, by: string): Promise<Slide> {
+    const d = await queryClient.fetchQuery({
+      queryKey: ['document', p.docId],
+      queryFn: () => api.document(p.docId),
+    });
+    const u = d.body[p.unit];
+    if (!u) throw new Error(tr('Такого абзацу немає'));
+    return {
+      lines: [{ translationAbbr: '', text: u.text, rtl: false }],
+      reference: d.title,
+      blank: false,
+      visible: true,
+      style: slideStyle,
+      template: slideTemplate,
+      source: { kind: 'doc', docId: p.docId, unit: p.unit, by, total: d.body.length },
+    };
+  }
+
   const buildRemote = (t: RemoteTarget, by: string) =>
-    t.kind === 'verses' ? remoteSlide(t.passage, by) : remoteSongSlide(t.song, by);
+    t.kind === 'verses'
+      ? remoteSlide(t.passage, by)
+      : t.kind === 'song'
+        ? remoteSongSlide(t.song, by)
+        : remoteDocSlide(t.doc, by);
 
   /** A running-order item as a remote target (a free-text item has none). */
   const itemTarget = (it: SeqItem): RemoteTarget | null =>
@@ -309,7 +338,10 @@ export function useShowCommands({
         }
       : it.kind === 'song'
         ? { kind: 'song', song: { songId: it.songId, stanza: 0 } }
-        : null;
+        : // a document (1.18.0-beta.7): its first paragraph, then the speaker's cursor walks it
+          it.kind === 'doc'
+          ? { kind: 'doc', doc: { docId: it.docId, unit: 0 } }
+          : null;
 
   /**
    * A running-order item shown from a remote (0.6.9) — built like the speaker's own choice
@@ -415,6 +447,9 @@ export function useShowCommands({
           p.verses,
         ) || tr('Уривок');
       playlistAdd({ kind: 'passage', label, ...p });
+    } else if (t.kind === 'doc') {
+      // the hub adds only passages and songs from a phone
+      return { ok: false, reason: tr('Нічого додати') };
     } else {
       const s = await queryClient.fetchQuery({
         queryKey: ['song', t.song.songId],

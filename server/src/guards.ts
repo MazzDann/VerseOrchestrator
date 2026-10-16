@@ -1,6 +1,7 @@
 import type express from 'express';
 import { N_ } from '@vo/shared';
 import { isLocalRequest } from './access.js';
+import { findByToken, type RemoteCommand } from './remote.js';
 
 /** A request the control window on this machine sent (requireLocalControl lets it through). */
 export const isLocalControl = (req: express.Request) =>
@@ -20,6 +21,20 @@ export const requireLocalControl: express.RequestHandler = (req, res, next) => {
   }
   next();
 };
+
+/**
+ * Reads of the operator's own texts (1.18.0-beta.7: the documents) — this machine, or a speaker
+ * remote the operator allowed to read them: its token in `X-VO-Remote` (a header, never in the
+ * address), a pairing with `permission`. Anyone else on the LAN gets nothing.
+ */
+export const requireLocalOrRemote =
+  (permission: RemoteCommand): express.RequestHandler =>
+  (req, res, next) => {
+    if (isLocalRequest(req)) return next();
+    const p = findByToken(req.get('x-vo-remote'));
+    if (p?.allowed.includes(permission)) return next();
+    res.status(403).json({ error: N_('Пульту це не дозволено') });
+  };
 
 /** Reads only this machine may make (the remote list, the server's options). */
 export const requireLocal: express.RequestHandler = (req, res, next) => {
