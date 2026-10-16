@@ -121,6 +121,37 @@ const DiskPartSchema = z.object({
   removable: z.boolean(),
 });
 export type DiskPart = z.infer<typeof DiskPartSchema>;
+const LibraryStatsSchema = z.object({
+  translations: z.array(
+    z.object({
+      id: z.number(),
+      abbr: z.string(),
+      title: z.string(),
+      language: z.string(),
+      hasStrong: z.boolean(),
+      books: z.number(),
+      verses: z.number(),
+      words: z.number(),
+      strongTags: z.number(),
+      subheadings: z.number(),
+    }),
+  ),
+  dictionaries: z.array(
+    z.object({
+      abbr: z.string(),
+      name: z.string(),
+      language: z.string(),
+      strong: z.boolean(),
+      entries: z.number(),
+    }),
+  ),
+  commentaries: z.array(z.object({ source: z.string(), notes: z.number() })),
+  crossReferences: z.number(),
+  subheadingSets: z.array(z.object({ abbr: z.string(), title: z.string(), titles: z.number() })),
+  songs: z.array(z.object({ bundle: z.string(), songs: z.number(), stanzas: z.number() })),
+  documents: z.object({ documents: z.number(), units: z.number(), refs: z.number() }),
+});
+export type LibraryStats = z.infer<typeof LibraryStatsSchema>;
 /** «Статистика показу» (1.18.0-beta.4, server/src/stats.ts): what was on screen, summed up. */
 const ShownKindSchema = z.enum([
   'verses',
@@ -801,6 +832,9 @@ export const api = {
       (l) => l.listSubheadingSets(),
       '/api/subheading-sets',
     ).catch(() => []),
+  /** «Статистика бібліотеки» (1.18.0-beta.5): what the library holds — the server's, or this browser's. */
+  libraryStats: () =>
+    fromLibrary(LibraryStatsSchema, (l) => l.libraryStats(), '/api/library/stats'),
   setSubheadings: (id: number, book: number, chapter: number) =>
     fromLibrary(
       z.array(z.object({ verse: z.number(), title: z.string() })),

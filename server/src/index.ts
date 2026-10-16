@@ -1134,6 +1134,33 @@ app.get(
   wrap(async (_req, res) => res.json(libraryInfo())),
 );
 
+/**
+ * «Статистика бібліотеки» (1.18.0-beta.5): counting the words of every verse takes a second or two
+ * on a big library (1.8 s for 537 000 verses) — counted once per library file, kept until it changes
+ * (a rebuild, a document read into it).
+ */
+let libraryCounted: { key: string; stats: Promise<unknown> } | null = null;
+app.get(
+  '/api/library/stats',
+  wrap(async (_req, res) => {
+    const st = fs.statSync(libraryPath, { throwIfNoEntry: false });
+    // no library yet: its own answer says so («Бібліотеки ще немає»), nothing to keep
+    if (!st) return res.json(await library().libraryStats());
+    // a write that stays in the WAL (songs, a document read in) changes the library too (review)
+    const wal = fs.statSync(`${libraryPath}-wal`, { throwIfNoEntry: false });
+    const key = `${st.size}:${st.mtimeMs}:${wal?.size ?? 0}:${wal?.mtimeMs ?? 0}`;
+    if (libraryCounted?.key !== key) {
+      const stats = library().libraryStats();
+      libraryCounted = { key, stats };
+      // a count that failed is tried again next time
+      stats.catch(() => {
+        if (libraryCounted?.stats === stats) libraryCounted = null;
+      });
+    }
+    res.json(await libraryCounted.stats);
+  }),
+);
+
 app.get(
   '/api/translations/:id/books',
   wrap(async (req, res) =>

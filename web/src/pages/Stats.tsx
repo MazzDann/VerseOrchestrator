@@ -12,6 +12,7 @@ import {
   SimpleGrid,
   Stack,
   Table,
+  Tabs,
   Text,
   Title,
   Tooltip,
@@ -21,6 +22,7 @@ import { IconChartBar, IconDownload, IconTrash } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type ShownKind, type StatsSummary } from '../api';
 import { probeServer, useServer } from '../serverStore';
+import { useDataSource, useEffectiveSource } from '../dataSourceStore';
 import { currentLocale, fmtNumber, N_, tr, trn, useLang } from '../i18n';
 
 /**
@@ -72,11 +74,39 @@ const shows = (n: number) => trn(n, '{n} показ|{n} покази|{n} пок�
 
 export function Stats() {
   useLang();
-  const serverAvailable = useServer((s) => s.available);
   useEffect(() => {
     void probeServer();
-    document.title = `VerseOrchestrator — ${tr('Статистика показу')}`;
+    document.title = `VerseOrchestrator — ${tr('Статистика')}`;
   }, []);
+  return (
+    <ScrollArea style={{ height: '100vh' }} type="auto">
+      <Box maw={1100} mx="auto" px="md" py="lg">
+        <Group gap={8} mb="sm">
+          <IconChartBar size={22} />
+          <Title order={4}>{tr('Статистика')}</Title>
+        </Group>
+        {/* the library's counts only when asked: a big library takes a second or two */}
+        <Tabs defaultValue="show" keepMounted={false}>
+          <Tabs.List mb="md">
+            <Tabs.Tab value="show">{tr('Покази')}</Tabs.Tab>
+            <Tabs.Tab value="library">{tr('Бібліотека')}</Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="show">
+            <ShowStats />
+          </Tabs.Panel>
+          <Tabs.Panel value="library">
+            <LibraryCounts />
+          </Tabs.Panel>
+        </Tabs>
+      </Box>
+    </ScrollArea>
+  );
+}
+
+/** «Статистика показу» (1.18.0-beta.4): what was on screen over a period. */
+function ShowStats() {
+  useLang();
+  const serverAvailable = useServer((s) => s.available);
   const [period, setPeriod] = useState<Period>('30');
   const queryClient = useQueryClient();
   const summary = useQuery({
@@ -91,190 +121,184 @@ export function Stats() {
   const s = summary.data;
 
   return (
-    <ScrollArea style={{ height: '100vh' }} type="auto">
-      <Box maw={1100} mx="auto" px="md" py="lg">
-        <Group justify="space-between" mb="md" gap="sm">
-          <Group gap={8}>
-            <IconChartBar size={22} />
-            <Title order={4}>{tr('Статистика показу')}</Title>
-          </Group>
-          <Group gap="xs">
-            <SegmentedControl
-              size="xs"
-              value={period}
-              onChange={(v) => setPeriod(v as Period)}
-              data={[
-                { value: '7', label: tr('7 днів') },
-                { value: '30', label: tr('30 днів') },
-                { value: '365', label: tr('Рік') },
-                { value: 'all', label: tr('Усе') },
-              ]}
-            />
-            <Button
-              size="xs"
-              variant="default"
-              component="a"
-              href={api.statsExportUrl(periodFrom(period, Date.now()), Date.now() + 1)}
-              download
-              leftSection={<IconDownload size={14} />}
-              disabled={!s?.total.shows}
-            >
-              {tr('Експорт CSV')}
-            </Button>
-            <ClearStats
-              disabled={!serverAvailable}
-              onCleared={() => void queryClient.invalidateQueries({ queryKey: ['stats'] })}
-            />
-          </Group>
+    <>
+      <Group justify="flex-end" mb="md" gap="sm">
+        <Group gap="xs">
+          <SegmentedControl
+            size="xs"
+            value={period}
+            onChange={(v) => setPeriod(v as Period)}
+            data={[
+              { value: '7', label: tr('7 днів') },
+              { value: '30', label: tr('30 днів') },
+              { value: '365', label: tr('Рік') },
+              { value: 'all', label: tr('Усе') },
+            ]}
+          />
+          <Button
+            size="xs"
+            variant="default"
+            component="a"
+            href={api.statsExportUrl(periodFrom(period, Date.now()), Date.now() + 1)}
+            download
+            leftSection={<IconDownload size={14} />}
+            disabled={!s?.total.shows}
+          >
+            {tr('Експорт CSV')}
+          </Button>
+          <ClearStats
+            disabled={!serverAvailable}
+            onCleared={() => void queryClient.invalidateQueries({ queryKey: ['stats'] })}
+          />
         </Group>
+      </Group>
 
-        {serverAvailable === false ? (
-          <Paper withBorder p="md">
-            <Text size="sm">
-              {tr(
-                'Статистику веде сервер застосунку. Запустіть застосунок (start.cmd, start.command або start.sh) — без нього, у режимі «у браузері», покази не записуються.',
-              )}
-            </Text>
-          </Paper>
-        ) : !s ? (
-          summary.isError ? (
-            <Text size="sm" c="red">
-              {(summary.error as Error).message}
-            </Text>
-          ) : (
-            <Loader size="sm" />
-          )
-        ) : s.total.shows === 0 && s.forgotten.length === 0 ? (
-          <Paper withBorder p="md">
-            <Text size="sm">
-              {tr(
-                'За цей час нічого не показано. Застосунок записує все, що виходить на екран: уривки, пісні, документи, зображення — з датою й тривалістю.',
-              )}
-            </Text>
-          </Paper>
+      {serverAvailable === false ? (
+        <Paper withBorder p="md">
+          <Text size="sm">
+            {tr(
+              'Статистику веде сервер застосунку. Запустіть застосунок (start.cmd, start.command або start.sh) — без нього, у режимі «у браузері», покази не записуються.',
+            )}
+          </Text>
+        </Paper>
+      ) : !s ? (
+        summary.isError ? (
+          <Text size="sm" c="red">
+            {(summary.error as Error).message}
+          </Text>
         ) : (
-          <Stack gap="md">
-            <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="sm">
-              <Tile label={tr('Показів')} value={fmtNumber(s.total.shows)} />
-              <Tile label={tr('На екрані')} value={fmtSpan(s.total.ms)} />
-              <Tile label={tr('Днів із показом')} value={fmtNumber(s.total.days)} />
-            </SimpleGrid>
+          <Loader size="sm" />
+        )
+      ) : s.total.shows === 0 && s.forgotten.length === 0 ? (
+        <Paper withBorder p="md">
+          <Text size="sm">
+            {tr(
+              'За цей час нічого не показано. Застосунок записує все, що виходить на екран: уривки, пісні, документи, зображення — з датою й тривалістю.',
+            )}
+          </Text>
+        </Paper>
+      ) : (
+        <Stack gap="md">
+          <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="sm">
+            <Tile label={tr('Показів')} value={fmtNumber(s.total.shows)} />
+            <Tile label={tr('На екрані')} value={fmtSpan(s.total.ms)} />
+            <Tile label={tr('Днів із показом')} value={fmtNumber(s.total.days)} />
+          </SimpleGrid>
 
+          <Card
+            title={
+              period === '7' || period === '30' ? tr('Покази по днях') : tr('Покази по місяцях')
+            }
+          >
+            <Columns summary={s} period={period} />
+          </Card>
+
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
             <Card
-              title={
-                period === '7' || period === '30' ? tr('Покази по днях') : tr('Покази по місяцях')
-              }
+              title={tr('Пісні')}
+              empty={s.songs.length === 0 ? tr('Пісень за цей час не показували.') : null}
             >
-              <Columns summary={s} period={period} />
+              <BarList
+                rows={s.songs.slice(0, 15).map((x) => ({
+                  key: x.songId,
+                  label: x.label,
+                  value: x.shows,
+                  hint: tr('{shows}, на екрані {time}, востаннє {date}', {
+                    shows: shows(x.shows),
+                    time: fmtSpan(x.ms),
+                    date: fmtDate(x.last),
+                  }),
+                }))}
+              />
+              {s.forgotten.length > 0 && (
+                <>
+                  <Text size="sm" fw={500} mt="md" mb={4}>
+                    {tr('Давно не співали')}
+                  </Text>
+                  <Text size="xs" c="dimmed" mb={6}>
+                    {tr('Пісні, які показували раніше, але не за останні вісім тижнів.')}
+                  </Text>
+                  <Stack gap={2}>
+                    {s.forgotten.map((f) => (
+                      <Group key={f.songId} justify="space-between" gap="xs" wrap="nowrap">
+                        <Text size="sm" truncate>
+                          {f.label}
+                        </Text>
+                        <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                          {tr('{shows}, востаннє {date}', {
+                            shows: shows(f.shows),
+                            date: fmtDate(f.last),
+                          })}
+                        </Text>
+                      </Group>
+                    ))}
+                  </Stack>
+                </>
+              )}
             </Card>
 
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-              <Card
-                title={tr('Пісні')}
-                empty={s.songs.length === 0 ? tr('Пісень за цей час не показували.') : null}
-              >
-                <BarList
-                  rows={s.songs.slice(0, 15).map((x) => ({
-                    key: x.songId,
-                    label: x.label,
-                    value: x.shows,
-                    hint: tr('{shows}, на екрані {time}, востаннє {date}', {
-                      shows: shows(x.shows),
-                      time: fmtSpan(x.ms),
-                      date: fmtDate(x.last),
-                    }),
-                  }))}
-                />
-                {s.forgotten.length > 0 && (
-                  <>
-                    <Text size="sm" fw={500} mt="md" mb={4}>
-                      {tr('Давно не співали')}
-                    </Text>
-                    <Text size="xs" c="dimmed" mb={6}>
-                      {tr('Пісні, які показували раніше, але не за останні вісім тижнів.')}
-                    </Text>
-                    <Stack gap={2}>
-                      {s.forgotten.map((f) => (
-                        <Group key={f.songId} justify="space-between" gap="xs" wrap="nowrap">
-                          <Text size="sm" truncate>
-                            {f.label}
-                          </Text>
-                          <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                            {tr('{shows}, востаннє {date}', {
-                              shows: shows(f.shows),
-                              date: fmtDate(f.last),
-                            })}
-                          </Text>
-                        </Group>
-                      ))}
-                    </Stack>
-                  </>
-                )}
-              </Card>
+            <Card
+              title={tr('Книги Біблії')}
+              empty={s.books.length === 0 ? tr('Уривків за цей час не показували.') : null}
+            >
+              <BookMap books={s.books} />
+              {s.passages.length > 0 && (
+                <>
+                  <Text size="sm" fw={500} mt="md" mb={6}>
+                    {tr('Найчастіші уривки')}
+                  </Text>
+                  <BarList
+                    rows={s.passages.slice(0, 10).map((p, i) => ({
+                      key: i,
+                      label: p.label,
+                      value: p.shows,
+                      hint: tr('{shows}, востаннє {date}', {
+                        shows: shows(p.shows),
+                        date: fmtDate(p.last),
+                      }),
+                    }))}
+                  />
+                </>
+              )}
+            </Card>
 
-              <Card
-                title={tr('Книги Біблії')}
-                empty={s.books.length === 0 ? tr('Уривків за цей час не показували.') : null}
-              >
-                <BookMap books={s.books} />
-                {s.passages.length > 0 && (
-                  <>
-                    <Text size="sm" fw={500} mt="md" mb={6}>
-                      {tr('Найчастіші уривки')}
-                    </Text>
-                    <BarList
-                      rows={s.passages.slice(0, 10).map((p, i) => ({
-                        key: i,
-                        label: p.label,
-                        value: p.shows,
-                        hint: tr('{shows}, востаннє {date}', {
-                          shows: shows(p.shows),
-                          date: fmtDate(p.last),
-                        }),
-                      }))}
-                    />
-                  </>
-                )}
-              </Card>
+            <Card
+              title={tr('Документи')}
+              empty={s.docs.length === 0 ? tr('Документів за цей час не показували.') : null}
+            >
+              <BarList
+                rows={s.docs.map((x) => ({
+                  key: x.docId,
+                  label: x.label,
+                  value: x.shows,
+                  hint: tr('{shows}, на екрані {time}, востаннє {date}', {
+                    shows: shows(x.shows),
+                    time: fmtSpan(x.ms),
+                    date: fmtDate(x.last),
+                  }),
+                }))}
+              />
+            </Card>
 
-              <Card
-                title={tr('Документи')}
-                empty={s.docs.length === 0 ? tr('Документів за цей час не показували.') : null}
-              >
-                <BarList
-                  rows={s.docs.map((x) => ({
-                    key: x.docId,
-                    label: x.label,
-                    value: x.shows,
-                    hint: tr('{shows}, на екрані {time}, востаннє {date}', {
-                      shows: shows(x.shows),
-                      time: fmtSpan(x.ms),
-                      date: fmtDate(x.last),
-                    }),
-                  }))}
-                />
-              </Card>
+            <Card title={tr('Що показували')}>
+              <BarList
+                rows={s.kinds.map((k) => ({
+                  key: k.kind,
+                  label: tr(KIND[k.kind]),
+                  value: k.shows,
+                  hint: tr('{shows}, на екрані {time}', {
+                    shows: shows(k.shows),
+                    time: fmtSpan(k.ms),
+                  }),
+                }))}
+              />
+            </Card>
+          </SimpleGrid>
 
-              <Card title={tr('Що показували')}>
-                <BarList
-                  rows={s.kinds.map((k) => ({
-                    key: k.kind,
-                    label: tr(KIND[k.kind]),
-                    value: k.shows,
-                    hint: tr('{shows}, на екрані {time}', {
-                      shows: shows(k.shows),
-                      time: fmtSpan(k.ms),
-                    }),
-                  }))}
-                />
-              </Card>
-            </SimpleGrid>
-
-            <DayReport days={s.days.map((d) => d.day)} />
-          </Stack>
-        )}
-      </Box>
-    </ScrollArea>
+          <DayReport days={s.days.map((d) => d.day)} />
+        </Stack>
+      )}
+    </>
   );
 }
 
@@ -606,5 +630,211 @@ function ClearStats({ disabled, onCleared }: { disabled: boolean; onCleared: () 
         </Group>
       </Popover.Dropdown>
     </Popover>
+  );
+}
+
+/** a number in a table cell, the language's way; none as a dash */
+const num = (n: number) => (n ? fmtNumber(n) : '—');
+
+/** the parts of «Місце на диску» that are the library and what it is read from */
+const DISK_PARTS: Partial<Record<string, string>> = {
+  library: N_('Бібліотека (library.db)'),
+  modules: N_('Модулі'),
+  segments: N_('Сегменти для браузера'),
+  vectors: N_('Вектори'),
+  images: N_('Зображення'),
+  stats: N_('Статистика показу'),
+};
+
+/**
+ * «Статистика бібліотеки» (1.18.0-beta.5): what the library holds — from the server, or from this
+ * browser's own engine in «у браузері» (the same shared query, queries.ts `libraryStats`).
+ */
+function LibraryCounts() {
+  useLang();
+  const serverAvailable = useServer((s) => s.available);
+  // the server's library or this browser's: each counted on its own (review)
+  const source = useEffectiveSource();
+  const engine = useDataSource((s) => s.engine);
+  const counts = useQuery({
+    queryKey: ['library-stats', source, engine],
+    queryFn: api.libraryStats,
+    staleTime: 5 * 60_000,
+  });
+  const disk = useQuery({
+    queryKey: ['disk'],
+    queryFn: api.disk,
+    enabled: serverAvailable === true,
+    staleTime: 60_000,
+  });
+  const l = counts.data;
+  if (!l)
+    return counts.isError ? (
+      <Text size="sm" c="red">
+        {(counts.error as Error).message}
+      </Text>
+    ) : (
+      <Group gap="xs">
+        <Loader size="xs" />
+        <Text size="sm" c="dimmed">
+          {tr('Рахую вірші й слова…')}
+        </Text>
+      </Group>
+    );
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+  const sizes = (disk.data?.parts ?? []).filter((p) => DISK_PARTS[p.id] && !p.sub);
+  return (
+    <Stack gap="md">
+      <SimpleGrid cols={{ base: 2, xs: 3, md: 6 }} spacing="sm">
+        <Tile label={tr('Перекладів')} value={fmtNumber(l.translations.length)} />
+        <Tile label={tr('Віршів')} value={fmtNumber(sum(l.translations.map((t) => t.verses)))} />
+        <Tile label={tr('Слів')} value={fmtNumber(sum(l.translations.map((t) => t.words)))} />
+        <Tile
+          label={tr('Словникових статей')}
+          value={fmtNumber(sum(l.dictionaries.map((d) => d.entries)))}
+        />
+        <Tile label={tr('Пісень')} value={fmtNumber(sum(l.songs.map((s) => s.songs)))} />
+        <Tile label={tr('Документів')} value={fmtNumber(l.documents.documents)} />
+      </SimpleGrid>
+
+      <Card
+        title={tr('Переклади')}
+        empty={l.translations.length ? null : tr('У бібліотеці немає перекладів.')}
+      >
+        <Table.ScrollContainer minWidth={640}>
+          <Table striped fz="sm" verticalSpacing={4}>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>{tr('Переклад')}</Table.Th>
+                <Table.Th w={70}>{tr('Мова')}</Table.Th>
+                <Table.Th w={70} ta="right">
+                  {tr('Книг')}
+                </Table.Th>
+                <Table.Th w={90} ta="right">
+                  {tr('Віршів')}
+                </Table.Th>
+                <Table.Th w={110} ta="right">
+                  {tr('Слів')}
+                </Table.Th>
+                <Table.Th w={110} ta="right">
+                  {tr('Номерів Стронга')}
+                </Table.Th>
+                <Table.Th w={110} ta="right">
+                  {tr('Підзаголовків')}
+                </Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {l.translations.map((t) => (
+                <Table.Tr key={t.id}>
+                  <Table.Td>
+                    <Text span size="sm" fw={500}>
+                      {t.abbr}
+                    </Text>
+                    {t.title ? (
+                      <Text span size="xs" c="dimmed" ml={6}>
+                        {t.title}
+                      </Text>
+                    ) : null}
+                  </Table.Td>
+                  <Table.Td c="dimmed">{t.language}</Table.Td>
+                  <Table.Td ta="right">{num(t.books)}</Table.Td>
+                  <Table.Td ta="right">{num(t.verses)}</Table.Td>
+                  <Table.Td ta="right">{num(t.words)}</Table.Td>
+                  <Table.Td ta="right">{num(t.strongTags)}</Table.Td>
+                  <Table.Td ta="right">{num(t.subheadings)}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      </Card>
+
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        <Card
+          title={tr('Словники')}
+          empty={l.dictionaries.length ? null : tr('Словників у бібліотеці немає.')}
+        >
+          <BarList
+            rows={l.dictionaries.map((d) => ({
+              key: d.abbr,
+              label: d.name || d.abbr,
+              value: d.entries,
+              hint: [d.abbr, d.language, d.strong ? tr('словник Стронга') : '']
+                .filter(Boolean)
+                .join(' · '),
+            }))}
+          />
+        </Card>
+        <Card title={tr('Пісні')} empty={l.songs.length ? null : tr('Пісень у бібліотеці немає.')}>
+          <BarList
+            rows={l.songs.map((s) => ({
+              key: s.bundle,
+              label: s.bundle,
+              value: s.songs,
+              hint: tr('{songs}, {stanzas}', {
+                songs: trn(s.songs, '{n} пісня|{n} пісні|{n} пісень'),
+                stanzas: trn(s.stanzas, '{n} строфа|{n} строфи|{n} строф'),
+              }),
+            }))}
+          />
+        </Card>
+        <Card title={tr('Коментарі й посилання')}>
+          <Stack gap={4}>
+            {l.commentaries.map((c) => (
+              <Group key={c.source} justify="space-between" gap="xs" wrap="nowrap">
+                <Text size="sm" truncate>
+                  {c.source}
+                </Text>
+                <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                  {trn(c.notes, '{n} коментар|{n} коментарі|{n} коментарів')}
+                </Text>
+              </Group>
+            ))}
+            <Group justify="space-between" gap="xs">
+              <Text size="sm">{tr('Перехресні посилання')}</Text>
+              <Text size="xs" c="dimmed">
+                {num(l.crossReferences)}
+              </Text>
+            </Group>
+            {l.subheadingSets.map((x) => (
+              <Group key={x.abbr} justify="space-between" gap="xs" wrap="nowrap">
+                <Text size="sm" truncate>
+                  {x.title || x.abbr}
+                </Text>
+                <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                  {trn(x.titles, '{n} підзаголовок|{n} підзаголовки|{n} підзаголовків')}
+                </Text>
+              </Group>
+            ))}
+          </Stack>
+        </Card>
+        <Card title={tr('Документи')}>
+          <SimpleGrid cols={3} spacing="xs">
+            <Tile label={tr('Документів')} value={fmtNumber(l.documents.documents)} />
+            <Tile label={tr('Абзаців')} value={fmtNumber(l.documents.units)} />
+            <Tile label={tr('Посилань на Біблію')} value={fmtNumber(l.documents.refs)} />
+          </SimpleGrid>
+        </Card>
+      </SimpleGrid>
+
+      {sizes.length > 0 && (
+        <Card title={tr('На диску')}>
+          <BarList
+            rows={sizes.map((p) => ({
+              key: p.id,
+              label: tr(DISK_PARTS[p.id]!),
+              value: Math.round(p.bytes / 1048576),
+              hint: tr('{n} МБ', { n: fmtNumber(p.bytes / 1048576, { maximumFractionDigits: 1 }) }),
+            }))}
+          />
+          <Text size="xs" c="dimmed" mt={6}>
+            {tr(
+              'У мегабайтах. Усе, що застосунок зберігає, — у «Налаштування вигляду» → «Дані» → «Місце на диску».',
+            )}
+          </Text>
+        </Card>
+      )}
+    </Stack>
   );
 }

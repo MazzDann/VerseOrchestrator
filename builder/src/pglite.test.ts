@@ -246,6 +246,32 @@ describe('PostgreSQL (PGlite) answers like SQLite', () => {
     expect(await postgres.getSong(1)).toEqual(await sqlite.getSong(1));
   });
 
+  it('counts the library the same way (1.18.0-beta.5 «Статистика бібліотеки»)', async () => {
+    const s = await sqlite.libraryStats();
+    expect(await postgres.libraryStats()).toEqual(s);
+    expect(
+      s.translations.map((t) => [t.abbr, t.books, t.verses, t.strongTags, t.subheadings]),
+    ).toEqual([
+      ['KJV', 1, 1, 0, 1],
+      ['UKR', 3, 32, 2, 2],
+    ]);
+    // «For God so loved the world» — six words
+    expect(s.translations[0].words).toBe(6);
+    expect(s.dictionaries.map((d) => [d.abbr, d.entries, d.strong])).toEqual([
+      ['BD', 1, false],
+      ['SG', 1, true],
+      ['SH', 1, true],
+    ]);
+    expect(s.commentaries).toEqual([{ source: 'MH', notes: 2 }]);
+    expect(s.crossReferences).toBe(2);
+    expect(s.subheadingSets.map((x) => [x.abbr, x.titles])).toEqual([
+      ['KJV-s', 1],
+      ['Хом-д', 2],
+    ]);
+    expect(s.songs).toEqual([{ bundle: 'ПС', songs: 2, stanzas: 2 }]);
+    expect(s.documents).toEqual({ documents: 2, units: 4, refs: 2 });
+  });
+
   it('documents (1.17.0-beta.1): the list and one document the same way', async () => {
     const list = await sqlite.listDocuments();
     expect(list.map((d) => d.title)).toEqual(['Лекція', 'Проповідь']);
