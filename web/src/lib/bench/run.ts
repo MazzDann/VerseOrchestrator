@@ -63,7 +63,9 @@ async function measure(fn: () => Promise<unknown>, iterations: number): Promise<
     await fn();
     times.push(performance.now() - t);
   }
-  return { firstMs, ...timingStats(times), ...summarize(result) };
+  // the runs themselves (1.18.0-beta.6): to the hundredth of a millisecond, what performance.now() gives
+  const runs = times.map((x) => Math.round(x * 100) / 100);
+  return { firstMs, ...timingStats(times), times: runs, ...summarize(result) };
 }
 
 async function runCases(

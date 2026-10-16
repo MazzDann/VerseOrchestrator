@@ -10,15 +10,18 @@ import {
   Stack,
   Table,
   Text,
+  Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconCopy, IconDownload, IconPlayerPlay } from '@tabler/icons-react';
 import { probeServer, useServer } from '../serverStore';
 import { download, saveCsv } from '../lib/bench/files';
+import { Distribution } from './Distribution';
 import {
   payloads,
   runSyncBench,
   syncCsv,
+  syncSamplesCsv,
   TRANSPORT_NAME,
   TRANSPORTS,
   type SyncCell,
@@ -228,6 +231,16 @@ export function SyncBench() {
               >
                 JSON
               </Button>
+              <Tooltip label={tr('Кожен обмін окремим рядком — для власних графіків')}>
+                <Button
+                  size="xs"
+                  variant="default"
+                  leftSection={<IconDownload size={14} />}
+                  onClick={() => saveCsv(`vo-sync-samples-${stamp}.csv`, syncSamplesCsv(report))}
+                >
+                  {tr('Обміни CSV')}
+                </Button>
+              </Tooltip>
             </Group>
           </Group>
           <Table.ScrollContainer minWidth={760}>
@@ -300,6 +313,24 @@ export function SyncBench() {
               'Час — повний обмін (дані туди + підтвердження назад), медіана; під ним p95 і «блокує» — скільки вікно керування стоїть усередині відправлення (серіалізація, запис у localStorage): стільки інтерфейс не реагує на кожен показ.',
             )}
           </Text>
+          {/* «Графіки для дипломної» (1.18.0-beta.6): every exchange, per transport */}
+          <Text size="sm" fw={600} mt="lg" mb={4}>
+            {tr('Розподіл часу обміну')}
+          </Text>
+          <Distribution
+            fileName={`vo-sync-${stamp}`}
+            groups={kinds
+              .map((k) => ({
+                label: k.label,
+                rows: report.rows
+                  .filter((r) => r.cells[k.id]?.times?.length)
+                  .map((r) => ({
+                    label: TRANSPORT_NAME[r.transport],
+                    times: r.cells[k.id]!.times!,
+                  })),
+              }))
+              .filter((g) => g.rows.length > 0)}
+          />
         </Paper>
       )}
     </>

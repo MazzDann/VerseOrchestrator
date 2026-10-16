@@ -117,6 +117,47 @@ For 8 segments, the database took 229 MB in SQLite-WASM and 361 MB in PGlite. Wi
 SQLite-WASM, jumping between chapters took 550–750 ms against the server's 580–600 ms:
 the time goes to the UI, not to the engine.
 
+### The 1.18 run (2026-10-16)
+
+The same page in 1.18.0-beta.6, which keeps every timed run and draws its distribution:
+Chrome 155 (headless) on the development PC (8 cores), the server's library of 12 translations
+(278 MB), the browsers loading KJV+, UKRK, Strong's and the study notes (24 MB gzipped), 20 runs
+per query after a warm-up. Median / p95 in milliseconds:
+
+| Measure                    | Server (HTTP) | SQLite-WASM | PGlite      |
+| -------------------------- | ------------- | ----------- | ----------- |
+| Engine start               | —             | 79          | 2 108       |
+| Loading the segments       | —             | 1 378       | 16 031      |
+| Database size              | 278 MB        | 78 MB       | 153 MB      |
+| Snapshot: save / reopen    | —             | 60 / 9      | 390 / 568   |
+| Chapter «Від Івана 3»      | 2.4 / 3.0     | 0.7 / 1.8   | 1.6 / 2.1   |
+| Reference «Ів 3:16»        | 2.8 / 3.7     | 0.9 / 2.0   | 3.1 / 6.5   |
+| Word «любов»               | 4.8 / 6.1     | 3.4 / 4.9   | 6.9 / 8.3   |
+| Frequent word «бог»        | 16.4 / 19.7   | 12.2 / 13.2 | 26.1 / 30.9 |
+| Phrase «"син чоловічий"»   | 3.3 / 4.1     | 1.6 / 2.9   | 5.3 / 7.9   |
+| Strong's concordance       | 2.8 / 4.2     | 1.7 / 2.3   | 3.9 / 6.8   |
+| Cross-references «Ів 3:16» | 2.2 / 2.9     | 0.3 / 0.4   | 1.0 / 1.4   |
+
+SQLite-WASM answers fastest: no HTTP round trip (the server's ≈ 2 ms floor) and FTS5 over a
+smaller database. PGlite pays for a Postgres start (2.1 s) and a slower load (16 s), then
+answers within 2× of the server; its IndexedDB snapshot brings it back in 0.6 s. The chart
+(`/bench`, «Розподіл часу запитів») shows the spread: the browser engines' first runs after the
+warm-up form the long whiskers, the server's tail comes from the network stack.
+
+The window bus in the same run (a frame as the partner, 30 exchanges per measure; round trip,
+median / p95 in milliseconds):
+
+| Transport        | Command (14 B) | Slide (1 KB) | Slide with a background (1.4 MB) | Burst of 200 |
+| ---------------- | -------------- | ------------ | -------------------------------- | ------------ |
+| BroadcastChannel | 0.2 / 0.4      | 0.2 / 0.5    | 9.6 / 12.3                       | 14 493 / s   |
+| localStorage     | 0.2 / 0.4      | 0.3 / 0.5    | 49.7 / 59.0 (blocks 14 ms)       | 7 326 / s    |
+| postMessage      | 0.0 / 0.1      | 0.1 / 0.2    | 2.2 / 4.5                        | 12 048 / s   |
+| SharedWorker     | 0.1 / 0.2      | 0.1 / 0.3    | 4.1 / 7.4                        | 17 699 / s   |
+| WebSocket (hub)  | 0.3 / 0.7      | 0.3 / 0.9    | — (over the hub's frame cap)     |              |
+
+The bus sends a background once, as an asset (`vo:asset`), not with every slide — which is
+why BroadcastChannel stays the transport: every slide after the first is in the 1 KB column.
+
 ## Vectors: search by meaning
 
 Version 1.15 adds a query by meaning: `~ любіть своїх ворогів` finds Luke 6:27 and Matthew 5:44
@@ -175,6 +216,11 @@ and its translation loads in 8.9 s. Making the vectors on half the CPU: «Шви
 - **In the app:** in **Налаштування вигляду** → **Дані** → **Джерело даних**, click
   **Порівняти рушії бази**, or open `/bench`. The page runs the server, SQLite-WASM, and
   PGlite on the same segments and queries in throwaway workers, and exports CSV or JSON.
+  Since 1.18.0-beta.6 it keeps every timed run: **Розподіл часу запитів** draws them as box
+  plots on a log scale (p25–p75, the median, the fastest run to p95, the slower ones as dots),
+  **Графік SVG** / **Графік PNG** save the chart, and **Повтори CSV** saves every run as a row
+  (`engine,case,run,ms`) for charts made elsewhere. The window-sync tab does the same
+  (**Обміни CSV**: `transport,payload,bytes,run,ms`).
 - **On the server:** `npm run bench:db` times the library queries on `data/library.db`.
 
 ## Add an engine

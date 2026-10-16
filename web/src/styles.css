@@ -2030,3 +2030,56 @@ form.vo-remote-countdown {
   display: flex;
   justify-content: flex-end;
 }
+
+/*
+ * «Графіки для дипломної» (1.18.0-beta.6, components/Distribution.tsx): box plots of timed runs —
+ * one hue (the accent), recessive grid and axis, labels in text colours. Exports write these in.
+ */
+.vo-dist {
+  overflow-x: auto;
+}
+.vo-dist svg {
+  min-width: 640px;
+  font-family: inherit;
+}
+.vo-dist-group {
+  fill: var(--mantine-color-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.vo-dist-label {
+  fill: var(--mantine-color-text);
+  font-size: 12px;
+}
+.vo-dist-value,
+.vo-dist-tick {
+  fill: var(--mantine-color-dimmed);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.vo-dist-grid {
+  stroke: var(--mantine-color-default-border);
+  stroke-width: 1;
+}
+.vo-dist-hit {
+  fill: transparent;
+}
+.vo-dist-hit:hover {
+  fill: var(--mantine-color-default-hover);
+}
+.vo-dist-whisker {
+  stroke: var(--mantine-primary-color-filled);
+  stroke-width: 2;
+}
+.vo-dist-box {
+  fill: color-mix(in srgb, var(--mantine-primary-color-filled) 45%, var(--mantine-color-body));
+  stroke: var(--mantine-primary-color-filled);
+  stroke-width: 1;
+}
+.vo-dist-median {
+  stroke: var(--mantine-color-text);
+  stroke-width: 2;
+}
+.vo-dist-tail {
+  fill: var(--mantine-primary-color-filled);
+}
