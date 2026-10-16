@@ -424,6 +424,7 @@ const RemoteCommandSchema = z.enum([
   'cover',
   'countdown',
   'timer',
+  'documents',
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
 /** A phone (`/remote`, a QR) or a control window on another computer (`/desk`, 1.9.0-beta.10). */
@@ -927,6 +928,20 @@ export const api = {
       },
       `/api/documents/${id}`,
     ),
+  /**
+   * The documents read on a speaker remote (1.18.0-beta.7): the phone's token in a header — the
+   * server gives them only to a pairing allowed «Документи» (guards.ts requireLocalOrRemote).
+   */
+  remoteDocuments: async (token: string) => {
+    const res = await request('/api/documents', { headers: { 'X-VO-Remote': token } });
+    if (!res.ok) throw await failure(res);
+    return z.array(DocumentInfoSchema).parse(await res.json());
+  },
+  remoteDocument: async (token: string, id: number) => {
+    const res = await request('/api/documents/' + id, { headers: { 'X-VO-Remote': token } });
+    if (!res.ok) throw await failure(res);
+    return DocumentDetailSchema.parse(await res.json());
+  },
   /** Units holding every word of the query (1.17.0-beta.2). */
   searchDocuments: (q: string) =>
     fromLibrary(

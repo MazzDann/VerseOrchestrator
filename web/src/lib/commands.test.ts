@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   asCountdown,
+  asDoc,
   asTimer,
   createDispatcher,
   DEDUPE_MS,
   PRIORITY,
+  targetArgs,
   toggleOf,
   type ShowCommand,
 } from './commands';
@@ -120,5 +122,17 @@ describe('the switches a command flips (1.4.1)', () => {
     expect(key('KeyB')).toBe('hide');
     expect(key('Period')).toBe('black');
     expect(key('ArrowRight')).toBeNull();
+  });
+});
+
+describe('a document’s paragraph from a remote (1.18.0-beta.7)', () => {
+  it('goes over the hub as `doc`, and comes back only whole', () => {
+    expect(targetArgs({ kind: 'doc', doc: { docId: 7, unit: 2 } })).toEqual({
+      doc: { docId: 7, unit: 2 },
+    });
+    expect(asDoc({ docId: 7, unit: 0 })).toEqual({ docId: 7, unit: 0 });
+    expect(asDoc({ docId: 7 })).toBeUndefined();
+    expect(asDoc({ docId: '7', unit: 1 })).toBeUndefined();
+    expect(asDoc(undefined)).toBeUndefined();
   });
 });

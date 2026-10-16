@@ -1156,6 +1156,12 @@ export function Control() {
                   setPreviewOverride(remoteView.slide);
                   return;
                 }
+                if (t.kind === 'doc') {
+                  // the document at that paragraph (1.18.0-beta.7), its slide in the preview
+                  useDocOpen.getState().open(t.doc.docId, t.doc.unit);
+                  setPreviewOverride(remoteView.slide);
+                  return;
+                }
                 const p = t.passage;
                 toBible();
                 setTranslations(p.translationIds);

@@ -7,7 +7,16 @@ import type { RemoteTarget } from '../lib/commands';
 import { tr, useLang } from '../i18n';
 import { leadWith } from '../lib/searchGroups';
 
-type Step = 'translations' | 'books' | 'chapters' | 'verses' | 'songs' | 'stanzas';
+type Step =
+  | 'translations'
+  | 'books'
+  | 'chapters'
+  | 'verses'
+  | 'songs'
+  | 'stanzas'
+  // a document, then its paragraphs (1.18.0-beta.7)
+  | 'docs'
+  | 'units';
 
 /** At most this many translations on one slide (the control window's limit too). */
 const MAX_TRANSLATIONS = 5;
@@ -25,6 +34,8 @@ export function RemotePicker({
   canShow,
   verses: versesAllowed,
   songs: songsAllowed,
+  documents: docsAllowed,
+  token,
   onPick,
   onQueue,
   onClose,
@@ -36,6 +47,9 @@ export function RemotePicker({
   /** what this remote may choose — each granted by the operator on its own (0.6.3) */
   verses: boolean;
   songs: boolean;
+  /** «Документи» (1.18.0-beta.7): read with the phone's token — the server checks the permission */
+  documents: boolean;
+  token: string;
   onPick: (t: RemoteTarget, show: boolean) => void;
   /** «+ У послідовність» (0.6.9): absent when this remote may not add to the running order */
   onQueue?: (t: RemoteTarget) => void;
@@ -50,8 +64,13 @@ export function RemotePicker({
   const [verse, setVerse] = useState<number | null>(startPassage?.verses[0] ?? null);
   const [songId, setSongId] = useState<number | null>(startSong?.songId ?? null);
   const [stanza, setStanza] = useState<number | null>(startSong?.stanza ?? null);
+  const startDoc = start?.kind === 'doc' ? start.doc : null;
+  const [docId, setDocId] = useState<number | null>(startDoc?.docId ?? null);
+  const [unit, setUnit] = useState<number | null>(startDoc?.unit ?? null);
   // open where it makes sense — and only in a mode this remote may use
   const [step, setStep] = useState<Step>(() => {
+    if (docsAllowed && (startDoc || (!versesAllowed && !songsAllowed)))
+      return startDoc ? 'units' : 'docs';
     if (songsAllowed && (startSong || !versesAllowed)) return startSong ? 'stanzas' : 'songs';
     if (ids.length === 0) return 'translations';
     return startPassage ? 'verses' : 'books';
@@ -64,6 +83,7 @@ export function RemotePicker({
   }, [filter]);
   const primary = ids[0] ?? null;
   const songsMode = step === 'songs' || step === 'stanzas';
+  const docsMode = step === 'docs' || step === 'units';
 
   const translations = useQuery({ queryKey: ['translations'], queryFn: api.translations });
   const books = useQuery({
@@ -94,6 +114,16 @@ export function RemotePicker({
     queryKey: ['song', songId],
     queryFn: () => api.song(songId!),
     enabled: songId != null && step === 'stanzas',
+  });
+  const docs = useQuery({
+    queryKey: ['remote-documents'],
+    queryFn: () => api.remoteDocuments(token),
+    enabled: step === 'docs',
+  });
+  const doc = useQuery({
+    queryKey: ['remote-document', docId],
+    queryFn: () => api.remoteDocument(token, docId!),
+    enabled: docId != null && step === 'units',
   });
 
   // Search (1.8.12-beta.9, F1005-01 — like the control window): the books' field takes a
@@ -137,6 +167,10 @@ export function RemotePicker({
       ),
     [books.data, q],
   );
+  const shownDocs = useMemo(
+    () => (docs.data ?? []).filter((d) => !q || d.title.toLowerCase().includes(q)),
+    [docs.data, q],
+  );
   const shownTranslations = useMemo(
     () =>
       (translations.data ?? []).filter(
@@ -171,6 +205,7 @@ export function RemotePicker({
     if (step === 'verses') go(stepBackFromVerses(single), true);
     else if (step === 'chapters') go('books', true);
     else if (step === 'stanzas') go('songs', true);
+    else if (step === 'units') go('docs', true);
     else if (step === 'translations') go(book == null ? 'books' : 'verses', true);
     else onClose();
   };
@@ -183,16 +218,20 @@ export function RemotePicker({
           : cur,
     );
   const chosen: RemoteTarget | null =
-    step === 'stanzas'
-      ? songId != null && stanza != null
-        ? { kind: 'song', song: { songId, stanza } }
+    step === 'units'
+      ? docId != null && unit != null
+        ? { kind: 'doc', doc: { docId, unit } }
         : null
-      : primary != null && book != null && chapter != null && verse != null
-        ? {
-            kind: 'verses',
-            passage: { translationIds: ids, bookNumber: book, chapter, verses: [verse] },
-          }
-        : null;
+      : step === 'stanzas'
+        ? songId != null && stanza != null
+          ? { kind: 'song', song: { songId, stanza } }
+          : null
+        : primary != null && book != null && chapter != null && verse != null
+          ? {
+              kind: 'verses',
+              passage: { translationIds: ids, bookNumber: book, chapter, verses: [verse] },
+            }
+          : null;
 
   const chosenText =
     step === 'verses' && verse != null
@@ -223,9 +262,24 @@ export function RemotePicker({
             ? `${bookName} ${chapter ?? ''}`
             : step === 'songs'
               ? tr('Пісні')
-              : song.data
-                ? `№${song.data.number ?? ''} ${song.data.title}`
-                : tr('Пісня');
+              : step === 'docs'
+                ? tr('Документи')
+                : step === 'units'
+                  ? (doc.data?.title ?? tr('Документ'))
+                  : song.data
+                    ? `№${song.data.number ?? ''} ${song.data.title}`
+                    : tr('Пісня');
+  /** the Bible's step to come back to: where the speaker left it */
+  const bibleStep = (): Step =>
+    ids.length === 0
+      ? 'translations'
+      : book == null
+        ? 'books'
+        : chapter == null
+          ? 'chapters'
+          : 'verses';
+  // the modes this remote may use (each granted on its own): the switch when there are two or more
+  const modes = [versesAllowed, songsAllowed, docsAllowed].filter(Boolean).length;
 
   return (
     <div className="vo-remote-sheet" role="dialog" aria-label={tr('Вибір вірша або пісні')}>
@@ -234,7 +288,7 @@ export function RemotePicker({
           ←
         </button>
         <strong className="vo-remote-sheet-title">{title}</strong>
-        {!songsMode && step !== 'translations' && (
+        {!songsMode && !docsMode && step !== 'translations' && (
           <button type="button" className="vo-remote-chip" onClick={() => go('translations')}>
             {abbrs || tr('Переклади')}
           </button>
@@ -249,40 +303,45 @@ export function RemotePicker({
         </button>
       </header>
 
-      {versesAllowed && songsAllowed && (
+      {modes >= 2 && (
         <div className="vo-remote-row vo-remote-modes" role="group" aria-label={tr('Що вибрати')}>
-          <button
-            type="button"
-            className="vo-remote-chip"
-            aria-pressed={!songsMode}
-            data-selected={!songsMode ? 'true' : undefined}
-            onClick={() =>
-              go(
-                ids.length === 0
-                  ? 'translations'
-                  : book == null
-                    ? 'books'
-                    : chapter == null
-                      ? 'chapters'
-                      : 'verses',
-              )
-            }
-          >
-            {tr('Біблія')}
-          </button>
-          <button
-            type="button"
-            className="vo-remote-chip"
-            aria-pressed={songsMode}
-            data-selected={songsMode ? 'true' : undefined}
-            onClick={() => go(songId == null ? 'songs' : 'stanzas')}
-          >
-            {tr('Пісні')}
-          </button>
+          {versesAllowed && (
+            <button
+              type="button"
+              className="vo-remote-chip"
+              aria-pressed={!songsMode && !docsMode}
+              data-selected={!songsMode && !docsMode ? 'true' : undefined}
+              onClick={() => go(bibleStep())}
+            >
+              {tr('Біблія')}
+            </button>
+          )}
+          {songsAllowed && (
+            <button
+              type="button"
+              className="vo-remote-chip"
+              aria-pressed={songsMode}
+              data-selected={songsMode ? 'true' : undefined}
+              onClick={() => go(songId == null ? 'songs' : 'stanzas')}
+            >
+              {tr('Пісні')}
+            </button>
+          )}
+          {docsAllowed && (
+            <button
+              type="button"
+              className="vo-remote-chip"
+              aria-pressed={docsMode}
+              data-selected={docsMode ? 'true' : undefined}
+              onClick={() => go(docId == null ? 'docs' : 'units')}
+            >
+              {tr('Документи')}
+            </button>
+          )}
         </div>
       )}
 
-      {(step === 'books' || step === 'translations' || step === 'songs') && (
+      {(step === 'books' || step === 'translations' || step === 'songs' || step === 'docs') && (
         <input
           className="vo-remote-filter"
           placeholder={
@@ -290,7 +349,9 @@ export function RemotePicker({
               ? tr('Книга, посилання чи слова…')
               : step === 'songs'
                 ? tr('Номер або слова пісні…')
-                : tr('Фільтр перекладів…')
+                : step === 'docs'
+                  ? tr('Назва документа…')
+                  : tr('Фільтр перекладів…')
           }
           value={filter}
           onChange={(e) => setFilter(e.currentTarget.value)}
@@ -461,8 +522,45 @@ export function RemotePicker({
             </button>
           ))}
 
+        {step === 'docs' &&
+          shownDocs.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              className="vo-remote-item"
+              data-selected={d.id === docId ? 'true' : undefined}
+              onClick={() => {
+                if (d.id !== docId) setUnit(null);
+                setDocId(d.id);
+                go('units');
+              }}
+            >
+              {d.title}
+            </button>
+          ))}
+        {step === 'docs' && docs.data?.length === 0 && (
+          <p style={{ opacity: 0.7 }}>{tr('Документів немає.')}</p>
+        )}
+
+        {step === 'units' &&
+          (doc.data?.body ?? []).map((u, i) => (
+            <button
+              key={i}
+              type="button"
+              className="vo-remote-item vo-remote-verse"
+              data-selected={i === unit ? 'true' : undefined}
+              onClick={() => setUnit(i)}
+            >
+              <span className="vo-verse-num">{i + 1}</span>
+              <span style={u.kind === 'heading' ? { fontWeight: 600 } : undefined}>{u.text}</span>
+            </button>
+          ))}
+
         {(translations.isError || books.isError || verses.isError || songs.isError) && (
           <p style={{ opacity: 0.7 }}>{tr('Бібліотека недоступна з цього телефона.')}</p>
+        )}
+        {(docs.isError || doc.isError) && (
+          <p style={{ opacity: 0.7 }}>{((docs.error ?? doc.error) as Error).message}</p>
         )}
       </div>
 
@@ -478,7 +576,7 @@ export function RemotePicker({
             {ids.length ? ` (${ids.length})` : ''}
           </button>
         </footer>
-      ) : step === 'verses' || step === 'stanzas' ? (
+      ) : step === 'verses' || step === 'stanzas' || step === 'units' ? (
         <>
           {step === 'verses' && chosenText && (
             <p className="vo-remote-confirm" aria-live="polite">
@@ -488,7 +586,9 @@ export function RemotePicker({
               {chosenText}
             </p>
           )}
-          {onQueue && (
+          {/* a document's paragraph goes on screen or into the preview; the running order takes
+              passages and songs from a phone */}
+          {onQueue && step !== 'units' && (
             <button
               type="button"
               className="vo-remote-btn vo-remote-btn-small"

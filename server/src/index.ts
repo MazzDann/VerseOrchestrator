@@ -17,7 +17,12 @@ import {
   vectorsAttached,
 } from './db.js';
 import { isLocalRequest, isOwnAddress, lanIps } from './access.js';
-import { isLocalControl, requireLocal, requireLocalControl } from './guards.js';
+import {
+  isLocalControl,
+  requireLocal,
+  requireLocalControl,
+  requireLocalOrRemote,
+} from './guards.js';
 import { UnreadableFile } from './jsonFile.js';
 import {
   announceShutdown,
@@ -2452,10 +2457,11 @@ async function documentFile(idParam: string): Promise<string> {
   return doc.file;
 }
 
-// the documents are the operator's own texts: read by this machine only, like the picture list
+// the documents are the operator's own texts: read by this machine only, like the picture list —
+// and by a speaker remote allowed «Документи» (1.18.0-beta.7), its token in X-VO-Remote
 app.get(
   '/api/documents',
-  requireLocal,
+  requireLocalOrRemote('documents'),
   wrap(async (_req, res) => res.json(await library().listDocuments())),
 );
 app.get('/api/documents/folder', requireLocal, (_req, res) => {
@@ -2486,7 +2492,7 @@ app.get(
 );
 app.get(
   '/api/documents/:id',
-  requireLocal,
+  requireLocalOrRemote('documents'),
   wrap(async (req, res) => {
     const doc = await library().getDocument(asInt(req.params.id, 'document id'));
     if (!doc) throw new ApiError(404, N_('Документ не знайдено — можливо, файл прибрали з папки'));
