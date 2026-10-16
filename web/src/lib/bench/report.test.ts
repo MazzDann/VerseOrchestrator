@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   parity,
+  quantiles,
   reportCsv,
   reportJson,
+  reportSamplesCsv,
   timingStats,
   type BenchReport,
   type CaseStats,
@@ -121,5 +123,41 @@ describe('engine benchmark report', () => {
     const json = JSON.parse(reportJson(report));
     expect(json.engines[0].cases.chapter).not.toHaveProperty('keys');
     expect(json.engines[0].cases.chapter.medianMs).toBe(1.23);
+  });
+
+  it('the five numbers of a box plot, by nearest rank (1.18.0-beta.6)', () => {
+    const times = Array.from({ length: 20 }, (_, i) => 20 - i);
+    expect(quantiles(times)).toEqual({ min: 1, p25: 5, median: 10, p75: 15, p95: 19, max: 20 });
+    expect(quantiles([3])).toEqual({ min: 3, p25: 3, median: 3, p75: 3, p95: 3, max: 3 });
+  });
+
+  it('every run in long form, engine by engine (1.18.0-beta.6)', () => {
+    const run = (engine: 'sqlite' | 'pglite', times: number[]) => ({
+      engine,
+      version: '',
+      bootMs: null,
+      loadMs: null,
+      segments: [],
+      dbBytes: null,
+      wasmBytes: null,
+      assets: [],
+      snapshot: null,
+      cases: { chapter: stats({ times }) },
+    });
+    const csv = reportSamplesCsv({
+      createdAt: '',
+      app: '',
+      userAgent: '',
+      cores: 8,
+      iterations: 2,
+      segments: [],
+      engines: [run('sqlite', [0.5, 0.61]), run('pglite', [1.2])],
+    }).split('\n');
+    expect(csv).toEqual([
+      'engine,case,run,ms',
+      'sqlite,chapter,1,0.5',
+      'sqlite,chapter,2,0.61',
+      'pglite,chapter,1,1.2',
+    ]);
   });
 });

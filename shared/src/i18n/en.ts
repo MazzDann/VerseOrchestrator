@@ -2569,4 +2569,24 @@ export const EN: Record<string, string> = {
   'словник Стронга': "Strong's dictionary",
   // «Статистика» tabs (1.18.0-beta.5)
   Покази: 'Showings',
+  // «Графіки для дипломної» (1.18.0-beta.6)
+  'Графік PNG': 'Chart PNG',
+  'Графік SVG': 'Chart SVG',
+  'Кожен обмін окремим рядком — для власних графіків':
+    'Every exchange on a line of its own — for charts of your own',
+  'Кожен повтор кожного запиту окремим рядком — для власних графіків':
+    'Every run of every query on a line of its own — for charts of your own',
+  'Логарифмічна шкала. Прямокутник — середня половина повторів (p25–p75), риска — медіана, вус — від найшвидшого до p95, крапки — повільніші за p95.':
+    'Logarithmic scale. The box is the middle half of the runs (p25–p75), the line the median, the whisker from the fastest to p95, the dots slower than p95.',
+  'Обміни CSV': 'Exchanges CSV',
+  'Повтори CSV': 'Runs CSV',
+  'Розподіл часу запитів': 'How long the queries take',
+  'Розподіл часу обміну': 'How long an exchange takes',
+  'Розподіл часу: медіана, p25–p75, p95': 'Time distribution: median, p25–p75, p95',
+  мс: 'ms',
+  '{name}: найшвидше {min}, медіана {median}, p95 {p95}, найдовше {max} мс':
+    '{name}: fastest {min}, median {median}, p95 {p95}, slowest {max} ms',
+  // «Графіки для дипломної» (1.18.0-beta.6), review
+  'Не вдалося зберегти графік як PNG — збережіть SVG':
+    'Couldn’t save the chart as PNG — save the SVG',
 };

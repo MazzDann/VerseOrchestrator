@@ -24,6 +24,7 @@ import { runBench } from '../lib/bench/run';
 import {
   ENGINE_NAME,
   reportCsv,
+  reportSamplesCsv,
   reportJson,
   type BenchEngine,
   type BenchReport,
@@ -32,6 +33,7 @@ import {
 } from '../lib/bench/report';
 import { BENCH_CASES } from '../lib/bench/workload';
 import { SyncBench } from '../components/SyncBench';
+import { Distribution } from '../components/Distribution';
 import { download, saveCsv } from '../lib/bench/files';
 import { fmtNumber, N_, tr, useLang } from '../i18n';
 
@@ -351,6 +353,21 @@ function ReportView({
           >
             JSON
           </Button>
+          <Tooltip label={tr('Кожен повтор кожного запиту окремим рядком — для власних графіків')}>
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconDownload size={14} />}
+              onClick={() =>
+                saveCsv(
+                  `vo-bench-samples-${report.createdAt.slice(0, 19).replace(/[:T]/g, '-')}.csv`,
+                  reportSamplesCsv(report),
+                )
+              }
+            >
+              {tr('Повтори CSV')}
+            </Button>
+          </Tooltip>
         </Group>
       </Group>
 
@@ -496,6 +513,25 @@ function ReportView({
           '= ті самі результати, що в SQLite у браузері · ≈ обидва дійшли до межі 300 і по-різному впорядкували (bm25 / ts_rank) · сервер відповідає через HTTP (JSON включно) і тримає всю бібліотеку.',
         )}
       </Text>
+
+      {/* «Графіки для дипломної» (1.18.0-beta.6): every run of every query, per engine */}
+      <Text size="sm" fw={600} mt="lg" mb={4}>
+        {tr('Розподіл часу запитів')}
+      </Text>
+      <Text size="xs" c="dimmed" mb="xs">
+        {tr(
+          'Логарифмічна шкала. Прямокутник — середня половина повторів (p25–p75), риска — медіана, вус — від найшвидшого до p95, крапки — повільніші за p95.',
+        )}
+      </Text>
+      <Distribution
+        fileName={`vo-bench-${report.createdAt.slice(0, 19).replace(/[:T]/g, '-')}`}
+        groups={BENCH_CASES.map((c) => ({
+          label: tr(c.label),
+          rows: runs
+            .filter((r) => r.cases[c.id]?.times?.length)
+            .map((r) => ({ label: ENGINE_NAME[r.engine], times: r.cases[c.id]!.times! })),
+        })).filter((g) => g.rows.length > 0)}
+      />
     </Paper>
   );
 }

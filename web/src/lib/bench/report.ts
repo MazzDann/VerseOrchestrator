@@ -29,6 +29,8 @@ export interface CaseStats {
   capped: boolean;
   /** sorted result identities, for comparing engines (kept out of the export) */
   keys: string;
+  /** every timed run, ms (1.18.0-beta.6): the distribution charts and the samples CSV */
+  times?: number[];
   error?: string;
 }
 
@@ -64,6 +66,37 @@ export function timingStats(times: number[]): { medianMs: number; p95Ms: number;
   const t = [...times].sort((a, b) => a - b);
   const rank = (p: number) => t[Math.min(t.length - 1, Math.max(0, Math.ceil(p * t.length) - 1))];
   return { medianMs: rank(0.5), p95Ms: rank(0.95), minMs: t[0] };
+}
+
+/**
+ * The five numbers of a box plot (1.18.0-beta.6): the fastest run, the quartiles, p95 and the slowest
+ * — nearest rank, as `timingStats`.
+ */
+export function quantiles(times: number[]) {
+  const t = [...times].sort((a, b) => a - b);
+  const rank = (p: number) => t[Math.min(t.length - 1, Math.max(0, Math.ceil(p * t.length) - 1))];
+  return {
+    min: t[0],
+    p25: rank(0.25),
+    median: rank(0.5),
+    p75: rank(0.75),
+    p95: rank(0.95),
+    max: t[t.length - 1],
+  };
+}
+
+/**
+ * Every timed run in long form (1.18.0-beta.6) — engine, query, run, ms — for a thesis chart made
+ * elsewhere (R, Python, a spreadsheet's own charts).
+ */
+export function reportSamplesCsv(r: BenchReport): string {
+  const lines = ['engine,case,run,ms'];
+  for (const e of r.engines)
+    for (const c of BENCH_CASES)
+      (e.cases[c.id]?.times ?? []).forEach((ms, i) =>
+        lines.push(`${e.engine},${c.id},${i + 1},${ms}`),
+      );
+  return lines.join('\n');
 }
 
 /**

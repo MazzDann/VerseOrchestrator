@@ -210,6 +210,8 @@ export interface SyncCell {
   sendMedianMs: number;
   sendMaxMs: number;
   lost: number;
+  /** every round trip, ms (1.18.0-beta.6): the distribution chart and the samples CSV */
+  times?: number[];
   error?: string;
 }
 
@@ -276,6 +278,7 @@ async function pingPong(link: Link, payload: string, rounds: number): Promise<Sy
     sendMedianMs: b.medianMs,
     sendMaxMs: Math.max(...block),
     lost,
+    times: rtt.map((x) => Math.round(x * 100) / 100),
   };
 }
 
@@ -458,4 +461,18 @@ export function syncCsv(r: SyncReport): string {
     }
   }
   return rows.join('\n');
+}
+
+/**
+ * Every round trip in long form (1.18.0-beta.6) — transport, payload, run, ms — for a thesis chart
+ * made elsewhere.
+ */
+export function syncSamplesCsv(r: SyncReport): string {
+  const lines = ['transport,payload,bytes,run,ms'];
+  for (const row of r.rows)
+    for (const k of payloads())
+      (row.cells[k.id]?.times ?? []).forEach((ms, i) =>
+        lines.push([row.transport, k.id, r.sizes[k.id], i + 1, ms].join(',')),
+      );
+  return lines.join('\n');
 }
