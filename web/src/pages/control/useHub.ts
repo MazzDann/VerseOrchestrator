@@ -23,6 +23,7 @@ import {
 import { deskFrame, forAudience, summarize } from '../../lib/slide';
 import { dropUiState, takeServerUiState } from '../../lib/uiState';
 import { DOC_KEYS, SONG_KEYS } from '../../lib/songKeys';
+import { leaveForDesktop } from '../../lib/desktop';
 import {
   applyHandoverFrame,
   claimForHandover,
@@ -176,6 +177,8 @@ export function useHub({
         // «Відкрити в … зараз»: control moved to another browser (`hub`), or this window was
         // opened there and now knows which browser it is in (`handover`)
         applyHandoverFrame(f, setHubMovedTo);
+        // the desktop app took charge (1.18.1): this browser's window is done
+        if (f.type === 'hub' && f.active !== true && f.movedId === 'desktop') leaveForDesktop();
         if (f.type === 'viewers' && typeof f.count === 'number') setViewers(f.count);
         if (f.type === 'shutdown') setAppOff(true);
         // `songs` is a permission, never a command (the server doesn't forward it)

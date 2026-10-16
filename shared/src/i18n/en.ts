@@ -1756,8 +1756,8 @@ export const EN: Record<string, string> = {
   'Завантажиться архів цієї версії з GitHub (близько 230 МБ), з нього лишиться сам застосунок.':
     'This version’s archive comes from GitHub (about 230 MB); only the app is kept from it.',
   'Відкрити застосунок': 'Open the app',
-  'Застосунок відкривається й бере керування на себе. Коли він з’явиться, цю вкладку можна закрити. Щоб цей браузер не зберігав даних застосунку, приберіть їх — налаштування лишаться в застосунку.':
-    'The app is opening and takes over. Once it’s there, you can close this tab. So that this browser keeps none of the app’s data, clear it — the settings stay with the app.',
+  'Застосунок відкривається й бере керування на себе. Коли він з’явиться, ця вкладка закриється сама. Щоб цей браузер не зберігав даних застосунку, приберіть їх — налаштування лишаться в застосунку.':
+    'The app is opening and takes over. Once it’s there, this tab closes itself. So that this browser keeps none of the app’s data, clear it — the settings stay with the app.',
   'Відтепер файл запуску відкриває застосунок. Перейшовши, приберіть дані застосунку з браузера — налаштування лишаються в застосунку.':
     'From now on the start file opens the app. Once you’ve moved over, clear the app’s data from the browser — the settings stay with the app.',
   'Прибрати дані з цього браузера': 'Clear the data from this browser',
@@ -2012,8 +2012,8 @@ export const EN: Record<string, string> = {
     'The control window is open in {browser} — showing {browser}.',
   '{browser} не дає файлу запуску вибрати своє вікно чи вкладку — для цього тримайте вікно керування в Chrome або Safari.':
     "{browser} doesn't let the start file pick its window or tab — for that, keep the control window in Chrome or Safari.",
-  'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window':
-    'Unknown option “{arg}”. Available: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window',
+  'Невідомий параметр «{arg}». Можна: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window, --browser':
+    'Unknown option “{arg}”. Available: --no-browser, --port N, --check, --off, --app, --shortcut, --new-window, --browser',
   // 1.1.0 help
   Довідка: 'Help',
   'Посібник користувача — відкривається на GitHub': 'The user guide — opens on GitHub',
@@ -2602,4 +2602,6 @@ export const EN: Record<string, string> = {
   'Пульту це не дозволено': 'This remote isn’t allowed to do that',
   'Такого абзацу немає': 'There is no such paragraph',
   'абзац {n}/{total}': 'paragraph {n}/{total}',
+  // the launcher opens the desktop app (1.18.1)
+  'Відкриваю застосунок…': 'Opening the app…',
 };

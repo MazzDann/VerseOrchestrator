@@ -122,17 +122,18 @@ const meta = new WeakMap<WebSocket, Meta>();
 let activeControl: WebSocket | null = null;
 
 /**
- * `movedTo`: a control window opened by «Відкрити в {browser} зараз» took charge (handover.ts) —
- * the others say where control went.
+ * `moved`: a control window opened by «Відкрити в {browser} зараз» took charge (handover.ts) —
+ * the others say where control went; `movedId` 'desktop' (1.18.1): the desktop app took it, and
+ * a browser's window closes itself.
  */
-function setActiveControl(ws: WebSocket | null, movedTo?: string): void {
+function setActiveControl(ws: WebSocket | null, moved?: { id: string; name: string }): void {
   activeControl = ws;
   for (const c of sockets('control'))
     send(
       c,
-      c === ws || !movedTo
+      c === ws || !moved
         ? { type: 'hub', active: c === ws }
-        : { type: 'hub', active: false, movedTo },
+        : { type: 'hub', active: false, movedTo: moved.name, movedId: moved.id },
     );
 }
 const isActiveControl = (ws: WebSocket) => ws === activeControl;
@@ -327,7 +328,7 @@ function onHello(ws: WebSocket, m: Meta, req: IncomingMessage, msg: Record<strin
     const moved = msg.handover === undefined ? null : handovers.consume(msg.handover);
     if (moved) {
       send(ws, { type: 'handover', browser: moved.id });
-      setActiveControl(ws, moved.name);
+      setActiveControl(ws, moved);
     } else if (!activeControl || activeControl.readyState !== WebSocket.OPEN) setActiveControl(ws);
     else send(ws, { type: 'hub', active: false });
     notifyViewers(); // this socket stopped counting as a viewer; also primes the new control

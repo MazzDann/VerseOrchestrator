@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Group, Progress, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconAppWindow, IconDownload } from '@tabler/icons-react';
@@ -40,6 +40,16 @@ export function DesktopSection({ active }: { active: boolean }) {
       setBusy(false);
     }
   };
+  // installed from here (1.18.1, the user's ask): the app opens by itself and takes charge — this
+  // browser's window then closes (lib/desktop.ts leaveForDesktop)
+  const askedInstall = useRef(false);
+  const installedNow = q.data?.install?.phase === 'done' && q.data.present;
+  useEffect(() => {
+    if (!installedNow || !askedInstall.current) return;
+    askedInstall.current = false;
+    void act(api.openDesktop, () => setOpened(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installedNow]);
   const s = q.data;
   if (serverAvailable !== true || !s) return null;
   const install = s.install;
@@ -83,7 +93,10 @@ export function DesktopSection({ active }: { active: boolean }) {
             variant="light"
             leftSection={<IconDownload size={14} />}
             loading={busy}
-            onClick={() => void act(api.installDesktop)}
+            onClick={() => {
+              askedInstall.current = true;
+              void act(api.installDesktop);
+            }}
           >
             {tr('Встановити застосунок')}
           </Button>
@@ -116,7 +129,7 @@ export function DesktopSection({ active }: { active: boolean }) {
         <Text size="xs" c="dimmed">
           {opened
             ? tr(
-                'Застосунок відкривається й бере керування на себе. Коли він з’явиться, цю вкладку можна закрити. Щоб цей браузер не зберігав даних застосунку, приберіть їх — налаштування лишаться в застосунку.',
+                'Застосунок відкривається й бере керування на себе. Коли він з’явиться, ця вкладка закриється сама. Щоб цей браузер не зберігав даних застосунку, приберіть їх — налаштування лишаться в застосунку.',
               )
             : tr(
                 'Відтепер файл запуску відкриває застосунок. Перейшовши, приберіть дані застосунку з браузера — налаштування лишаються в застосунку.',
