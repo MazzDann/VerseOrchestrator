@@ -96,7 +96,7 @@ same verse from different translations as one row, and whether to put the cursor
 field when you come back to the control window. There, in **Where the search field is**, you can
 also put the field **At the top, before the modes** (the default), **At the top, after the
 modes**, **At the top, in the middle**, or **Above the verses (in “Bible”)** — then in
-**Bible** the field stands above the chapter numbers, and in **Songs** and **Media** it goes
+**Bible** the field stands above the chapter numbers, and in **Presentations** and **Media** it goes
 back to the top. In a narrow window the field at the top hides: then `/`, Ctrl+F, F3, and F4
 open the search above the verses with a field of its own.
 

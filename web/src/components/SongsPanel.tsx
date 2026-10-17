@@ -44,7 +44,7 @@ import { useDrop } from '../lib/drop';
 interface Props {
   open: boolean;
   /**
-   * «Пісні» as a mode (1.8.12-beta.7): the search, the bundles and the list go to the left column
+   * «Презентації» as a mode (1.8.12-beta.7): the search, the bundles and the list go to the left column
    * (this element, the navbar's slot), the open song fills the centre.
    */
   listSlot: HTMLElement | null;
@@ -94,7 +94,7 @@ function partLabel(p: SongPart): string {
 
 /**
  * Songs panel: search by number or title, open a song, and project its
- * stanzas (one .pptx slide each) as text slides on the output window. The mode «Пісні»
+ * stanzas (one .pptx slide each) as text slides on the output window. The mode «Презентації»
  * (1.8.12-beta.7): the list on the left, the song in the centre at full height.
  */
 export function SongsPanel({

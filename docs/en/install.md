@@ -409,7 +409,7 @@ compress that folder in Finder (**Compress**), and the app takes that file too.
 To restore a backup on this or another computer:
 
 1. In the same section, click **Restore from a backup…** and choose the backup file.
-2. Tick what to restore: **Look and keys**, **Programs and the running order**, **Songs**,
+2. Tick what to restore: **Look and keys**, **Programs and the running order**, **Presentations**,
    **Images**, **Start settings**. The app shows only what the backup holds — with its date,
    the number of programs and running-order items, the song bundles, and the number of
    images — and ticks all of it first. What you leave unticked stays as it is. Nothing changes

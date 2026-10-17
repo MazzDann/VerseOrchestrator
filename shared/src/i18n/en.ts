@@ -290,7 +290,7 @@ export const EN: Record<string, string> = {
   Переклади: 'Translations',
   Словники: 'Dictionaries',
   'Посилання й коментарі': 'Cross-references and commentaries',
-  Пісні: 'Songs',
+  Презентації: 'Presentations',
   'Джерело даних': 'Data source',
   Сервер: 'Server',
   'У браузері': 'In the browser',
@@ -1398,7 +1398,7 @@ export const EN: Record<string, string> = {
   'Неправильна строфа': 'An invalid stanza',
   'Неправильний елемент': 'An invalid item',
   'Вибір віршів пульту не дозволено': 'This remote may not choose verses',
-  'Пісні пульту не дозволено': 'This remote may not use songs',
+  'Презентації пульту не дозволено': 'This remote may not use presentations',
   'Послідовність пульту не дозволено': 'This remote may not use the running order',
   'Забагато натискань': 'Too many presses',
   'Вікно керування не відкрите': 'The control window is not open',
@@ -2465,8 +2465,8 @@ export const EN: Record<string, string> = {
   'Цього тут немає': 'There is none here',
   'Цього прибрати не можна': 'This can’t be removed',
   // a drop anywhere (1.17.1)
-  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Пісні», модуль (.SQLite3) — у бібліотеку, vectors.db — у вектори.':
-    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео», a document (.docx, .md, .txt, .pdf) to «Документи», a presentation (.pptx) to «Пісні», a module (.SQLite3) into the library, vectors.db into the vectors.',
+  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Презентації», модуль (.SQLite3) — у бібліотеку, vectors.db — у вектори.':
+    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео», a document (.docx, .md, .txt, .pdf) to «Документи», a presentation (.pptx) to «Презентації», a module (.SQLite3) into the library, vectors.db into the vectors.',
   'Цього застосунок не бере — не додано: {names}':
     'The app doesn’t take these — not added: {names}',
   'Додаю модуль {file}…': 'Adding the module {file}…',
@@ -2610,8 +2610,8 @@ export const EN: Record<string, string> = {
   'На «Показ» під моніторами — і вони стануть наступними у показі.':
     'Onto “Running order” under the monitors — and they go next in the show.',
   'Сюди — наступним у показі': 'Here — next in the show',
-  'Презентації — у «Пісні»: виберіть збірку, а тоді додайте пісню у показ':
-    'Presentations go to “Songs”: choose a bundle, then add the song to the show',
+  'Файл .pptx — у «Презентації»: виберіть збірку, а тоді додайте пісню у показ':
+    'A .pptx file goes to “Presentations”: choose a bundle, then add the song to the show',
   'Кнопки «Показ»': '“Running order” buttons',
   '◀ і «Далі» над послідовністю показу: як стрілки клавіатури (наступний вірш, строфа, абзац) чи від пункту до пункту.':
     '◀ and “Next” above the running order: like the keyboard arrows (the next verse, stanza, paragraph) or from item to item.',
@@ -2625,4 +2625,16 @@ export const EN: Record<string, string> = {
     'Panels, tooltips and rows fade in smoothly in the control window. Without them everything changes at once.',
   'Зупинити відео': 'Stop the video',
   'Прибрати відео з екрана': 'Take the video off the screen',
+  'Режим «Біблія»': 'Mode «Біблія» (Bible)',
+  'Режим «Презентації»': 'Mode «Презентації» (Presentations)',
+  'Режим «Документи»': 'Mode «Документи» (Documents)',
+  'Режим «Медіа»': 'Mode «Медіа» (Media)',
+  'Ctrl+цифра (⌘ на Mac) — в окремому застосунку; у браузері Alt+цифра: Ctrl+цифри браузер бере собі':
+    'Ctrl+digit (⌘ on a Mac) in the desktop app; in a browser Alt+digit: the browser keeps Ctrl+digits for itself',
+  'Наступний режим': 'Next mode',
+  'Біблія → Презентації → Документи → Медіа; Ctrl+Tab — лише в окремому застосунку':
+    'Bible → Presentations → Documents → Media; Ctrl+Tab only in the desktop app',
+  'Попередній режим': 'Previous mode',
+  'Назад по режимах; Ctrl+Shift+Tab — лише в окремому застосунку':
+    'Back through the modes; Ctrl+Shift+Tab only in the desktop app',
 };

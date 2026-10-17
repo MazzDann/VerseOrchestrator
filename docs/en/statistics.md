@@ -31,7 +31,7 @@ On the page:
 
 - **Showings**, **On screen**, **Days with showings** — the period's totals.
 - **Showings by day** (or by month for a year) — how many showings each day had.
-- **Songs** — the songs shown most. Point at a row to see how long the song was on screen and when
+- **Presentations** — the songs shown most. Point at a row to see how long the song was on screen and when
   it was last shown. **Not sung for a while** — songs shown before, but not in the last eight
   weeks.
 - **The Bible's books** — a cell per book: the darker, the more it was read. Below it, **Most
@@ -47,7 +47,7 @@ The **Library** tab on the same page counts what the library holds:
 - how many translations, verses and words, dictionary entries, songs and documents;
 - **Translations** — each translation: language, books, verses, words, Strong's numbers and
   section titles;
-- **Dictionaries**, **Songs** (by bundle), **Commentaries and references**, **Documents** (their
+- **Dictionaries**, **Presentations** (by bundle), **Commentaries and references**, **Documents** (their
   paragraphs and Bible references);
 - **On disk** — how much space the library, modules, segments, vectors, pictures and statistics
   take.

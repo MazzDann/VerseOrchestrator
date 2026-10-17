@@ -75,9 +75,9 @@ export function ControlNavbar({
   layout: PanelLayout;
   jumpTo: (item: RefItem) => void;
   removeHistory: (item: RefItem) => void;
-  /** the mode (1.8.12-beta.7): «Біблія» — the books, «Пісні» — the song list, «Медіа» — its kinds */
+  /** the mode (1.8.12-beta.7): «Біблія» — the books, «Презентації» — the song list, «Медіа» — its kinds */
   workspace: Workspace;
-  /** where SongsPanel draws its search and list in «Пісні» */
+  /** where SongsPanel draws its search and list in «Презентації» */
   songListSlot: (el: HTMLElement | null) => void;
   mediaTab: MediaTab;
   onMediaTab: (tab: MediaTab) => void;

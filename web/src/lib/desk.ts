@@ -25,7 +25,7 @@ export function deskTokenOf(input: string): string | null {
 /**
  * May this desk press it? The hub's own checks (server/src/live.ts onCommand), so a button the
  * operator didn't allow is greyed instead of refused after a round trip: a button needs its own
- * permission; verses need «Вибір віршів», a stanza «Пісні», an item or the queue «Послідовність».
+ * permission; verses need «Вибір віршів», a stanza «Презентації», an item or the queue «Послідовність».
  */
 export function mayPress(
   allowed: readonly RemoteCommand[],

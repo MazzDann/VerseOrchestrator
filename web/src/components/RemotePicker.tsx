@@ -261,7 +261,7 @@ export function RemotePicker({
           : step === 'verses'
             ? `${bookName} ${chapter ?? ''}`
             : step === 'songs'
-              ? tr('Пісні')
+              ? tr('Презентації')
               : step === 'docs'
                 ? tr('Документи')
                 : step === 'units'
@@ -324,7 +324,7 @@ export function RemotePicker({
               data-selected={songsMode ? 'true' : undefined}
               onClick={() => go(songId == null ? 'songs' : 'stanzas')}
             >
-              {tr('Пісні')}
+              {tr('Презентації')}
             </button>
           )}
           {docsAllowed && (

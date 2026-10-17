@@ -48,7 +48,7 @@ const KIND_LABEL: Record<SegmentInfo['kind'], string> = {
   translation: N_('Переклади'),
   dictionary: N_('Словники'),
   study: N_('Посилання й коментарі'),
-  songs: N_('Пісні'),
+  songs: N_('Презентації'),
   docs: N_('Документи'),
   vectors: N_('Вектори для пошуку за змістом'),
 };

@@ -150,7 +150,7 @@ export function usePaletteCommands({
     },
     {
       id: 'songs',
-      label: tr('Пісні'),
+      label: tr('Презентації'),
       keywords: 'songs pisni',
       icon: <IconMusic size={16} />,
       run: () => setSongsOpen(true),

@@ -15,7 +15,7 @@ To add an item to the running order:
 - A passage: choose the verses and click the **Add the passage to the running order** icon
   above the chapter numbers, next to the passage's reference. The passage remembers the
   translations chosen at that moment.
-- A song: open the song in the **Songs** mode and click the **Add to the running order**
+- A song: open the song in the **Presentations** mode and click the **Add to the running order**
   icon next to its title. The song remembers the choice of **As in the file** or
   **Plain text**.
 - Custom text: in **Media** → **Text to screen**, type the text and click
@@ -54,7 +54,7 @@ and into the running order right after the item on screen, in the order you drag
 item on screen, they go to the end.
 
 A video or a folder the app couldn't find on the disk by itself, it asks you to choose — add those to
-the show the usual way. Import a presentation (.pptx) into **Songs** first, choosing a bundle.
+the show the usual way. Import a presentation (.pptx) into **Presentations** first, choosing a bundle.
 
 How to open a song or custom text is in [Songs and custom text](songs-and-text.md).
 
@@ -96,8 +96,8 @@ On the **Running order** tab:
 
 To show an item, click its row. The item appears on screen at once and is highlighted in
 the list, and the control window goes to the item's mode: a passage to **Bible**, a song to
-**Songs** with its first slide on screen, a text, an image, an album, or a video to
-**Media**. A cover, a countdown, and a loop have no mode of their own: from **Songs** or an
+**Presentations** with its first slide on screen, a text, an image, an album, or a video to
+**Media**. A cover, a countdown, and a loop have no mode of their own: from **Presentations** or an
 open album the window goes to **Bible**, so the arrows and a clicker go on through the
 running order, not the song or the photos.
 

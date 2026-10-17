@@ -86,7 +86,7 @@ Each permission is turned on separately for each remote:
 | **Black screen**    | turn the black screen on and off                                                 |
 | **To screen**       | put on screen what the operator prepared in the preview (the **Preview** block)  |
 | **Choosing verses** | choose a verse on the phone                                                      |
-| **Songs**           | choose a song and a stanza                                                       |
+| **Presentations**           | choose a song and a stanza                                                       |
 | **Running order**   | see the running order, show the next item, add the own choice to it              |
 | **Cover**           | turn the cover on and off                                                        |
 | **Countdown**       | start a countdown, pause it, remove it                                           |
@@ -107,7 +107,7 @@ the time: **Start the timer** (the length saved in the control window), **Pause*
 
 ## The speaker's choice
 
-With the **Choosing verses** or **Songs** permission, the speaker finds what they need on
+With the **Choosing verses** or **Presentations** permission, the speaker finds what they need on
 the phone: they tap **Choose a verse…** (or **Choose a song…**), choose a translation, a
 book, a chapter, and a verse, or a song and a stanza, and then tap **To preview**. A book
 with one chapter, such as 3 John, needs no chapter choice: its verses open at once. With the
@@ -141,7 +141,7 @@ the choice on screen or go to that place in their own verse list.
 The operator can send the speaker what is in the preview: a verse or a song slide. To
 suggest it, click the **Suggest to a remote** icon on the preview monitor. The icon is there
 when the remote is connected and has the needed permission: **Choosing verses** for a verse
-or **Songs** for a song slide.
+or **Presentations** for a song slide.
 
 The **The operator suggests** block appears on the remote with a **To preview** button, and
 with the **To screen** permission a **To screen** button too. The speaker decides: take the
@@ -159,13 +159,13 @@ To create a remote on a computer:
 1. At the top, click the **Speaker remote** icon.
 2. At the top of the panel, choose **Computer**.
 3. Type a **Name** and select what is allowed. For that computer to put its own verses on
-   screen, select **To screen** and **Choosing verses**; for songs, **Songs** too.
+   screen, select **To screen** and **Choosing verses**; for songs, **Presentations** too.
 4. Click **Create a link**. The remote's link appears.
 5. Click **Copy** and pass the link to that computer, for example in a message.
 6. Click **Done**. The link shows only until you click **Done**.
 
 On that computer, open the link in a browser. At the top are the search field (a reference
-such as `John 3:16`, or words from the text), the **Bible** / **Songs** switch, and the show
+such as `John 3:16`, or words from the text), the **Bible** / **Presentations** switch, and the show
 buttons. The choice shows on the **Preview** monitor; the **To screen** button, the F5 key
 (⌘↩ on a Mac), or Enter on a verse puts it on screen. **Next** and **Back** (the arrow keys,
 PageDown, PageUp) step on through what was shown from that computer; otherwise they act as

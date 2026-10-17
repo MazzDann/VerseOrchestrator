@@ -81,7 +81,7 @@ function screenTarget(s: ScreenSummary | null): RemoteTarget | null {
   return null;
 }
 
-/** The permission a target needs: verses «Вибір віршів», a stanza «Пісні», a paragraph «Документи». */
+/** The permission a target needs: verses «Вибір віршів», a stanza «Презентації», a paragraph «Документи». */
 const NEEDS = { verses: 'pick', song: 'songs', doc: 'documents' } as const;
 
 /** A running-order item as a target the speaker's cursor can walk (a free text can't). */
@@ -337,7 +337,7 @@ export function Remote() {
   ) => {
     if (state.kind === 'connecting') return;
     // `pick` / `queue` are allowed by what they carry: verses → «Вибір віршів», a stanza →
-    // «Пісні», a running-order item or adding to it → «Послідовність»
+    // «Презентації», a running-order item or adding to it → «Послідовність»
     if (cmd !== 'pick' && cmd !== 'queue' && !allowed.includes(cmd)) return;
     if (target && !allowed.includes(NEEDS[target.kind])) return;
     if ((entry || cmd === 'queue') && !allowed.includes('playlist')) return;

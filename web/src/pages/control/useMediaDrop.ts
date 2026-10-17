@@ -34,7 +34,7 @@ const titleOf = (file: string) => (file.split('/').pop() ?? file).replace(/\.[^.
  * a part of the page took itself (the library's modules in «Джерело даних») is left to it.
  * Since 1.17.1 (the user's ask: everything droppable anywhere, not only in the settings): a document
  * → «Документи», a module → the library (the server's modules/ and a rescan; without a server, this
- * browser's engine), a segment → this browser's engine, a presentation → «Пісні»'s import, another
+ * browser's engine), a segment → this browser's engine, a presentation → «Презентації»'s import, another
  * copy's vectors.db → the vectors.
  */
 export function useMediaDrop({
@@ -47,7 +47,7 @@ export function useMediaDrop({
   openMedia: (tab: MediaTab) => void;
   /** «Документи» (1.17.0-beta.1): a dropped .docx / .md / .txt / .pdf goes there */
   openDocs: () => void;
-  /** «Пісні» (1.17.1): dropped presentations open its import */
+  /** «Презентації» (1.17.1): dropped presentations open its import */
   openSongs: () => void;
   /** the leading control window (a standby window or the desk adds nothing) */
   enabled: boolean;
@@ -139,7 +139,7 @@ export function useMediaDrop({
     const others: string[] = [];
     const folders: FileSystemDirectoryEntry[] = [];
     // a Mac's own formats (convert.ts): a document (.pages, .rtf, .doc …) goes as it is, the
-    // server reads it into the library; a Keynote file becomes a .pptx for «Пісні» first
+    // server reads it into the library; a Keynote file becomes a .pptx for «Презентації» first
     if (server) await loadConvertKinds();
     for (const { entry, file: dropped } of entries) {
       if (entry?.isDirectory) folders.push(entry as FileSystemDirectoryEntry);
@@ -204,7 +204,9 @@ export function useMediaDrop({
       // a presentation needs its bundle chosen in the import: added to the running order from there
       if (next)
         notifications.show({
-          message: tr('Презентації — у «Пісні»: виберіть збірку, а тоді додайте пісню у показ'),
+          message: tr(
+            'Файл .pptx — у «Презентації»: виберіть збірку, а тоді додайте пісню у показ',
+          ),
           color: 'gray',
           autoClose: 5000,
         });

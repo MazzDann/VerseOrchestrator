@@ -264,7 +264,7 @@ export function Control() {
       else if (kind === 'image') setPlace({ ws: 'media', tab: 'images' });
       else if (kind === 'doc') setPlace((p) => ({ ...p, ws: 'docs' }));
       // a «Заставка», «Відлік» or «Цикл» has no panel of its own (1.10.5, the Mac's round): it
-      // leaves «Пісні» and an open album — they kept ←/→, the clicker and the remote, and their next
+      // leaves «Презентації» and an open album — they kept ←/→, the clicker and the remote, and their next
       // stanza or photo went over the item instead of the running order moving on
       else if (kind === 'cover' || kind === 'countdown' || kind === 'loop')
         setPlace((p) =>
@@ -286,7 +286,7 @@ export function Control() {
     setTextOpen(true);
     setTextFocus((n) => n + 1);
   }, [setTextOpen]);
-  /** the left column's place for the song list in «Пісні» (SongsPanel draws it there) */
+  /** the left column's place for the song list in «Презентації» (SongsPanel draws it there) */
   const [songListSlot, setSongListSlot] = useState<HTMLElement | null>(null);
   const [asideMode, setAsideMode] = useState<AsideMode>('preview');
   // under the monitors (1.8.12-beta.6): the running order, the bookmarks or the slide's text
@@ -864,6 +864,8 @@ export function Control() {
   // take: after the timers' effects, the corner QR's and showJump's (E19–E21).
   useControlHotkeys({
     keymap,
+    workspace,
+    setWorkspace,
     advanceAndSay,
     hideToggle,
     clearScreen,
@@ -1417,7 +1419,7 @@ export function Control() {
               onEnter={(q, opts) => void goTo(q, opts)}
               onDone={clearSearch}
             />
-            {/* the modes (1.8.12-beta.7): «Пісні» and «Медіа» take the centre, the Bible's chapter bar
+            {/* the modes (1.8.12-beta.7): «Презентації» and «Медіа» take the centre, the Bible's chapter bar
                 and verses stay mounted underneath (their scroll and measures kept) */}
             <SongsPanel
               open={songsOpen}

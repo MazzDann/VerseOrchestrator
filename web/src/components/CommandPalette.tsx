@@ -157,7 +157,7 @@ export function CommandPalette({
       for (const s of found) {
         out.push({
           key: `song:${s.id}`,
-          section: tr('Пісні'),
+          section: tr('Презентації'),
           label: `${s.number != null ? `№${s.number} ` : ''}${s.title}${several && s.bundle ? ` · ${s.bundle}` : ''}`,
           icon: <IconMusic size={16} />,
           run: () => onOpenSong(s.id),

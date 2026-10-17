@@ -121,7 +121,7 @@ export function ControlHeader({
   fieldInCentre: boolean;
   /** the palette, «Ще» or a tool owns the keyboard now */
   keysBusy: boolean;
-  /** «Біблія / Пісні / Медіа» (1.8.12-beta.7) */
+  /** «Біблія / Презентації / Медіа» (1.8.12-beta.7; «Пісні» until 1.19.0-beta.1) */
   workspace: Workspace;
   setWorkspace: (ws: Workspace) => void;
   outputWindows: TrackedOutput[];
@@ -187,7 +187,7 @@ export function ControlHeader({
   // menu items — the same names, icons, hotkeys and states (vo-design §2).
   const rowGap = fold.tight ? 'xs' : 'sm';
   // where the field stands (1.8.12-beta.9, A1007-01): the settings say; above the verses it is
-  // Control's, in «Пісні» / «Медіа» it comes back here at the start
+  // Control's, in «Презентації» / «Медіа» it comes back here at the start
   const place = useSettings((st) => st.search.place);
   const fieldAt = fieldInCentre ? null : place === 'verses' ? 'start' : place;
   const searchField = (width: number | string) => (
@@ -204,11 +204,18 @@ export function ControlHeader({
     />
   );
   // the modes (1.8.12-beta.7, F1005-12 / 15): one workspace at a time — the left column and the
-  // centre change with it; they stand where «Пісні», «Власний текст» and «Зображення» stood
-  const modeTool = (ws: Workspace, label: string, hint: string, icon: ReactNode): ToolProps => ({
+  // centre change with it; they stand where the panels «Пісні», «Власний текст» and «Зображення» stood
+  const modeTool = (
+    ws: Workspace,
+    label: string,
+    hint: string,
+    icon: ReactNode,
+    combo: string,
+  ): ToolProps => ({
     label,
     hint,
     icon,
+    combo,
     active: workspace === ws,
     onClick: () => setWorkspace(ws),
   });
@@ -218,24 +225,28 @@ export function ControlHeader({
       tr('Біблія'),
       tr('Переклади, книги й вірші'),
       <IconBook2 size={18} stroke={1.5} />,
+      keymap.modeBible,
     ),
     modeTool(
       'songs',
-      tr('Пісні'),
+      tr('Презентації'),
       tr('Список пісень ліворуч, пісня посередині'),
       <IconMusic size={18} stroke={1.5} />,
+      keymap.modeSongs,
     ),
     modeTool(
       'docs',
       tr('Документи'),
       tr('Документи з папки: абзац за абзацом'),
       <IconFileText size={18} stroke={1.5} />,
+      keymap.modeDocs,
     ),
     modeTool(
       'media',
       tr('Медіа'),
       tr('Зображення, альбоми, відео й власний текст'),
       <IconLibraryPhoto size={18} stroke={1.5} />,
+      keymap.modeMedia,
     ),
   ];
   // «Простий вигляд» (1.8.12-beta.7, F1005-15): the rarely used tools wait in «Ще»

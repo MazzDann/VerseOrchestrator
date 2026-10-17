@@ -81,7 +81,7 @@ export function useShowCommands({
   send,
   followItem,
 }: {
-  /** a remote's «Заставка», «Відлік» or «Цикл» item leaves «Пісні» / an album, as the operator's does (1.10.5) */
+  /** a remote's «Заставка», «Відлік» or «Цикл» item leaves «Презентації» / an album, as the operator's does (1.10.5) */
   followItem: (kind: SeqItem['kind']) => void;
   /** what is on screen now: a «Заставка» item covers it (1.10.0-beta.2) */
   liveSlideRef: MutableRefObject<Slide>;
