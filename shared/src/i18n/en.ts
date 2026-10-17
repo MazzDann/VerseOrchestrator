@@ -2637,4 +2637,8 @@ export const EN: Record<string, string> = {
   'Попередній режим': 'Previous mode',
   'Назад по режимах; Ctrl+Shift+Tab — лише в окремому застосунку':
     'Back through the modes; Ctrl+Shift+Tab only in the desktop app',
+  'Вірш цього розділу, як-от 16 чи 16-18. Enter — вибрати, Ctrl+Enter — і на екран':
+    'A verse of this chapter, like 16 or 16-18. Enter — select it, Ctrl+Enter — and on screen',
+  Вірш: 'Verse',
+  'Вірш у розділі': 'Verse in the chapter',
 };

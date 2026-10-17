@@ -49,7 +49,14 @@ To show several verses together, gather them:
 
 - Ctrl+click (on macOS, ⌘+click) adds a verse to the selection or takes it out;
 - Shift+click chooses every verse from the one you clicked last to this one (with Ctrl, adds
-  them to the selection).
+  them to the selection);
+- drag the mouse across the rows: the verses light up, and when you release the button, all
+  of them from the first to the last are chosen. Near the list's edge it scrolls on by itself.
+
+To skip scrolling a long chapter, type the verse number into the **Verse** field to the left
+of the chapter numbers, for example `16` or `16-18`, and press Enter: the verse is chosen and
+its row gets the focus, so the next Enter shows it. Ctrl+Enter (on macOS, ⌘↩) shows the verse
+on screen at once.
 
 While **Live** is on, the gathered verses wait in the preview, and the screen keeps what it
 shows. The badge above the verses names the chosen numbers and how many there are, for

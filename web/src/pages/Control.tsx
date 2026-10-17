@@ -463,6 +463,7 @@ export function Control() {
     showJump,
     showWhenReady,
     quick,
+    quickJump,
     openSearch,
   } = useJumps({
     selectedIds,
@@ -1492,6 +1493,7 @@ export function Control() {
                 reference={reference}
                 chapters={chapters}
                 selectChapter={selectChapter}
+                jumpVerse={(q, show) => quickJump(q, { show })}
               />
               <Divider />
               <VerseList

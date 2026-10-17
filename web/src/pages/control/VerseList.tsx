@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, type RefObject } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { ScrollArea, Stack, Text } from '@mantine/core';
 import { parseRedLetter } from '@vo/shared';
 import { useQuery } from '@tanstack/react-query';
@@ -13,8 +13,8 @@ import { tr, useLang } from '../../i18n';
 
 /**
  * The open chapter's verses (click, Space, Enter; Ctrl / ⌘ adds or takes out one verse, Shift a
- * range from the last one clicked) and the concordance beside them; an empty chapter says what
- * to do.
+ * range from the last one clicked, a drag across the rows the verses between) and the concordance
+ * beside them; an empty chapter says what to do.
  */
 export function VerseList({
   panelPlacement,
@@ -128,6 +128,69 @@ export function VerseList({
     else return false;
     return true;
   };
+  // a drag across the rows picks the verses between (1.19.0-beta.2, F1017-10): they light up as the
+  // mouse goes, the pick is made once, on release, the Shift range's way (a pick of several waits for
+  // Enter where the setting says so); back on the row it started on, it is a click. Near the list's
+  // top or bottom edge the list scrolls on by itself.
+  const drag = useRef<{ from: number; to: number } | null>(null);
+  const [dragged, setDragged] = useState<[number, number] | null>(null);
+  const dragTo = (verse: number) => {
+    const d = drag.current;
+    if (!d || d.to === verse) return;
+    d.to = verse;
+    setDragged(d.from === verse ? null : [Math.min(d.from, verse), Math.max(d.from, verse)]);
+  };
+  const latest = useRef({ pickRange, primaryVerses, dragTo });
+  latest.current = { pickRange, primaryVerses, dragTo };
+  useEffect(() => {
+    let edge = 0;
+    let frame = 0;
+    let at = { x: 0, y: 0 };
+    const roll = () => {
+      frame = 0;
+      const view = verseViewport.current;
+      if (!drag.current || !edge || !view) return;
+      view.scrollBy({ top: edge });
+      // the row now at the pointer's height (the pointer may be past the list's edge)
+      const box = view.getBoundingClientRect();
+      const y = Math.min(Math.max(at.y, box.top + 4), box.bottom - 4);
+      const row = document.elementFromPoint(at.x, y)?.closest<HTMLElement>('[data-verse]');
+      if (row) latest.current.dragTo(Number(row.dataset.verse));
+      frame = requestAnimationFrame(roll);
+    };
+    const move = (e: PointerEvent) => {
+      const box = drag.current && verseViewport.current?.getBoundingClientRect();
+      if (!box) return;
+      at = { x: Math.min(Math.max(e.clientX, box.left + 4), box.right - 4), y: e.clientY };
+      edge = e.clientY < box.top + 28 ? -8 : e.clientY > box.bottom - 28 ? 8 : 0;
+      if (edge && !frame) frame = requestAnimationFrame(roll);
+    };
+    const stop = (pick: boolean) => {
+      const d = drag.current;
+      drag.current = null;
+      edge = 0;
+      if (!d) return;
+      setDragged(null);
+      if (!pick || d.to === d.from) return;
+      const [a, b] = d.from < d.to ? [d.from, d.to] : [d.to, d.from];
+      anchor.current = d.from;
+      const { pickRange: take, primaryVerses: rows } = latest.current;
+      take(rows.map((x) => x.verse).filter((n) => n >= a && n <= b));
+    };
+    const up = () => stop(true);
+    const cancel = () => stop(false);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('blur', cancel);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('blur', cancel);
+      cancelAnimationFrame(frame);
+    };
+  }, [verseViewport]);
   return (
     <div
       style={{
@@ -164,6 +227,26 @@ export function VerseList({
                 tabIndex={0}
                 data-verse={v.verse}
                 data-selected={selectedVerses.includes(v.verse) ? 'true' : undefined}
+                data-dragged={
+                  dragged && v.verse >= dragged[0] && v.verse <= dragged[1] ? 'true' : undefined
+                }
+                onPointerDown={(e) => {
+                  // the mouse alone: a finger's drag scrolls, a modifier's click is its own
+                  if (e.pointerType !== 'mouse' || e.button !== 0) return;
+                  if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+                  drag.current = { from: v.verse, to: v.verse };
+                }}
+                onPointerEnter={(e) => {
+                  const d = drag.current;
+                  if (!d) return;
+                  // released outside the window: no drag any more
+                  if (!(e.buttons & 1)) {
+                    drag.current = null;
+                    setDragged(null);
+                    return;
+                  }
+                  dragTo(v.verse);
+                }}
                 onClick={(e) => {
                   if (!pick(v.verse, e)) one(v.verse);
                 }}

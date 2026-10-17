@@ -146,6 +146,10 @@
   background: var(--mantine-color-brand-light);
   box-shadow: inset 2px 0 0 var(--mantine-color-brand-filled);
 }
+/* the rows a mouse drag goes over (1.19.0-beta.2): picked on release */
+.vo-verse-item[data-dragged='true'] {
+  background: var(--mantine-color-brand-light);
+}
 /* While a list scrolls (lib/scrolling.ts), rows sliding under a still pointer don't light up
    one after another — the «мигає» on a long psalm (0.6.5). The selection keeps its colour. */
 html[data-scrolling] .vo-verse-item:hover:not([data-selected='true']),
