@@ -1221,7 +1221,7 @@ export function Control() {
 
   // files and folders dropped on the window (1.14.0-beta.1): pictures, albums, videos — the last
   // hook: it starts no effect the others wait for
-  const { dragging } = useMediaDrop({
+  const { dragging, zone: dropZone } = useMediaDrop({
     openMedia: (tab) => setPlace({ ws: 'media', tab }),
     openDocs: () => setPlace((p) => ({ ...p, ws: 'docs' })),
     openSongs: () => setPlace((p) => ({ ...p, ws: 'songs' })),
@@ -1231,7 +1231,7 @@ export function Control() {
 
   return (
     <>
-      {dragging && <DropOverlay />}
+      {dragging && <DropOverlay zone={dropZone} />}
       <DesktopHint />
       <AppShell
         header={{ height: 56 }}

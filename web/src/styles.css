@@ -1856,6 +1856,25 @@ form.vo-remote-countdown {
   background: var(--mantine-color-body);
   box-shadow: var(--mantine-shadow-md);
 }
+/* the running order («Показ», 1.18.2): a drop there goes next in the show — outlined while files are
+   dragged, filled once they are over it */
+.vo-drop-zone {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: var(--mantine-radius-md);
+  outline: 2px dashed var(--mantine-color-brand-filled);
+  outline-offset: -4px;
+  color: var(--mantine-color-dimmed);
+}
+.vo-drop-zone[data-active] {
+  outline-style: solid;
+  color: var(--mantine-color-text);
+  background: color-mix(in srgb, var(--mantine-color-brand-filled) 22%, var(--mantine-color-body));
+}
 
 /* An HEIC photo of an album still converting (1.14.0-beta.2, AlbumsView): the tile says so. */
 .vo-thumb-wait {

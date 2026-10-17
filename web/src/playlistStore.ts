@@ -303,6 +303,11 @@ interface PlaylistState {
   /** Saved running orders ("programs") that can be reloaded week to week. */
   saved: SavedProgram[];
   add: (item: NewSeqItem) => void;
+  /**
+   * Right after the item on screen, in the order given (1.18.2: media dropped on «Показ» — «стане
+   * наступним»); with none on screen, at the end, as `add`.
+   */
+  addNext: (items: NewSeqItem[]) => void;
   removeItem: (id: string) => void;
   /** Change an item in place (1.10.0-beta.2: a «Заставка» item's text and picture). */
   updateItem: (
@@ -383,6 +388,17 @@ export const usePlaylist = create<PlaylistState>()(
           cleared: null,
           replaced: null,
         })),
+      addNext: (items) =>
+        set((s) => {
+          if (items.length === 0) return s;
+          const added = items.map((item) => ({ ...item, id: newId() }) as SeqItem);
+          const at = s.items.findIndex((it) => it.id === s.currentId);
+          const items2 =
+            at < 0
+              ? [...s.items, ...added]
+              : [...s.items.slice(0, at + 1), ...added, ...s.items.slice(at + 1)];
+          return { items: items2, cleared: null, replaced: null };
+        }),
       updateItem: (id, patch) =>
         set((s) => ({
           items: s.items.map((it) =>

@@ -2604,4 +2604,12 @@ export const EN: Record<string, string> = {
   'абзац {n}/{total}': 'paragraph {n}/{total}',
   // the launcher opens the desktop app (1.18.1)
   'Відкриваю застосунок…': 'Opening the app…',
+  // media dropped on «Показ» go next (1.18.2)
+  'Наступним у показі: {items}': 'Next in the show: {items}',
+  'Додаю зображення…': 'Adding the pictures…',
+  'На «Показ» під моніторами — і вони стануть наступними у показі.':
+    'Onto “Running order” under the monitors — and they go next in the show.',
+  'Сюди — наступним у показі': 'Here — next in the show',
+  'Презентації — у «Пісні»: виберіть збірку, а тоді додайте пісню у показ':
+    'Presentations go to “Songs”: choose a bundle, then add the song to the show',
 };

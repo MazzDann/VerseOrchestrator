@@ -15,6 +15,16 @@ import {
 import { addToBrowserLibrary } from '../../lib/browserLibrary';
 import { effectiveSource } from '../../dataSourceStore';
 import { NEEDS_SERVER } from '../../serverStore';
+import { fileToPicture } from '../../lib/image';
+import { readImageFit } from '../../lib/imageFit';
+import { usePlaylist, type NewSeqItem } from '../../playlistStore';
+
+/** The running order under the monitors («Показ», ShowList) marks itself a drop zone (1.18.2). */
+const zoneOf = (e: DragEvent): 'order' | null =>
+  e.target instanceof Element && e.target.closest('[data-drop-zone="order"]') ? 'order' : null;
+
+/** A document's title: its file's name without the folder and the extension (as the library has it). */
+const titleOf = (file: string) => (file.split('/').pop() ?? file).replace(/\.[^.]+$/, '') || file;
 
 /**
  * Files and folders dropped anywhere on the control window (1.14.0-beta.1, the author's Q14):
@@ -46,6 +56,8 @@ export function useMediaDrop({
 }) {
   const queryClient = useQueryClient();
   const [dragging, setDragging] = useState(false);
+  /** over the running order («Показ», 1.18.2): a drop there goes next in it */
+  const [zone, setZone] = useState<'order' | null>(null);
   // the overlay goes when no dragover came for a moment: an enter / leave count stuck when a node
   // under the pointer went away mid-drag, or Esc ended the drag outside (review)
   const quiet = useRef(0);
@@ -57,12 +69,14 @@ export function useMediaDrop({
     const hide = () => {
       window.clearTimeout(quiet.current);
       setDragging(false);
+      setZone(null);
     };
     const over = (e: DragEvent) => {
       if (!files(e) || !live.current.enabled) return;
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
       setDragging(true);
+      setZone(zoneOf(e));
       window.clearTimeout(quiet.current);
       quiet.current = window.setTimeout(hide, 400);
     };
@@ -78,7 +92,7 @@ export function useMediaDrop({
       const entries = [...(e.dataTransfer?.items ?? [])]
         .filter((i) => i.kind === 'file')
         .map((i) => ({ entry: i.webkitGetAsEntry?.() ?? null, file: i.getAsFile() }));
-      void take(entries);
+      void take(entries, zoneOf(e) === 'order');
     };
     window.addEventListener('dragenter', over);
     window.addEventListener('dragover', over);
@@ -97,8 +111,23 @@ export function useMediaDrop({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const take = async (entries: { entry: FileSystemEntry | null; file: File | null }[]) => {
+  /**
+   * `next` (1.18.2, the user's ask): dropped on «Показ» — each one, added as before, also goes
+   * right after the item on screen, in the order dropped; the view stays where the show is.
+   */
+  const take = async (
+    entries: { entry: FileSystemEntry | null; file: File | null }[],
+    next = false,
+  ) => {
     const { openMedia, server } = live.current;
+    // each one kept with its place in the drop: the running order gets them as dropped (review)
+    const queue: { at: number; item: NewSeqItem }[] = [];
+    const place = new Map<File | FileSystemEntry, number>();
+    entries.forEach(({ entry, file }, i) => {
+      if (file) place.set(file, i);
+      if (entry) place.set(entry, i);
+    });
+    const at = (x: File | FileSystemEntry) => place.get(x) ?? entries.length;
     const by = new Map<string, File[]>();
     const others: string[] = [];
     const folders: FileSystemDirectoryEntry[] = [];
@@ -165,19 +194,108 @@ export function useMediaDrop({
     if (of('song').length > 0) {
       useDrop.getState().addSongs(of('song'));
       live.current.openSongs();
+      // a presentation needs its bundle chosen in the import: added to the running order from there
+      if (next)
+        notifications.show({
+          message: tr('Презентації — у «Пісні»: виберіть збірку, а тоді додайте пісню у показ'),
+          color: 'gray',
+          autoClose: 5000,
+        });
     }
     if (of('image').length > 0) {
-      useDrop.getState().addImages(of('image'));
-      openMedia('images');
+      if (next) queue.push(...(await imagesForOrder(of('image'), at)));
+      else {
+        useDrop.getState().addImages(of('image'));
+        openMedia('images');
+      }
     }
-    for (const dir of folders) await folderToAlbum(dir);
-    for (const v of of('video')) await fileToVideo(v);
+    const fit = readImageFit();
+    for (const dir of folders) {
+      const album = await folderToAlbum(dir, next);
+      if (next && album)
+        queue.push({
+          at: at(dir),
+          item: { kind: 'album', label: album.name, albumId: album.id, fit },
+        });
+    }
+    for (const v of of('video')) {
+      const video = await fileToVideo(v, next);
+      if (next && video)
+        queue.push({
+          at: at(v),
+          item: { kind: 'video', label: video.name, videoId: video.id, fit },
+        });
+    }
     if (of('document').length > 0) {
-      live.current.openDocs();
-      const last = await importDocuments(of('document'), queryClient);
-      if (last != null) useDocOpen.getState().open(last);
+      if (!next) live.current.openDocs();
+      const docs = new Set<number>();
+      const last = await importDocuments(of('document'), queryClient, (d, from) => {
+        // the same document twice in one drop: once (review)
+        if (!next || docs.has(d.id)) return;
+        docs.add(d.id);
+        queue.push({
+          at: at(from),
+          item: { kind: 'doc', label: titleOf(d.file), docId: d.id, file: d.file },
+        });
+      });
+      if (last != null && !next) useDocOpen.getState().open(last);
     }
     for (const f of of('vectors')) await vectorsToServer(f);
+    if (queue.length > 0) {
+      const items = queue.sort((a, b) => a.at - b.at).map((q) => q.item);
+      usePlaylist.getState().addNext(items);
+      notifications.show({
+        message: tr('Наступним у показі: {items}', {
+          items: items
+            .slice(0, 3)
+            .map((q) => q.label)
+            .join(', ')
+            .concat(items.length > 3 ? ` +${items.length - 3}` : ''),
+        }),
+        color: 'green',
+        autoClose: 2500,
+      });
+    }
+  };
+
+  /** Pictures for the running order: kept as by «Додати…», each one a picture item. */
+  const imagesForOrder = async (
+    files: File[],
+    at: (f: File) => number,
+  ): Promise<{ at: number; item: NewSeqItem }[]> => {
+    const fit = readImageFit();
+    const items: { at: number; item: NewSeqItem }[] = [];
+    const id = notifications.show({
+      message: tr('Додаю зображення…'),
+      loading: true,
+      autoClose: false,
+    });
+    for (const file of files)
+      try {
+        const img = await api.addImage(await fileToPicture(file));
+        items.push({
+          at: at(file),
+          item: {
+            kind: 'image',
+            label: img.name,
+            imageId: img.id,
+            src: img.src,
+            small: img.small,
+            fit,
+          },
+        });
+      } catch (e) {
+        notifications.show({
+          message: tr('Не вдалося додати «{file}»: {error}', {
+            file: file.name,
+            error: tr((e as Error).message),
+          }),
+          color: 'red',
+        });
+      }
+    notifications.hide(id);
+    await queryClient.invalidateQueries({ queryKey: ['images'] });
+    return items;
   };
 
   /** Modules into the server's modules/ and the library's selection, then one rescan for them all. */
@@ -252,14 +370,19 @@ export function useMediaDrop({
     }
   };
 
-  const folderToAlbum = async (dir: FileSystemDirectoryEntry) => {
+  /** The album added, or null (empty, not found at once — the picker asks —, failed). */
+  const folderToAlbum = async (
+    dir: FileSystemDirectoryEntry,
+    next = false,
+  ): Promise<{ id: string; name: string } | null> => {
     const { openMedia } = live.current;
-    openMedia('albums');
+    // for the running order the view stays on the show — unless the picker must ask
+    if (!next) openMedia('albums');
     try {
       const folder = await readFolder(dir);
       if (folder.files.length === 0) {
         notifications.show({ message: tr('Папка «{name}» порожня', { name: folder.name }) });
-        return;
+        return null;
       }
       const { found } = await api.locateAlbum(folder.name, folder.files);
       if (found.length === 1) {
@@ -270,8 +393,9 @@ export function useMediaDrop({
           color: 'green',
           autoClose: 2000,
         });
-        return;
+        return album;
       }
+      if (next) openMedia('albums');
       notifications.show({
         message:
           found.length === 0
@@ -290,11 +414,16 @@ export function useMediaDrop({
         color: 'red',
       });
     }
+    return null;
   };
 
-  const fileToVideo = async (file: File) => {
+  /** The video added, or null (not found at once — the picker asks —, failed). */
+  const fileToVideo = async (
+    file: File,
+    next = false,
+  ): Promise<{ id: string; name: string } | null> => {
     const { openMedia } = live.current;
-    openMedia('videos');
+    if (!next) openMedia('videos');
     try {
       // a name and a size alone: added at once only when the search looked everywhere (review)
       const { found, complete } = await api.locateVideo(file.name, file.size);
@@ -306,8 +435,9 @@ export function useMediaDrop({
           color: 'green',
           autoClose: 2000,
         });
-        return;
+        return video;
       }
+      if (next) openMedia('videos');
       notifications.show({
         message: tr('Відео «{name}» не знайдено на диску — виберіть його.', { name: file.name }),
         color: 'cue',
@@ -319,7 +449,8 @@ export function useMediaDrop({
         color: 'red',
       });
     }
+    return null;
   };
 
-  return { dragging };
+  return { dragging, zone };
 }
