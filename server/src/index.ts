@@ -78,6 +78,7 @@ import { dbFiles, diskParts, oldBackups, removeAll, sizeOf } from './diskSpace.j
 import { createRebuildJob, type BuilderProcess } from './rebuildJob.js';
 import { OPEN_FRESH_MS, createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
 import { readLayout } from './layout.js';
+import { fetchImage } from './imageFetch.js';
 import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
 import { createGitSync } from './gitSync.js';
@@ -1357,6 +1358,35 @@ app.post(
 );
 
 // ── Pictures on screen (1.5.0, images.ts): kept in data/images/, served by address ────────
+
+/**
+ * A picture from the internet (1.19.0-beta.3, the users' F1017-16): the control window's address — a
+ * picture dragged from a web page, a pasted address, «З інтернету…» — fetched here, since a page may not
+ * read another site's picture (imageFetch.ts). The bytes go back; the page keeps the picture as a
+ * dropped file (POST /api/images). The control window on this machine only.
+ */
+app.get(
+  '/api/images/fetch',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const got = await fetchImage(String(req.query.url ?? ''));
+    if ('refused' in got) {
+      if (got.refused === 'address')
+        throw new ApiError(400, N_('Це не адреса в інтернеті: потрібна http:// чи https://'));
+      if (got.refused === 'type') throw new ApiError(415, N_('За цією адресою не зображення'));
+      if (got.refused === 'size') throw new ApiError(413, N_('Зображення завелике — до 40 МБ'));
+      throw new ApiError(
+        502,
+        N_('Не вдалося завантажити зображення — перевірте адресу й інтернет'),
+      );
+    }
+    res.setHeader('Content-Type', got.type);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-VO-Name', encodeURIComponent(got.name));
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(got.bytes);
+  }),
+);
 
 // the list is the operator's (this machine): a phone gets a picture's address with the slide,
 // and the files' names are random ids — not a gallery for the hall to browse (review of #46)

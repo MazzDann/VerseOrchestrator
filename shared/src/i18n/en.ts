@@ -2641,4 +2641,18 @@ export const EN: Record<string, string> = {
     'A verse of this chapter, like 16 or 16-18. Enter — select it, Ctrl+Enter — and on screen',
   Вірш: 'Verse',
   'Вірш у розділі': 'Verse in the chapter',
+  'З інтернету — за адресою зображення чи сторінки':
+    'From the internet — by a picture’s or a page’s address',
+  'З інтернету…': 'From the internet…',
+  'https://… — адреса зображення чи сторінки': 'https://… — a picture’s or a page’s address',
+  'Адреса зображення': 'Picture address',
+  Додати: 'Add',
+  'Або перетягніть зображення з браузера у вікно чи вставте скопійоване: Ctrl+V.':
+    'Or drag a picture from the browser into the window, or paste a copied one: Ctrl+V.',
+  'Завантажую зображення з інтернету…': 'Downloading the picture from the internet…',
+  'Це не адреса в інтернеті: потрібна http:// чи https://':
+    'That is not an internet address: it needs http:// or https://',
+  'За цією адресою не зображення': 'There is no picture at this address',
+  'Не вдалося завантажити зображення — перевірте адресу й інтернет':
+    'Couldn’t download the picture — check the address and the internet connection',
 };

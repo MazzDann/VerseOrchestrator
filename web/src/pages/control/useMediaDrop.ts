@@ -18,6 +18,8 @@ import { NEEDS_SERVER } from '../../serverStore';
 import { fileToPicture } from '../../lib/image';
 import { readImageFit } from '../../lib/imageFit';
 import { usePlaylist, type NewSeqItem } from '../../playlistStore';
+import { fileFromAddress, imageAddressOf, looksLikeAddress } from '../../lib/webImage';
+import { isFormField } from '../../lib/keyScroll';
 
 /** The running order under the monitors («Показ», ShowList) marks itself a drop zone (1.18.2). */
 const zoneOf = (e: DragEvent): 'order' | null =>
@@ -36,6 +38,8 @@ const titleOf = (file: string) => (file.split('/').pop() ?? file).replace(/\.[^.
  * → «Документи», a module → the library (the server's modules/ and a rescan; without a server, this
  * browser's engine), a segment → this browser's engine, a presentation → «Презентації»'s import, another
  * copy's vectors.db → the vectors.
+ * Since 1.19.0-beta.3 (the users' F1017-16): a picture dragged from a web page (its address — the
+ * server fetches it) and a picture pasted with Ctrl+V (copied, or its address) are added the same way.
  */
 export function useMediaDrop({
   openMedia,
@@ -65,7 +69,26 @@ export function useMediaDrop({
   live.current = { openMedia, openDocs, openSongs, enabled, server };
 
   useEffect(() => {
-    const files = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
+    // a drag that started in this page (a row, a tile) is not something brought in
+    let inside = false;
+    const started = () => {
+      inside = true;
+    };
+    // after the drop's own handlers have read it (a capture listener runs first — review); a mouse move
+    // means no drag is on (none fires during one): a drag whose node went away mid-way left it set
+    const ended = () => {
+      window.setTimeout(() => {
+        inside = false;
+      }, 0);
+    };
+    const moved = () => {
+      inside = false;
+    };
+    /** files, or a picture from a web page (an address — 1.19.0-beta.3) */
+    const files = (e: DragEvent) => {
+      const types = e.dataTransfer?.types ?? [];
+      return types.includes('Files') || (!inside && types.includes('text/uri-list'));
+    };
     const hide = () => {
       window.clearTimeout(quiet.current);
       setDragging(false);
@@ -99,14 +122,43 @@ export function useMediaDrop({
       const entries = [...(e.dataTransfer?.items ?? [])]
         .filter((i) => i.kind === 'file')
         .map((i) => ({ entry: i.webkitGetAsEntry?.() ?? null, file: i.getAsFile() }));
-      void take(entries, zoneOf(e) === 'order');
+      const address =
+        entries.length === 0 && e.dataTransfer ? imageAddressOf(e.dataTransfer) : null;
+      if (address) void fromAddress(address, zoneOf(e) === 'order');
+      else void take(entries, zoneOf(e) === 'order');
     };
+    // Ctrl+V (1.19.0-beta.3): a copied picture, or a picture's address — not where a field takes the text
+    const paste = (e: ClipboardEvent) => {
+      const data = e.clipboardData;
+      if (!data || e.defaultPrevented || !live.current.enabled) return;
+      const field = isFormField(e.target);
+      const pictures = [...data.files].filter((f) => f.type.startsWith('image/'));
+      if (pictures.length > 0 && (!field || !data.types.includes('text/plain'))) {
+        e.preventDefault();
+        void take(pictures.map((file) => ({ entry: null, file })));
+        return;
+      }
+      const text = data.getData('text/plain');
+      if (field || !looksLikeAddress(text)) return;
+      e.preventDefault();
+      void fromAddress(text.trim());
+    };
+    window.addEventListener('dragstart', started);
+    window.addEventListener('dragend', ended);
+    window.addEventListener('drop', ended, true);
+    window.addEventListener('mousemove', moved, { passive: true });
+    window.addEventListener('paste', paste);
     window.addEventListener('dragenter', over);
     window.addEventListener('dragover', over);
     window.addEventListener('dragleave', leave);
     window.addEventListener('drop', drop);
     window.addEventListener('dragend', hide);
     return () => {
+      window.removeEventListener('dragstart', started);
+      window.removeEventListener('dragend', ended);
+      window.removeEventListener('drop', ended, true);
+      window.removeEventListener('mousemove', moved);
+      window.removeEventListener('paste', paste);
       window.removeEventListener('dragenter', over);
       window.removeEventListener('dragover', over);
       window.removeEventListener('dragleave', leave);
@@ -117,6 +169,30 @@ export function useMediaDrop({
     // the handlers read the props through a ref
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** A picture at an address (a web page's, a pasted one): fetched, then added as a dropped file. */
+  const fromAddress = async (address: string, next = false) => {
+    if (!live.current.server) {
+      notifications.show({ message: tr(NEEDS_SERVER), color: 'orange' });
+      return;
+    }
+    notifications.show({
+      id: 'vo-web-image',
+      message: tr('Завантажую зображення з інтернету…'),
+      color: 'gray',
+      loading: true,
+      autoClose: false,
+    });
+    try {
+      const file = await fileFromAddress(address);
+      notifications.hide('vo-web-image');
+      await take([{ entry: null, file }], next);
+    } catch (e) {
+      notifications.hide('vo-web-image');
+      // a link dragged in that is no picture is a slip, not a failure: said, not alarmed (review)
+      notifications.show({ message: tr((e as Error).message), color: 'orange' });
+    }
+  };
 
   /**
    * `next` (1.18.2, the user's ask): dropped on «Показ» — each one, added as before, also goes

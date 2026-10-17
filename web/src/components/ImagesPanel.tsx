@@ -8,6 +8,7 @@ import {
   ScrollArea,
   SegmentedControl,
   Text,
+  TextInput,
   Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -18,9 +19,11 @@ import {
   IconPlaylistAdd,
   IconTrash,
   IconUpload,
+  IconWorldDownload,
 } from '@tabler/icons-react';
 import { api, type AlbumInfo, type ImageInfo, type VideoInfo } from '../api';
 import { fileToPicture } from '../lib/image';
+import { fileFromAddress } from '../lib/webImage';
 import { readImageFit, storeImageFit, type ImageFit } from '../lib/imageFit';
 import { type SlidePicture } from '../presenterBus';
 import { usePlaylist, type SeqItem } from '../playlistStore';
@@ -107,6 +110,14 @@ export function ImagesPanel({
     onRefit(f);
   };
   const [adding, setAdding] = useState<{ done: number; of: number; heic?: boolean } | null>(null);
+  // «З інтернету…» (1.19.0-beta.3, F1017-16): a picture's (or a page's) address, fetched by the server
+  const [webOpen, setWebOpen] = useState(false);
+  const [webUrl, setWebUrl] = useState('');
+  const [fetching, setFetching] = useState(false);
+  const webField = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (webOpen) webField.current?.focus();
+  }, [webOpen]);
   /** «Скасувати» while adding: the rest are left, an HEIC converting stops (1.14.0-beta.2) */
   const stopAdding = useRef(false);
   // the picture whose deletion asks first (1.7.2)
@@ -151,6 +162,21 @@ export function ImagesPanel({
   if (!open) return null;
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['images'] });
+  const fromWeb = async () => {
+    const url = webUrl.trim();
+    if (!url || fetching) return;
+    setFetching(true);
+    try {
+      const file = await fileFromAddress(url);
+      setWebUrl('');
+      setWebOpen(false);
+      await add([file]);
+    } catch (e) {
+      notifications.show({ message: tr((e as Error).message), color: 'red' });
+    } finally {
+      setFetching(false);
+    }
+  };
   const add = async (files: File[]) => {
     if (files.length === 0) return;
     setFailed([]);
@@ -367,8 +393,58 @@ export function ImagesPanel({
               )}
             </FileButton>
           )}
+          {tab === 'images' && (
+            <Tooltip label={tr('З інтернету — за адресою зображення чи сторінки')} withArrow>
+              <ActionIcon
+                size="input-xs"
+                variant={webOpen ? 'filled' : 'light'}
+                onClick={() => setWebOpen((o) => !o)}
+                disabled={serverAvailable === false}
+                aria-label={tr('З інтернету…')}
+                aria-pressed={webOpen}
+              >
+                <IconWorldDownload size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
         </Group>
       </Group>
+      {tab === 'images' && webOpen && serverAvailable !== false && (
+        <div style={{ marginBottom: 8 }}>
+          <Group gap={6} wrap="nowrap">
+            <TextInput
+              size="xs"
+              style={{ flex: 1 }}
+              ref={webField}
+              placeholder={tr('https://… — адреса зображення чи сторінки')}
+              aria-label={tr('Адреса зображення')}
+              value={webUrl}
+              onChange={(e) => setWebUrl(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.stopPropagation();
+                  setWebOpen(false);
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void fromWeb();
+                }
+              }}
+            />
+            <Button
+              size="xs"
+              loading={fetching}
+              disabled={!webUrl.trim()}
+              onClick={() => void fromWeb()}
+            >
+              {tr('Додати')}
+            </Button>
+          </Group>
+          <Text size="xs" c="dimmed" mt={4}>
+            {tr('Або перетягніть зображення з браузера у вікно чи вставте скопійоване: Ctrl+V.')}
+          </Text>
+        </div>
+      )}
       {serverAvailable === false ? (
         <Text size="sm" c="dimmed">
           {tr(NEEDS_SERVER)}
