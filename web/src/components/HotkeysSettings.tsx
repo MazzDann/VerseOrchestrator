@@ -11,7 +11,7 @@ import {
   Switch,
 } from '@mantine/core';
 import { IconPencil, IconRotateClockwise } from '@tabler/icons-react';
-import { useSettings } from '../settingsStore';
+import { useSettings, type OrderButtons } from '../settingsStore';
 import {
   HOTKEY_ACTIONS,
   DEFAULT_KEYMAP,
@@ -70,6 +70,8 @@ export function HotkeysSettings() {
   const scheme = arrowScheme(keymap);
   const orderFlow = useSettings((s) => s.orderFlow);
   const setOrderFlow = useSettings((s) => s.setOrderFlow);
+  const orderButtons = useSettings((s) => s.orderButtons);
+  const setOrderButtons = useSettings((s) => s.setOrderButtons);
   const pickBeforeEnter = useSettings((s) => s.pickBeforeEnter);
   const setPickBeforeEnter = useSettings((s) => s.setPickBeforeEnter);
   const pickScheme = (v: string | null) => {
@@ -104,6 +106,23 @@ export function HotkeysSettings() {
         )}
         checked={orderFlow}
         onChange={(e) => setOrderFlow(e.currentTarget.checked)}
+      />
+      {/* the «Показ» panel's ◀ / «Далі» (1.18.3, F1017-07 and the author's ask) */}
+      <Select
+        size="xs"
+        label={tr('Кнопки «Показ»')}
+        description={tr(
+          '◀ і «Далі» над послідовністю показу: як стрілки клавіатури (наступний вірш, строфа, абзац) чи від пункту до пункту.',
+        )}
+        data={[
+          { value: 'auto', label: tr('Порожній показ — як стрілки, інакше пункти') },
+          { value: 'keys', label: tr('Завжди як стрілки клавіатури') },
+          { value: 'items', label: tr('Лише пункти показу') },
+        ]}
+        value={orderButtons}
+        onChange={(v) => v && setOrderButtons(v as OrderButtons)}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: true }}
       />
       <Switch
         size="xs"

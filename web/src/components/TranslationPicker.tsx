@@ -29,6 +29,8 @@ interface Props {
   onChange: (ids: number[]) => void;
   /** Promote a checked translation to primary (first — drives navigation + top slide line). */
   onMakePrimary?: (id: number) => void;
+  /** Enter on a translation (1.18.3, F1017-09): the control window shows its preview once ready */
+  onEnter?: () => void;
   max?: number;
 }
 
@@ -42,6 +44,7 @@ export function TranslationPicker({
   selectedIds,
   onChange,
   onMakePrimary,
+  onEnter,
   max = 5,
 }: Props) {
   useLang();
@@ -102,7 +105,17 @@ export function TranslationPicker({
             leftSection={<IconSearch size={13} />}
           />
           <ScrollArea.Autosize mah={210}>
-            <Stack gap={2}>
+            {/* Enter on a ticked translation: the preview goes on screen, with the translations as
+                they are now (F1017-09 — Space ticks, Enter shows) */}
+            <Stack
+              gap={2}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' || !onEnter) return;
+                if (!(e.target instanceof HTMLInputElement) || e.target.type !== 'checkbox') return;
+                e.preventDefault();
+                onEnter();
+              }}
+            >
               {groups.map(([lang, items]) => (
                 <div key={lang}>
                   <Text size="10px" c="dimmed" fw={700} tt="uppercase" mt={6} mb={2}>

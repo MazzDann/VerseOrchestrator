@@ -469,6 +469,15 @@ else {
     if (token) void control.loadURL(controlUrl(token));
   });
   app.on('window-all-closed', () => app.quit());
+  // no window of the app ever leaves the app's pages (F1017-03): a file dropped where no page took
+  // it would open in its place; a web link goes to the system's browser
+  app.on('web-contents-created', (_e, contents) => {
+    contents.on('will-navigate', (e, url) => {
+      if (url.startsWith(`${ORIGIN}/`) || url === ORIGIN) return;
+      e.preventDefault();
+      if (/^https?:\/\//.test(url)) void shell.openExternal(url);
+    });
+  });
   app.on('before-quit', () => {
     // the app this shell started stops with it; one it found running stays
     if (ownsApp)

@@ -1,6 +1,12 @@
 import { type MutableRefObject } from 'react';
 import { Switch, Tooltip } from '@mantine/core';
-import { IconDeviceTv, IconPhoto, IconSquareFilled, IconSquareOff } from '@tabler/icons-react';
+import {
+  IconDeviceTv,
+  IconPhoto,
+  IconPlayerStop,
+  IconSquareFilled,
+  IconSquareOff,
+} from '@tabler/icons-react';
 import { type Slide, type SlideCountdown, type SlideLine } from '../../presenterBus';
 import { type AfterZero, type CountdownPlace, type StageTimer } from '../../lib/countdown';
 import { type HeaderFold } from '../../lib/headerFold';
@@ -12,6 +18,7 @@ import { StageMessageTool } from '../../components/StageMessageTool';
 import { ToolButton, ToolIcon, ToolZone } from '../../components/Toolbar';
 import { tr, useLang } from '../../i18n';
 import { standbyNotice } from './standby';
+import { videoOnScreen } from './useVideo';
 
 /** What the header's go-live zone needs from Control (`fold`, `keymap` and `divider` come from the header). */
 export interface LiveZoneProps {
@@ -44,6 +51,8 @@ export interface LiveZoneProps {
   stageTimerSet: (timer: StageTimer | null) => void;
   setStageTimerOpen: (open: boolean) => void;
   stageMessageSet: (text: string | null) => void;
+  /** «Зупинити відео» (1.18.3, F1017-05): shown while a video is on screen */
+  stopVideo: () => void;
   setStageMessageOpen: (open: boolean) => void;
 }
 
@@ -85,6 +94,7 @@ export function LiveZone({
   setStageTimerOpen,
   stageMessageSet,
   setStageMessageOpen,
+  stopVideo,
 }: LiveZoneProps & { divider: boolean; fold: HeaderFold; keymap: Keymap }) {
   useLang();
   const pickBeforeEnter = useSettings((s) => s.pickBeforeEnter);
@@ -144,6 +154,16 @@ export function LiveZone({
         disabled={!isLeader}
         onClick={hideToggle}
       />
+      {videoOnScreen(liveSlide) && (
+        <ToolIcon
+          label={tr('Зупинити відео')}
+          hint={tr('Прибрати відео з екрана')}
+          icon={<IconPlayerStop size={18} stroke={1.5} />}
+          color="live"
+          disabled={!isLeader}
+          onClick={stopVideo}
+        />
+      )}
       <ToolIcon
         label={blackOn ? tr('Зняти чорний екран') : tr('Чорний екран')}
         hint={

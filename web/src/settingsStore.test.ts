@@ -132,6 +132,29 @@ describe('«Простий вигляд» (1.8.12-beta.7)', () => {
   });
 });
 
+describe('animations off and the «Показ» buttons (1.18.3, F1017-04/07)', () => {
+  const m = () => store.useSettings.persist.getOptions().merge!;
+  const cur = () => store.useSettings.getState();
+  it('the old default «Плавний» becomes «Без анімації» once; a later choice stays', () => {
+    expect(cur().appearance.transition).toBe('none');
+    expect(m()({ appearance: { transition: 'smooth' } }, cur()).appearance.transition).toBe('none');
+    expect(
+      m()({ appearance: { transition: 'smooth' }, motionDefaults: 1 }, cur()).appearance.transition,
+    ).toBe('smooth');
+    expect(m()({ appearance: { transition: 'rise' } }, cur()).appearance.transition).toBe('rise');
+  });
+  it('interface animations are off unless saved as true', () => {
+    expect(m()({}, cur()).uiMotion).toBe(false);
+    expect(m()({ uiMotion: 'yes' }, cur()).uiMotion).toBe(false);
+    expect(m()({ uiMotion: true }, cur()).uiMotion).toBe(true);
+  });
+  it('the buttons are «auto» unless a known mode was saved', () => {
+    expect(m()({}, cur()).orderButtons).toBe('auto');
+    expect(m()({ orderButtons: 'wild' }, cur()).orderButtons).toBe('auto');
+    expect(m()({ orderButtons: 'items' }, cur()).orderButtons).toBe('items');
+  });
+});
+
 describe('history and bookmarks keep the whole pick (1.12.6)', () => {
   const place = { ref: 'Ів 3:16–18', translationId: 1, bookNumber: 500, chapter: 3, verse: 16 };
 

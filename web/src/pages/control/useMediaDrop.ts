@@ -72,8 +72,14 @@ export function useMediaDrop({
       setZone(null);
     };
     const over = (e: DragEvent) => {
-      if (!files(e) || !live.current.enabled) return;
+      if (!files(e)) return;
+      // a window not in charge takes nothing — but never lets the browser (or the desktop app)
+      // open the file in its place (F1017-03)
       e.preventDefault();
+      if (!live.current.enabled) {
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+        return;
+      }
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
       setDragging(true);
       setZone(zoneOf(e));
@@ -86,8 +92,9 @@ export function useMediaDrop({
     };
     const drop = (e: DragEvent) => {
       hide();
-      if (!files(e) || e.defaultPrevented || !live.current.enabled) return;
+      if (!files(e) || e.defaultPrevented) return;
       e.preventDefault();
+      if (!live.current.enabled) return;
       // the entries now: the drop's items are gone once the handler returns
       const entries = [...(e.dataTransfer?.items ?? [])]
         .filter((i) => i.kind === 'file')

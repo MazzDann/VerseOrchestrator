@@ -2612,4 +2612,17 @@ export const EN: Record<string, string> = {
   'Сюди — наступним у показі': 'Here — next in the show',
   'Презентації — у «Пісні»: виберіть збірку, а тоді додайте пісню у показ':
     'Presentations go to “Songs”: choose a bundle, then add the song to the show',
+  'Кнопки «Показ»': '“Running order” buttons',
+  '◀ і «Далі» над послідовністю показу: як стрілки клавіатури (наступний вірш, строфа, абзац) чи від пункту до пункту.':
+    '◀ and “Next” above the running order: like the keyboard arrows (the next verse, stanza, paragraph) or from item to item.',
+  'Порожній показ — як стрілки, інакше пункти': 'An empty show — like the arrows, else the items',
+  'Завжди як стрілки клавіатури': 'Always like the keyboard arrows',
+  'Лише пункти показу': 'Only the show’s items',
+  'Назад, як стрілка · {keys}': 'Back, like the arrow · {keys}',
+  'Далі, як стрілка · {keys}': 'Next, like the arrow · {keys}',
+  'Анімації інтерфейсу': 'Interface animations',
+  'Плавні появи панелей, підказок і рядків у вікні керування. Без них усе змінюється одразу.':
+    'Panels, tooltips and rows fade in smoothly in the control window. Without them everything changes at once.',
+  'Зупинити відео': 'Stop the video',
+  'Прибрати відео з екрана': 'Take the video off the screen',
 };

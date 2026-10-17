@@ -12,6 +12,7 @@ import { notifications } from '@mantine/notifications';
 import { IconAdjustments, IconQrcode, IconDeviceMobile, IconAppWindow } from '@tabler/icons-react';
 
 import { useStore } from '../store';
+import { placeKey } from '../lib/quickRef';
 import {
   useSettings,
   bookmarkKey,
@@ -47,6 +48,7 @@ import { QuickRefPill } from '../components/QuickRefPill';
 import { type RemoteTarget } from '../lib/commands';
 import { useServer } from '../serverStore';
 import { tr, useLang } from '../i18n';
+import { useUiMotion } from '../lib/uiMotion';
 import { useEffectiveSource } from '../dataSourceStore';
 import { useCodeState, useUpdateState } from '../lib/updates';
 import { CommandPalette } from '../components/CommandPalette';
@@ -105,6 +107,7 @@ const toggled = (v: Toggle, was: boolean) => (typeof v === 'function' ? v(was) :
 
 export function Control() {
   const lang = useLang();
+  useUiMotion(); // «Анімації інтерфейсу» (1.18.3, F1017-04)
   const { toggleColorScheme } = useMantineColorScheme();
   const colorScheme = useComputedColorScheme('dark');
 
@@ -458,6 +461,7 @@ export function Control() {
     jumpTo,
     goTo,
     showJump,
+    showWhenReady,
     quick,
     openSearch,
   } = useJumps({
@@ -1196,6 +1200,7 @@ export function Control() {
               playlistCleared={playlistCleared}
               playlistUndoClear={playlistUndoClear}
               stepPlaylist={stepPlaylist}
+              stepShow={advanceAndSay}
               playlistSaveProgram={playlistSaveProgram}
               playlistLoadProgram={playlistLoadProgram}
               playlistDeleteProgram={playlistDeleteProgram}
@@ -1317,6 +1322,7 @@ export function Control() {
               setStageTimerOpen,
               stageMessageSet,
               setStageMessageOpen,
+              stopVideo: videoShow.stopVideo,
             }}
           />
         </AppShell.Header>
@@ -1324,6 +1330,15 @@ export function Control() {
         <AppShell.Navbar>
           <ControlNavbar
             panelResize={panelResize}
+            showSelection={() => {
+              // F1017-09: Enter after ticking a translation shows the preview — now when its verses
+              // are in, else once they are (the wait's effect runs only on a change)
+              if (!verseQueries.some((q) => q.isPending) && slideLines.length > 0) sendAndNotify();
+              else {
+                const st = useStore.getState();
+                showWhenReady(placeKey(st.bookNumber, st.chapter, st.selectedVerses));
+              }
+            }}
             translations={translations}
             selectedIds={selectedIds}
             setTranslations={switchTranslations}

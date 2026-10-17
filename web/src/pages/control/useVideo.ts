@@ -168,6 +168,12 @@ export function useVideo({
     setLive(false);
     setPreviewOverride((p) => (p && videoOnScreen(p)?.videoId === id ? null : p));
   };
+  /** «Зупинити відео» (1.18.3, F1017-05): one click takes the video on screen off it */
+  const stopVideo = () => {
+    if (!leaderRef.current) return standbyNotice();
+    const at = videoOnScreen(screen());
+    if (at) videoRemoved(at.videoId);
+  };
   const setLoop = (on: boolean) => {
     setLoopPref(on);
     // the video on screen goes on from where it is, now looping or not
@@ -442,6 +448,7 @@ export function useVideo({
     setLoop,
     refit,
     videoRemoved,
+    stopVideo,
     needsClick,
   };
 }

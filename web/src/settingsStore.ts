@@ -30,6 +30,11 @@ export type PadLink = 'all' | 'axis' | 'none';
 /** How much of a Strong entry to show in the projected subline. */
 export type StrongSubline = 'lemma' | 'full';
 
+/** What the «Показ» panel's ◀ / «Далі» do (1.18.3, SettingsState.orderButtons). */
+export type OrderButtons = 'auto' | 'keys' | 'items';
+export const asOrderButtons = (v: unknown): OrderButtons =>
+  v === 'keys' || v === 'items' ? v : 'auto';
+
 export interface Appearance {
   scriptureFont: string; // CSS font-family for projected text
   textColor: string;
@@ -357,6 +362,22 @@ interface SettingsState {
   orderFlow: boolean;
   setOrderFlow: (v: boolean) => void;
   /**
+   * The «Показ» panel's ◀ / «Далі» (1.18.3, users' F1017-07 and the author): `auto` — with nothing in
+   * the running order they step the screen like the keyboard's arrows (verses, stanzas,
+   * paragraphs), with items they go item to item; `keys` — always like the arrows (past an item's
+   * end the next item only with «Після кінця пункту…»); `items` — only item to item (before 1.18.3).
+   */
+  orderButtons: OrderButtons;
+  setOrderButtons: (v: OrderButtons) => void;
+  /**
+   * The control window's own animations — fades, rise-ins (1.18.3, users' F1017-04 «Анімації
+   * заважають»): off by default; the slides' transition on screen is `appearance.transition`.
+   */
+  uiMotion: boolean;
+  setUiMotion: (v: boolean) => void;
+  /** 1: the old default «Плавний» became «Без анімації» once (1.18.3) — not again after a choice */
+  motionDefaults?: 1;
+  /**
    * «Кілька віршів — на екран після Enter» (1.13.0-beta.1, users' report F1010-05): while the
    * screen follows the selection, verses added with Ctrl / ⌘ / Shift gather in the preview and go
    * on screen together on Enter, «На екран» or «Далі». On by default.
@@ -446,7 +467,8 @@ export const DEFAULT_APPEARANCE: Appearance = {
   reveal: false,
   revealSpotlight: false,
   revealPlaceholders: false,
-  transition: 'smooth',
+  // none by default (1.18.3, users' F1017-04 «Анімації заважають»); «Плавний» and the rest in Settings
+  transition: 'none',
   coverText: '',
   coverImage: null,
   countdownCaption: '',
@@ -705,6 +727,11 @@ export const useSettings = create<SettingsState>()(
       liveFollow: true,
       orderFlow: false,
       setOrderFlow: (v) => set({ orderFlow: v === true }),
+      orderButtons: 'auto',
+      setOrderButtons: (v) => set({ orderButtons: asOrderButtons(v) }),
+      uiMotion: false,
+      setUiMotion: (v) => set({ uiMotion: v === true }),
+      motionDefaults: 1,
       pickBeforeEnter: true,
       setPickBeforeEnter: (v) => set({ pickBeforeEnter: v !== false }),
       followAlong: false,
@@ -881,7 +908,15 @@ export const useSettings = create<SettingsState>()(
             ...current.appearance,
             ...ap,
             verseNumbers: verseNumbersOf((p.appearance ?? {}) as Record<string, unknown>),
+            // «Анімації заважають» (F1017-04, 1.18.3): the old default «Плавний», kept by those who never
+            // chose, becomes «Без анімації» once; a choice made after it stays
+            ...(p.motionDefaults !== 1 && ap.transition === 'smooth'
+              ? { transition: 'none' as const }
+              : {}),
           },
+          motionDefaults: 1,
+          orderButtons: asOrderButtons(p.orderButtons),
+          uiMotion: p.uiMotion === true,
           // Backfill missing actions + drop any non-string/garbage values so every
           // consumer (.split in useHotkeys / settings UI) always gets a valid chord.
           keymap: sanitizeKeymap(p.keymap),

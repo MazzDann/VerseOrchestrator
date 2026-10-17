@@ -69,6 +69,8 @@ interface Props {
   onUndoClear: () => void;
   onNext: () => void;
   onPrev: () => void;
+  /** ◀ / «Далі» step the screen like the keyboard's arrows (1.18.3) — usable with an empty list */
+  stepsShow?: boolean;
   onSave: (name: string) => void;
   onLoad: (name: string) => void;
   onDelete: (name: string) => void;
@@ -128,6 +130,7 @@ export const PlaylistPanel = memo(function PlaylistPanel({
   onUndoClear,
   onNext,
   onPrev,
+  stepsShow = false,
   onSave,
   onLoad,
   onDelete,
@@ -338,19 +341,27 @@ export const PlaylistPanel = memo(function PlaylistPanel({
         <Group justify="space-between" wrap="nowrap">
           <Group gap={4} wrap="nowrap">
             <Tooltip
-              label={tr('Попередній елемент · {keys}', { keys: formatCombo(keymap.playlistPrev) })}
+              label={
+                stepsShow
+                  ? tr('Назад, як стрілка · {keys}', { keys: formatCombo(keymap.advancePrev) })
+                  : tr('Попередній елемент · {keys}', { keys: formatCombo(keymap.playlistPrev) })
+              }
             >
               <ActionIcon
                 variant="default"
                 onClick={onPrev}
-                disabled={items.length === 0}
-                aria-label={tr('Попередній елемент показу')}
+                disabled={items.length === 0 && !stepsShow}
+                aria-label={stepsShow ? tr('Назад') : tr('Попередній елемент показу')}
               >
                 <IconPlayerTrackPrev size={16} />
               </ActionIcon>
             </Tooltip>
             <Tooltip
-              label={tr('Наступний елемент · {keys}', { keys: formatCombo(keymap.playlistNext) })}
+              label={
+                stepsShow
+                  ? tr('Далі, як стрілка · {keys}', { keys: formatCombo(keymap.advanceNext) })
+                  : tr('Наступний елемент · {keys}', { keys: formatCombo(keymap.playlistNext) })
+              }
             >
               <Button
                 variant="light"
@@ -358,7 +369,7 @@ export const PlaylistPanel = memo(function PlaylistPanel({
                 size="xs"
                 leftSection={<IconPlayerTrackNext size={16} />}
                 onClick={onNext}
-                disabled={items.length === 0}
+                disabled={items.length === 0 && !stepsShow}
               >
                 {tr('Далі')}
               </Button>
