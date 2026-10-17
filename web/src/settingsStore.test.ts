@@ -200,3 +200,14 @@ describe('«Номери віршів на екрані» (1.13.0-beta.1, F1010-
     expect(preset({ transition: 'rise' }).transition).toBe('rise');
   });
 });
+
+describe('«Вікна в одному меню» (1.19.0-beta.4, F1017-12)', () => {
+  it('is on unless saved as false', () => {
+    const merge = store.useSettings.persist.getOptions().merge!;
+    const current = store.useSettings.getState();
+    expect(current.windowsMenu).toBe(true);
+    expect(merge({}, current).windowsMenu).toBe(true);
+    expect(merge({ windowsMenu: 'no' }, current).windowsMenu).toBe(true);
+    expect(merge({ windowsMenu: false }, current).windowsMenu).toBe(false);
+  });
+});

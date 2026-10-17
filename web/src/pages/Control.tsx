@@ -133,6 +133,7 @@ export function Control() {
   const bookmarks = useSettings((s) => s.bookmarks);
   // «Простий вигляд» (1.8.12-beta.7): fewer tools in the header, only the preview on the right
   const simpleView = useSettings((s) => s.simpleView);
+  const windowsMenu = useSettings((s) => s.windowsMenu);
   const pushHistory = useSettings((s) => s.pushHistory);
   const removeHistory = useSettings((s) => s.removeHistory);
   const clearHistory = useSettings((s) => s.clearHistory);
@@ -335,6 +336,16 @@ export function Control() {
   useEffect(() => {
     if (!moreExists) setMoreOpen(false);
   }, [moreExists]);
+  // «Вікна» (1.19.0-beta.4, F1017-12): the window tools' own menu owns the keyboard as «Ще» does — the
+  // capture listeners on window (the typed numbers, an album's keys) must not take a key meant for it;
+  // gone (folded into «Ще», the setting off) it must not pop open when it comes back (review)
+  const [windowsOpen, setWindowsOpen] = useState(false);
+  const windowsExists = windowsMenu && !fold.folded.includes('windows');
+  const windowsShown = windowsOpen && windowsExists;
+  useEffect(() => {
+    if (!windowsExists) setWindowsOpen(false);
+  }, [windowsExists]);
+  const menuShown = moreShown || windowsShown;
   // The song + highlighted stanza in the Songs panel — lifted here so the playlist
   // can open a song and seed its stanza (and so forwarded clicker commands step it).
   const [songsPanelSongId, setSongsPanelSongId] = useState<number | null>(null);
@@ -481,7 +492,7 @@ export function Control() {
     setPageIndex,
     setRevealCount,
     paletteOpen,
-    moreShown,
+    moreShown: menuShown,
     toolOpen,
     setSearchOpen,
     toBible,
@@ -600,7 +611,7 @@ export function Control() {
     setImagesOpen,
     albumsTab: mediaTab === 'albums',
     openAlbumsTab,
-    keysPaused: paletteOpen || moreShown || toolOpen,
+    keysPaused: paletteOpen || menuShown || toolOpen,
     serverAvailable,
     pastItemRef,
   });
@@ -1267,7 +1278,7 @@ export function Control() {
             searchKeysRef={searchKeysRef}
             focusOnReturn={searchPrefs.focusOnReturn}
             fieldInCentre={fieldInCentre}
-            keysBusy={paletteOpen || moreShown || toolOpen}
+            keysBusy={paletteOpen || menuShown || toolOpen}
             workspace={workspace}
             setWorkspace={setWorkspace}
             outputWindows={outputWindows}
@@ -1291,6 +1302,8 @@ export function Control() {
             asideToggle={asideToggle}
             moreShown={moreShown}
             setMoreOpen={setMoreOpen}
+            windowsShown={windowsShown}
+            setWindowsOpen={setWindowsOpen}
             noticesOpen={noticesOpen}
             setNoticesOpen={setNoticesOpen}
             panelPlacement={panelPlacement}
@@ -1431,7 +1444,7 @@ export function Control() {
               activeStanza={songsPanelStanza}
               onActiveStanzaChange={setSongsPanelStanza}
               onAddToPlaylist={addSongToPlaylist}
-              keysPaused={paletteOpen || moreShown || toolOpen}
+              keysPaused={paletteOpen || menuShown || toolOpen}
               onSongEnd={songEnd}
               onPastEnd={(dir, songId, held) =>
                 pastItemRef.current?.(dir, { kind: 'song', songId }, held) ?? null
@@ -1446,7 +1459,7 @@ export function Control() {
               activeUnit={docsPanelUnit}
               onActiveUnitChange={setDocsPanelUnit}
               onAddToPlaylist={addDocToPlaylist}
-              keysPaused={paletteOpen || moreShown || toolOpen}
+              keysPaused={paletteOpen || menuShown || toolOpen}
               onDocEnd={songEnd}
               onPastEnd={(dir, docId, held) =>
                 pastItemRef.current?.(dir, { kind: 'doc', docId }, held) ?? null

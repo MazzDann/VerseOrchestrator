@@ -2655,4 +2655,9 @@ export const EN: Record<string, string> = {
   'За цією адресою не зображення': 'There is no picture at this address',
   'Не вдалося завантажити зображення — перевірте адресу й інтернет':
     'Couldn’t download the picture — check the address and the internet connection',
+  'Вікна в одному меню': 'Windows in one menu',
+  'Вікно показу, «Сцена», вікна виводу, глядачі й пульт — під однією кнопкою «Вікна» вгорі':
+    'The presentation window, «Сцена» (Stage), the output windows, viewers and the remote — under one «Вікна» (Windows) button at the top',
+  'Вікно показу, «Сцена», вікна виводу, глядачі й пульт':
+    'The presentation window, «Сцена» (Stage), the output windows, viewers and the remote',
 };

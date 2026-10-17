@@ -112,6 +112,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const setUiMotion = useSettings((s) => s.setUiMotion);
   const subheadingsOn = useSettings((s) => s.subheadings);
   const setSimpleView = useSettings((s) => s.setSimpleView);
+  const windowsMenu = useSettings((s) => s.windowsMenu);
+  const setWindowsMenu = useSettings((s) => s.setWindowsMenu);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
   // the search over the settings (1.13.0-beta.3, users' report F1010-11; the author's Q9a: the
@@ -1253,6 +1255,15 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               )}
               checked={simpleView}
               onChange={(e) => setSimpleView(e.currentTarget.checked)}
+            />
+            {/* 1.19.0-beta.4 (F1017-12): the window buttons behind one «Вікна» */}
+            <Switch
+              label={tr('Вікна в одному меню')}
+              description={tr(
+                'Вікно показу, «Сцена», вікна виводу, глядачі й пульт — під однією кнопкою «Вікна» вгорі',
+              )}
+              checked={windowsMenu}
+              onChange={(e) => setWindowsMenu(e.currentTarget.checked)}
             />
             {/* 1.16.0-beta.2: a translation's section titles over its verses */}
             <Switch

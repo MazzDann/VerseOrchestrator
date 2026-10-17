@@ -19,7 +19,7 @@ is in [Speaker remote](remote.md).
 
 For the viewers to see the text on their phones:
 
-1. At the top, click the **Viewers** icon.
+1. At the top, click **Windows**, then **Viewers**.
 2. Turn on **Broadcast to viewers' phones**. A QR code and an address for the phones
    appear in the panel.
 3. To show the QR code to everyone, click **QR code to screen**: the QR takes the screen in

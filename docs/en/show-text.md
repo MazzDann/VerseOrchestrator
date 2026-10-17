@@ -238,7 +238,7 @@ the end of the running order, or what the time does (“next: stops at 0:00”, 
 zero”). The **Stage** view on a phone remote shows the same; the “next: …” words appear there if
 the remote is allowed **Running order**.
 
-To open an output window, click **Presentation window** or the **Stage** icon at the top.
+To open an output window, click **Windows** at the top, then **Presentation window** or **Stage**.
 If a second screen is connected, the browser asks for permission to manage windows on all
 your screens; allow it, and the window opens on the second screen. A second output window
 doesn't go over the first: it opens on another free screen, or, if there is none, next to the
@@ -255,7 +255,7 @@ In an output window:
 ## Manage output windows
 
 The **Output windows** panel shows the computer's screens and the open windows. To open it,
-click the **Output windows** icon at the top.
+click **Windows** at the top, then **Output windows**.
 
 ![The Output windows panel: two screens with Presentation and Stage buttons, two open
 windows with action buttons, switches, and layout buttons](../img/en/outputs-panel.png)
