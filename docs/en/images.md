@@ -33,6 +33,20 @@ drag them, the window says what will happen. Photos and pictures go to **Images*
 becomes an album (see [Add a folder](#add-a-folder)), and videos go to **Videos** (see [Add a
 video](#add-a-video)).
 
+### Images from the internet
+
+You can add a picture from a website in three ways — the internet is needed:
+
+- drag the picture from a page in the browser into the control window;
+- in the browser, right-click the picture, choose **Copy image** or **Copy image address**, and
+  in the control window press Ctrl+V (on macOS, ⌘V) while the cursor is not in a text field;
+- in the **Images** panel, click the **From the internet…** icon, paste the address, and press
+  Enter.
+
+A page's address works too: the app then takes the picture the page shows when it is shared
+(in a messenger, for example). If there is no picture at the address, the app says so. A
+picture dragged onto the **Running order** tab goes next in the show.
+
 To rename an image, point at its thumbnail, click the pencil icon **Rename**, type the name,
 and press Enter. Only the name in the app changes; the file stays as it was. Items of the
 running order and of saved programs that carry the old name take the new one. Albums and

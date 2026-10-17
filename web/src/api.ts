@@ -1299,6 +1299,20 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return ImageSchema.parse(await res.json());
   },
+  /** A picture from the internet (1.19.0-beta.3): the server fetches the address (imageFetch.ts). */
+  fetchImage: async (url: string) => {
+    const res = await request(`/api/images/fetch?url=${encodeURIComponent(url)}`, {
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    let name = res.headers.get('X-VO-Name') ?? '';
+    try {
+      name = decodeURIComponent(name);
+    } catch {
+      // the raw header
+    }
+    return { blob: await res.blob(), name: name || 'Зображення' }; // i18n-ignore: a file name
+  },
   /** Delete a picture: it waits aside for «Скасувати» (`restoreImage`). */
   deleteImage: async (id: string) => {
     const res = await request(`/api/images/${encodeURIComponent(id)}`, {
