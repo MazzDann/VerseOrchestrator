@@ -57,7 +57,11 @@ export function ShowList({ tab, onTab, order, orderCount, saved, text }: Props) 
     [],
   );
   return (
-    <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    // files dropped here go next in the running order (1.18.2, useMediaDrop)
+    <Box
+      data-drop-zone="order"
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+    >
       <Tabs value={tab} onChange={(v) => v && onTab(v as ShowTab)} variant="default">
         {/* a tab clicked with the mouse lets the focus go: Mantine's Tabs take ← → for themselves
             and stop them, and the arrows step the show (review, 1.8.12-beta.6) */}

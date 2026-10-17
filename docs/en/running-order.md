@@ -45,6 +45,17 @@ To add an item to the running order:
 
 New items go to the end of the running order.
 
+### Drag them in as next
+
+Drag files from File Explorer (Finder on a Mac) onto the **Running order** tab under the monitors —
+while you hold them over it, it is outlined: **Here — next in the show**. Pictures, videos, folders
+of photos (as an album) and documents dropped there go, as always, into **Media** or **Documents** —
+and into the running order right after the item on screen, in the order you dragged them. With no
+item on screen, they go to the end.
+
+A video or a folder the app couldn't find on the disk by itself, it asks you to choose — add those to
+the show the usual way. Import a presentation (.pptx) into **Songs** first, choosing a bundle.
+
 How to open a song or custom text is in [Songs and custom text](songs-and-text.md).
 
 ## Where the running order is

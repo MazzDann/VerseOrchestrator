@@ -61,11 +61,13 @@ export async function refreshDocuments(queryClient: QueryClient): Promise<void> 
 
 /**
  * Add files to the documents, one by one; each says how it went. Returns the last one added (to
- * open it), or null.
+ * open it), or null. `onAdded` hears each one the library has (1.18.2: dropped on «Показ», it
+ * goes next in the running order).
  */
 export async function importDocuments(
   files: File[],
   queryClient: QueryClient,
+  onAdded?: (doc: { id: number; file: string }, from: File) => void,
 ): Promise<number | null> {
   let last: number | null = null;
   for (const file of files) {
@@ -80,7 +82,10 @@ export async function importDocuments(
     }
     try {
       const r = await api.importDocument(file);
-      if (r.id != null) last = r.id;
+      if (r.id != null) {
+        last = r.id;
+        onAdded?.({ id: r.id, file: r.file }, file);
+      }
       const replaced = r.replaced;
       notifications.show({
         message: r.same

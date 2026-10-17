@@ -308,3 +308,23 @@ describe('«Цикл» and the item on screen (1.10.0-beta.4 review)', () => {
     expect(state().currentId).toBeNull();
   });
 });
+
+describe('dropped on «Показ»: next (1.18.2)', () => {
+  it('right after the item on screen, in the order dropped; at the end with none on screen', () => {
+    state().addNext([text('Фото 1'), text('Фото 2')]);
+    expect(state().items.map((i) => i.label)).toEqual([
+      'Ів 3:16',
+      'Рим 12:1-2',
+      'Фото 1',
+      'Фото 2',
+      'Оголошення',
+    ]);
+    // the item on screen stays the one on screen
+    expect(state().items.find((i) => i.id === state().currentId)?.label).toBe('Рим 12:1-2');
+    state().setCurrent(null);
+    state().addNext([text('Відео')]);
+    expect(state().items.at(-1)?.label).toBe('Відео');
+    state().addNext([]);
+    expect(state().items.length).toBe(6);
+  });
+});
