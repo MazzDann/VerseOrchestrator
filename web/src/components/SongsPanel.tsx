@@ -203,6 +203,30 @@ export function SongsPanel({
     [songQuery.data, faithful, onActiveStanzaChange, onProjectStanza],
   );
 
+  // Enter on a found song (F1017-01): it opens and its first stanza goes on screen — once it has
+  // loaded, when it wasn't open yet
+  const showOnLoad = useRef<number | null>(null);
+  /** a plain open (a click, Space) drops a show still waiting for another song (review) */
+  const openOnly = (id: number) => {
+    showOnLoad.current = null;
+    onSongIdChange(id);
+  };
+  const openAndShow = (id: number) => {
+    if (songQuery.data?.id === id) {
+      showOnLoad.current = null;
+      showStanza(0);
+      return;
+    }
+    showOnLoad.current = id;
+    onSongIdChange(id);
+  };
+  useEffect(() => {
+    const s = songQuery.data;
+    if (!s || showOnLoad.current !== s.id) return;
+    showOnLoad.current = null;
+    if (s.slides.length > 0) showStanza(0);
+  }, [songQuery.data, showStanza]);
+
   // «До приспіву» (1.3.0): the next chorus of the open song — a different one where the song
   // has its own chorus after a verse; past the last chorus, the one before.
   const toChorus = useCallback((): Outcome => {
@@ -333,6 +357,15 @@ export function SongsPanel({
           flex={1}
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
+          // Enter: the song found first (or the one chosen in the list) on screen (F1017-01)
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+            const pick = songs.find((x) => x.id === songId) ?? songs[0];
+            if (!pick) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openAndShow(pick.id);
+          }}
           placeholder={tr('Пісня: номер або назва')}
           leftSection={<IconMusic size={18} />}
           rightSection={listQuery.isFetching ? <Loader size="xs" /> : null}
@@ -425,11 +458,16 @@ export function SongsPanel({
               role="button"
               tabIndex={0}
               data-selected={s.id === songId ? 'true' : undefined}
-              onClick={() => onSongIdChange(s.id)}
+              onClick={() => openOnly(s.id)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                // Enter: open it and show its first stanza (F1017-01); Space: only open it
+                if (e.key === 'Enter') {
                   e.preventDefault();
-                  onSongIdChange(s.id);
+                  e.stopPropagation();
+                  openAndShow(s.id);
+                } else if (e.key === ' ') {
+                  e.preventDefault();
+                  openOnly(s.id);
                 }
               }}
             >

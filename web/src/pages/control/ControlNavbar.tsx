@@ -34,6 +34,7 @@ export function ControlNavbar({
   selectedIds,
   setTranslations,
   makePrimary,
+  showSelection,
   bookFilter,
   setBookFilter,
   filteredBooks,
@@ -58,6 +59,8 @@ export function ControlNavbar({
   selectedIds: number[];
   setTranslations: (ids: number[]) => void;
   makePrimary: (id: number) => void;
+  /** Enter in the translations' list (1.18.3, F1017-09): the preview on screen once its verses are in */
+  showSelection: () => void;
   bookFilter: string;
   setBookFilter: (filter: string) => void;
   filteredBooks: Book[];
@@ -163,6 +166,7 @@ export function ControlNavbar({
           selectedIds={selectedIds}
           onChange={setTranslations}
           onMakePrimary={makePrimary}
+          onEnter={showSelection}
         />
         <Divider />
         <Box p="xs" pb={4}>

@@ -64,7 +64,8 @@ In the **Transitions and animation** section:
     about 0.4 s.
   - **Fast** — the new slide at once, with a short fade-in.
   - **Rise** — the old slide fades out quickly, and the new text rises into place.
-  - **No animation** — an instant swap; the lines of a progressive reveal appear at once too.
+  - **No animation** — the default: an instant swap; the lines of a progressive reveal
+    appear at once too.
 
   When one more verse joins the verses on screen, the shown ones stay in place and the added
   one comes in alone — in every mode except **No animation**.
@@ -72,6 +73,10 @@ In the **Transitions and animation** section:
 The transition applies to the presentation windows. If the system is set to reduce motion,
 the monitors in the control window change the slide without animation, while the
 presentation windows keep the chosen transition.
+
+- **Interface animations** — panels, tooltips and rows fade in smoothly in the control
+  window. Off by default: everything changes at once. The presentation windows don’t
+  follow this switch.
 
 ## Change the background
 

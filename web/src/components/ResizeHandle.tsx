@@ -34,9 +34,11 @@ export function ResizeHandle({ axis, edge, onDrag, onCommit, onReset, label }: P
   // the panel when moved left/up, so flip the sign for those edges.
   const sign = edge === 'right' ? 1 : -1;
 
+  // a left edge (the right panel's) stays inside its panel: half out, it lay over the verse
+  // list's scrollbar and took the hand meant for it (F1017-11)
   const style: CSSProperties =
     axis === 'x'
-      ? { top: 0, bottom: 0, width: 7, [edge]: -4, cursor: 'col-resize' }
+      ? { top: 0, bottom: 0, width: 7, [edge]: edge === 'left' ? 0 : -4, cursor: 'col-resize' }
       : { left: 0, right: 0, height: 7, top: -4, cursor: 'row-resize' };
 
   return (

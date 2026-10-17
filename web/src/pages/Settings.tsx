@@ -4,6 +4,7 @@ import { IconAdjustments } from '@tabler/icons-react';
 import { ModulesFloating } from '../components/ModulesPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { tr, useLang } from '../i18n';
+import { useUiMotion } from '../lib/uiMotion';
 import { probeServer, useServer, versionHeading } from '../serverStore';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 import { SETTINGS_PANEL_KEY, rememberPanelSize } from '../lib/panelBox';
@@ -15,6 +16,7 @@ import { SETTINGS_PANEL_KEY, rememberPanelSize } from '../lib/panelBox';
  */
 export function Settings() {
   useLang();
+  useUiMotion();
   // the version in the header (2026-10-01): a git checkout by its label
   const devLabel = useServer((s) => s.devLabel);
   // a change the browser can't store says so here too (1.4.1)

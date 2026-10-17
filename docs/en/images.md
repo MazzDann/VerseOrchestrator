@@ -183,6 +183,8 @@ To show a video, click its thumbnail. The video starts from the beginning. Above
 thumbnails, the buttons of the video on screen appear:
 
 - **Start** / **Pause** — stop the video and go on from the same place;
+- **Stop the video** — take the video off the screen; this button is also at the top of the
+  control window while a video is on screen;
 - the slider — go to another place in the video; next to it you see the time, for example
   “0:12 / 4:30”;
 - **Repeat** — start the video again when it ends;

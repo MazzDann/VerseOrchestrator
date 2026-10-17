@@ -108,6 +108,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const placement = useSettings((s) => s.panelPlacement);
   const setPlacement = useSettings((s) => s.setPanelPlacement);
   const simpleView = useSettings((s) => s.simpleView);
+  const uiMotion = useSettings((s) => s.uiMotion);
+  const setUiMotion = useSettings((s) => s.setUiMotion);
   const subheadingsOn = useSettings((s) => s.subheadings);
   const setSimpleView = useSettings((s) => s.setSimpleView);
   const language = useLang();
@@ -418,6 +420,16 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 'Якщо в системі ввімкнено зменшення руху, монітори у вікні керування змінюють слайд без анімації, а вікна показу лишають вибраний перехід.',
               )}
             </Text>
+            {/* the control window's own fades and rise-ins (1.18.3, F1017-04): off unless asked */}
+            <Switch
+              size="xs"
+              label={tr('Анімації інтерфейсу')}
+              description={tr(
+                'Плавні появи панелей, підказок і рядків у вікні керування. Без них усе змінюється одразу.',
+              )}
+              checked={uiMotion}
+              onChange={(e) => setUiMotion(e.currentTarget.checked)}
+            />
           </Section>
 
           <Section

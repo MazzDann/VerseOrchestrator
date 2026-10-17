@@ -72,6 +72,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
     N_('Перехід між слайдами'),
     'transition fade animation анімація без анімації наплив плавний швидкий', // i18n-ignore
   ),
+  e('motion', N_('Анімації інтерфейсу'), 'interface animation motion анімація панелі'), // i18n-ignore: Ukrainian search words
   e('cover', N_('Текст заставки'), 'cover logo заставка'), // i18n-ignore: Ukrainian search words
   e('cover', N_('Логотип'), 'logo картинка зображення'), // i18n-ignore: Ukrainian search words
   e('cover', N_('Прибрати логотип')),
@@ -129,6 +130,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('highlight', N_('Текст Стронга на показі'), 'strong subline'),
   e('hotkeys', N_('Стрілки'), 'arrows keys клавіші'), // i18n-ignore: Ukrainian search words
   e('hotkeys', N_('Після кінця пункту «Далі» відкриває наступний'), 'running order next item'),
+  e('hotkeys', N_('Кнопки «Показ»'), 'running order buttons arrows стрілки кнопки далі назад'), // i18n-ignore: Ukrainian search words
   e('hotkeys', N_('Кілька віршів — на екран після Enter'), 'several verses pick ctrl shift вибір'), // i18n-ignore: Ukrainian search words
   e('app', N_('Простий вигляд'), 'simple view'),
   e('app', N_('Підзаголовки над віршами'), 'subheadings titles sets заголовки набір'), // i18n-ignore: Ukrainian search words

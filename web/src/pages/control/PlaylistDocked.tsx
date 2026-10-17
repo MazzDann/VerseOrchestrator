@@ -3,6 +3,11 @@ import { notifications } from '@mantine/notifications';
 import { PlaylistPanel } from '../../components/PlaylistPanel';
 import { type SavedProgram, type SeqItem } from '../../playlistStore';
 import { tr, useLang } from '../../i18n';
+import { useSettings, type OrderButtons } from '../../settingsStore';
+
+/** Do ◀ / «Далі» step the screen (the keyboard's arrows) rather than go item to item? */
+const buttonsStepShow = (mode: OrderButtons, items: number) =>
+  mode === 'keys' || (mode === 'auto' && items === 0);
 
 /**
  * «Послідовність показу» under the monitors («Показ» in ShowList, 1.8.12-beta.6 — a floating panel
@@ -20,6 +25,8 @@ export function PlaylistDocked(props: {
   playlistCleared: number;
   playlistUndoClear: () => void;
   stepPlaylist: (delta: 1 | -1) => void;
+  /** the keyboard's arrows (useShowSteps advanceAndSay): the screen's next verse, stanza, paragraph */
+  stepShow: (delta: 1 | -1) => void;
   playlistSaveProgram: (name: string) => void;
   playlistLoadProgram: (name: string) => void;
   playlistDeleteProgram: (name: string) => void;
@@ -42,6 +49,15 @@ export function PlaylistDocked(props: {
   // items cost a step +115 ms in dev before, 1.8.12-beta.6)
   const latest = useRef(props);
   latest.current = props;
+  // ◀ / «Далі» (1.18.3, F1017-07 and the author): like the keyboard's arrows or item to item —
+  // Налаштування вигляду → Клавіші → «Кнопки «Показ»»
+  const orderButtons = useSettings((s) => s.orderButtons);
+  const stepsShow = buttonsStepShow(orderButtons, playlistItems.length);
+  const step = (d: 1 | -1) => {
+    const p = latest.current;
+    if (buttonsStepShow(useSettings.getState().orderButtons, p.playlistItems.length)) p.stepShow(d);
+    else p.stepPlaylist(d);
+  };
   const actions = useMemo(
     () => ({
       onActivate: (it: SeqItem) => latest.current.activateItem(it),
@@ -50,8 +66,8 @@ export function PlaylistDocked(props: {
       onReorder: (from: number, to: number) => latest.current.playlistReorder(from, to),
       onClear: () => latest.current.playlistClear(),
       onUndoClear: () => latest.current.playlistUndoClear(),
-      onNext: () => latest.current.stepPlaylist(1),
-      onPrev: () => latest.current.stepPlaylist(-1),
+      onNext: () => step(1),
+      onPrev: () => step(-1),
       onSave: (n: string) => {
         const exists = latest.current.playlistSaved.some((p) => p.name === n.trim());
         latest.current.playlistSaveProgram(n);
@@ -84,6 +100,7 @@ export function PlaylistDocked(props: {
   );
   return (
     <PlaylistPanel
+      stepsShow={stepsShow}
       items={playlistItems}
       currentId={playlistCurrentId}
       saved={playlistSaved}

@@ -120,13 +120,13 @@
 /* a translation's section title over its verse (1.16.0-beta.2): lined up with the verse text */
 .vo-subheading {
   padding: 10px 10px 2px calc(4px + 2.4em + 10px + 10px);
-  max-width: calc(68ch + 2.4em + 34px);
   line-height: 1.35;
 }
 
 .vo-verse-row {
   display: grid;
-  grid-template-columns: 2.4em minmax(0, 68ch);
+  /* the whole width (F1017-08: a 68ch cap left a verse on 3 lines beside empty space) */
+  grid-template-columns: 2.4em minmax(0, 1fr);
   column-gap: 10px;
   padding-left: 4px;
   font-size: 15px;
@@ -2101,4 +2101,16 @@ form.vo-remote-countdown {
 }
 .vo-dist-tail {
   fill: var(--mantine-primary-color-filled);
+}
+
+/*
+ * The control window's own motion off (1.18.3, users' F1017-04 «Анімації заважають»; Settings →
+ * «Анімації інтерфейсу», off by default — lib/uiMotion.ts sets the mark on the control and settings
+ * windows only). Its transitions go (hover fades, panels, chevrons); a loading spinner keeps turning,
+ * and the slides on the monitors keep their own transition (`appearance.transition`).
+ */
+:root[data-vo-motion='off'] *,
+:root[data-vo-motion='off'] *::before,
+:root[data-vo-motion='off'] *::after {
+  transition: none !important;
 }

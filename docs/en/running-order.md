@@ -116,6 +116,11 @@ picture, a video, or a cover opens the next item, and “Back” at the first st
 previous one. If you have shown something else since, “Next” steps as usual. A key held down
 goes to the item's end and stops there; a new press goes on to the next item.
 
+While the running order is empty, the **◀** and **Next** buttons above it step like the
+keyboard arrows: the next verse, stanza, or paragraph. To choose otherwise, in **Settings** →
+**Hotkeys** → **“Running order” buttons** choose **Always like the keyboard arrows** or **Only
+the show’s items**.
+
 To step through items with the arrow keys, in **Settings** → **Hotkeys** → **Arrows**
 choose **↑ ↓ verses, ← → items**: ↑ and ↓ go to the neighbouring verse or song slide, ← and →
 to the previous or next item. The other choices:

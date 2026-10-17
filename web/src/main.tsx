@@ -81,7 +81,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       {/* bottom-left: the monitor column and the top of the centre stay free, and floating
           panels tile from the bottom-right — a toast there took the click meant for a
           panel's button (Windows test) */}
-      <Notifications position="bottom-left" />
+      {/* bottom-centre (F1017-13): bottom-left covered «Історія», bottom-right the output windows' buttons
+          (0.5.11); three at most */}
+      <Notifications position="bottom-center" limit={3} />
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           {/* a page that breaks never leaves a white window (0.13.0) */}

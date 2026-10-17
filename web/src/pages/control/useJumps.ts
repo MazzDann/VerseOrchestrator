@@ -357,6 +357,7 @@ export function useJumps({
     jumpTo,
     goTo,
     showJump,
+    showWhenReady,
     quick,
     openSearch,
   };

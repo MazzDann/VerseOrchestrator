@@ -16,6 +16,7 @@ import {
   IconMovie,
   IconPlayerPause,
   IconPlayerPlay,
+  IconPlayerStop,
   IconPlaylistAdd,
   IconRefresh,
   IconTrash,
@@ -284,6 +285,17 @@ function VideoControls({ show }: { show: VideoShow }) {
             aria-label={paused ? tr('Пуск') : tr('Пауза')}
           >
             {paused ? <IconPlayerPlay size={16} /> : <IconPlayerPause size={16} />}
+          </ActionIcon>
+        </Tooltip>
+        <Tooltip label={tr('Зупинити відео')} withArrow>
+          <ActionIcon
+            size="md"
+            variant="light"
+            color="gray"
+            onClick={show.stopVideo}
+            aria-label={tr('Зупинити відео')}
+          >
+            <IconPlayerStop size={16} />
           </ActionIcon>
         </Tooltip>
         <Text size="sm" fw={500} truncate style={{ minWidth: 0 }} title={v.name}>
