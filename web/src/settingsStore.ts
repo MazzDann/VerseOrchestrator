@@ -410,6 +410,9 @@ interface SettingsState {
    */
   simpleView: boolean;
   setSimpleView: (v: boolean) => void;
+  /** «Вікна в одному меню» (1.19.0-beta.4, F1017-12): the header's window tools behind one «Вікна» button */
+  windowsMenu: boolean;
+  setWindowsMenu: (v: boolean) => void;
   /** a translation's section titles over its verses in the control window (1.16.0-beta.2) */
   subheadings: boolean;
   setSubheadings: (v: boolean) => void;
@@ -748,6 +751,8 @@ export const useSettings = create<SettingsState>()(
       setLanguage: (lang) => set({ language: isLang(lang) ? lang : 'uk' }),
       simpleView: false,
       setSimpleView: (v) => set({ simpleView: v === true }),
+      windowsMenu: true,
+      setWindowsMenu: (v) => set({ windowsMenu: v === true }),
       subheadings: true,
       setSubheadings: (v) => set({ subheadings: v === true }),
       subheadingSets: {},
@@ -929,6 +934,7 @@ export const useSettings = create<SettingsState>()(
           // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
           simpleView: p.simpleView === true,
+          windowsMenu: p.windowsMenu !== false,
           subheadings: p.subheadings !== false,
           subheadingSets: sanitizeSubheadingSets(p.subheadingSets),
           pickBeforeEnter: p.pickBeforeEnter !== false,

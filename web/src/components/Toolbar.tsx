@@ -249,20 +249,23 @@ const MoreButton = forwardRef<
     hint?: string;
     dot?: boolean;
     tipOff?: boolean;
+    icon?: ReactNode;
+    /** something behind it is on (an open panel, the phones' follow-along) */
+    active?: boolean;
   }
->(function MoreButton({ label, hint, dot, tipOff, ...others }, ref) {
+>(function MoreButton({ label, hint, dot, tipOff, icon, active, ...others }, ref) {
   return (
     <Tooltip label={<Tip label={label} hint={hint} />} {...TIP_PROPS} disabled={tipOff}>
       <Indicator disabled={!dot} size={8} offset={4} color="brand" withBorder>
         <ActionIcon
           {...others}
           ref={ref}
-          variant="default"
+          variant={active ? 'light' : 'default'}
           color="brand"
           size="lg"
           aria-label={label}
         >
-          <IconDots size={18} stroke={1.5} />
+          {icon ?? <IconDots size={18} stroke={1.5} />}
         </ActionIcon>
       </Indicator>
     </Tooltip>
@@ -284,27 +287,40 @@ export function ToolMore({
   sections,
   opened,
   onChange,
+  icon,
+  position = 'bottom-end',
 }: {
   label: string;
   hint?: string;
   sections: ToolSection[];
   opened: boolean;
   onChange: (opened: boolean) => void;
+  /** another menu of tools (1.19.0-beta.4: «Вікна»): its own icon, lit while one of them is on */
+  icon?: ReactNode;
+  position?: 'bottom-end' | 'bottom-start' | 'bottom';
 }) {
   useLang();
   const dot = sections.some((s) => s.tools.some((t) => t.dot));
+  const active = !!icon && sections.some((s) => s.tools.some((t) => t.active));
   return (
     <Menu
       opened={opened}
       onChange={onChange}
-      position="bottom-end"
+      position={position}
       withinPortal
       shadow="md"
       // a low window (or a large root font): the menu ends at the window's edge and scrolls
       middlewares={{ flip: true, shift: true, inline: false, size: { padding: 8 } }}
     >
       <Menu.Target>
-        <MoreButton label={label} hint={hint} dot={dot} tipOff={opened} />
+        <MoreButton
+          label={label}
+          hint={hint}
+          dot={dot}
+          tipOff={opened}
+          icon={icon}
+          active={active}
+        />
       </Menu.Target>
       <Menu.Dropdown
         style={{ overflowY: 'auto' }}

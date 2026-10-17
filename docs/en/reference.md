@@ -104,6 +104,9 @@ middle; **Media** — **Images**, **Albums**, **Videos**, and **Text to screen**
 the chosen one in the middle. A verse picked in the search, the history, or the saved
 passages takes you back to **Bible**; a running order item opens its mode.
 
+The **Windows** group's buttons are gathered into one **Windows** menu by default. To get
+the separate buttons back, turn off **Settings** → **App** → **Windows in one menu**.
+
 **Notifications** (the bell) keeps the app's messages from this session — in case one
 flashed by while you looked at another window; a dot on the bell means new ones.
 

@@ -24,6 +24,7 @@ import {
   IconQrcode,
   IconScreenShare,
   IconSearch,
+  IconStack2,
   IconSun,
 } from '@tabler/icons-react';
 import { type CodeState, type UpdateState } from '../../api';
@@ -95,6 +96,8 @@ export function ControlHeader({
   toggleAside,
   asideToggle,
   moreShown,
+  windowsShown,
+  setWindowsOpen,
   setMoreOpen,
   noticesOpen,
   setNoticesOpen,
@@ -145,6 +148,9 @@ export function ControlHeader({
   /** the aside's burger exists (below `md`): «Панель показу» is an item in «Ще» */
   asideToggle: boolean;
   moreShown: boolean;
+  /** the «Вікна» menu (1.19.0-beta.4) open */
+  windowsShown: boolean;
+  setWindowsOpen: (opened: boolean) => void;
   setMoreOpen: (opened: boolean) => void;
   /** «Сповіщення» (the session's notices) open: its own keys, like the tools' (Control's toolOpen) */
   noticesOpen: boolean;
@@ -251,6 +257,9 @@ export function ControlHeader({
   ];
   // «Простий вигляд» (1.8.12-beta.7, F1005-15): the rarely used tools wait in «Ще»
   const simple = useSettings((s) => s.simpleView);
+  // «Вікна в одному меню» (1.19.0-beta.4, F1017-12 — the window buttons up here, one menu; its open
+  // state is Control's, which pauses the window's own keys while it is open)
+  const windowsMenu = useSettings((s) => s.windowsMenu);
   const presenterTool: ToolProps = {
     label: tr('Відкрити вікно показу'),
     hint: tr('Вихідне вікно для другого монітора чи проєктора'),
@@ -370,7 +379,9 @@ export function ControlHeader({
   const hiddenApp = [helpTool, themeTool];
   const moreSections = [
     ...fold.folded.map((zone) => zoneTools[zone]),
-    ...(simple && !folded('windows') ? [{ label: tr('Вікна'), tools: hiddenWindows }] : []),
+    ...(simple && !folded('windows') && !windowsMenu
+      ? [{ label: tr('Вікна'), tools: hiddenWindows }]
+      : []),
     ...(simple && !folded('app') ? [{ label: tr('Застосунок'), tools: hiddenApp }] : []),
   ];
   const moreButton = (
@@ -457,8 +468,22 @@ export function ControlHeader({
       <Group gap={rowGap} wrap="nowrap" style={{ flexShrink: 0 }}>
         {!folded('windows') && (
           <ToolZone label={tr('Вікна')} divider={false}>
-            <ToolButton {...presenterTool} text={tr('Вікно показу')} compact={fold.iconsOnly} />
-            {!simple && hiddenWindows.map((t) => <ToolIcon key={t.label} {...t} />)}
+            {windowsMenu ? (
+              <ToolMore
+                label={tr('Вікна')}
+                hint={tr('Вікно показу, «Сцена», вікна виводу, глядачі й пульт')}
+                icon={<IconStack2 size={18} stroke={1.5} />}
+                position="bottom"
+                sections={[zoneTools.windows]}
+                opened={windowsShown}
+                onChange={setWindowsOpen}
+              />
+            ) : (
+              <>
+                <ToolButton {...presenterTool} text={tr('Вікно показу')} compact={fold.iconsOnly} />
+                {!simple && hiddenWindows.map((t) => <ToolIcon key={t.label} {...t} />)}
+              </>
+            )}
           </ToolZone>
         )}
         {moreFirst && moreAnchor}

@@ -62,7 +62,7 @@ example `John 3:16`, and press Enter.
 
 To open the presentation window:
 
-1. At the top, click **Presentation window**.
+1. At the top, click **Windows**, then **Presentation window**.
    If a second screen is connected, the browser asks for permission to manage windows on
    all your screens. Allow it, and the presentation window opens on the second screen.
 2. To make the presentation window full screen, click in it or press F.
