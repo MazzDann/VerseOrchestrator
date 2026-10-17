@@ -359,6 +359,7 @@ export function useJumps({
     showJump,
     showWhenReady,
     quick,
+    quickJump,
     openSearch,
   };
 }

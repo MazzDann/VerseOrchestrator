@@ -1,4 +1,5 @@
-import { ActionIcon, Badge, Group, ScrollArea, Text, Tooltip } from '@mantine/core';
+import { useState } from 'react';
+import { ActionIcon, Badge, Group, ScrollArea, Text, TextInput, Tooltip } from '@mantine/core';
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -13,7 +14,8 @@ import { formatVerseListDisplay } from '../../lib/reference';
 
 /**
  * Above the verse list: the open book and chapter, what is on screen, the pages of a long
- * passage, «Додати уривок у показ», the selection's reference, and the chapter grid.
+ * passage, «Додати уривок у показ», the selection's reference, and the chapter grid with a verse field
+ * beside it (1.19.0-beta.2, F1017-14: a chapter of 60 verses is a long scroll).
  */
 export function ChapterBar({
   currentBook,
@@ -30,6 +32,7 @@ export function ChapterBar({
   reference,
   chapters,
   selectChapter,
+  jumpVerse,
 }: {
   currentBook: Book | null;
   chapter: number | null;
@@ -46,8 +49,11 @@ export function ChapterBar({
   reference: string;
   chapters: number[];
   selectChapter: (chapter: number) => void;
+  /** «16», «16-18» or «3:16» in the open book: selected and its row focused; `show` — on screen too */
+  jumpVerse: (q: string, show: boolean) => Promise<boolean>;
 }) {
   useLang();
+  const [verse, setVerse] = useState('');
   return (
     <>
       <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
@@ -130,21 +136,57 @@ export function ChapterBar({
         </Group>
       </Group>
       {chapters.length > 0 && (
-        <ScrollArea.Autosize mah={64} px="md" pb="xs">
-          <div className="vo-chapter-grid" role="group" aria-label={tr('Розділи')}>
-            {chapters.map((c) => (
-              <button
-                key={c}
-                className="vo-chip"
-                data-selected={c === chapter ? 'true' : undefined}
-                onClick={() => selectChapter(c)}
-                aria-current={c === chapter ? 'true' : undefined}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        </ScrollArea.Autosize>
+        <Group gap="xs" wrap="nowrap" align="flex-start" px="md" pb="xs">
+          <Tooltip
+            label={tr(
+              'Вірш цього розділу, як-от 16 чи 16-18. Enter — вибрати, Ctrl+Enter — і на екран',
+            )}
+            multiline
+            w={240}
+            withArrow
+            openDelay={400}
+          >
+            <TextInput
+              size="xs"
+              w={64}
+              placeholder={tr('Вірш')}
+              aria-label={tr('Вірш у розділі')}
+              value={verse}
+              onChange={(e) => setVerse(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && verse) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setVerse('');
+                  return;
+                }
+                if (e.key !== 'Enter' || !verse.trim()) return;
+                // the field's own Enter: not «На екран»'s ⌘↩ / the window's keys as well
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.repeat) return;
+                void jumpVerse(verse.trim(), e.ctrlKey || e.metaKey).then(
+                  (ok) => ok && setVerse(''),
+                );
+              }}
+            />
+          </Tooltip>
+          <ScrollArea.Autosize mah={64} style={{ flex: 1, minWidth: 0 }}>
+            <div className="vo-chapter-grid" role="group" aria-label={tr('Розділи')}>
+              {chapters.map((c) => (
+                <button
+                  key={c}
+                  className="vo-chip"
+                  data-selected={c === chapter ? 'true' : undefined}
+                  onClick={() => selectChapter(c)}
+                  aria-current={c === chapter ? 'true' : undefined}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </ScrollArea.Autosize>
+        </Group>
       )}
     </>
   );
