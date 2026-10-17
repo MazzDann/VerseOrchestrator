@@ -413,7 +413,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
     send(ws, { type: 'ack', id: clientId, cmd, ok: false, reason });
   if (!p) return reject(N_('Немає доступу'));
   // Buttons need their own permission; `pick` / `queue` are checked by what they carry
-  // (verses → «Вибір віршів», a stanza → «Пісні», a running-order item → «Послідовність»).
+  // (verses → «Вибір віршів», a stanza → «Презентації», a running-order item → «Послідовність»).
   // `songs` / `playlist` are permissions only, never commands.
   if (!isRemoteAction(cmd) || (cmd !== 'pick' && cmd !== 'queue' && !p.allowed.includes(cmd)))
     return reject(N_('Ця дія пульту не дозволена'));
@@ -441,7 +441,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   const held = msg.held === true && (cmd === 'next' || cmd === 'prev');
   // each ability on its own, per remote
   if (passage && !p.allowed.includes('pick')) return reject(N_('Вибір віршів пульту не дозволено'));
-  if (song && !p.allowed.includes('songs')) return reject(N_('Пісні пульту не дозволено'));
+  if (song && !p.allowed.includes('songs')) return reject(N_('Презентації пульту не дозволено'));
   if (doc && !p.allowed.includes('documents')) return reject(N_('Документи пульту не дозволено'));
   if ((item || cmd === 'queue') && !p.allowed.includes('playlist')) {
     return reject(N_('Послідовність пульту не дозволено'));

@@ -9,7 +9,7 @@ export const REMOTE_LABEL: Record<RemoteCommand, string> = {
   black: N_('Чорний екран'),
   show: N_('На екран'),
   pick: N_('Вибір віршів'),
-  songs: N_('Пісні'),
+  songs: N_('Презентації'),
   playlist: N_('Послідовність'),
   queue: N_('У послідовність'),
   cover: N_('Заставка'),

@@ -23,7 +23,7 @@ Songs come from PowerPoint presentations: one song, one `.pptx` file. The browse
 files, and the app writes the songs into the bundle you choose. Import works while the app
 is running (`start.cmd`, `start.command`, or `./start.sh`).
 
-The quickest way is to drag `.pptx` files into the control window, anywhere: **Songs** opens with
+The quickest way is to drag `.pptx` files into the control window, anywhere: **Presentations** opens with
 the import, the files already read — only the bundle is left to choose.
 
 On a Mac you can drag a **Keynote** presentation (`.key`) the same way: the app asks Keynote to
@@ -32,7 +32,7 @@ whether the app may control it — allow it.
 
 To import songs:
 
-1. At the top, click **Songs**. The song search and list appear on the left instead of the
+1. At the top, click **Presentations**. The song search and list appear on the left instead of the
    books.
 2. To the right of the song search, click the **Import songs** icon.
 3. Under **From**, click **.pptx files…** and choose the files, or click **Folder…** and
@@ -55,7 +55,7 @@ delete a bundle, or rescan the modules.
 
 To rename a bundle:
 
-1. At the top, click **Songs**.
+1. At the top, click **Presentations**.
 2. To the right of the song search, click the **Song bundles** icon.
 3. In the bundle's row, click the **Rename** icon, type the new name, and press Enter.
 
@@ -117,7 +117,7 @@ New and changed files in the same folder update that bundle after the rescan.
 
 To show a song:
 
-1. At the top, click **Songs**. The song search and list appear on the left instead of the
+1. At the top, click **Presentations**. The song search and list appear on the left instead of the
    books.
 2. Type the song's number or a few letters of its title.
 3. In the list, click the song. Its slides appear in the middle, at the window's full

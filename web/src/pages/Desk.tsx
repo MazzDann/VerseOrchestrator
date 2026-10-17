@@ -166,7 +166,7 @@ export function Desk() {
   useEffect(() => {
     if (song.isError) set({ songId: null, stanza: null });
   }, [song.isError, set]);
-  // «Пісні» taken away by the operator (or never given): back to the Bible
+  // «Презентації» taken away by the operator (or never given): back to the Bible
   const songsAllowed = allowed.includes('songs');
   useEffect(() => {
     if (link.kind === 'ready' && !songsAllowed && mode === 'songs') set({ mode: 'bible' });
@@ -524,7 +524,7 @@ export function Desk() {
           onChange={(v) => set({ mode: v as 'bible' | 'songs' })}
           data={[
             { value: 'bible', label: tr('Біблія') },
-            { value: 'songs', label: tr('Пісні'), disabled: !allowed.includes('songs') },
+            { value: 'songs', label: tr('Презентації'), disabled: !allowed.includes('songs') },
           ]}
         />
         <ToolZone label={tr('Показ')}>
@@ -611,7 +611,10 @@ export function Desk() {
       </header>
 
       <div className="vo-desk-body">
-        <nav className="vo-desk-col vo-desk-nav" aria-label={verseList ? tr('Книги') : tr('Пісні')}>
+        <nav
+          className="vo-desk-col vo-desk-nav"
+          aria-label={verseList ? tr('Книги') : tr('Презентації')}
+        >
           {verseList ? (
             <ScrollArea h="100%" scrollbars="y">
               <TranslationPicker

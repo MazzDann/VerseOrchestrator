@@ -16,7 +16,7 @@ export type DroppedKind =
   | 'module'
   /** a library segment (.vodb): into the browser's engine */
   | 'segment'
-  /** a song in a presentation (1.17.1): «Пісні» → import */
+  /** a song in a presentation (1.17.1): «Презентації» → import */
   | 'song'
   /** another copy's vectors.db (1.17.1) */
   | 'vectors'
@@ -80,7 +80,7 @@ interface DropState {
   pick: { kind: 'album' | 'video'; start?: string } | null;
   addImages: (files: File[]) => void;
   takeImages: () => File[];
-  /** presentations dropped (1.17.1): «Пісні» opens its import with them */
+  /** presentations dropped (1.17.1): «Презентації» opens its import with them */
   songs: File[];
   addSongs: (files: File[]) => void;
   takeSongs: () => File[];

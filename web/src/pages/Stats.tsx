@@ -44,7 +44,7 @@ const periodFrom = (p: Period, now: number) => {
 
 const KIND: Record<ShownKind, string> = {
   verses: N_('Біблія'),
-  song: N_('Пісні'),
+  song: N_('Презентації'),
   doc: N_('Документи'),
   text: N_('Текст'),
   picture: N_('Зображення'),
@@ -195,7 +195,7 @@ function ShowStats() {
 
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
             <Card
-              title={tr('Пісні')}
+              title={tr('Презентації')}
               empty={s.songs.length === 0 ? tr('Пісень за цей час не показували.') : null}
             >
               <BarList
@@ -766,7 +766,10 @@ function LibraryCounts() {
             }))}
           />
         </Card>
-        <Card title={tr('Пісні')} empty={l.songs.length ? null : tr('Пісень у бібліотеці немає.')}>
+        <Card
+          title={tr('Презентації')}
+          empty={l.songs.length ? null : tr('Пісень у бібліотеці немає.')}
+        >
           <BarList
             rows={l.songs.map((s) => ({
               key: s.bundle,

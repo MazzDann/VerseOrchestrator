@@ -39,7 +39,13 @@ export type HotkeyActionId =
   | 'searchCurrent'
   | 'searchAll'
   | 'searchFocus'
-  | 'palette';
+  | 'palette'
+  | 'modeBible'
+  | 'modeSongs'
+  | 'modeDocs'
+  | 'modeMedia'
+  | 'modeNext'
+  | 'modePrev';
 
 export interface HotkeyActionDef {
   id: HotkeyActionId;
@@ -186,6 +192,41 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     enableOnFormTags: true,
     default: 'ctrl+k,ctrl+p',
     mac: 'meta+k',
+  },
+  // the modes from the keyboard (1.19.0-beta.1, F1017-02): Ctrl+1…4 and Ctrl+Tab as in a browser's tabs — the
+  // desktop app gets them; a browser keeps them for its own tabs, so Alt+1…4 there (⌘1…4 in the app on a Mac)
+  ...(
+    [
+      ['modeBible', N_('Режим «Біблія»'), '1'],
+      ['modeSongs', N_('Режим «Презентації»'), '2'],
+      ['modeDocs', N_('Режим «Документи»'), '3'],
+      ['modeMedia', N_('Режим «Медіа»'), '4'],
+    ] as const
+  ).map(
+    ([id, label, n]): HotkeyActionDef => ({
+      id,
+      label,
+      hint: N_(
+        'Ctrl+цифра (⌘ на Mac) — в окремому застосунку; у браузері Alt+цифра: Ctrl+цифри браузер бере собі',
+      ),
+      enableOnFormTags: true,
+      default: `ctrl+${n},alt+${n}`,
+      mac: `meta+${n}`,
+    }),
+  ),
+  {
+    id: 'modeNext',
+    label: N_('Наступний режим'),
+    hint: N_('Біблія → Презентації → Документи → Медіа; Ctrl+Tab — лише в окремому застосунку'),
+    enableOnFormTags: true,
+    default: 'ctrl+tab',
+  },
+  {
+    id: 'modePrev',
+    label: N_('Попередній режим'),
+    hint: N_('Назад по режимах; Ctrl+Shift+Tab — лише в окремому застосунку'),
+    enableOnFormTags: true,
+    default: 'ctrl+shift+tab',
   },
 ];
 

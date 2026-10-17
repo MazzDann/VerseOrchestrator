@@ -408,7 +408,7 @@ describe('speaker remote over the hub', () => {
     );
     expect(await remote.next('ack')).toMatchObject({
       ok: false,
-      reason: 'Пісні пульту не дозволено',
+      reason: 'Презентації пульту не дозволено',
     });
     setPairingAllowed(p.id, [...DEFAULT_ALLOWED, 'show', 'songs']); // songs only now
     remote.ws.send(JSON.stringify({ type: 'command', cmd: 'songs', id: 'g00' }));
@@ -503,7 +503,7 @@ describe('speaker remote over the hub', () => {
       text: 'Так бо…',
     });
     expect(await control.next('suggested')).toMatchObject({ to: p.id, delivered: 1 });
-    // a stanza needs «Пісні», which this remote hasn't got
+    // a stanza needs «Презентації», which this remote hasn't got
     control.ws.send(JSON.stringify({ type: 'suggest', to: p.id, song: { songId: 13, stanza: 0 } }));
     expect(await control.next('suggested')).toMatchObject({
       delivered: 0,

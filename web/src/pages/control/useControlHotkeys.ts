@@ -13,9 +13,10 @@ import { matchesCombo, slashTyped, type Keymap } from '../../hotkeys';
 import { inOverlay, isFormField, scrollableAround } from '../../lib/keyScroll';
 import { floatingPanelOpen } from '../../lib/panelStack';
 import { type SearchScope } from '../../components/SearchPanel';
+import { type Workspace } from '../Control';
 
 /**
- * The control window's page hotkeys (react-hotkeys-hook; 14 calls, their order and their deps
+ * The control window's page hotkeys (react-hotkeys-hook; 20 calls (the six mode keys since 1.19.0-beta.1, after the palette), their order and their deps
  * arrays as they were in Control) and Alt+arrows (E18). Each handler runs the one from the
  * render its deps last changed in; the restore key reads its ref.
  */
@@ -51,6 +52,8 @@ export function useControlHotkeys({
   slideLines,
   reference,
   slideStyle,
+  workspace,
+  setWorkspace,
 }: {
   keymap: Keymap;
   advanceAndSay: (delta: number, previewOnly?: boolean, held?: boolean) => void;
@@ -85,6 +88,9 @@ export function useControlHotkeys({
   slideLines: SlideLine[];
   reference: string;
   slideStyle: SlideStyle;
+  /** the modes from the keyboard (1.19.0-beta.1, F1017-02) */
+  workspace: Workspace;
+  setWorkspace: (ws: Workspace) => void;
 }) {
   // Hotkeys are user-rebindable (settingsStore.keymap; defaults in hotkeys.ts).
   // "advanceNext/Prev" default to arrows + PageDown/PageUp (the keys USB clickers emit).
@@ -201,6 +207,28 @@ export function useControlHotkeys({
     preventDefault: true,
     enableOnFormTags: true,
   });
+  // the modes: Ctrl+1…4 / Alt+1…4 and Ctrl+Tab / Ctrl+Shift+Tab (1.19.0-beta.1, F1017-02)
+  const modeKeys = { preventDefault: true, enableOnFormTags: true } as const;
+  useHotkeys(keymap.modeBible, (e) => !e.repeat && setWorkspace('bible'), modeKeys, [
+    keymap.modeBible,
+  ]);
+  useHotkeys(keymap.modeSongs, (e) => !e.repeat && setWorkspace('songs'), modeKeys, [
+    keymap.modeSongs,
+  ]);
+  useHotkeys(keymap.modeDocs, (e) => !e.repeat && setWorkspace('docs'), modeKeys, [
+    keymap.modeDocs,
+  ]);
+  useHotkeys(keymap.modeMedia, (e) => !e.repeat && setWorkspace('media'), modeKeys, [
+    keymap.modeMedia,
+  ]);
+  useHotkeys(keymap.modeNext, (e) => !e.repeat && setWorkspace(nextMode(workspace, 1)), modeKeys, [
+    keymap.modeNext,
+    workspace,
+  ]);
+  useHotkeys(keymap.modePrev, (e) => !e.repeat && setWorkspace(nextMode(workspace, -1)), modeKeys, [
+    keymap.modePrev,
+    workspace,
+  ]);
   // "project" (default F5/F2): push the current selection to the screen (the way to
   // project when live-follow is off; harmless while following).
   useHotkeys(
@@ -262,3 +290,8 @@ export function useControlHotkeys({
     return () => window.removeEventListener('keydown', onKey);
   }, [keymap]);
 }
+
+const MODES: Workspace[] = ['bible', 'songs', 'docs', 'media'];
+/** the mode after (or before) this one, round the four */
+export const nextMode = (ws: Workspace, d: 1 | -1): Workspace =>
+  MODES[(MODES.indexOf(ws) + d + MODES.length) % MODES.length];

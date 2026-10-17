@@ -7,7 +7,7 @@ import path from 'node:path';
  * Files from a Mac's own apps, read as what the app reads (macOS only — the user's ask,
  * 2026-10-13): Pages (.pages) and the formats macOS itself reads (.rtf, .doc, .odt, .html,
  * .webarchive) through a Word .docx straight into the library — no file is left beside them
- * (documents.ts); Keynote (.key) → a PowerPoint .pptx for «Пісні»'s import.
+ * (documents.ts); Keynote (.key) → a PowerPoint .pptx for «Презентації»'s import.
  * `textutil` is part of macOS; Pages and Keynote do their own export when they're installed
  * (AppleScript — macOS asks once whether the app may control them).
  */

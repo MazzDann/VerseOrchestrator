@@ -11,28 +11,34 @@ ports. How to do a task is in the parts of the [documentation](README.md).
 These are the control window's standard keys. You can change them in **Settings** →
 **Hotkeys**; the tooltips on the buttons show the current keys.
 
-| Action                               | Windows and Linux | Also on macOS          |
-| ------------------------------------ | ----------------- | ---------------------- |
-| **Next** — the next verse            | →, ↓, PageDown    |                        |
-| **Back** — the previous verse        | ←, ↑, PageUp      |                        |
-| **Preview: next** — the preview only | Ctrl+→, Ctrl+↓    | ⌥→, ⌥↓ instead of Ctrl |
-| **Preview: back** — the preview only | Ctrl+←, Ctrl+↑    | ⌥←, ⌥↑ instead of Ctrl |
-| **Next running order item**          | Shift+PageDown    |                        |
-| **Previous running order item**      | Shift+PageUp      |                        |
-| **To the chorus** — in a song        | C                 |                        |
-| **To screen**                        | F5, F2            | ⌘↩                     |
-| **Hide text**                        | B                 |                        |
-| **Black screen**                     | . (period)        |                        |
-| **Cover** — logo and text            | L                 |                        |
-| **Countdown: pause / resume**        | T                 |                        |
-| **Clear** — take the slide off       | Esc               |                        |
-| **Bring back to the screen**         | Ctrl+Z            | ⌘Z                     |
-| **Search (current)**                 | F3, Ctrl+F        | ⌘F                     |
-| **Search (all)**                     | F4                | ⇧⌘F                    |
-| **To the search field**              | /                 | /                      |
-| **Command palette**                  | Ctrl+K, Ctrl+P    | ⌘K                     |
+| Action                               | Windows and Linux        | Also on macOS          |
+| ------------------------------------ | ------------------------ | ---------------------- |
+| **Next** — the next verse            | →, ↓, PageDown           |                        |
+| **Back** — the previous verse        | ←, ↑, PageUp             |                        |
+| **Preview: next** — the preview only | Ctrl+→, Ctrl+↓           | ⌥→, ⌥↓ instead of Ctrl |
+| **Preview: back** — the preview only | Ctrl+←, Ctrl+↑           | ⌥←, ⌥↑ instead of Ctrl |
+| **Next running order item**          | Shift+PageDown           |                        |
+| **Previous running order item**      | Shift+PageUp             |                        |
+| **To the chorus** — in a song        | C                        |                        |
+| **To screen**                        | F5, F2                   | ⌘↩                     |
+| **Hide text**                        | B                        |                        |
+| **Black screen**                     | . (period)               |                        |
+| **Cover** — logo and text            | L                        |                        |
+| **Countdown: pause / resume**        | T                        |                        |
+| **Clear** — take the slide off       | Esc                      |                        |
+| **Bring back to the screen**         | Ctrl+Z                   | ⌘Z                     |
+| **Search (current)**                 | F3, Ctrl+F               | ⌘F                     |
+| **Search (all)**                     | F4                       | ⇧⌘F                    |
+| **To the search field**              | /                        | /                      |
+| **Command palette**                  | Ctrl+K, Ctrl+P           | ⌘K                     |
+| **Modes**: Bible … Media             | Ctrl+1…4, Alt+1…4        | ⌘1…4                   |
+| **Next / previous mode**             | Ctrl+Tab, Ctrl+Shift+Tab |                        |
 
 On macOS the F keys work together with Fn, so there are ⌘ keys by default as well.
+
+A browser keeps Ctrl+1…4 and Ctrl+Tab for itself (they switch its tabs), so they work in the
+desktop app, and in a browser Alt+1…4 switch the modes: 1 — **Bible**, 2 — **Presentations**,
+3 — **Documents**, 4 — **Media**.
 
 What the arrows do can be chosen in the same place, in **Arrows**: **All — next / back** (the
 default), **← → screen, ↑ ↓ preview**, or **↑ ↓ verses, ← → items**. More in [Running
@@ -87,13 +93,13 @@ The buttons at the top of the control window are grouped from left to right:
 | Group                | Buttons                                                                                                              |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **Navigation**       | the navigation menu (in a narrow window), **Search**, the **Search** field                                           |
-| **Mode**             | **Bible**, **Songs**, **Media**                                                                                      |
+| **Mode**             | **Bible**, **Presentations**, **Media**                                                                              |
 | **Windows**          | **Presentation window**, **Stage**, **Output windows**, **Viewers**, **Speaker remote**                              |
 | **Output to screen** | **Live**, **To screen**, **Hide text**, **Black screen**, **Cover**, **Countdown**, **Speaker timer**                |
 | **App**              | **Settings**, **Notifications**, **Help**, **Light theme** or **Dark theme**, **Preview panel** (in a narrow window) |
 
 The mode chooses what you work with: **Bible** — the translations and books on the left, the
-verses in the middle; **Songs** — the song search and list on the left, the open song in the
+verses in the middle; **Presentations** — the song search and list on the left, the open song in the
 middle; **Media** — **Images**, **Albums**, **Videos**, and **Text to screen** on the left,
 the chosen one in the middle. A verse picked in the search, the history, or the saved
 passages takes you back to **Bible**; a running order item opens its mode.

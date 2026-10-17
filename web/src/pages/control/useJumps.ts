@@ -67,7 +67,7 @@ export function useJumps({
   moreShown: boolean;
   toolOpen: boolean;
   setSearchOpen: (v: boolean | ((open: boolean) => boolean)) => void;
-  /** a place in the Bible shows the Bible (1.8.12-beta.7): from «Пісні» or «Медіа» too */
+  /** a place in the Bible shows the Bible (1.8.12-beta.7): from «Презентації» or «Медіа» too */
   toBible: () => void;
 }) {
   // one search (1.8.12-beta.4): the header's field and the results panel share the query; the

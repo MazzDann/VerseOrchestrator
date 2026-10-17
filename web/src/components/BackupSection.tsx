@@ -185,7 +185,7 @@ function RestoreCard({
             size="xs"
             checked={parts.songs}
             onChange={tick('songs')}
-            label={tr('Пісні')}
+            label={tr('Презентації')}
             description={backup.bundles.join(', ')}
           />
         )}

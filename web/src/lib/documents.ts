@@ -16,7 +16,7 @@ const extOf = (name: string): string => (/\.([^./\\]+)$/.exec(name)?.[1] ?? '').
 
 /**
  * What the app's computer converts (server/src/convert.ts — a Mac: .pages, .rtf, .doc … into the
- * library as documents, .key into «Пісні» as a .pptx); none elsewhere. Asked once per page.
+ * library as documents, .key into «Презентації» as a .pptx); none elsewhere. Asked once per page.
  */
 export type ConvertKind = { ext: string; to: 'docx' | 'pptx' };
 let kinds: ConvertKind[] = [];

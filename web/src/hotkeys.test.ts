@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { nextMode } from './pages/control/useControlHotkeys';
 import {
   comboFromEvent,
   conflictsForAction,
@@ -284,5 +285,40 @@ describe('«/» on any layout (1.9.7, Mac check)', () => {
     expect(slashTyped(ev({ ctrlKey: true }), km)).toBe(false);
     expect(slashTyped(ev({}), { ...km, searchFocus: 'ctrl+l' })).toBe(false);
     expect(slashTyped(ev({ key: '.', code: 'Slash', shiftKey: false }), km)).toBe(false);
+  });
+});
+
+describe('the modes from the keyboard (1.19.0-beta.1, F1017-02)', () => {
+  it('Ctrl+1…4 for the app, Alt+1…4 for a browser, ⌘1…4 on a Mac; Ctrl+Tab steps', () => {
+    const pc = defaultKeymap(false);
+    const mac = defaultKeymap(true);
+    expect([pc.modeBible, pc.modeSongs, pc.modeDocs, pc.modeMedia]).toEqual([
+      'ctrl+1,alt+1',
+      'ctrl+2,alt+2',
+      'ctrl+3,alt+3',
+      'ctrl+4,alt+4',
+    ]);
+    expect(mac.modeMedia).toBe('ctrl+4,alt+4,meta+4');
+    expect([pc.modeNext, pc.modePrev]).toEqual(['ctrl+tab', 'ctrl+shift+tab']);
+    for (const id of [
+      'modeBible',
+      'modeSongs',
+      'modeDocs',
+      'modeMedia',
+      'modeNext',
+      'modePrev',
+    ] as const)
+      expect(conflictsForAction(pc, id)).toEqual([]);
+  });
+  it('a keymap saved before them gets them', () => {
+    const old = { ...DEFAULT_KEYMAP } as Record<string, string>;
+    delete old.modeSongs;
+    expect(sanitizeKeymap(old, false).modeSongs).toBe('ctrl+2,alt+2');
+  });
+  it('the next mode goes round the four', () => {
+    expect(nextMode('bible', 1)).toBe('songs');
+    expect(nextMode('media', 1)).toBe('bible');
+    expect(nextMode('bible', -1)).toBe('media');
+    expect(nextMode('docs', -1)).toBe('songs');
   });
 });

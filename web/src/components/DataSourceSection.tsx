@@ -215,7 +215,7 @@ export function DataSourceSection() {
     translation: tr('Переклади'),
     dictionary: tr('Словники'),
     study: tr('Посилання й коментарі'),
-    songs: tr('Пісні'),
+    songs: tr('Презентації'),
     docs: tr('Документи'),
     vectors: tr('Вектори для пошуку за змістом'),
   };
