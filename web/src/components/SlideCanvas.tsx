@@ -398,7 +398,7 @@ function PictureContent({ picture, prefetch }: { picture: SlidePicture; prefetch
     ahead.current = img;
   }, [prefetch, picture.next]);
   if (failed === picture.src) return null;
-  return (
+  const img = (
     <img
       src={picture.src}
       alt=""
@@ -410,6 +410,30 @@ function PictureContent({ picture, prefetch }: { picture: SlidePicture; prefetch
         objectFit: picture.fit === 'cover' ? 'cover' : 'contain',
       }}
     />
+  );
+  if (!picture.credit) return img;
+  // a found picture's author and licence (1.19.0-beta.9): its licence asks for them where it is shown
+  return (
+    <>
+      {img}
+      <div
+        className="vo-picture-credit"
+        style={{
+          position: 'absolute',
+          right: '1.2cqw',
+          bottom: '1cqh',
+          maxWidth: '60%',
+          fontSize: '1.7cqh',
+          lineHeight: 1.2,
+          color: 'rgb(255 255 255 / 85%)',
+          textShadow: '0 0 0.4cqh rgb(0 0 0 / 90%)',
+          textAlign: 'right',
+          pointerEvents: 'none',
+        }}
+      >
+        {picture.credit}
+      </div>
+    </>
   );
 }
 

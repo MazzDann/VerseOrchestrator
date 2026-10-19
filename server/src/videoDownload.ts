@@ -97,8 +97,8 @@ export function downloadName(res: { headers: Headers; url: string }, fallback: U
     .slice(0, 120)
     // Windows: no dot or space at a name's end, and no device names (CON, NUL, COM1 … — review)
     .replace(/[. ]+$/, '');
-  const base = name.replace(/.[^.]*$/, '');
-  if (/^(con|prn|aux|nul|comd|lptd)$/i.test(base)) name = `_${name}`;
+  const base = name.replace(/\.[^.]*$/, '');
+  if (/^(con|prn|aux|nul|com\d|lpt\d)$/i.test(base)) name = `_${name}`;
   return name || 'video';
 }
 

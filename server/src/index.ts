@@ -81,6 +81,7 @@ import { readLayout } from './layout.js';
 import { youtubeTitle } from './youtube.js';
 import { createVideoDownloads } from './videoDownload.js';
 import { fetchImage } from './imageFetch.js';
+import { searchImages } from './imageSearch.js';
 import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
 import { createGitSync } from './gitSync.js';
@@ -1390,6 +1391,29 @@ app.get(
     res.setHeader('X-VO-Name', encodeURIComponent(got.name));
     res.setHeader('Cache-Control', 'no-store');
     res.end(got.bytes);
+  }),
+);
+
+/**
+ * Free pictures by a search (1.19.0-beta.9, imageSearch.ts): Wikimedia Commons or Openverse, with each
+ * one's author and licence — the control window adds the chosen one through /api/images/fetch.
+ */
+app.get(
+  '/api/images/search',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const source = req.query.source === 'openverse' ? 'openverse' : 'commons';
+    const got = await searchImages(String(req.query.q ?? ''), source, Number(req.query.page ?? 1));
+    if ('refused' in got) {
+      if (got.refused === 'query') throw new ApiError(400, N_('Введіть, що шукати'));
+      if (got.refused === 'busy')
+        throw new ApiError(
+          429,
+          N_('Забагато пошуків за раз — спробуйте за хвилину чи в іншому джерелі'),
+        );
+      throw new ApiError(502, N_('Пошук не відповідає — перевірте інтернет'));
+    }
+    res.json(got);
   }),
 );
 

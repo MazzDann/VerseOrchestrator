@@ -36,6 +36,8 @@ export interface StoredImage {
   size: number;
   /** ISO time it was added */
   added: string;
+  /** a found picture's author · licence · source (1.19.0-beta.9): it goes on screen with it */
+  credit?: string;
 }
 
 export const imagesDir = (dataDir: string) => path.join(dataDir, IMAGES_DIR);
@@ -125,6 +127,7 @@ export interface NewImage {
   small: unknown;
   w: unknown;
   h: unknown;
+  credit?: unknown;
 }
 
 /** Why a picture was refused — keys of the server's messages (index.ts turns them into words). */
@@ -155,6 +158,9 @@ export function addImage(
     h: Math.round(h),
     size: full.length,
     added: now.toISOString(),
+    ...(typeof input.credit === 'string' && input.credit.trim()
+      ? { credit: input.credit.replace(/\s+/g, ' ').trim().slice(0, 300) }
+      : {}),
   };
   // the list first: an index that can't be read now leaves no picture files without it (1.9.3)
   const index = readIndex(dir);
@@ -254,4 +260,5 @@ export const imageEntry = (img: StoredImage) => ({
   added: img.added,
   src: `/api/images/file/${fileOf(img)}`,
   small: `/api/images/file/${smallOf(img)}`,
+  ...(img.credit ? { credit: img.credit } : {}),
 });

@@ -2720,4 +2720,22 @@ export const EN: Record<string, string> = {
   'Відео за посиланням': 'Videos by a link',
   'Завантажені відео; файл іде, коли ви прибираєте відео в «Відео».':
     'Downloaded videos; a file goes when you take its video off in «Відео» (Videos).',
+  'Додано: {name}': 'Added: {name}',
+  'Що шукати, як-от «гори» чи «sunrise»': 'What to look for, like «гори» or “sunrise”',
+  'Пошук зображень': 'Picture search',
+  Вікісховище: 'Wikimedia Commons',
+  'Де шукати': 'Where to look',
+  Шукати: 'Search',
+  'Вільні зображення з автором і ліцензією; клацніть, щоб додати. Підпис автора буде на екрані — так вимагає ліцензія.':
+    'Free pictures with their author and licence; click one to add it. The author’s credit goes on screen — the licence asks for it.',
+  'Додати «{name}»': 'Add “{name}”',
+  'Додаю…': 'Adding…',
+  'Пошук вільних зображень в інтернеті — з автором і ліцензією':
+    'Search the internet for free pictures — with their author and licence',
+  'Пошук зображень…': 'Picture search…',
+  'Введіть, що шукати': 'Type what to look for',
+  'Забагато пошуків за раз — спробуйте за хвилину чи в іншому джерелі':
+    'Too many searches at once — try in a minute or in the other source',
+  'Пошук не відповідає — перевірте інтернет':
+    'The search doesn’t answer — check the internet connection',
 };

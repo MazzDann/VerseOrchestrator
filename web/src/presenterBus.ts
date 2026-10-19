@@ -212,6 +212,8 @@ export interface SlidePicture {
   fit: 'contain' | 'cover';
   /** an album's next photo (1.8.12): the output windows load it ahead, so a step shows at once */
   next?: string;
+  /** a found picture's author · licence · source (1.19.0-beta.9): small in a corner of the slide */
+  credit?: string;
 }
 
 /**

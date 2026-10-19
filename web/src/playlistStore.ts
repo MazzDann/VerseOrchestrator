@@ -60,6 +60,8 @@ export interface SeqImage {
   src: string;
   small: string;
   fit: 'contain' | 'cover';
+  /** a found picture's credit (1.19.0-beta.9) */
+  credit?: string;
 }
 
 /**

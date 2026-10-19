@@ -81,6 +81,8 @@ describe('«Відео за посиланням» (1.19.0-beta.8)', () => {
     });
     expect(downloadName(res('attachment; filename="CON.mp4"'), at)).toBe('_CON.mp4');
     expect(downloadName(res('attachment; filename="talk. "'), at)).toBe('talk');
+    expect(downloadName(res('attachment; filename="COM1.webm"'), at)).toBe('_COM1.webm');
+    expect(downloadName(res('attachment; filename="nul"'), at)).toBe('_nul');
   });
   it('turns share links into files and refuses YouTube and Telegram', () => {
     expect(String(downloadUrl('https://www.dropbox.com/s/abc/talk.mp4?dl=0'))).toBe(

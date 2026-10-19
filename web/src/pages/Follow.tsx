@@ -336,12 +336,27 @@ export function Follow() {
           !slide.blank &&
           !slide.forceBlack ? (
           // a picture (1.5.0): its small copy — a phone needs no 4K file over the Wi-Fi
-          <img
-            src={pictureSrc}
-            alt={slide.picture.name}
-            onError={() => setFailedPicture(pictureSrc)}
-            style={{ display: 'block', maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain' }}
-          />
+          <figure style={{ margin: 0 }}>
+            <img
+              src={pictureSrc}
+              alt={slide.picture.name}
+              onError={() => setFailedPicture(pictureSrc)}
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                maxHeight: '78vh',
+                objectFit: 'contain',
+              }}
+            />
+            {/* a found picture's author and licence (1.19.0-beta.9): with it wherever it is shown */}
+            {slide.picture.credit && (
+              <figcaption
+                style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: 4, textAlign: 'right' }}
+              >
+                {slide.picture.credit}
+              </figcaption>
+            )}
+          </figure>
         ) : slide?.video && slide.visible && !slide.blank && !slide.forceBlack ? (
           // a video (1.8.12-beta.3): its poster, or words when the operator chose them or the
           // poster isn't there — never the file over the Wi-Fi
