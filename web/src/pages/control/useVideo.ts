@@ -22,6 +22,7 @@ import {
   videoSlide,
 } from '../../lib/video';
 import { drawPoster } from '../../lib/videoPoster';
+import { YT_CHANNEL, type YTNote } from '../../lib/youtube';
 import { readImageFit } from '../../lib/imageFit';
 import { showsSomething } from '../../lib/slide';
 import { everyMs } from '../../lib/workerClock';
@@ -127,6 +128,10 @@ export function useVideo({
         fit: opts.fit ?? readImageFit(),
         loop,
         phones: videoPhones,
+        // YouTube (1.19.0-beta.6): played by the windows themselves, sounded by one «Показ» window
+        ...(v.youtube
+          ? { youtube: v.youtube, volume, ...(v.duration ? { duration: v.duration } : {}) }
+          : {}),
       },
       v.id,
       slideStyle,
@@ -189,7 +194,8 @@ export function useVideo({
   const audio = useRef<HTMLAudioElement | null>(null);
   const [needsClick, setNeedsClick] = useState(false);
   const on = videoOnScreen(liveSlide);
-  const soundSrc = isLeader && on ? on.video.src : null;
+  // a YouTube video sounds in a «Показ» window, not here (1.19.0-beta.6)
+  const soundSrc = isLeader && on && !on.video.youtube ? on.video.src : null;
   const audible = !!on && showsSomething(liveSlide);
   const clock = useRef(on?.video ?? null);
   clock.current = on?.video ?? null;
@@ -302,6 +308,37 @@ export function useVideo({
     pushLive({ ...s, video: { ...at.video, duration: length } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLeader, duration, liveVideo]);
+  // YouTube (1.19.0-beta.6): its length came with it (read when it was added); the loudness goes
+  // with the slide to the «Показ» window that sounds it
+  const ytLength = on?.video.youtube ? (on.video.duration ?? 0) : null;
+  useEffect(() => {
+    if (ytLength == null) return;
+    durationRef.current = ytLength;
+    setDuration(ytLength);
+  }, [ytLength, on?.videoId]);
+  useEffect(() => {
+    const s = screen();
+    const at = videoOnScreen(s);
+    if (!isLeader || !at?.video.youtube || at.video.volume === volume) return;
+    pushLive({ ...s, video: { ...at.video, volume } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLeader, volume, on?.videoId]);
+  // the browser kept a «Показ» window's sound off: a click there gives it back — said once
+  useEffect(() => {
+    if (!isLeader || typeof BroadcastChannel === 'undefined') return;
+    const bc = new BroadcastChannel(YT_CHANNEL);
+    bc.onmessage = (e: MessageEvent<YTNote>) => {
+      if (e.data?.t === 'sound-blocked')
+        notifications.show({
+          id: 'vo-youtube-sound',
+          message: tr('Браузер вимкнув звук YouTube у вікні показу — клацніть у ньому один раз'),
+          color: 'orange',
+          autoClose: false,
+        });
+      else if (e.data?.t === 'sound-on') notifications.hide('vo-youtube-sound');
+    };
+    return () => bc.close();
+  }, [isLeader]);
   useEffect(() => {
     if (audio.current) audio.current.volume = Math.max(0, Math.min(1, volume));
   }, [volume, soundSrc]);

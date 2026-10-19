@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { type Slide, EMPTY_SLIDE, readSlide, subscribeSlide, sendCommand } from '../presenterBus';
 import { SlideCanvas } from '../components/SlideCanvas';
+import { VideoSoundContext } from '../lib/youtube';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
@@ -13,7 +14,40 @@ import { tr, useLang } from '../i18n';
 /** Fullscreen needs a user gesture in this window — or one lent by the control window. */
 const toggleFullscreen = toggleOwnFullscreen;
 
+/**
+ * One «Показ» window sounds a YouTube video (1.19.0-beta.6, lib/youtube.ts): the first to hold the
+ * Web Lock; when it closes, the next one takes the sound. Without Web Locks, every one.
+ */
+function useYouTubeSound(): boolean {
+  const [lead, setLead] = useState(false);
+  useEffect(() => {
+    if (!navigator.locks) {
+      setLead(true);
+      return;
+    }
+    const stop = new AbortController();
+    let release: (() => void) | null = null;
+    navigator.locks
+      .request(
+        'vo-youtube-sound',
+        { signal: stop.signal },
+        () =>
+          new Promise<void>((done) => {
+            release = done;
+            setLead(true);
+          }),
+      )
+      .catch(() => {});
+    return () => {
+      stop.abort();
+      release?.();
+    };
+  }, []);
+  return lead;
+}
+
 export function Presenter() {
+  const soundLead = useYouTubeSound();
   useLang();
   const [slide, setSlide] = useState<Slide>(EMPTY_SLIDE);
   const [hint, setHint] = useState(true);
@@ -94,7 +128,9 @@ export function Presenter() {
     >
       {/* «Співвідношення сторін» (1.14.0-beta.3): a 16:9 or 4:3 box on black, or the whole window */}
       <div style={aspectBox(aspect)}>
-        <SlideCanvas slide={slide} prefetch />
+        <VideoSoundContext.Provider value={soundLead}>
+          <SlideCanvas slide={slide} prefetch />
+        </VideoSoundContext.Provider>
       </div>
       <IdentifyOverlay label={identify} />
       {hint && (
