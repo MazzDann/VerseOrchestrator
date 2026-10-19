@@ -232,6 +232,12 @@ export interface SlideVideo {
   phones: 'poster' | 'text';
   /** its length in seconds, once the leading control window knows it («Сцена» shows the time left) */
   duration?: number;
+  /**
+   * A YouTube video (1.19.0-beta.6): its id — the windows play it from YouTube (lib/youtube.ts), `src`
+   * is empty; one «Показ» window sounds it at `volume` (0–1, the control window's loudness)
+   */
+  youtube?: string;
+  volume?: number;
 }
 
 export interface SlideCover {

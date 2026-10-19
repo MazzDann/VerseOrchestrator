@@ -713,6 +713,9 @@ const VideoSchema = z.object({
   src: z.string(),
   poster: z.string(),
   hasPoster: z.boolean(),
+  /** a YouTube video (1.19.0-beta.6): its id — no file; `duration` read when it was added (0: unknown) */
+  youtube: z.string().optional(),
+  duration: z.number().optional(),
 });
 export type VideoInfo = z.infer<typeof VideoSchema>;
 
@@ -1419,6 +1422,16 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
       body: JSON.stringify({ path }),
+    });
+    if (!res.ok) throw await failure(res);
+    return VideoSchema.parse(await res.json());
+  },
+  /** A YouTube video by its address (1.19.0-beta.6); `duration` as the control window read it. */
+  addYouTube: async (url: string, duration: number) => {
+    const res = await request('/api/videos/youtube', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ url, duration }),
     });
     if (!res.ok) throw await failure(res);
     return VideoSchema.parse(await res.json());

@@ -2667,4 +2667,19 @@ export const EN: Record<string, string> = {
     'The presentation window, «Сцена» (Stage), the output windows, viewers and the remote — under one «Вікна» (Windows) button at the top',
   'Вікно показу, «Сцена», вікна виводу, глядачі й пульт':
     'The presentation window, «Сцена» (Stage), the output windows, viewers and the remote',
+  'Це не адреса відео YouTube': 'That is not a YouTube video address',
+  'Додано з YouTube: {name}': 'Added from YouTube: {name}',
+  'З YouTube — за адресою відео (потрібен інтернет під час показу)':
+    'From YouTube — by the video’s address (the show needs the internet)',
+  'З YouTube…': 'From YouTube…',
+  'https://youtu.be/… — адреса відео YouTube': 'https://youtu.be/… — a YouTube video’s address',
+  'Адреса відео YouTube': 'YouTube video address',
+  'Браузер вимкнув звук YouTube у вікні показу — клацніть у ньому один раз':
+    'The browser turned off YouTube’s sound in the presentation window — click in it once',
+  'Власник цього відео не дозволяє показувати його в інших застосунках':
+    'The owner of this video doesn’t let it be shown in other apps',
+  'Такого відео на YouTube немає, або воно приватне':
+    'There is no such video on YouTube, or it is private',
+  'Не вдалося дістатися YouTube — перевірте інтернет':
+    'Couldn’t reach YouTube — check the internet connection',
 };

@@ -78,6 +78,7 @@ import { dbFiles, diskParts, oldBackups, removeAll, sizeOf } from './diskSpace.j
 import { createRebuildJob, type BuilderProcess } from './rebuildJob.js';
 import { OPEN_FRESH_MS, createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
 import { readLayout } from './layout.js';
+import { youtubeTitle } from './youtube.js';
 import { fetchImage } from './imageFetch.js';
 import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
@@ -159,6 +160,7 @@ import {
 } from './albums.js';
 import {
   addVideo,
+  addYouTube,
   listVideoFiles,
   posterFile,
   putPoster,
@@ -167,6 +169,7 @@ import {
   renameVideo,
   videoEntry,
   videoFile,
+  youtubeIdOf,
 } from './videos.js';
 import {
   BackupError,
@@ -1783,6 +1786,39 @@ app.post(
   }),
 );
 
+/**
+ * A YouTube video (1.19.0-beta.6, the users' F1017-06): its address — the server checks YouTube lets
+ * it be shown in another app and takes its title (youtube.ts, oEmbed); the length comes from the
+ * control window, which read it from YouTube's player.
+ */
+app.post(
+  '/api/videos/youtube',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const body = (req.body ?? {}) as { url?: unknown; duration?: unknown };
+    const id = typeof body.url === 'string' ? youtubeIdOf(body.url) : null;
+    if (!id) throw new ApiError(400, N_('Це не адреса відео YouTube'));
+    const known = readVideos(dataDir).find((v) => v.youtube === id);
+    if (known) {
+      res.json(await videoEntry(dataDir, known));
+      return;
+    }
+    const got = await youtubeTitle(id);
+    if ('refused' in got) {
+      if (got.refused === 'embed')
+        throw new ApiError(
+          403,
+          N_('Власник цього відео не дозволяє показувати його в інших застосунках'),
+        );
+      if (got.refused === 'missing')
+        throw new ApiError(404, N_('Такого відео на YouTube немає, або воно приватне'));
+      throw new ApiError(502, N_('Не вдалося дістатися YouTube — перевірте інтернет'));
+    }
+    const video = addYouTube(dataDir, { youtube: id, name: got.title, duration: body.duration });
+    res.status(201).json(await videoEntry(dataDir, video));
+  }),
+);
+
 // a video dropped on the control window (1.14.0-beta.1): where the file is on disk
 app.post(
   '/api/videos/locate',
@@ -1790,7 +1826,9 @@ app.post(
   wrap(async (req, res) => {
     const file = seenFiles([req.body])?.[0];
     if (!file) throw new ApiError(400, N_('Не вдалося прочитати перетягнутий файл'));
-    const near = readVideos(dataDir).map((v) => path.dirname(v.path));
+    const near = readVideos(dataDir)
+      .filter((v) => !v.youtube)
+      .map((v) => path.dirname(v.path));
     const started = Date.now();
     const done = await locateFile(file, usualRoots(undefined, near));
     const cut = done.complete ? '' : ', the time ran out';

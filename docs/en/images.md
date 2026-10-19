@@ -191,6 +191,21 @@ the usual folders (Videos, Desktop, Downloads…), and otherwise opens the folde
 The browser doesn't play AVI, WMV, and other formats: the app says how many of them the folder
 has. Save such a video as MP4.
 
+### Add a video from YouTube
+
+A YouTube video plays from the internet, so the show needs the internet too.
+
+1. In the **Videos** panel, click the **From YouTube…** icon.
+2. Paste the video's address, for example `https://youtu.be/…` or
+   `https://www.youtube.com/watch?v=…`, and press Enter. The app takes the video's title and
+   length from YouTube; its thumbnail carries the YouTube mark.
+
+You show, pause, seek, and add a YouTube video to the running order the same way as a video from
+a file. The sound comes from the presentation window: with several of them, one plays the sound
+and the others are muted. A browser may keep the sound off until you click in the presentation
+window — the control window then says so; the desktop app plays the sound at once. Some owners
+don't let their videos be shown in other apps — the app says so when you add one.
+
 ### Control the video on screen
 
 To show a video, click its thumbnail. The video starts from the beginning. Above the

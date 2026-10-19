@@ -21,6 +21,7 @@ import {
   DEFAULT_STYLE,
 } from '../presenterBus';
 import { syncMedia } from '../lib/video';
+import { YouTubeContent } from './YouTubeContent';
 import {
   CORNER_SIZE_CQH,
   formatTimer,
@@ -433,6 +434,8 @@ function VideoContent({ video }: { video: SlideVideo }) {
       el.removeEventListener('loadedmetadata', sync);
     };
   }, [video.src, video.at, video.from, video.paused, video.loop]);
+  // YouTube (1.19.0-beta.6): its own player, one per video
+  if (video.youtube) return <YouTubeContent key={video.youtube} video={video} />;
   // a file that failed is tried again by a new start of it (the same element stays mounted)
   if (failed === `${video.src}|${video.at}`) return null;
   // the audience's copy has no file (forAudience): its poster — a desk's monitors on another

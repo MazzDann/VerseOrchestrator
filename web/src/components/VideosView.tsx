@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActionIcon,
   Button,
@@ -8,11 +8,13 @@ import {
   Slider,
   Switch,
   Text,
+  TextInput,
   Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  IconBrandYoutube,
   IconMovie,
   IconPlayerPause,
   IconPlayerPlay,
@@ -32,6 +34,7 @@ import { FolderPicker } from './AlbumsView';
 import { tr, useLang } from '../i18n';
 import { RenameButton } from './RenameButton';
 import { parentOf, useDrop } from '../lib/drop';
+import { youtubeIdOf, youtubeLength } from '../lib/youtube';
 
 type VideoShow = ReturnType<typeof useVideo>;
 
@@ -59,6 +62,39 @@ export function VideosView({
     useDrop.getState().pickerOpened();
   }, [asked]);
   const [asking, setAsking] = useState<string | null>(null);
+  // «З YouTube…» (1.19.0-beta.6, the users' F1017-06): a video's address; its length read here
+  const [ytOpen, setYtOpen] = useState(false);
+  const [ytUrl, setYtUrl] = useState('');
+  const [ytBusy, setYtBusy] = useState(false);
+  const ytField = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ytOpen) ytField.current?.focus();
+  }, [ytOpen]);
+  const fromYouTube = async () => {
+    const url = ytUrl.trim();
+    if (!url || ytBusy) return;
+    const id = youtubeIdOf(url);
+    if (!id) {
+      notifications.show({ message: tr('Це не адреса відео YouTube'), color: 'orange' });
+      return;
+    }
+    setYtBusy(true);
+    try {
+      const v = await api.addYouTube(url, await youtubeLength(id));
+      setYtUrl('');
+      setYtOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['videos'] });
+      notifications.show({
+        message: tr('Додано з YouTube: {name}', { name: v.name }),
+        color: 'green',
+        autoClose: 2000,
+      });
+    } catch (e) {
+      notifications.show({ message: tr((e as Error).message), color: 'red' });
+    } finally {
+      setYtBusy(false);
+    }
+  };
   const order = usePlaylist((s) => s.items);
   const programs = usePlaylist((s) => s.saved);
   if (picking)
@@ -118,8 +154,53 @@ export function VideosView({
           >
             {tr('Додати відео…')}
           </Button>
+          <Tooltip
+            label={tr('З YouTube — за адресою відео (потрібен інтернет під час показу)')}
+            withArrow
+          >
+            <ActionIcon
+              size="input-xs"
+              variant={ytOpen ? 'filled' : 'light'}
+              onClick={() => setYtOpen((o) => !o)}
+              aria-label={tr('З YouTube…')}
+              aria-pressed={ytOpen}
+            >
+              <IconBrandYoutube size={16} />
+            </ActionIcon>
+          </Tooltip>
         </Group>
       </Group>
+      {ytOpen && (
+        <Group gap={6} wrap="nowrap" mb={8}>
+          <TextInput
+            size="xs"
+            style={{ flex: 1 }}
+            ref={ytField}
+            placeholder={tr('https://youtu.be/… — адреса відео YouTube')}
+            aria-label={tr('Адреса відео YouTube')}
+            value={ytUrl}
+            onChange={(e) => setYtUrl(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                setYtOpen(false);
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                void fromYouTube();
+              }
+            }}
+          />
+          <Button
+            size="xs"
+            loading={ytBusy}
+            disabled={!ytUrl.trim()}
+            onClick={() => void fromYouTube()}
+          >
+            {tr('Додати')}
+          </Button>
+        </Group>
+      )}
       {show.onScreen && <VideoControls show={show} />}
       {show.videosError ? (
         <Text size="sm" c="red">
@@ -144,17 +225,24 @@ export function VideosView({
                   onClick={() => show.showVideo(v)}
                   title={
                     // a refused file is `missing` too (videos.ts videoEntry): `denied` first
-                    v.elsewhere
-                      ? tr('Файл з іншого комп’ютера: {path}', { path: v.path })
-                      : v.denied
-                        ? `${v.path}\n${deniedHint('file', 'refresh')}`
-                        : v.missing
-                          ? tr('Файл не знайдено: {path}', { path: v.path })
-                          : v.path
+                    v.youtube
+                      ? `YouTube · ${v.name}`
+                      : v.elsewhere
+                        ? tr('Файл з іншого комп’ютера: {path}', { path: v.path })
+                        : v.denied
+                          ? `${v.path}\n${deniedHint('file', 'refresh')}`
+                          : v.missing
+                            ? tr('Файл не знайдено: {path}', { path: v.path })
+                            : v.path
                   }
                   aria-label={tr('Показати «{name}»', { name: v.name })}
                   disabled={v.missing}
                 >
+                  {v.youtube && (
+                    <span className="vo-video-badge" aria-hidden>
+                      <IconBrandYoutube size={14} />
+                    </span>
+                  )}
                   {v.hasPoster ? (
                     <img src={v.poster} alt="" loading="lazy" />
                   ) : (

@@ -47,6 +47,40 @@ export interface Video {
   name: string;
   path: string;
   added: string;
+  /**
+   * A YouTube video (1.19.0-beta.6, the users' F1017-06): its id, no file (`path` is empty) — the
+   * output windows play it from YouTube, so the show needs the internet
+   */
+  youtube?: string;
+  /** its length in seconds, read by the control window when it was added (0: not known) */
+  duration?: number;
+}
+
+/** A YouTube video's id: 11 letters, digits, «-» and «_». */
+export const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+
+/**
+ * The video's id in a YouTube address: watch?v=…, youtu.be/…, /shorts/…, /embed/…, /live/…, the
+ * music. and m. hosts; a bare id too. Null for anything else.
+ */
+export function youtubeIdOf(raw: string): string | null {
+  const t = raw.trim();
+  if (YOUTUBE_ID.test(t)) return t;
+  let u: URL;
+  try {
+    u = new URL(/^[a-z]+:\/\//i.test(t) ? t : `https://${t}`);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^(www|m|music)\./, '');
+  let id: string | null = null;
+  if (host === 'youtu.be') id = u.pathname.split('/')[1] ?? null;
+  else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+    const [, first, second] = u.pathname.split('/');
+    if (first === 'watch') id = u.searchParams.get('v');
+    else if (['shorts', 'embed', 'live', 'v'].includes(first ?? '')) id = second ?? null;
+  }
+  return id && YOUTUBE_ID.test(id) ? id : null;
 }
 
 export type VideoKind = 'mp4' | 'mov' | 'webm' | 'mkv';
@@ -102,8 +136,11 @@ const isVideo = (x: unknown): x is Video => {
     /^[0-9a-f-]{36}$/.test(v.id) &&
     typeof v.name === 'string' &&
     typeof v.path === 'string' &&
-    // another system's path is kept, never read (Mac check of 1.9.0, albums.ts `elsewhere`)
-    (path.isAbsolute(v.path) || elsewhere(v.path)) &&
+    // another system's path is kept, never read (Mac check of 1.9.0, albums.ts `elsewhere`); a
+    // YouTube video has none (1.19.0-beta.6)
+    (typeof v.youtube === 'string'
+      ? YOUTUBE_ID.test(v.youtube) && v.path === ''
+      : path.isAbsolute(v.path) || elsewhere(v.path)) &&
     typeof v.added === 'string'
   );
 };
@@ -192,6 +229,34 @@ export async function addVideo(
   return video;
 }
 
+/**
+ * Add a YouTube video (1.19.0-beta.6): its id, its title (YouTube's, unless the operator gives
+ * another) and its length; the same video again gives the one already there.
+ */
+export function addYouTube(
+  dataDir: string,
+  input: { youtube: string; name: string; duration?: unknown },
+  now = new Date(),
+): Video {
+  const videos = readVideos(dataDir);
+  const known = videos.find((v) => v.youtube === input.youtube);
+  if (known) return known;
+  const duration =
+    typeof input.duration === 'number' && Number.isFinite(input.duration) && input.duration > 0
+      ? Math.min(input.duration, 24 * 3600)
+      : 0;
+  const video: Video = {
+    id: crypto.randomUUID(),
+    name: input.name.replace(/\s+/g, ' ').trim().normalize('NFC').slice(0, 120) || 'YouTube',
+    path: '',
+    added: now.toISOString(),
+    youtube: input.youtube,
+    ...(duration ? { duration } : {}),
+  };
+  writeVideos(dataDir, [...videos, video]);
+  return video;
+}
+
 /** Rename a video (1.14.0-beta.1): the app's name only — the file keeps its own. */
 export function renameVideo(dataDir: string, id: string, name: string): Video | null {
   const videos = readVideos(dataDir);
@@ -263,8 +328,30 @@ async function dropPosters(dataDir: string, id: string, keep?: string) {
     if (f.startsWith(`${id}-`) && f !== keep) await fsp.rm(path.join(dir, f), { force: true });
 }
 
+/** A YouTube video as the pages get it: no file, YouTube's own picture as the poster. */
+function youtubeEntry(video: Video & { youtube: string }) {
+  return {
+    id: video.id,
+    name: video.name,
+    path: '',
+    added: video.added,
+    missing: false,
+    denied: false,
+    elsewhere: false,
+    size: 0,
+    /** no file, no version of one (the same shape as a file's entry) */
+    v: undefined as string | undefined,
+    src: '',
+    poster: `https://i.ytimg.com/vi/${video.youtube}/hqdefault.jpg`,
+    hasPoster: true,
+    youtube: video.youtube,
+    duration: video.duration ?? 0,
+  };
+}
+
 /** A video as the pages get it. */
 export async function videoEntry(dataDir: string, video: Video) {
+  if (video.youtube) return youtubeEntry(video as Video & { youtube: string });
   const read = await readVideo(video.path);
   const now = read === 'denied' ? null : read;
   const v = now ? versionOf(now) : null;
