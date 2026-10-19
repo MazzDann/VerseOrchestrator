@@ -126,7 +126,7 @@ To show a countdown:
 
 1. At the top of the control window, to the right of **Cover**, click the **Countdown** icon.
 2. Optional: in the **Where to show** row, choose **In a corner** for the time to run in a corner
-   over what is already on screen — verses, a song, a picture. **On the cover** is the usual
+   over what is already on screen — verses, a presentation, a picture. **On the cover** is the usual
    choice.
 3. In the **How long** row, choose the minutes, or type your own in the **Length** field: 7 is
    seven minutes, 7:30 is seven minutes thirty seconds, 1:05:00 is an hour and five minutes. To
@@ -310,7 +310,7 @@ it copies it) at 1920×1080. The address works only on the computer where the ap
 the text to a mixer over HDMI, click **Open the broadcast window**, drag the window to the
 screen connected to the mixer, and press F for full screen.
 
-Only words go into the lower third — verses, songs, your own text; pictures, videos, the
+Only words go into the lower third — verses, presentations, your own text; pictures, videos, the
 **Cover**, and **Black screen** leave it empty.
 
 ## If several control windows are open
@@ -332,7 +332,7 @@ is called “VerseOrchestrator — control” in the browser.
 
 ## What's next
 
-- [Songs and custom text](songs-and-text.md): songs from `.pptx`, announcements.
-- [Running order](running-order.md): a program of passages, songs, texts, and images.
+- [Presentations and custom text](songs-and-text.md): presentations from `.pptx`, announcements.
+- [Running order](running-order.md): a program of passages, presentations, texts, and images.
 - [Slide appearance](appearance.md): font, colors, background, template, presets.
 - [VerseOrchestrator documentation](README.md): the contents of all parts.

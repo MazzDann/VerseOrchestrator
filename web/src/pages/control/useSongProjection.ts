@@ -158,7 +158,7 @@ export function useSongProjection({
     const s = liveSlideRef.current;
     // a document's last paragraph the same (1.17.0-beta.1)
     if ((s.source?.kind !== 'song' && s.source?.kind !== 'doc') || !s.visible) {
-      return { ok: false, reason: tr('На екрані не пісня — ховати нічого') };
+      return { ok: false, reason: tr('На екрані не презентація — ховати нічого') };
     }
     if (s.blank || s.forceBlack) return { ok: true }; // nothing to read already
     const next: Slide = { ...s, blank: true };

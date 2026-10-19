@@ -52,7 +52,7 @@ On the remote:
 - **On screen** — what the viewers see now.
 - **Next** — what the next press of the **Next →** button will show.
 - **← Back** and **Next →** at the bottom step through the show the same way as the arrow
-  keys in the control window: verses, pages, and song slides.
+  keys in the control window: verses, pages, and presentation slides.
 - The other buttons depend on the remote's permissions.
 
 At the top of the remote are its name and the connection state: the response time in
@@ -86,7 +86,7 @@ Each permission is turned on separately for each remote:
 | **Black screen**    | turn the black screen on and off                                                 |
 | **To screen**       | put on screen what the operator prepared in the preview (the **Preview** block)  |
 | **Choosing verses** | choose a verse on the phone                                                      |
-| **Presentations**           | choose a song and a stanza                                                       |
+| **Presentations**           | choose a presentation and a slide                                                       |
 | **Running order**   | see the running order, show the next item, add the own choice to it              |
 | **Cover**           | turn the cover on and off                                                        |
 | **Countdown**       | start a countdown, pause it, remove it                                           |
@@ -108,8 +108,8 @@ the time: **Start the timer** (the length saved in the control window), **Pause*
 ## The speaker's choice
 
 With the **Choosing verses** or **Presentations** permission, the speaker finds what they need on
-the phone: they tap **Choose a verse…** (or **Choose a song…**), choose a translation, a
-book, a chapter, and a verse, or a song and a stanza, and then tap **To preview**. A book
+the phone: they tap **Choose a verse…** (or **Choose a presentation…**), choose a translation, a
+book, a chapter, and a verse, or a presentation and a slide, and then tap **To preview**. A book
 with one chapter, such as 3 John, needs no chapter choice: its verses open at once. With the
 **To screen** permission they can tap **To screen** straight away, and with the
 **Running order** permission, **+ To the running order**.
@@ -129,7 +129,7 @@ To step along with the operator again, the speaker taps ✕ in the **Your previe
 With the **Documents** permission the choice has **Документи** (Documents) too: the speaker
 chooses a document (the **Document title…** field narrows the list), taps a paragraph and taps
 **To preview** or **To screen**. Then **Next** and **Back** step through that document's
-paragraphs, as through a song's stanzas. Without this permission no document reaches the phone at
+paragraphs, as through a presentation's slides. Without this permission no document reaches the phone at
 all: they are the operator's texts.
 
 While the speaker steps through their own preview, a **Remote** monitor with the phone's
@@ -138,10 +138,10 @@ the choice on screen or go to that place in their own verse list.
 
 ## Suggest to the speaker
 
-The operator can send the speaker what is in the preview: a verse or a song slide. To
+The operator can send the speaker what is in the preview: a verse or a presentation slide. To
 suggest it, click the **Suggest to a remote** icon on the preview monitor. The icon is there
 when the remote is connected and has the needed permission: **Choosing verses** for a verse
-or **Presentations** for a song slide.
+or **Presentations** for a presentation slide.
 
 The **The operator suggests** block appears on the remote with a **To preview** button, and
 with the **To screen** permission a **To screen** button too. The speaker decides: take the
@@ -151,7 +151,7 @@ suggestion or dismiss it with ✕.
 
 A remote can also be on another computer of the same network — for example, an assistant's
 laptop. A control window opens there in the browser: search, books, verses, translations,
-songs, the **On screen** and **Preview** monitors, and the running order. It has no
+presentations, the **On screen** and **Preview** monitors, and the running order. It has no
 settings, files, or output windows: your control window shows everything, in your look.
 
 To create a remote on a computer:
@@ -159,7 +159,7 @@ To create a remote on a computer:
 1. At the top, click the **Speaker remote** icon.
 2. At the top of the panel, choose **Computer**.
 3. Type a **Name** and select what is allowed. For that computer to put its own verses on
-   screen, select **To screen** and **Choosing verses**; for songs, **Presentations** too.
+   screen, select **To screen** and **Choosing verses**; for presentations, **Presentations** too.
 4. Click **Create a link**. The remote's link appears.
 5. Click **Copy** and pass the link to that computer, for example in a message.
 6. Click **Done**. The link shows only until you click **Done**.

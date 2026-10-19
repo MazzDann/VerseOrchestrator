@@ -161,7 +161,7 @@ they fit as soon as the same translations are there.
 
 ## Use the command palette
 
-The command palette opens anything from one line: a book, a reference, a song, or a
+The command palette opens anything from one line: a book, a reference, a presentation, or a
 command of the app. To open it, press Ctrl+K (on macOS, ⌘K), start typing the name, and
 choose a line with the arrow keys and Enter.
 

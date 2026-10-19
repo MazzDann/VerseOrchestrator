@@ -431,7 +431,7 @@ describe('speaker remote over the hub', () => {
     remote.ws.send(
       JSON.stringify({ type: 'command', cmd: 'pick', id: 'g1', song: { songId: 13, stanza: -1 } }),
     );
-    expect(await remote.next('ack')).toMatchObject({ ok: false, reason: 'Неправильна строфа' });
+    expect(await remote.next('ack')).toMatchObject({ ok: false, reason: 'Неправильний слайд' });
     remote.ws.send(
       JSON.stringify({ type: 'command', cmd: 'show', id: 'g2', song: { songId: 13, stanza: 2 } }),
     );
@@ -507,7 +507,7 @@ describe('speaker remote over the hub', () => {
     control.ws.send(JSON.stringify({ type: 'suggest', to: p.id, song: { songId: 13, stanza: 0 } }));
     expect(await control.next('suggested')).toMatchObject({
       delivered: 0,
-      reason: 'Цьому пульту не дозволено пісні',
+      reason: 'Цьому пульту не дозволено презентації',
     });
     // a remote can't suggest
     remote.ws.send(JSON.stringify({ type: 'suggest', to: other.id, passage }));

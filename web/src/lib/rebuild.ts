@@ -114,7 +114,7 @@ export function rebuildProgress(job: RebuildState): string {
   return tr('Збираю… {module}, {step} з {total}', {
     module:
       job.current === 'songs'
-        ? tr('пісні')
+        ? tr('презентації')
         : job.current === 'documents'
           ? tr('документи')
           : (job.current ?? ''),

@@ -51,7 +51,7 @@ describe('where the screen is', () => {
     expect(placeWords({ ...verses, verses: [16, 17, 18, 20], total: 36 })).toBe(
       'вірші 16–18, 20 з 36',
     );
-    expect(placeWords({ kind: 'song', songId: 5, stanza: 2, total: 5 })).toBe('строфа 3 з 5');
+    expect(placeWords({ kind: 'song', songId: 5, stanza: 2, total: 5 })).toBe('слайд 3 з 5');
     expect(placeWords({ kind: 'album', albumId: 'a', index: 3, name: 'x.jpg', total: 20 })).toBe(
       'фото 4 з 20',
     );

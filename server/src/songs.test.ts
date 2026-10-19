@@ -99,9 +99,9 @@ describe('a song import body (0.10.1)', () => {
 
   it('refuses what the browser reader never sends, with a 400 in words', () => {
     const cases: [unknown, string][] = [
-      [{ songs: [song()] }, 'вкажіть бандл'],
-      [{ target: { name: '   ' }, songs: [song()] }, 'вкажіть бандл'],
-      [{ target: { id: 'b1' }, songs: [] }, 'немає пісень'],
+      [{ songs: [song()] }, 'вкажіть набір'],
+      [{ target: { name: '   ' }, songs: [song()] }, 'вкажіть набір'],
+      [{ target: { id: 'b1' }, songs: [] }, 'немає презентацій'],
       [{ target: { id: 'b1' }, songs: Array(5001).fill(song()) }, 'забагато'],
       [{ target: { id: 'b1' }, songs: [song({ key: ' ' })] }, 'без назви файлу'],
       [{ target: { id: 'b1' }, songs: [song({ number: -1 })] }, 'номер'],
@@ -115,12 +115,12 @@ describe('a song import body (0.10.1)', () => {
         },
         'вигляд слайда',
       ],
-      [null, 'вкажіть бандл'],
+      [null, 'вкажіть набір'],
     ];
     for (const [body, why] of cases) {
       const r = refusal(body);
       expect(r?.status).toBe(400);
-      expect(r?.message).toMatch(/^Імпорт пісень: /);
+      expect(r?.message).toMatch(/^Імпорт презентацій: /);
       expect(r?.message).toContain(why);
     }
   });

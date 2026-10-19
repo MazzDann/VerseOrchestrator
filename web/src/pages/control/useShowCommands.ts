@@ -280,7 +280,7 @@ export function useShowCommands({
       queryFn: () => api.song(p.songId),
     });
     const stanza = s.slides[p.stanza];
-    if (!stanza) throw new Error(tr('Такої строфи немає'));
+    if (!stanza) throw new Error(tr('Такого слайда немає'));
     const line: SlideLine = { translationAbbr: '', text: stanza.text, rtl: false };
     const marked = markedText(stanza.text, stanza.style);
     return {

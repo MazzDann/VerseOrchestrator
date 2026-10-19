@@ -451,7 +451,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             </Text>
             <Textarea
               label={tr('Текст заставки')}
-              placeholder={tr('Наприклад, назва зібрання')}
+              placeholder={tr('Наприклад, назва події')}
               value={a.coverText}
               onChange={(e) => set({ coverText: e.currentTarget.value.slice(0, 300) })}
               autosize
@@ -891,7 +891,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               onChange={(e) => set({ stageShowNext: e.currentTarget.checked })}
             />
             <Switch
-              label={tr('Де ми: «вірш 16 з 36», «строфа 3 з 5»')}
+              label={tr('Де ми: «вірш 16 з 36», «слайд 3 з 5»')}
               checked={st.showPlace}
               onChange={(e) => set({ stageShowPlace: e.currentTarget.checked })}
             />
@@ -1138,7 +1138,9 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 {tr('Бібліотека модулів')}
               </Text>
               <Text size="xs" c="dimmed" mb={8}>
-                {tr('Перебудувати з папок modules/ і songs/ після додавання перекладу чи пісні.')}
+                {tr(
+                  'Перебудувати з папок modules/ і songs/ після додавання перекладу чи презентації.',
+                )}
               </Text>
               {/* «Модулі»: which module files the library takes */}
               <Button
@@ -1193,7 +1195,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               </Text>
               <Text size="xs" c="dimmed" mb={8}>
                 {tr(
-                  'Що, коли й скільки було на екрані, і що є в бібліотеці: переклади, слова, словники, пісні.',
+                  'Що, коли й скільки було на екрані, і що є в бібліотеці: переклади, слова, словники, презентації.',
                 )}
               </Text>
               <Button

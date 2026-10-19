@@ -55,7 +55,7 @@ export function usePlaylistActions({
   }) => {
     playlistAdd({
       kind: 'song',
-      label: song.label || tr('Пісня'),
+      label: song.label || tr('Презентація'),
       songId: song.songId,
       ...(song.bundle ? { bundle: song.bundle } : {}),
       faithful: song.faithful,

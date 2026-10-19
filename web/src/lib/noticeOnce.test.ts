@@ -23,9 +23,9 @@ describe('noticeOnce (1.10.6: a held key at an edge)', () => {
     expect(mine[0].id).not.toBe(first);
   });
   it('once it is gone, the same words show again', () => {
-    noticeOnce('song-edge', 'Це остання строфа');
+    noticeOnce('song-edge', 'Це останній слайд');
     notifications.clean();
-    noticeOnce('song-edge', 'Це остання строфа');
+    noticeOnce('song-edge', 'Це останній слайд');
     expect(all().filter((n) => String(n.id).startsWith('song-edge'))).toHaveLength(1);
   });
 });

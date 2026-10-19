@@ -281,7 +281,7 @@ export function useMediaDrop({
       if (next)
         notifications.show({
           message: tr(
-            'Файл .pptx — у «Презентації»: виберіть збірку, а тоді додайте пісню у показ',
+            'Файл .pptx — у «Презентації»: виберіть набір, а тоді додайте презентацію у показ',
           ),
           color: 'gray',
           autoClose: 5000,

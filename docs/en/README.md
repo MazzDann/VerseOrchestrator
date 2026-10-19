@@ -23,16 +23,16 @@ interface does; to switch the interface to English, see
   Strong's.
 - [Show a text](show-text.md): the preview and the screen, stepping through, output
   windows, the stage display.
-- [Songs and custom text](songs-and-text.md): songs from `.pptx` stanza by stanza,
+- [Presentations and custom text](songs-and-text.md): presentations from `.pptx` slide by slide,
   announcements, and any other text.
 - [Documents](documents.md): a sermon, a lecture or notes from `.docx`, `.md` or `.txt`, one
   paragraph at a time.
 - [Images](images.md): posters, announcements, and photos on screen and in the running order.
-- [Running order](running-order.md): a program of passages, songs, texts, and images that you can
+- [Running order](running-order.md): a program of passages, presentations, texts, and images that you can
   save and open next time.
 - [Slide appearance](appearance.md): font, colors, background, template, long passages,
   presets.
-- [Statistics](statistics.md): what was on screen, when and how long, and what the library holds — songs, the Bible's
+- [Statistics](statistics.md): what was on screen, when and how long, and what the library holds — presentations, the Bible's
   books, documents, a day's report, a CSV export.
 
 ## Phones
@@ -43,7 +43,7 @@ interface does; to switch the interface to English, see
 
 ## Installation and support
 
-- [Install and start](install.md): download, requirements, modules and songs, interface
+- [Install and start](install.md): download, requirements, modules and presentations, interface
   language, shortcut, starting with the computer, choosing the browser, updates, backup,
   portable copy, switching everything off.
 - [Troubleshooting](troubleshooting.md): messages of the start window, the control window,

@@ -309,7 +309,7 @@ export function Desk() {
       });
       const to = at.song.stanza + delta;
       if (to < 0 || to >= s.slides.length) {
-        return flash(delta > 0 ? tr('Це остання строфа') : tr('Це перша строфа'));
+        return flash(delta > 0 ? tr('Це останній слайд') : tr('Це перший слайд'));
       }
       set({ mode: 'songs', songId: at.song.songId, stanza: to });
       return showTarget({ kind: 'song', song: { songId: at.song.songId, stanza: to } });
@@ -657,8 +657,8 @@ export function Desk() {
               <Box p="xs">
                 <TextInput
                   size="xs"
-                  placeholder={tr('Назва чи номер пісні…')}
-                  aria-label={tr('Назва чи номер пісні…')}
+                  placeholder={tr('Назва чи номер презентації…')}
+                  aria-label={tr('Назва чи номер презентації…')}
                   value={songFilter}
                   onChange={(e) => setSongFilter(e.currentTarget.value)}
                   leftSection={<IconSearch size={14} />}
@@ -676,8 +676,8 @@ export function Desk() {
                     songs.isLoading
                       ? ''
                       : songQuery
-                        ? tr('Немає пісень за «{query}»', { query: songQuery })
-                        : tr('Пісень у бібліотеці ще немає')
+                        ? tr('Немає презентацій за «{query}»', { query: songQuery })
+                        : tr('Презентацій у бібліотеці ще немає')
                   }
                 />
               </Box>
@@ -787,7 +787,7 @@ export function Desk() {
                 </Stack>
               ) : (
                 <Text size="sm" c="dimmed" p="md">
-                  {tr('Виберіть пісню ліворуч.')}
+                  {tr('Виберіть презентацію ліворуч.')}
                 </Text>
               )}
             </ScrollArea>
@@ -803,7 +803,7 @@ export function Desk() {
             previewHint={
               verseList
                 ? tr('Виберіть вірші — Enter чи «На екран» покаже їх.')
-                : tr('Виберіть строфу — Enter чи «На екран» покаже її.')
+                : tr('Виберіть слайд — Enter чи «На екран» покаже його.')
             }
             onQueue={
               target && mayPress(allowed, 'queue', carries)

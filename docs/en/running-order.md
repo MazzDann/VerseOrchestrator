@@ -2,7 +2,7 @@
 
 [Українською](../running-order.md) · English
 
-The running order is a list of passages, songs, texts, and images in the order you will
+The running order is a list of passages, presentations, texts, and images in the order you will
 show them.
 This page is for the operator who prepares a show beforehand: how to build a running order,
 show it item by item, and save it as a program for next time. How to show a single verse
@@ -15,8 +15,8 @@ To add an item to the running order:
 - A passage: choose the verses and click the **Add the passage to the running order** icon
   above the chapter numbers, next to the passage's reference. The passage remembers the
   translations chosen at that moment.
-- A song: open the song in the **Presentations** mode and click the **Add to the running order**
-  icon next to its title. The song remembers the choice of **As in the file** or
+- A presentation: open the presentation in the **Presentations** mode and click the **Add to the running order**
+  icon next to its title. The presentation remembers the choice of **As in the file** or
   **Plain text**.
 - Custom text: in **Media** → **Text to screen**, type the text and click
   **To the running order**.
@@ -32,7 +32,7 @@ To add an item to the running order:
   **Stop at 0:00**, or **Hide time**. The countdown stands over the cover on screen now —
   so a cover followed by a countdown in the running order makes one screen. If the computer
   slept through the zero, the show stays on the countdown when it wakes: go on yourself.
-- An announcement loop: pick texts, images, or covers in the list — click them with Ctrl (⌘ on
+- A slide loop: pick texts, images, or covers in the list — click them with Ctrl (⌘ on
   a Mac), and Shift takes everything between two — and click **Gather into a loop**. The loop
   takes the place of the first of them and, once shown, turns its slides by itself every 8
   seconds, round and round, until you go on. The pencil icon changes the interval (3 to 600
@@ -56,7 +56,7 @@ item on screen, they go to the end.
 A video or a folder the app couldn't find on the disk by itself, it asks you to choose — add those to
 the show the usual way. Import a presentation (.pptx) into **Presentations** first, choosing a bundle.
 
-How to open a song or custom text is in [Songs and custom text](songs-and-text.md).
+How to open a presentation or custom text is in [Presentations and custom text](songs-and-text.md).
 
 ## Where the running order is
 
@@ -65,7 +65,7 @@ order** tab (with the number of items). If **Strong's**, **Context**, or **Appea
 open on the right, click **Preview** above the monitors. When the display panel stands
 below the verses, the running order is next to the monitors.
 
-The icon at the start of a row shows the kind of item: a book — a passage, a note — a song,
+The icon at the start of a row shows the kind of item: a book — a passage, a note — a presentation,
 the letter T — custom text, a photo — an image. The item shown now is highlighted, and the
 one that comes next is marked **Next**.
 
@@ -95,11 +95,11 @@ On the **Running order** tab:
 ## Show item by item
 
 To show an item, click its row. The item appears on screen at once and is highlighted in
-the list, and the control window goes to the item's mode: a passage to **Bible**, a song to
+the list, and the control window goes to the item's mode: a passage to **Bible**, a presentation to
 **Presentations** with its first slide on screen, a text, an image, an album, or a video to
 **Media**. A cover, a countdown, and a loop have no mode of their own: from **Presentations** or an
 open album the window goes to **Bible**, so the arrows and a clicker go on through the
-running order, not the song or the photos.
+running order, not the presentation or the photos.
 
 To go to the next item, click **Next** at the top of the tab or press Shift+PageDown; to the
 previous one, the **Previous running order item** icon next to it or Shift+PageUp. If
@@ -107,22 +107,22 @@ nothing has been shown yet, **Next** starts with the first item. On the last ite
 says “This is the last item of the running order”.
 
 Inside an item, step through as usual: the arrow keys and a clicker go to the next verse or
-song slide, and **Next** on the tab goes to the next item.
+presentation slide, and **Next** on the tab goes to the next item.
 
 To let the arrow keys and a clicker go on to the next item when an item is over, in
 **Settings** → **Hotkeys** turn on **“Next” past an item’s end opens the next one**. Then
-“Next” after a passage's last verse, a song's “End”, an album's last photo, a text, a
+“Next” after a passage's last verse, a presentation's “End”, an album's last photo, a text, a
 picture, a video, or a cover opens the next item, and “Back” at the first step opens the
 previous one. If you have shown something else since, “Next” steps as usual. A key held down
 goes to the item's end and stops there; a new press goes on to the next item.
 
 While the running order is empty, the **◀** and **Next** buttons above it step like the
-keyboard arrows: the next verse, stanza, or paragraph. To choose otherwise, in **Settings** →
+keyboard arrows: the next verse, slide, or paragraph. To choose otherwise, in **Settings** →
 **Hotkeys** → **“Running order” buttons** choose **Always like the keyboard arrows** or **Only
 the show’s items**.
 
 To step through items with the arrow keys, in **Settings** → **Hotkeys** → **Arrows**
-choose **↑ ↓ verses, ← → items**: ↑ and ↓ go to the neighbouring verse or song slide, ← and →
+choose **↑ ↓ verses, ← → items**: ↑ and ↓ go to the neighbouring verse or presentation slide, ← and →
 to the previous or next item. The other choices:
 
 - **All — next / back** — the default: all four arrows go to the next or previous verse.
@@ -156,6 +156,6 @@ restart.
 
 ## What's next
 
-- [Songs and custom text](songs-and-text.md): songs from `.pptx`, announcements.
+- [Presentations and custom text](songs-and-text.md): presentations from `.pptx`, announcements.
 - [Slide appearance](appearance.md): font, colors, background, template, presets.
 - [VerseOrchestrator documentation](README.md): the contents of all parts.

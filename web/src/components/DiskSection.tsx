@@ -64,7 +64,7 @@ const PARTS: Record<DiskPart['id'], { name: string; note: string }> = {
   'logs-old': { name: N_('Старий журнал запуску'), note: '' },
   'data-other': {
     name: N_('Інші дані'),
-    note: N_('Налаштування, пісні, програми показу й решта папки data/.'),
+    note: N_('Налаштування, презентації, програми показу й решта папки data/.'),
   },
 };
 

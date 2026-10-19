@@ -17,7 +17,9 @@ function holds(c: CopyInfo, pairings = true): string {
   const parts = [
     c.look ? tr('вигляд і клавіші') : null,
     c.programs > 0 ? trn(c.programs, '{n} програма|{n} програми|{n} програм') : null,
-    c.bundles > 0 ? trn(c.bundles, '{n} бандл пісень|{n} бандли пісень|{n} бандлів пісень') : null,
+    c.bundles > 0
+      ? trn(c.bundles, '{n} набір презентацій|{n} набори презентацій|{n} наборів презентацій')
+      : null,
     c.pictures > 0 ? trn(c.pictures, '{n} зображення|{n} зображення|{n} зображень') : null,
     c.albums + c.videos > 0
       ? trn(c.albums + c.videos, '{n} альбом чи відео|{n} альбоми чи відео|{n} альбомів чи відео')
@@ -135,7 +137,7 @@ export function CopyImportSection() {
       </Text>
       <Text size="xs" c="dimmed" mb={8}>
         {tr(
-          'Якщо поруч є старіша чи інша копія застосунку, перенесіть з неї вигляд, програми, пісні, зображення, налаштування запуску й пульти.',
+          'Якщо поруч є старіша чи інша копія застосунку, перенесіть з неї вигляд, програми, презентації, зображення, налаштування запуску й пульти.',
         )}
       </Text>
       {off ? (
@@ -171,7 +173,7 @@ export function CopyImportSection() {
               size="xs"
               checked={parts.things}
               onChange={(e) => setParts({ ...parts, things: e.currentTarget.checked })}
-              label={tr('Вигляд, програми, пісні, зображення, альбоми й відео')}
+              label={tr('Вигляд, програми, презентації, зображення, альбоми й відео')}
               description={holds(chosen, false)}
             />
             <Checkbox

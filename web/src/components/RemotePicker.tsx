@@ -268,7 +268,7 @@ export function RemotePicker({
                   ? (doc.data?.title ?? tr('Документ'))
                   : song.data
                     ? `№${song.data.number ?? ''} ${song.data.title}`
-                    : tr('Пісня');
+                    : tr('Презентація');
   /** the Bible's step to come back to: where the speaker left it */
   const bibleStep = (): Step =>
     ids.length === 0
@@ -282,7 +282,7 @@ export function RemotePicker({
   const modes = [versesAllowed, songsAllowed, docsAllowed].filter(Boolean).length;
 
   return (
-    <div className="vo-remote-sheet" role="dialog" aria-label={tr('Вибір вірша або пісні')}>
+    <div className="vo-remote-sheet" role="dialog" aria-label={tr('Вибір вірша або презентації')}>
       <header className="vo-remote-sheet-head">
         <button type="button" className="vo-remote-chip" onClick={back} aria-label={tr('Назад')}>
           ←
@@ -348,7 +348,7 @@ export function RemotePicker({
             step === 'books'
               ? tr('Книга, посилання чи слова…')
               : step === 'songs'
-                ? tr('Номер або слова пісні…')
+                ? tr('Номер або слова презентації…')
                 : step === 'docs'
                   ? tr('Назва документа…')
                   : tr('Фільтр перекладів…')

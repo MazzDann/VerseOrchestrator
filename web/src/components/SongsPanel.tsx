@@ -83,10 +83,12 @@ interface Props {
   onPastEnd?: (dir: 1 | -1, songId: number, held?: boolean) => Outcome | null;
 }
 
-/** A slide's label in the list (1.3.0): «Заголовок», «Куплет 2», «Приспів», «Приспів 2 · 1/2». */
-function partLabel(p: SongPart): string {
+/** A slide's label in the list (1.3.0): «Заголовок», «Куплет 2», «Приспів», «Приспів 2 · 1/2»; a presentation
+ * with no chorus counts «Слайд 2» (1.19.0-beta.5: neutral names — not every presentation is a song) */
+function partLabel(p: SongPart, song: boolean): string {
   if (p.kind === 'title') return tr('Заголовок');
-  if (p.kind === 'verse') return tr('Куплет {n}', { n: p.verse });
+  if (p.kind === 'verse')
+    return song ? tr('Куплет {n}', { n: p.verse }) : tr('Слайд {n}', { n: p.verse });
   // a label that says more («Приспів (до 5-го куплету)») is the file's words — data
   const base = p.name ?? (p.variant ? tr('Приспів {n}', { n: p.variant }) : tr('Приспів'));
   return p.parts ? `${base} · ${p.part}/${p.parts}` : base;
@@ -230,12 +232,12 @@ export function SongsPanel({
   // «До приспіву» (1.3.0): the next chorus of the open song — a different one where the song
   // has its own chorus after a verse; past the last chorus, the one before.
   const toChorus = useCallback((): Outcome => {
-    if (!songQuery.data) return { ok: false, reason: tr('Пісня ще завантажується') };
+    if (!songQuery.data) return { ok: false, reason: tr('Презентація ще завантажується') };
     if (!parts.some((p) => p.kind === 'chorus')) {
-      return { ok: false, reason: tr('У цій пісні немає приспіву') };
+      return { ok: false, reason: tr('У цій презентації немає приспіву') };
     }
     const idx = nextChorus(parts, activeStanza);
-    if (idx === null) return { ok: false, reason: tr('Далі в пісні приспіву немає') };
+    if (idx === null) return { ok: false, reason: tr('Далі в презентації приспіву немає') };
     showStanza(idx);
     return { ok: true };
   }, [songQuery.data, parts, activeStanza, showStanza]);
@@ -246,7 +248,8 @@ export function SongsPanel({
      * take a new press (1.10.6, the Mac's round) */
     (dir: number, held = false): Outcome => {
       const s = songQuery.data;
-      if (!s || s.slides.length === 0) return { ok: false, reason: tr('Пісня ще завантажується') };
+      if (!s || s.slides.length === 0)
+        return { ok: false, reason: tr('Презентація ще завантажується') };
       const count = s.slides.length;
       const cur = activeStanza ?? -1;
       // past the last stanza: an empty slide once, then the song is over (0.6.24);
@@ -255,8 +258,8 @@ export function SongsPanel({
       // switch is on (1.10.0-beta.1)
       const past = (d: 1 | -1) => (onPastEnd && s ? onPastEnd(d, s.id, held) : null);
       if (dir > 0 && activeStanza != null && cur >= count - 1) {
-        if (cur >= count) return past(1) ?? { ok: false, reason: tr('Кінець пісні') };
-        if (!onSongEnd || held) return { ok: false, reason: tr('Це остання строфа') };
+        if (cur >= count) return past(1) ?? { ok: false, reason: tr('Кінець презентації') };
+        if (!onSongEnd || held) return { ok: false, reason: tr('Це останній слайд') };
         const done = onSongEnd();
         if (done.ok) onActiveStanzaChange(count);
         return done;
@@ -267,7 +270,7 @@ export function SongsPanel({
           const o = past(-1);
           if (o) return o;
         }
-        return { ok: false, reason: dir > 0 ? tr('Це остання строфа') : tr('Це перша строфа') };
+        return { ok: false, reason: dir > 0 ? tr('Це останній слайд') : tr('Це перший слайд') };
       }
       showStanza(idx);
       return { ok: true };
@@ -366,16 +369,16 @@ export function SongsPanel({
             e.stopPropagation();
             openAndShow(pick.id);
           }}
-          placeholder={tr('Пісня: номер або назва')}
+          placeholder={tr('Презентація: номер або назва')}
           leftSection={<IconMusic size={18} />}
           rightSection={listQuery.isFetching ? <Loader size="xs" /> : null}
         />
         {several && (
           <Select
             w={120}
-            aria-label={tr('Бандл пісень')}
+            aria-label={tr('Набір презентацій')}
             data={[
-              { value: '', label: tr('Усі бандли') },
+              { value: '', label: tr('Усі набори') },
               ...bundles.map((b) => ({ value: b.name, label: `${b.name} (${b.count})` })),
             ]}
             value={inBundle}
@@ -385,7 +388,9 @@ export function SongsPanel({
           />
         )}
         <Tooltip
-          label={serverAvailable === false ? tr(NEEDS_SERVER) : tr('Імпорт пісень з файлів .pptx')}
+          label={
+            serverAvailable === false ? tr(NEEDS_SERVER) : tr('Імпорт презентацій з файлів .pptx')
+          }
           multiline={serverAvailable === false}
           w={serverAvailable === false ? 280 : undefined}
         >
@@ -396,18 +401,18 @@ export function SongsPanel({
             data-disabled={serverAvailable === false || undefined}
             aria-disabled={serverAvailable === false || undefined}
             onClick={() => serverAvailable !== false && setImporting(true)}
-            aria-label={tr('Імпорт пісень')}
+            aria-label={tr('Імпорт презентацій')}
           >
             <IconFileImport size={18} />
           </ActionIcon>
         </Tooltip>
         {serverAvailable !== false && (
-          <Tooltip label={tr('Бандли пісень: перейменувати, видалити')}>
+          <Tooltip label={tr('Набори презентацій: перейменувати, видалити')}>
             <ActionIcon
               variant="subtle"
               color="gray"
               onClick={() => setManaging(true)}
-              aria-label={tr('Бандли пісень')}
+              aria-label={tr('Набори презентацій')}
             >
               <IconStack2 size={18} />
             </ActionIcon>
@@ -492,7 +497,7 @@ export function SongsPanel({
           {!debounced && songs.length === 0 && listQuery.isSuccess && !inBundle && (
             <Text size="sm" c="dimmed" p="sm">
               {tr(
-                'Пісень ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт пісень» праворуч від пошуку.',
+                'Презентацій ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт презентацій» праворуч від пошуку.',
               )}
             </Text>
           )}
@@ -606,7 +611,7 @@ export function SongsPanel({
                     }}
                   >
                     <span className="vo-verse-num">
-                      {parts[i] ? partLabel(parts[i]) : tr('Куплет {n}', { n: i })}
+                      {parts[i] ? partLabel(parts[i], hasChorus) : tr('Слайд {n}', { n: i })}
                     </span>
                     <Text size="sm" style={{ whiteSpace: 'pre-line' }} lineClamp={5}>
                       {s.text}
@@ -638,7 +643,7 @@ export function SongsPanel({
           </>
         ) : (
           <Text size="sm" c="dimmed" p="sm">
-            {tr('Виберіть пісню ліворуч — знайдіть її за номером чи назвою.')}
+            {tr('Виберіть презентацію ліворуч — знайдіть її за номером чи назвою.')}
           </Text>
         )}
       </div>

@@ -110,7 +110,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('stage', N_('Розмір тексту на «Сцені»'), 'stage text size'),
   e('stage', N_('Тема «Сцени»'), 'stage theme dark light'),
   e('stage', N_('Показувати «Далі»'), 'next'),
-  e('stage', N_('Де ми: «вірш 16 з 36», «строфа 3 з 5»'), 'place'),
+  e('stage', N_('Де ми: «вірш 16 з 36», «слайд 3 з 5»'), 'place'),
   e('stage', N_('Послідовність показу внизу'), 'running order'),
   e('stage', N_('Годинник із секундами'), 'clock seconds годинник'), // i18n-ignore: Ukrainian search words
   e('stage', N_('Вигляд')),
@@ -148,7 +148,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e(
     'data',
     N_('Статистика показу'),
-    'statistics stats report songs books charts history звіт пісні графіки історія', // i18n-ignore: Ukrainian search words
+    'statistics stats report songs books charts history звіт презентації графіки історія', // i18n-ignore: Ukrainian search words
   ),
   e('app', N_('Оновлення'), 'update version release'),
   e('app', N_('Перевіряти оновлення'), 'update check'),
