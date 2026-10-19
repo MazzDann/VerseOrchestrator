@@ -34,7 +34,8 @@ import { FolderPicker } from './AlbumsView';
 import { tr, useLang } from '../i18n';
 import { RenameButton } from './RenameButton';
 import { parentOf, useDrop } from '../lib/drop';
-import { youtubeIdOf, youtubeLength } from '../lib/youtube';
+import { youtubeIdOf } from '../lib/youtube';
+import { YouTubeLead } from './YouTubeLead';
 
 type VideoShow = ReturnType<typeof useVideo>;
 
@@ -80,7 +81,8 @@ export function VideosView({
     }
     setYtBusy(true);
     try {
-      const v = await api.addYouTube(url, await youtubeLength(id));
+      // its length comes from a player that is seen: the operator's or a «Показ» window's (1.19.0-beta.7)
+      const v = await api.addYouTube(url, 0);
       setYtUrl('');
       setYtOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['videos'] });
@@ -362,19 +364,49 @@ function VideoControls({ show }: { show: VideoShow }) {
   const volume = useSettings((s) => videoVolumeOf(s.appearance.videoVolume));
   const setAppearance = useSettings((s) => s.setAppearance);
   const paused = v.paused != null;
+  // YouTube (1.19.0-beta.7): YouTube's own player leads — its buttons and bar are the controls
+  const lead = !!v.youtube;
   return (
     <div className="vo-video-controls">
-      <Group gap="xs" wrap="nowrap">
-        <Tooltip label={paused ? tr('Пуск') : tr('Пауза')} withArrow>
-          <ActionIcon
-            size="md"
-            variant="light"
-            onClick={show.togglePause}
-            aria-label={paused ? tr('Пуск') : tr('Пауза')}
-          >
-            {paused ? <IconPlayerPlay size={16} /> : <IconPlayerPause size={16} />}
-          </ActionIcon>
-        </Tooltip>
+      {/* a standby control window shows its picture: only the leading one moves the show (review) */}
+      {lead && !show.isLeader && (
+        <>
+          <img
+            src={v.poster}
+            alt=""
+            style={{
+              width: '100%',
+              aspectRatio: '16 / 9',
+              objectFit: 'contain',
+              background: '#000',
+              borderRadius: 6,
+            }}
+          />
+          <Text size="xs" c="dimmed" mt={4}>
+            {tr('Показом керує інше вікно керування')}
+          </Text>
+        </>
+      )}
+      {lead && show.isLeader && (
+        <YouTubeLead
+          video={v}
+          onMove={show.leadMove}
+          onLength={(d) => show.youtubeLengthOf(v.youtube!, d)}
+        />
+      )}
+      <Group gap="xs" wrap="nowrap" mt={lead ? 6 : 0}>
+        {!lead && (
+          <Tooltip label={paused ? tr('Пуск') : tr('Пауза')} withArrow>
+            <ActionIcon
+              size="md"
+              variant="light"
+              onClick={show.togglePause}
+              aria-label={paused ? tr('Пуск') : tr('Пауза')}
+            >
+              {paused ? <IconPlayerPlay size={16} /> : <IconPlayerPause size={16} />}
+            </ActionIcon>
+          </Tooltip>
+        )}
         <Tooltip label={tr('Зупинити відео')} withArrow>
           <ActionIcon
             size="md"
@@ -398,22 +430,24 @@ function VideoControls({ show }: { show: VideoShow }) {
           {clockOf(dragging ?? at)} / {duration > 0 ? clockOf(duration) : '–:––'}
         </Text>
       </Group>
-      <Slider
-        size="sm"
-        mt={6}
-        min={0}
-        max={Math.max(1, duration)}
-        step={1}
-        value={duration > 0 ? Math.min(dragging ?? at, duration) : 0}
-        onChange={setDragging}
-        onChangeEnd={(t) => {
-          setDragging(null);
-          show.seek(t);
-        }}
-        disabled={!(duration > 0)}
-        label={(t) => clockOf(t)}
-        thumbLabel={tr('Де відео зараз')}
-      />
+      {!lead && (
+        <Slider
+          size="sm"
+          mt={6}
+          min={0}
+          max={Math.max(1, duration)}
+          step={1}
+          value={duration > 0 ? Math.min(dragging ?? at, duration) : 0}
+          onChange={setDragging}
+          onChangeEnd={(t) => {
+            setDragging(null);
+            show.seek(t);
+          }}
+          disabled={!(duration > 0)}
+          label={(t) => clockOf(t)}
+          thumbLabel={tr('Де відео зараз')}
+        />
+      )}
       <Group gap="md" wrap="nowrap" mt={6}>
         <Switch
           size="xs"
@@ -431,7 +465,9 @@ function VideoControls({ show }: { show: VideoShow }) {
             value={Math.round(volume * 100)}
             onChange={(n) => setAppearance({ videoVolume: n / 100 })}
             label={(n) => `${n} %`}
-            thumbLabel={tr('Гучність відео в цьому вікні')}
+            thumbLabel={
+              lead ? tr('Гучність відео у вікні показу') : tr('Гучність відео в цьому вікні')
+            }
           />
         </Group>
       </Group>

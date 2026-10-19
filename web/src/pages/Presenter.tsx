@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { type Slide, EMPTY_SLIDE, readSlide, subscribeSlide, sendCommand } from '../presenterBus';
 import { SlideCanvas } from '../components/SlideCanvas';
-import { VideoSoundContext } from '../lib/youtube';
+import { VideoPlayerContext, VideoSoundContext } from '../lib/youtube';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
 import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
@@ -128,9 +128,11 @@ export function Presenter() {
     >
       {/* «Співвідношення сторін» (1.14.0-beta.3): a 16:9 or 4:3 box on black, or the whole window */}
       <div style={aspectBox(aspect)}>
-        <VideoSoundContext.Provider value={soundLead}>
-          <SlideCanvas slide={slide} prefetch />
-        </VideoSoundContext.Provider>
+        <VideoPlayerContext.Provider value>
+          <VideoSoundContext.Provider value={soundLead}>
+            <SlideCanvas slide={slide} prefetch />
+          </VideoSoundContext.Provider>
+        </VideoPlayerContext.Provider>
       </div>
       <IdentifyOverlay label={identify} />
       {hint && (

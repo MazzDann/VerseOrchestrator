@@ -1326,6 +1326,15 @@ export const api = {
     return z.object({ trashed: z.string(), name: z.string() }).parse(await res.json());
   },
   /** «Перейменувати» (1.14.0-beta.1): the app's name of a picture, an album or a video */
+  /** A YouTube video's length, once a player that is seen knows it (1.19.0-beta.7). */
+  setVideoLength: async (id: string, duration: number) => {
+    const res = await request(`/api/videos/${encodeURIComponent(id)}/duration`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ duration }),
+    });
+    if (!res.ok) throw await failure(res);
+  },
   renameMedia: async (kind: 'images' | 'albums' | 'videos', id: string, name: string) => {
     const res = await request(`/api/${kind}/${encodeURIComponent(id)}`, {
       method: 'PATCH',

@@ -41,6 +41,7 @@ interface YTNamespace {
 }
 
 /** The player's states: -1 not started, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued. */
+export const YT_ENDED = 0;
 export const YT_PLAYING = 1;
 export const YT_PAUSED = 2;
 export const YT_BUFFERING = 3;
@@ -94,69 +95,22 @@ export const playerVars = (muted: boolean): Record<string, string | number> => (
 });
 
 /**
- * A YouTube video's length, read by a player of its own off the page (the control window, when the
- * video is added): «Після кінця відео», the seek bar and «Сцена»'s time left need it. 0 when YouTube
- * doesn't answer within `ms`.
+ * What a «Показ» window tells the control window: the browser kept the sound off (and back on), and a
+ * video's length once its player knows it (1.19.0-beta.7: no player of the control window's own reads it
+ * off the page — YouTube's players must be seen)
  */
-export async function youtubeLength(id: string, ms = 15_000): Promise<number> {
-  const YT = await loadYouTube().catch(() => null);
-  if (!YT) return 0;
-  const box = document.createElement('div');
-  box.style.cssText = 'position:fixed;left:-10000px;top:0;width:320px;height:180px;';
-  const inner = document.createElement('div');
-  box.appendChild(inner);
-  document.body.appendChild(box);
-  let player: YTPlayer | null = null;
-  // the answer came (or the time ran out): the player is going, no more reads of it (review)
-  let done = false;
-  try {
-    return await new Promise<number>((resolve) => {
-      const t = window.setTimeout(() => resolve(0), ms);
-      player = new YT.Player(inner, {
-        videoId: id,
-        host: 'https://www.youtube-nocookie.com',
-        width: 320,
-        height: 180,
-        playerVars: playerVars(true),
-        events: {
-          onReady: (e) => {
-            // some videos say their length only once they are cued
-            const read = (n: number) => {
-              if (done) return;
-              let d = 0;
-              try {
-                d = e.target.getDuration();
-              } catch {
-                return;
-              }
-              if (d > 0 || n <= 0) {
-                window.clearTimeout(t);
-                resolve(d > 0 ? d : 0);
-              } else window.setTimeout(() => read(n - 1), 250);
-            };
-            read(20);
-          },
-          onError: () => {
-            window.clearTimeout(t);
-            resolve(0);
-          },
-        },
-      });
-    });
-  } finally {
-    done = true;
-    try {
-      (player as YTPlayer | null)?.destroy();
-    } catch {
-      // gone already
-    }
-    box.remove();
-  }
-}
-
-/** The channel a «Показ» window tells the control window that the browser kept the sound off on. */
 export const YT_CHANNEL = 'vo-youtube';
-export type YTNote = { t: 'sound-blocked' } | { t: 'sound-on' };
+export type YTNote =
+  | { t: 'sound-blocked' }
+  | { t: 'sound-on' }
+  | { t: 'length'; youtube: string; duration: number };
+
+/**
+ * Is the player showing an ad? Its length isn't the video's then (YouTube's player says no more); while
+ * it is, the app neither jumps nor pauses it — an ad plays as YouTube plays it (1.19.0-beta.7)
+ */
+export const showsAd = (p: YTPlayer, length: number | undefined) =>
+  !!length && length > 0 && Math.abs(p.getDuration() - length) > 2;
 
 /** A YouTube video's id: 11 letters, digits, «-» and «_». */
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -187,3 +141,10 @@ export function youtubeIdOf(raw: string): string | null {
 
 /** This window plays a YouTube video's sound (one «Показ» window, pages/Presenter.tsx); else muted. */
 export const VideoSoundContext = createContext(false);
+
+/**
+ * A YouTube video on a slide is YouTube's player only where the slide is big — a «Показ» window
+ * (1.19.0-beta.7: players under 200×200 aren't allowed, and every monitor a copy was many players);
+ * monitors, «Сцена», the desk and /key show its picture
+ */
+export const VideoPlayerContext = createContext(false);

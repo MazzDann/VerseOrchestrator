@@ -1,5 +1,6 @@
 import {
   Component,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -22,6 +23,7 @@ import {
 } from '../presenterBus';
 import { syncMedia } from '../lib/video';
 import { YouTubeContent } from './YouTubeContent';
+import { VideoPlayerContext } from '../lib/youtube';
 import {
   CORNER_SIZE_CQH,
   formatTimer,
@@ -417,6 +419,7 @@ function PictureContent({ picture, prefetch }: { picture: SlidePicture; prefetch
  * moment. A file that won't play leaves the slide black.
  */
 function VideoContent({ video }: { video: SlideVideo }) {
+  const player = useContext(VideoPlayerContext);
   const ref = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const clock = useRef(video);
@@ -434,8 +437,23 @@ function VideoContent({ video }: { video: SlideVideo }) {
       el.removeEventListener('loadedmetadata', sync);
     };
   }, [video.src, video.at, video.from, video.paused, video.loop]);
-  // YouTube (1.19.0-beta.6): its own player, one per video
-  if (video.youtube) return <YouTubeContent key={video.youtube} video={video} />;
+  // YouTube (1.19.0-beta.6): its own player, one per video — where the slide is big (a «Показ» window);
+  // elsewhere YouTube's picture of it (1.19.0-beta.7)
+  if (video.youtube)
+    return player ? (
+      <YouTubeContent key={video.youtube} video={video} />
+    ) : (
+      <img
+        src={video.poster}
+        alt=""
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          objectFit: video.fit === 'cover' ? 'cover' : 'contain',
+        }}
+      />
+    );
   // a file that failed is tried again by a new start of it (the same element stays mounted)
   if (failed === `${video.src}|${video.at}`) return null;
   // the audience's copy has no file (forAudience): its poster — a desk's monitors on another
