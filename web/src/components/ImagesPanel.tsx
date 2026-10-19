@@ -19,11 +19,13 @@ import {
   IconPlaylistAdd,
   IconTrash,
   IconUpload,
+  IconPhotoSearch,
   IconWorldDownload,
 } from '@tabler/icons-react';
 import { api, type AlbumInfo, type ImageInfo, type VideoInfo } from '../api';
 import { fileToPicture } from '../lib/image';
 import { fileFromAddress } from '../lib/webImage';
+import { ImageSearch } from './ImageSearch';
 import { readImageFit, storeImageFit, type ImageFit } from '../lib/imageFit';
 import { type SlidePicture } from '../presenterBus';
 import { usePlaylist, type SeqItem } from '../playlistStore';
@@ -52,6 +54,7 @@ const asPicture = (img: ImageInfo, fit: Fit): SlidePicture => ({
   small: img.small,
   name: img.name,
   fit,
+  ...(img.credit ? { credit: img.credit } : {}),
 });
 
 /**
@@ -114,6 +117,8 @@ export function ImagesPanel({
   const [webOpen, setWebOpen] = useState(false);
   const [webUrl, setWebUrl] = useState('');
   const [fetching, setFetching] = useState(false);
+  // «Пошук зображень» (1.19.0-beta.9): free pictures with their author and licence
+  const [searchOpen, setSearchOpen] = useState(false);
   const webField = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (webOpen) webField.current?.focus();
@@ -398,7 +403,10 @@ export function ImagesPanel({
               <ActionIcon
                 size="input-xs"
                 variant={webOpen ? 'filled' : 'light'}
-                onClick={() => setWebOpen((o) => !o)}
+                onClick={() => {
+                  setWebOpen((o) => !o);
+                  setSearchOpen(false);
+                }}
                 disabled={serverAvailable === false}
                 aria-label={tr('З інтернету…')}
                 aria-pressed={webOpen}
@@ -407,8 +415,43 @@ export function ImagesPanel({
               </ActionIcon>
             </Tooltip>
           )}
+          {tab === 'images' && (
+            <Tooltip
+              label={tr('Пошук вільних зображень в інтернеті — з автором і ліцензією')}
+              withArrow
+            >
+              <ActionIcon
+                size="input-xs"
+                variant={searchOpen ? 'filled' : 'light'}
+                onClick={() => {
+                  setSearchOpen((o) => !o);
+                  setWebOpen(false);
+                }}
+                disabled={serverAvailable === false}
+                aria-label={tr('Пошук зображень…')}
+                aria-pressed={searchOpen}
+              >
+                <IconPhotoSearch size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
         </Group>
       </Group>
+      {tab === 'images' && searchOpen && serverAvailable !== false && (
+        <ImageSearch
+          onClose={() => setSearchOpen(false)}
+          onAdd={async (file, credit) => {
+            try {
+              await api.addImage({ ...(await fileToPicture(file)), credit });
+              refresh();
+              return true;
+            } catch (e) {
+              notifications.show({ message: tr((e as Error).message), color: 'red' });
+              return false;
+            }
+          }}
+        />
+      )}
       {tab === 'images' && webOpen && serverAvailable !== false && (
         <div style={{ marginBottom: 8 }}>
           <Group gap={6} wrap="nowrap">

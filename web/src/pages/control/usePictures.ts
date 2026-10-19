@@ -79,6 +79,7 @@ export function usePictures({
       src: img.src,
       small: img.small,
       fit,
+      ...(img.credit ? { credit: img.credit } : {}),
     });
     notifications.show({
       message: tr('Зображення додано у показ'),
@@ -91,6 +92,7 @@ export function usePictures({
     small: it.small,
     name: it.label,
     fit: it.fit,
+    ...(it.credit ? { credit: it.credit } : {}),
   });
   return {
     projectPicture,

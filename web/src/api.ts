@@ -628,8 +628,27 @@ const ImageSchema = z.object({
   src: z.string(),
   /** the small one, for the phones and the thumbnails */
   small: z.string(),
+  /** a found picture's author · licence · source (1.19.0-beta.9) */
+  credit: z.string().optional(),
 });
 export type ImageInfo = z.infer<typeof ImageSchema>;
+
+/** A free picture a search found (1.19.0-beta.9, server/src/imageSearch.ts FoundImage). */
+const FoundImageSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  thumb: z.string(),
+  url: z.string(),
+  w: z.number(),
+  h: z.number(),
+  author: z.string(),
+  license: z.string(),
+  page: z.string(),
+  source: z.enum(['commons', 'openverse']),
+  credit: z.string(),
+});
+export type FoundImage = z.infer<typeof FoundImageSchema>;
+const FoundImagesSchema = z.object({ images: z.array(FoundImageSchema), more: z.boolean() });
 
 /** An album as the server lists it (1.8.12, server/src/albums.ts `albumEntry`). */
 const AlbumSchema = z.object({
@@ -1310,6 +1329,7 @@ export const api = {
     small: string;
     w: number;
     h: number;
+    credit?: string;
   }) => {
     const res = await request('/api/images', {
       method: 'POST',
@@ -1318,6 +1338,15 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return ImageSchema.parse(await res.json());
+  },
+  /** Free pictures by a search (1.19.0-beta.9, server/src/imageSearch.ts). */
+  searchImages: async (q: string, source: 'commons' | 'openverse', page: number) => {
+    const res = await request(
+      `/api/images/search?${new URLSearchParams({ q, source, page: String(page) })}`,
+      { headers: CONTROL_HEADERS },
+    );
+    if (!res.ok) throw await failure(res);
+    return FoundImagesSchema.parse(await res.json());
   },
   /** A picture from the internet (1.19.0-beta.3): the server fetches the address (imageFetch.ts). */
   fetchImage: async (url: string) => {

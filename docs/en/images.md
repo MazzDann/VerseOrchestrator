@@ -52,6 +52,22 @@ and press Enter. Only the name in the app changes; the file stays as it was. Ite
 running order and of saved programs that carry the old name take the new one. Albums and
 videos are renamed the same way.
 
+### Find a free picture
+
+The app searches for free pictures — ones their authors let anyone show — on Wikimedia Commons or
+Openverse. The internet is needed.
+
+1. In the **Images** panel, click the **Picture search…** icon.
+2. Type what to look for, for example `mountains` or `sunrise`, and press Enter. To the right of
+   the field you can choose where to look: **Wikimedia Commons** or **Openverse**. **More** shows
+   the next ones.
+3. Click a picture — it is added to the list.
+
+Under each picture found are its author, licence, and source. This credit is kept with the
+picture and appears small in a corner of the screen when the picture is shown: free licences ask
+for it. Openverse allows only a limited number of searches without registering — if it doesn't
+answer, search Wikimedia Commons.
+
 ## Show an image
 
 To show an image, click its thumbnail. The thumbnail of the image on screen has a red frame,
