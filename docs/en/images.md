@@ -191,6 +191,21 @@ the usual folders (Videos, Desktop, Downloads…), and otherwise opens the folde
 The browser doesn't play AVI, WMV, and other formats: the app says how many of them the folder
 has. Save such a video as MP4.
 
+### Add a video by a link
+
+If a video is on a website or in a cloud (Dropbox, Google Drive), the app can download it once —
+after that it plays without the internet, like an ordinary file.
+
+1. In the **Videos** panel, click the **By a link…** icon.
+2. Paste a direct link to the video file (`.mp4`, `.webm`…) and press Enter. Dropbox and Google
+   Drive share links work too.
+
+While the file downloads, you see how much has arrived; the cross button stops the download.
+The downloaded video is kept in the app's `data/downloads/` folder; when you take it off the
+list, the file is deleted too. The app doesn't download a link to a page (rather than a file) and
+says so. A Telegram video can't be downloaded by its link: save it in Telegram and drag the file
+into the control window.
+
 ### Add a video from YouTube
 
 A YouTube video plays from the internet, so the show needs the internet too.

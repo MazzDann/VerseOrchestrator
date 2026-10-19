@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { readJson, writeJson } from './jsonFile.js';
+import { isDownloaded } from './videoDownload.js';
 import { MAX_SMALL_BYTES, sniff } from './images.js';
 import {
   elsewhere,
@@ -294,6 +295,8 @@ export async function removeVideo(dataDir: string, id: string): Promise<Video | 
     videos.filter((v) => v.id !== id),
   );
   await dropPosters(dataDir, id);
+  // a file the app downloaded itself (1.19.0-beta.8, videoDownload.ts) goes with its entry
+  if (isDownloaded(dataDir, gone.path)) await fsp.rm(gone.path, { force: true }).catch(() => {});
   return gone;
 }
 
@@ -358,6 +361,7 @@ function youtubeEntry(video: Video & { youtube: string }) {
     src: '',
     poster: `https://i.ytimg.com/vi/${video.youtube}/hqdefault.jpg`,
     hasPoster: true,
+    downloaded: false,
     youtube: video.youtube,
     duration: video.duration ?? 0,
   };
@@ -393,6 +397,8 @@ export async function videoEntry(dataDir: string, video: Video) {
     poster: `/api/videos/${video.id}/poster`,
     /** a poster of this version is there (else the control window draws one) */
     hasPoster: poster,
+    /** downloaded by the app from a link (1.19.0-beta.8): its file goes when it is taken off the list */
+    downloaded: isDownloaded(dataDir, video.path),
   };
 }
 
