@@ -9,6 +9,7 @@ import {
   YT_PLAYING,
   type YTNote,
   type YTPlayer,
+  showsAd,
   VideoSoundContext,
 } from '../lib/youtube';
 
@@ -64,6 +65,8 @@ export function YouTubeContent({ video }: { video: SlideVideo }) {
       mark.ytAt = at.toFixed(1);
       mark.ytMuted = p.isMuted() ? '1' : '0';
     }
+    // an ad plays as YouTube plays it: no jump, no pause over it (1.19.0-beta.7, YouTube's terms)
+    if (showsAd(p, v.duration)) return;
     const running = state === YT_PLAYING || state === YT_BUFFERING;
     if (v.paused != null) {
       if (running) p.pauseVideo();
@@ -79,7 +82,8 @@ export function YouTubeContent({ video }: { video: SlideVideo }) {
       wanted.current = null;
       return;
     }
-    if (Math.abs(at - target) > DRIFT_S) seek(target);
+    // no jump while its length is unknown: an ad couldn't be told apart from the video (review)
+    if (v.duration! > 0 && Math.abs(at - target) > DRIFT_S) seek(target);
     if (running) {
       wanted.current = null;
       return;
@@ -130,6 +134,10 @@ export function YouTubeContent({ video }: { video: SlideVideo }) {
                 e.target.unMute();
                 e.target.setVolume(Math.round((clock.current.volume ?? 1) * 100));
               } else e.target.mute();
+              // its length for the control window when it didn't know it (no player off the page reads it)
+              const length = e.target.getDuration();
+              if (soundRef.current && !(clock.current.duration! > 0) && length > 0)
+                note({ t: 'length', youtube: id, duration: length });
               syncRef.current();
             },
             onError: () => !gone && setFailed(true),
@@ -202,8 +210,8 @@ export function YouTubeContent({ video }: { video: SlideVideo }) {
           />
         )
       ) : (
-        // the operator never clicks into YouTube here: the app keeps the clock
-        <div ref={box} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+        // YouTube's player as it is (its clicks too — 1.19.0-beta.7); the operator's player keeps the clock
+        <div ref={box} style={{ position: 'absolute', inset: 0 }} />
       )}
     </div>
   );

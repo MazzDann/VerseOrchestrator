@@ -155,6 +155,34 @@ export function useVideo({
   const togglePause = () =>
     changeClock((v, now) => (v.paused != null ? resumeVideo(v, now) : pauseVideo(v, now)));
   const seek = (to: number) => changeClock((v, now) => seekVideo(v, to, now));
+  /**
+   * The operator's YouTube player moved (1.19.0-beta.7, components/YouTubeLead.tsx): the clock goes
+   * where it is — paused there, or playing from there
+   */
+  const leadMove = (to: { paused: boolean; time: number }) =>
+    changeClock((v, now) =>
+      to.paused
+        ? { ...v, paused: Math.max(0, to.time) }
+        : { ...v, at: now, from: Math.max(0, to.time), paused: null },
+    );
+  /** A YouTube video's length from a player that is seen: onto the slide, kept on its entry */
+  const lengthWritten = useRef(new Set<string>());
+  const youtubeLengthOf = (youtube: string, seconds: number) => {
+    // the leading window only, once per video (the operator's player and a «Показ» both tell it — review)
+    if (!leaderRef.current) return;
+    const at = videoOnScreen(screen());
+    if (!(seconds > 0) || at?.video.youtube !== youtube || at.video.duration) return;
+    if (lengthWritten.current.has(at.videoId)) return;
+    lengthWritten.current.add(at.videoId);
+    durationRef.current = seconds;
+    setDuration(seconds);
+    void api.setVideoLength(at.videoId, seconds).then(
+      () => list.refetch(),
+      () => {},
+    );
+  };
+  const lengthRef = useRef(youtubeLengthOf);
+  lengthRef.current = youtubeLengthOf;
   /** «Вписати / Заповнити» moved: the video on screen takes it too, as a picture does */
   const refit = (fit: SlideVideo['fit']) => {
     if (!leaderRef.current) return;
@@ -336,6 +364,7 @@ export function useVideo({
           autoClose: false,
         });
       else if (e.data?.t === 'sound-on') notifications.hide('vo-youtube-sound');
+      else if (e.data?.t === 'length') lengthRef.current(e.data.youtube, e.data.duration);
     };
     return () => bc.close();
   }, [isLeader]);
@@ -486,6 +515,9 @@ export function useVideo({
     refit,
     videoRemoved,
     stopVideo,
+    leadMove,
+    isLeader,
+    youtubeLengthOf,
     needsClick,
   };
 }

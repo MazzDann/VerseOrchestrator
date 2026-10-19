@@ -2682,4 +2682,10 @@ export const EN: Record<string, string> = {
     'There is no such video on YouTube, or it is private',
   'Не вдалося дістатися YouTube — перевірте інтернет':
     'Couldn’t reach YouTube — check the internet connection',
+  'Гучність відео у вікні показу': 'Video loudness in the presentation window',
+  'YouTube не відповідає — перевірте інтернет':
+    'YouTube doesn’t answer — check the internet connection',
+  'Керуйте тут кнопками YouTube: пауза, перемотка — вікна показу повторюють. Звук іде з вікна показу.':
+    'Control it here with YouTube’s own buttons: pause, seek — the presentation windows follow. The sound comes from the presentation window.',
+  'Відео не знайдено': 'Video not found',
 };

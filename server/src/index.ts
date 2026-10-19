@@ -167,6 +167,7 @@ import {
   readVideos,
   removeVideo,
   renameVideo,
+  setYouTubeLength,
   videoEntry,
   videoFile,
   youtubeIdOf,
@@ -1816,6 +1817,17 @@ app.post(
     }
     const video = addYouTube(dataDir, { youtube: id, name: got.title, duration: body.duration });
     res.status(201).json(await videoEntry(dataDir, video));
+  }),
+);
+
+// a YouTube video's length, read by a player that is seen (1.19.0-beta.7)
+app.put(
+  '/api/videos/:id/duration',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const done = setYouTubeLength(dataDir, String(req.params.id), req.body?.duration);
+    if (!done) throw new ApiError(404, N_('Відео не знайдено'));
+    res.json(await videoEntry(dataDir, done));
   }),
 );
 

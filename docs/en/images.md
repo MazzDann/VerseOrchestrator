@@ -197,14 +197,24 @@ A YouTube video plays from the internet, so the show needs the internet too.
 
 1. In the **Videos** panel, click the **From YouTube…** icon.
 2. Paste the video's address, for example `https://youtu.be/…` or
-   `https://www.youtube.com/watch?v=…`, and press Enter. The app takes the video's title and
-   length from YouTube; its thumbnail carries the YouTube mark.
+   `https://www.youtube.com/watch?v=…`, and press Enter. The app takes the video's title from
+   YouTube; its thumbnail carries the YouTube mark.
 
-You show, pause, seek, and add a YouTube video to the running order the same way as a video from
-a file. The sound comes from the presentation window: with several of them, one plays the sound
+While a YouTube video is on screen, the **Videos** panel has a YouTube player with YouTube's own
+buttons. Control it there: pause, seek, YouTube's keys — the presentation windows follow. The
+monitors in the control window and the stage show the video's picture, not a player. The app
+learns the video's length from the player the first time it is on screen.
+
+You add a YouTube video to the running order the same way as a video from a file. The sound
+comes from the presentation window: with several of them, one plays the sound
 and the others are muted. A browser may keep the sound off until you click in the presentation
 window — the control window then says so; the desktop app plays the sound at once. Some owners
-don't let their videos be shown in other apps — the app says so when you add one.
+don't let their videos be shown in other apps — the app says so when you add one. YouTube's ads
+play as usual.
+
+The app doesn't download videos from YouTube — YouTube's rules require that. Showing a video to
+an audience is the organizer's responsibility, as when showing it from a browser. If you have the
+video as a file, add it with **Add a video…** — then it plays without the internet too.
 
 ### Control the video on screen
 

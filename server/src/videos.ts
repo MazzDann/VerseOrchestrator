@@ -257,6 +257,20 @@ export function addYouTube(
   return video;
 }
 
+/** A YouTube video's length, read by a player that is seen (1.19.0-beta.7); null: no such video. */
+export function setYouTubeLength(dataDir: string, id: string, duration: unknown): Video | null {
+  if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) return null;
+  const videos = readVideos(dataDir);
+  const video = videos.find((v) => v.id === id && v.youtube);
+  if (!video) return null;
+  const done = { ...video, duration: Math.min(duration, 24 * 3600) };
+  writeVideos(
+    dataDir,
+    videos.map((v) => (v.id === id ? done : v)),
+  );
+  return done;
+}
+
 /** Rename a video (1.14.0-beta.1): the app's name only — the file keeps its own. */
 export function renameVideo(dataDir: string, id: string, name: string): Video | null {
   const videos = readVideos(dataDir);
