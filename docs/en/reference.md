@@ -227,6 +227,25 @@ The control window, the settings, and the remotes take commands only from this c
 from a phone with a remote's code. Phones on the network reach the app only through the
 address with port 4747; the app's server itself listens only to this computer.
 
+## Content from the internet and rights
+
+The app can take content from the internet: pictures (dragged, pasted, by an address, found on
+Wikimedia Commons and Openverse), YouTube videos and videos by a link, quotes from Wikiquote. What
+to show and where is the organizer's choice, and so are the rights to it — as when showing from a
+browser.
+
+- **Free pictures and quotes found by a search.** Their licences ask to credit the author. The app
+  keeps the author, licence, and source and shows them small on screen (for a quote, as the
+  slide's caption). Openverse doesn't check licences: it gathers pictures from other sites, so the
+  licence is what the source site states.
+- **Any other pictures and videos from the internet** may have an author who didn't allow showing
+  them. Use what may be shown publicly — your own, with the author's permission, or under a free
+  licence.
+- **YouTube.** The app doesn't download YouTube videos and doesn't interfere with ads: YouTube's
+  rules require that. Showing a video publicly (a service, an event) needs the rights to it.
+- **Quotes** are their authors' words. A short quote with its author named is common; long texts
+  are better taken with permission.
+
 ## What's next
 
 - [Install and start](install.md): requirements, modules, shortcut, portable copy.

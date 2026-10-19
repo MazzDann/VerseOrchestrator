@@ -190,7 +190,8 @@ To remove a text from the list, click the trash icon **Remove from the list**.
 3. Click a quote: it becomes the slide's text, and its author and the source become the title —
    the slide's caption. Wikiquote's licence asks for that.
 
-The internet is needed. Then show the quote like any custom text.
+The internet is needed. Then show the quote like any custom text. On rights — [Content from the
+internet and rights](reference.md#content-from-the-internet-and-rights).
 
 ## What's next
 

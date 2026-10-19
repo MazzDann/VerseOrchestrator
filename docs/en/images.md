@@ -66,7 +66,8 @@ Openverse. The internet is needed.
 Under each picture found are its author, licence, and source. This credit is kept with the
 picture and appears small in a corner of the screen when the picture is shown: free licences ask
 for it. Openverse allows only a limited number of searches without registering — if it doesn't
-answer, search Wikimedia Commons.
+answer, search Wikimedia Commons. More on rights — [Content from the internet and
+rights](reference.md#content-from-the-internet-and-rights).
 
 ## Show an image
 
@@ -245,7 +246,8 @@ play as usual.
 
 The app doesn't download videos from YouTube — YouTube's rules require that. Showing a video to
 an audience is the organizer's responsibility, as when showing it from a browser. If you have the
-video as a file, add it with **Add a video…** — then it plays without the internet too.
+video as a file, add it with **Add a video…** — then it plays without the internet too. More — [Content from the internet and
+rights](reference.md#content-from-the-internet-and-rights).
 
 ### Control the video on screen
 
