@@ -3,6 +3,7 @@ import { type SlideVideo } from '../presenterBus';
 import { positionIn } from '../lib/video';
 import {
   loadYouTube,
+  youtubeHost,
   playerVars,
   YT_BUFFERING,
   YT_CHANNEL,
@@ -122,7 +123,7 @@ export function YouTubeContent({ video }: { video: SlideVideo }) {
         if (gone) return;
         made = new YT.Player(host, {
           videoId: id,
-          host: 'https://www.youtube-nocookie.com',
+          host: youtubeHost(clock.current.account),
           width: '100%',
           height: '100%',
           playerVars: playerVars(!soundRef.current),
@@ -156,7 +157,7 @@ export function YouTubeContent({ video }: { video: SlideVideo }) {
       }
       host.remove();
     };
-  }, [video.youtube]);
+  }, [video.youtube, video.account]);
 
   // to the clock: at once on its change, then twice a second
   useEffect(() => {

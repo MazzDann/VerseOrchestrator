@@ -413,6 +413,12 @@ interface SettingsState {
   /** «Вікна в одному меню» (1.19.0-beta.4, F1017-12): the header's window tools behind one «Вікна» button */
   windowsMenu: boolean;
   setWindowsMenu: (v: boolean) => void;
+  /**
+   * «YouTube: мій вхід у браузері (Premium)» (1.19.0-beta.11): YouTube's players on youtube.com, not in its
+   * privacy mode — they see the browser's Google sign-in (Premium: no ads; the views go into its history)
+   */
+  youtubeAccount: boolean;
+  setYoutubeAccount: (v: boolean) => void;
   /** a translation's section titles over its verses in the control window (1.16.0-beta.2) */
   subheadings: boolean;
   setSubheadings: (v: boolean) => void;
@@ -753,6 +759,8 @@ export const useSettings = create<SettingsState>()(
       setSimpleView: (v) => set({ simpleView: v === true }),
       windowsMenu: true,
       setWindowsMenu: (v) => set({ windowsMenu: v === true }),
+      youtubeAccount: false,
+      setYoutubeAccount: (v) => set({ youtubeAccount: v === true }),
       subheadings: true,
       setSubheadings: (v) => set({ subheadings: v === true }),
       subheadingSets: {},
@@ -935,6 +943,7 @@ export const useSettings = create<SettingsState>()(
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
           simpleView: p.simpleView === true,
           windowsMenu: p.windowsMenu !== false,
+          youtubeAccount: p.youtubeAccount === true,
           subheadings: p.subheadings !== false,
           subheadingSets: sanitizeSubheadingSets(p.subheadingSets),
           pickBeforeEnter: p.pickBeforeEnter !== false,

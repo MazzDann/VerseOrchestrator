@@ -80,6 +80,14 @@ export function loadYouTube(): Promise<YTNamespace> {
   return api;
 }
 
+/**
+ * Where YouTube's players come from: its privacy mode (no Google sign-in seen, no history), or, with
+ * «YouTube: мій вхід у браузері (Premium)», youtube.com — the browser's sign-in, Premium's no ads
+ * (1.19.0-beta.11)
+ */
+export const youtubeHost = (account: boolean | undefined) =>
+  account ? 'https://www.youtube.com' : 'https://www.youtube-nocookie.com';
+
 /** The player's settings for a slide: no controls, no keyboard, no suggestions of other channels. */
 export const playerVars = (muted: boolean): Record<string, string | number> => ({
   autoplay: 0,

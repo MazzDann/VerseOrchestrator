@@ -211,3 +211,14 @@ describe('«Вікна в одному меню» (1.19.0-beta.4, F1017-12)', ()
     expect(merge({ windowsMenu: false }, current).windowsMenu).toBe(false);
   });
 });
+
+describe('«YouTube: мій вхід у браузері (Premium)» (1.19.0-beta.11)', () => {
+  it('is off unless saved as true', () => {
+    const merge = store.useSettings.persist.getOptions().merge!;
+    const current = store.useSettings.getState();
+    expect(current.youtubeAccount).toBe(false);
+    expect(merge({}, current).youtubeAccount).toBe(false);
+    expect(merge({ youtubeAccount: 'yes' }, current).youtubeAccount).toBe(false);
+    expect(merge({ youtubeAccount: true }, current).youtubeAccount).toBe(true);
+  });
+});

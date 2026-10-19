@@ -100,6 +100,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('data', N_('Ядра процесора'), 'cpu cores threads speed vectors processor test benchmark best'),
   e('video', N_('Після кінця відео'), 'video end'),
   e('video', N_('Телефони глядачів під час відео'), 'phones viewers'),
+  e('video', N_('YouTube: мій вхід у браузері (Premium)'), 'youtube premium google account'),
   e('stageTimer', N_('Попередження'), 'speaker timer warning'),
   e('stageTimer', N_('Колір попередження')),
   e('stageTimer', N_('Інший колір після нуля')),
