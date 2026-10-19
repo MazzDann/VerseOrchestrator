@@ -182,6 +182,16 @@ To remove a text from the list, click the trash icon **Remove from the list**.
 **To the running order** doesn't show the text; it adds it to the
 [running order](running-order.md).
 
+### Take a quote from Wikiquote
+
+1. In the **Text on screen** panel, click the **Quotes from Wikiquote…** icon.
+2. Type a word or an author, for example `hope` or `Lincoln`, and press Enter. To the right of the
+   field you can choose the language: **Ukrainian** or **English**.
+3. Click a quote: it becomes the slide's text, and its author and the source become the title —
+   the slide's caption. Wikiquote's licence asks for that.
+
+The internet is needed. Then show the quote like any custom text.
+
 ## What's next
 
 - [Running order](running-order.md): a program of passages, presentations, texts, and images.

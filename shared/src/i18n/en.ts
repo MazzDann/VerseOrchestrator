@@ -2738,4 +2738,13 @@ export const EN: Record<string, string> = {
     'Too many searches at once — try in a minute or in the other source',
   'Пошук не відповідає — перевірте інтернет':
     'The search doesn’t answer — check the internet connection',
+  'Слово чи автор, як-от «надія» чи «Франко»': 'A word or an author, like “hope” or «Франко»',
+  'Пошук цитат': 'Quote search',
+  Українська: 'Ukrainian',
+  'Мова цитат': 'Language of the quotes',
+  'Цитати з Вікіцитат; клацніть, щоб узяти. Автор і джерело стануть підписом слайда.':
+    'Quotes from Wikiquote; click one to take it. Its author and the source become the slide’s caption.',
+  'Цитати з Вікіцитат — з автором (потрібен інтернет)':
+    'Quotes from Wikiquote — with their author (the internet is needed)',
+  'Цитати з Вікіцитат…': 'Quotes from Wikiquote…',
 };
