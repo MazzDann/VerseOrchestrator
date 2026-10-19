@@ -236,7 +236,7 @@ export function ControlHeader({
     modeTool(
       'songs',
       tr('Презентації'),
-      tr('Список пісень ліворуч, пісня посередині'),
+      tr('Список презентацій ліворуч, презентація посередині'),
       <IconMusic size={18} stroke={1.5} />,
       keymap.modeSongs,
     ),

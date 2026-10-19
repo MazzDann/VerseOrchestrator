@@ -3,7 +3,7 @@
 [Українською](../install.md) · English
 
 This page is for whoever prepares the computer for a show: where to get the app and what it
-needs, where to put texts and songs, how to start it with a shortcut or with the computer,
+needs, where to put texts and presentations, how to start it with a shortcut or with the computer,
 which browser to open it in, how to update it, make a portable copy, and switch everything
 off. The first start step by
 step is in the [Quick start](quickstart.md), and the development setup in the
@@ -33,7 +33,7 @@ At the top of the app's folder there is only what you need:
 | ------------------------------------------- | --------------------------------------------------------------- |
 | `start.cmd`, `start.command`, or `start.sh` | starting the app                                                |
 | `modules/`                                  | module files (`.SQLite3`): the app builds its library from them |
-| `data/`                                     | your data: settings, library, songs                             |
+| `data/`                                     | your data: settings, library, presentations                             |
 | `ЯК ЗАПУСТИТИ.txt`, `HOW TO START.txt`      | how to start and switch off the app                             |
 | `app/`                                      | the app itself: code, Node.js, packages, the built interface    |
 
@@ -58,7 +58,7 @@ You can also run the app from a clone of the repository — developers do; see t
   internet connection on the first start, when the app downloads its parts. The archive and
   a portable copy need neither Node.js nor the internet.
 
-## Add texts and songs
+## Add texts and presentations
 
 The app reads texts from module files — `*.SQLite3`. You put
 the files into the app's `modules/` folder yourself; the app downloads nothing.
@@ -75,7 +75,7 @@ section titles gets its kind in the name, for example `Strong.dictionary.SQLite3
 the library, and rescans the modules. A file with the same name but other content is never
 overwritten — rename one of them.
 
-Everything else the app takes is dragged in the same way: documents, presentations with songs,
+Everything else the app takes is dragged in the same way: documents, presentations with presentations,
 pictures, videos, a folder of photos, and the vectors file `vectors.db` from another copy.
 
 ### Add module files
@@ -99,9 +99,9 @@ for example a whole collection of them, the app doesn't take them into the libra
 list the files you need in `data/settings.json` → `library` (the `bibles`, `dictionaries`,
 `commentaries`, and `crossreferences` lists).
 
-Songs are kept in bundles in the `data/songs/` folder. You can add them from `.pptx` files
+Presentations are kept in bundles in the `data/songs/` folder. You can add them from `.pptx` files
 with the import in the control window or through the `songs/` folder — see
-[Songs and custom text](songs-and-text.md#import-songs-from-pptx-files).
+[Presentations and custom text](songs-and-text.md#import-presentations-from-pptx-files).
 
 ## Start the app
 
@@ -290,7 +290,7 @@ Explorer window, a terminal, or a browser that the app itself opened when the br
 running yet (in versions before 1.8.8). If it's a browser, quit it completely (in Chrome and Edge, also its icon by the clock, if it
 stays there), open it yourself, and go to the app's address. The previous version keeps running meanwhile.
 
-An update doesn't touch the `data/` and `modules/` folders: settings, the library, songs,
+An update doesn't touch the `data/` and `modules/` folders: settings, the library, presentations,
 and modules carry over to the new version.
 
 ### Go back to the previous version
@@ -395,7 +395,7 @@ button: stop the app and run the start file again.
 ## Save a backup
 
 A backup is one `.zip` file of what you set up and gathered in the app: the slide look,
-presets, hotkeys, bookmarks and history, the running order and saved programs, song bundles,
+presets, hotkeys, bookmarks and history, the running order and saved programs, presentation bundles,
 and images, plus the start settings: the browser, the port, and updates. Modules and the
 library aren't in it: their large files are in the `modules/` folder. Neither are the speaker
 remotes or the choice of modules.
@@ -411,16 +411,16 @@ To restore a backup on this or another computer:
 1. In the same section, click **Restore from a backup…** and choose the backup file.
 2. Tick what to restore: **Look and keys**, **Programs and the running order**, **Presentations**,
    **Images**, **Start settings**. The app shows only what the backup holds — with its date,
-   the number of programs and running-order items, the song bundles, and the number of
+   the number of programs and running-order items, the presentation bundles, and the number of
    images — and ticks all of it first. What you leave unticked stays as it is. Nothing changes
    until you click **Restore**.
 3. Click **Restore**. The control window reloads with the restored state.
 
 Other open control windows take the restored settings at once. While a backup is saved or
-restored, changes to songs and images wait until it ends.
+restored, changes to presentations and images wait until it ends.
 
 The app moves the state the backup replaced into a folder of its own in `data/backups/`: the
-song and image files stay there as they were. For a day after the restore you can bring it
+presentation and image files stay there as they were. For a day after the restore you can bring it
 back: click **Go back to how it was** in the **Backup** section and confirm with
 **Bring back**. What was changed after the restore is kept in `data/backups/` too.
 
@@ -467,7 +467,7 @@ other windows in this browser (presentation, stage) first.
 If the computer has an older or another copy of the app — say, an old folder that updated
 itself and a new one unpacked next to it — carry over what you set up there. A new copy starts
 with an empty `data/` folder, and without the carry-over it has no chosen browser, no
-remotes, and no songs.
+remotes, and no presentations.
 
 1. In the new copy's control window, open **Settings** → **App**, and in the
    **Another copy** section click **Carry over from another copy…**.
@@ -476,14 +476,14 @@ remotes, and no songs.
    and what they hold. If the copy you need isn't there, click **Choose a folder…**, open
    its folder — the one that holds `app` and `data` — and click **Choose this folder**.
 3. Tick what to carry over:
-   - **Look, programs, songs, pictures, albums and videos** — what a backup holds, plus the
+   - **Look, programs, presentations, pictures, albums and videos** — what a backup holds, plus the
      album and video lists;
    - **Start settings** — the browser, the address and the idle time, updates. The choice of
      modules stays this copy's;
    - **Speaker remotes** — the app names them; they are added to this copy's remotes, so the
      phones need no pairing again. A remote paired after the carry-over stays paired after
      **Go back to how it was** too.
-4. Click **Carry over**. If you carried over the look and songs, the control window reloads.
+4. Click **Carry over**. If you carried over the look and presentations, the control window reloads.
 
 The other copy stays as it is. The app keeps the state of this copy that the carry-over
 replaced in `data/backups/`, and for a day you can bring it back with **Go back to how it
@@ -525,7 +525,7 @@ At the top of the copy there is only what a user needs:
 | ------------------------------------------- | --------------------------------------------------------------------- |
 | `start.cmd`, `start.command`, or `start.sh` | starting: the file for the system the copy was made for               |
 | `modules/`                                  | module files (`.SQLite3`): the app builds its library from them       |
-| `data/`                                     | your data: settings, library, songs                                   |
+| `data/`                                     | your data: settings, library, presentations                                   |
 | `HOW TO START.txt`                          | how to start and switch off the copy (in the start window's language) |
 | `app/`                                      | the app itself: code, Node.js, packages, the built interface          |
 

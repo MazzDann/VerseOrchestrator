@@ -2,7 +2,7 @@
 
 A document is a text file of yours that the app shows one paragraph at a time: a sermon, a
 lecture, a talk, notes. The document's headings split it into sections, and each paragraph,
-quote or list item becomes a slide of its own — the way a song's stanza does.
+quote or list item becomes a slide of its own — the way a presentation's slide does.
 
 The app reads four formats:
 
@@ -101,6 +101,6 @@ with a **Cancel** button that puts the file back.
 
 ## What's next
 
-- [Songs and custom text](songs-and-text.md): songs from `.pptx` and any text of your own.
-- [Running order](running-order.md): a program of passages, songs, documents and pictures.
+- [Presentations and custom text](songs-and-text.md): presentations from `.pptx` and any text of your own.
+- [Running order](running-order.md): a program of passages, presentations, documents and pictures.
 - [Slide appearance](appearance.md): font, colors, background, template.

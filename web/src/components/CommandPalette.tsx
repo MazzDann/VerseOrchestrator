@@ -262,7 +262,7 @@ export function CommandPalette({
             setIndex(0);
           }}
           onKeyDown={onKeyDown}
-          placeholder={tr('Команда, книга, пісня або посилання…')}
+          placeholder={tr('Команда, книга, презентація або посилання…')}
           variant="unstyled"
           size="md"
           leftSection={<IconSearch size={18} />}

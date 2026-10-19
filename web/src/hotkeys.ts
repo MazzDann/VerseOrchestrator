@@ -110,7 +110,7 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
   {
     id: 'chorus',
     label: N_('До приспіву'),
-    hint: N_('У відкритій пісні: найближчий приспів — одразу на екран'),
+    hint: N_('У відкритій презентації: найближчий приспів — одразу на екран'),
     default: 'c',
   },
   {
@@ -188,7 +188,7 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
   {
     id: 'palette',
     label: N_('Палітра команд'),
-    hint: N_('Швидкий пошук дій, книг і пісень'),
+    hint: N_('Швидкий пошук дій, книг і презентацій'),
     enableOnFormTags: true,
     default: 'ctrl+k,ctrl+p',
     mac: 'meta+k',

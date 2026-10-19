@@ -1,8 +1,8 @@
 # Statistics
 
-The app records everything that goes on screen: passages, songs, documents, pictures, videos,
+The app records everything that goes on screen: passages, presentations, documents, pictures, videos,
 text, the cover and the countdown — with the time and how long it stayed. The
-statistics show which songs are sung most, which haven't been sung for a while, which books of the
+statistics show which presentations are shown most, which haven’t been shown for a while, which books of the
 Bible are read, and what exactly was on screen on a given day.
 
 The app's server keeps the statistics, so showings are recorded when the app runs the usual way
@@ -15,11 +15,11 @@ anywhere.
 One showing is one thing on screen from when it appears until something else replaces it:
 
 - a passage — with all its pages and reveal steps;
-- a song — with all its stanzas;
+- a presentation — with all its slides;
 - a document — with all its paragraphs.
 
 If you take the text away (**Hide text**, **Clear**) and bring the same thing back within two
-minutes, the showing goes on. Moving to another verse or another song starts a new showing.
+minutes, the showing goes on. Moving to another verse or another presentation starts a new showing.
 
 ## Open the statistics
 
@@ -31,8 +31,8 @@ On the page:
 
 - **Showings**, **On screen**, **Days with showings** — the period's totals.
 - **Showings by day** (or by month for a year) — how many showings each day had.
-- **Presentations** — the songs shown most. Point at a row to see how long the song was on screen and when
-  it was last shown. **Not sung for a while** — songs shown before, but not in the last eight
+- **Presentations** — the presentations shown most. Point at a row to see how long the presentation was on screen and when
+  it was last shown. **Not shown for a while** — presentations shown before, but not in the last eight
   weeks.
 - **The Bible's books** — a cell per book: the darker, the more it was read. Below it, **Most
   shown passages**.
@@ -44,7 +44,7 @@ On the page:
 
 The **Library** tab on the same page counts what the library holds:
 
-- how many translations, verses and words, dictionary entries, songs and documents;
+- how many translations, verses and words, dictionary entries, presentations and documents;
 - **Translations** — each translation: language, books, verses, words, Strong's numbers and
   section titles;
 - **Dictionaries**, **Presentations** (by bundle), **Commentaries and references**, **Documents** (their

@@ -117,8 +117,8 @@ export const EN: Record<string, string> = {
   'Розташування панелі прев’ю': 'Preview panel position',
   'Унизу центру': 'Bottom of the center',
   'Бібліотека модулів': 'Module library',
-  'Перебудувати з папок modules/ і songs/ після додавання перекладу чи пісні.':
-    'Rebuild from the modules/ and songs/ folders after adding a translation or a song.',
+  'Перебудувати з папок modules/ і songs/ після додавання перекладу чи презентації.':
+    'Rebuild from the modules/ and songs/ folders after adding a translation or a presentation.',
   'Пересканувати модулі': 'Rescan modules',
   // presets (web/src/components/PresetsSection.tsx)
   'Пресет збережено: {name}': 'Preset saved: {name}',
@@ -173,7 +173,7 @@ export const EN: Record<string, string> = {
   'Пошук (усі)': 'Search (all)',
   'Пошук в усіх модулях': 'Search all modules',
   'Палітра команд': 'Command palette',
-  'Швидкий пошук дій, книг і пісень': 'Quick search for actions, books, and songs',
+  'Швидкий пошук дій, книг і презентацій': 'Quick search for actions, books, and presentations',
   'На Mac F-клавіші натискають разом із Fn, тому типово працюють і поєднання з ⌘: ⌘↩ — на екран, ⌘F — пошук у перекладі, ⇧⌘F — пошук скрізь, ⌘K — палітра команд.':
     'On a Mac, F-keys need Fn, so ⌘ chords work by default too: ⌘↩ — to screen, ⌘F — search the translation, ⇧⌘F — search everywhere, ⌘K — command palette.',
   'Конфлікт із «{actions}» — спрацюють разом': 'Conflicts with “{actions}” — they fire together',
@@ -328,7 +328,7 @@ export const EN: Record<string, string> = {
   '{n} коментар|{n} коментарі|{n} коментарів': '{n} note|{n} notes',
   '{n} посилання|{n} посилання|{n} посилань': '{n} cross-reference|{n} cross-references',
   '{n} підзаголовок|{n} підзаголовки|{n} підзаголовків': '{n} section title|{n} section titles',
-  '{n} пісня|{n} пісні|{n} пісень': '{n} song|{n} songs',
+  '{n} презентація|{n} презентації|{n} презентацій': '{n} presentation|{n} presentations',
   Біблія: 'Bible',
   словник: 'dictionary',
   коментарі: 'commentaries',
@@ -359,7 +359,7 @@ export const EN: Record<string, string> = {
     'The passage is unavailable — the translation changed. Update the running order item.',
   Уривок: 'Passage',
   'Додано у показ: {item}': 'Added to the running order: {item}',
-  Пісня: 'Song',
+  Презентація: 'Presentation',
   'Текст додано у показ': 'Text added to the running order',
   // «Зображення» (1.5.0)
   Зображення: 'Images',
@@ -555,8 +555,8 @@ export const EN: Record<string, string> = {
   'Показано перші 5 000 фото.': 'The first 5,000 photos are shown.',
   // «Резервна копія» (1.5.0)
   'Резервна копія': 'Backup',
-  'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, пісні та зображення, налаштування запуску. Модулі, бібліотека й пульти в нього не входять.':
-    "One .zip file: the slide look, presets, hotkeys, bookmarks and history, the running order and programs, songs and images, the start settings. Modules, the library, and remotes aren't in it.",
+  'Один файл .zip: вигляд слайдів, пресети, клавіші, закладки й історія, послідовність показу й програми, презентації та зображення, налаштування запуску. Модулі, бібліотека й пульти в нього не входять.':
+    "One .zip file: the slide look, presets, hotkeys, bookmarks and history, the running order and programs, presentations and images, the start settings. Modules, the library, and remotes aren't in it.",
   'Зберегти копію': 'Save a backup',
   'Копію збережено: {name}': 'Backup saved: {name}',
   'Відновити з копії…': 'Restore from a backup…',
@@ -606,13 +606,13 @@ export const EN: Record<string, string> = {
   'Текст знову на екрані': 'Text back on screen',
   'Чорний екран знято': 'Black screen off',
   'Показом керує інше вікно керування': 'Another control window runs the show',
-  'На екрані не пісня — ховати нічого': 'No song on screen — nothing to hide',
+  'На екрані не презентація — ховати нічого': 'No presentation on screen — nothing to hide',
   Пульт: 'Remote',
   'Цього елемента вже немає в послідовності': 'This item is no longer in the running order',
   'Нічого додати': 'Nothing to add',
   'Не вибрано вірш': 'No verse selected',
   'Уривок недоступний': 'The passage is unavailable',
-  'Такої строфи немає': 'No such stanza',
+  'Такого слайда немає': 'No such slide',
   'Пульт «{remote}» додав у показ: {item}': 'Remote “{remote}” added to the running order: {item}',
   'У передпоказі нічого немає': 'Nothing in the preview',
   'Уже на екрані': 'Already on screen',
@@ -764,7 +764,7 @@ export const EN: Record<string, string> = {
     "the server can't be reached. Check that the app is running (start.cmd / start.command / ./start.sh)",
   'Сегментів немає ні на сервері, ні поруч із застосунком':
     'No segments on the server or next to the app',
-  'Пісню не знайдено': 'Song not found',
+  'Презентацію не знайдено': 'Presentation not found',
   'Вибір віршів': 'Choosing verses',
   Послідовність: 'Running order',
   'У послідовність': 'To the running order',
@@ -777,16 +777,17 @@ export const EN: Record<string, string> = {
   'Закрити пошук': 'Close search',
   'Можливо:': 'Did you mean:',
   // songs (web/src/components/SongsPanel.tsx)
-  'Пісня ще завантажується': 'The song is still loading',
-  'Кінець пісні': 'End of the song',
-  'Це остання строфа': 'This is the last stanza',
-  'Це перша строфа': 'This is the first stanza',
+  'Презентація ще завантажується': 'The presentation is still loading',
+  'Кінець презентації': 'End of the presentation',
+  'Це останній слайд': 'This is the last slide',
+  'Це перший слайд': 'This is the first slide',
   'Назад до пошуку': 'Back to search',
   'Додати у показ': 'Add to the running order',
   'Точний показ': 'As in the file',
   'Простий текст': 'Plain text',
   Заголовок: 'Title',
   'Куплет {n}': 'Stanza {n}',
+  'Слайд {n}': 'Slide {n}',
   'Введіть назву': 'Type a name',
   'Перейменувати «{name}»': 'Rename «{name}»',
   'Відпустіть, щоб додати': 'Drop to add',
@@ -838,27 +839,27 @@ export const EN: Record<string, string> = {
   'Трансляція доступна лише з цього комп’ютера':
     'The broadcast is available from this computer only',
   'Не вдалося перейменувати: {error}': 'Could not rename: {error}',
-  'Бандл із такою назвою вже є': 'A bundle with this name already exists',
-  'Бандл «{bundle}» повернуто': 'The bundle “{bundle}” is back',
-  'Цей бандл наповнює папка «{folder}»: поки там лежать файли .pptx, він з’явиться знову під час наступного запуску.':
+  'Набір із такою назвою вже є': 'A bundle with this name already exists',
+  'Набір «{bundle}» повернуто': 'The bundle “{bundle}” is back',
+  'Цей набір наповнює папка «{folder}»: поки там лежать файли .pptx, він з’явиться знову під час наступного запуску.':
     'The “{folder}” folder fills this bundle: while it holds .pptx files, the bundle comes back at the next start.',
-  'Нова назва бандла': 'The bundle’s new name',
+  'Нова назва набору': 'The bundle’s new name',
   Перейменувати: 'Rename',
-  'Перейменувати бандл «{bundle}»': 'Rename the bundle “{bundle}”',
-  'Видалити бандл': 'Delete the bundle',
-  'Видалити бандл «{bundle}»': 'Delete the bundle “{bundle}”',
-  'Бандли пісень': 'Song bundles',
-  'Перейменування не змінює пісень: послідовності показу знаходять їх і далі. Видалений бандл можна повернути, доки відкритий цей список.':
-    'Renaming doesn’t change the songs: running orders still find them. A deleted bundle can be brought back while this list is open.',
-  'Бандлів ще немає. Щоб додати пісні з файлів .pptx, відкрийте «Імпорт пісень».':
-    'No bundles yet. To add songs from .pptx files, open “Import songs”.',
-  'Бандли пісень: перейменувати, видалити': 'Song bundles: rename, delete',
+  'Перейменувати набір «{bundle}»': 'Rename the bundle “{bundle}”',
+  'Видалити набір': 'Delete the bundle',
+  'Видалити набір «{bundle}»': 'Delete the bundle “{bundle}”',
+  'Набори презентацій': 'Presentation bundles',
+  'Перейменування не змінює презентацій: послідовності показу знаходять їх і далі. Видалений набір можна повернути, доки відкритий цей список.':
+    'Renaming doesn’t change the presentations: running orders still find them. A deleted bundle can be brought back while this list is open.',
+  'Наборів ще немає. Щоб додати презентації з файлів .pptx, відкрийте «Імпорт презентацій».':
+    'No bundles yet. To add presentations from .pptx files, open “Import presentations”.',
+  'Набори презентацій: перейменувати, видалити': 'Presentation bundles: rename, delete',
   'Імпорт скасовано': 'Import undone',
-  'Назва бандла — від 1 до 100 символів': 'A bundle’s name is 1 to 100 characters',
-  'Бандл «{bundle}» уже є — виберіть іншу назву':
+  'Назва набору — від 1 до 100 символів': 'A bundle’s name is 1 to 100 characters',
+  'Набір «{bundle}» уже є — виберіть іншу назву':
     'The bundle “{bundle}” already exists — choose another name',
-  'Бандл не знайдено — відкрийте список ще раз': 'Bundle not found — open the list again',
-  'Бандл уже не повернути': 'The bundle can no longer be brought back',
+  'Набір не знайдено — відкрийте список ще раз': 'Bundle not found — open the list again',
+  'Набір уже не повернути': 'The bundle can no longer be brought back',
   'Імпорт уже не скасувати': 'The import can no longer be undone',
   'Повернуто версію {to} замість {from} ({when}).':
     'Went back to version {to} from {from} ({when}).',
@@ -883,7 +884,7 @@ export const EN: Record<string, string> = {
   'Між елементами показу: логотип і рядок тексту на фоні слайда. Клавіша {key} чи кнопка «Заставка» вгорі показує її; ще раз — повертає те, що було.':
     'Between the items of a show: a logo and a line of text on the slide’s background. The {key} key or the “Cover” button at the top shows it; again — brings back what was there.',
   'Текст заставки': 'Cover text',
-  'Наприклад, назва зібрання': 'For example, the gathering’s name',
+  'Наприклад, назва події': 'For example, the event’s name',
   Логотип: 'Logo',
   'Прибрати логотип': 'Remove the logo',
   'Логотип і текст між елементами; ще раз — те, що було':
@@ -1013,20 +1014,20 @@ export const EN: Record<string, string> = {
   Приспів: 'Chorus',
   'Приспів {n}': 'Chorus {n}',
   'До приспіву': 'To the chorus',
-  'У відкритій пісні: найближчий приспів — одразу на екран':
-    'In the open song: the nearest chorus, straight on screen',
-  'У цій пісні немає приспіву': 'This song has no chorus',
-  'Далі в пісні приспіву немає': 'No chorus further on in this song',
+  'У відкритій презентації: найближчий приспів — одразу на екран':
+    'In the open presentation: the nearest chorus, straight on screen',
+  'У цій презентації немає приспіву': 'This presentation has no chorus',
+  'Далі в презентації приспіву немає': 'No chorus further on in this presentation',
   Кінець: 'End',
   'Порожній слайд: текст сховано, фон лишається':
     'An empty slide: the text hidden, the background stays',
-  'Пісня: номер або назва': 'Song: number or title',
-  'Бандл пісень': 'Song bundle',
-  'Усі бандли': 'All bundles',
-  'Імпорт пісень з файлів .pptx': 'Import songs from .pptx files',
-  'Імпорт пісень': 'Import songs',
-  'Пісень ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт пісень» праворуч від пошуку.':
-    'No songs yet. To add them from .pptx files, click “Import songs” to the right of the search.',
+  'Презентація: номер або назва': 'Presentation: number or title',
+  'Набір презентацій': 'Presentation bundle',
+  'Усі набори': 'All bundles',
+  'Імпорт презентацій з файлів .pptx': 'Import presentations from .pptx files',
+  'Імпорт презентацій': 'Import presentations',
+  'Презентацій ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт презентацій» праворуч від пошуку.':
+    'No presentations yet. To add them from .pptx files, click “Import presentations” to the right of the search.',
   // song import (web/src/components/SongImport.tsx)
   'Файлів .pptx тут немає — виберіть інші файли або папку':
     'No .pptx files here — choose other files or another folder',
@@ -1037,25 +1038,25 @@ export const EN: Record<string, string> = {
   'Файли .pptx…': '.pptx files…',
   'Папка…': 'Folder…',
   'Читаю файли: {done} з {total}': 'Reading files: {done} of {total}',
-  'Знайдено {n} пісню.|Знайдено {n} пісні.|Знайдено {n} пісень.':
-    'Found {n} song.|Found {n} songs.',
-  'Пісень у цих файлах немає.': 'No songs in these files.',
+  'Знайдено {n} презентацію.|Знайдено {n} презентації.|Знайдено {n} презентацій.':
+    'Found {n} presentation.|Found {n} presentations.',
+  'Презентацій у цих файлах немає.': 'No presentations in these files.',
   'Пропущено (не прочиталися або без тексту): {files}':
     'Skipped (unreadable or without text): {files}',
   'і ще {n}': 'and {n} more',
   Куди: 'To',
-  'Новий бандл…': 'New bundle…',
-  'Виберіть бандл': 'Choose a bundle',
-  'Назва нового бандла': 'New bundle name',
+  'Новий набір…': 'New bundle…',
+  'Виберіть набір': 'Choose a bundle',
+  'Назва нового набору': 'New bundle name',
   'Наприклад, Молодіжні': 'For example, Youth',
-  'Бандл «{bundle}» уже є — виберіть його в списку «Куди»':
+  'Набір «{bundle}» уже є — виберіть його в списку «Куди»':
     'The bundle “{bundle}” already exists — choose it in the “To” list',
-  'Пісня з такою самою назвою файлу, що вже є в бандлі, замінюється новою.':
-    'A song whose file name is already in the bundle is replaced by the new one.',
-  'Джерело даних — «у браузері»: пісні з’являться тут після перезбирання сегментів (npm run build:segments). З джерелом «Сервер» вони видні одразу.':
-    'The data source is “In the browser”: the songs appear here after the segments are rebuilt (npm run build:segments). With the “Server” source they show at once.',
-  'Імпортувати {n} пісню|Імпортувати {n} пісні|Імпортувати {n} пісень':
-    'Import {n} song|Import {n} songs',
+  'Презентація з такою самою назвою файлу, що вже є в наборі, замінюється новою.':
+    'A presentation whose file name is already in the bundle is replaced by the new one.',
+  'Джерело даних — «у браузері»: презентації з’являться тут після перезбирання сегментів (npm run build:segments). З джерелом «Сервер» вони видні одразу.':
+    'The data source is “In the browser”: the presentations appear here after the segments are rebuilt (npm run build:segments). With the “Server” source they show at once.',
+  'Імпортувати {n} презентацію|Імпортувати {n} презентації|Імпортувати {n} презентацій':
+    'Import {n} presentation|Import {n} presentations',
   Імпортувати: 'Import',
   // custom text (web/src/components/TextPanel.tsx)
   'Текст на екран': 'Text to screen',
@@ -1077,8 +1078,8 @@ export const EN: Record<string, string> = {
   'Повернути список, який був до цієї програми': 'Bring back the list from before this program',
   'Показ очищено: {n} елемент.|Показ очищено: {n} елементи.|Показ очищено: {n} елементів.':
     'Running order cleared: {n} item.|Running order cleared: {n} items.',
-  'Порожньо. Додавайте уривки, пісні й текст кнопкою «+ у показ».':
-    'Empty. Add passages, songs, and text with the “+ to the running order” button.',
+  'Порожньо. Додавайте уривки, презентації й текст кнопкою «+ у показ».':
+    'Empty. Add passages, presentations, and text with the “+ to the running order” button.',
   Перетягнути: 'Drag',
   Вгору: 'Up',
   Вниз: 'Down',
@@ -1128,7 +1129,8 @@ export const EN: Record<string, string> = {
   'Перейти: {query}': 'Go to: {query}',
   Дії: 'Actions',
   Книги: 'Books',
-  'Команда, книга, пісня або посилання…': 'A command, a book, a song, or a reference…',
+  'Команда, книга, презентація або посилання…':
+    'A command, a book, a presentation, or a reference…',
   '↑↓ — вибір · Enter — виконати · Esc — закрити': '↑↓ — choose · Enter — run · Esc — close',
   '{n} результат|{n} результати|{n} результатів': '{n} result|{n} results',
   // output windows (OutputsPanel, Presenter, Stage, lib/screens, lib/outputs)
@@ -1234,7 +1236,7 @@ export const EN: Record<string, string> = {
   'Це перший вірш розділу': 'This is the first verse of the chapter',
   'Не вдалося відкрити розділ — перевірте зв’язок':
     "Couldn't open the chapter — check the connection",
-  'строфа {n}/{total}': 'stanza {n}/{total}',
+  'слайд {n}/{total}': 'slide {n}/{total}',
   'Пульт недоступний': 'The remote is unavailable',
   'Відскануйте QR у вікні керування: Пульт доповідача → Створити пульт.':
     'Scan the QR code in the control window: Speaker remote → Create a remote.',
@@ -1256,8 +1258,8 @@ export const EN: Record<string, string> = {
   'на екрані': 'on screen',
   'Скинути: гортати разом з оператором': 'Reset: step along with the operator',
   'Вибрати…': 'Choose…',
-  'Вибрати вірш або пісню…': 'Choose a verse or a song…',
-  'Вибрати пісню…': 'Choose a song…',
+  'Вибрати вірш або презентацію…': 'Choose a verse or a presentation…',
+  'Вибрати презентацію…': 'Choose a presentation…',
   'Вибрати вірш…': 'Choose a verse…',
   Передпоказ: 'Preview',
   'уже на екрані': 'already on screen',
@@ -1303,9 +1305,9 @@ export const EN: Record<string, string> = {
     "Kept in data/secrets.json (only the code's hash, not the code).",
   'Перезапуск сервера відкличе всі пульти.': 'A server restart revokes all remotes.',
   Книга: 'Book',
-  'Вибір вірша або пісні': 'Choosing a verse or a song',
+  'Вибір вірша або презентації': 'Choosing a verse or a presentation',
   'Що вибрати': 'What to choose',
-  'Номер або слова пісні…': 'A song number or words…',
+  'Номер або слова презентації…': 'A presentation number or words…',
   'Бібліотека недоступна з цього телефона.': "The library isn't reachable from this phone.",
   '+ У послідовність': '+ To the running order',
   Т: 'T',
@@ -1354,8 +1356,8 @@ export const EN: Record<string, string> = {
     'Port {port} is taken by another program — change the port',
   'Бібліотека саме перебудовується — спробуйте за хвилину':
     'The library is being rebuilt — try again in a minute',
-  'Бандл не знайдено — відкрийте імпорт ще раз': 'Bundle not found — open the import again',
-  'Бандл «{bundle}» уже є — виберіть його в списку':
+  'Набір не знайдено — відкрийте імпорт ще раз': 'Bundle not found — open the import again',
+  'Набір «{bundle}» уже є — виберіть його в списку':
     'The bundle “{bundle}” already exists — choose it in the list',
   'Не вдалося запустити збірку: {error}': "Couldn't start the build: {error}",
   'Збірка завершилась з кодом {code}': 'The build ended with code {code}',
@@ -1370,24 +1372,27 @@ export const EN: Record<string, string> = {
   'Готую перебудову…': 'Preparing the rebuild…',
   'Завершую перебудову…': 'Finishing the rebuild…',
   'Збираю… {module}, {step} з {total}': 'Building… {module}, {step} of {total}',
-  пісні: 'songs',
-  'Імпорт пісень: незрозумілий вигляд слайда': 'Song import: a slide style that makes no sense',
-  'Імпорт пісень: вкажіть бандл або назву нового': 'Song import: name a bundle or a new one',
-  'Імпорт пісень: немає пісень': 'Song import: no songs',
-  'Імпорт пісень: забагато пісень за раз (до 5000)':
-    'Song import: too many songs at once (up to 5000)',
-  'Імпорт пісень: пісня без назви файлу': 'Song import: a song without a file name',
-  'Імпорт пісень: у «{song}» незрозуміла назва':
-    'Song import: “{song}” has a title that makes no sense',
-  'Імпорт пісень: у «{song}» незрозумілий номер':
-    'Song import: “{song}” has a number that makes no sense',
-  'Імпорт пісень: у «{song}» незрозумілі слайди':
-    'Song import: “{song}” has slides that make no sense',
-  'Імпорт пісень: у «{song}» незрозумілий текст слайда':
-    'Song import: “{song}” has slide text that makes no sense',
+  презентації: 'presentations',
+  'Імпорт презентацій: незрозумілий вигляд слайда':
+    'Presentation import: a slide style that makes no sense',
+  'Імпорт презентацій: вкажіть набір або назву нового':
+    'Presentation import: name a bundle or a new one',
+  'Імпорт презентацій: немає презентацій': 'Presentation import: no presentations',
+  'Імпорт презентацій: забагато презентацій за раз (до 5000)':
+    'Presentation import: too many presentations at once (up to 5000)',
+  'Імпорт презентацій: презентація без назви файлу':
+    'Presentation import: a presentation without a file name',
+  'Імпорт презентацій: у «{song}» незрозуміла назва':
+    'Presentation import: “{song}” has a title that makes no sense',
+  'Імпорт презентацій: у «{song}» незрозумілий номер':
+    'Presentation import: “{song}” has a number that makes no sense',
+  'Імпорт презентацій: у «{song}» незрозумілі слайди':
+    'Presentation import: “{song}” has slides that make no sense',
+  'Імпорт презентацій: у «{song}» незрозумілий текст слайда':
+    'Presentation import: “{song}” has slide text that makes no sense',
   'Автозапуск не підтримується на цій системі':
     'Starting with the computer is not supported on this system',
-  'Бандл не знайдено': 'Bundle not found',
+  'Набір не знайдено': 'Bundle not found',
   // the hub: what a remote is told (server/src/live.ts)
   'Код цього пульта перевипущено. Відскануйте новий QR у вікні керування.':
     "This remote's code was reissued. Scan the new QR code in the control window.",
@@ -1395,7 +1400,7 @@ export const EN: Record<string, string> = {
   'Немає доступу': 'No access',
   'Ця дія пульту не дозволена': 'This remote may not do that',
   'Неправильний уривок': 'An invalid passage',
-  'Неправильна строфа': 'An invalid stanza',
+  'Неправильний слайд': 'An invalid slide',
   'Неправильний елемент': 'An invalid item',
   'Вибір віршів пульту не дозволено': 'This remote may not choose verses',
   'Презентації пульту не дозволено': 'This remote may not use presentations',
@@ -1405,7 +1410,7 @@ export const EN: Record<string, string> = {
   'Вікно керування не відповіло': "The control window didn't answer",
   'Нічого не вибрано': 'Nothing chosen',
   'Цьому пульту не дозволено вірші': 'This remote may not use verses',
-  'Цьому пульту не дозволено пісні': 'This remote may not use songs',
+  'Цьому пульту не дозволено презентації': 'This remote may not use presentations',
   'Пульт не на зв’язку': 'The remote is not connected',
   // modules (shared/src/library/moduleFormat.ts)
   'Це не модуль .SQLite3, який можна імпортувати (Біблія, словник, коментарі, перехресні посилання чи підзаголовки)':
@@ -1834,8 +1839,8 @@ export const EN: Record<string, string> = {
   'Знову на екрані': 'Back on screen',
   'Повернути прибраний слайд': 'Bring back the cleared slide',
   // 0.14.0 the release layout
-  'Ваші дані — у папці data/: налаштування, бібліотека, пісні. Сам застосунок — у папці\napp/: нова версія замінює лише її, а data/ і modules/ лишаються.':
-    'Your data is in the data/ folder: settings, the library, songs. The app itself is in the\napp/ folder: a new version replaces only that folder; data/ and modules/ stay.',
+  'Ваші дані — у папці data/: налаштування, бібліотека, презентації. Сам застосунок — у папці\napp/: нова версія замінює лише її, а data/ і modules/ лишаються.':
+    'Your data is in the data/ folder: settings, the library, presentations. The app itself is in the\napp/ folder: a new version replaces only that folder; data/ and modules/ stay.',
   'Зверху: {start}, modules/, data/; застосунок — у app/':
     'At the top: {start}, modules/, data/; the app is in app/',
   // 0.14.1 release copies
@@ -2060,10 +2065,11 @@ export const EN: Record<string, string> = {
   Режим: 'Mode',
   Медіа: 'Media',
   'Переклади, книги й вірші': 'Translations, books, and verses',
-  'Список пісень ліворуч, пісня посередині': 'The song list on the left, the song in the middle',
+  'Список презентацій ліворуч, презентація посередині':
+    'The presentation list on the left, the presentation in the middle',
   'Зображення, альбоми, відео й власний текст': 'Images, albums, videos, and custom text',
-  'Виберіть пісню ліворуч — знайдіть її за номером чи назвою.':
-    'Choose a song on the left — find it by number or title.',
+  'Виберіть презентацію ліворуч — знайдіть її за номером чи назвою.':
+    'Choose a presentation on the left — find it by number or title.',
   'Простий вигляд': 'Simple view',
   'простий вигляд': 'simple view',
   'Сцена, вікна виводу, глядачі, пульт, довідка й тема — у меню «Ще»; праворуч лише прев’ю':
@@ -2109,18 +2115,18 @@ export const EN: Record<string, string> = {
   'Ви показали це звідси: «Далі» веде далі тут': 'You showed this from here: “Next” goes on here',
   'Виберіть вірші — Enter чи «На екран» покаже їх.':
     'Choose verses — Enter or “To screen” shows them.',
-  'Виберіть пісню ліворуч.': 'Choose a song on the left.',
-  'Виберіть строфу — Enter чи «На екран» покаже її.':
-    'Choose a stanza — Enter or “To screen” shows it.',
+  'Виберіть презентацію ліворуч.': 'Choose a presentation on the left.',
+  'Виберіть слайд — Enter чи «На екран» покаже його.':
+    'Choose a slide — Enter or “To screen” shows it.',
   'Вставити нове посилання': 'Paste a new link',
   Екран: 'Screen',
   Знайдене: 'Found',
   Монітори: 'Monitors',
-  'Назва чи номер пісні…': 'Song title or number…',
+  'Назва чи номер презентації…': 'Presentation title or number…',
   'Напишіть, як-от 5 чи 7:30': 'Type it like 5 or 7:30',
   'Наступні вірші того, що ви показали': 'The next verses of what you showed',
   'Не дозволено оператором': 'Not allowed by the operator',
-  'Немає пісень за «{query}»': 'No songs for “{query}”',
+  'Немає презентацій за «{query}»': 'No presentations for “{query}”',
   'Нічого не знайдено за «{query}»': 'Nothing found for “{query}”',
   'Пошук не вдався: {error}': 'The search failed: {error}',
   'Оператор ще нічого не додав.': 'The operator hasn’t added anything yet.',
@@ -2141,7 +2147,7 @@ export const EN: Record<string, string> = {
   'Таймер доповідача не запущено': 'The speaker timer isn’t running',
   '5 чи 7:30': '5 or 7:30',
   'Пошук: посилання чи слова': 'Search: a reference or words',
-  'Пісень у бібліотеці ще немає': 'There are no songs in the library yet',
+  'Презентацій у бібліотеці ще немає': 'There are no presentations in the library yet',
   'Спершу виберіть, що показати': 'First choose what to show',
   'У ваших перекладах нічого — знайдено в інших': 'Nothing in your translations — found in others',
   'У посиланні немає коду пульта. Відкрийте посилання, яке дав оператор.':
@@ -2185,7 +2191,7 @@ export const EN: Record<string, string> = {
   'Годинник із секундами': 'Clock with seconds',
   'Нічого немає': 'Nothing',
   'На екрані нічого немає': 'Nothing on screen',
-  'Де ми: «вірш 16 з 36», «строфа 3 з 5»': 'Where we are: “verse 16 of 36”, “stanza 3 of 5”',
+  'Де ми: «вірш 16 з 36», «слайд 3 з 5»': 'Where we are: “verse 16 of 36”, “slide 3 of 5”',
   Зараз: 'Now',
   'Зараз: «{text}»': 'Now: “{text}”',
   Мініатюри: 'Slides',
@@ -2212,7 +2218,7 @@ export const EN: Record<string, string> = {
   мініатюри: 'slides',
   пауза: 'paused',
   світла: 'light',
-  'строфа {n} з {total}': 'stanza {n} of {total}',
+  'слайд {n} з {total}': 'slide {n} of {total}',
   'фото {n} з {total}': 'photo {n} of {total}',
   // a step down that can update back (1.9.0, server/src/installer.ts FIRST_SWAP_SAFE)
   'З версій, старіших за 1.8.8, на Windows не вдається оновитися назад':
@@ -2221,13 +2227,13 @@ export const EN: Record<string, string> = {
   'Змінити цикл': 'Edit the loop',
   'Змінювати кожні, с': 'Change every, s',
   'Розібрати цикл': 'Take the loop apart',
-  'Цикл оголошень': 'Announcement loop',
+  'Цикл слайдів': 'Slide loop',
   'Вибрано {n} слайд|Вибрано {n} слайди|Вибрано {n} слайдів': '{n} slide picked|{n} slides picked',
   'Зібрати в цикл': 'Gather into a loop',
   Згорнути: 'Fold',
   'Слайди циклу': 'The loop’s slides',
   'Вийняти з циклу': 'Take out of the loop',
-  'цикли оголошень': 'announcement loops',
+  'цикли слайдів': 'slide loops',
   'Цикл порожній': 'The loop is empty',
   // 1.10.0-beta.3: «Відлік» items in the running order
   'Змінити відлік': 'Edit the countdown',
@@ -2242,8 +2248,8 @@ export const EN: Record<string, string> = {
   'Додайте зображення в «Медіа → Зображення»': 'Add pictures in “Media → Images”',
   // 1.10.0-beta.1: «Далі» past a running-order item's end
   'Після кінця пункту «Далі» відкриває наступний': '“Next” past an item’s end opens the next one',
-  'Пункт послідовності показу: після його останнього вірша, строфи чи фото «Далі» відкриває наступний пункт, «Назад» на першому — попередній.':
-    'A running-order item: after its last verse, stanza, or photo, “Next” opens the next item, and “Back” at its first opens the previous one.',
+  'Пункт послідовності показу: після його останнього вірша, слайда чи фото «Далі» відкриває наступний пункт, «Назад» на першому — попередній.':
+    'A running-order item: after its last verse, slide, or photo, “Next” opens the next item, and “Back” at its first opens the previous one.',
   // 1.9.3: a list file the server couldn't read a moment ago is not written over
   'Не вдалося прочитати {file}, тому його не перезаписано. Спробуйте ще раз.':
     'Couldn’t read {file}, so it wasn’t written over. Try again.',
@@ -2284,12 +2290,12 @@ export const EN: Record<string, string> = {
     'Carried over. The new start settings take effect at the next start.',
   'Перенесено.': 'Carried over.',
   'Інша копія': 'Another copy',
-  'Якщо поруч є старіша чи інша копія застосунку, перенесіть з неї вигляд, програми, пісні, зображення, налаштування запуску й пульти.':
-    'If an older or another copy of the app is on this computer, carry over its look, programs, songs, pictures, start settings and remotes.',
+  'Якщо поруч є старіша чи інша копія застосунку, перенесіть з неї вигляд, програми, презентації, зображення, налаштування запуску й пульти.':
+    'If an older or another copy of the app is on this computer, carry over its look, programs, presentations, pictures, start settings and remotes.',
   'Перенести з іншої копії…': 'Carry over from another copy…',
   'Перенести з іншої копії': 'Carry over from another copy',
-  'Вигляд, програми, пісні, зображення, альбоми й відео':
-    'Look, programs, songs, pictures, albums and videos',
+  'Вигляд, програми, презентації, зображення, альбоми й відео':
+    'Look, programs, presentations, pictures, albums and videos',
   'Налаштування запуску': 'Start settings',
   'браузер ({browser}), адреса, оновлення; модулі лишаються цієї копії':
     'browser ({browser}), address, updates; the modules stay this copy’s',
@@ -2316,9 +2322,10 @@ export const EN: Record<string, string> = {
   'Позначте, що перенести': 'Tick what to carry over',
   'Не вдалося перенести: {error}. Закрийте програми, що тримають файли в data/, і спробуйте ще раз.':
     'Couldn’t carry over: {error}. Close the programs holding files in data/ and try again.',
-  'Поруч є інша копія застосунку з даними: {folder}.\n  Щоб перенести з неї вигляд, пісні, налаштування й пульти — Налаштування вигляду →\n  Застосунок → «Перенести з іншої копії…».':
-    'Another copy of the app with data is next to this one: {folder}.\n  To carry over its look, songs, settings and remotes — Settings →\n  App → “Carry over from another copy…”.',
-  '{n} бандл пісень|{n} бандли пісень|{n} бандлів пісень': '{n} song bundle|{n} song bundles',
+  'Поруч є інша копія застосунку з даними: {folder}.\n  Щоб перенести з неї вигляд, презентації, налаштування й пульти — Налаштування вигляду →\n  Застосунок → «Перенести з іншої копії…».':
+    'Another copy of the app with data is next to this one: {folder}.\n  To carry over its look, presentations, settings and remotes — Settings →\n  App → “Carry over from another copy…”.',
+  '{n} набір презентацій|{n} набори презентацій|{n} наборів презентацій':
+    '{n} presentation bundle|{n} presentation bundles',
   'лише з папки копії застосунку — тієї, де лежать app і data':
     'only from an app copy’s folder — the one that holds app and data',
   '{names} — додаються до пультів цієї копії, телефони не треба зв’язувати знову':
@@ -2385,8 +2392,8 @@ export const EN: Record<string, string> = {
   'Видалити документ (файл — у кошик папки)':
     'Delete the document (its file goes to the folder’s trash)',
   'Видалити документ': 'Delete the document',
-  'Виберіть документ ліворуч — його абзаци стануть тут, як строфи пісні.':
-    'Choose a document on the left — its paragraphs appear here, like a song’s stanzas.',
+  'Виберіть документ ліворуч — його абзаци стануть тут, як слайди презентації.':
+    'Choose a document on the left — its paragraphs appear here, like a presentation’s slides.',
   '«{file}» — не документ: додаються .docx, .md, .txt і .pdf':
     '“{file}” is not a document: .docx, .md, .txt and .pdf files are added',
   '«{file}» уже є в документах': '“{file}” is already in the documents',
@@ -2447,8 +2454,8 @@ export const EN: Record<string, string> = {
   'Найновіша копія кожного виду лишається.': 'The newest backup of each kind stays.',
   'Старий журнал запуску': 'The old start log',
   'Інші дані': 'Other data',
-  'Налаштування, пісні, програми показу й решта папки data/.':
-    'Settings, songs, programs and the rest of the data/ folder.',
+  'Налаштування, презентації, програми показу й решта папки data/.':
+    'Settings, presentations, programs and the rest of the data/ folder.',
   'Прибрано: {what} — звільнено {size}': 'Removed: {what} — {size} freed',
   'Місце на диску': 'Disk space',
   'Порахувати знову': 'Count again',
@@ -2508,17 +2515,17 @@ export const EN: Record<string, string> = {
   'Експорт CSV': 'Export CSV',
   'Статистику веде сервер застосунку. Запустіть застосунок (start.cmd, start.command або start.sh) — без нього, у режимі «у браузері», покази не записуються.':
     'The app’s server keeps the statistics. Start the app (start.cmd, start.command or start.sh) — without it, in the “in the browser” mode, showings aren’t recorded.',
-  'За цей час нічого не показано. Застосунок записує все, що виходить на екран: уривки, пісні, документи, зображення — з датою й тривалістю.':
-    'Nothing was shown in this time. The app records everything that goes on screen: passages, songs, documents, pictures — with the date and how long.',
+  'За цей час нічого не показано. Застосунок записує все, що виходить на екран: уривки, презентації, документи, зображення — з датою й тривалістю.':
+    'Nothing was shown in this time. The app records everything that goes on screen: passages, presentations, documents, pictures — with the date and how long.',
   Показів: 'Showings',
   'Днів із показом': 'Days with showings',
   'Покази по днях': 'Showings by day',
   'Покази по місяцях': 'Showings by month',
-  'Пісень за цей час не показували.': 'No songs were shown in this time.',
+  'Презентацій за цей час не показували.': 'No presentations were shown in this time.',
   '{shows}, на екрані {time}, востаннє {date}': '{shows}, on screen {time}, last on {date}',
-  'Давно не співали': 'Not sung for a while',
-  'Пісні, які показували раніше, але не за останні вісім тижнів.':
-    'Songs shown before, but not in the last eight weeks.',
+  'Давно не показували': 'Not shown for a while',
+  'Презентації, які показували раніше, але не за останні вісім тижнів.':
+    'Presentations shown before, but not in the last eight weeks.',
   '{shows}, востаннє {date}': '{shows}, last on {date}',
   'Книги Біблії': 'The Bible’s books',
   'Уривків за цей час не показували.': 'No passages were shown in this time.',
@@ -2538,9 +2545,9 @@ export const EN: Record<string, string> = {
   'Статистику очищено': 'Statistics cleared',
   'Немає такого дня': 'No such day',
   // «Статистика бібліотеки» (1.18.0-beta.5)
-  'Що, коли й скільки було на екрані, і що є в бібліотеці: переклади, слова, словники, пісні.':
-    'What was on screen, when and for how long, and what the library holds: translations, words, dictionaries, songs.',
-  '{n} строфа|{n} строфи|{n} строф': '{n} stanza|{n} stanzas',
+  'Що, коли й скільки було на екрані, і що є в бібліотеці: переклади, слова, словники, презентації.':
+    'What was on screen, when and for how long, and what the library holds: translations, words, dictionaries, presentations.',
+  '{n} слайд|{n} слайди|{n} слайдів': '{n} slide|{n} slides',
   '{songs}, {stanzas}': '{songs}, {stanzas}',
   Абзаців: 'Paragraphs',
   Бібліотека: 'Library',
@@ -2555,8 +2562,8 @@ export const EN: Record<string, string> = {
   Перекладів: 'Translations',
   'Посилань на Біблію': 'Bible references',
   Підзаголовків: 'Section titles',
-  'Пісень у бібліотеці немає.': 'The library has no songs.',
-  Пісень: 'Songs',
+  'Презентацій у бібліотеці немає.': 'The library has no presentations.',
+  Презентацій: 'Presentations',
   'Рахую вірші й слова…': 'Counting the verses and words…',
   'Сегменти для браузера': 'Segments for the browser',
   'Словникових статей': 'Dictionary entries',
@@ -2592,8 +2599,8 @@ export const EN: Record<string, string> = {
   // «Документи на пульті» (1.18.0-beta.7)
   'Вибрати абзац документа…': 'Choose a paragraph of a document…',
   'Вибрати вірш чи документ…': 'Choose a verse or a document…',
-  'Вибрати вірш, пісню чи документ…': 'Choose a verse, a song or a document…',
-  'Вибрати пісню чи документ…': 'Choose a song or a document…',
+  'Вибрати вірш, презентацію чи документ…': 'Choose a verse, a presentation or a document…',
+  'Вибрати презентацію чи документ…': 'Choose a presentation or a document…',
   Документ: 'Document',
   'Документи пульту не дозволено': 'Documents aren’t allowed for this remote',
   'Документів немає.': 'There are no documents.',
@@ -2610,11 +2617,11 @@ export const EN: Record<string, string> = {
   'На «Показ» під моніторами — і вони стануть наступними у показі.':
     'Onto “Running order” under the monitors — and they go next in the show.',
   'Сюди — наступним у показі': 'Here — next in the show',
-  'Файл .pptx — у «Презентації»: виберіть збірку, а тоді додайте пісню у показ':
-    'A .pptx file goes to “Presentations”: choose a bundle, then add the song to the show',
+  'Файл .pptx — у «Презентації»: виберіть набір, а тоді додайте презентацію у показ':
+    'A .pptx file goes to “Presentations”: choose a bundle, then add the presentation to the show',
   'Кнопки «Показ»': '“Running order” buttons',
-  '◀ і «Далі» над послідовністю показу: як стрілки клавіатури (наступний вірш, строфа, абзац) чи від пункту до пункту.':
-    '◀ and “Next” above the running order: like the keyboard arrows (the next verse, stanza, paragraph) or from item to item.',
+  '◀ і «Далі» над послідовністю показу: як стрілки клавіатури (наступний вірш, слайд, абзац) чи від пункту до пункту.':
+    '◀ and “Next” above the running order: like the keyboard arrows (the next verse, slide, paragraph) or from item to item.',
   'Порожній показ — як стрілки, інакше пункти': 'An empty show — like the arrows, else the items',
   'Завжди як стрілки клавіатури': 'Always like the keyboard arrows',
   'Лише пункти показу': 'Only the show’s items',

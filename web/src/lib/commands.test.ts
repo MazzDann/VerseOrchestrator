@@ -25,12 +25,12 @@ describe('show command dispatcher', () => {
     const offSong = d.handle((cmd: ShowCommand) => {
       if (cmd !== 'next' && cmd !== 'prev') return null; // passes blank/black on
       log.push(`song:${cmd}`);
-      return { ok: false, reason: 'Це остання строфа' };
+      return { ok: false, reason: 'Це останній слайд' };
     }, PRIORITY.song);
 
     expect(await d.dispatch('1', 'next', remote)).toEqual({
       ok: false,
-      reason: 'Це остання строфа',
+      reason: 'Це останній слайд',
     });
     expect(await d.dispatch('2', 'blank', remote)).toEqual({ ok: true });
     offSong(); // the song was closed

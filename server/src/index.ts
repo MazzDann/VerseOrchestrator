@@ -1328,11 +1328,11 @@ app.post(
     const dir = bundlesDir(dataDir);
     const existing = listBundles(dir);
     if ('id' in target && !existing.some((b) => b.meta.id === target.id)) {
-      throw new ApiError(404, N_('Бандл не знайдено — відкрийте імпорт ще раз'));
+      throw new ApiError(404, N_('Набір не знайдено — відкрийте імпорт ще раз'));
     }
     // the library tells bundles apart by name: a second «ПС» would merge into the first
     if ('name' in target && existing.some((b) => sameBundleName(b.meta.name, target.name))) {
-      throw new ApiError(409, N_('Бандл «{bundle}» уже є — виберіть його в списку'), {
+      throw new ApiError(409, N_('Набір «{bundle}» уже є — виберіть його в списку'), {
         bundle: target.name,
       });
     }
@@ -2245,13 +2245,13 @@ app.put(
     notDuringRebuild();
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name || name.length > 100)
-      throw new ApiError(400, N_('Назва бандла — від 1 до 100 символів'));
+      throw new ApiError(400, N_('Назва набору — від 1 до 100 символів'));
     const dir = bundlesDir(dataDir);
     const id = String(req.params.id);
     if (listBundles(dir).some((b) => b.meta.id !== id && sameBundleName(b.meta.name, name)))
-      throw new ApiError(409, N_('Бандл «{bundle}» уже є — виберіть іншу назву'), { bundle: name });
+      throw new ApiError(409, N_('Набір «{bundle}» уже є — виберіть іншу назву'), { bundle: name });
     const b = renameBundle(dir, id, name);
-    if (!b) throw new ApiError(404, N_('Бандл не знайдено — відкрийте список ще раз'));
+    if (!b) throw new ApiError(404, N_('Набір не знайдено — відкрийте список ще раз'));
     lastImport = null; // the undo of an import doesn't reach across a rename
     refreshSongs(dir);
     console.log(`[server] songs: bundle renamed → «${b.meta.name}»`);
@@ -2266,7 +2266,7 @@ app.delete(
     notDuringRebuild();
     const dir = bundlesDir(dataDir);
     const gone = trashBundle(dir, String(req.params.id));
-    if (!gone) throw new ApiError(404, N_('Бандл не знайдено — відкрийте список ще раз'));
+    if (!gone) throw new ApiError(404, N_('Набір не знайдено — відкрийте список ще раз'));
     lastImport = null; // nor across a delete
     refreshSongs(dir);
     console.log(`[server] songs: bundle «${gone.bundle.meta.name}» deleted (kept for undo)`);
@@ -2286,7 +2286,7 @@ app.post(
     const dir = bundlesDir(dataDir);
     const trashed = typeof req.body?.trashed === 'string' ? req.body.trashed : '';
     const b = trashed ? restoreBundle(dir, trashed) : null;
-    if (!b) throw new ApiError(409, N_('Бандл уже не повернути'));
+    if (!b) throw new ApiError(409, N_('Набір уже не повернути'));
     lastImport = null;
     refreshSongs(dir);
     res.json({ id: b.meta.id, name: b.meta.name, count: b.count });

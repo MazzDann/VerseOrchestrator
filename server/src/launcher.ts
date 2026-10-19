@@ -628,7 +628,7 @@ export async function newestCopy(copies: FoundCopy[]): Promise<FoundCopy | null>
 /** The console's pointer to «Перенести з іншої копії…» for a fresh copy beside another one. */
 export const otherCopyHint = (folder: string) =>
   tr(
-    'Поруч є інша копія застосунку з даними: {folder}.\n  Щоб перенести з неї вигляд, пісні, налаштування й пульти — Налаштування вигляду →\n  Застосунок → «Перенести з іншої копії…».',
+    'Поруч є інша копія застосунку з даними: {folder}.\n  Щоб перенести з неї вигляд, презентації, налаштування й пульти — Налаштування вигляду →\n  Застосунок → «Перенести з іншої копії…».',
     { folder },
   );
 

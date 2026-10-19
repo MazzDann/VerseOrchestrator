@@ -36,7 +36,7 @@ stays, run `npm ci` in the app's folder and start the app again.
 “No library” means there are no module files in the `modules/` folder. The app starts,
 but without texts: the control window shows “No library yet” and what to do. Put
 `*.SQLite3` modules into `modules/` and click **Rescan modules** there — no need to restart
-the app. See also [Add texts and songs](install.md#add-texts-and-songs).
+the app. See also [Add texts and presentations](install.md#add-texts-and-presentations).
 
 If the library couldn't be built, the start window shows the reason above. The message
 `library.bibles is null ("all") but the modules folder has … such files` means there are
@@ -169,7 +169,7 @@ click in it.
 
 ### “Presentation 1: no longer full screen”
 
-While a file chooser is open in the control window — you add a picture, import songs, or
+While a file chooser is open in the control window — you add a picture, import presentations, or
 restore a backup — Chrome, Edge, and Opera take the presentation and stage windows out of full
 screen. When the chooser closes, click anywhere in the control window: each click puts one
 window back in full screen. If one doesn't come back, press F in that window itself.

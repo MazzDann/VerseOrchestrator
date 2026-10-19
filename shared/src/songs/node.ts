@@ -156,7 +156,7 @@ export function importSongs(
     'id' in target
       ? listBundles(dir).find((b) => b.meta.id === target.id)
       : createBundle(dir, target.name, target.source);
-  if (!bundle) throw new Error(N_('Бандл не знайдено'));
+  if (!bundle) throw new Error(N_('Набір не знайдено'));
   const result = withBundle(path.join(dir, bundle.file), false, (db) => {
     prepareBundle(db);
     return upsertBundleSongs(db, songs);

@@ -173,7 +173,7 @@ function ShowStats() {
         <Paper withBorder p="md">
           <Text size="sm">
             {tr(
-              'За цей час нічого не показано. Застосунок записує все, що виходить на екран: уривки, пісні, документи, зображення — з датою й тривалістю.',
+              'За цей час нічого не показано. Застосунок записує все, що виходить на екран: уривки, презентації, документи, зображення — з датою й тривалістю.',
             )}
           </Text>
         </Paper>
@@ -196,7 +196,7 @@ function ShowStats() {
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
             <Card
               title={tr('Презентації')}
-              empty={s.songs.length === 0 ? tr('Пісень за цей час не показували.') : null}
+              empty={s.songs.length === 0 ? tr('Презентацій за цей час не показували.') : null}
             >
               <BarList
                 rows={s.songs.slice(0, 15).map((x) => ({
@@ -213,10 +213,10 @@ function ShowStats() {
               {s.forgotten.length > 0 && (
                 <>
                   <Text size="sm" fw={500} mt="md" mb={4}>
-                    {tr('Давно не співали')}
+                    {tr('Давно не показували')}
                   </Text>
                   <Text size="xs" c="dimmed" mb={6}>
-                    {tr('Пісні, які показували раніше, але не за останні вісім тижнів.')}
+                    {tr('Презентації, які показували раніше, але не за останні вісім тижнів.')}
                   </Text>
                   <Stack gap={2}>
                     {s.forgotten.map((f) => (
@@ -693,7 +693,7 @@ function LibraryCounts() {
           label={tr('Словникових статей')}
           value={fmtNumber(sum(l.dictionaries.map((d) => d.entries)))}
         />
-        <Tile label={tr('Пісень')} value={fmtNumber(sum(l.songs.map((s) => s.songs)))} />
+        <Tile label={tr('Презентацій')} value={fmtNumber(sum(l.songs.map((s) => s.songs)))} />
         <Tile label={tr('Документів')} value={fmtNumber(l.documents.documents)} />
       </SimpleGrid>
 
@@ -768,7 +768,7 @@ function LibraryCounts() {
         </Card>
         <Card
           title={tr('Презентації')}
-          empty={l.songs.length ? null : tr('Пісень у бібліотеці немає.')}
+          empty={l.songs.length ? null : tr('Презентацій у бібліотеці немає.')}
         >
           <BarList
             rows={l.songs.map((s) => ({
@@ -776,8 +776,8 @@ function LibraryCounts() {
               label: s.bundle,
               value: s.songs,
               hint: tr('{songs}, {stanzas}', {
-                songs: trn(s.songs, '{n} пісня|{n} пісні|{n} пісень'),
-                stanzas: trn(s.stanzas, '{n} строфа|{n} строфи|{n} строф'),
+                songs: trn(s.songs, '{n} презентація|{n} презентації|{n} презентацій'),
+                stanzas: trn(s.stanzas, '{n} слайд|{n} слайди|{n} слайдів'),
               }),
             }))}
           />

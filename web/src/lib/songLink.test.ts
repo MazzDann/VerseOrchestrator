@@ -18,7 +18,7 @@ function library(songs: SongDetail[]) {
     load: {
       song: async (id: number) => {
         const s = songs.find((x) => x.id === id);
-        if (!s) throw new Error('Пісню не знайдено');
+        if (!s) throw new Error('Презентацію не знайдено');
         return s;
       },
       search: async (q: string): Promise<SongInfo[]> => {

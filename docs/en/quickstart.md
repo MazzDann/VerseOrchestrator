@@ -4,7 +4,7 @@
 
 This guide takes you from starting VerseOrchestrator to the first verse on a second
 screen. It takes about 10 minutes; the first start can take a few minutes longer, because
-the app builds its library. Search, songs, the running order, and viewers' phones are
+the app builds its library. Search, presentations, the running order, and viewers' phones are
 described in other parts of the [documentation](README.md).
 
 ## Before you begin

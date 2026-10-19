@@ -96,7 +96,7 @@ window turns it on and off.
 
 In the **Cover** section:
 
-- **Cover text** — for example, the gathering's name. Best up to three lines: a longer text
+- **Cover text** — for example, the event’s name. Best up to three lines: a longer text
   gets smaller together with the logo so that the cover fits on the slide.
 - **Logo** — click **Upload** and choose a PNG, JPEG, or WebP file. The logo takes up to 80%
   of the slide's width (under text, up to half its height), the same in the preview and on
@@ -172,7 +172,7 @@ In the **Stage** section of the appearance settings:
   fits the window.
 - **Theme** — **Dark** (the default) or **Light**.
 - **Show “Next”** — what the next press of **Next** will show.
-- **Where we are** — next to the reference: “verse 16 of 36”, “stanza 3 of 5”, “photo 4 of
+- **Where we are** — next to the reference: “verse 16 of 36”, “slide 3 of 5”, “photo 4 of
   20”.
 - **The running order at the bottom** — the item on screen and the next two.
 - **Clock with seconds**.
@@ -256,5 +256,5 @@ restart.
 
 - [Show a text](show-text.md): the preview and the screen, stepping through, output
   windows.
-- [Songs and custom text](songs-and-text.md): songs from `.pptx`, announcements.
+- [Presentations and custom text](songs-and-text.md): presentations from `.pptx`, announcements.
 - [VerseOrchestrator documentation](README.md): the contents of all parts.

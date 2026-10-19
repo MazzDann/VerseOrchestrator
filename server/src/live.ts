@@ -422,7 +422,7 @@ function onCommand(ws: WebSocket, m: Meta, msg: Record<string, unknown>) {
   const passage = msg.passage === undefined ? null : sanitizePassage(msg.passage);
   if (msg.passage !== undefined && !passage) return reject(N_('Неправильний уривок'));
   const song = msg.song === undefined || passage ? null : sanitizeSong(msg.song);
-  if (msg.song !== undefined && !passage && !song) return reject(N_('Неправильна строфа'));
+  if (msg.song !== undefined && !passage && !song) return reject(N_('Неправильний слайд'));
   // a document's paragraph (1.18.0-beta.7)
   const doc = msg.doc === undefined || passage || song ? null : sanitizeDoc(msg.doc);
   if (msg.doc !== undefined && !passage && !song && !doc) return reject(N_('Неправильний абзац'));
@@ -506,7 +506,8 @@ function onSuggest(ws: WebSocket, msg: Record<string, unknown>) {
   if (!passage && !song) return answer(0, N_('Нічого не вибрано'));
   if (passage && !p.allowed.includes('pick'))
     return answer(0, N_('Цьому пульту не дозволено вірші'));
-  if (song && !p.allowed.includes('songs')) return answer(0, N_('Цьому пульту не дозволено пісні'));
+  if (song && !p.allowed.includes('songs'))
+    return answer(0, N_('Цьому пульту не дозволено презентації'));
   const frame = {
     type: 'suggest',
     ...(passage ? { passage } : { song }),

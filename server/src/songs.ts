@@ -99,7 +99,7 @@ function parseBox(v: unknown): SlideBoxSpec | undefined {
     ALIGNS.has(b.align as string) &&
     ANCHORS.has(b.anchor as string) &&
     ['x', 'y', 'w', 'h', 'size'].every((k) => isNum(b[k]));
-  if (!ok) throw bad(N_('Імпорт пісень: незрозумілий вигляд слайда'));
+  if (!ok) throw bad(N_('Імпорт презентацій: незрозумілий вигляд слайда'));
   return {
     text: b.text as string,
     color: b.color as string,
@@ -125,12 +125,12 @@ function parseStyle(v: unknown): SlideStyleSpec | null {
     ALIGNS.has(s.align as string) &&
     ['x', 'y', 'w', 'h', 'size'].every((k) => isNum(s[k])) &&
     (s.anchor === undefined || ANCHORS.has(s.anchor as string));
-  if (!ok) throw bad(N_('Імпорт пісень: незрозумілий вигляд слайда'));
+  if (!ok) throw bad(N_('Імпорт презентацій: незрозумілий вигляд слайда'));
   const sub = parseBox(s.sub);
   // the words in another colour (1.3.0): the marked text and that colour
   const sec = s.second as Record<string, unknown> | undefined | null;
   if (sec != null && !(isText(sec.text, 20000) && isText(sec.color, 32))) {
-    throw bad(N_('Імпорт пісень: незрозумілий вигляд слайда'));
+    throw bad(N_('Імпорт презентацій: незрозумілий вигляд слайда'));
   }
   return {
     bg: s.bg as string,
@@ -162,18 +162,22 @@ export function parseSongImport(body: unknown): {
   let target: { id: string } | { name: string };
   if (isText(t.id, 100) && t.id) target = { id: t.id };
   else if (isText(t.name, 100) && t.name.trim()) target = { name: t.name.trim() };
-  else throw bad(N_('Імпорт пісень: вкажіть бандл або назву нового'));
-  if (!Array.isArray(b.songs) || b.songs.length === 0) throw bad(N_('Імпорт пісень: немає пісень'));
-  if (b.songs.length > 5000) throw bad(N_('Імпорт пісень: забагато пісень за раз (до 5000)'));
+  else throw bad(N_('Імпорт презентацій: вкажіть набір або назву нового'));
+  if (!Array.isArray(b.songs) || b.songs.length === 0)
+    throw bad(N_('Імпорт презентацій: немає презентацій'));
+  if (b.songs.length > 5000)
+    throw bad(N_('Імпорт презентацій: забагато презентацій за раз (до 5000)'));
   const songs = b.songs.map((raw) => {
     const s = (raw ?? {}) as Record<string, unknown>;
-    if (!isText(s.key, 300) || !s.key.trim()) throw bad(N_('Імпорт пісень: пісня без назви файлу'));
+    if (!isText(s.key, 300) || !s.key.trim())
+      throw bad(N_('Імпорт презентацій: презентація без назви файлу'));
     const song = { song: s.key };
-    if (!isText(s.title, 300)) throw bad(N_('Імпорт пісень: у «{song}» незрозуміла назва'), song);
+    if (!isText(s.title, 300))
+      throw bad(N_('Імпорт презентацій: у «{song}» незрозуміла назва'), song);
     if (s.number !== null && !(Number.isInteger(s.number) && (s.number as number) >= 0))
-      throw bad(N_('Імпорт пісень: у «{song}» незрозумілий номер'), song);
+      throw bad(N_('Імпорт презентацій: у «{song}» незрозумілий номер'), song);
     if (!Array.isArray(s.slides) || s.slides.length === 0 || s.slides.length > 500)
-      throw bad(N_('Імпорт пісень: у «{song}» незрозумілі слайди'), song);
+      throw bad(N_('Імпорт презентацій: у «{song}» незрозумілі слайди'), song);
     return {
       key: s.key.trim(),
       number: s.number as number | null,
@@ -181,7 +185,7 @@ export function parseSongImport(body: unknown): {
       slides: s.slides.map((sl) => {
         const x = (sl ?? {}) as { text?: unknown; style?: unknown };
         if (!isText(x.text, 20000)) {
-          throw bad(N_('Імпорт пісень: у «{song}» незрозумілий текст слайда'), song);
+          throw bad(N_('Імпорт презентацій: у «{song}» незрозумілий текст слайда'), song);
         }
         return { text: x.text, style: parseStyle(x.style) };
       }),

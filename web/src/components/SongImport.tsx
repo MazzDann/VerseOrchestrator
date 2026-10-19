@@ -156,7 +156,7 @@ export function SongImport({
             <IconChevronLeft size={18} />
           </ActionIcon>
           <Text fw={600} size="sm">
-            {tr('Імпорт пісень')}
+            {tr('Імпорт презентацій')}
           </Text>
         </Group>
         <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
@@ -202,8 +202,11 @@ export function SongImport({
           <Stack gap={2} mt="xs">
             <Text size="sm">
               {count > 0
-                ? trn(count, 'Знайдено {n} пісню.|Знайдено {n} пісні.|Знайдено {n} пісень.')
-                : tr('Пісень у цих файлах немає.')}
+                ? trn(
+                    count,
+                    'Знайдено {n} презентацію.|Знайдено {n} презентації.|Знайдено {n} презентацій.',
+                  )
+                : tr('Презентацій у цих файлах немає.')}
             </Text>
             {found.failed.length > 0 && (
               <Text size="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
@@ -223,11 +226,11 @@ export function SongImport({
           label={tr('Куди')}
           data={[
             ...(bundles.data ?? []).map((b) => ({ value: b.id, label: `${b.name} (${b.count})` })),
-            { value: NEW, label: tr('Новий бандл…') },
+            { value: NEW, label: tr('Новий набір…') },
           ]}
           value={target ?? null}
           onChange={(v) => setTarget(v)}
-          placeholder={tr('Виберіть бандл')}
+          placeholder={tr('Виберіть набір')}
           allowDeselect={false}
           disabled={busy}
           comboboxProps={{ withinPortal: true }}
@@ -236,7 +239,7 @@ export function SongImport({
           <TextInput
             mt="xs"
             size="sm"
-            label={tr('Назва нового бандла')}
+            label={tr('Назва нового набору')}
             placeholder={tr('Наприклад, Молодіжні')}
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
@@ -244,7 +247,7 @@ export function SongImport({
             disabled={busy}
             error={
               taken
-                ? tr('Бандл «{bundle}» уже є — виберіть його в списку «Куди»', {
+                ? tr('Набір «{bundle}» уже є — виберіть його в списку «Куди»', {
                     bundle: taken.name,
                   })
                 : null
@@ -253,7 +256,7 @@ export function SongImport({
         ) : (
           target && (
             <Text size="xs" c="dimmed" mt={4}>
-              {tr('Пісня з такою самою назвою файлу, що вже є в бандлі, замінюється новою.')}
+              {tr('Презентація з такою самою назвою файлу, що вже є в наборі, замінюється новою.')}
             </Text>
           )
         )}
@@ -262,7 +265,7 @@ export function SongImport({
       {local && (
         <Text size="xs" c="dimmed">
           {tr(
-            'Джерело даних — «у браузері»: пісні з’являться тут після перезбирання сегментів (npm run build:segments). З джерелом «Сервер» вони видні одразу.',
+            'Джерело даних — «у браузері»: презентації з’являться тут після перезбирання сегментів (npm run build:segments). З джерелом «Сервер» вони видні одразу.',
           )}
         </Text>
       )}
@@ -276,7 +279,10 @@ export function SongImport({
           onClick={() => void run()}
         >
           {count > 0
-            ? trn(count, 'Імпортувати {n} пісню|Імпортувати {n} пісні|Імпортувати {n} пісень')
+            ? trn(
+                count,
+                'Імпортувати {n} презентацію|Імпортувати {n} презентації|Імпортувати {n} презентацій',
+              )
             : tr('Імпортувати')}
         </Button>
       </Group>

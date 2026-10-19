@@ -80,7 +80,7 @@ export function SongBundles({
     const name = editing.name.trim();
     if (!name) return setEditing({ ...editing, error: tr('Введіть назву') });
     if (bundles.some((b) => b.id !== editing.id && sameBundleName(b.name, name)))
-      return setEditing({ ...editing, error: tr('Бандл із такою назвою вже є') });
+      return setEditing({ ...editing, error: tr('Набір із такою назвою вже є') });
     setBusy(true);
     try {
       await api.renameSongBundle(editing.id, name);
@@ -115,7 +115,7 @@ export function SongBundles({
       setDeleted(null);
       refresh();
       notifications.show({
-        message: tr('Бандл «{bundle}» повернуто', { bundle: r.name }),
+        message: tr('Набір «{bundle}» повернуто', { bundle: r.name }),
         color: 'green',
         autoClose: 1500,
       });
@@ -149,7 +149,7 @@ export function SongBundles({
       {deleted.source && (
         <Text size="xs" c="dimmed" mt={2}>
           {tr(
-            'Цей бандл наповнює папка «{folder}»: поки там лежать файли .pptx, він з’явиться знову під час наступного запуску.',
+            'Цей набір наповнює папка «{folder}»: поки там лежать файли .pptx, він з’явиться знову під час наступного запуску.',
             { folder: deleted.source },
           )}
         </Text>
@@ -164,7 +164,7 @@ export function SongBundles({
           <TextInput
             size="xs"
             style={{ flex: 1, minWidth: 0 }}
-            aria-label={tr('Нова назва бандла')}
+            aria-label={tr('Нова назва набору')}
             value={editing.name}
             error={editing.error}
             ref={editRef}
@@ -215,18 +215,18 @@ export function SongBundles({
                 color="gray"
                 disabled={busy}
                 onClick={() => setEditing({ id: b.id, name: b.name })}
-                aria-label={tr('Перейменувати бандл «{bundle}»', { bundle: b.name })}
+                aria-label={tr('Перейменувати набір «{bundle}»', { bundle: b.name })}
               >
                 <IconPencil size={16} />
               </ActionIcon>
             </Tooltip>
-            <Tooltip label={tr('Видалити бандл')} withArrow>
+            <Tooltip label={tr('Видалити набір')} withArrow>
               <ActionIcon
                 variant="subtle"
                 color="red"
                 disabled={busy}
                 onClick={() => void remove(b.id, bundles.indexOf(b))}
-                aria-label={tr('Видалити бандл «{bundle}»', { bundle: b.name })}
+                aria-label={tr('Видалити набір «{bundle}»', { bundle: b.name })}
               >
                 <IconTrash size={16} />
               </ActionIcon>
@@ -247,7 +247,7 @@ export function SongBundles({
             <IconChevronLeft size={18} />
           </ActionIcon>
           <Text fw={600} size="sm">
-            {tr('Бандли пісень')}
+            {tr('Набори презентацій')}
           </Text>
         </Group>
         <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label={tr('Закрити')}>
@@ -256,14 +256,16 @@ export function SongBundles({
       </Group>
       <Text size="xs" c="dimmed" mb="xs">
         {tr(
-          'Перейменування не змінює пісень: послідовності показу знаходять їх і далі. Видалений бандл можна повернути, доки відкритий цей список.',
+          'Перейменування не змінює презентацій: послідовності показу знаходять їх і далі. Видалений набір можна повернути, доки відкритий цей список.',
         )}
       </Text>
       <Stack gap={0}>
         {rows}
         {files.isSuccess && bundles.length === 0 && !deleted && (
           <Text size="sm" c="dimmed" p="sm">
-            {tr('Бандлів ще немає. Щоб додати пісні з файлів .pptx, відкрийте «Імпорт пісень».')}
+            {tr(
+              'Наборів ще немає. Щоб додати презентації з файлів .pptx, відкрийте «Імпорт презентацій».',
+            )}
           </Text>
         )}
       </Stack>

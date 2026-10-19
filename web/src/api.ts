@@ -910,7 +910,7 @@ export const api = {
       SongDetailSchema,
       async (l) => {
         const song = await l.getSong(id);
-        if (!song) throw new Error(tr('Пісню не знайдено'));
+        if (!song) throw new Error(tr('Презентацію не знайдено'));
         return song;
       },
       `/api/songs/${id}`,

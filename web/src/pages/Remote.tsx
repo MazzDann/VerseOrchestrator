@@ -446,7 +446,7 @@ export function Remote() {
         hidden: believedHidden(endGuard.current, key, now, screen?.status === 'blank'),
         delta,
       });
-      if (end === 'end') return flash(tr('Кінець пісні'));
+      if (end === 'end') return flash(tr('Кінець презентації'));
       if (end === 'hide' || end === 'show') {
         endGuard.current = { key, at: now, hidden: end === 'hide' };
         if (end === 'show') setNotice(null); // «Кінець пісні» no longer holds
@@ -454,7 +454,7 @@ export function Remote() {
       }
       const to = songPick.stanza + delta;
       if (to < 0 || to >= count) {
-        return flash(delta > 0 ? tr('Це остання строфа') : tr('Це перша строфа'));
+        return flash(delta > 0 ? tr('Це останній слайд') : tr('Це перший слайд'));
       }
       next = { kind: 'song', song: { ...songPick, stanza: to } };
     } else {
@@ -589,7 +589,7 @@ export function Remote() {
         passage.verses,
       )
     : songPick && cursorSong.data
-      ? `№${cursorSong.data.number ?? ''} ${cursorSong.data.title} · ${tr('строфа {n}/{total}', {
+      ? `№${cursorSong.data.number ?? ''} ${cursorSong.data.title} · ${tr('слайд {n}/{total}', {
           n: songPick.stanza + 1,
           total: cursorSong.data.slides.length,
         })}`
@@ -951,16 +951,16 @@ export function Remote() {
               >
                 {canDocs
                   ? canVerses && canSongs
-                    ? tr('Вибрати вірш, пісню чи документ…')
+                    ? tr('Вибрати вірш, презентацію чи документ…')
                     : canVerses
                       ? tr('Вибрати вірш чи документ…')
                       : canSongs
-                        ? tr('Вибрати пісню чи документ…')
+                        ? tr('Вибрати презентацію чи документ…')
                         : tr('Вибрати абзац документа…')
                   : canVerses && canSongs
-                    ? tr('Вибрати вірш або пісню…')
+                    ? tr('Вибрати вірш або презентацію…')
                     : canSongs
-                      ? tr('Вибрати пісню…')
+                      ? tr('Вибрати презентацію…')
                       : tr('Вибрати вірш…')}
               </button>
             )}

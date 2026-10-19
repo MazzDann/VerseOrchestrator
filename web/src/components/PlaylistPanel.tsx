@@ -206,7 +206,7 @@ export const PlaylistPanel = memo(function PlaylistPanel({
     });
   };
   const gather = () => {
-    usePlaylist.getState().gatherLoop(picked, tr('Цикл оголошень'));
+    usePlaylist.getState().gatherLoop(picked, tr('Цикл слайдів'));
     setPicked([]);
   };
   const coverText = useSettings((s) => s.appearance.coverText);
@@ -511,7 +511,7 @@ export const PlaylistPanel = memo(function PlaylistPanel({
             </Stack>
           ) : items.length === 0 ? (
             <Text size="sm" c="dimmed" ta="center" py="lg">
-              {tr('Порожньо. Додавайте уривки, пісні й текст кнопкою «+ у показ».')}
+              {tr('Порожньо. Додавайте уривки, презентації й текст кнопкою «+ у показ».')}
             </Text>
           ) : (
             <Stack gap={4}>

@@ -19,7 +19,7 @@ These are the control window's standard keys. You can change them in **Settings*
 | **Preview: back** — the preview only | Ctrl+←, Ctrl+↑           | ⌥←, ⌥↑ instead of Ctrl |
 | **Next running order item**          | Shift+PageDown           |                        |
 | **Previous running order item**      | Shift+PageUp             |                        |
-| **To the chorus** — in a song        | C                        |                        |
+| **To the chorus** — in a presentation        | C                        |                        |
 | **To screen**                        | F5, F2                   | ⌘↩                     |
 | **Hide text**                        | B                        |                        |
 | **Black screen**                     | . (period)               |                        |
@@ -56,7 +56,7 @@ Other keys of the control window:
 - Ctrl+Enter (on macOS, ⌘↩) in the **Text to screen** panel — show the custom text.
 - Alt+↑ and Alt+↓ scroll the list you are in (otherwise the verse list) without changing
   the selection. On macOS, ⌥ with the arrows is **Preview: next** and **Preview: back**.
-- While a song is open, the arrow keys, PageUp, and PageDown step through its slides, and
+- While a presentation is open, the arrow keys, PageUp, and PageDown step through its slides, and
   **Preview: next** and **Preview: back** do nothing. The running order's item keys
   (Shift+PageDown, Shift+PageUp, and with **↑ ↓ verses, ← → items** also ← and →) go to the
   neighbouring item.
@@ -64,7 +64,7 @@ Other keys of the control window:
   through its photos — the same way, except the running order's item keys.
 - With the **“Next” past an item’s end opens the next one** switch (**Settings** →
   **Hotkeys**, under **Arrows**), “Next” after the last step of a running-order item — a
-  passage's last verse, a song's “End”, an album's last photo, a text, a picture, or a video —
+  passage's last verse, a presentation's “End”, an album's last photo, a text, a picture, or a video —
   opens the next item, and “Back” at its first step opens the previous one. The remote's
   buttons do the same. If you have shown something else since, “Next” steps as usual.
 
@@ -99,7 +99,7 @@ The buttons at the top of the control window are grouped from left to right:
 | **App**              | **Settings**, **Notifications**, **Help**, **Light theme** or **Dark theme**, **Preview panel** (in a narrow window) |
 
 The mode chooses what you work with: **Bible** — the translations and books on the left, the
-verses in the middle; **Presentations** — the song search and list on the left, the open song in the
+verses in the middle; **Presentations** — the presentation search and list on the left, the open presentation in the
 middle; **Media** — **Images**, **Albums**, **Videos**, and **Text to screen** on the left,
 the chosen one in the middle. A verse picked in the search, the history, or the saved
 passages takes you back to **Bible**; a running order item opens its mode.
@@ -166,8 +166,8 @@ Everything the app remembers is in its folder:
 | -------------------- | -------------------------------------------------------------------------------------------------------- |
 | `modules/`           | module files (`*.SQLite3`) the library is built from                                                     |
 | `modules/documents/` | documents (`*.docx`, `*.md`, `*.txt`, `*.pdf`); `.trash/` keeps the last twenty deleted or replaced      |
-| `songs/`             | songs in presentations (`*.pptx`) that the app moves into a bundle                                       |
-| `data/songs/`        | song bundles (`*.vosongs`)                                                                               |
+| `songs/`             | `.pptx` files with presentations that the app moves into a bundle                                     |
+| `data/songs/`        | presentation bundles (`*.vosongs`)                                                                               |
 | `data/images/`       | images to show: two files for each and `index.json`; in `.trash/`, the last twenty deleted               |
 | `data/albums.json`   | albums: the paths of photo folders (the photos stay in the folders; not in a backup)                     |
 | `data/album-cache/`  | small copies of album photos for phones (the app makes them again; not in a backup)                      |
@@ -175,7 +175,7 @@ Everything the app remembers is in its folder:
 | `data/video-cache/`  | frames of videos for phones (the app makes them again; not in a backup)                                  |
 | `data/backups/`      | the state that restoring a backup, a carry-over from another copy, or **Go back to how it was** replaced |
 | `data/backups/auto/` | the automatic backups: daily ones and those made before a version change                                 |
-| `data/library.db`    | the library: translations, dictionaries, commentaries, songs, and the search index                       |
+| `data/library.db`    | the library: translations, dictionaries, commentaries, presentations, and the search index                       |
 | `data/models/`       | the models for search by meaning (downloaded with a button; not in the backup)                           |
 | `data/vectors.db`    | the verses' vectors for search by meaning (the app makes them itself; not in the backup)                 |
 | `data/ui-state.json` | appearance settings, presets, hotkeys, the running order, and programs                                   |
@@ -200,7 +200,7 @@ it:
 | `VO_DATA_DIR`   | the data folder                                   | `data/`; in a portable copy, `data/` next to `app/`       |
 | `LIBRARY_DB`    | the library file                                  | `data/library.db`                                         |
 | `MODULES_DIR`   | the folder with module files                      | `modules/`; in a portable copy, `modules/` next to `app/` |
-| `SONGS_DIR`     | the folder with `.pptx` songs                     | `songs/`                                                  |
+| `SONGS_DIR`     | the folder with `.pptx` presentations                     | `songs/`                                                  |
 | `VO_UPDATE_URL` | the address where the app asks about new versions | the project's release list on GitHub                      |
 
 The start window speaks the language chosen in the control window. To give it another one,
