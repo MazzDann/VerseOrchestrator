@@ -1339,6 +1339,20 @@ export const api = {
     if (!res.ok) throw await failure(res);
     return ImageSchema.parse(await res.json());
   },
+  /** Quotes from Wikiquote (1.19.0-beta.10, server/src/quotes.ts). */
+  searchQuotes: async (q: string, lang: 'uk' | 'en') => {
+    const res = await request(`/api/quotes/search?${new URLSearchParams({ q, lang })}`, {
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({
+        quotes: z.array(
+          z.object({ text: z.string(), author: z.string(), page: z.string(), credit: z.string() }),
+        ),
+      })
+      .parse(await res.json());
+  },
   /** Free pictures by a search (1.19.0-beta.9, server/src/imageSearch.ts). */
   searchImages: async (q: string, source: 'commons' | 'openverse', page: number) => {
     const res = await request(

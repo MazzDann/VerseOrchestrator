@@ -9,8 +9,16 @@ import {
   Group,
   Button,
   ActionIcon,
+  Tooltip,
 } from '@mantine/core';
-import { IconLetterT, IconDeviceTv, IconTrash, IconPlaylistAdd } from '@tabler/icons-react';
+import {
+  IconLetterT,
+  IconDeviceTv,
+  IconTrash,
+  IconPlaylistAdd,
+  IconQuote,
+} from '@tabler/icons-react';
+import { QuoteSearch } from './QuoteSearch';
 import { useSettings, type TextItem } from '../settingsStore';
 import { tr, useLang } from '../i18n';
 
@@ -35,6 +43,8 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
   const recentTexts = useSettings((s) => s.recentTexts);
   const removeRecentText = useSettings((s) => s.removeRecentText);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  // «Цитати з Вікіцитат» (1.19.0-beta.10)
+  const [quotesOpen, setQuotesOpen] = useState(false);
 
   // the caret goes in when the operator picks «Текст на екран» (`focusKey` changes) — not when a
   // running order item opens it: the show's keys would stop at the field (review, 1.8.12-beta.7)
@@ -66,7 +76,30 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
             {tr('Текст на екран')}
           </Text>
         </Group>
+        <Tooltip label={tr('Цитати з Вікіцитат — з автором (потрібен інтернет)')} withArrow>
+          <ActionIcon
+            size="input-xs"
+            variant={quotesOpen ? 'filled' : 'light'}
+            onClick={() => setQuotesOpen((o) => !o)}
+            aria-label={tr('Цитати з Вікіцитат…')}
+            aria-pressed={quotesOpen}
+          >
+            <IconQuote size={16} />
+          </ActionIcon>
+        </Tooltip>
       </Group>
+      {quotesOpen && (
+        <QuoteSearch
+          onClose={() => setQuotesOpen(false)}
+          onPick={(quote) => {
+            // the quote is the text, its author and the site the reference line
+            setBody(quote.text);
+            setTitle(quote.credit);
+            setQuotesOpen(false);
+            setTimeout(() => bodyRef.current?.focus(), 30);
+          }}
+        />
+      )}
       <Stack gap="xs">
         <TextInput
           size="sm"

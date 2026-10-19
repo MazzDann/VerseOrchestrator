@@ -82,6 +82,7 @@ import { youtubeTitle } from './youtube.js';
 import { createVideoDownloads } from './videoDownload.js';
 import { fetchImage } from './imageFetch.js';
 import { searchImages } from './imageSearch.js';
+import { searchQuotes } from './quotes.js';
 import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
 import { createGitSync } from './gitSync.js';
@@ -1411,6 +1412,21 @@ app.get(
           429,
           N_('Забагато пошуків за раз — спробуйте за хвилину чи в іншому джерелі'),
         );
+      throw new ApiError(502, N_('Пошук не відповідає — перевірте інтернет'));
+    }
+    res.json(got);
+  }),
+);
+
+/** Quotes from Wikiquote (1.19.0-beta.10, quotes.ts): for «Текст на екран», each with its author. */
+app.get(
+  '/api/quotes/search',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const lang = req.query.lang === 'en' ? 'en' : 'uk';
+    const got = await searchQuotes(String(req.query.q ?? ''), lang);
+    if ('refused' in got) {
+      if (got.refused === 'query') throw new ApiError(400, N_('Введіть, що шукати'));
       throw new ApiError(502, N_('Пошук не відповідає — перевірте інтернет'));
     }
     res.json(got);
