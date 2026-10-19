@@ -4,6 +4,7 @@ import { type SlideVideo } from '../presenterBus';
 import { positionIn } from '../lib/video';
 import {
   loadYouTube,
+  youtubeHost,
   showsAd,
   YT_ENDED,
   YT_PAUSED,
@@ -86,7 +87,7 @@ export function YouTubeLead({
         if (gone) return;
         made = new YT.Player(host, {
           videoId: id,
-          host: 'https://www.youtube-nocookie.com',
+          host: youtubeHost(clock.current.account),
           width: '100%',
           height: '100%',
           playerVars: {
@@ -142,7 +143,7 @@ export function YouTubeLead({
       }
       host.remove();
     };
-  }, [video.youtube]);
+  }, [video.youtube, video.account]);
 
   // a jump the operator made (the bar, the arrow keys) shows as the player's time leaving the clock
   useEffect(() => {

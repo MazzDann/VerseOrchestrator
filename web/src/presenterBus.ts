@@ -240,6 +240,8 @@ export interface SlideVideo {
    */
   youtube?: string;
   volume?: number;
+  /** YouTube with the browser's sign-in (1.19.0-beta.11): youtube.com, not its privacy mode */
+  account?: boolean;
 }
 
 export interface SlideCover {

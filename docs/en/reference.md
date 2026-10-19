@@ -242,7 +242,9 @@ browser.
   them. Use what may be shown publicly — your own, with the author's permission, or under a free
   licence.
 - **YouTube.** The app doesn't download YouTube videos and doesn't interfere with ads: YouTube's
-  rules require that. Showing a video publicly (a service, an event) needs the rights to it.
+  rules require that. No ads only with YouTube Premium (the «YouTube: my sign-in in the browser»
+  switch). YouTube sees the IP address, the browser, which video and how long it was watched; each
+  window with a player is a view of its own. The app's content isn't sent to it. Showing a video publicly (a service, an event) needs the rights to it.
 - **Quotes** are their authors' words. A short quote with its author named is common; long texts
   are better taken with permission.
 

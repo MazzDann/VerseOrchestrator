@@ -113,6 +113,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const subheadingsOn = useSettings((s) => s.subheadings);
   const setSimpleView = useSettings((s) => s.setSimpleView);
   const windowsMenu = useSettings((s) => s.windowsMenu);
+  const youtubeAccount = useSettings((s) => s.youtubeAccount);
+  const setYoutubeAccount = useSettings((s) => s.setYoutubeAccount);
   const setWindowsMenu = useSettings((s) => s.setWindowsMenu);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
@@ -734,6 +736,15 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               value={videoPhonesOf(a.videoPhones)}
               onChange={(v) => v && set({ videoPhones: videoPhonesOf(v) })}
               allowDeselect={false}
+            />
+            {/* 1.19.0-beta.11: YouTube with the browser's Google sign-in (Premium) */}
+            <Switch
+              label={tr('YouTube: мій вхід у браузері (Premium)')}
+              description={tr(
+                'Плеєр YouTube бачитиме ваш вхід у Google у цьому браузері: з YouTube Premium — без реклами, а перегляди потраплять у вашу історію YouTube. Вимкнено — приватний режим YouTube. В окремому застосунку входу в Google немає.',
+              )}
+              checked={youtubeAccount}
+              onChange={(e) => setYoutubeAccount(e.currentTarget.checked)}
             />
           </Section>
 

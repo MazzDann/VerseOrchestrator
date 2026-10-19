@@ -28,7 +28,7 @@ import { showsSomething } from '../../lib/slide';
 import { everyMs } from '../../lib/workerClock';
 import { tr } from '../../i18n';
 import { unusable, unusableNotice } from '../../lib/denied';
-import { type VideoEnd, type VideoPhones } from '../../settingsStore';
+import { useSettings, type VideoEnd, type VideoPhones } from '../../settingsStore';
 import { standbyNotice } from './standby';
 
 /** The video on screen, if the screen shows one of the list. */
@@ -130,7 +130,12 @@ export function useVideo({
         phones: videoPhones,
         // YouTube (1.19.0-beta.6): played by the windows themselves, sounded by one «Показ» window
         ...(v.youtube
-          ? { youtube: v.youtube, volume, ...(v.duration ? { duration: v.duration } : {}) }
+          ? {
+              youtube: v.youtube,
+              volume,
+              ...(v.duration ? { duration: v.duration } : {}),
+              ...(useSettings.getState().youtubeAccount ? { account: true } : {}),
+            }
           : {}),
       },
       v.id,

@@ -242,7 +242,7 @@ comes from the presentation window: with several of them, one plays the sound
 and the others are muted. A browser may keep the sound off until you click in the presentation
 window — the control window then says so; the desktop app plays the sound at once. Some owners
 don't let their videos be shown in other apps — the app says so when you add one. YouTube's ads
-play as usual.
+play as usual. If you have YouTube Premium and are signed in to Google in this browser, turn on **Settings** → **Video** → **YouTube: my sign-in in the browser (Premium)**: then there are no ads, and the views go into your YouTube history. The desktop app has no Google sign-in.
 
 The app doesn't download videos from YouTube — YouTube's rules require that. Showing a video to
 an audience is the organizer's responsibility, as when showing it from a browser. If you have the
