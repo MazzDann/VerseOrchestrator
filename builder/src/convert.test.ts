@@ -93,7 +93,8 @@ afterAll(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-describe('module → segment conversion', () => {
+// each builds and reads SQLite modules: a slow CI runner took over the default 5 s (1.19.0-beta.10's release run)
+describe('module → segment conversion', { timeout: 30_000 }, () => {
   it('a Bible: builder rules for text, markup, search text and Strongs; ids in the dropped range', () => {
     const src = module('TST.SQLite3', BIBLE);
     const id = droppedId(12345);
