@@ -36,6 +36,7 @@ import { RenameButton } from './RenameButton';
 import { parentOf, useDrop } from '../lib/drop';
 import { youtubeIdOf } from '../lib/youtube';
 import { YouTubeLead } from './YouTubeLead';
+import { VideoLink, VideoLinkButton } from './VideoLink';
 
 type VideoShow = ReturnType<typeof useVideo>;
 
@@ -67,6 +68,8 @@ export function VideosView({
   const [ytOpen, setYtOpen] = useState(false);
   const [ytUrl, setYtUrl] = useState('');
   const [ytBusy, setYtBusy] = useState(false);
+  // «За посиланням…» (1.19.0-beta.8)
+  const [linkOpen, setLinkOpen] = useState(false);
   const ytField = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (ytOpen) ytField.current?.focus();
@@ -163,15 +166,26 @@ export function VideosView({
             <ActionIcon
               size="input-xs"
               variant={ytOpen ? 'filled' : 'light'}
-              onClick={() => setYtOpen((o) => !o)}
+              onClick={() => {
+                setYtOpen((o) => !o);
+                setLinkOpen(false);
+              }}
               aria-label={tr('З YouTube…')}
               aria-pressed={ytOpen}
             >
               <IconBrandYoutube size={16} />
             </ActionIcon>
           </Tooltip>
+          <VideoLinkButton
+            open={linkOpen}
+            onToggle={() => {
+              setLinkOpen((o) => !o);
+              setYtOpen(false);
+            }}
+          />
         </Group>
       </Group>
+      <VideoLink open={linkOpen} onClose={() => setLinkOpen(false)} />
       {ytOpen && (
         <Group gap={6} wrap="nowrap" mb={8}>
           <TextInput
@@ -313,7 +327,13 @@ export function VideosView({
                         {tr('Прибрати відео «{name}»?', { name: v.name })}
                       </Text>
                       <Text size="xs" c="dimmed">
-                        {tr('Файл лишиться на місці; додати його можна знову.')}
+                        {v.youtube
+                          ? tr('Відео лишиться на YouTube; додати його можна знову.')
+                          : v.downloaded
+                            ? tr(
+                                'Файл, завантажений за посиланням, буде видалено з папки застосунку.',
+                              )
+                            : tr('Файл лишиться на місці; додати його можна знову.')}
                       </Text>
                       {v.id === live && (
                         <Text size="xs" c="dimmed">

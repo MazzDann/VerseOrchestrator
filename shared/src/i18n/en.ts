@@ -2688,4 +2688,36 @@ export const EN: Record<string, string> = {
   'Керуйте тут кнопками YouTube: пауза, перемотка — вікна показу повторюють. Звук іде з вікна показу.':
     'Control it here with YouTube’s own buttons: pause, seek — the presentation windows follow. The sound comes from the presentation window.',
   'Відео не знайдено': 'Video not found',
+  'За посиланням сторінка, а не файл відео — потрібне пряме посилання на файл .mp4 чи .webm':
+    'The link leads to a page, not a video file — a direct link to an .mp4 or .webm file is needed',
+  'Відео завелике — до 20 ГБ': 'The video is too big — up to 20 GB',
+  'На диску забракло місця': 'The disk ran out of space',
+  'Сервер за посиланням відповів {status} — перевірте посилання':
+    'The link’s server answered {status} — check the link',
+  'Не вдалося завантажити — перевірте посилання й інтернет':
+    'Couldn’t download — check the link and the internet connection',
+  'За посиланням — пряме посилання на файл відео; застосунок завантажить його':
+    'By a link — a direct link to a video file; the app downloads it',
+  'За посиланням…': 'By a link…',
+  'Завантажено: {name}': 'Downloaded: {name}',
+  'Завантаження зупинено': 'The download is stopped',
+  'Завантажую «{name}»…': 'Downloading “{name}”…',
+  'Завантажую відео за посиланням…': 'Downloading the video from the link…',
+  'Зупинити завантаження': 'Stop the download',
+  'Завантаження відео': 'Video download',
+  'https://… — пряме посилання на файл відео': 'https://… — a direct link to a video file',
+  'Посилання на файл відео': 'Link to a video file',
+  'Завантажити відео': 'Download the video',
+  'Відео лишиться на YouTube; додати його можна знову.':
+    'The video stays on YouTube; you can add it again.',
+  'Файл, завантажений за посиланням, буде видалено з папки застосунку.':
+    'The file downloaded from the link will be deleted from the app’s folder.',
+  'Це відео YouTube — додайте його кнопкою «З YouTube…»':
+    'This is a YouTube video — add it with «З YouTube…» (From YouTube…)',
+  'Відео з Telegram за посиланням не завантажити: збережіть його в Telegram і перетягніть файл у вікно':
+    'A Telegram video can’t be downloaded by its link: save it in Telegram and drag the file into the window',
+  'Завантаження не знайдено': 'Download not found',
+  'Відео за посиланням': 'Videos by a link',
+  'Завантажені відео; файл іде, коли ви прибираєте відео в «Відео».':
+    'Downloaded videos; a file goes when you take its video off in «Відео» (Videos).',
 };

@@ -108,6 +108,7 @@ const DiskPartSchema = z.object({
     'models',
     'album-cache',
     'video-cache',
+    'downloads',
     'images',
     'images-trash',
     'documents-trash',
@@ -713,11 +714,27 @@ const VideoSchema = z.object({
   src: z.string(),
   poster: z.string(),
   hasPoster: z.boolean(),
+  /** downloaded by the app from a link (1.19.0-beta.8): its file goes with it */
+  downloaded: z.boolean().optional(),
   /** a YouTube video (1.19.0-beta.6): its id — no file; `duration` read when it was added (0: unknown) */
   youtube: z.string().optional(),
   duration: z.number().optional(),
 });
 export type VideoInfo = z.infer<typeof VideoSchema>;
+
+/** A video downloaded from a link (1.19.0-beta.8, server/src/videoDownload.ts). */
+const VideoDownloadSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  name: z.string(),
+  got: z.number(),
+  total: z.number(),
+  state: z.enum(['running', 'done', 'failed', 'stopped']),
+  failure: z.enum(['page', 'type', 'size', 'failed', 'disk']).optional(),
+  status: z.number().optional(),
+  video: z.object({ id: z.string(), name: z.string() }).passthrough().optional(),
+});
+export type VideoDownload = z.infer<typeof VideoDownloadSchema>;
 
 /** What a backup holds (1.5.0, server/src/backup.ts `BackupSummary`). */
 const BackupSummarySchema = z.object({
@@ -1436,6 +1453,30 @@ export const api = {
     return VideoSchema.parse(await res.json());
   },
   /** A YouTube video by its address (1.19.0-beta.6); `duration` as the control window read it. */
+  /** Download a video from a direct link (1.19.0-beta.8): the job, its progress, «Зупинити». */
+  downloadVideo: async (url: string) => {
+    const res = await request('/api/videos/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) throw await failure(res);
+    return VideoDownloadSchema.parse(await res.json());
+  },
+  videoDownload: async (id: string) => {
+    const res = await request(`/api/videos/download/${encodeURIComponent(id)}`, {
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+    return VideoDownloadSchema.parse(await res.json());
+  },
+  stopVideoDownload: async (id: string) => {
+    const res = await request(`/api/videos/download/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: CONTROL_HEADERS,
+    });
+    if (!res.ok) throw await failure(res);
+  },
   addYouTube: async (url: string, duration: number) => {
     const res = await request('/api/videos/youtube', {
       method: 'POST',

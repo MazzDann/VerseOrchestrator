@@ -79,6 +79,7 @@ import { createRebuildJob, type BuilderProcess } from './rebuildJob.js';
 import { OPEN_FRESH_MS, createUpdateChecker, isQuiet, pinForSwap, type Pin } from './updates.js';
 import { readLayout } from './layout.js';
 import { youtubeTitle } from './youtube.js';
+import { createVideoDownloads } from './videoDownload.js';
 import { fetchImage } from './imageFetch.js';
 import { isDevCopy, versionLabel } from './versionLabel.js';
 import { createCodeWatch, headCommit } from './codeChange.js';
@@ -1819,6 +1820,49 @@ app.post(
     res.status(201).json(await videoEntry(dataDir, video));
   }),
 );
+
+/**
+ * «Відео за посиланням» (1.19.0-beta.8, videoDownload.ts): a direct link to a video file, downloaded
+ * once into data/downloads/ — its progress, and «Зупинити»
+ */
+const videoDownloads = createVideoDownloads(dataDir);
+app.post(
+  '/api/videos/download',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    const url = (req.body as { url?: unknown } | undefined)?.url;
+    const job = videoDownloads.start(typeof url === 'string' ? url : '');
+    if ('refused' in job) {
+      if (job.refused === 'youtube')
+        throw new ApiError(400, N_('Це відео YouTube — додайте його кнопкою «З YouTube…»'));
+      if (job.refused === 'telegram')
+        throw new ApiError(
+          400,
+          N_(
+            'Відео з Telegram за посиланням не завантажити: збережіть його в Telegram і перетягніть файл у вікно',
+          ),
+        );
+      throw new ApiError(400, N_('Це не адреса в інтернеті: потрібна http:// чи https://'));
+    }
+    res.status(202).json(job);
+  }),
+);
+app.get('/api/videos/download/:id', requireLocalControl, (req, res) => {
+  const job = videoDownloads.get(String(req.params.id));
+  if (!job) {
+    res.status(404).json({ error: N_('Завантаження не знайдено') });
+    return;
+  }
+  res.json(job);
+});
+app.delete('/api/videos/download/:id', requireLocalControl, (req, res) => {
+  const job = videoDownloads.stop(String(req.params.id));
+  if (!job) {
+    res.status(404).json({ error: N_('Завантаження не знайдено') });
+    return;
+  }
+  res.json(job);
+});
 
 // a YouTube video's length, read by a player that is seen (1.19.0-beta.7)
 app.put(

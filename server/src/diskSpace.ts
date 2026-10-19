@@ -21,6 +21,7 @@ export type DiskPartId =
   | 'models'
   | 'album-cache'
   | 'video-cache'
+  | 'downloads'
   | 'images'
   | 'images-trash'
   | 'documents-trash'
@@ -122,6 +123,8 @@ export async function diskParts(p: DiskPlaces): Promise<DiskPart[]> {
   }
   add('album-cache', await sizeOf(d('album-cache')), true);
   add('video-cache', await sizeOf(d('video-cache')), true);
+  // videos downloaded from a link (1.19.0-beta.8): the operator's, taken off with their entry in «Відео»
+  add('downloads', await sizeOf(d('downloads')), false);
   const imagesTrash = await sizeOf(d('images', '.trash'));
   add('images', (await sizeOf(d('images'))) - imagesTrash, false);
   add('images-trash', imagesTrash, true);
