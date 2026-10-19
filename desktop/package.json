@@ -1,6 +1,6 @@
 {
   "name": "@vo/desktop",
-  "version": "1.19.0-beta.7",
+  "version": "1.19.0-beta.8",
   "private": true,
   "description": "VerseOrchestrator as a desktop app (Electron) — the same app in its own windows, no browser needed",
   "type": "module",
