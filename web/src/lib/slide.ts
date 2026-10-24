@@ -87,13 +87,14 @@ export function summarize(slide: Slide | null | undefined): ScreenSummary {
   if (!slide) return { status: 'empty', reference: '', text: '' };
   // «Відлік» over «Заставка», or in the corner of what is on screen (review: the corner's was missed)
   const timed = (slide.cover && slide.countdown) || slide.cornerCountdown || null;
-  const status: ScreenSummary['status'] = slide.forceBlack
-    ? 'black'
-    : slide.blank
-      ? 'blank'
-      : slide.visible && hasContent(slide)
-        ? 'live'
-        : 'empty';
+  const status: ScreenSummary['status'] =
+    slide.forceBlack || slide.video?.screen === 'yield'
+      ? 'black'
+      : slide.blank
+        ? 'blank'
+        : slide.visible && hasContent(slide)
+          ? 'live'
+          : 'empty';
   return {
     status,
     reference: slide.reference ?? '',

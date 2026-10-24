@@ -7,6 +7,7 @@ import {
   app,
   BrowserWindow,
   dialog,
+  ipcMain,
   Menu,
   powerSaveBlocker,
   screen,
@@ -162,6 +163,20 @@ function keepPlace(win: BrowserWindow): void {
 
 // ── the screens stay awake while something is shown ──────────────────────────────────────────
 const outputs = new Set<BrowserWindow>();
+/** the output windows that were opened fullscreen (always-on-top): the ones «Поступитися» toggles */
+const fullscreenOutputs = new WeakSet<BrowserWindow>();
+
+// «Поступитися екраном» for a video (1.21.0-beta.7, F1024-08): an output window (only a fullscreen
+// one — a windowed output never hogs the screen) drops its always-on-top so the operator's own
+// player can come forward on the 2nd screen, and takes it back on the next slide. Only a window the
+// shell itself tracks as an output may ask — PAGE webPreferences are shared across pages.
+ipcMain.on('vo-output-yield', (e, on: unknown) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || !outputs.has(w) || !fullscreenOutputs.has(w)) return;
+  const yielding = on === true;
+  w.setAlwaysOnTop(!yielding);
+  w.setSkipTaskbar(!yielding);
+});
 let awake: number | null = null;
 function followOutputs(win: BrowserWindow): void {
   outputs.add(win);
@@ -265,6 +280,11 @@ function openControl(): BrowserWindow {
     }
     if (kind !== 'output') return;
     followOutputs(child);
+    // «Поступитися екраном» (1.21.0-beta.7, F1024-08): track the output's REAL html-fullscreen state,
+    // so a window that left fullscreen (the F key, a screen unplugged, a reload) drops out of the set
+    // and is never forced always-on-top on un-yield. The initial requestFullscreen below adds it.
+    child.webContents.on('enter-html-full-screen', () => fullscreenOutputs.add(child));
+    child.webContents.on('leave-html-full-screen', () => fullscreenOutputs.delete(child));
     const full = pendingFullscreen.get(url) ?? false;
     pendingFullscreen.delete(url);
     if (!full) return;

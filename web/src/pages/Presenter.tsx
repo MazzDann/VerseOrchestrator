@@ -4,7 +4,8 @@ import { SlideCanvas } from '../components/SlideCanvas';
 import { VideoPlayerContext, VideoSoundContext } from '../lib/youtube';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
-import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
+import { listenFullscreen, setOwnFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
+import { inDesktop, desktopOutputYield } from '../lib/desktop';
 import { outputKeyAction } from '../lib/outputKeys';
 import { useWakeLock } from '../lib/wakeLock';
 import { aspectBox } from '../lib/aspect';
@@ -62,6 +63,20 @@ export function Presenter() {
     setSlide(readSlide());
     return subscribeSlide(setSlide);
   }, []);
+
+  // «Поступитися екраном» (1.21.0-beta.7, F1024-08): a YouTube video under the «Поступитися» setting
+  // is pushed black (video.screen === 'yield') — this window frees the 2nd screen for the operator's
+  // own player. In the desktop app we only drop always-on-top (the shell restores it on the next
+  // slide); in a browser we leave fullscreen (the one thing that needs no gesture) and the operator
+  // re-enters it with F / a click when the video is over, since re-entering can't be automated.
+  const yielding = slide.video?.screen === 'yield';
+  useEffect(() => {
+    if (inDesktop()) {
+      desktopOutputYield(yielding);
+    } else if (yielding) {
+      setOwnFullscreen(false).catch(() => undefined);
+    }
+  }, [yielding]);
 
   // The browser only grants fullscreen from a user gesture, so we can't do it on
   // window.open — toggle it on a click anywhere or the "F" key instead.

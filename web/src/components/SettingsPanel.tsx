@@ -43,6 +43,7 @@ import {
   FONT_OPTIONS,
   videoEndOf,
   videoPhonesOf,
+  videoScreenOf,
   type TextAlign,
   type PadUnit,
   type PadLink,
@@ -721,6 +722,19 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             <Text size="xs" c="dimmed">
               {tr('Відео грає у вікні показу без звуку; звук іде з вікна керування.')}
             </Text>
+            <Select
+              label={tr('Відео YouTube на екрані показу')}
+              description={tr(
+                'Поступитися — вікно показу звільняє 2-й екран (чорніє й не тримається поверх), щоб ви вивели туди власний плеєр. Відтворює — вікно показу програє відео само. Локальні файли завжди відтворюються.',
+              )}
+              data={[
+                { value: 'yield', label: tr('Поступитися екраном власному плеєру') },
+                { value: 'play', label: tr('Вікно показу відтворює саме') },
+              ]}
+              value={videoScreenOf(a.videoScreen)}
+              onChange={(v) => v && set({ videoScreen: videoScreenOf(v) })}
+              allowDeselect={false}
+            />
             <Select
               label={tr('Після кінця відео')}
               data={[
