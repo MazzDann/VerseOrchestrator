@@ -446,6 +446,9 @@ interface SettingsState {
   /** a translation's section titles over its verses in the control window (1.16.0-beta.2) */
   subheadings: boolean;
   setSubheadings: (v: boolean) => void;
+  /** project the section subheading on the output screen too, above the verse (1.21.0-beta.6, F1024-05) */
+  projectSubheadings: boolean;
+  setProjectSubheadings: (v: boolean) => void;
   /** which section-title set each translation shows, by abbr — '' its own (1.16.0-beta.3) */
   subheadingSets: Record<string, string>;
   setSubheadingSet: (translation: string, set: string) => void;
@@ -795,6 +798,8 @@ export const useSettings = create<SettingsState>()(
       setYoutubeAccount: (v) => set({ youtubeAccount: v === true }),
       subheadings: true,
       setSubheadings: (v) => set({ subheadings: v === true }),
+      projectSubheadings: false,
+      setProjectSubheadings: (v) => set({ projectSubheadings: v === true }),
       subheadingSets: {},
       setSubheadingSet: (translation, choice) =>
         set((s) => ({ subheadingSets: { ...s.subheadingSets, [translation]: choice } })),

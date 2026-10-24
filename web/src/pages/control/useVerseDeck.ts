@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { NO_LIBRARY } from '@vo/shared';
 import { api, ApiFailure } from '../../api';
-import { type Appearance } from '../../settingsStore';
+import { type Appearance, useSettings } from '../../settingsStore';
+import { setFor } from '../../lib/subheadingSets';
 import {
   type QrStyle,
   type Slide,
@@ -165,6 +166,45 @@ export function useVerseDeck({
     [currentBook, chapter, pageVerses],
   );
 
+  // The section subheading to project (1.21.0-beta.6, F1024-05): the title of a section that OPENS
+  // on this slide (a heading at one of the shown verses), as a reading divider. The control list
+  // already shows headings (1.16); this is the output, by its own «Підзаголовки на екрані» setting,
+  // and reuses the same translation / chosen-set resolution and query cache as the list.
+  const projectSubheadings = useSettings((s) => s.projectSubheadings);
+  const chosenSets = useSettings((s) => s.subheadingSets);
+  const { data: subhSets } = useQuery({
+    queryKey: ['subheading-sets'],
+    queryFn: api.subheadingSets,
+    enabled: projectSubheadings,
+  });
+  const subhPrimaryAbbr = translations.find((t) => t.id === primaryId)?.abbr;
+  const subhSetAbbr =
+    subhPrimaryAbbr != null && subhSets ? setFor(subhPrimaryAbbr, chosenSets, subhSets) : '';
+  const subhSetId = subhSets?.find((s) => s.abbr === subhSetAbbr)?.id ?? null;
+  const { data: pageSubheadings } = useQuery({
+    queryKey: ['subheadings', primaryId, subhSetId, bookNumber, chapter],
+    queryFn: () =>
+      subhSetId != null
+        ? api.setSubheadings(subhSetId, bookNumber!, chapter!)
+        : api.subheadings(primaryId!, bookNumber!, chapter!),
+    // Wait for the sets list and the primary's abbr before fetching: until then subhSetId is
+    // null and we would fetch the own-translation subheadings, projecting a wrong/absent title
+    // for a blink before the chosen set resolves (reviewer, beta.6).
+    enabled:
+      projectSubheadings &&
+      primaryId != null &&
+      bookNumber != null &&
+      chapter != null &&
+      subhSets !== undefined &&
+      subhPrimaryAbbr != null,
+    staleTime: Infinity,
+  });
+  const slideHeading = useMemo(() => {
+    if (!projectSubheadings || pageVerses.length === 0) return undefined;
+    const here = new Set(pageVerses);
+    return (pageSubheadings ?? []).find((h) => here.has(h.verse))?.title || undefined;
+  }, [projectSubheadings, pageSubheadings, pageVerses]);
+
   // Back to the first page whenever the selection or the page size changes.
   useEffect(() => {
     setPageIndex(0);
@@ -290,6 +330,7 @@ export function useVerseDeck({
     style: slideStyle,
     template: slideTemplate,
     reveal: revealForSlide,
+    ...(slideHeading ? { heading: slideHeading } : {}),
   };
   // Show the last song/text/Strong projection while one is active; otherwise the
   // verse selection. The override is cleared on navigation (E12, useShowSteps).
@@ -393,6 +434,7 @@ export function useVerseDeck({
     revealUnits,
     revealForSlide,
     verseSource,
+    slideHeading,
     versePreview,
     previewSlide,
     nextSlide,

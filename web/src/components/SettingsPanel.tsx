@@ -111,6 +111,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const uiMotion = useSettings((s) => s.uiMotion);
   const setUiMotion = useSettings((s) => s.setUiMotion);
   const subheadingsOn = useSettings((s) => s.subheadings);
+  const projectSubheadingsOn = useSettings((s) => s.projectSubheadings);
   const setSimpleView = useSettings((s) => s.setSimpleView);
   const windowsMenu = useSettings((s) => s.windowsMenu);
   const youtubeAccount = useSettings((s) => s.youtubeAccount);
@@ -1333,6 +1334,17 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               )}
               checked={subheadingsOn}
               onChange={(e) => useSettings.getState().setSubheadings(e.currentTarget.checked)}
+            />
+            {/* 1.21.0-beta.6 (F1024-05): the same section title on the output screen too */}
+            <Switch
+              label={tr('Підзаголовки на екрані')}
+              description={tr(
+                'Назву розділу тексту показувати й на екрані показу — над віршем, де починається розділ, з рискою-роздільником.',
+              )}
+              checked={projectSubheadingsOn}
+              onChange={(e) =>
+                useSettings.getState().setProjectSubheadings(e.currentTarget.checked)
+              }
             />
             <SubheadingSetPicker />
             <UpdateSection />

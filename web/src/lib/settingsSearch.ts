@@ -140,6 +140,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('app', N_('Поле «Вірш» біля розділів'), 'verse field chapters place вірш поле розділи'), // i18n-ignore: Ukrainian search words
   e('app', N_('Розмір розділів'), 'chapter size buttons розмір розділи глави'), // i18n-ignore: Ukrainian search words
   e('app', N_('Підзаголовки над віршами'), 'subheadings titles sets заголовки набір'), // i18n-ignore: Ukrainian search words
+  e('app', N_('Підзаголовки на екрані'), 'subheadings output screen projected section title'),
   e('app', N_('Мова інтерфейсу'), 'language english українська'), // i18n-ignore: Ukrainian search words
   e('app', N_('Розташування панелі прев’ю'), 'preview panel bottom'),
   e('data', N_('Бібліотека модулів'), 'library modules rescan пересканувати'), // i18n-ignore: Ukrainian search words

@@ -666,7 +666,7 @@ function DrawnSlide({
           : slide.cover
             ? // a countdown starting or going fades like a new slide; «+1 хв» only changes the time
               `cover|${slide.cover.text}|${slide.cover.image?.length ?? 0}|${slide.cover.image?.slice(-24) ?? ''}|${slide.countdown ? slide.countdown.caption : '-'}`
-            : `${slide.reference}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
+            : `${slide.reference}|${slide.heading ?? ''}|${slide.subline ?? ''}|${slide.lines.map((l) => l.text).join('¦')}`;
   // the viewers' QR in a corner (0.6.16) — over any slide but the QR slide itself
   const corner =
     style.qrCorner && !slide.qr ? (
@@ -799,6 +799,29 @@ function DrawnSlide({
             textShadow: style.bgImage ? '0 2px 12px rgba(0,0,0,0.6)' : 'none',
           }}
         >
+          {/* the section subheading, top-centred over a positioned layout too, so «Підзаголовки
+              на екрані» works with «Макет» presets, not only the default layout (reviewer, beta.6) */}
+          {slide.heading && (
+            <div
+              style={{
+                position: 'absolute',
+                left: '8%',
+                right: '8%',
+                top: `${Math.max(top ? timerBand : 0, 1.5)}%`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.6cqh',
+              }}
+            >
+              <div
+                style={{ fontSize: '3.4cqh', fontWeight: 600, opacity: 0.9, textAlign: 'center' }}
+              >
+                {slide.heading}
+              </div>
+              <div style={{ width: '28%', borderTop: '1px solid currentColor', opacity: 0.3 }} />
+            </div>
+          )}
           {template.objects.map((o, i) => {
             if (!o.visible) return null;
             if (o.kind === 'subline' && !slide.subline) return null;
@@ -928,6 +951,26 @@ function DrawnSlide({
             textShadow: style.bgImage ? '0 2px 12px rgba(0,0,0,0.6)' : 'none',
           }}
         >
+          {/* the section subheading above the verse, with a divider (1.21.0-beta.6, F1024-05) */}
+          {!slide.qr && !slide.cover && slide.heading && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.25em',
+                maxWidth: '100%',
+                marginBottom: '0.1em',
+              }}
+            >
+              <div
+                style={{ fontSize: '0.5em', fontWeight: 600, opacity: 0.9, textAlign: style.align }}
+              >
+                {slide.heading}
+              </div>
+              <div style={{ width: '28%', borderTop: '1px solid currentColor', opacity: 0.3 }} />
+            </div>
+          )}
           {slide.qr ? (
             <QrCard url={slide.qr} variant="full" look={style.qrStyle} />
           ) : slide.cover ? (
