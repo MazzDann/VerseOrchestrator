@@ -155,10 +155,14 @@ export const systemArchive: Archive = async (top, out, files, platform) => {
     platform === 'win32'
       ? path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe')
       : 'tar';
+  // `--no-recursion`: the list is already every file we want, so tar must archive exactly those
+  // and never descend into anything. Without it a newer bsdtar (GitHub's windows-latest) tries to
+  // «visit» a listed entry it sees as a directory and dies with «Couldn't visit directory»; the
+  // builds here (bsdtar 3.5.2) and GNU tar on Linux tolerate it, so it only shows up in CI.
   const args =
     platform === 'linux'
-      ? ['-czf', out, '-C', top, '--null', '-T', '-']
-      : ['-cf', out, '--format=zip', '-C', top, '--null', '-T', '-'];
+      ? ['-czf', out, '-C', top, '--no-recursion', '--null', '-T', '-']
+      : ['-cf', out, '--format=zip', '-C', top, '--no-recursion', '--null', '-T', '-'];
   process.stderr.write(`[parts] ${path.basename(out)}: ${files.length} files\n`);
   await run(tarBin, args, { input: tarFileList(files) });
 };
