@@ -171,7 +171,7 @@ export function useMediaDrop({
   }, []);
 
   /** A picture at an address (a web page's, a pasted one): fetched, then added as a dropped file. */
-  const fromAddress = async (address: string, next = false) => {
+  const fromAddress = async (address: string, toOrder = false) => {
     if (!live.current.server) {
       notifications.show({ message: tr(NEEDS_SERVER), color: 'orange' });
       return;
@@ -186,7 +186,7 @@ export function useMediaDrop({
     try {
       const file = await fileFromAddress(address);
       notifications.hide('vo-web-image');
-      await take([{ entry: null, file }], next);
+      await take([{ entry: null, file }], toOrder);
     } catch (e) {
       notifications.hide('vo-web-image');
       // a link dragged in that is no picture is a slip, not a failure: said, not alarmed (review)
@@ -195,14 +195,17 @@ export function useMediaDrop({
   };
 
   /**
-   * `next` (1.18.2, the user's ask): dropped on «Показ» — each one, added as before, also goes
-   * right after the item on screen, in the order dropped; the view stays where the show is.
+   * Media (a picture, a video, a folder-album) dropped goes to the show: on the main window — next
+   * (right after the item on screen); on the running order «Показ» (`toOrder`, 1.21.0-beta.9, the
+   * user's ask) — at the END. Both also keep it in the library. Documents still go to «Документи»
+   * on the main window and into the order when dropped there; modules, presentations, segments and
+   * vectors go to their own places whatever the zone.
    */
   const take = async (
     entries: { entry: FileSystemEntry | null; file: File | null }[],
-    next = false,
+    toOrder = false,
   ) => {
-    const { openMedia, server } = live.current;
+    const { server } = live.current;
     // each one kept with its place in the drop: the running order gets them as dropped (review)
     const queue: { at: number; item: NewSeqItem }[] = [];
     const place = new Map<File | FileSystemEntry, number>();
@@ -278,7 +281,7 @@ export function useMediaDrop({
       useDrop.getState().addSongs(of('song'));
       live.current.openSongs();
       // a presentation needs its bundle chosen in the import: added to the running order from there
-      if (next)
+      if (toOrder)
         notifications.show({
           message: tr(
             'Файл .pptx — у «Презентації»: виберіть набір, а тоді додайте презентацію у показ',
@@ -287,56 +290,55 @@ export function useMediaDrop({
           autoClose: 5000,
         });
     }
-    if (of('image').length > 0) {
-      if (next) queue.push(...(await imagesForOrder(of('image'), at)));
-      else {
-        useDrop.getState().addImages(of('image'));
-        openMedia('images');
-      }
-    }
+    // media always goes to the show (next on the main window, last on the order); it is added to
+    // the library too. The media tab no longer opens on a drop — unless the picker must ask.
+    if (of('image').length > 0) queue.push(...(await imagesForOrder(of('image'), at)));
     const fit = readImageFit();
     for (const dir of folders) {
-      const album = await folderToAlbum(dir, next);
-      if (next && album)
+      const album = await folderToAlbum(dir, true);
+      if (album)
         queue.push({
           at: at(dir),
           item: { kind: 'album', label: album.name, albumId: album.id, fit },
         });
     }
     for (const v of of('video')) {
-      const video = await fileToVideo(v, next);
-      if (next && video)
+      const video = await fileToVideo(v, true);
+      if (video)
         queue.push({
           at: at(v),
           item: { kind: 'video', label: video.name, videoId: video.id, fit },
         });
     }
     if (of('document').length > 0) {
-      if (!next) live.current.openDocs();
+      // a document on the main window still opens in «Документи»; on the order it joins the show
+      if (!toOrder) live.current.openDocs();
       const docs = new Set<number>();
       const last = await importDocuments(of('document'), queryClient, (d, from) => {
         // the same document twice in one drop: once (review)
-        if (!next || docs.has(d.id)) return;
+        if (!toOrder || docs.has(d.id)) return;
         docs.add(d.id);
         queue.push({
           at: at(from),
           item: { kind: 'doc', label: titleOf(d.file), docId: d.id, file: d.file },
         });
       });
-      if (last != null && !next) useDocOpen.getState().open(last);
+      if (last != null && !toOrder) useDocOpen.getState().open(last);
     }
     for (const f of of('vectors')) await vectorsToServer(f);
     if (queue.length > 0) {
       const items = queue.sort((a, b) => a.at - b.at).map((q) => q.item);
-      usePlaylist.getState().addNext(items);
+      if (toOrder) usePlaylist.getState().addLast(items);
+      else usePlaylist.getState().addNext(items);
+      const names = items
+        .slice(0, 3)
+        .map((q) => q.label)
+        .join(', ')
+        .concat(items.length > 3 ? ` +${items.length - 3}` : '');
       notifications.show({
-        message: tr('Наступним у показі: {items}', {
-          items: items
-            .slice(0, 3)
-            .map((q) => q.label)
-            .join(', ')
-            .concat(items.length > 3 ? ` +${items.length - 3}` : ''),
-        }),
+        message: toOrder
+          ? tr('У кінець показу: {items}', { items: names })
+          : tr('Наступним у показі: {items}', { items: names }),
         color: 'green',
         autoClose: 2500,
       });

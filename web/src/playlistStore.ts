@@ -310,6 +310,8 @@ interface PlaylistState {
    * наступним»); with none on screen, at the end, as `add`.
    */
   addNext: (items: NewSeqItem[]) => void;
+  /** All of them at the end of the list, in order (1.21.0-beta.9: media dropped on the running order). */
+  addLast: (items: NewSeqItem[]) => void;
   removeItem: (id: string) => void;
   /** Change an item in place (1.10.0-beta.2: a «Заставка» item's text and picture). */
   updateItem: (
@@ -400,6 +402,12 @@ export const usePlaylist = create<PlaylistState>()(
               ? [...s.items, ...added]
               : [...s.items.slice(0, at + 1), ...added, ...s.items.slice(at + 1)];
           return { items: items2, cleared: null, replaced: null };
+        }),
+      addLast: (items) =>
+        set((s) => {
+          if (items.length === 0) return s;
+          const added = items.map((item) => ({ ...item, id: newId() }) as SeqItem);
+          return { items: [...s.items, ...added], cleared: null, replaced: null };
         }),
       updateItem: (id, patch) =>
         set((s) => ({
