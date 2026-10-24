@@ -346,13 +346,6 @@ export function useShowSteps({
     const book = bookNumber;
     // armed before anything loads, so a quick second press still counts as the second
     const key = `${tid}:${book}:${chapter}:${delta > 0 ? 1 : -1}`;
-    // «Безперервне читання» (F1024-05): a deliberate press crosses at once, no second-press confirm;
-    // a held key still never flies across (1.9.5), so holding «Далі» stops at the chapter's edge
-    const press =
-      continuousReading && !held
-        ? { cross: true, arm: null }
-        : pressAtEdge(crossArm.current, key, Date.now(), held);
-    crossArm.current = press.arm;
     const onScreen = !previewOnly && liveFollow && live && !previewOverride;
     const target = await crossTarget(
       { book, chapter },
@@ -371,6 +364,14 @@ export function useShowSteps({
     }
     const to = target.chapter;
     const toBook = books.find((b) => b.bookNumber === target.book) ?? currentBook;
+    // «Безперервне читання» (F1024-05): a deliberate press crosses a CHAPTER at once, no second-press
+    // confirm — but a BOOK edge still asks for a second press (the bigger jump keeps the 1.4.0
+    // safety), and a held key never flies across (1.9.5), so holding «Далі» stops at the edge.
+    const press =
+      continuousReading && !held && !target.newBook
+        ? { cross: true, arm: null }
+        : pressAtEdge(crossArm.current, key, Date.now(), held);
+    crossArm.current = press.arm;
     if (!press.cross) {
       return {
         ok: false,
