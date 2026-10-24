@@ -35,7 +35,7 @@ import { openPresenter, openStage } from './outputWindows';
 
 /** The command palette's lines (Ctrl+K): the operator's actions, built afresh each render. */
 export function usePaletteCommands({
-  sendAndNotify,
+  showToScreen,
   hideToggle,
   blackToggle,
   appearance,
@@ -58,7 +58,7 @@ export function usePaletteCommands({
   colorScheme,
   toggleColorScheme,
 }: {
-  sendAndNotify: () => void;
+  showToScreen: () => void;
   hideToggle: () => void;
   blackToggle: () => void;
   appearance: Appearance;
@@ -94,7 +94,7 @@ export function usePaletteCommands({
       hint: tr('Показати вибір'),
       keywords: 'project show project',
       icon: <IconDeviceTv size={16} />,
-      run: sendAndNotify,
+      run: showToScreen,
     },
     {
       id: 'blank',

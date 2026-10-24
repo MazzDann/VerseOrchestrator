@@ -178,14 +178,6 @@ export function useShowSteps({
   };
 
   const send = (overrides?: Partial<Slide>) => {
-    // «На екран» / F5 with a song, text or Strong cued into the preview (live-follow off, F1024-07):
-    // show that, not the verse selection. A plain verse send has no override.
-    if (!overrides && previewOverride) {
-      pushLive(previewOverride);
-      setLive(previewOverride.visible !== false && !previewOverride.blank);
-      setHold(null);
-      return;
-    }
     // a collected pick goes on screen: «Далі» walks it from here
     if (!overrides && isPicked(selectedVerses)) {
       walk.current = { key: walkKey, verses: selectedVerses };
@@ -520,6 +512,27 @@ export function useShowSteps({
     }
   };
 
+  // «На екран» / F5 / the palette: put on screen whatever the preview shows — a song, text or Strong
+  // cued with «Наживо» off (F1024-07), else the verse selection. (A verse-intent Enter / typed
+  // reference uses sendAndNotify, which always shows the verses and clears any override.)
+  const showToScreen = () => {
+    if (!leaderRef.current) return standbyNotice();
+    if (previewOverride) {
+      pushLive(previewOverride);
+      setLive(previewOverride.visible !== false && !previewOverride.blank);
+      setHold(null);
+      if (previewOverride.reference) {
+        notifications.show({
+          message: tr('На екрані: {ref}', { ref: previewOverride.reference }),
+          color: 'live',
+          autoClose: 1500,
+        });
+      }
+      return;
+    }
+    sendAndNotify();
+  };
+
   // Enter on a verse projects it straight away (no need to enable live-follow / press
   // F5). If it's already part of the selection, project the whole selection; otherwise
   // select just this verse and push it directly (built from the loaded chapter, so we
@@ -563,6 +576,7 @@ export function useShowSteps({
     selectVerses,
     send,
     sendAndNotify,
+    showToScreen,
     projectStrong,
     projectVerseOnEnter,
     advanceAndSay,
