@@ -51,12 +51,11 @@ const recording = (): { calls: { out: string; files: string[] }[]; archive: Arch
   return { calls, archive };
 };
 
-describe('the tar -T file list (1.20.0-beta.1)', () => {
-  it('has no empty lines — a blank line makes windows-latest bsdtar fail', () => {
-    const body = tarFileList(['app/a.js', 'app/node/node.exe', 'shell/x']);
-    expect(body).toBe('app/a.js\napp/node/node.exe\nshell/x');
-    expect(body.endsWith('\n')).toBe(false);
-    expect(body.split('\n').some((l) => l === '')).toBe(false);
+describe('the tar --null -T - file list (1.20.0-beta.1)', () => {
+  it('is NUL-separated with no empty entries — windows-latest bsdtar chokes on a blank entry', () => {
+    const body = tarFileList(['app/a.js', '', 'app/node/node.exe', 'shell/x']);
+    expect(body).toBe('app/a.js\0app/node/node.exe\0shell/x');
+    expect(body.split('\0').some((e) => e === '')).toBe(false);
   });
 });
 

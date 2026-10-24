@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 /**
@@ -138,36 +137,30 @@ export type Archive = (
 ) => Promise<void>;
 
 /**
+ * The file list fed to `tar --null -T -` on stdin: the paths (relative to the archive's top),
+ * NUL-separated, empties dropped. NUL separators avoid every line-list quirk — an empty or
+ * trailing line made a newer bsdtar (GitHub's windows-latest) fail with «tar.exe: : Couldn't
+ * visit directory», and a line list is sensitive to CRLF / BOM too.
+ */
+export const tarFileList = (files: string[]): string => files.filter(Boolean).join('\0');
+
+/**
  * The real archiver, with the same bsdtar the installer unpacks with (installer.ts unpackCommand):
  * a zip on Windows and macOS (`--format=zip`, so bsdtar / ditto read it back), a gzip tarball on
- * Linux — each from a file list, paths relative to `top`. No 7z or Info-ZIP dependency.
+ * Linux — paths fed on stdin (`--null -T -`), relative to `top`. No 7z or Info-ZIP dependency,
+ * and no temp list file.
  */
-/**
- * The body of a `tar -T` file list: one path per line, relative to the archive's top, no empty
- * lines. A trailing or blank line makes a newer bsdtar (GitHub's windows-latest) fail with
- * «tar.exe: : Couldn't visit directory», so empties are dropped and there is no trailing newline.
- */
-export const tarFileList = (files: string[]): string => files.filter(Boolean).join('\n');
-
 export const systemArchive: Archive = async (top, out, files, platform) => {
   const tarBin =
     platform === 'win32'
       ? path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe')
       : 'tar';
-  const list = path.join(
-    os.tmpdir(),
-    `vo-part-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`,
-  );
-  fs.writeFileSync(list, tarFileList(files));
-  try {
-    const args =
-      platform === 'linux'
-        ? ['-czf', out, '-C', top, '-T', list]
-        : ['-cf', out, '--format=zip', '-C', top, '-T', list];
-    await run(tarBin, args);
-  } finally {
-    fs.rmSync(list, { force: true });
-  }
+  const args =
+    platform === 'linux'
+      ? ['-czf', out, '-C', top, '--null', '-T', '-']
+      : ['-cf', out, '--format=zip', '-C', top, '--null', '-T', '-'];
+  process.stderr.write(`[parts] ${path.basename(out)}: ${files.length} files\n`);
+  await run(tarBin, args, { input: tarFileList(files) });
 };
 
 /** A segment in the manifest asset: the installer downloads `file` (verified) when `contentHash` differs. */
