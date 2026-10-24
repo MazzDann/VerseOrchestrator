@@ -142,6 +142,13 @@ export type Archive = (
  * a zip on Windows and macOS (`--format=zip`, so bsdtar / ditto read it back), a gzip tarball on
  * Linux — each from a file list, paths relative to `top`. No 7z or Info-ZIP dependency.
  */
+/**
+ * The body of a `tar -T` file list: one path per line, relative to the archive's top, no empty
+ * lines. A trailing or blank line makes a newer bsdtar (GitHub's windows-latest) fail with
+ * «tar.exe: : Couldn't visit directory», so empties are dropped and there is no trailing newline.
+ */
+export const tarFileList = (files: string[]): string => files.filter(Boolean).join('\n');
+
 export const systemArchive: Archive = async (top, out, files, platform) => {
   const tarBin =
     platform === 'win32'
@@ -151,7 +158,7 @@ export const systemArchive: Archive = async (top, out, files, platform) => {
     os.tmpdir(),
     `vo-part-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`,
   );
-  fs.writeFileSync(list, files.join('\n') + '\n');
+  fs.writeFileSync(list, tarFileList(files));
   try {
     const args =
       platform === 'linux'

@@ -7,6 +7,7 @@ import {
   buildReleaseParts,
   contentHash,
   planParts,
+  tarFileList,
   walkFiles,
   type Archive,
 } from './releaseParts';
@@ -49,6 +50,15 @@ const recording = (): { calls: { out: string; files: string[] }[]; archive: Arch
   };
   return { calls, archive };
 };
+
+describe('the tar -T file list (1.20.0-beta.1)', () => {
+  it('has no empty lines — a blank line makes windows-latest bsdtar fail', () => {
+    const body = tarFileList(['app/a.js', 'app/node/node.exe', 'shell/x']);
+    expect(body).toBe('app/a.js\napp/node/node.exe\nshell/x');
+    expect(body.endsWith('\n')).toBe(false);
+    expect(body.split('\n').some((l) => l === '')).toBe(false);
+  });
+});
 
 describe('updates in parts — the split (1.20.0-beta.1)', () => {
   it('puts each file in its segment; our code and the user folders are apart', () => {
