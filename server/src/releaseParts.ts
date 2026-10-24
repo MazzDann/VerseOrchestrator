@@ -25,8 +25,11 @@ export type SegmentName = 'runtime' | 'deps' | 'engines' | 'shell' | 'app';
 
 /**
  * Which segment a file (its path relative to the release top, forward slashes) belongs to — the
- * first that claims it; `app` is the catch-all. `data/` and `modules/` (the user's) belong to no
- * segment: an update never touches them.
+ * first that claims it. The segments cover the two content trees `app/` and `shell/`. Everything
+ * else belongs to no segment: `data/` and `modules/` are the user's (an update never touches them),
+ * and the release-top loose files (the `start.*` launchers, the «HOW TO START» / «ЯК ЗАПУСТИТИ»
+ * readmes, the `.vo-portable` marker) are tiny and are refreshed by the updater's own top-files
+ * path (installer.ts, `updates/top/VERSION`), not through an `app/` swap — so they stay out.
  */
 export function assign(rel: string): SegmentName | null {
   if (rel.startsWith('data/') || rel.startsWith('modules/')) return null;
@@ -37,7 +40,8 @@ export function assign(rel: string): SegmentName | null {
   if (rel.startsWith('app/node_modules/')) return 'deps';
   if (rel.startsWith('app/web/dist/') && /\.(wasm|data)$/.test(rel)) return 'engines';
   if (rel.startsWith('shell/')) return 'shell';
-  return 'app';
+  if (rel.startsWith('app/')) return 'app';
+  return null;
 }
 
 /** The segments in archive order; `app` last (it carries parts.json, written after the rest). */
@@ -138,9 +142,14 @@ export type Archive = (
 
 /**
  * The file list fed to `tar --null -T -` on stdin: the paths (relative to the archive's top),
- * NUL-separated, empties dropped. NUL separators avoid every line-list quirk — an empty or
- * trailing line made a newer bsdtar (GitHub's windows-latest) fail with «tar.exe: : Couldn't
- * visit directory», and a line list is sensitive to CRLF / BOM too.
+ * NUL-separated, empties dropped. NUL separators avoid every line-list quirk — an empty or trailing
+ * line made a newer bsdtar (GitHub's windows-latest) fail with «tar.exe: : Couldn't visit
+ * directory», and a line list is sensitive to CRLF / BOM too.
+ *
+ * Every path here is ASCII: the segments cover only `app/` and `shell/`, whose trees are code and
+ * binaries, and `assign` keeps the one non-ASCII release file («ЯК ЗАПУСТИТИ.txt», at the top) out
+ * of every segment. That matters because Windows bsdtar decodes a `-T` list in the active code
+ * page, not UTF-8, so a Cyrillic name in it would become an empty entry and the same error.
  */
 export const tarFileList = (files: string[]): string => files.filter(Boolean).join('\0');
 
@@ -159,10 +168,11 @@ export const systemArchive: Archive = async (top, out, files, platform) => {
   // and never descend into anything. Without it a newer bsdtar (GitHub's windows-latest) tries to
   // «visit» a listed entry it sees as a directory and dies with «Couldn't visit directory»; the
   // builds here (bsdtar 3.5.2) and GNU tar on Linux tolerate it, so it only shows up in CI.
+  const v = process.env.VO_PARTS_VERBOSE ? ['-v'] : [];
   const args =
     platform === 'linux'
-      ? ['-czf', out, '-C', top, '--no-recursion', '--null', '-T', '-']
-      : ['-cf', out, '--format=zip', '-C', top, '--no-recursion', '--null', '-T', '-'];
+      ? ['-czf', out, '-C', top, '--no-recursion', ...v, '--null', '-T', '-']
+      : ['-cf', out, '--format=zip', '-C', top, '--no-recursion', ...v, '--null', '-T', '-'];
   process.stderr.write(`[parts] ${path.basename(out)}: ${files.length} files\n`);
   await run(tarBin, args, { input: tarFileList(files) });
 };

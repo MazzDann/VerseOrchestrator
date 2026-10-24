@@ -32,7 +32,8 @@ function fakeTop(): string {
   put('shell/resources/app/main.js'); // our desktop build → app, not shell
   put('app/server/index.js');
   put('app/package.json', '{"version":"1.20.0"}');
-  put('start.cmd');
+  put('start.cmd'); // release-top loose file: no segment (the updater's top-files path refreshes it)
+  put('ЯК ЗАПУСТИТИ.txt'); // non-ASCII top-level readme: no segment, so no name ever lands in a list
   put('data/library.db'); // the user's: no segment
   put('modules/Bible.SQLite3');
   return top;
@@ -69,7 +70,8 @@ describe('updates in parts — the split (1.20.0-beta.1)', () => {
     expect(assign('shell/VerseOrchestrator.exe')).toBe('shell');
     expect(assign('shell/resources/app/main.js')).toBe('app');
     expect(assign('app/server/index.js')).toBe('app');
-    expect(assign('start.cmd')).toBe('app');
+    expect(assign('start.cmd')).toBeNull(); // a release-top loose file: no segment
+    expect(assign('ЯК ЗАПУСТИТИ.txt')).toBeNull(); // the non-ASCII top-level readme: kept out
     expect(assign('data/library.db')).toBeNull();
     expect(assign('modules/Bible.SQLite3')).toBeNull();
   });
@@ -92,15 +94,16 @@ describe('updates in parts — the split (1.20.0-beta.1)', () => {
         'shell/resources/app/main.js',
         'app/server/index.js',
         'app/package.json',
-        'start.cmd',
       ]),
     );
-    // every file is covered exactly once, and no user file leaked in
+    // every file is covered exactly once, and no user or release-top file leaked in
     const all = plan.flatMap((s) => s.files);
     expect(new Set(all).size).toBe(all.length);
     expect(all).not.toContain('data/library.db');
     expect(all).not.toContain('modules/Bible.SQLite3');
-    // the segments together are every file except the user's data/ and modules/
+    expect(all).not.toContain('start.cmd');
+    expect(all).not.toContain('ЯК ЗАПУСТИТИ.txt');
+    // the segments together are every file except the user's data/ and modules/ and the top files
     const covered = walkFiles(top).filter((f) => assign(f) !== null);
     expect([...all].sort()).toEqual(covered.sort());
   });
