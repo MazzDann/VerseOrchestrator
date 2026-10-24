@@ -27,6 +27,7 @@ import {
   waitForRestart,
 } from '../lib/updates';
 import { useOutputWindows } from '../lib/outputs';
+import { inDesktop } from '../lib/desktop';
 import { storeForOlderVersion } from '../presenterBus';
 
 const mb = (bytes: number) => String(Math.max(1, Math.round(bytes / 1048576)));
@@ -441,6 +442,8 @@ function Rollback({
         ? tr('Зачекайте, доки оновлення розпакується')
         : null;
   const downloading = phase === 'download' || phase === 'verify';
+  // the desktop app restarts with its windows open; a browser blocks (its outputs don't return)
+  const desktop = inDesktop();
   return (
     <div>
       <Text size="xs" c="dimmed" mb={4}>
@@ -453,7 +456,7 @@ function Rollback({
             variant="default"
             leftSection={<IconArrowBackUp size={14} />}
             loading={pending}
-            disabled={outputsOpen > 0 || !!wait}
+            disabled={(outputsOpen > 0 && !desktop) || !!wait}
             onClick={() => setConfirm((o) => !o)}
           >
             {tr('Повернути версію {version}', { version })}
@@ -505,7 +508,9 @@ function Rollback({
       ) : (
         outputsOpen > 0 && (
           <Text size="xs" c="dimmed" mt={4}>
-            {tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')}
+            {desktop
+              ? tr('Вікна показу згаснуть на час перезапуску (до хвилини) і повернуться самі.')
+              : tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')}
           </Text>
         )
       )}
@@ -643,6 +648,11 @@ function Install({
   const [pick, setPick] = useState<string | null>(null);
   const inst = state.installer;
   const phase = inst?.phase ?? 'idle';
+  // the desktop app keeps its own output windows across a restart (they go dark a minute, then
+  // reconnect), so it needn't block the restart on a show — its startup update prompt restarts
+  // regardless (A1024, the user: «немає кнопки «Перезапустити»»). A browser's output popups don't
+  // come back, so there the block stays.
+  const desktop = inDesktop();
   // the version waiting in app.next: downloaded now or by an earlier run
   const ready =
     (phase === 'ready' || phase === 'restarting') && inst?.version ? inst.version : null;
@@ -746,7 +756,7 @@ function Install({
             size="xs"
             leftSection={<IconReload size={14} />}
             loading={restartPending || phase === 'restarting'}
-            disabled={outputsOpen > 0}
+            disabled={outputsOpen > 0 && !desktop}
             onClick={onRestart}
           >
             {older
@@ -790,7 +800,9 @@ function Install({
       </Group>
       {restart && outputsOpen > 0 && (
         <Text size="xs" c="dimmed" mb={4}>
-          {tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')}
+          {desktop
+            ? tr('Вікна показу згаснуть на час перезапуску (до хвилини) і повернуться самі.')
+            : tr('Спершу закрийте вікна виводу — під час показу застосунок не перезапускається.')}
         </Text>
       )}
       {chosen && !chosen.installable && (
