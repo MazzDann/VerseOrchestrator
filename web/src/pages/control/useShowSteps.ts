@@ -51,6 +51,7 @@ export function useShowSteps({
   adopting,
   slideLines,
   pageReference,
+  slideHeading,
   slideStyle,
   slideTemplate,
   revealForSlide,
@@ -102,6 +103,8 @@ export function useShowSteps({
   } | null>;
   slideLines: SlideLine[];
   pageReference: string;
+  /** the section subheading for the current page, projected when on (1.21.0-beta.6) */
+  slideHeading: string | undefined;
   slideStyle: SlideStyle;
   slideTemplate: SlideTemplate | null;
   revealForSlide: SlideReveal | undefined;
@@ -194,6 +197,7 @@ export function useShowSteps({
       template: slideTemplate,
       reveal: revealForSlide,
       source: verseSource(),
+      ...(slideHeading ? { heading: slideHeading } : {}),
       ...overrides,
     };
     pushLive(slide);

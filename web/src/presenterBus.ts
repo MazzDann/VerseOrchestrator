@@ -148,6 +148,8 @@ export interface Slide {
   style?: SlideStyle;
   /** Optional secondary line under a divider (e.g. a Strong "word — gloss"). */
   subline?: string;
+  /** The section subheading above the verse, projected when «Підзаголовки на екрані» is on (1.21.0-beta.6, F1024-05). */
+  heading?: string;
   /** Optional positioned layout. Absent/null → the default (legacy) centred layout. */
   template?: SlideTemplate | null;
   /** Progressive reveal state; absent → show the whole quote at once (default). */

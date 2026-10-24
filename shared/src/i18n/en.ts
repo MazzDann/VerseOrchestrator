@@ -116,6 +116,9 @@ export const EN: Record<string, string> = {
     'The data source is set in the main control window.',
   'Розташування панелі прев’ю': 'Preview panel position',
   'Безперервне читання': 'Continuous reading',
+  'Підзаголовки на екрані': 'Subheadings on screen',
+  'Назву розділу тексту показувати й на екрані показу — над віршем, де починається розділ, з рискою-роздільником.':
+    'Show the section title on the output screen too — above the verse where the section begins, with a divider line.',
   'Клавіші показу. Змінити — «Налаштування вигляду» → «Клавіші».':
     'The show keys. To change them — Settings → Keys.',
   'Enter — вибраний вірш на екран; у полі «Вірш» — ↑/↓ гортають. Повніше — у ':
