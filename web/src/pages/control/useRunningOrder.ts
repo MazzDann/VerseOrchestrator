@@ -115,6 +115,7 @@ export function useRunningOrder({
     source?: SlideSource,
     look?: SongStyle | null,
     quiet?: boolean,
+    force?: boolean,
   ) => Slide | undefined;
   projectPicture: (picture: SlidePicture, quiet?: boolean) => Slide;
   pictureOf: (it: SeqImage) => SlidePicture;
@@ -224,6 +225,8 @@ export function useRunningOrder({
           it.faithful ? s.slides[0].style : null,
           { kind: 'song', songId: s.id, stanza: 0, total: s.slides.length },
           s.slides[0].style,
+          false,
+          true, // the running order shows live whatever «Наживо» says
         );
         // Seed the panel's stanza highlight to 0 so the first arrow/clicker advances
         // to stanza 1 (not re-projects the title we just put on screen).
@@ -257,12 +260,15 @@ export function useRunningOrder({
       });
       const first = d.body[0];
       if (!first) return;
-      projectText(first.text, d.title, null, {
-        kind: 'doc',
-        docId: d.id,
-        unit: 0,
-        total: d.body.length,
-      });
+      projectText(
+        first.text,
+        d.title,
+        null,
+        { kind: 'doc', docId: d.id, unit: 0, total: d.body.length },
+        null,
+        false,
+        true, // the running order shows live whatever «Наживо» says
+      );
       setDocsPanelUnit(0);
     } catch {
       /* a document that fails to load stays off screen */
@@ -277,7 +283,7 @@ export function useRunningOrder({
   const showLoopSlide = (x: SeqLoopSlide, quiet?: SeqLoop) => {
     let slide: Slide | undefined;
     if (x.kind === 'text')
-      slide = projectText(x.body, x.title.trim(), null, undefined, null, !!quiet);
+      slide = projectText(x.body, x.title.trim(), null, undefined, null, !!quiet, true);
     else if (x.kind === 'image') slide = projectPicture(pictureOf(x), !!quiet);
     else {
       slide = coverOver(
@@ -335,7 +341,8 @@ export function useRunningOrder({
     playlistSetCurrent(it.id);
     followItem(it.kind);
     if (it.kind === 'passage') void activatePassage(it);
-    else if (it.kind === 'text') projectText(it.body, it.title.trim());
+    else if (it.kind === 'text')
+      projectText(it.body, it.title.trim(), null, undefined, null, false, true);
     else if (it.kind === 'image') projectPicture(pictureOf(it));
     else if (it.kind === 'album') void startAlbum(it.albumId, it.fit, it.label);
     else if (it.kind === 'video') void startVideo(it.videoId, it.fit, it.label);

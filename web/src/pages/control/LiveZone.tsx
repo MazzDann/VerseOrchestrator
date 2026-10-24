@@ -26,7 +26,7 @@ export interface LiveZoneProps {
   setLiveFollow: (v: boolean) => void;
   slideLines: SlideLine[];
   isLeader: boolean;
-  sendAndNotify: () => void;
+  showToScreen: () => void;
   textHidden: boolean;
   hideToggle: () => void;
   blackOn: boolean;
@@ -68,7 +68,7 @@ export function LiveZone({
   setLiveFollow,
   slideLines,
   isLeader,
-  sendAndNotify,
+  showToScreen,
   textHidden,
   hideToggle,
   blackOn,
@@ -135,7 +135,7 @@ export function LiveZone({
         combo={keymap.project}
         icon={<IconDeviceTv size={18} stroke={1.5} />}
         disabled={slideLines.length === 0 || !isLeader}
-        onClick={sendAndNotify}
+        onClick={showToScreen}
       />
       <ToolButton
         label={textHidden ? tr('Показати текст') : tr('Сховати текст')}

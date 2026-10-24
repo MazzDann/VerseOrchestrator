@@ -354,6 +354,7 @@ export const EN: Record<string, string> = {
   'Не вдалося перейти: {error}': "Couldn't go there: {error}",
   'На екрані зі Стронгом: {ref}': "On screen with Strong's: {ref}",
   'На екрані: {ref}': 'On screen: {ref}',
+  'У прев’ю: {ref} — «На екран», щоб показати': 'In the preview: {ref} — «To screen» to show it',
   'Текст на екрані': 'Text on screen',
   'Уривок недоступний — переклад змінився. Оновіть елемент показу.':
     'The passage is unavailable — the translation changed. Update the running order item.',

@@ -27,7 +27,7 @@ export function useControlHotkeys({
   clearScreen,
   openSearch,
   setPaletteOpen,
-  sendAndNotify,
+  showToScreen,
   blackToggle,
   coverToggle,
   countdownKey,
@@ -61,7 +61,7 @@ export function useControlHotkeys({
   clearScreen: () => void;
   openSearch: (scope?: SearchScope) => void;
   setPaletteOpen: Dispatch<SetStateAction<boolean>>;
-  sendAndNotify: () => void;
+  showToScreen: () => void;
   blackToggle: () => void;
   coverToggle: () => void;
   countdownKey: () => void;
@@ -233,7 +233,7 @@ export function useControlHotkeys({
   // project when live-follow is off; harmless while following).
   useHotkeys(
     keymap.project,
-    (e) => !e.repeat && sendAndNotify(),
+    (e) => !e.repeat && showToScreen(),
     { preventDefault: true, enableOnFormTags: true },
     [
       keymap.project,

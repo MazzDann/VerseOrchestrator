@@ -571,6 +571,7 @@ export function Control() {
   const { projectText, projectAnnouncement, songEnd } = useSongProjection({
     slideStyle,
     slideTemplate,
+    liveFollow,
     pushLive,
     setPreviewOverride,
     setLive,
@@ -738,6 +739,7 @@ export function Control() {
     selectVerses,
     send,
     sendAndNotify,
+    showToScreen,
     projectStrong,
     projectVerseOnEnter,
     advanceAndSay,
@@ -883,7 +885,7 @@ export function Control() {
     clearScreen,
     openSearch,
     setPaletteOpen,
-    sendAndNotify,
+    showToScreen,
     blackToggle,
     coverToggle,
     countdownKey,
@@ -1021,7 +1023,7 @@ export function Control() {
         : tr('Порожньо');
 
   const paletteCommands = usePaletteCommands({
-    sendAndNotify,
+    showToScreen,
     hideToggle,
     blackToggle,
     appearance,
@@ -1312,7 +1314,7 @@ export function Control() {
               setLiveFollow,
               slideLines,
               isLeader,
-              sendAndNotify,
+              showToScreen,
               textHidden,
               hideToggle,
               blackOn,
