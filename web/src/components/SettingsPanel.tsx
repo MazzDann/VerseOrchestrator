@@ -120,6 +120,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const setVerseField = useSettings((s) => s.setVerseField);
   const chapterSize = useSettings((s) => s.chapterSize);
   const setChapterSize = useSettings((s) => s.setChapterSize);
+  const autoOutput = useSettings((s) => s.autoOutput);
+  const setAutoOutput = useSettings((s) => s.setAutoOutput);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
   // the search over the settings (1.13.0-beta.3, users' report F1010-11; the author's Q9a: the
@@ -1281,6 +1283,15 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               )}
               checked={windowsMenu}
               onChange={(e) => setWindowsMenu(e.currentTarget.checked)}
+            />
+            {/* 1.21.0-beta.3 (F1024-02): open the output window on a 2nd screen by itself at startup */}
+            <Switch
+              label={tr('Відкривати вікно показу автоматично')}
+              description={tr(
+                'Коли вікно керування запускається, «Вікно показу» відкривається само — на другому екрані, якщо він є. У браузері — після першого кліку (дозвольте спливні вікна).',
+              )}
+              checked={autoOutput}
+              onChange={(e) => setAutoOutput(e.currentTarget.checked)}
             />
             {/* 1.21.0-beta.2 (F1024-03): where the verse field sits by the chapter grid */}
             <div>

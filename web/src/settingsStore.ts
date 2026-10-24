@@ -427,6 +427,9 @@ interface SettingsState {
   /** The chapter buttons' size (1.21.0-beta.2, F1024-04) */
   chapterSize: ChapterSize;
   setChapterSize: (v: ChapterSize) => void;
+  /** Open «Вікно показу» on a second screen by itself when the control window starts (1.21.0-beta.3, F1024-02) */
+  autoOutput: boolean;
+  setAutoOutput: (v: boolean) => void;
   /**
    * «YouTube: мій вхід у браузері (Premium)» (1.19.0-beta.11): YouTube's players on youtube.com, not in its
    * privacy mode — they see the browser's Google sign-in (Premium: no ads; the views go into its history)
@@ -777,6 +780,8 @@ export const useSettings = create<SettingsState>()(
       setVerseField: (v) => set({ verseField: asVerseField(v) }),
       chapterSize: 'md',
       setChapterSize: (v) => set({ chapterSize: asChapterSize(v) }),
+      autoOutput: false,
+      setAutoOutput: (v) => set({ autoOutput: v === true }),
       youtubeAccount: false,
       setYoutubeAccount: (v) => set({ youtubeAccount: v === true }),
       subheadings: true,

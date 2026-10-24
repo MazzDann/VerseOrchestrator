@@ -38,7 +38,9 @@ import { usePhoneUrl } from '../lib/phoneUrl';
 import { ModulesFloating } from '../components/ModulesPanel';
 import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
-import { useOutputWindows } from '../lib/outputs';
+import { currentOutputs, useOutputWindows } from '../lib/outputs';
+import { openOutput } from '../openPresenter';
+import { inDesktop } from '../lib/desktop';
 import { useSlideErrorNotices } from '../lib/slideErrorNotices';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
@@ -134,6 +136,7 @@ export function Control() {
   // «Простий вигляд» (1.8.12-beta.7): fewer tools in the header, only the preview on the right
   const simpleView = useSettings((s) => s.simpleView);
   const windowsMenu = useSettings((s) => s.windowsMenu);
+  const autoOutput = useSettings((s) => s.autoOutput);
   const pushHistory = useSettings((s) => s.pushHistory);
   const removeHistory = useSettings((s) => s.removeHistory);
   const clearHistory = useSettings((s) => s.clearHistory);
@@ -307,6 +310,34 @@ export function Control() {
   const [outputsOpen, setOutputsOpen] = useState(false);
   /** Output windows open right now (they announce themselves — lib/outputs.ts). */
   const outputWindows = useOutputWindows();
+  // F1024-02: open «Вікно показу» on its own at startup (on the second screen, as openOutput picks
+  // it) when «Відкривати вікно показу автоматично» is on and none is open. The desktop app opens it
+  // straight away; a browser blocks a pop-up without a gesture, so there we retry on the first click.
+  const autoOutputTried = useRef(false);
+  useEffect(() => {
+    if (!autoOutput || autoOutputTried.current) return;
+    autoOutputTried.current = true;
+    if (currentOutputs().some((o) => o.kind === 'presenter')) return; // one is already open
+    let retry: (() => void) | null = null;
+    void openOutput('presenter').then((ok) => {
+      if (ok || inDesktop()) return;
+      retry = () => {
+        window.removeEventListener('pointerdown', retry!);
+        window.removeEventListener('keydown', retry!);
+        retry = null;
+        if (!currentOutputs().some((o) => o.kind === 'presenter')) void openOutput('presenter');
+      };
+      window.addEventListener('pointerdown', retry);
+      window.addEventListener('keydown', retry);
+    });
+    return () => {
+      if (retry) {
+        window.removeEventListener('pointerdown', retry);
+        window.removeEventListener('keydown', retry);
+      }
+    };
+    // once, on mount, by the setting (currentOutputs() reads the live list without re-subscribing)
+  }, [autoOutput]);
   // a slide that failed to draw here or in an output window → a red notice (0.13.0)
   useSlideErrorNotices();
   // a settings change the browser couldn't store (its storage full of images) says so (1.4.1)
