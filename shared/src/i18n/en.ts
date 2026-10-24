@@ -115,6 +115,9 @@ export const EN: Record<string, string> = {
   'Джерело даних налаштовується в головному вікні керування.':
     'The data source is set in the main control window.',
   'Розташування панелі прев’ю': 'Preview panel position',
+  'Відкривати вікно показу автоматично': 'Open the output window automatically',
+  'Коли вікно керування запускається, «Вікно показу» відкривається само — на другому екрані, якщо він є. У браузері — після першого кліку (дозвольте спливні вікна).':
+    'When the control window starts, «Output window» opens on its own — on the second screen if there is one. In a browser — after your first click (allow pop-ups).',
   'Поле «Вірш» біля розділів': 'The «Verse» field by the chapters',
   Поруч: 'Beside',
   'Під низом': 'Below',

@@ -38,7 +38,9 @@ import { usePhoneUrl } from '../lib/phoneUrl';
 import { ModulesFloating } from '../components/ModulesPanel';
 import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
-import { useOutputWindows } from '../lib/outputs';
+import { currentOutputs, useOutputWindows } from '../lib/outputs';
+import { openOutput } from '../openPresenter';
+import { inDesktop } from '../lib/desktop';
 import { useSlideErrorNotices } from '../lib/slideErrorNotices';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
@@ -134,6 +136,7 @@ export function Control() {
   // «Простий вигляд» (1.8.12-beta.7): fewer tools in the header, only the preview on the right
   const simpleView = useSettings((s) => s.simpleView);
   const windowsMenu = useSettings((s) => s.windowsMenu);
+  const autoOutput = useSettings((s) => s.autoOutput);
   const pushHistory = useSettings((s) => s.pushHistory);
   const removeHistory = useSettings((s) => s.removeHistory);
   const clearHistory = useSettings((s) => s.clearHistory);
@@ -326,6 +329,39 @@ export function Control() {
   const isLeader = leaderState === 'leader';
   const leaderRef = useRef(isLeader);
   leaderRef.current = isLeader;
+  // F1024-02: open «Вікно показу» on its own (on the second screen, as openOutput picks it) once the
+  // leader control window starts and «Відкривати вікно показу автоматично» is on and none is open.
+  // The desktop app opens it at once; a browser blocks a pop-up without a gesture, so there it waits
+  // for the operator's first click/key. Only the leader does it (a standby control window must not).
+  const autoOutputTried = useRef(false);
+  useEffect(() => {
+    if (!autoOutput || !isLeader || autoOutputTried.current) return;
+    autoOutputTried.current = true;
+    if (currentOutputs().some((o) => o.kind === 'presenter')) return; // one is already open
+    let cancelled = false;
+    let retry: (() => void) | null = null;
+    void openOutput('presenter')
+      .then((ok) => {
+        if (ok || cancelled || inDesktop()) return;
+        retry = () => {
+          window.removeEventListener('click', retry!);
+          window.removeEventListener('keydown', retry!);
+          retry = null;
+          if (!currentOutputs().some((o) => o.kind === 'presenter'))
+            void openOutput('presenter').catch(() => {});
+        };
+        window.addEventListener('click', retry);
+        window.addEventListener('keydown', retry);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (retry) {
+        window.removeEventListener('click', retry);
+        window.removeEventListener('keydown', retry);
+      }
+    };
+  }, [autoOutput, isLeader]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   /** «Ще» in the header (ToolMore): while open it owns the keyboard, like the palette. */
   const [moreOpen, setMoreOpen] = useState(false);
