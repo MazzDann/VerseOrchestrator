@@ -23,6 +23,7 @@ import {
 } from '../presenterBus';
 import { syncMedia } from '../lib/video';
 import { YouTubeContent } from './YouTubeContent';
+import { OutputYouTubeLead } from './OutputYouTubeLead';
 import { VideoPlayerContext } from '../lib/youtube';
 import {
   CORNER_SIZE_CQH,
@@ -465,7 +466,12 @@ function VideoContent({ video }: { video: SlideVideo }) {
   // elsewhere YouTube's picture of it (1.19.0-beta.7)
   if (video.youtube)
     return player ? (
-      <YouTubeContent key={video.youtube} video={video} />
+      video.screen === 'player' ? (
+        // «Повний плеєр у вікні показу» (1.21.0-beta.8): the output IS the interactive leader
+        <OutputYouTubeLead key={video.youtube} video={video} />
+      ) : (
+        <YouTubeContent key={video.youtube} video={video} />
+      )
     ) : (
       <img
         src={video.poster}

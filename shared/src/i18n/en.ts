@@ -486,10 +486,11 @@ export const EN: Record<string, string> = {
   'Відео грає у вікні показу без звуку; звук іде з вікна керування.':
     'A video plays in the presentation window without sound; the sound comes from the control window.',
   'Відео YouTube на екрані показу': 'A YouTube video on the output screen',
-  'Поступитися — вікно показу звільняє 2-й екран (чорніє й не тримається поверх), щоб ви вивели туди власний плеєр. Відтворює — вікно показу програє відео само. Локальні файли завжди відтворюються.':
-    'Yield — the output window frees the 2nd screen (goes black and stops staying on top) so you can bring your own player there. Plays — the output window plays the video itself. Local files always play.',
+  'Поступитися — вікно показу звільняє 2-й екран (чорніє й не тримається поверх), щоб ви вивели туди власний плеєр. Відтворює — вікно показу програє відео само. Повний плеєр — вікно показу стає інтерактивним плеєром YouTube на 2-му екрані, яким ви керуєте (кнопки видно глядачам). Локальні файли завжди відтворюються.':
+    'Yield — the output window frees the 2nd screen (goes black and stops staying on top) so you can bring your own player there. Plays — the output window plays the video itself. Full player — the output window becomes an interactive YouTube player on the 2nd screen that you control (the buttons are visible to the audience). Local files always play.',
   'Поступитися екраном власному плеєру': 'Yield the screen to your own player',
   'Вікно показу відтворює саме': 'The output window plays it itself',
+  'Повний плеєр YouTube у вікні показу': 'A full YouTube player in the output window',
   'Після кінця відео': 'After a video ends',
   'Далі: наступний пункт послідовності чи наступне відео':
     'Next: the next item of the running order or the next video',

@@ -245,11 +245,13 @@ export interface SlideVideo {
   /** YouTube with the browser's sign-in (1.19.0-beta.11): youtube.com, not its privacy mode */
   account?: boolean;
   /**
-   * «Поступитися екраном» (1.21.0-beta.7, F1024-08): this video is NOT played by the output window —
-   * the window frees the 2nd screen (it is pushed as a `forceBlack` slide, and drops its
-   * always-on-top / fullscreen) so the operator's own player can come forward there.
+   * How the output window treats this video (1.21.0-beta.7/8, F1024-08). 'yield': it is NOT played —
+   * the window frees the 2nd screen (pushed as a `forceBlack` slide, and drops its always-on-top /
+   * fullscreen) so the operator's own player can come forward. 'player': the output window IS the
+   * operator's interactive YouTube player on the 2nd screen (controls shown, it sounds), and its
+   * pauses / jumps there lead every window (components/OutputYouTubeLead.tsx → the YouTube channel).
    */
-  screen?: 'yield';
+  screen?: 'yield' | 'player';
 }
 
 export interface SlideCover {

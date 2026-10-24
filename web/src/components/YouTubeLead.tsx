@@ -30,10 +30,16 @@ export function YouTubeLead({
   video,
   onMove,
   onLength,
+  sound = false,
+  fill = false,
 }: {
   video: SlideVideo;
   onMove: (to: { paused: boolean; time: number }) => void;
   onLength: (seconds: number) => void;
+  /** this player sounds (1.21.0-beta.8): the output window leading on the 2nd screen, not the muted «Відео» preview */
+  sound?: boolean;
+  /** fill the slide, no border or caption (1.21.0-beta.8): the output window, not the «Відео» tab */
+  fill?: boolean;
 }) {
   useLang();
   const box = useRef<HTMLDivElement>(null);
@@ -41,6 +47,11 @@ export function YouTubeLead({
   const [failed, setFailed] = useState(false);
   const clock = useRef(video);
   clock.current = video;
+  // `sound` through a ref: the Web Lock behind it resolves after mount, so the player-creation
+  // effect and onReady must read the CURRENT value, not the false one captured at mount — else a
+  // window that mounts the video before the lock arrives stays muted (1.21.0-beta.8 review).
+  const soundRef = useRef(sound);
+  soundRef.current = sound;
   /** until when this player's events are the app's own doing */
   const own = useRef(0);
   /** what this player last put on the clock: that clock coming back is no change to follow (review) */
@@ -93,18 +104,21 @@ export function YouTubeLead({
           playerVars: {
             autoplay: 0,
             controls: 1,
-            fs: 0,
+            fs: fill ? 1 : 0,
             iv_load_policy: 3,
             playsinline: 1,
             rel: 0,
-            mute: 1,
+            mute: soundRef.current ? 0 : 1,
             origin: window.location.origin,
           },
           events: {
             onReady: (e) => {
               if (gone) return;
               player.current = e.target;
-              e.target.mute();
+              if (soundRef.current) {
+                e.target.unMute();
+                e.target.setVolume(Math.round((clock.current.volume ?? 1) * 100));
+              } else e.target.mute();
               const length = e.target.getDuration();
               if (length > 0) live.current.onLength(length);
               followRef.current();
@@ -143,7 +157,21 @@ export function YouTubeLead({
       }
       host.remove();
     };
+    // `sound` / `fill` are read only to set up the player; a change of them is handled by the sound
+    // effect below (and `fill` is fixed per mount), so they must NOT recreate the player.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video.youtube, video.account]);
+
+  // the sound and its loudness (1.21.0-beta.8): only the output window that leads sounds; the «Відео»
+  // preview stays muted
+  useEffect(() => {
+    const p = player.current;
+    if (!p) return;
+    if (sound) {
+      p.unMute();
+      p.setVolume(Math.round((video.volume ?? 1) * 100));
+    } else p.mute();
+  }, [sound, video.volume]);
 
   // a jump the operator made (the bar, the arrow keys) shows as the player's time leaving the clock
   useEffect(() => {
@@ -172,9 +200,39 @@ export function YouTubeLead({
   useEffect(() => {
     const s = sent.current;
     const pos = video.paused != null ? video.paused : video.from;
-    if (s && s.paused === (video.paused != null) && Math.abs(pos - s.time) < 0.5) return;
+    if (s && s.paused === (video.paused != null) && Math.abs(pos - s.time) < 0.5) {
+      // this is the echo of our own move coming back once — seen; a LATER clock change, even one
+      // that lands at the same spot, must follow, so don't keep matching it (1.21.0-beta.8 review)
+      sent.current = null;
+      return;
+    }
     followRef.current();
   }, [video.at, video.from, video.paused]);
+
+  // The output window on the 2nd screen (1.21.0-beta.8): the player fills the slide, no border or
+  // caption — the operator drives it there and it leads every window.
+  if (fill)
+    return (
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#000' }}>
+        {failed ? (
+          <img
+            src={video.poster}
+            alt=""
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: video.fit === 'cover' ? 'cover' : 'contain',
+            }}
+          />
+        ) : (
+          <div
+            ref={box}
+            data-vo-youtube-lead={video.youtube}
+            style={{ position: 'absolute', inset: 0 }}
+          />
+        )}
+      </div>
+    );
 
   return (
     <div>
