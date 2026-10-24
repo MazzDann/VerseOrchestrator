@@ -8,6 +8,7 @@ import { N_ } from '@vo/shared';
 import { LAYOUT_MARKER, OS_NAME, shellDirName } from './layout.js';
 import {
   assign,
+  contentHashAsync,
   manifestAsset,
   PARTS_FILE,
   PARTS_FORMAT,
@@ -371,15 +372,8 @@ export function createInstaller(o: InstallerOptions) {
     if (want.length === 0 || want.some((s) => !s.file || typeof s.contentHash !== 'string'))
       return false;
     const localHash = new Map(local.segments.map((s) => [s.name, s.contentHash]));
-    const changed = want.filter((s) => localHash.get(s.name) !== s.contentHash);
-    // the page shows the real work: the changed parts' bytes, not the whole app
-    state = {
-      phase: 'download',
-      version: latest.version,
-      received: 0,
-      total: changed.reduce((n, s) => n + (Number(s.size) || 0), 0),
-      error: null,
-    };
+    // the copy's parts.json is only a quick pre-filter of what might be reusable
+    const candidates = want.filter((s) => localHash.get(s.name) === s.contentHash);
     const sums = await (await doFetch(latest.sums, { redirect: 'follow' })).text();
     if (superseded()) return false;
     const releaseDir = path.join(unpacked, `VerseOrchestrator-${latest.version}-${osName}-${arch}`);
@@ -387,10 +381,10 @@ export function createInstaller(o: InstallerOptions) {
     const partsDir = path.join(updatesDir, 'parts');
     fs.mkdirSync(partsDir, { recursive: true });
 
-    // the running copy's files per reused segment — walking ONLY app/ (never modules/, which can be
-    // tens of GB, nor data/ or app.next/); the reused segments (runtime/deps/engines) all live there
+    // the running copy's files per segment — walking ONLY app/ (never modules/, which can be tens
+    // of GB, nor data/ or app.next/); the reusable segments (runtime/deps/engines) all live there
     const localFiles = new Map<string, string[]>();
-    if (changed.length < want.length)
+    if (candidates.length)
       for (const rel of walkFiles(path.join(o.top, 'app'))) {
         const full = `app/${rel}`;
         if (full === `app/${PARTS_FILE}`) continue; // written fresh below
@@ -401,10 +395,30 @@ export function createInstaller(o: InstallerOptions) {
         list.push(full);
       }
 
+    // a segment is reused only when its files ON DISK hash to the manifest's value: a drifted or
+    // corrupt local file is re-downloaded, not copied in (the swap couldn't catch a wrong-but-runs
+    // file). Hashing is awaited so the hub/phones keep going.
+    const reuse = new Set<string>();
+    for (const s of candidates) {
+      if (superseded()) return false;
+      const files = localFiles.get(s.name);
+      if (files && files.length && (await contentHashAsync(o.top, files)) === s.contentHash)
+        reuse.add(s.name);
+    }
+    if (superseded()) return false;
+    // the page shows the real work: the bytes still to download, not the whole app
+    state = {
+      phase: 'download',
+      version: latest.version,
+      received: 0,
+      total: want.reduce((n, s) => (reuse.has(s.name) ? n : n + (Number(s.size) || 0)), 0),
+      error: null,
+    };
+
     for (const seg of want) {
       if (superseded()) return false;
-      if (!changed.includes(seg)) {
-        // unchanged: copy the running copy's files, keeping symlinks and modes
+      if (reuse.has(seg.name)) {
+        // confirmed unchanged: copy the running copy's files, keeping symlinks and modes
         const files = localFiles.get(seg.name);
         if (!files || files.length === 0) return false; // the copy lacks it → the whole archive
         for (const rel of files) {
