@@ -2750,4 +2750,6 @@ export const EN: Record<string, string> = {
   'YouTube: мій вхід у браузері (Premium)': 'YouTube: my sign-in in the browser (Premium)',
   'Плеєр YouTube бачитиме ваш вхід у Google у цьому браузері: з YouTube Premium — без реклами, а перегляди потраплять у вашу історію YouTube. Вимкнено — приватний режим YouTube. В окремому застосунку входу в Google немає.':
     'YouTube’s player will see your Google sign-in in this browser: with YouTube Premium — no ads, and the views go into your YouTube history. Off — YouTube’s privacy mode. The desktop app has no Google sign-in.',
+  'Вікна показу згаснуть на час перезапуску (до хвилини) і повернуться самі.':
+    'The output windows go dark for the restart (up to a minute) and come back on their own.',
 };
