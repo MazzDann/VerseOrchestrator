@@ -9,7 +9,13 @@ import {
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { IconAdjustments, IconQrcode, IconDeviceMobile, IconAppWindow } from '@tabler/icons-react';
+import {
+  IconAdjustments,
+  IconQrcode,
+  IconDeviceMobile,
+  IconAppWindow,
+  IconKeyboard,
+} from '@tabler/icons-react';
 
 import { useStore } from '../store';
 import { placeKey } from '../lib/quickRef';
@@ -32,6 +38,7 @@ import { SongsPanel } from '../components/SongsPanel';
 import { DocumentsPanel } from '../components/DocumentsPanel';
 import { TextPanel } from '../components/TextPanel';
 import { FloatingPanel } from '../components/FloatingPanel';
+import { HotkeysCheatsheet } from '../components/HotkeysCheatsheet';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { FollowPanel } from '../components/FollowPanel';
 import { usePhoneUrl } from '../lib/phoneUrl';
@@ -304,6 +311,19 @@ export function Control() {
   // Active Strong number for the concordance panel shown beside the verse list.
   const [concordanceStrong, setConcordanceStrong] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // F1024-06: a shortcuts cheat sheet, opened by «?» (not while typing) or the command palette
+  const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '?' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      e.preventDefault();
+      setCheatsheetOpen((o) => !o);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const serverAvailable = useServer((s) => s.available);
   const openAppSettings = useAppSettingsOpener({ setSettingsOpen, serverAvailable });
   const [followOpen, setFollowOpen] = useState(false);
@@ -1084,6 +1104,7 @@ export function Control() {
     setRemoteOpen,
     setOutputsOpen,
     setSettingsOpen,
+    openCheatsheet: () => setCheatsheetOpen(true),
     liveFollow,
     setLiveFollow,
     colorScheme,
@@ -1621,6 +1642,17 @@ export function Control() {
         icon={<IconAdjustments size={16} />}
       >
         <SettingsPanel onDetach={() => setSettingsOpen(false)} />
+      </FloatingPanel>
+
+      <FloatingPanel
+        opened={cheatsheetOpen}
+        onClose={() => setCheatsheetOpen(false)}
+        title={tr('Гарячі клавіші')}
+        storageKey="vo:cheatsheetPos"
+        width={360}
+        icon={<IconKeyboard size={16} />}
+      >
+        <HotkeysCheatsheet />
       </FloatingPanel>
 
       <FloatingPanel
