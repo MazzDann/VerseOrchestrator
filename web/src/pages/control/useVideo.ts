@@ -28,7 +28,12 @@ import { showsSomething } from '../../lib/slide';
 import { everyMs } from '../../lib/workerClock';
 import { tr } from '../../i18n';
 import { unusable, unusableNotice } from '../../lib/denied';
-import { useSettings, type VideoEnd, type VideoPhones } from '../../settingsStore';
+import {
+  useSettings,
+  type VideoEnd,
+  type VideoPhones,
+  type VideoScreen,
+} from '../../settingsStore';
 import { standbyNotice } from './standby';
 
 /** The video on screen, if the screen shows one of the list. */
@@ -66,6 +71,7 @@ export function useVideo({
   serverAvailable,
   videoEnd,
   videoPhones,
+  videoScreen,
   volume,
   playlistCurrent,
   playlistNextRef,
@@ -85,6 +91,7 @@ export function useVideo({
   serverAvailable: boolean | null;
   videoEnd: VideoEnd;
   videoPhones: VideoPhones;
+  videoScreen: VideoScreen;
   volume: number;
   /** the running order's current item: a video started from it goes on to the next item */
   playlistCurrent: SeqItem | null;
@@ -141,6 +148,21 @@ export function useVideo({
       v.id,
       slideStyle,
     );
+    // «Поступитися екраном» (1.21.0-beta.7, F1024-08): a YouTube video under «Поступитися» is not
+    // played by the output — it is pushed black so the window frees the 2nd screen for the
+    // operator's own player (Presenter.tsx acts on `video.screen === 'yield'`). The operator's
+    // PREVIEW still shows the real video. A local file always plays (no operator player to hand to).
+    if (slide.video?.youtube && videoScreen === 'yield') {
+      const freed: Slide = {
+        ...slide,
+        forceBlack: true,
+        video: { ...slide.video, screen: 'yield' },
+      };
+      pushLive(freed);
+      setPreviewOverride(slide);
+      setLive(true);
+      return slide;
+    }
     pushLive(slide);
     setPreviewOverride(slide);
     setLive(true);
@@ -404,8 +426,11 @@ export function useVideo({
     // frozen at its end (review)
     setPreviewOverride((p) => (p && videoOnScreen(p)?.videoId === at.videoId ? null : p));
     // hidden or black: the operator took it off the hall's eyes — nothing comes up by itself,
-    // and «Сховати текст» / «Чорний екран» still give back exactly that (review)
-    if (!showsSomething(s)) return;
+    // and «Сховати текст» / «Чорний екран» still give back exactly that (review). A «Поступитися»
+    // video is black on purpose while it plays on the operator's own player — it still advances at
+    // its end, so «Далі» works the same as a played video (1.21.0-beta.7, F1024-08).
+    const yielded = at.video.screen === 'yield';
+    if (!yielded && !showsSomething(s)) return;
     const fromOrder = playlistCurrent?.kind === 'video' && playlistCurrent.videoId === at.videoId;
     if (videoEnd === 'next') {
       // the running order's next item; at its last one, black (it never replays itself — review)

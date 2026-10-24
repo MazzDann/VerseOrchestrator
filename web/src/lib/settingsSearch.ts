@@ -98,6 +98,11 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   ),
   e('data', N_('Модель для пошуку за змістом'), 'model fast precise'),
   e('data', N_('Ядра процесора'), 'cpu cores threads speed vectors processor test benchmark best'),
+  e(
+    'video',
+    N_('Відео YouTube на екрані показу'),
+    'video youtube output screen yield player second monitor',
+  ),
   e('video', N_('Після кінця відео'), 'video end'),
   e('video', N_('Телефони глядачів під час відео'), 'phones viewers'),
   e('video', N_('YouTube: мій вхід у браузері (Premium)'), 'youtube premium google account'),

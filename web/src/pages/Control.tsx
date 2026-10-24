@@ -25,6 +25,7 @@ import {
   refVerses,
   videoEndOf,
   videoPhonesOf,
+  videoScreenOf,
   videoVolumeOf,
   type RefItem,
 } from '../settingsStore';
@@ -693,6 +694,7 @@ export function Control() {
     serverAvailable,
     videoEnd: videoEndOf(appearance.videoEnd),
     videoPhones: videoPhonesOf(appearance.videoPhones),
+    videoScreen: videoScreenOf(appearance.videoScreen),
     volume: videoVolumeOf(appearance.videoVolume),
     playlistCurrent: playlistItems.find((i) => i.id === playlistCurrentId) ?? null,
     playlistNextRef,

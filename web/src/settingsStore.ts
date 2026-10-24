@@ -131,13 +131,22 @@ export interface Appearance {
    */
   videoEnd: VideoEnd;
   videoPhones: VideoPhones;
+  videoScreen: VideoScreen;
   videoVolume: number;
 }
 
 export type VideoEnd = 'black' | 'next';
 export type VideoPhones = 'poster' | 'text';
+/**
+ * What the output window does with a YouTube video (1.21.0-beta.7, users' F1024-08): «Поступитися» —
+ * it frees the 2nd screen (black + drops its always-on-top/fullscreen) so the operator's own player
+ * can come forward; «Відтворює» — the window plays the video itself. Local files always play (no
+ * operator player to hand the screen to). Default «Поступитися» (the author's call 2026-10-24).
+ */
+export type VideoScreen = 'yield' | 'play';
 export const videoEndOf = (v: unknown): VideoEnd => (v === 'next' ? 'next' : 'black');
 export const videoPhonesOf = (v: unknown): VideoPhones => (v === 'text' ? 'text' : 'poster');
+export const videoScreenOf = (v: unknown): VideoScreen => (v === 'play' ? 'play' : 'yield');
 export const videoVolumeOf = (v: unknown) =>
   typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
 
@@ -539,6 +548,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   countdownCaptionAt: 'above',
   videoEnd: 'black',
   videoPhones: 'poster',
+  videoScreen: 'yield',
   videoVolume: 1,
 };
 
@@ -574,6 +584,7 @@ const ownContent = (a: Appearance) => ({
   // video (1.8.12-beta.3): how this operator runs one, not a look
   videoEnd: a.videoEnd,
   videoPhones: a.videoPhones,
+  videoScreen: a.videoScreen,
   videoVolume: a.videoVolume,
 });
 

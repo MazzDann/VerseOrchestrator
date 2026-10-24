@@ -244,6 +244,12 @@ export interface SlideVideo {
   volume?: number;
   /** YouTube with the browser's sign-in (1.19.0-beta.11): youtube.com, not its privacy mode */
   account?: boolean;
+  /**
+   * «Поступитися екраном» (1.21.0-beta.7, F1024-08): this video is NOT played by the output window —
+   * the window frees the 2nd screen (it is pushed as a `forceBlack` slide, and drops its
+   * always-on-top / fullscreen) so the operator's own player can come forward there.
+   */
+  screen?: 'yield';
 }
 
 export interface SlideCover {

@@ -740,7 +740,10 @@ function DrawnSlide({
 
   // Pure-black override: paint solid black over everything, ignoring the
   // background image/colour (the operator's "force black" key/button).
-  if (slide.forceBlack) return BLACK;
+  // «Поступитися екраном» (1.21.0-beta.7, F1024-08): a yield video is black on the output no matter
+  // what — even if the operator toggles «Чорний екран»/«Сховати текст» off — because it plays on
+  // their own player, and Presenter keeps the screen yielded while `video.screen==='yield'`.
+  if (slide.forceBlack || slide.video?.screen === 'yield') return BLACK;
 
   const background = style.bgImage
     ? `center / cover no-repeat url(${JSON.stringify(style.bgImage)})`
