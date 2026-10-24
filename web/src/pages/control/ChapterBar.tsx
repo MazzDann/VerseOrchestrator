@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActionIcon, Badge, Group, ScrollArea, Text, TextInput, Tooltip } from '@mantine/core';
 import {
   IconChevronLeft,
@@ -49,11 +49,37 @@ export function ChapterBar({
   reference: string;
   chapters: number[];
   selectChapter: (chapter: number) => void;
-  /** «16», «16-18» or «3:16» in the open book: selected and its row focused; `show` — on screen too */
-  jumpVerse: (q: string, show: boolean) => Promise<boolean>;
+  /**
+   * «16», «16-18» or «3:16» in the open book: selected and its row focused; `show` — on screen too.
+   * `keepFocus` — select without taking the focus from the field (type on / step with arrows,
+   * F1024-01), and stay quiet about a verse that isn't there.
+   */
+  jumpVerse: (q: string, show: boolean, keepFocus?: boolean) => Promise<boolean>;
 }) {
   useLang();
   const [verse, setVerse] = useState('');
+  // F1024-01: typing a verse selects it into the preview on a short pause (no Enter), and ↑/↓ step
+  // to the next/previous verse without leaving the field. The explicit Enter still commits (and
+  // moves to the row), Ctrl+Enter also shows it.
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearPending = () => {
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = null;
+  };
+  useEffect(() => clearPending, []);
+  // which verse a step moves from: the last selected one, else what is typed
+  const stepFrom = () => {
+    if (selectedVerses.length > 0) return selectedVerses[selectedVerses.length - 1];
+    const n = parseInt(verse, 10);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const stepVerse = (delta: number) => {
+    clearPending();
+    const next = stepFrom() + delta;
+    if (next < 1) return;
+    // show the number in the field only once it actually lands (don't leave an out-of-range one)
+    void jumpVerse(String(next), false, true).then((ok) => ok && setVerse(String(next)));
+  };
   return (
     <>
       <Group justify="space-between" px="md" pt="xs" pb={4} wrap="nowrap">
@@ -139,7 +165,7 @@ export function ChapterBar({
         <Group gap="xs" wrap="nowrap" align="flex-start" px="md" pb="xs">
           <Tooltip
             label={tr(
-              'Вірш цього розділу, як-от 16 чи 16-18. Enter — вибрати, Ctrl+Enter — і на екран',
+              'Вірш цього розділу, як-от 16 чи 16-18. Вибирається сам; ↑/↓ — гортати, Enter — вибрати й далі, Ctrl+Enter — і на екран',
             )}
             multiline
             w={240}
@@ -152,12 +178,27 @@ export function ChapterBar({
               placeholder={tr('Вірш')}
               aria-label={tr('Вірш у розділі')}
               value={verse}
-              onChange={(e) => setVerse(e.currentTarget.value)}
+              onChange={(e) => {
+                const v = e.currentTarget.value;
+                setVerse(v);
+                clearPending();
+                const q = v.trim();
+                // select as you type (into the preview, quietly) so ↑/↓ can step right away
+                if (q) debounce.current = setTimeout(() => void jumpVerse(q, false, true), 350);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape' && verse) {
                   e.preventDefault();
                   e.stopPropagation();
+                  clearPending();
                   setVerse('');
+                  return;
+                }
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  // step the selection without leaving the field (F1024-01); holding repeats
+                  e.preventDefault();
+                  e.stopPropagation();
+                  stepVerse(e.key === 'ArrowDown' ? 1 : -1);
                   return;
                 }
                 if (e.key !== 'Enter' || !verse.trim()) return;
@@ -165,6 +206,7 @@ export function ChapterBar({
                 e.preventDefault();
                 e.stopPropagation();
                 if (e.repeat) return;
+                clearPending();
                 void jumpVerse(verse.trim(), e.ctrlKey || e.metaKey).then(
                   (ok) => ok && setVerse(''),
                 );

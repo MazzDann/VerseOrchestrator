@@ -1508,7 +1508,9 @@ export function Control() {
                 reference={reference}
                 chapters={chapters}
                 selectChapter={selectChapter}
-                jumpVerse={(q, show) => quickJump(q, { show })}
+                jumpVerse={(q, show, keepFocus) =>
+                  quickJump(q, { show, keepFocus, silent: keepFocus })
+                }
               />
               <Divider />
               <VerseList

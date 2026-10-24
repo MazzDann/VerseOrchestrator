@@ -247,10 +247,15 @@ export function useJumps({
    * puts it on screen; on screen at once while the screen follows the selection, or with
    * `show` (⌘↩ / Ctrl+Enter / «На екран» in the typed-number box).
    */
-  const quickJump = async (q: string, opts?: { show?: boolean }): Promise<boolean> => {
+  const quickJump = async (
+    q: string,
+    // `keepFocus` — select but leave the focus where it is (the verse field types on, F1024-01);
+    // `silent` — no «немає такого вірша» notice (the field auto-selects / arrows as you go)
+    opts?: { show?: boolean; keepFocus?: boolean; silent?: boolean },
+  ): Promise<boolean> => {
     const r = parseQuickRef(q);
     const say = (message: string) => {
-      notifications.show({ message, color: 'gray', autoClose: 2500 });
+      if (!opts?.silent) notifications.show({ message, color: 'gray', autoClose: 2500 });
       return false;
     };
     if (!r) {
@@ -285,7 +290,7 @@ export function useJumps({
     setPageIndex(0);
     setRevealCount(1);
     setScrollTarget(from);
-    focusJump.current = true;
+    if (!opts?.keepFocus) focusJump.current = true; // keep typing in the verse field (F1024-01)
     toBible();
     return true;
   };
