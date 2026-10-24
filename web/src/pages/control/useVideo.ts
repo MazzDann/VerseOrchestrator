@@ -163,6 +163,16 @@ export function useVideo({
       setLive(true);
       return slide;
     }
+    // «Повний плеєр у вікні показу» (1.21.0-beta.8): the output window becomes the operator's
+    // interactive player (SlideCanvas → OutputYouTubeLead); its moves come back on the YouTube
+    // channel and `leadMove` puts them on the clock, so every window follows.
+    if (slide.video?.youtube && videoScreen === 'player') {
+      const led: Slide = { ...slide, video: { ...slide.video, screen: 'player' } };
+      pushLive(led);
+      setPreviewOverride(led);
+      setLive(true);
+      return led;
+    }
     pushLive(slide);
     setPreviewOverride(slide);
     setLive(true);
@@ -192,6 +202,14 @@ export function useVideo({
         ? { ...v, paused: Math.max(0, to.time) }
         : { ...v, at: now, from: Math.max(0, to.time), paused: null },
     );
+  // «Повний плеєр у вікні показу» (1.21.0-beta.8): a move the output's interactive player sent on the
+  // YouTube channel — applied only when it is still that video on screen (a stale move can't disturb
+  // another one). Through a ref so the channel effect need not re-subscribe on every render.
+  const applyLeadMove = (youtube: string, to: { paused: boolean; time: number }) => {
+    if (videoOnScreen(screen())?.video.youtube === youtube) leadMove(to);
+  };
+  const leadMoveRef = useRef(applyLeadMove);
+  leadMoveRef.current = applyLeadMove;
   /** A YouTube video's length from a player that is seen: onto the slide, kept on its entry */
   const lengthWritten = useRef(new Set<string>());
   const youtubeLengthOf = (youtube: string, seconds: number) => {
@@ -392,6 +410,7 @@ export function useVideo({
         });
       else if (e.data?.t === 'sound-on') notifications.hide('vo-youtube-sound');
       else if (e.data?.t === 'length') lengthRef.current(e.data.youtube, e.data.duration);
+      else if (e.data?.t === 'move') leadMoveRef.current(e.data.youtube, e.data.to);
     };
     return () => bc.close();
   }, [isLeader]);

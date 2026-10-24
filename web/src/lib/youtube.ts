@@ -111,7 +111,21 @@ export const YT_CHANNEL = 'vo-youtube';
 export type YTNote =
   | { t: 'sound-blocked' }
   | { t: 'sound-on' }
-  | { t: 'length'; youtube: string; duration: number };
+  | { t: 'length'; youtube: string; duration: number }
+  // «Повний плеєр у вікні показу» (1.21.0-beta.8, F1024-08): the output's interactive player leads —
+  // the operator's pause / play / jump on the 2nd screen goes to the control window's show clock
+  | { t: 'move'; youtube: string; to: { paused: boolean; time: number } };
+
+/** Post a note on the YouTube channel (output → control): length, the sound state, an operator move. */
+export function postYTNote(msg: YTNote): void {
+  try {
+    const bc = new BroadcastChannel(YT_CHANNEL);
+    bc.postMessage(msg);
+    bc.close();
+  } catch {
+    // no channel here: nothing to tell
+  }
+}
 
 /**
  * Is the player showing an ad? Its length isn't the video's then (YouTube's player says no more); while

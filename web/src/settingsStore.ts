@@ -138,15 +138,17 @@ export interface Appearance {
 export type VideoEnd = 'black' | 'next';
 export type VideoPhones = 'poster' | 'text';
 /**
- * What the output window does with a YouTube video (1.21.0-beta.7, users' F1024-08): «Поступитися» —
+ * What the output window does with a YouTube video (1.21.0-beta.7/8, users' F1024-08): «Поступитися» —
  * it frees the 2nd screen (black + drops its always-on-top/fullscreen) so the operator's own player
- * can come forward; «Відтворює» — the window plays the video itself. Local files always play (no
- * operator player to hand the screen to). Default «Поступитися» (the author's call 2026-10-24).
+ * can come forward; «Відтворює» — the window plays the video itself; «Повний плеєр» (beta.8) — the
+ * output window IS the operator's interactive YouTube player on the 2nd screen, and its pauses /
+ * jumps lead every window. Local files always play (no operator player). Default «Поступитися».
  */
-export type VideoScreen = 'yield' | 'play';
+export type VideoScreen = 'yield' | 'play' | 'player';
 export const videoEndOf = (v: unknown): VideoEnd => (v === 'next' ? 'next' : 'black');
 export const videoPhonesOf = (v: unknown): VideoPhones => (v === 'text' ? 'text' : 'poster');
-export const videoScreenOf = (v: unknown): VideoScreen => (v === 'play' ? 'play' : 'yield');
+export const videoScreenOf = (v: unknown): VideoScreen =>
+  v === 'play' || v === 'player' ? v : 'yield';
 export const videoVolumeOf = (v: unknown) =>
   typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
 
