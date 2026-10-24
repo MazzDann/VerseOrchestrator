@@ -116,6 +116,10 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const youtubeAccount = useSettings((s) => s.youtubeAccount);
   const setYoutubeAccount = useSettings((s) => s.setYoutubeAccount);
   const setWindowsMenu = useSettings((s) => s.setWindowsMenu);
+  const verseField = useSettings((s) => s.verseField);
+  const setVerseField = useSettings((s) => s.setVerseField);
+  const chapterSize = useSettings((s) => s.chapterSize);
+  const setChapterSize = useSettings((s) => s.setChapterSize);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
   // the search over the settings (1.13.0-beta.3, users' report F1010-11; the author's Q9a: the
@@ -1278,6 +1282,38 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               checked={windowsMenu}
               onChange={(e) => setWindowsMenu(e.currentTarget.checked)}
             />
+            {/* 1.21.0-beta.2 (F1024-03): where the verse field sits by the chapter grid */}
+            <div>
+              <Text size="sm" fw={500} mb={4}>
+                {tr('Поле «Вірш» біля розділів')}
+              </Text>
+              <SegmentedControl
+                fullWidth
+                value={verseField}
+                onChange={(v) => setVerseField(v as 'beside' | 'below' | 'off')}
+                data={[
+                  { label: tr('Поруч'), value: 'beside' },
+                  { label: tr('Під низом'), value: 'below' },
+                  { label: tr('Приховати'), value: 'off' },
+                ]}
+              />
+            </div>
+            {/* 1.21.0-beta.2 (F1024-04): the chapter buttons' size (a long book has many) */}
+            <div>
+              <Text size="sm" fw={500} mb={4}>
+                {tr('Розмір розділів')}
+              </Text>
+              <SegmentedControl
+                fullWidth
+                value={chapterSize}
+                onChange={(v) => setChapterSize(v as 'sm' | 'md' | 'lg')}
+                data={[
+                  { label: tr('Дрібні'), value: 'sm' },
+                  { label: tr('Звичайні'), value: 'md' },
+                  { label: tr('Великі'), value: 'lg' },
+                ]}
+              />
+            </div>
             {/* 1.16.0-beta.2: a translation's section titles over its verses */}
             <Switch
               label={tr('Підзаголовки над віршами')}

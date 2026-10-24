@@ -194,6 +194,22 @@ html[data-scrolling] .vo-list-item:hover:not([data-selected='true']) {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+/* Chapter button size (1.21.0-beta.2, F1024-04): small fits a long book with less scroll. */
+.vo-chapter-grid[data-size='sm'] {
+  grid-template-columns: repeat(auto-fill, minmax(26px, 1fr));
+  gap: 3px;
+}
+.vo-chapter-grid[data-size='sm'] .vo-chip {
+  font-size: 11px;
+}
+.vo-chapter-grid[data-size='lg'] {
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: 6px;
+}
+.vo-chapter-grid[data-size='lg'] .vo-chip {
+  padding: 5px 0;
+  font-size: 15px;
+}
 
 /* Light scheme: a faint warm-grey ground instead of pure white (less glare beside the
    output preview); panels/inputs stay white so they read as raised. */
