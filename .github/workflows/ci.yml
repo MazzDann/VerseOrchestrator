@@ -106,6 +106,18 @@ jobs:
         run: |
           (cd desktop && npm ci && npm run build)
           node desktop/scripts/pack.mjs "$(ls -d portable/VerseOrchestrator-*)"
+      # Updates in parts (1.20.0-beta.1, server/src/releaseParts.ts): split the built copy into
+      # segment archives + a manifest in out/, and write app/parts.json into the copy (so the full
+      # archive, made next, carries it). An update then downloads only the segments that changed.
+      - name: Parts
+        shell: bash
+        run: |
+          dir=$(ls -d portable/VerseOrchestrator-*)
+          os=$(node -p "({Windows:'windows',macOS:'macos',Linux:'linux'})[process.env.RUNNER_OS]")
+          arch=$(node -p process.arch)
+          ext=$([ "$RUNNER_OS" = Linux ] && echo tar.gz || echo zip)
+          mkdir -p out
+          node --import tsx server/src/releaseParts.ts "$dir" out "$os" "$arch" "VerseOrchestrator-$os-$arch.$ext"
       - name: Archive
         shell: bash
         run: |
