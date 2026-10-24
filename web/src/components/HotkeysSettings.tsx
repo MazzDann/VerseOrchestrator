@@ -74,6 +74,8 @@ export function HotkeysSettings() {
   const setOrderButtons = useSettings((s) => s.setOrderButtons);
   const pickBeforeEnter = useSettings((s) => s.pickBeforeEnter);
   const setPickBeforeEnter = useSettings((s) => s.setPickBeforeEnter);
+  const continuousReading = useSettings((s) => s.continuousReading);
+  const setContinuousReading = useSettings((s) => s.setContinuousReading);
   const pickScheme = (v: string | null) => {
     if (!v) return;
     const next = withArrowScheme(keymap, v as ArrowScheme);
@@ -106,6 +108,16 @@ export function HotkeysSettings() {
         )}
         checked={orderFlow}
         onChange={(e) => setOrderFlow(e.currentTarget.checked)}
+      />
+      {/* «Безперервне читання» (1.21.0-beta.4, F1024-05): one press crosses a chapter edge */}
+      <Switch
+        size="xs"
+        label={tr('Безперервне читання')}
+        description={tr(
+          'На кінці розділу «Далі» одразу відкриває наступний розділ (а «Назад» на початку — попередній), без другого натиску для підтвердження. Утримана клавіша все одно спиняється на межі.',
+        )}
+        checked={continuousReading}
+        onChange={(e) => setContinuousReading(e.currentTarget.checked)}
       />
       {/* the «Показ» panel's ◀ / «Далі» (1.18.3, F1017-07 and the author's ask) */}
       <Select

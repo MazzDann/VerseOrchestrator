@@ -115,6 +115,9 @@ export const EN: Record<string, string> = {
   'Джерело даних налаштовується в головному вікні керування.':
     'The data source is set in the main control window.',
   'Розташування панелі прев’ю': 'Preview panel position',
+  'Безперервне читання': 'Continuous reading',
+  'На кінці розділу «Далі» одразу відкриває наступний розділ (а «Назад» на початку — попередній), без другого натиску для підтвердження. Утримана клавіша все одно спиняється на межі.':
+    'At the end of a chapter «Next» opens the next chapter at once (and «Back» at the start the previous one), with no second press to confirm. A held key still stops at the edge.',
   'Відкривати вікно показу автоматично': 'Open the output window automatically',
   'Коли вікно керування запускається, «Вікно показу» відкривається само — на другому екрані, якщо він є. У браузері — після першого кліку (дозвольте спливні вікна).':
     'When the control window starts, «Output window» opens on its own — on the second screen if there is one. In a browser — after your first click (allow pop-ups).',
