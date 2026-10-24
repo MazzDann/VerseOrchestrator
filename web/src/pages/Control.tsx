@@ -571,6 +571,7 @@ export function Control() {
   const { projectText, projectAnnouncement, songEnd } = useSongProjection({
     slideStyle,
     slideTemplate,
+    liveFollow,
     pushLive,
     setPreviewOverride,
     setLive,

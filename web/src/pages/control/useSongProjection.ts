@@ -22,6 +22,7 @@ import { withSecond } from './songSlides';
 export function useSongProjection({
   slideStyle,
   slideTemplate,
+  liveFollow,
   pushLive,
   setPreviewOverride,
   setLive,
@@ -32,6 +33,8 @@ export function useSongProjection({
 }: {
   slideStyle: SlideStyle;
   slideTemplate: SlideTemplate | null;
+  /** «Наживо»: off → a stanza click only cues the preview; «На екран» / Enter show it (F1024-07) */
+  liveFollow: boolean;
   pushLive: (pushed: Slide, opts?: { audience?: boolean }) => void;
   setPreviewOverride: Dispatch<SetStateAction<Slide | null>>;
   setLive: (live: boolean) => void;
@@ -53,6 +56,9 @@ export function useSongProjection({
     look?: SongStyle | null,
     // a «Цикл» tick (1.10.4, the Mac's round): the screen only — the caller decides the preview
     quiet = false,
+    // the running order / loop show live whatever «Наживо» says; a panel click leaves it undefined
+    // and follows «Наживо» — off = cue the preview only, «На екран» / Enter then show it (F1024-07)
+    force?: boolean,
   ): Slide | undefined => {
     if (!text.trim()) return;
     let style = slideStyle;
@@ -126,15 +132,25 @@ export function useSongProjection({
       template,
       source,
     };
-    pushLive(slide);
-    if (quiet) return slide;
+    const goLive = force ?? liveFollow;
+    if (goLive || quiet) pushLive(slide);
+    if (quiet) return slide; // a loop tick: the screen only, the caller sets the preview
     setPreviewOverride(slide);
-    setLive(true);
-    if (reference) {
+    if (goLive) {
+      setLive(true);
+      if (reference) {
+        notifications.show({
+          message: tr('На екрані: {ref}', { ref: reference }),
+          color: 'live',
+          autoClose: 1500,
+        });
+      }
+    } else if (reference) {
+      // «Наживо» off: cued into the preview, not shown — «На екран» (чи Enter) показує
       notifications.show({
-        message: tr('На екрані: {ref}', { ref: reference }),
-        color: 'live',
-        autoClose: 1500,
+        message: tr('У прев’ю: {ref} — «На екран», щоб показати', { ref: reference }),
+        color: 'cue',
+        autoClose: 2000,
       });
     }
     return slide;
@@ -143,7 +159,7 @@ export function useSongProjection({
   // Project a free-text slide (announcement / note / custom text) and keep it in recents.
   const projectAnnouncement = (title: string, body: string) => {
     if (!body.trim()) return;
-    projectText(body, title.trim());
+    projectText(body, title.trim(), null, undefined, null, false, true); // «Текст на екран»: show now
     pushRecentText({ title, body });
     if (!title.trim()) {
       notifications.show({ message: tr('Текст на екрані'), color: 'live', autoClose: 1500 });

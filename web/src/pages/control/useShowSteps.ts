@@ -178,6 +178,14 @@ export function useShowSteps({
   };
 
   const send = (overrides?: Partial<Slide>) => {
+    // «На екран» / F5 with a song, text or Strong cued into the preview (live-follow off, F1024-07):
+    // show that, not the verse selection. A plain verse send has no override.
+    if (!overrides && previewOverride) {
+      pushLive(previewOverride);
+      setLive(previewOverride.visible !== false && !previewOverride.blank);
+      setHold(null);
+      return;
+    }
     // a collected pick goes on screen: «Далі» walks it from here
     if (!overrides && isPicked(selectedVerses)) {
       walk.current = { key: walkKey, verses: selectedVerses };
