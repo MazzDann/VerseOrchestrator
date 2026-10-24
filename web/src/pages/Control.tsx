@@ -146,6 +146,7 @@ export function Control() {
   const liveFollow = useSettings((s) => s.liveFollow);
   const orderFlow = useSettings((s) => s.orderFlow);
   const pickBeforeEnter = useSettings((s) => s.pickBeforeEnter);
+  const continuousReading = useSettings((s) => s.continuousReading);
   const setLiveFollow = useSettings((s) => s.setLiveFollow);
   const followAlong = useSettings((s) => s.followAlong);
   const followQrCorner = useSettings((s) => s.followQrCorner);
@@ -808,6 +809,7 @@ export function Control() {
     setSelectedVerses,
     toggleVerse,
     pickBeforeEnter,
+    continuousReading,
     chapters,
     books,
     queryClient,

@@ -378,6 +378,13 @@ interface SettingsState {
   orderButtons: OrderButtons;
   setOrderButtons: (v: OrderButtons) => void;
   /**
+   * «Безперервне читання» (1.21.0-beta.4, users' F1024-05): «Далі» / «Назад» at a chapter's edge
+   * goes straight into the next / previous chapter on one press, instead of asking for a second
+   * press to confirm (the 0.6.23 safety). Off by default. A held key still never flies across.
+   */
+  continuousReading: boolean;
+  setContinuousReading: (v: boolean) => void;
+  /**
    * The control window's own animations — fades, rise-ins (1.18.3, users' F1017-04 «Анімації
    * заважають»): off by default; the slides' transition on screen is `appearance.transition`.
    */
@@ -755,6 +762,8 @@ export const useSettings = create<SettingsState>()(
       setOrderFlow: (v) => set({ orderFlow: v === true }),
       orderButtons: 'auto',
       setOrderButtons: (v) => set({ orderButtons: asOrderButtons(v) }),
+      continuousReading: false,
+      setContinuousReading: (v) => set({ continuousReading: v === true }),
       uiMotion: false,
       setUiMotion: (v) => set({ uiMotion: v === true }),
       motionDefaults: 1,
