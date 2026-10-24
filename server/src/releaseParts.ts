@@ -2,6 +2,13 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { shellDirName } from './layout.js';
+
+/** Our stub app inside the desktop shell — `…/resources/app` (win/linux) or the macOS `.app`. */
+export const shellAppDir = (shellDir: string): string =>
+  shellDir === 'VerseOrchestrator.app'
+    ? 'VerseOrchestrator.app/Contents/Resources/app/'
+    : `${shellDir}/resources/app/`;
 
 /**
  * Updates in parts (1.20.0-beta.1): a release is split into segments by how often each changes
@@ -25,21 +32,24 @@ export type SegmentName = 'runtime' | 'deps' | 'engines' | 'shell' | 'app';
 
 /**
  * Which segment a file (its path relative to the release top, forward slashes) belongs to — the
- * first that claims it. The segments cover the two content trees `app/` and `shell/`. Everything
- * else belongs to no segment: `data/` and `modules/` are the user's (an update never touches them),
- * and the release-top loose files (the `start.*` launchers, the «HOW TO START» / «ЯК ЗАПУСТИТИ»
- * readmes, the `.vo-portable` marker) are tiny and are refreshed by the updater's own top-files
- * path (installer.ts, `updates/top/VERSION`), not through an `app/` swap — so they stay out.
+ * first that claims it; `shellDir` is the desktop shell's folder on this system (`shell` on
+ * win/linux, `VerseOrchestrator.app` on macOS — `shellDirName`). The segments cover the two
+ * content trees `app/` and the shell. Everything else belongs to no segment: `data/` and
+ * `modules/` are the user's (an update never touches them), and the release-top loose files (the
+ * `start.*` launchers, the «HOW TO START» / «ЯК ЗАПУСТИТИ» readmes, the `.vo-portable` marker) are
+ * tiny and are refreshed by the updater's own top-files path (installer.ts, `updates/top/VERSION`),
+ * not through an `app/` swap — so they stay out (they are also the only non-ASCII name in a release,
+ * which Windows bsdtar can't take through a `-T` list).
  */
-export function assign(rel: string): SegmentName | null {
+export function assign(rel: string, shellDir: string = 'shell'): SegmentName | null {
   if (rel.startsWith('data/') || rel.startsWith('modules/')) return null;
   // our code inside node_modules / the shell goes with `app`, so `deps` / `shell` stay static
   if (rel.startsWith('app/node_modules/@vo/')) return 'app';
-  if (rel.startsWith('shell/resources/app/')) return 'app';
+  if (rel.startsWith(shellAppDir(shellDir))) return 'app';
   if (rel.startsWith('app/node/')) return 'runtime';
   if (rel.startsWith('app/node_modules/')) return 'deps';
   if (rel.startsWith('app/web/dist/') && /\.(wasm|data)$/.test(rel)) return 'engines';
-  if (rel.startsWith('shell/')) return 'shell';
+  if (rel.startsWith(`${shellDir}/`)) return 'shell';
   if (rel.startsWith('app/')) return 'app';
   return null;
 }
@@ -47,18 +57,40 @@ export function assign(rel: string): SegmentName | null {
 /** The segments in archive order; `app` last (it carries parts.json, written after the rest). */
 export const SEGMENTS: SegmentName[] = ['runtime', 'deps', 'engines', 'shell', 'app'];
 
-/** Every file under `top` (relative paths, forward slashes), skipping `app/parts.json`. */
+/**
+ * Every file under `top` (relative paths, forward slashes), skipping `app/parts.json`. Symlinks
+ * are FOLLOWED (`statSync`, not the dirent type): a release's `app/node_modules/@vo/*` are symlinks
+ * to `app/{server,shared,builder}` in a fresh `npm run portable` build, but the installed copy (the
+ * full Windows zip is made with `7z`, which dereferences them) has them as real files — following
+ * in both places makes a segment's `contentHash` match whatever the layout, so a part is reused only
+ * when it truly hasn't changed. A dangling link is skipped; a link whose target is an ancestor (a
+ * cycle) is not descended into.
+ */
 export function walkFiles(top: string): string[] {
   const out: string[] = [];
-  const walk = (dir: string, prefix: string) => {
+  const walk = (dir: string, prefix: string, stack: string[]) => {
+    let real: string;
+    try {
+      real = fs.realpathSync(dir);
+    } catch {
+      return;
+    }
+    if (stack.includes(real)) return; // a symlink pointing back up its own branch
+    const next = [...stack, real];
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const rel = prefix ? `${prefix}/${e.name}` : e.name;
       const abs = path.join(dir, e.name);
-      if (e.isDirectory()) walk(abs, rel);
-      else if (e.isFile() && rel !== 'app/parts.json') out.push(rel);
+      let st: fs.Stats;
+      try {
+        st = fs.statSync(abs); // follows a symlink; throws on a dangling one
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) walk(abs, rel, next);
+      else if (st.isFile() && rel !== 'app/parts.json') out.push(rel);
     }
   };
-  walk(top, '');
+  walk(top, '', []);
   return out;
 }
 
@@ -88,12 +120,12 @@ export interface SegmentPlan {
   bytes: number;
 }
 
-/** Each file of `top` put in its segment; throws if a file is claimed by none but `app`'s rule. */
-export function planParts(top: string): SegmentPlan[] {
+/** Each file of `top` put in its segment (by `assign`); `shellDir` names the shell on this system. */
+export function planParts(top: string, shellDir: string = 'shell'): SegmentPlan[] {
   const files = walkFiles(top);
   const byName = new Map<SegmentName, string[]>(SEGMENTS.map((n) => [n, []]));
   for (const rel of files) {
-    const seg = assign(rel);
+    const seg = assign(rel, shellDir);
     if (seg) byName.get(seg)!.push(rel);
   }
   return SEGMENTS.map((name) => {
@@ -215,7 +247,7 @@ export interface BuildOptions {
 export async function buildReleaseParts(o: BuildOptions): Promise<PartsManifest> {
   const platform = o.platform ?? process.platform;
   const archive = o.archive ?? systemArchive;
-  const plan = planParts(o.top);
+  const plan = planParts(o.top, shellDirName(platform));
   // the content hashes first — before parts.json exists, so it isn't hashed into `app`
   const hashes = new Map<SegmentName, string>(
     plan.map((s) => [s.name, contentHash(o.top, s.files)]),
