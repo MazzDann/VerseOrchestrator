@@ -42,6 +42,16 @@ afterEach(() => {
   for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
 
+/** make a dir symlink (a junction on Windows — no privilege needed); null if even that is refused. */
+function linkDir(target: string, link: string): boolean {
+  try {
+    fs.symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** records what it was asked to archive and writes the file list as the archive's bytes. */
 const recording = (): { calls: { out: string; files: string[] }[]; archive: Archive } => {
   const calls: { out: string; files: string[] }[] = [];
@@ -51,6 +61,26 @@ const recording = (): { calls: { out: string; files: string[] }[]; archive: Arch
   };
   return { calls, archive };
 };
+
+describe('walkFiles follows symlinks (1.20.0-beta.2)', () => {
+  it('emits files reached through a symlinked dir (the @vo case), and survives a cycle', () => {
+    const top = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-walk-'));
+    dirs.push(top);
+    fs.mkdirSync(path.join(top, 'app', 'server'), { recursive: true });
+    fs.writeFileSync(path.join(top, 'app', 'server', 'index.js'), 'x');
+    fs.mkdirSync(path.join(top, 'app', 'node_modules', '@vo'), { recursive: true });
+    const linked = linkDir(
+      path.join(top, 'app', 'server'),
+      path.join(top, 'app', 'node_modules', '@vo', 'server'),
+    );
+    if (!linked) return; // no symlink/junction privilege here — nothing to assert
+    // a self-referential link must not hang the walk
+    linkDir(path.join(top, 'app'), path.join(top, 'app', 'loop'));
+    const files = walkFiles(top);
+    expect(files).toContain('app/server/index.js'); // the real path
+    expect(files).toContain('app/node_modules/@vo/server/index.js'); // dereferenced through the link
+  });
+});
 
 describe('the tar --null -T - file list (1.20.0-beta.1)', () => {
   it('is NUL-separated with no empty entries — windows-latest bsdtar chokes on a blank entry', () => {
@@ -74,6 +104,15 @@ describe('updates in parts — the split (1.20.0-beta.1)', () => {
     expect(assign('ЯК ЗАПУСТИТИ.txt')).toBeNull(); // the non-ASCII top-level readme: kept out
     expect(assign('data/library.db')).toBeNull();
     expect(assign('modules/Bible.SQLite3')).toBeNull();
+  });
+
+  it('knows the macOS shell dir (VerseOrchestrator.app), its inner app → the app segment', () => {
+    const mac = 'VerseOrchestrator.app';
+    expect(assign('VerseOrchestrator.app/Contents/MacOS/VerseOrchestrator', mac)).toBe('shell');
+    expect(assign('VerseOrchestrator.app/Contents/Resources/electron.icns', mac)).toBe('shell');
+    expect(assign('VerseOrchestrator.app/Contents/Resources/app/main.js', mac)).toBe('app');
+    // with the macOS shell dir, `shell/` is just an ordinary app-less name → no segment
+    expect(assign('shell/x', mac)).toBeNull();
   });
 
   it('plans the segments, the user folders in none', () => {
