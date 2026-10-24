@@ -1190,4 +1190,49 @@ describe('installing from parts (1.20.0-beta.2)', () => {
       '1.20.0-beta.2',
     );
   });
+
+  it('re-downloads a segment whose local files drifted, despite parts.json (1.20.0-beta.3)', async () => {
+    const v1 = await builtRelease('1.20.0-beta.1');
+    const v2 = await builtRelease('1.20.0-beta.2');
+    // parts.json still says runtime is unchanged, but the file on disk was corrupted
+    fs.writeFileSync(path.join(v1.top, 'app', 'node', 'node.bin'), 'CORRUPT');
+
+    const top = v1.top;
+    const dataDir = path.join(top, 'data');
+    fs.mkdirSync(dataDir, { recursive: true });
+    const base = 'https://dl';
+    const full = `VerseOrchestrator-${OSN}-${ARCH}.${partExt(PLATFORM)}`;
+    const latest: LatestRelease = {
+      version: '1.20.0-beta.2',
+      url: '',
+      publishedAt: '',
+      prerelease: true,
+      asset: { name: full, url: `${base}/${full}`, size: 999 },
+      sums: `${base}/SHA256SUMS.txt`,
+    };
+    const asked: string[] = [];
+    const fetch = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      asked.push(u);
+      const name = u.slice(base.length + 1);
+      if (name === 'SHA256SUMS.txt') return new Response(v2.sums);
+      if (name === full) throw new Error('the whole archive must not be fetched');
+      return new Response(fs.readFileSync(path.join(v2.outDir, name)));
+    }) as unknown as typeof globalThis.fetch;
+    const inst = createInstaller({
+      top,
+      dataDir,
+      platform: PLATFORM,
+      arch: ARCH,
+      fetch,
+      current: '1.20.0-beta.1',
+    });
+    expect(inst.start(latest)).toBe(true);
+    await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 20_000 });
+    expect(inst.state()).toMatchObject({ phase: 'ready' });
+    // the drifted runtime was re-downloaded, not copied from the corrupt copy
+    expect(asked).toContain(`${base}/${partAsset(OSN, ARCH, 'runtime', PLATFORM)}`);
+    const next = path.join(top, NEXT_DIR);
+    expect(fs.readFileSync(path.join(next, 'node', 'node.bin'), 'utf8')).toBe('NODE-RUNTIME');
+  });
 });

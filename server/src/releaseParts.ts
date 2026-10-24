@@ -114,6 +114,20 @@ export function contentHash(top: string, files: string[]): string {
   return sha256(lines.join('\n'));
 }
 
+/**
+ * The same hash as `contentHash`, computed with awaited reads so a server stays responsive while
+ * it confirms a segment on disk during an update (the installer re-checks a reused part this way).
+ */
+export async function contentHashAsync(top: string, files: string[]): Promise<string> {
+  const lines: string[] = [];
+  for (const rel of [...files].sort()) {
+    const h = createHash('sha256');
+    h.update(await fs.promises.readFile(path.join(top, ...rel.split('/'))));
+    lines.push(`${rel}\0${h.digest('hex')}`);
+  }
+  return sha256(lines.join('\n'));
+}
+
 export interface SegmentPlan {
   name: SegmentName;
   files: string[];
