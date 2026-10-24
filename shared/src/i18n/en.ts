@@ -116,6 +116,11 @@ export const EN: Record<string, string> = {
     'The data source is set in the main control window.',
   'Розташування панелі прев’ю': 'Preview panel position',
   'Безперервне читання': 'Continuous reading',
+  'Клавіші показу. Змінити — «Налаштування вигляду» → «Клавіші».':
+    'The show keys. To change them — Settings → Keys.',
+  'Enter — вибраний вірш на екран; у полі «Вірш» — ↑/↓ гортають. Повніше — у ':
+    'Enter — the selected verse on screen; in the «Verse» field ↑/↓ step. More in the ',
+  довідці: 'reference',
   'На кінці розділу «Далі» одразу відкриває наступний розділ (а «Назад» на початку — попередній), без другого натиску для підтвердження. Утримана клавіша все одно спиняється на межі.':
     'At the end of a chapter «Next» opens the next chapter at once (and «Back» at the start the previous one), with no second press to confirm. A held key still stops at the edge.',
   'Відкривати вікно показу автоматично': 'Open the output window automatically',

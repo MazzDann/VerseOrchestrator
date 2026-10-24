@@ -15,6 +15,7 @@ import {
   IconSquareFilled,
   IconHourglassHigh,
   IconAdjustments,
+  IconKeyboard,
   IconList,
   IconPlaylistAdd,
   IconLayoutDashboard,
@@ -53,6 +54,7 @@ export function usePaletteCommands({
   setRemoteOpen,
   setOutputsOpen,
   setSettingsOpen,
+  openCheatsheet,
   liveFollow,
   setLiveFollow,
   colorScheme,
@@ -78,6 +80,8 @@ export function usePaletteCommands({
   setRemoteOpen: (open: boolean) => void;
   setOutputsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  /** open the shortcuts cheat sheet (1.21.0-beta.5, F1024-06) */
+  openCheatsheet: () => void;
   liveFollow: boolean;
   setLiveFollow: (v: boolean) => void;
   colorScheme: 'light' | 'dark';
@@ -232,6 +236,13 @@ export function usePaletteCommands({
       keywords: 'settings nalashtuvannia',
       icon: <IconAdjustments size={16} />,
       run: () => setSettingsOpen(true),
+    },
+    {
+      id: 'cheatsheet',
+      label: tr('Гарячі клавіші'),
+      keywords: 'shortcuts keys help cheatsheet skorochennia klavishi dovidka',
+      icon: <IconKeyboard size={16} />,
+      run: openCheatsheet,
     },
     {
       id: 'liveFollow',
