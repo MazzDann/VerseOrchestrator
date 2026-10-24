@@ -4,7 +4,8 @@ import { tr, useLang } from '../i18n';
 
 /**
  * What a drop does, while files are dragged over the control window (1.14.0-beta.1). Over the
- * running order («Показ», 1.18.2) it outlines it: a drop there goes next in the show.
+ * running order («Показ») it outlines it: a drop there adds to the END of the show (1.21.0-beta.9);
+ * anywhere else, media goes next in the show.
  */
 export function DropOverlay({ zone }: { zone: 'order' | null }) {
   useLang();
@@ -23,7 +24,7 @@ export function DropOverlay({ zone }: { zone: 'order' | null }) {
         >
           <IconPlaylistAdd size={22} stroke={1.5} />
           <Text size="sm" fw={600} ta="center">
-            {tr('Сюди — наступним у показі')}
+            {tr('Сюди — в кінець показу')}
           </Text>
         </div>
       )}
@@ -33,12 +34,12 @@ export function DropOverlay({ zone }: { zone: 'order' | null }) {
           <Text fw={600}>{tr('Відпустіть, щоб додати')}</Text>
           <Text size="sm" c="dimmed" ta="center" maw={360}>
             {tr(
-              'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Презентації», модуль (.SQLite3) — у бібліотеку, vectors.db — у вектори.',
+              'Фото, відео, папку — наступним у показі (і в бібліотеку); документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Презентації», модуль (.SQLite3) — у бібліотеку, vectors.db — у вектори.',
             )}
           </Text>
           {orderShown && (
             <Text size="sm" ta="center" maw={360}>
-              {tr('На «Показ» під моніторами — і вони стануть наступними у показі.')}
+              {tr('На «Показ» під моніторами — у кінець показу.')}
             </Text>
           )}
         </Stack>

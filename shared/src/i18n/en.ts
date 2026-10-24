@@ -2501,8 +2501,8 @@ export const EN: Record<string, string> = {
   'Цього тут немає': 'There is none here',
   'Цього прибрати не можна': 'This can’t be removed',
   // a drop anywhere (1.17.1)
-  'Фото й картинки — у «Зображення», папку — альбомом, відео — у «Відео», документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Презентації», модуль (.SQLite3) — у бібліотеку, vectors.db — у вектори.':
-    'Photos and pictures go to «Зображення», a folder becomes an album, videos go to «Відео», a document (.docx, .md, .txt, .pdf) to «Документи», a presentation (.pptx) to «Презентації», a module (.SQLite3) into the library, vectors.db into the vectors.',
+  'Фото, відео, папку — наступним у показі (і в бібліотеку); документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Презентації», модуль (.SQLite3) — у бібліотеку, vectors.db — у вектори.':
+    'A photo, a video, a folder — next in the show (and into the library); a document (.docx, .md, .txt, .pdf) to «Документи», a presentation (.pptx) to «Презентації», a module (.SQLite3) into the library, vectors.db into the vectors.',
   'Цього застосунок не бере — не додано: {names}':
     'The app doesn’t take these — not added: {names}',
   'Додаю модуль {file}…': 'Adding the module {file}…',
@@ -2642,10 +2642,11 @@ export const EN: Record<string, string> = {
   'Відкриваю застосунок…': 'Opening the app…',
   // media dropped on «Показ» go next (1.18.2)
   'Наступним у показі: {items}': 'Next in the show: {items}',
+  'У кінець показу: {items}': 'To the end of the show: {items}',
   'Додаю зображення…': 'Adding the pictures…',
-  'На «Показ» під моніторами — і вони стануть наступними у показі.':
-    'Onto “Running order” under the monitors — and they go next in the show.',
-  'Сюди — наступним у показі': 'Here — next in the show',
+  'На «Показ» під моніторами — у кінець показу.':
+    'Onto “Running order” under the monitors — to the end of the show.',
+  'Сюди — в кінець показу': 'Here — to the end of the show',
   'Файл .pptx — у «Презентації»: виберіть набір, а тоді додайте презентацію у показ':
     'A .pptx file goes to “Presentations”: choose a bundle, then add the presentation to the show',
   'Кнопки «Показ»': '“Running order” buttons',
