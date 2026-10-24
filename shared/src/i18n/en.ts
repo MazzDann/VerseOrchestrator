@@ -115,6 +115,14 @@ export const EN: Record<string, string> = {
   'Джерело даних налаштовується в головному вікні керування.':
     'The data source is set in the main control window.',
   'Розташування панелі прев’ю': 'Preview panel position',
+  'Поле «Вірш» біля розділів': 'The «Verse» field by the chapters',
+  Поруч: 'Beside',
+  'Під низом': 'Below',
+  Приховати: 'Hide',
+  'Розмір розділів': 'Chapter size',
+  Дрібні: 'Small',
+  Звичайні: 'Normal',
+  Великі: 'Large',
   'Унизу центру': 'Bottom of the center',
   'Бібліотека модулів': 'Module library',
   'Перебудувати з папок modules/ і songs/ після додавання перекладу чи презентації.':

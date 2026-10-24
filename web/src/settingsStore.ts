@@ -169,6 +169,14 @@ const keptVerses = (v: unknown): number[] | undefined =>
 
 export type PanelPlacement = 'aside' | 'bottom';
 
+/** Where the «Вірш» field sits by the chapter grid (1.21.0-beta.2, users' F1024-03): beside it, below it, or hidden. */
+export type VerseFieldPlacement = 'beside' | 'below' | 'off';
+/** The chapter buttons' size (1.21.0-beta.2, users' F1024-04): small fits more of a long book. */
+export type ChapterSize = 'sm' | 'md' | 'lg';
+const asVerseField = (v: unknown): VerseFieldPlacement =>
+  v === 'below' || v === 'off' ? v : 'beside';
+const asChapterSize = (v: unknown): ChapterSize => (v === 'sm' || v === 'lg' ? v : 'md');
+
 /** A free-text slide (announcement / note / any custom text), kept in a recents list. */
 export interface TextItem {
   title: string;
@@ -413,6 +421,12 @@ interface SettingsState {
   /** «Вікна в одному меню» (1.19.0-beta.4, F1017-12): the header's window tools behind one «Вікна» button */
   windowsMenu: boolean;
   setWindowsMenu: (v: boolean) => void;
+  /** Where the «Вірш» field sits by the chapter grid (1.21.0-beta.2, F1024-03): beside / below / off */
+  verseField: VerseFieldPlacement;
+  setVerseField: (v: VerseFieldPlacement) => void;
+  /** The chapter buttons' size (1.21.0-beta.2, F1024-04) */
+  chapterSize: ChapterSize;
+  setChapterSize: (v: ChapterSize) => void;
   /**
    * «YouTube: мій вхід у браузері (Premium)» (1.19.0-beta.11): YouTube's players on youtube.com, not in its
    * privacy mode — they see the browser's Google sign-in (Premium: no ads; the views go into its history)
@@ -759,6 +773,10 @@ export const useSettings = create<SettingsState>()(
       setSimpleView: (v) => set({ simpleView: v === true }),
       windowsMenu: true,
       setWindowsMenu: (v) => set({ windowsMenu: v === true }),
+      verseField: 'beside',
+      setVerseField: (v) => set({ verseField: asVerseField(v) }),
+      chapterSize: 'md',
+      setChapterSize: (v) => set({ chapterSize: asChapterSize(v) }),
       youtubeAccount: false,
       setYoutubeAccount: (v) => set({ youtubeAccount: v === true }),
       subheadings: true,

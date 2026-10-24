@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActionIcon, Badge, Group, ScrollArea, Text, TextInput, Tooltip } from '@mantine/core';
+import {
+  ActionIcon,
+  Badge,
+  Group,
+  ScrollArea,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core';
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -11,6 +20,7 @@ import { type Slide } from '../../presenterBus';
 import { type Outcome } from '../../lib/commands';
 import { tr, trn, useLang } from '../../i18n';
 import { formatVerseListDisplay } from '../../lib/reference';
+import { useSettings } from '../../settingsStore';
 
 /**
  * Above the verse list: the open book and chapter, what is on screen, the pages of a long
@@ -57,6 +67,8 @@ export function ChapterBar({
   jumpVerse: (q: string, show: boolean, keepFocus?: boolean) => Promise<boolean>;
 }) {
   useLang();
+  const placement = useSettings((s) => s.verseField); // beside / below / off (F1024-03)
+  const chapterSize = useSettings((s) => s.chapterSize); // sm / md / lg (F1024-04)
   const [verse, setVerse] = useState('');
   // F1024-01: typing a verse selects it into the preview on a short pause (no Enter), and ↑/↓ step
   // to the next/previous verse without leaving the field. The explicit Enter still commits (and
@@ -161,75 +173,100 @@ export function ChapterBar({
           )}
         </Group>
       </Group>
-      {chapters.length > 0 && (
-        <Group gap="xs" wrap="nowrap" align="flex-start" px="md" pb="xs">
-          <Tooltip
-            label={tr(
-              'Вірш цього розділу, як-от 16 чи 16-18. Вибирається сам; ↑/↓ — гортати, Enter — вибрати й далі, Ctrl+Enter — і на екран',
-            )}
-            multiline
-            w={240}
-            withArrow
-            openDelay={400}
-          >
-            <TextInput
-              size="xs"
-              w={64}
-              placeholder={tr('Вірш')}
-              aria-label={tr('Вірш у розділі')}
-              value={verse}
-              onChange={(e) => {
-                const v = e.currentTarget.value;
-                setVerse(v);
-                clearPending();
-                const q = v.trim();
-                // select as you type (into the preview, quietly) so ↑/↓ can step right away
-                if (q) debounce.current = setTimeout(() => void jumpVerse(q, false, true), 350);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape' && verse) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  clearPending();
-                  setVerse('');
-                  return;
-                }
-                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                  // step the selection without leaving the field (F1024-01); holding repeats
-                  e.preventDefault();
-                  e.stopPropagation();
-                  stepVerse(e.key === 'ArrowDown' ? 1 : -1);
-                  return;
-                }
-                if (e.key !== 'Enter' || !verse.trim()) return;
-                // the field's own Enter: not «На екран»'s ⌘↩ / the window's keys as well
-                e.preventDefault();
-                e.stopPropagation();
-                if (e.repeat) return;
-                clearPending();
-                void jumpVerse(verse.trim(), e.ctrlKey || e.metaKey).then(
-                  (ok) => ok && setVerse(''),
-                );
-              }}
-            />
-          </Tooltip>
-          <ScrollArea.Autosize mah={64} style={{ flex: 1, minWidth: 0 }}>
-            <div className="vo-chapter-grid" role="group" aria-label={tr('Розділи')}>
-              {chapters.map((c) => (
-                <button
-                  key={c}
-                  className="vo-chip"
-                  data-selected={c === chapter ? 'true' : undefined}
-                  onClick={() => selectChapter(c)}
-                  aria-current={c === chapter ? 'true' : undefined}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </ScrollArea.Autosize>
-        </Group>
-      )}
+      {chapters.length > 0 &&
+        (() => {
+          const field =
+            placement === 'off' ? null : (
+              <Tooltip
+                label={tr(
+                  'Вірш цього розділу, як-от 16 чи 16-18. Вибирається сам; ↑/↓ — гортати, Enter — вибрати й далі, Ctrl+Enter — і на екран',
+                )}
+                multiline
+                w={240}
+                withArrow
+                openDelay={400}
+              >
+                <TextInput
+                  size="xs"
+                  w={64}
+                  placeholder={tr('Вірш')}
+                  aria-label={tr('Вірш у розділі')}
+                  value={verse}
+                  onChange={(e) => {
+                    const v = e.currentTarget.value;
+                    setVerse(v);
+                    clearPending();
+                    const q = v.trim();
+                    // select as you type (into the preview, quietly) so ↑/↓ can step right away
+                    if (q) debounce.current = setTimeout(() => void jumpVerse(q, false, true), 350);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && verse) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      clearPending();
+                      setVerse('');
+                      return;
+                    }
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                      // step the selection without leaving the field (F1024-01); holding repeats
+                      e.preventDefault();
+                      e.stopPropagation();
+                      stepVerse(e.key === 'ArrowDown' ? 1 : -1);
+                      return;
+                    }
+                    if (e.key !== 'Enter' || !verse.trim()) return;
+                    // the field's own Enter: not «На екран»'s ⌘↩ / the window's keys as well
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.repeat) return;
+                    clearPending();
+                    void jumpVerse(verse.trim(), e.ctrlKey || e.metaKey).then(
+                      (ok) => ok && setVerse(''),
+                    );
+                  }}
+                />
+              </Tooltip>
+            );
+          const grid = (
+            <ScrollArea.Autosize
+              mah={64}
+              style={placement === 'beside' ? { flex: 1, minWidth: 0 } : { width: '100%' }}
+            >
+              <div
+                className="vo-chapter-grid"
+                data-size={chapterSize}
+                role="group"
+                aria-label={tr('Розділи')}
+              >
+                {chapters.map((c) => (
+                  <button
+                    key={c}
+                    className="vo-chip"
+                    data-selected={c === chapter ? 'true' : undefined}
+                    onClick={() => selectChapter(c)}
+                    aria-current={c === chapter ? 'true' : undefined}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </ScrollArea.Autosize>
+          );
+          return placement === 'below' ? (
+            <Stack gap="xs" px="md" pb="xs">
+              {grid}
+              <Group gap="xs" wrap="nowrap">
+                {field}
+              </Group>
+            </Stack>
+          ) : (
+            <Group gap="xs" wrap="nowrap" align="flex-start" px="md" pb="xs">
+              {field}
+              {grid}
+            </Group>
+          );
+        })()}
     </>
   );
 }
