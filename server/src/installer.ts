@@ -7,10 +7,11 @@ import { pipeline } from 'node:stream/promises';
 import { N_ } from '@vo/shared';
 import { LAYOUT_MARKER, OS_NAME, shellDirName } from './layout.js';
 import {
+  assign,
   manifestAsset,
   PARTS_FILE,
   PARTS_FORMAT,
-  planParts,
+  walkFiles,
   type PartsManifest,
 } from './releaseParts.js';
 import type { SwapPlan, SwapResult } from './swap.js';
@@ -318,13 +319,28 @@ export function createInstaller(o: InstallerOptions) {
     }
   }
 
+  /** Copy one entry of the running copy into the new tree, keeping a symlink a symlink (modes and
+   * exec bits survive a copyFile — libuv copies the source mode). */
+  async function copyEntry(from: string, to: string): Promise<void> {
+    const st = await fs.promises.lstat(from);
+    if (st.isSymbolicLink()) await fs.promises.symlink(await fs.promises.readlink(from), to);
+    else await fs.promises.copyFile(from, to);
+  }
+
   /**
    * Build `unpacked/<release>/app` from parts instead of the whole archive (1.20.0-beta.2): the
-   * segments that haven't changed are copied from the running copy, only the changed ones are
-   * downloaded. Returns true when it leaves a complete tree ready for the finalize; false — and
-   * leaves nothing of its own to matter — when the copy or the release can't do parts, or a part
-   * is missing / corrupt / won't unpack, so the caller takes the whole archive. The desktop shell
-   * is left to the existing path (swap.ts brings one only when the copy has none).
+   * app/-tree segments that haven't changed are copied from the running copy, only the changed ones
+   * are downloaded. Returns true when it leaves a complete tree ready for the finalize; false — and
+   * leaves nothing of its own to matter — when the copy or the release can't do parts, or a part is
+   * missing / corrupt / won't unpack, so the caller takes the whole archive.
+   *
+   * The desktop shell is NOT reconstructed here: for a copy that already has one, swap.ts keeps it
+   * (as a full update does); a copy with no shell takes the whole archive instead, so the full path
+   * installs the shell for it (the «Окремий застосунок» adoption). A release's loose top files are
+   * carried over from the running copy (a parts release doesn't ship them; the launcher is stable).
+   * Trusts the copy's parts.json hashes to say what's unchanged — a drifted local file would be
+   * copied in, but the swap's own answer-check reverts a copy that then won't start (re-hashing the
+   * reused files is a beta.3 hardening).
    */
   async function assembleFromParts(
     latest: LatestRelease,
@@ -334,6 +350,9 @@ export function createInstaller(o: InstallerOptions) {
   ): Promise<boolean> {
     const local = readLocalParts();
     if (!local || local.format !== PARTS_FORMAT || !latest.sums) return false;
+    // a copy with no desktop shell (a legacy one) takes the whole archive: the full path installs a
+    // shell when the copy has none (swap.ts), which this path doesn't; a parts-aware copy has one
+    if (!fs.existsSync(path.join(o.top, shellDir))) return false;
     const slash = asset.url.lastIndexOf('/');
     if (slash < 0) return false;
     const base = asset.url.slice(0, slash); // the other assets sit next to the full archive
@@ -345,10 +364,12 @@ export function createInstaller(o: InstallerOptions) {
     } catch {
       return false; // no manifest (an older release, a step down) → the whole archive
     }
+    if (superseded()) return false; // a rollback / restart during the fetch sets its own state
     if (manifest?.format !== PARTS_FORMAT || !Array.isArray(manifest.segments)) return false;
     // the `app/` tree only; the Electron shell segment is not reconstructed here
     const want = manifest.segments.filter((s) => s.name !== 'shell');
-    if (want.some((s) => !s.file || typeof s.contentHash !== 'string')) return false;
+    if (want.length === 0 || want.some((s) => !s.file || typeof s.contentHash !== 'string'))
+      return false;
     const localHash = new Map(local.segments.map((s) => [s.name, s.contentHash]));
     const changed = want.filter((s) => localHash.get(s.name) !== s.contentHash);
     // the page shows the real work: the changed parts' bytes, not the whole app
@@ -360,23 +381,36 @@ export function createInstaller(o: InstallerOptions) {
       error: null,
     };
     const sums = await (await doFetch(latest.sums, { redirect: 'follow' })).text();
+    if (superseded()) return false;
     const releaseDir = path.join(unpacked, `VerseOrchestrator-${latest.version}-${osName}-${arch}`);
     fs.mkdirSync(releaseDir, { recursive: true });
     const partsDir = path.join(updatesDir, 'parts');
     fs.mkdirSync(partsDir, { recursive: true });
-    // the running copy's files per segment, to copy the unchanged ones over
-    const localFiles = new Map(planParts(o.top, shellDir).map((s) => [s.name as string, s.files]));
+
+    // the running copy's files per reused segment — walking ONLY app/ (never modules/, which can be
+    // tens of GB, nor data/ or app.next/); the reused segments (runtime/deps/engines) all live there
+    const localFiles = new Map<string, string[]>();
+    if (changed.length < want.length)
+      for (const rel of walkFiles(path.join(o.top, 'app'))) {
+        const full = `app/${rel}`;
+        if (full === `app/${PARTS_FILE}`) continue; // written fresh below
+        const seg = assign(full, shellDir);
+        if (!seg) continue;
+        let list = localFiles.get(seg);
+        if (!list) localFiles.set(seg, (list = []));
+        list.push(full);
+      }
 
     for (const seg of want) {
       if (superseded()) return false;
-      if (localHash.get(seg.name) === seg.contentHash) {
-        // unchanged: the running copy already has these exact files
+      if (!changed.includes(seg)) {
+        // unchanged: copy the running copy's files, keeping symlinks and modes
         const files = localFiles.get(seg.name);
         if (!files || files.length === 0) return false; // the copy lacks it → the whole archive
         for (const rel of files) {
           const to = path.join(releaseDir, ...rel.split('/'));
-          fs.mkdirSync(path.dirname(to), { recursive: true });
-          fs.copyFileSync(path.join(o.top, ...rel.split('/')), to);
+          await fs.promises.mkdir(path.dirname(to), { recursive: true });
+          await copyEntry(path.join(o.top, ...rel.split('/')), to);
         }
       } else {
         // changed: download the part, check its SHA-256, unpack it into the tree
@@ -399,18 +433,25 @@ export function createInstaller(o: InstallerOptions) {
         if (superseded()) return false;
         const hash = createHash('sha256');
         await pipeline(fs.createReadStream(pf), hash);
+        if (superseded()) return false; // before touching state after the awaited hash
         if (hash.digest('hex') !== want256) return false;
         state.phase = 'unpack';
         const [cmd, args] = unpackCommand(platform, pf, releaseDir);
         await exec(cmd, args);
+        if (superseded()) return false; // before touching state after the awaited unpack
         state.phase = 'download'; // a further part may yet download
       }
     }
     if (superseded()) return false;
-    // the `app` part also carries `shell/resources/app` → a partial shell in the tree; drop it so
-    // the finalize doesn't move an incomplete desktop app over (parts don't reconstruct the shell)
+    // the `app` part also carries the shell's inner app → a partial shell in the tree; drop it so
+    // the finalize doesn't move an incomplete desktop app over (the copy's real shell stays)
     fs.rmSync(path.join(releaseDir, shellDir), { recursive: true, force: true });
-    // the new copy's parts.json: the manifest's hashes, so its own next update compares right
+    // the release-top loose files (start.*, the readmes, the marker): a parts release doesn't carry
+    // them, so bring the running copy's over — the finalize moves them to top/ as the full path does
+    for (const e of fs.readdirSync(o.top, { withFileTypes: true }))
+      if (e.isFile()) fs.copyFileSync(path.join(o.top, e.name), path.join(releaseDir, e.name));
+    // the new copy's parts.json: the app/-tree hashes only (the shell is never touched here), so its
+    // own next update compares right and never wrongly skips a shell it didn't actually install
     const appDir = path.join(releaseDir, 'app');
     fs.mkdirSync(appDir, { recursive: true });
     fs.writeFileSync(
@@ -418,7 +459,7 @@ export function createInstaller(o: InstallerOptions) {
       JSON.stringify(
         {
           format: PARTS_FORMAT,
-          segments: manifest.segments.map((s) => ({ name: s.name, contentHash: s.contentHash })),
+          segments: want.map((s) => ({ name: s.name, contentHash: s.contentHash })),
         },
         null,
         2,
@@ -455,6 +496,7 @@ export function createInstaller(o: InstallerOptions) {
     }
     const file = path.join(updatesDir, asset.name);
     const unpacked = path.join(updatesDir, 'unpacked');
+    const partsDir = path.join(updatesDir, 'parts');
     // 1.20.0-beta.2: only the changed parts, when the copy and the release both carry a manifest;
     // on any shortcoming assembleFromParts leaves nothing to matter and we take the whole archive
     let viaParts = false;
@@ -463,7 +505,7 @@ export function createInstaller(o: InstallerOptions) {
     } catch {
       viaParts = false;
     }
-    if (superseded()) return abandon(unpacked, file);
+    if (superseded()) return abandon(unpacked, file, partsDir);
     if (!viaParts) {
       fs.rmSync(unpacked, { recursive: true, force: true });
       try {
@@ -487,17 +529,17 @@ export function createInstaller(o: InstallerOptions) {
           count,
           fs.createWriteStream(file),
         );
-        if (superseded()) return abandon(file);
+        if (superseded()) return abandon(file, partsDir);
         state.phase = 'verify';
         const sums = await (await doFetch(latest.sums, { redirect: 'follow' })).text();
         const want = checksumFor(sums, asset.name);
         const hash = createHash('sha256');
         await pipeline(fs.createReadStream(file), hash);
-        if (superseded()) return abandon(file);
+        if (superseded()) return abandon(file, partsDir);
         if (!want || hash.digest('hex') !== want)
           return fail(N_('Архів оновлення пошкоджено: контрольна сума не збігається'));
       } catch {
-        if (superseded()) return abandon(file);
+        if (superseded()) return abandon(file, partsDir);
         return fail(N_('Не вдалося завантажити оновлення: немає зв’язку з GitHub'));
       }
       try {
@@ -505,16 +547,16 @@ export function createInstaller(o: InstallerOptions) {
         fs.mkdirSync(unpacked);
         const [cmd, args] = unpackCommand(platform, file, unpacked);
         await exec(cmd, args);
-        if (superseded()) return abandon(file, unpacked);
+        if (superseded()) return abandon(file, unpacked, partsDir);
       } catch {
-        if (superseded()) return abandon(file, unpacked);
+        if (superseded()) return abandon(file, unpacked, partsDir);
         return fail(N_('Не вдалося розпакувати оновлення'));
       }
     }
     try {
       state.phase = 'unpack';
       // app.next may hold the version a rollback brings back now: leave it
-      if (superseded()) return abandon(file, unpacked);
+      if (superseded()) return abandon(file, unpacked, partsDir);
       const found = findUnpackedApp(unpacked, latest.version);
       if ('error' in found) return fail(found.error);
       const next = path.join(o.top, NEXT_DIR);
@@ -528,7 +570,8 @@ export function createInstaller(o: InstallerOptions) {
         if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e;
         // data/ on another volume (VO_DATA_DIR): no rename reaches app/ — copied over, while
         // notNow() keeps a restart and a rollback off (the phase is 'unpack'; Mac check of 1.10.1)
-        if (!(await copyAcross(found.app, next, superseded))) return abandon(file, unpacked);
+        if (!(await copyAcross(found.app, next, superseded)))
+          return abandon(file, unpacked, partsDir);
       }
       recordNext(latest.version, newest);
       // the start file and the notes: swap.ts puts them next to app/ once the new version runs
@@ -556,7 +599,7 @@ export function createInstaller(o: InstallerOptions) {
       );
       if (!superseded()) state.phase = 'ready';
     } catch {
-      if (superseded()) return abandon(file, unpacked);
+      if (superseded()) return abandon(file, unpacked, partsDir);
       fail(N_('Не вдалося розпакувати оновлення'));
     }
   }

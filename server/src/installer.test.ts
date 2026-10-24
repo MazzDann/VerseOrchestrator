@@ -1059,6 +1059,8 @@ describe('installing from parts (1.20.0-beta.2)', () => {
     put('app/server/index.js', serverBody); // app, changes per version
     put('app/package.json', JSON.stringify({ version })); // app, the version always changes
     put(`app/${LAYOUT_MARKER}`, '{}'); // app (the marker)
+    put(`${shellDirName(PLATFORM)}/electron.bin`, 'ELECTRON'); // the shell segment
+    put(`${shellDirName(PLATFORM)}/resources/app/main.js`, 'DESKTOP'); // our stub → the app segment
     put('ЯК ЗАПУСТИТИ.txt', version); // release-top loose: in no segment
     const outDir = tempDir();
     await buildReleaseParts({
