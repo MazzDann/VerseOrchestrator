@@ -5,7 +5,14 @@ import path from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { N_ } from '@vo/shared';
-import { LAYOUT_MARKER, shellDirName } from './layout.js';
+import { LAYOUT_MARKER, OS_NAME, shellDirName } from './layout.js';
+import {
+  manifestAsset,
+  PARTS_FILE,
+  PARTS_FORMAT,
+  planParts,
+  type PartsManifest,
+} from './releaseParts.js';
 import type { SwapPlan, SwapResult } from './swap.js';
 import { compareVersions, type LatestRelease, type Pin } from './updates.js';
 
@@ -230,6 +237,8 @@ export interface InstallerOptions {
   top: string;
   dataDir: string;
   platform?: string;
+  /** this system's arch (the part-archive names carry it); defaults to process.arch */
+  arch?: string;
   fetch?: typeof fetch;
   /** runs the unpack command (tests: a rollback in the middle of it) */
   exec?: (cmd: string, args: string[]) => Promise<void>;
@@ -240,6 +249,9 @@ export interface InstallerOptions {
 export function createInstaller(o: InstallerOptions) {
   const doFetch = o.fetch ?? fetch;
   const platform = o.platform ?? process.platform;
+  const arch = o.arch ?? process.arch;
+  const osName = OS_NAME[platform] ?? platform;
+  const shellDir = shellDirName(platform);
   const exec = o.exec ?? run;
   const updatesDir = path.join(o.dataDir, 'updates');
   let state: InstallState = { phase: 'idle', version: null, received: 0, total: 0, error: null };
@@ -289,6 +301,132 @@ export function createInstaller(o: InstallerOptions) {
     }
   };
 
+  /** The running copy's `app/parts.json` (what this version is made of), or null if it has none. */
+  function readLocalParts(): {
+    format: number;
+    segments: { name: string; contentHash: string }[];
+  } | null {
+    try {
+      const j = JSON.parse(fs.readFileSync(path.join(o.top, 'app', PARTS_FILE), 'utf8')) as {
+        format?: unknown;
+        segments?: unknown;
+      };
+      if (typeof j.format !== 'number' || !Array.isArray(j.segments)) return null;
+      return j as { format: number; segments: { name: string; contentHash: string }[] };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Build `unpacked/<release>/app` from parts instead of the whole archive (1.20.0-beta.2): the
+   * segments that haven't changed are copied from the running copy, only the changed ones are
+   * downloaded. Returns true when it leaves a complete tree ready for the finalize; false — and
+   * leaves nothing of its own to matter — when the copy or the release can't do parts, or a part
+   * is missing / corrupt / won't unpack, so the caller takes the whole archive. The desktop shell
+   * is left to the existing path (swap.ts brings one only when the copy has none).
+   */
+  async function assembleFromParts(
+    latest: LatestRelease,
+    asset: NonNullable<LatestRelease['asset']>,
+    unpacked: string,
+    superseded: () => boolean,
+  ): Promise<boolean> {
+    const local = readLocalParts();
+    if (!local || local.format !== PARTS_FORMAT || !latest.sums) return false;
+    const slash = asset.url.lastIndexOf('/');
+    if (slash < 0) return false;
+    const base = asset.url.slice(0, slash); // the other assets sit next to the full archive
+    let manifest: PartsManifest;
+    try {
+      const res = await doFetch(`${base}/${manifestAsset(osName, arch)}`, { redirect: 'follow' });
+      if (!res.ok) return false;
+      manifest = JSON.parse(await res.text()) as PartsManifest;
+    } catch {
+      return false; // no manifest (an older release, a step down) → the whole archive
+    }
+    if (manifest?.format !== PARTS_FORMAT || !Array.isArray(manifest.segments)) return false;
+    // the `app/` tree only; the Electron shell segment is not reconstructed here
+    const want = manifest.segments.filter((s) => s.name !== 'shell');
+    if (want.some((s) => !s.file || typeof s.contentHash !== 'string')) return false;
+    const localHash = new Map(local.segments.map((s) => [s.name, s.contentHash]));
+    const changed = want.filter((s) => localHash.get(s.name) !== s.contentHash);
+    // the page shows the real work: the changed parts' bytes, not the whole app
+    state = {
+      phase: 'download',
+      version: latest.version,
+      received: 0,
+      total: changed.reduce((n, s) => n + (Number(s.size) || 0), 0),
+      error: null,
+    };
+    const sums = await (await doFetch(latest.sums, { redirect: 'follow' })).text();
+    const releaseDir = path.join(unpacked, `VerseOrchestrator-${latest.version}-${osName}-${arch}`);
+    fs.mkdirSync(releaseDir, { recursive: true });
+    const partsDir = path.join(updatesDir, 'parts');
+    fs.mkdirSync(partsDir, { recursive: true });
+    // the running copy's files per segment, to copy the unchanged ones over
+    const localFiles = new Map(planParts(o.top, shellDir).map((s) => [s.name as string, s.files]));
+
+    for (const seg of want) {
+      if (superseded()) return false;
+      if (localHash.get(seg.name) === seg.contentHash) {
+        // unchanged: the running copy already has these exact files
+        const files = localFiles.get(seg.name);
+        if (!files || files.length === 0) return false; // the copy lacks it → the whole archive
+        for (const rel of files) {
+          const to = path.join(releaseDir, ...rel.split('/'));
+          fs.mkdirSync(path.dirname(to), { recursive: true });
+          fs.copyFileSync(path.join(o.top, ...rel.split('/')), to);
+        }
+      } else {
+        // changed: download the part, check its SHA-256, unpack it into the tree
+        const want256 = checksumFor(sums, seg.file);
+        if (!want256) return false;
+        const pf = path.join(partsDir, seg.file);
+        const res = await doFetch(`${base}/${seg.file}`, { redirect: 'follow' });
+        if (!res.ok || !res.body) return false;
+        const count = new Transform({
+          transform: (chunk: Buffer, _enc, done) => {
+            state.received += chunk.length;
+            done(null, chunk);
+          },
+        });
+        await pipeline(
+          Readable.fromWeb(res.body as import('node:stream/web').ReadableStream),
+          count,
+          fs.createWriteStream(pf),
+        );
+        if (superseded()) return false;
+        const hash = createHash('sha256');
+        await pipeline(fs.createReadStream(pf), hash);
+        if (hash.digest('hex') !== want256) return false;
+        state.phase = 'unpack';
+        const [cmd, args] = unpackCommand(platform, pf, releaseDir);
+        await exec(cmd, args);
+        state.phase = 'download'; // a further part may yet download
+      }
+    }
+    if (superseded()) return false;
+    // the `app` part also carries `shell/resources/app` → a partial shell in the tree; drop it so
+    // the finalize doesn't move an incomplete desktop app over (parts don't reconstruct the shell)
+    fs.rmSync(path.join(releaseDir, shellDir), { recursive: true, force: true });
+    // the new copy's parts.json: the manifest's hashes, so its own next update compares right
+    const appDir = path.join(releaseDir, 'app');
+    fs.mkdirSync(appDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(appDir, PARTS_FILE),
+      JSON.stringify(
+        {
+          format: PARTS_FORMAT,
+          segments: manifest.segments.map((s) => ({ name: s.name, contentHash: s.contentHash })),
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    return true;
+  }
+
   async function download(latest: LatestRelease, newest: string | null): Promise<void> {
     const mine = turn;
     const superseded = () => turn !== mine;
@@ -316,39 +454,65 @@ export function createInstaller(o: InstallerOptions) {
         : fail(N_('Замало місця на диску: потрібно близько {mb} МБ'), { mb });
     }
     const file = path.join(updatesDir, asset.name);
-    try {
-      const res = await doFetch(asset.url, { redirect: 'follow' });
-      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
-      const count = new Transform({
-        transform: (chunk: Buffer, _enc, done) => {
-          state.received += chunk.length;
-          done(null, chunk);
-        },
-      });
-      await pipeline(
-        Readable.fromWeb(res.body as import('node:stream/web').ReadableStream),
-        count,
-        fs.createWriteStream(file),
-      );
-      if (superseded()) return abandon(file);
-      state.phase = 'verify';
-      const sums = await (await doFetch(latest.sums, { redirect: 'follow' })).text();
-      const want = checksumFor(sums, asset.name);
-      const hash = createHash('sha256');
-      await pipeline(fs.createReadStream(file), hash);
-      if (superseded()) return abandon(file);
-      if (!want || hash.digest('hex') !== want)
-        return fail(N_('Архів оновлення пошкоджено: контрольна сума не збігається'));
-    } catch {
-      if (superseded()) return abandon(file);
-      return fail(N_('Не вдалося завантажити оновлення: немає зв’язку з GitHub'));
-    }
     const unpacked = path.join(updatesDir, 'unpacked');
+    // 1.20.0-beta.2: only the changed parts, when the copy and the release both carry a manifest;
+    // on any shortcoming assembleFromParts leaves nothing to matter and we take the whole archive
+    let viaParts = false;
+    try {
+      viaParts = await assembleFromParts(latest, asset, unpacked, superseded);
+    } catch {
+      viaParts = false;
+    }
+    if (superseded()) return abandon(unpacked, file);
+    if (!viaParts) {
+      fs.rmSync(unpacked, { recursive: true, force: true });
+      try {
+        state = {
+          phase: 'download',
+          version: latest.version,
+          received: 0,
+          total: asset.size,
+          error: null,
+        };
+        const res = await doFetch(asset.url, { redirect: 'follow' });
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+        const count = new Transform({
+          transform: (chunk: Buffer, _enc, done) => {
+            state.received += chunk.length;
+            done(null, chunk);
+          },
+        });
+        await pipeline(
+          Readable.fromWeb(res.body as import('node:stream/web').ReadableStream),
+          count,
+          fs.createWriteStream(file),
+        );
+        if (superseded()) return abandon(file);
+        state.phase = 'verify';
+        const sums = await (await doFetch(latest.sums, { redirect: 'follow' })).text();
+        const want = checksumFor(sums, asset.name);
+        const hash = createHash('sha256');
+        await pipeline(fs.createReadStream(file), hash);
+        if (superseded()) return abandon(file);
+        if (!want || hash.digest('hex') !== want)
+          return fail(N_('Архів оновлення пошкоджено: контрольна сума не збігається'));
+      } catch {
+        if (superseded()) return abandon(file);
+        return fail(N_('Не вдалося завантажити оновлення: немає зв’язку з GitHub'));
+      }
+      try {
+        state.phase = 'unpack';
+        fs.mkdirSync(unpacked);
+        const [cmd, args] = unpackCommand(platform, file, unpacked);
+        await exec(cmd, args);
+        if (superseded()) return abandon(file, unpacked);
+      } catch {
+        if (superseded()) return abandon(file, unpacked);
+        return fail(N_('Не вдалося розпакувати оновлення'));
+      }
+    }
     try {
       state.phase = 'unpack';
-      fs.mkdirSync(unpacked);
-      const [cmd, args] = unpackCommand(platform, file, unpacked);
-      await exec(cmd, args);
       // app.next may hold the version a rollback brings back now: leave it
       if (superseded()) return abandon(file, unpacked);
       const found = findUnpackedApp(unpacked, latest.version);
@@ -382,11 +546,11 @@ export function createInstaller(o: InstallerOptions) {
         } catch (e) {
           console.warn(`[updates] the desktop app stays out: ${(e as Error).message}`);
         }
-      // app.next is whole: what is left of the download (after a copy, the whole unpacked app)
-      // goes, and one the system won't let go of waits for the next download or tidy() — it
-      // doesn't undo the update (Mac check of 1.10.1)
+      // app.next is whole: what is left of the download (after a copy, the whole unpacked app,
+      // the downloaded parts) goes, and one the system won't let go of waits for the next download
+      // or tidy() — it doesn't undo the update (Mac check of 1.10.1)
       await Promise.all(
-        [unpacked, file].map((f) =>
+        [unpacked, file, path.join(updatesDir, 'parts')].map((f) =>
           fs.promises.rm(f, { recursive: true, force: true }).catch(() => {}),
         ),
       );

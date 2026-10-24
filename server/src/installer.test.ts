@@ -19,7 +19,8 @@ import {
   TOP_FILES_DIR,
   unpackCommand,
 } from './installer';
-import { LAYOUT_MARKER, shellDirName } from './layout';
+import { LAYOUT_MARKER, OS_NAME, shellDirName } from './layout';
+import { buildReleaseParts, partAsset, partExt, PARTS_FILE } from './releaseParts';
 import { runSwap, type SwapPlan, type SwapResult } from './swap';
 import type { LatestRelease } from './updates';
 
@@ -1034,5 +1035,157 @@ describe('data/ on another volume than app/ (Mac check of 1.10.1)', () => {
       error: 'Замало місця на диску: потрібно близько {mb} МБ',
       vars: { mb: mb(4) },
     });
+  });
+});
+
+describe('installing from parts (1.20.0-beta.2)', () => {
+  const OSN = OS_NAME[PLATFORM] ?? PLATFORM;
+  const ARCH = 'x64';
+  const sha256File = (p: string) => createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+
+  /** A release top (the `app/` tree) with its parts, manifest and SHA256SUMS, built as CI does. */
+  async function builtRelease(version: string, serverBody = `SERVER ${version}`) {
+    const work = tempDir();
+    const top = path.join(work, `VerseOrchestrator-${version}-${OSN}-${ARCH}`);
+    const put = (rel: string, body: string) => {
+      const abs = path.join(top, ...rel.split('/'));
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, body);
+    };
+    put('app/node/node.bin', 'NODE-RUNTIME'); // runtime
+    put('app/node_modules/dep/index.js', 'DEP'); // deps
+    put('app/web/dist/engine.wasm', 'WASM'); // engines
+    put('app/web/dist/bundle.js', 'BUNDLE'); // app (non-wasm in dist)
+    put('app/server/index.js', serverBody); // app, changes per version
+    put('app/package.json', JSON.stringify({ version })); // app, the version always changes
+    put(`app/${LAYOUT_MARKER}`, '{}'); // app (the marker)
+    put('ЯК ЗАПУСТИТИ.txt', version); // release-top loose: in no segment
+    const outDir = tempDir();
+    await buildReleaseParts({
+      top,
+      outDir,
+      os: OSN,
+      arch: ARCH,
+      full: `VerseOrchestrator-${OSN}-${ARCH}.${partExt(PLATFORM)}`,
+      platform: PLATFORM,
+    });
+    const sums =
+      fs
+        .readdirSync(outDir)
+        .map((f) => `${sha256File(path.join(outDir, f))}  ${f}`)
+        .join('\n') + '\n';
+    return { top, outDir, sums };
+  }
+
+  it('downloads only the changed part and reuses the rest', async () => {
+    const v1 = await builtRelease('1.20.0-beta.1'); // the running copy (carries app/parts.json)
+    const v2 = await builtRelease('1.20.0-beta.2'); // offered: only `app` differs (server + version)
+
+    const top = v1.top;
+    const dataDir = path.join(top, 'data');
+    fs.mkdirSync(dataDir, { recursive: true });
+
+    const base = 'https://dl';
+    const full = `VerseOrchestrator-${OSN}-${ARCH}.${partExt(PLATFORM)}`;
+    const latest: LatestRelease = {
+      version: '1.20.0-beta.2',
+      url: '',
+      publishedAt: '',
+      prerelease: true,
+      asset: { name: full, url: `${base}/${full}`, size: 999 },
+      sums: `${base}/SHA256SUMS.txt`,
+    };
+    const asked: string[] = [];
+    const fetch = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      asked.push(u);
+      const name = u.slice(base.length + 1);
+      if (name === 'SHA256SUMS.txt') return new Response(v2.sums);
+      if (name === full) throw new Error('the whole archive must not be fetched');
+      return new Response(fs.readFileSync(path.join(v2.outDir, name)));
+    }) as unknown as typeof globalThis.fetch;
+
+    const inst = createInstaller({
+      top,
+      dataDir,
+      platform: PLATFORM,
+      arch: ARCH,
+      fetch,
+      current: '1.20.0-beta.1',
+    });
+    expect(inst.start(latest)).toBe(true);
+    await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 20_000 });
+    expect(inst.state()).toMatchObject({ phase: 'ready' });
+
+    // the `app` part came down; runtime/deps/engines were reused from the running copy
+    expect(asked).toContain(`${base}/${partAsset(OSN, ARCH, 'app', PLATFORM)}`);
+    for (const seg of ['runtime', 'deps', 'engines'])
+      expect(asked).not.toContain(`${base}/${partAsset(OSN, ARCH, seg, PLATFORM)}`);
+
+    const next = path.join(top, NEXT_DIR); // app.next = the new app/ itself
+    expect(JSON.parse(fs.readFileSync(path.join(next, 'package.json'), 'utf8')).version).toBe(
+      '1.20.0-beta.2',
+    );
+    expect(fs.readFileSync(path.join(next, 'server', 'index.js'), 'utf8')).toBe(
+      'SERVER 1.20.0-beta.2',
+    );
+    expect(fs.readFileSync(path.join(next, 'node', 'node.bin'), 'utf8')).toBe('NODE-RUNTIME');
+    expect(fs.readFileSync(path.join(next, 'node_modules', 'dep', 'index.js'), 'utf8')).toBe('DEP');
+    expect(fs.readFileSync(path.join(next, 'web', 'dist', 'engine.wasm'), 'utf8')).toBe('WASM');
+    // its own parts.json travels, so the next update can compare again
+    expect(fs.existsSync(path.join(next, PARTS_FILE))).toBe(true);
+  });
+
+  it('falls back to the whole archive when the copy has no parts.json', async () => {
+    const v2 = await builtRelease('1.20.0-beta.2');
+    // a pre-1.20 copy: an app/ with no parts.json
+    const top = tempDir();
+    fs.mkdirSync(path.join(top, 'app'), { recursive: true });
+    const dataDir = path.join(top, 'data');
+    const base = 'https://dl';
+    const full = `VerseOrchestrator-${OSN}-${ARCH}.${partExt(PLATFORM)}`;
+    // the whole archive, as the full-release path serves it
+    const work = tempDir();
+    const archive = path.join(work, full);
+    const [cmd, args] =
+      PLATFORM === 'linux'
+        ? ['tar', ['-czf', archive, '-C', path.dirname(v2.top), path.basename(v2.top)]]
+        : [TAR, ['-a', '-cf', archive, '-C', path.dirname(v2.top), path.basename(v2.top)]];
+    expect(spawnSync(cmd, args).status).toBe(0);
+    const bytes = fs.readFileSync(archive);
+    const sum = createHash('sha256').update(bytes).digest('hex');
+    const latest: LatestRelease = {
+      version: '1.20.0-beta.2',
+      url: '',
+      publishedAt: '',
+      prerelease: true,
+      asset: { name: full, url: `${base}/${full}`, size: bytes.length },
+      sums: `${base}/SHA256SUMS.txt`,
+    };
+    const asked: string[] = [];
+    const fetch = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      asked.push(u);
+      const name = u.slice(base.length + 1);
+      if (name === 'SHA256SUMS.txt') return new Response(`${sum}  ${full}\n`);
+      if (name === full) return new Response(bytes);
+      return new Response('', { status: 404 }); // no manifest offered to this path
+    }) as unknown as typeof globalThis.fetch;
+    const inst = createInstaller({
+      top,
+      dataDir,
+      platform: PLATFORM,
+      arch: ARCH,
+      fetch,
+      current: '1.19.0',
+    });
+    expect(inst.start(latest)).toBe(true);
+    await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 20_000 });
+    expect(inst.state()).toMatchObject({ phase: 'ready' });
+    expect(asked).toContain(`${base}/${full}`); // the whole archive was taken
+    const next = path.join(top, NEXT_DIR);
+    expect(JSON.parse(fs.readFileSync(path.join(next, 'package.json'), 'utf8')).version).toBe(
+      '1.20.0-beta.2',
+    );
   });
 });
