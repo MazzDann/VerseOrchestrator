@@ -310,34 +310,6 @@ export function Control() {
   const [outputsOpen, setOutputsOpen] = useState(false);
   /** Output windows open right now (they announce themselves — lib/outputs.ts). */
   const outputWindows = useOutputWindows();
-  // F1024-02: open «Вікно показу» on its own at startup (on the second screen, as openOutput picks
-  // it) when «Відкривати вікно показу автоматично» is on and none is open. The desktop app opens it
-  // straight away; a browser blocks a pop-up without a gesture, so there we retry on the first click.
-  const autoOutputTried = useRef(false);
-  useEffect(() => {
-    if (!autoOutput || autoOutputTried.current) return;
-    autoOutputTried.current = true;
-    if (currentOutputs().some((o) => o.kind === 'presenter')) return; // one is already open
-    let retry: (() => void) | null = null;
-    void openOutput('presenter').then((ok) => {
-      if (ok || inDesktop()) return;
-      retry = () => {
-        window.removeEventListener('pointerdown', retry!);
-        window.removeEventListener('keydown', retry!);
-        retry = null;
-        if (!currentOutputs().some((o) => o.kind === 'presenter')) void openOutput('presenter');
-      };
-      window.addEventListener('pointerdown', retry);
-      window.addEventListener('keydown', retry);
-    });
-    return () => {
-      if (retry) {
-        window.removeEventListener('pointerdown', retry);
-        window.removeEventListener('keydown', retry);
-      }
-    };
-    // once, on mount, by the setting (currentOutputs() reads the live list without re-subscribing)
-  }, [autoOutput]);
   // a slide that failed to draw here or in an output window → a red notice (0.13.0)
   useSlideErrorNotices();
   // a settings change the browser couldn't store (its storage full of images) says so (1.4.1)
@@ -357,6 +329,39 @@ export function Control() {
   const isLeader = leaderState === 'leader';
   const leaderRef = useRef(isLeader);
   leaderRef.current = isLeader;
+  // F1024-02: open «Вікно показу» on its own (on the second screen, as openOutput picks it) once the
+  // leader control window starts and «Відкривати вікно показу автоматично» is on and none is open.
+  // The desktop app opens it at once; a browser blocks a pop-up without a gesture, so there it waits
+  // for the operator's first click/key. Only the leader does it (a standby control window must not).
+  const autoOutputTried = useRef(false);
+  useEffect(() => {
+    if (!autoOutput || !isLeader || autoOutputTried.current) return;
+    autoOutputTried.current = true;
+    if (currentOutputs().some((o) => o.kind === 'presenter')) return; // one is already open
+    let cancelled = false;
+    let retry: (() => void) | null = null;
+    void openOutput('presenter')
+      .then((ok) => {
+        if (ok || cancelled || inDesktop()) return;
+        retry = () => {
+          window.removeEventListener('click', retry!);
+          window.removeEventListener('keydown', retry!);
+          retry = null;
+          if (!currentOutputs().some((o) => o.kind === 'presenter'))
+            void openOutput('presenter').catch(() => {});
+        };
+        window.addEventListener('click', retry);
+        window.addEventListener('keydown', retry);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (retry) {
+        window.removeEventListener('click', retry);
+        window.removeEventListener('keydown', retry);
+      }
+    };
+  }, [autoOutput, isLeader]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   /** «Ще» in the header (ToolMore): while open it owns the keyboard, like the palette. */
   const [moreOpen, setMoreOpen] = useState(false);
