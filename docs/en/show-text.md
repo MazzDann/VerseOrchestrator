@@ -245,6 +245,11 @@ doesn't go over the first: it opens on another free screen, or, if there is none
 control window. The presentation window comes first: it still opens on a screen that holds
 only the stage. You can move a window in the **Output windows** panel.
 
+In the desktop app the presentation window opens by itself as the app starts — on the second
+screen and full-screen. To have it so in a browser too (or not in the app), turn **Settings** →
+**App** → **Open the presentation window automatically** on or off. In a browser the window then
+opens after your first click in the control window.
+
 In an output window:
 
 - to make it full screen, click in it or press F;

@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type * as Settings from './settingsStore';
+import { outputAtStartOn } from './lib/desktop';
 
 // The store takes `window.localStorage` as it is created, on import: stub it first.
 const local = new Map<string, string>();
@@ -220,5 +221,30 @@ describe('«YouTube: мій вхід у браузері (Premium)» (1.19.0-bet
     expect(merge({}, current).youtubeAccount).toBe(false);
     expect(merge({ youtubeAccount: 'yes' }, current).youtubeAccount).toBe(false);
     expect(merge({ youtubeAccount: true }, current).youtubeAccount).toBe(true);
+  });
+});
+
+describe('«Відкривати вікно показу автоматично» (1.21.1, F1107)', () => {
+  const m = () => store.useSettings.persist.getOptions().merge!;
+  const cur = () => store.useSettings.getState();
+  it('is not chosen by default; the 1.21.0 «on» stays, its «off» (the old default) is dropped', () => {
+    expect(cur().outputAtStart).toBe(null);
+    expect(m()({}, cur()).outputAtStart).toBe(null);
+    expect(m()({ autoOutput: true } as never, cur()).outputAtStart).toBe(true);
+    expect(m()({ autoOutput: false } as never, cur()).outputAtStart).toBe(null);
+    expect('autoOutput' in m()({ autoOutput: true } as never, cur())).toBe(false);
+    expect(m()({ outputAtStart: false }, cur()).outputAtStart).toBe(false);
+    expect(m()({ outputAtStart: 'yes' } as never, cur()).outputAtStart).toBe(null);
+  });
+  it('not chosen = on in the desktop app, off in a browser', () => {
+    expect(outputAtStartOn(null)).toBe(false);
+    (window as unknown as { voDesktop?: object }).voDesktop = {};
+    try {
+      expect(outputAtStartOn(null)).toBe(true);
+      expect(outputAtStartOn(false)).toBe(false);
+    } finally {
+      delete (window as unknown as { voDesktop?: object }).voDesktop;
+    }
+    expect(outputAtStartOn(true)).toBe(true);
   });
 });

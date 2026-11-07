@@ -126,9 +126,11 @@ export const EN: Record<string, string> = {
   довідці: 'reference',
   'На кінці розділу «Далі» одразу відкриває наступний розділ (а «Назад» на початку — попередній), без другого натиску для підтвердження. Утримана клавіша все одно спиняється на межі.':
     'At the end of a chapter «Next» opens the next chapter at once (and «Back» at the start the previous one), with no second press to confirm. A held key still stops at the edge.',
-  'Відкривати вікно показу автоматично': 'Open the output window automatically',
-  'Коли вікно керування запускається, «Вікно показу» відкривається само — на другому екрані, якщо він є. У браузері — після першого кліку (дозвольте спливні вікна).':
-    'When the control window starts, «Output window» opens on its own — on the second screen if there is one. In a browser — after your first click (allow pop-ups).',
+  'Відкривати вікно показу автоматично': 'Open the presentation window automatically',
+  'Коли застосунок запускається, «Вікно показу» відкривається само — на другому екрані й на весь екран, якщо екран є.':
+    'When the app starts, the presentation window opens on its own — on the second screen and full-screen, if there is one.',
+  'У браузері вікно відкривається після першого кліку у вікні керування. Дозвольте спливні вікна, а щоб воно стало на другий екран — «Керування вікнами» (браузер спитає).':
+    'In a browser the window opens after your first click in the control window. Allow pop-ups, and “Window management” for it to go to the second screen (the browser will ask).',
   'Поле «Вірш» біля розділів': 'The «Verse» field by the chapters',
   Поруч: 'Beside',
   'Під низом': 'Below',
@@ -1778,6 +1780,11 @@ export const EN: Record<string, string> = {
   'Увесь процесор': 'The whole processor',
   'Ядра процесора': 'Processor cores',
   'Окремий застосунок': 'The desktop app',
+  'У нас є застосунок': 'There is a desktop app',
+  'Він уже встановлений поруч: вікно показу саме стає на другий екран і на весь екран, звук іде без кліку.':
+    'It is already installed here: the presentation window goes to the second screen and full-screen by itself, and sound plays with no click.',
+  'Відкрити в застосунку': 'Open in the app',
+  'Лишитися в браузері': 'Stay in the browser',
   'VerseOrchestrator тепер може працювати у власному вікні, без браузера: «Налаштування вигляду» → «Застосунок» → «Окремий застосунок».':
     'VerseOrchestrator can now run in its own window, with no browser: Settings → App → The desktop app.',
   'VerseOrchestrator може працювати у власному вікні, без браузера: вікна виводу самі стають на весь екран на іншому екрані, звук іде без кліку, а вікно керування завжди одне.':

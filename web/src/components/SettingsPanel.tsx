@@ -35,7 +35,7 @@ import {
   IconSearch,
 } from '@tabler/icons-react';
 import { findSettings, textHolds, useSettingsFind } from '../lib/settingsSearch';
-import { inDesktop } from '../lib/desktop';
+import { inDesktop, outputAtStartOn } from '../lib/desktop';
 import { notifications } from '@mantine/notifications';
 import {
   useSettings,
@@ -122,8 +122,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const setVerseField = useSettings((s) => s.setVerseField);
   const chapterSize = useSettings((s) => s.chapterSize);
   const setChapterSize = useSettings((s) => s.setChapterSize);
-  const autoOutput = useSettings((s) => s.autoOutput);
-  const setAutoOutput = useSettings((s) => s.setAutoOutput);
+  const autoOutput = outputAtStartOn(useSettings((s) => s.outputAtStart));
+  const setAutoOutput = useSettings((s) => s.setOutputAtStart);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
   // the search over the settings (1.13.0-beta.3, users' report F1010-11; the author's Q9a: the
@@ -1300,12 +1300,19 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               checked={windowsMenu}
               onChange={(e) => setWindowsMenu(e.currentTarget.checked)}
             />
-            {/* 1.21.0-beta.3 (F1024-02): open the output window on a 2nd screen by itself at startup */}
+            {/* 1.21.0-beta.3 (F1024-02): open the output window on a 2nd screen by itself at startup;
+                1.21.1 (F1107): on by default in the app, and each platform says what it does */}
             <Switch
               label={tr('Відкривати вікно показу автоматично')}
-              description={tr(
-                'Коли вікно керування запускається, «Вікно показу» відкривається само — на другому екрані, якщо він є. У браузері — після першого кліку (дозвольте спливні вікна).',
-              )}
+              description={
+                inDesktop()
+                  ? tr(
+                      'Коли застосунок запускається, «Вікно показу» відкривається само — на другому екрані й на весь екран, якщо екран є.',
+                    )
+                  : tr(
+                      'У браузері вікно відкривається після першого кліку у вікні керування. Дозвольте спливні вікна, а щоб воно стало на другий екран — «Керування вікнами» (браузер спитає).',
+                    )
+              }
               checked={autoOutput}
               onChange={(e) => setAutoOutput(e.currentTarget.checked)}
             />
