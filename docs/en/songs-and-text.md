@@ -176,7 +176,8 @@ Wednesday at 6 p.m.”, and the To the running order and To screen
 buttons](../img/en/own-text.png)
 
 The texts you showed go into the **Recent** list at the bottom of the panel. To show such a
-text again, click it in the list — it goes back into the fields — and click **To screen**.
+text again, select it in the list and press Enter, or double-click it. A single click puts the
+text back into the fields to edit — then click **To screen**.
 To remove a text from the list, click the trash icon **Remove from the list**.
 
 **To the running order** doesn't show the text; it adds it to the

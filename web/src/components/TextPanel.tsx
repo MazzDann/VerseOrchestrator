@@ -65,6 +65,12 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
     setTitle(t.title);
     setBody(t.body);
   };
+  // Enter or a double click on a past text shows it, as «На екран» does (F1107-15); a click or
+  // Space only brings it back into the fields to edit
+  const showRecent = (t: TextItem) => {
+    loadRecent(t);
+    onProject(t.title, t.body);
+  };
 
   return (
     // «Текст на екран» is a kind of «Медіа» since 1.8.12-beta.7 (the author: no sense apart)
@@ -163,8 +169,13 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
                   role="button"
                   tabIndex={0}
                   onClick={() => loadRecent(t)}
+                  onDoubleClick={() => showRecent(t)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.target !== e.currentTarget) return; // the trash button's own keys
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (!e.repeat) showRecent(t);
+                    } else if (e.key === ' ') {
                       e.preventDefault();
                       loadRecent(t);
                     }
