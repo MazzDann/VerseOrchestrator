@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { onSlideError } from './slideErrors';
 import { onFullscreenRefused } from './fullscreen';
 import { createPeekGuardPoke } from './peekGuard';
+import { desktopOutputRestore } from './desktop';
 
 /**
  * Output windows registry (0.4.2): every output window (presenter, stage) announces itself
@@ -34,6 +35,8 @@ export interface OutputInfo {
   kind: OutputKind;
   /** outer bounds in screen coordinates (screenX/Y, outerWidth/Height) */
   bounds: { x: number; y: number; w: number; h: number };
+  /** the page's own size (innerWidth/Height) — the slide's shape «Як екран» (F1107-12); absent before 1.21.3 */
+  view?: { w: number; h: number };
   fullscreen: boolean;
   visible: boolean;
   openedAt: number;
@@ -217,8 +220,10 @@ function openerControlPage(): string | null {
 async function runCommand(cmd: OutputCommand): Promise<void> {
   try {
     if (cmd.do === 'close') window.close();
-    else if (cmd.do === 'focus') window.focus();
-    else if (cmd.do === 'exitFullscreen') {
+    else if (cmd.do === 'focus') {
+      window.focus();
+      desktopOutputRestore(); // minimized in the desktop app: back, full-screen (F1107-03)
+    } else if (cmd.do === 'exitFullscreen') {
       if (document.fullscreenElement) await document.exitFullscreen();
     } else {
       // a fullscreen window doesn't move: leave it first (no click needed for that)
@@ -264,6 +269,7 @@ function announceWindow(
     name: window.name,
     kind,
     bounds: { x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight },
+    view: { w: window.innerWidth, h: window.innerHeight },
     fullscreen: !!document.fullscreenElement,
     visible: document.visibilityState === 'visible',
     openedAt,
@@ -445,6 +451,16 @@ export function waitForNewOutput(
     const timer = window.setTimeout(() => done(null), ms);
     knownSubs.add(check);
   });
+}
+
+/** For the control window: every change of the open output windows' list, now and on (starts listening). */
+export function onOutputsChange(cb: (list: TrackedOutput[]) => void): () => void {
+  startTracking();
+  knownSubs.add(cb);
+  cb(known);
+  return () => {
+    knownSubs.delete(cb);
+  };
 }
 
 /** For the control window: the output windows open right now. */

@@ -179,6 +179,16 @@ export function SongsPanel({
       return () => clearTimeout(t);
     }
   }, [open, songId, importing]);
+  // «Презентації» chosen: the keyboard goes to their search, even with one open (F1107-10) — the
+  // last query selected, so typing starts a new one
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 30);
+    return () => clearTimeout(t);
+  }, [open]);
   // a closed panel opens on the search again
   useEffect(() => {
     if (!open) {

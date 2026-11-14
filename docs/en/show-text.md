@@ -28,6 +28,8 @@ side, with the slide's text to their right when there is room. To change the pan
 height, drag its top edge (or reach it with Tab and press ↑ and ↓); a double-click on the
 edge brings back the standard height. In a short window the panel gets lower by itself, and a
 few verses above it stay in view; once there is room again, the panel returns to your height.
+In a narrow window (half a screen, say) the right-hand panel goes to the bottom by itself, so the
+preview stays in view.
 
 ## Show the selection
 
@@ -280,6 +282,10 @@ The **hidden** label in a window's row means other windows cover it or it is min
 browser pauses updates of such a window, so bring it to the front or put it on a screen of
 its own.
 
+In the desktop app a minimized presentation window has a taskbar button and comes back by itself
+— full-screen — as soon as something new goes on screen or you press **Presentation window**. The
+keyboard stays in the control window.
+
 The switches at the bottom of the panel:
 
 - **Several presentation windows** — **Presentation window** opens a new window each time
@@ -296,7 +302,8 @@ If the projector or the broadcast has another shape than the presentation window
 **Output windows** and choose the **Aspect ratio**: **As the screen** (the default — the slide
 fills the window), **16:9**, or **4:3**. The slide then stands in the middle of the window in a
 frame of that shape, and the rest stays black. The monitors in the control window show the
-slide in the same shape, so the text fits the same way.
+slide in the same shape, so the text fits the same way. With **As the screen** they take the
+shape of the open presentation window — 16:10, 4:3, or a window not on the whole screen.
 
 ## Show text over the camera
 

@@ -139,6 +139,8 @@ export const EN: Record<string, string> = {
   Дрібні: 'Small',
   Звичайні: 'Normal',
   Великі: 'Large',
+  'У вузькому вікні (як-от на пів екрана) панель лягає вниз.':
+    'In a narrow window (half a screen, say) the panel goes to the bottom.',
   'Унизу центру': 'Bottom of the center',
   'Бібліотека модулів': 'Module library',
   'Перебудувати з папок modules/ і songs/ після додавання перекладу чи презентації.':

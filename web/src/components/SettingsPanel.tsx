@@ -1281,6 +1281,10 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                   { label: tr('Унизу центру'), value: 'bottom' },
                 ]}
               />
+              {/* F1107-13: a narrow window never hides it */}
+              <Text size="xs" c="dimmed" mt={4}>
+                {tr('У вузькому вікні (як-от на пів екрана) панель лягає вниз.')}
+              </Text>
             </div>
             {/* 1.8.12-beta.7 (F1005-15): fewer things in sight */}
             <Switch

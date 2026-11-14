@@ -34,6 +34,7 @@ import { type CountdownPlace } from '../lib/countdown';
 import { strongLangFor } from '@vo/shared';
 import { SearchPanel } from '../components/SearchPanel';
 import { DesktopHint } from '../components/DesktopHint';
+import { PresenterShape } from '../components/AspectFrame';
 import { StudyPanels, type AsideMode } from '../components/StudyPanels';
 import { SongsPanel } from '../components/SongsPanel';
 import { DocumentsPanel } from '../components/DocumentsPanel';
@@ -179,7 +180,10 @@ export function Control() {
   const asideBreakpoint = useMediaQuery('(min-width: 62em)', true, {
     getInitialValueInEffect: false,
   });
-  const asideToggle = panelPlacement === 'aside' && !asideBreakpoint;
+  // the right-hand «Панель показу» in a window narrower than `md` (half a screen, F1107-13: «прев’ю
+  // зникає … хай лягає вниз»): it lies at the bottom instead of hiding behind a burger
+  const placement = panelPlacement === 'aside' && !asideBreakpoint ? 'bottom' : panelPlacement;
+  const asideToggle = placement === 'aside' && !asideBreakpoint;
   // The header gives way to a narrow window step by step (lib/headerFold.ts): the title, the
   // buttons' text, the go-to field, then whole zones into «Ще» — measured, not breakpoints
   // (80em / 70em left buttons past the window's edge, Mac check of 1.4.1). What else changes
@@ -194,7 +198,7 @@ export function Control() {
   // the search field above the verses («Над віршами», 1.8.12-beta.9): only in «Біблія»
   const fieldInCentre = searchPrefs.place === 'verses' && workspace === 'bible';
   const header = useHeaderFold(
-    `${lang}|${panelPlacement}|${navBreakpoint}|${asideBreakpoint}|${simpleView}|${searchPrefs.place}|${fieldInCentre}`,
+    `${lang}|${placement}|${navBreakpoint}|${asideBreakpoint}|${simpleView}|${searchPrefs.place}|${fieldInCentre}`,
   );
   const fold = header.fold;
 
@@ -1317,11 +1321,12 @@ export function Control() {
     <>
       {dragging && <DropOverlay zone={dropZone} />}
       <DesktopHint />
+      <PresenterShape />
       <AppShell
         header={{ height: 56 }}
         navbar={{ width: layout.navWidth, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
         aside={
-          panelPlacement === 'aside'
+          placement === 'aside'
             ? { width: layout.asideWidth, breakpoint: 'md', collapsed: { mobile: !asideOpened } }
             : undefined
         }
@@ -1371,7 +1376,7 @@ export function Control() {
             setWindowsOpen={setWindowsOpen}
             noticesOpen={noticesOpen}
             setNoticesOpen={setNoticesOpen}
-            panelPlacement={panelPlacement}
+            panelPlacement={placement}
             live={{
               liveFollow,
               setLiveFollow,
@@ -1577,7 +1582,7 @@ export function Control() {
               />
               <Divider />
               <VerseList
-                panelPlacement={panelPlacement}
+                panelPlacement={placement}
                 verseViewport={verseViewport}
                 primaryVerses={primaryVerses}
                 selectedVerses={selectedVerses}
@@ -1599,7 +1604,7 @@ export function Control() {
                 setConcordanceStrong={setConcordanceStrong}
               />
             </Box>
-            {panelPlacement === 'bottom' && (
+            {placement === 'bottom' && (
               <Box
                 ref={bottomBoxRef}
                 style={{
@@ -1622,7 +1627,7 @@ export function Control() {
           </Box>
         </AppShell.Main>
 
-        {panelPlacement === 'aside' && (
+        {placement === 'aside' && (
           <AppShell.Aside>
             <Box visibleFrom="md">
               <ResizeHandle

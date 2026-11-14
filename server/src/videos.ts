@@ -120,9 +120,31 @@ export function sniffVideo(b: Uint8Array): VideoKind | null {
   }
   // QuickTime without ftyp: a moov / mdat / wide atom first
   if (b.length >= 8 && ['moov', 'mdat', 'wide', 'free'].includes(ascii(4, 8))) return 'mov';
+  // EBML = the Matroska family: WebM by its DocType, anything else Matroska (F1107-02: a muxer that
+  // writes 8-byte sizes put «matroska» past the 64 bytes read then — «Mkv формат не розпізнає»)
   if (b.length >= 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) {
-    const head = ascii(0, Math.min(b.length, 64));
-    return head.includes('webm') ? 'webm' : head.includes('matroska') ? 'mkv' : null;
+    return ebmlDocType(b) === 'webm' ? 'webm' : 'mkv';
+  }
+  return null;
+}
+
+/** How many first bytes `sniffVideo` wants: a Matroska header with long sizes runs past 64. */
+export const SNIFF_BYTES = 4096;
+
+/** The DocType of an EBML header — its 0x4282 element's text — or null when not in these bytes. */
+function ebmlDocType(b: Uint8Array): string | null {
+  for (let i = 4; i + 3 < b.length; i++) {
+    if (b[i] !== 0x42 || b[i + 1] !== 0x82) continue;
+    // the size: a variable-length integer, its length told by the first byte's leading zeros
+    const first = b[i + 2];
+    let len = 1;
+    while (len <= 8 && !(first & (0x80 >> (len - 1)))) len++;
+    if (len > 8) continue;
+    let size = first & (0xff >> len);
+    for (let k = 1; k < len; k++) size = size * 256 + b[i + 2 + k];
+    const from = i + 2 + len;
+    if (size < 1 || size > 32 || from + size > b.length) continue;
+    return String.fromCharCode(...b.subarray(from, from + size)).replace(/\0+$/, '');
   }
   return null;
 }
@@ -174,7 +196,7 @@ async function readVideo(file: string): Promise<VideoFile | 'denied' | null> {
     fh = await fsp.open(file, 'r');
     const st = await fh.stat();
     if (!st.isFile()) return null;
-    const head = Buffer.alloc(64);
+    const head = Buffer.alloc(SNIFF_BYTES);
     const { bytesRead } = await fh.read(head, 0, head.length, 0);
     const kind = sniffVideo(head.subarray(0, bytesRead));
     return kind ? { file, type: VIDEO_TYPE[kind], kind, size: st.size, mtimeMs: st.mtimeMs } : null;

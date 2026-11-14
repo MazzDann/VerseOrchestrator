@@ -1,5 +1,7 @@
 import { type CSSProperties } from 'react';
+import { create } from 'zustand';
 import { type OutputAspect } from '../settingsStore';
+import { type OutputInfo } from './outputs';
 
 const RATIO: Record<Exclude<OutputAspect, 'screen'>, [number, number]> = {
   '16:9': [16, 9],
@@ -27,3 +29,16 @@ export function aspectBox(aspect: OutputAspect): CSSProperties {
 
 /** The monitors' shape in the control window: the outputs' when it is set, else 16:9. */
 export const monitorRatio = (aspect: OutputAspect) => (aspect === '4:3' ? '4 / 3' : '16 / 9');
+
+/** The first presentation window's page shape, width / height (rounded) — null: none open (F1107-12). */
+export function presenterRatio(list: readonly OutputInfo[]): number | null {
+  const o = list.find((x) => x.kind === 'presenter');
+  const v = o ? (o.view ?? { w: o.bounds.w, h: o.bounds.h }) : null;
+  return v && v.w > 0 && v.h > 0 ? Math.round((v.w / v.h) * 1000) / 1000 : null;
+}
+
+/**
+ * The open presentation window's shape, width / height, as the control window sees it (F1107-12):
+ * null — none open. Only the control window fills it (AspectFrame's `PresenterShape`); elsewhere null.
+ */
+export const usePresenterShape = create<{ ratio: number | null }>(() => ({ ratio: null }));

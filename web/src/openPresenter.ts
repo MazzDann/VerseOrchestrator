@@ -221,6 +221,10 @@ export async function openOutput(
   if (open) {
     if (opts.screen) place(open, opts.screen);
     open.focus();
+    // the desktop app: a minimized one comes back by itself, full-screen (F1107-03)
+    if (inDesktop())
+      for (const o of currentOutputs())
+        if (o.name === name) outputs?.command(o.id, { do: 'focus' });
     if (fullscreen && !isFullscreen(open)) delegateFullscreen(open, true);
     return true;
   }
