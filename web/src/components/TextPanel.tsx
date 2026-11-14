@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   TextInput,
   Textarea,
@@ -12,7 +12,9 @@ import {
   Tooltip,
   Switch,
   Divider,
+  SegmentedControl,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
   IconLetterT,
   IconDeviceTv,
@@ -28,10 +30,13 @@ import {
   IconAlignLeft,
   IconAlignCenter,
   IconAlignRight,
+  IconStar,
+  IconStarFilled,
 } from '@tabler/icons-react';
 import { QuoteSearch } from './QuoteSearch';
-import { useSettings, type TextItem } from '../settingsStore';
-import { N_, tr, useLang } from '../i18n';
+import { textKey, useSettings, type TextItem } from '../settingsStore';
+import { currentLang, N_, tr, useLang } from '../i18n';
+import { dayGroups, type DayKey } from '../lib/textDays';
 import { pageAt, type RichAlign } from '../lib/richText';
 import { insertDivider, markLines, surround, type Edit, type LineKind } from '../lib/richEdit';
 import { IS_MAC } from '../hotkeys';
@@ -88,6 +93,9 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
   const wrap = useSettings((s) => s.textWrap);
   const setWrap = useSettings((s) => s.setTextWrap);
   const recentTexts = useSettings((s) => s.recentTexts);
+  const savedTexts = useSettings((s) => s.savedTexts);
+  const setTextSaved = useSettings((s) => s.setTextSaved);
+  const [listTab, setListTab] = useState<'history' | 'saved'>('history');
   const removeRecentText = useSettings((s) => s.removeRecentText);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   // «Цитати з Вікіцитат» (1.19.0-beta.10)
@@ -169,6 +177,91 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
       run: () => apply((t, a) => insertDivider(t, a)),
     },
   ];
+
+  const savedKeys = new Set(savedTexts.map(textKey));
+  const dayLabel = (key: DayKey) =>
+    key === 'today'
+      ? tr('Сьогодні')
+      : key === 'yesterday'
+        ? tr('Вчора')
+        : key === 'earlier'
+          ? tr('Раніше')
+          : new Date(`${key.slice(4)}T12:00:00`).toLocaleDateString(currentLang(), {
+              day: 'numeric',
+              month: 'long',
+              ...(key.slice(4, 8) !== String(new Date().getFullYear()) ? { year: 'numeric' } : {}),
+            });
+  /** One text of «Історія» / «Збережені»: a click brings it into the fields, Enter or a double click shows it. */
+  const row = (t: TextItem, inSaved: boolean) => {
+    const saved = inSaved || savedKeys.has(textKey(t));
+    return (
+      <Box
+        key={textKey(t)}
+        className="vo-verse-item"
+        role="button"
+        tabIndex={0}
+        onClick={() => loadRecent(t)}
+        onDoubleClick={() => showRecent(t)}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return; // the buttons' own keys
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (!e.repeat) showRecent(t);
+          } else if (e.key === ' ') {
+            e.preventDefault();
+            loadRecent(t);
+          }
+        }}
+        style={{ position: 'relative', paddingRight: 56 }}
+      >
+        {t.title && (
+          <Text size="xs" fw={600} truncate>
+            {t.title}
+          </Text>
+        )}
+        <Text size="sm" c="dimmed" lineClamp={2} style={{ whiteSpace: 'pre-line' }}>
+          {t.body}
+        </Text>
+        <Group gap={2} style={{ position: 'absolute', top: 4, right: 4 }} wrap="nowrap">
+          {!inSaved && (
+            <Tooltip label={saved ? tr('Прибрати зі збережених') : tr('Зберегти')} withArrow>
+              <ActionIcon
+                variant="subtle"
+                color={saved ? 'brand' : 'gray'}
+                size="sm"
+                aria-label={saved ? tr('Прибрати зі збережених') : tr('Зберегти')}
+                aria-pressed={saved}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTextSaved(t, !saved);
+                }}
+              >
+                {saved ? <IconStarFilled size={14} /> : <IconStar size={14} />}
+              </ActionIcon>
+            </Tooltip>
+          )}
+          <Tooltip
+            label={inSaved ? tr('Прибрати зі збережених') : tr('Прибрати зі списку')}
+            withArrow
+          >
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (inSaved) setTextSaved(t, false);
+                else removeRecentText(t);
+              }}
+              aria-label={inSaved ? tr('Прибрати зі збережених') : tr('Прибрати зі списку')}
+            >
+              <IconTrash size={14} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </Box>
+    );
+  };
 
   return (
     // «Текст на екран» is a kind of «Медіа» since 1.8.12-beta.7 (the author: no sense apart)
@@ -316,6 +409,25 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
           }}
         />
         <Group justify="flex-end" gap="xs">
+          <Button
+            size="sm"
+            variant="default"
+            leftSection={<IconStar size={16} />}
+            disabled={!body.trim()}
+            onClick={() => {
+              setTextSaved(
+                { title, body, ...(align ? { align } : {}), ...(slides ? { slides } : {}) },
+                true,
+              );
+              notifications.show({
+                message: tr('Текст збережено'),
+                color: 'green',
+                autoClose: 1500,
+              });
+            }}
+          >
+            {tr('Зберегти')}
+          </Button>
           {onAddToPlaylist && (
             <Button
               size="sm"
@@ -345,56 +457,37 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
           </Button>
         </Group>
       </Stack>
-      {recentTexts.length > 0 && (
+      {(recentTexts.length > 0 || savedTexts.length > 0) && (
         <>
-          <Text size="10px" c="dimmed" fw={600} tt="uppercase" mt="sm" mb={4}>
-            {tr('Нещодавні')}
-          </Text>
+          {/* «Історія» by day and «Збережені» (1.22.0-beta.3, F1107-18) */}
+          <SegmentedControl
+            size="xs"
+            mt="sm"
+            mb={4}
+            value={listTab}
+            onChange={(v) => setListTab(v as 'history' | 'saved')}
+            data={[
+              { value: 'history', label: tr('Історія · {n}', { n: recentTexts.length }) },
+              { value: 'saved', label: tr('Збережені · {n}', { n: savedTexts.length }) },
+            ]}
+          />
           <ScrollArea style={{ flex: 1 }} scrollbars="y" className="vo-scroll-rows">
+            {listTab === 'saved' && savedTexts.length === 0 && (
+              <Text size="xs" c="dimmed" p="xs">
+                {tr('Щоб зберегти текст, натисніть зірочку біля нього в «Історії» або «Зберегти».')}
+              </Text>
+            )}
             <Stack gap={4}>
-              {recentTexts.map((t) => (
-                <Box
-                  key={`${t.title}\n${t.body}`}
-                  className="vo-verse-item"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => loadRecent(t)}
-                  onDoubleClick={() => showRecent(t)}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return; // the trash button's own keys
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (!e.repeat) showRecent(t);
-                    } else if (e.key === ' ') {
-                      e.preventDefault();
-                      loadRecent(t);
-                    }
-                  }}
-                  style={{ position: 'relative' }}
-                >
-                  {t.title && (
-                    <Text size="xs" fw={600} truncate>
-                      {t.title}
-                    </Text>
-                  )}
-                  <Text size="sm" c="dimmed" lineClamp={2} style={{ whiteSpace: 'pre-line' }}>
-                    {t.body}
-                  </Text>
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    size="sm"
-                    style={{ position: 'absolute', top: 4, right: 4 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeRecentText(t);
-                    }}
-                    aria-label={tr('Прибрати зі списку')}
-                  >
-                    <IconTrash size={14} />
-                  </ActionIcon>
-                </Box>
-              ))}
+              {listTab === 'saved'
+                ? savedTexts.map((t) => row(t, true))
+                : dayGroups(recentTexts, Date.now()).map((g) => (
+                    <Fragment key={g.key}>
+                      <Text size="10px" c="dimmed" fw={600} mt={4}>
+                        {dayLabel(g.key)}
+                      </Text>
+                      {g.items.map((t) => row(t, false))}
+                    </Fragment>
+                  ))}
             </Stack>
           </ScrollArea>
         </>

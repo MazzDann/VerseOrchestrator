@@ -1106,6 +1106,15 @@ export const EN: Record<string, string> = {
   '{label} — ще раз: як у вигляді': '{label} — again: as the look has it',
   'Переносити рядки': 'Wrap lines',
   'Абзаци — окремими слайдами': 'Paragraphs as separate slides',
+  'Історія · {n}': 'History · {n}',
+  'Збережені · {n}': 'Saved · {n}',
+  'Щоб зберегти текст, натисніть зірочку біля нього в «Історії» або «Зберегти».':
+    'To keep a text, press the star by it in “History” or “Save”.',
+  Сьогодні: 'Today',
+  Вчора: 'Yesterday',
+  Раніше: 'Earlier',
+  'Прибрати зі збережених': 'Remove from saved',
+  'Текст збережено': 'Text saved',
   'Порожній рядок починає новий слайд; «Далі» показує наступний':
     'An empty line starts a new slide; “Next” shows the next one',
   'Це останній слайд тексту': 'This is the text’s last slide',

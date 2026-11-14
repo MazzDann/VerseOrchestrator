@@ -248,3 +248,29 @@ describe('«Відкривати вікно показу автоматично�
     expect(outputAtStartOn(true)).toBe(true);
   });
 });
+
+describe('«Історія» by day and «Збережені» (1.22.0-beta.3, F1107-18)', () => {
+  const m = () => store.useSettings.persist.getOptions().merge!;
+  const cur = () => store.useSettings.getState();
+  it('keeps what is sound, drops the rest', () => {
+    const merged = m()(
+      {
+        recentTexts: [{ title: 'А', body: 'текст', at: 5, align: 'diagonal' }, { body: 1 }, null],
+        savedTexts: 'x',
+      } as never,
+      cur(),
+    );
+    expect(merged.recentTexts).toEqual([{ title: 'А', body: 'текст', at: 5 }]);
+    expect(merged.savedTexts).toEqual([]);
+  });
+  it('stamps a shown text with its time, keeps a hundred, and saves / unsaves one', () => {
+    for (let i = 0; i < 105; i++) cur().pushRecentText({ title: '', body: `текст ${i}` });
+    expect(cur().recentTexts).toHaveLength(store.TEXT_HISTORY);
+    expect(cur().recentTexts[0]).toMatchObject({ body: 'текст 104' });
+    expect(typeof cur().recentTexts[0].at).toBe('number');
+    cur().setTextSaved({ title: 'Т', body: 'збережи' }, true);
+    expect(cur().savedTexts[0]).toMatchObject({ title: 'Т', body: 'збережи' });
+    cur().setTextSaved({ title: 'Т', body: 'збережи' }, false);
+    expect(cur().savedTexts).toHaveLength(0);
+  });
+});
