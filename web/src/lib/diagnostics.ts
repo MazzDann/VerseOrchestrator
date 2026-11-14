@@ -22,7 +22,9 @@ export function controlWindowReport(): Record<string, unknown> {
   const ap = state.appearance as Record<string, unknown> | undefined;
   if (ap) {
     for (const k of ['bgImage', 'coverImage']) ap[k] = ap[k] ? 'set' : null;
-    if (typeof ap.coverText === 'string') ap.coverText = ap.coverText ? 'set' : '';
+    // the operator's own words in the look: the cover's text, the countdown's caption (review)
+    for (const k of ['coverText', 'countdownCaption'])
+      if (typeof ap[k] === 'string') ap[k] = ap[k] ? 'set' : '';
   }
   const desk = (window as unknown as { voDesktop?: Record<string, unknown> }).voDesktop;
   return {
