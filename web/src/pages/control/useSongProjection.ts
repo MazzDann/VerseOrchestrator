@@ -1,4 +1,4 @@
-import { type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { notifications } from '@mantine/notifications';
 import { mainText, markedText, unmark } from '@vo/shared';
 import { type SongStyle } from '../../api';
@@ -13,7 +13,14 @@ import {
 import { type Outcome } from '../../lib/commands';
 import { tr } from '../../i18n';
 import { withSecond } from './songSlides';
-import { hasMarkup, parseRich, plainOf, type RichAlign, type RichText } from '../../lib/richText';
+import {
+  hasMarkup,
+  parseRich,
+  plainOf,
+  splitPages,
+  type RichAlign,
+  type RichText,
+} from '../../lib/richText';
 
 /**
  * A song stanza or free text on screen (vo-songs): `projectText` (faithful or in the app's
@@ -61,10 +68,20 @@ export function useSongProjection({
     // and follows «Наживо» — off = cue the preview only, «На екран» / Enter then show it (F1024-07)
     force?: boolean,
     // the own text (1.22.0-beta.1, F1107-14): read as «Багатий текст» (lib/richText.ts), with its
-    // own alignment; a song's stanza never is
-    markup?: { align?: RichAlign },
+    // own alignment; a song's stanza never is. `slides` (1.22.0-beta.2, F1107-08): its paragraphs
+    // are slides of their own — the first goes, «Далі / Назад» walk the rest (`stepText`).
+    // `preview` (F1107-09): only into the preview, quietly — the text being typed
+    markup?: { align?: RichAlign; slides?: boolean; preview?: boolean },
   ): Slide | undefined => {
     if (!text.trim()) return;
+    if (markup?.slides && !source) {
+      const pages = splitPages(text);
+      if (pages.length > 1) {
+        if (!markup.preview) textPages.current = { title: reference, align: markup.align, pages };
+        text = pages[0];
+        source = { kind: 'text', page: 0, total: pages.length };
+      }
+    }
     let style = slideStyle;
     let template = slideTemplate;
     let quote = text;
@@ -145,6 +162,10 @@ export function useSongProjection({
       template,
       source,
     };
+    if (markup?.preview) {
+      setPreviewOverride(slide);
+      return slide;
+    }
     const goLive = force ?? liveFollow;
     if (goLive || quiet) pushLive(slide);
     if (quiet) return slide; // a loop tick: the screen only, the caller sets the preview
@@ -169,12 +190,49 @@ export function useSongProjection({
     return slide;
   };
 
+  /** The own text shown in slides (1.22.0-beta.2): its pages — what «Далі / Назад» walk. */
+  const textPages = useRef<{ title: string; align?: RichAlign; pages: string[] } | null>(null);
+
+  /**
+   * «Далі / Назад» on an own text shown in slides (1.22.0-beta.2, F1107-08): its next / previous
+   * paragraph from `from`, on screen when the text is (else into the preview, as «Наживо» says);
+   * 'edge' past its first / last — the running order or a notice then; null: not this text.
+   */
+  const stepText = (dir: 1 | -1, from: number, total: number): 'moved' | 'edge' | null => {
+    const t = textPages.current;
+    if (!t || t.pages.length !== total) return null;
+    const to = from + dir;
+    if (to < 0 || to >= total) return 'edge';
+    const onScreen = liveSlideRef.current.source?.kind === 'text';
+    projectText(
+      t.pages[to],
+      t.title,
+      null,
+      { kind: 'text', page: to, total },
+      null,
+      false,
+      onScreen ? true : undefined,
+      { align: t.align },
+    );
+    return 'moved';
+  };
+
   // Project a free-text slide (announcement / note / custom text) and keep it in recents.
-  const projectAnnouncement = (title: string, body: string, align?: RichAlign) => {
+  const projectAnnouncement = (
+    title: string,
+    body: string,
+    align?: RichAlign,
+    slides?: boolean,
+  ) => {
     if (!body.trim()) return;
-    // «Текст на екран»: show now, read as «Багатий текст» (1.22.0-beta.1)
-    projectText(body, title.trim(), null, undefined, null, false, true, { align });
-    pushRecentText({ title, body, ...(align ? { align } : {}) });
+    // «Текст на екран»: show now, read as «Багатий текст» (1.22.0-beta.1), in slides (beta.2)
+    projectText(body, title.trim(), null, undefined, null, false, true, { align, slides });
+    pushRecentText({
+      title,
+      body,
+      ...(align ? { align } : {}),
+      ...(slides ? { slides } : {}),
+    });
     if (!title.trim()) {
       notifications.show({ message: tr('Текст на екрані'), color: 'live', autoClose: 1500 });
     }
@@ -196,9 +254,31 @@ export function useSongProjection({
     afterToggle(next);
     return { ok: true };
   };
+  /**
+   * The text being typed in «Текст на екран» into the preview (1.22.0-beta.2, F1107-09: «прев’ю
+   * тексту коли пишеш»): the slide the caret is in, not shown, no notice.
+   */
+  const previewAnnouncement = (
+    title: string,
+    body: string,
+    align: RichAlign | undefined,
+    slides: boolean,
+    page: number,
+  ) => {
+    if (!body.trim()) return;
+    const pages = slides ? splitPages(body) : [body];
+    const at = Math.min(page, pages.length - 1);
+    // no `source`: a draft is no slide «Далі» walks — a text shown before keeps its own pages
+    projectText(pages[at], title.trim(), null, undefined, null, false, undefined, {
+      align,
+      preview: true,
+    });
+  };
   return {
     projectText,
     projectAnnouncement,
+    previewAnnouncement,
+    stepText,
     songEnd,
   };
 }

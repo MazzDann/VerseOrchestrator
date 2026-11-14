@@ -1105,6 +1105,11 @@ export const EN: Record<string, string> = {
   'Форматування тексту': 'Text formatting',
   '{label} — ще раз: як у вигляді': '{label} — again: as the look has it',
   'Переносити рядки': 'Wrap lines',
+  'Абзаци — окремими слайдами': 'Paragraphs as separate slides',
+  'Порожній рядок починає новий слайд; «Далі» показує наступний':
+    'An empty line starts a new slide; “Next” shows the next one',
+  'Це останній слайд тексту': 'This is the text’s last slide',
+  'Це перший слайд тексту': 'This is the text’s first slide',
   'У показ': 'To the running order',
   Нещодавні: 'Recent',
   'Прибрати зі списку': 'Remove from the list',

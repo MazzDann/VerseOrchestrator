@@ -206,6 +206,17 @@ and in the running order.
 To see where a line of the field ends, turn off **Wrap lines**: a long line then runs on, and
 every new line of the field is your Enter.
 
+### Show a text in slides
+
+A long text can be shown in parts. Turn on **Paragraphs as separate slides** and split the text
+with empty lines: each paragraph becomes a slide of its own. **To screen** shows the first one,
+and **Next** and **Back** (→ and ←, PageDown and PageUp) the next and the previous one. After the
+last slide **Next** goes to the next item of the running order, if the text is in one.
+
+While you type, the **Preview** monitor shows the slide the caret is in — so you see how the
+text will sit on the screen before you show it. It goes on screen only with **To screen** or
+Ctrl+Enter.
+
 ### Take a quote from Wikiquote
 
 1. In the **Text on screen** panel, click the **Quotes from Wikiquote…** icon.

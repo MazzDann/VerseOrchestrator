@@ -32,7 +32,7 @@ import {
 import { QuoteSearch } from './QuoteSearch';
 import { useSettings, type TextItem } from '../settingsStore';
 import { N_, tr, useLang } from '../i18n';
-import { type RichAlign } from '../lib/richText';
+import { pageAt, type RichAlign } from '../lib/richText';
 import { insertDivider, markLines, surround, type Edit, type LineKind } from '../lib/richEdit';
 import { IS_MAC } from '../hotkeys';
 
@@ -44,9 +44,25 @@ interface Props {
    * Project a free-text slide: `title` becomes the reference line, `body` the quote — read as
    * «Багатий текст» (lib/richText.ts) — and `align` its own alignment (none = the look's).
    */
-  onProject: (title: string, body: string, align?: RichAlign) => void;
+  onProject: (title: string, body: string, align?: RichAlign, slides?: boolean) => void;
+  /**
+   * The text as it is typed, into the preview (1.22.0-beta.2, F1107-09): `page` — the slide the
+   * caret is in when it goes in slides.
+   */
+  onPreview?: (
+    title: string,
+    body: string,
+    align: RichAlign | undefined,
+    slides: boolean,
+    page: number,
+  ) => void;
   /** Add the composed text to the presentation sequence. */
-  onAddToPlaylist?: (item: { title: string; body: string; align?: RichAlign }) => void;
+  onAddToPlaylist?: (item: {
+    title: string;
+    body: string;
+    align?: RichAlign;
+    slides?: boolean;
+  }) => void;
 }
 
 const ALIGNS: { value: RichAlign; label: string; icon: typeof IconAlignLeft }[] = [
@@ -59,12 +75,16 @@ const ALIGNS: { value: RichAlign; label: string; icon: typeof IconAlignLeft }[] 
  * Free-text slide composer — announcements, notes, any custom text. Reuses the
  * active slide style/template; keeps a recents list so repeat texts are one click.
  */
-export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Props) {
+export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPlaylist }: Props) {
   useLang();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   // the text's own alignment (1.22.0-beta.1): none = the look's
   const [align, setAlign] = useState<RichAlign | undefined>(undefined);
+  // «Абзаци — окремими слайдами» (1.22.0-beta.2, F1107-08): kept with the text, like its alignment
+  const [slides, setSlides] = useState(false);
+  // where the caret is: the preview shows its slide (F1107-09)
+  const [caret, setCaret] = useState(0);
   const wrap = useSettings((s) => s.textWrap);
   const setWrap = useSettings((s) => s.setTextWrap);
   const recentTexts = useSettings((s) => s.recentTexts);
@@ -81,23 +101,37 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
     return () => clearTimeout(t);
   }, [focusKey]);
 
+  // F1107-09 («прев’ю тексту коли пишеш»): the text as typed goes into the preview after a short
+  // pause — never to the screen; an empty field leaves the preview as it is
+  const previewRef = useRef(onPreview);
+  previewRef.current = onPreview;
+  useEffect(() => {
+    if (!open || !body.trim()) return;
+    const t = setTimeout(
+      () => previewRef.current?.(title, body, align, slides, slides ? pageAt(body, caret) : 0),
+      250,
+    );
+    return () => clearTimeout(t);
+  }, [open, title, body, align, slides, caret]);
+
   if (!open) return null;
 
   const project = () => {
     if (!body.trim()) return;
-    onProject(title, body, align);
+    onProject(title, body, align, slides);
   };
 
   const loadRecent = (t: TextItem) => {
     setTitle(t.title);
     setBody(t.body);
     setAlign(t.align);
+    setSlides(!!t.slides);
   };
   // Enter or a double click on a past text shows it, as «На екран» does (F1107-15); a click or
   // Space only brings it back into the fields to edit
   const showRecent = (t: TextItem) => {
     loadRecent(t);
-    onProject(t.title, t.body, t.align);
+    onProject(t.title, t.body, t.align, t.slides);
   };
 
   // «Багатий текст» (1.22.0-beta.1, F1107-14): the toolbar writes the Markdown the screen reads
@@ -201,13 +235,28 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
               </ActionIcon>
             </Tooltip>
           ))}
-          <Switch
-            size="xs"
-            ml="auto"
-            label={tr('Переносити рядки')}
-            checked={wrap}
-            onChange={(e) => setWrap(e.currentTarget.checked)}
-          />
+          <Group gap="sm" ml="auto" wrap="wrap">
+            <Tooltip
+              label={tr('Порожній рядок починає новий слайд; «Далі» показує наступний')}
+              withArrow
+              openDelay={300}
+              multiline
+              w={240}
+            >
+              <Switch
+                size="xs"
+                label={tr('Абзаци — окремими слайдами')}
+                checked={slides}
+                onChange={(e) => setSlides(e.currentTarget.checked)}
+              />
+            </Tooltip>
+            <Switch
+              size="xs"
+              label={tr('Переносити рядки')}
+              checked={wrap}
+              onChange={(e) => setWrap(e.currentTarget.checked)}
+            />
+          </Group>
         </Group>
         <Textarea
           ref={bodyRef}
@@ -221,7 +270,11 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
           // «Переносити рядки» off: a long line runs on, so every Enter is where it shows (F1107-14)
           wrap={wrap ? 'soft' : 'off'}
           styles={wrap ? undefined : { input: { whiteSpace: 'pre', overflowX: 'auto' } }}
-          onChange={(e) => setBody(e.currentTarget.value)}
+          onChange={(e) => {
+            setBody(e.currentTarget.value);
+            setCaret(e.currentTarget.selectionStart);
+          }}
+          onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
           onKeyDown={(e) => {
             // Ctrl/Cmd+B and +I: bold and italic, as in a text editor
             if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
@@ -250,7 +303,14 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
               variant="default"
               leftSection={<IconPlaylistAdd size={16} />}
               disabled={!body.trim()}
-              onClick={() => onAddToPlaylist({ title, body, ...(align ? { align } : {}) })}
+              onClick={() =>
+                onAddToPlaylist({
+                  title,
+                  body,
+                  ...(align ? { align } : {}),
+                  ...(slides ? { slides } : {}),
+                })
+              }
             >
               {tr('У показ')}
             </Button>

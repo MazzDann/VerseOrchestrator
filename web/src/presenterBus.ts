@@ -343,7 +343,9 @@ export type SlideSource =
   /** a video of the list (1.8.12-beta.3) */
   | { kind: 'video'; videoId: string; by?: string }
   /** a unit of a document (1.17.0-beta.1): «абзац 3 з 40» on «Сцена» */
-  | { kind: 'doc'; docId: number; unit: number; by?: string; total?: number };
+  | { kind: 'doc'; docId: number; unit: number; by?: string; total?: number }
+  /** a slide of an own text shown in slides (1.22.0-beta.2, F1107-08): «Далі» walks them */
+  | { kind: 'text'; page: number; total: number; by?: string };
 
 /** Built-in layout presets. The first (null template) is the default centred look. */
 export const TEMPLATE_PRESETS: { label: string; template: SlideTemplate | null }[] = [

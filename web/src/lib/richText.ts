@@ -138,3 +138,23 @@ export function richOf(x: unknown): RichText | null {
     : undefined;
   return { blocks: r.blocks as RichBlock[], ...(align ? { align } : {}) };
 }
+
+/**
+ * «Абзаци — окремими слайдами» (1.22.0-beta.2, F1107-08: «текст слайдами … а не одним»): the text's
+ * paragraphs — runs of lines between empty ones — each a slide of its own. One paragraph: one slide.
+ */
+export function splitPages(src: string): string[] {
+  const pages = src
+    .replace(/\r\n?/g, '\n')
+    .split(/\n[ \t]*\n/)
+    .map((p) => p.replace(/^\n+|\n+$/g, ''))
+    .filter((p) => p.trim() !== '');
+  return pages.length ? pages : [src];
+}
+
+/** Which of `splitPages(src)` the caret at `at` is in (live preview while typing, F1107-09). */
+export function pageAt(src: string, at: number): number {
+  const before = src.replace(/\r\n?/g, '\n').slice(0, Math.max(0, at));
+  // the paragraphs begun before the caret, by the same rule as splitPages
+  return Math.max(0, splitPages(before + 'x').length - 1);
+}
