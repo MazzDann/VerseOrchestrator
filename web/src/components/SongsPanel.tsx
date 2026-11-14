@@ -58,6 +58,8 @@ interface Props {
     style: SongStyle | null,
     source: SlideSource,
     look: SongStyle | null,
+    /** a step («Далі / Назад», the arrows, a clicker), not a click on a stanza (F1114-18) */
+    step?: boolean,
   ) => void;
   /** Open song (controlled by the parent so the playlist can open a specific song). */
   songId: number | null;
@@ -200,7 +202,7 @@ export function SongsPanel({
 
   // Put stanza `idx` of the open song on screen.
   const showStanza = useCallback(
-    (idx: number) => {
+    (idx: number, step = false) => {
       const s = songQuery.data;
       if (!s) return;
       onActiveStanzaChange(idx);
@@ -210,6 +212,7 @@ export function SongsPanel({
         faithful ? s.slides[idx].style : null,
         { kind: 'song', songId: s.id, stanza: idx, total: s.slides.length },
         s.slides[idx].style,
+        step,
       );
     },
     [songQuery.data, faithful, onActiveStanzaChange, onProjectStanza],
@@ -282,7 +285,7 @@ export function SongsPanel({
         }
         return { ok: false, reason: dir > 0 ? tr('Це останній слайд') : tr('Це перший слайд') };
       }
-      showStanza(idx);
+      showStanza(idx, true);
       return { ok: true };
     },
     [songQuery.data, activeStanza, onActiveStanzaChange, onSongEnd, onPastEnd, showStanza],
@@ -311,8 +314,13 @@ export function SongsPanel({
         return;
       }
       if (!songQuery.data || songQuery.data.slides.length === 0) return;
-      // the song search stays in sight beside the song (1.8.12-beta.7): its caret keeps its arrows
-      if (isTextEntry(e.target)) return;
+      // the song search stays in sight beside the song (1.8.12-beta.7): its caret keeps ← → — but
+      // ↑ ↓ and PageUp / PageDown (what a clicker sends) step the song from there too (F1114-05:
+      // «після відкриття презентації, і ентера неможливо стрілками клацати»)
+      if (isTextEntry(e.target)) {
+        const vertical = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'].includes(e.key);
+        if (e.target !== inputRef.current || !vertical) return;
+      }
       // the arrows and «Далі / Назад», but not the running order's keys (1.8.12-beta.6)
       const dir = stepDirection(e, keymap);
       if (!dir) {
@@ -378,6 +386,8 @@ export function SongsPanel({
             e.preventDefault();
             e.stopPropagation();
             openAndShow(pick.id);
+            // shown: the keyboard leaves the field, so ← → step it too (F1114-05)
+            e.currentTarget.blur();
           }}
           placeholder={tr('Презентація: номер або назва')}
           leftSection={<IconMusic size={18} />}

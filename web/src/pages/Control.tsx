@@ -29,7 +29,12 @@ import {
   videoVolumeOf,
   type RefItem,
 } from '../settingsStore';
-import { type Slide, type SlideCountdown, type SlideCover } from '../presenterBus';
+import {
+  type Slide,
+  type SlideCountdown,
+  type SlideCover,
+  type SlideSource,
+} from '../presenterBus';
 import { type CountdownPlace } from '../lib/countdown';
 import { strongLangFor } from '@vo/shared';
 import { SearchPanel } from '../components/SearchPanel';
@@ -647,6 +652,20 @@ export function Control() {
       liveSlideRef,
       afterToggle,
     });
+  /**
+   * F1114-18 (the author: «стрілки гортають екран»): a step («Далі / Назад», the arrows, a clicker)
+   * of the presentation or document that is on screen goes to the screen, «Наживо» off too; a click
+   * on another of its slides still follows «Наживо» (off = the preview only, F1024-07).
+   */
+  const stepOnScreen = (source: SlideSource, step?: boolean): true | undefined => {
+    if (!step) return undefined;
+    const s = liveSlideRef.current.source;
+    if (source.kind === 'song')
+      return s?.kind === 'song' && s.songId === source.songId ? true : undefined;
+    if (source.kind === 'doc')
+      return s?.kind === 'doc' && s.docId === source.docId ? true : undefined;
+    return undefined;
+  };
   const { projectPicture, refitPicture, pictureDeleted, addImageToPlaylist, pictureOf } =
     usePictures({
       slideStyle,
@@ -1515,7 +1534,9 @@ export function Control() {
             <SongsPanel
               open={songsOpen}
               listSlot={songListSlot}
-              onProjectStanza={projectText}
+              onProjectStanza={(text, ref, style, source, look, step) =>
+                projectText(text, ref, style, source, look, false, stepOnScreen(source, step))
+              }
               songId={songsPanelSongId}
               onSongIdChange={openSong}
               activeStanza={songsPanelStanza}
@@ -1530,7 +1551,9 @@ export function Control() {
             <DocumentsPanel
               open={workspace === 'docs'}
               listSlot={songListSlot}
-              onProjectUnit={(text, ref, source) => projectText(text, ref, null, source)}
+              onProjectUnit={(text, ref, source, step) =>
+                projectText(text, ref, null, source, null, false, stepOnScreen(source, step))
+              }
               docId={docsPanelDocId}
               onDocIdChange={openDoc}
               activeUnit={docsPanelUnit}

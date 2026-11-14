@@ -126,8 +126,13 @@ To show a presentation:
 4. Click a slide. It appears on screen at once.
 
 While a presentation is open, the arrow keys, PageUp, and PageDown step through its slides, not the
-verses — unless the caret is in the presentation search. A clicker, the keys in the presentation window, and the speaker remote step through
-the presentation too.
+verses. With the caret in the presentation search, ← and → move the caret, while ↑, ↓, PageUp,
+and PageDown still step; after Enter there the caret leaves the field. A clicker, the keys in the
+presentation window, and the speaker remote step through the presentation too.
+
+With **Live** off, a click on a slide only cues it in the preview, and **To screen** or Enter shows
+it. But a presentation already on screen is stepped right on the screen by **Next** and **Back**
+(the arrows, a clicker).
 
 To show the chorus at once, press C or click the **To the chorus** icon above the presentation's
 slides. It shows the nearest chorus after the current slide, so in a presentation with its own

@@ -37,7 +37,8 @@ interface Props {
   /** the left column's slot: the search, the buttons and the list of documents */
   listSlot: HTMLElement | null;
   /** put a unit on screen */
-  onProjectUnit: (text: string, reference: string, source: SlideSource) => void;
+  /** `step`: «Далі / Назад», the arrows, a clicker — not a click on a paragraph (F1114-18) */
+  onProjectUnit: (text: string, reference: string, source: SlideSource, step?: boolean) => void;
   docId: number | null;
   onDocIdChange: (id: number | null) => void;
   activeUnit: number | null;
@@ -142,12 +143,17 @@ export function DocumentsPanel({
   }, [doc, count, activeUnit, onActiveUnitChange]);
 
   const showUnit = useCallback(
-    (idx: number) => {
+    (idx: number, step = false) => {
       const d = docQuery.data;
       const u = d?.body[idx];
       if (!d || !u) return;
       onActiveUnitChange(idx);
-      onProjectUnit(u.text, d.title, { kind: 'doc', docId: d.id, unit: idx, total: d.body.length });
+      onProjectUnit(
+        u.text,
+        d.title,
+        { kind: 'doc', docId: d.id, unit: idx, total: d.body.length },
+        step,
+      );
     },
     [docQuery.data, onActiveUnitChange, onProjectUnit],
   );
@@ -175,7 +181,7 @@ export function DocumentsPanel({
         }
         return { ok: false, reason: dir > 0 ? tr('Це останній абзац') : tr('Це перший абзац') };
       }
-      showUnit(idx);
+      showUnit(idx, true);
       return { ok: true };
     },
     [docQuery.data, activeUnit, onActiveUnitChange, onDocEnd, onPastEnd, showUnit],
