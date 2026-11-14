@@ -1,6 +1,7 @@
 import { N_ } from '@vo/shared';
 import { createBus, type BusChannel, type BusStorage, type Wire } from './lib/bus';
 import type { AfterZero, StageTimer, TimerLook } from './lib/countdown';
+import type { RichText } from './lib/richText';
 import { reportSlideError } from './lib/slideErrors';
 import { tr } from './i18n';
 import { useSettings } from './settingsStore';
@@ -150,6 +151,12 @@ export interface Slide {
   subline?: string;
   /** The section subheading above the verse, projected when «Підзаголовки на екрані» is on (1.21.0-beta.6, F1024-05). */
   heading?: string;
+  /**
+   * «Багатий текст» (1.22.0-beta.1, F1107-14): the own text's blocks — bold, italic, lists,
+   * headings, dividers, its alignment. `lines` keep it as plain text for windows and phones
+   * that don't draw it (lib/richText.ts).
+   */
+  rich?: RichText;
   /** Optional positioned layout. Absent/null → the default (legacy) centred layout. */
   template?: SlideTemplate | null;
   /** Progressive reveal state; absent → show the whole quote at once (default). */

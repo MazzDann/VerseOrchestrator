@@ -40,6 +40,8 @@ import { addedVerses, growTiming, revealTransition, riseAnimation } from '../lib
 import { SlideFade } from './SlideFade';
 import { AspectFrame } from './AspectFrame';
 import { QrCard } from './QrCard';
+import { RichLines } from './RichLines';
+import { richOf } from '../lib/richText';
 import { reportSlideError } from '../lib/slideErrors';
 
 const ALIGN_ITEMS = { left: 'flex-start', center: 'center', right: 'flex-end' } as const;
@@ -81,11 +83,16 @@ export function QuoteLines({
   lines,
   style,
   grown,
+  rich,
 }: {
   lines: SlideLine[];
   style: SlideStyle;
   grown?: Grown | null;
+  /** the own text's blocks (1.22.0-beta.1) — drawn instead of the plain lines when sound */
+  rich?: unknown;
 }) {
+  const blocks = richOf(rich);
+  if (blocks) return <RichLines rich={blocks} style={style} />;
   return (
     <>
       {lines.map((line, i) => {
@@ -884,7 +891,12 @@ function DrawnSlide({
                     {slide.reveal ? (
                       <RevealLines reveal={slide.reveal} style={style} calm={calm} />
                     ) : (
-                      <QuoteLines lines={slide.lines} style={style} grown={grown} />
+                      <QuoteLines
+                        lines={slide.lines}
+                        style={style}
+                        grown={grown}
+                        rich={slide.rich}
+                      />
                     )}
                   </div>
                 </div>
@@ -987,7 +999,7 @@ function DrawnSlide({
           ) : slide.reveal ? (
             <RevealLines reveal={slide.reveal} style={style} calm={calm} />
           ) : (
-            <QuoteLines lines={slide.lines} style={style} grown={grown} />
+            <QuoteLines lines={slide.lines} style={style} grown={grown} rich={slide.rich} />
           )}
           {!slide.qr && !slide.cover && slide.subline && (
             <div

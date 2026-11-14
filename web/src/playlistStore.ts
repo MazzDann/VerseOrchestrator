@@ -1,3 +1,4 @@
+import type { RichAlign } from './lib/richText';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -46,6 +47,8 @@ export interface SeqText {
   label: string; // title or first words
   title: string;
   body: string;
+  /** «Багатий текст» (1.22.0-beta.1): its own alignment; none = the look's */
+  align?: RichAlign;
 }
 
 /**

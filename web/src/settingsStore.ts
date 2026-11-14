@@ -1,3 +1,4 @@
+import type { RichAlign } from './lib/richText';
 import type { StageLayout, StageTextSize, StageTheme } from './lib/stage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -192,6 +193,8 @@ const asChapterSize = (v: unknown): ChapterSize => (v === 'sm' || v === 'lg' ? v
 export interface TextItem {
   title: string;
   body: string;
+  /** «Багатий текст» (1.22.0-beta.1): the text's own alignment; none = the look's */
+  align?: RichAlign;
 }
 
 /** A named appearance bundle (look + layout) that can be saved, applied, and shared as a file. */
@@ -452,6 +455,9 @@ interface SettingsState {
    */
   outputAtStart: boolean | null;
   setOutputAtStart: (v: boolean) => void;
+  /** «Переносити рядки» in «Текст на екран» (1.22.0-beta.1, F1107-14): off — every Enter shows where it is */
+  textWrap: boolean;
+  setTextWrap: (v: boolean) => void;
   /**
    * «YouTube: мій вхід у браузері (Premium)» (1.19.0-beta.11): YouTube's players on youtube.com, not in its
    * privacy mode — they see the browser's Google sign-in (Premium: no ads; the views go into its history)
@@ -811,6 +817,8 @@ export const useSettings = create<SettingsState>()(
       setChapterSize: (v) => set({ chapterSize: asChapterSize(v) }),
       outputAtStart: null,
       setOutputAtStart: (v) => set({ outputAtStart: v === true }),
+      textWrap: true,
+      setTextWrap: (v) => set({ textWrap: v !== false }),
       youtubeAccount: false,
       setYoutubeAccount: (v) => set({ youtubeAccount: v === true }),
       subheadings: true,
@@ -873,7 +881,7 @@ export const useSettings = create<SettingsState>()(
           const k = textKey({ title: item.title.trim(), body });
           return {
             recentTexts: [
-              { title: item.title.trim(), body },
+              { title: item.title.trim(), body, ...(item.align ? { align: item.align } : {}) },
               ...s.recentTexts.filter((t) => textKey(t) !== k),
             ].slice(0, 12),
           };
@@ -1007,6 +1015,7 @@ export const useSettings = create<SettingsState>()(
           pickBeforeEnter: p.pickBeforeEnter !== false,
           outputAtStart:
             typeof p.outputAtStart === 'boolean' ? p.outputAtStart : oldAuto === true ? true : null,
+          textWrap: p.textWrap !== false,
         };
       },
     },

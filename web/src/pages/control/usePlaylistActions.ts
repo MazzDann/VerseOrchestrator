@@ -1,3 +1,4 @@
+import type { RichAlign } from '../../lib/richText';
 import { notifications } from '@mantine/notifications';
 import { type NewSeqItem } from '../../playlistStore';
 import { type SlidePicture } from '../../presenterBus';
@@ -94,10 +95,16 @@ export function usePlaylistActions({
     });
   };
 
-  const addTextToPlaylist = (item: { title: string; body: string }) => {
+  const addTextToPlaylist = (item: { title: string; body: string; align?: RichAlign }) => {
     if (!item.body.trim()) return;
     const label = item.title.trim() || item.body.trim().split('\n')[0].slice(0, 40);
-    playlistAdd({ kind: 'text', label, title: item.title, body: item.body });
+    playlistAdd({
+      kind: 'text',
+      label,
+      title: item.title,
+      body: item.body,
+      ...(item.align ? { align: item.align } : {}),
+    });
     notifications.show({ message: tr('Текст додано у показ'), color: 'green', autoClose: 1200 });
   };
   return {

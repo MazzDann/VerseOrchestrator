@@ -183,6 +183,29 @@ To remove a text from the list, click the trash icon **Remove from the list**.
 **To the running order** doesn't show the text; it adds it to the
 [running order](running-order.md).
 
+### Format the text
+
+You can format the text right in the field — with marks, as in Markdown — or with the buttons
+above it. Copied Markdown text pastes the same way. Each line of the field is a line on the
+slide.
+
+| What to type | What the slide shows |
+| --- | --- |
+| `**words**` or Ctrl+B (on macOS, ⌘B) | bold words |
+| `*words*` or Ctrl+I (on macOS, ⌘I) | italics |
+| `# Line` | a heading line, bigger and bold |
+| `- item` | a bulleted item |
+| `1. item` | a numbered item |
+| `> words` | a quote in italics |
+| `---` on a line of its own | a divider line |
+
+The **Left**, **Centered**, and **Right** buttons align this text; press the chosen one again
+and the text follows the look's alignment. The alignment is kept with the text in **Recent**
+and in the running order.
+
+To see where a line of the field ends, turn off **Wrap lines**: a long line then runs on, and
+every new line of the field is your Enter.
+
 ### Take a quote from Wikiquote
 
 1. In the **Text on screen** panel, click the **Quotes from Wikiquote…** icon.
