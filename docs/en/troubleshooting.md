@@ -259,6 +259,11 @@ Send feedback: tell what happened, or suggest how to make it better. To send fee
 Feedback is public, so don't include personal data, passwords, or remote codes. The app
 sends nothing itself: you fill in the form and submit it.
 
+To help find what caused a bug, attach diagnostics to the report. Click **Save diagnostics**
+next to **Send feedback** — a .zip file is saved: the version, the system, the end of the app's
+log, this session's notices, and the output windows. Your texts, Bible places, and pictures are
+not in it, but the log names folders of this computer. Drag the file into the report on GitHub.
+
 ## What's next
 
 - [Install and start](install.md): requirements, modules, shortcut, portable copy.
