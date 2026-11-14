@@ -339,6 +339,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               alignLabel,
               a.verseNumbers === 'off' && tr('без номерів віршів'),
               a.verseNumbers === 'always' && tr('номери віршів завжди'),
+              a.translationDivider && tr('лінія між перекладами'),
             )}
           >
             <Select
@@ -390,6 +391,13 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 ]}
               />
             </div>
+            {/* 1.22.0-beta.4 (F1107-16 / 04): a line between the translations of a parallel slide */}
+            <Switch
+              label={tr('Лінія між перекладами')}
+              description={tr('Тонка лінія між перекладами, коли на слайді їх кілька')}
+              checked={a.translationDivider}
+              onChange={(e) => set({ translationDivider: e.currentTarget.checked })}
+            />
           </Section>
 
           {/* «Переходи й анімація» (1.13.0-beta.3, users' report F1010-12 — the author's Q10a: its own

@@ -67,6 +67,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('text', N_('Колір'), 'color колір тексту text color'), // i18n-ignore: Ukrainian search words
   e('text', N_('Вирівнювання'), 'align центр ліворуч праворуч'), // i18n-ignore: Ukrainian search words
   e('text', N_('Номери віршів на екрані'), 'verse numbers номери'), // i18n-ignore: Ukrainian search words
+  e('text', N_('Лінія між перекладами'), 'divider line separator розділювач рисочка'), // i18n-ignore: Ukrainian search words
   e(
     'motion',
     N_('Перехід між слайдами'),

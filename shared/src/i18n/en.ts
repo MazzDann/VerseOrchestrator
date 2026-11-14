@@ -1106,6 +1106,10 @@ export const EN: Record<string, string> = {
   '{label} — ще раз: як у вигляді': '{label} — again: as the look has it',
   'Переносити рядки': 'Wrap lines',
   'Абзаци — окремими слайдами': 'Paragraphs as separate slides',
+  'Лінія між перекладами': 'A line between translations',
+  'Тонка лінія між перекладами, коли на слайді їх кілька':
+    'A thin line between the translations when a slide has several',
+  'лінія між перекладами': 'a line between translations',
   'Історія · {n}': 'History · {n}',
   'Збережені · {n}': 'Saved · {n}',
   'Щоб зберегти текст, натисніть зірочку біля нього в «Історії» або «Зберегти».':

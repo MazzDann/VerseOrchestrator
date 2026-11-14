@@ -68,6 +68,8 @@ export interface SlideStyle {
   padLeft: number;
   padUnit: PadUnit;
   redLetter: boolean; // colour the words of Jesus
+  /** a thin line between the translations of a parallel slide (1.22.0-beta.4); absent = none */
+  translationDivider?: boolean;
   jesusColor: string;
   highlightColor: string; // emphasised (hot) word colour
   bold?: boolean; // bold body text (e.g. faithful pptx song slides)

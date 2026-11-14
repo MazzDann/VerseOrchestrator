@@ -54,6 +54,8 @@ In the **Text** section:
 - **Verse numbers on screen** — small numbers before the verses: **No**, **When there are
   several verses** (the default; a single verse has its number in the reference under the
   text), or **Always**.
+- **A line between translations** — a thin line between the translations when a slide has
+  several.
 
 ## Choose the slide transition
 
