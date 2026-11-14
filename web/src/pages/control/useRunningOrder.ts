@@ -117,7 +117,7 @@ export function useRunningOrder({
     look?: SongStyle | null,
     quiet?: boolean,
     force?: boolean,
-    markup?: { align?: RichAlign },
+    markup?: { align?: RichAlign; slides?: boolean },
   ) => Slide | undefined;
   projectPicture: (picture: SlidePicture, quiet?: boolean) => Slide;
   pictureOf: (it: SeqImage) => SlidePicture;
@@ -348,6 +348,7 @@ export function useRunningOrder({
     else if (it.kind === 'text')
       projectText(it.body, it.title.trim(), null, undefined, null, false, true, {
         align: it.align,
+        slides: it.slides,
       });
     else if (it.kind === 'image') projectPicture(pictureOf(it));
     else if (it.kind === 'album') void startAlbum(it.albumId, it.fit, it.label);

@@ -95,6 +95,7 @@ export function useShowSteps({
   pastItemRef,
   pickToShow,
   liveSlideRef,
+  stepText,
 }: {
   liveFollow: boolean;
   live: boolean;
@@ -159,6 +160,8 @@ export function useShowSteps({
   pickToShow: MutableRefObject<string | null>;
   /** the slide on screen: a pick doesn't lift «Чорний екран» or «Сховати текст» */
   liveSlideRef: MutableRefObject<Slide>;
+  /** an own text shown in slides (useSongProjection, 1.22.0-beta.2): its next / previous slide */
+  stepText: (dir: 1 | -1, from: number, total: number) => 'moved' | 'edge' | null;
 }) {
   /**
    * «Прев’ю: далі / назад» (Alt+arrows, 1.1.0): the preview walked ahead and the screen stays,
@@ -490,6 +493,28 @@ export function useShowSteps({
     }
     setHold(previewOnly && liveFollow && live ? 'preview' : null);
     const sign: 1 | -1 = delta > 0 ? 1 : -1;
+    // an own text shown in slides (1.22.0-beta.2, F1107-08): its slides first; past its last the
+    // running order goes on, as after any text — else a notice, never the verses behind it
+    // (the preview's when it is one, else the screen's — a draft typed meanwhile is no slide of it)
+    const textSrc =
+      previewOverride?.source?.kind === 'text'
+        ? previewOverride.source
+        : liveSlideRef.current.source?.kind === 'text'
+          ? liveSlideRef.current.source
+          : undefined;
+    if (textSrc?.kind === 'text' && !previewOnly) {
+      const t = stepText(sign, textSrc.page, textSrc.total);
+      if (t === 'moved') return { ok: true };
+      if (t === 'edge') {
+        const o = pastItemRef.current?.(sign, { kind: 'slide' }, held);
+        return (
+          o ?? {
+            ok: false,
+            reason: sign > 0 ? tr('Це останній слайд тексту') : tr('Це перший слайд тексту'),
+          }
+        );
+      }
+    }
     // a text, a picture or a video of the running order: one step past it is the next item, when
     // «Після кінця пункту…» is on (1.10.0-beta.1)
     if (!previewOnly) {

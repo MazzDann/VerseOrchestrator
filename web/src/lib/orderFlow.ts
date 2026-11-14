@@ -1,6 +1,7 @@
 import { type SeqItem } from '../playlistStore';
 import { type Slide } from '../presenterBus';
 import { type Outcome } from './commands';
+import { parseRich, plainOf, splitPages } from './richText';
 
 /**
  * «Після кінця пункту «Далі» відкриває наступний» (1.10.0-beta.1, the author's call: a switch, off by
@@ -45,14 +46,14 @@ export function belongsTo(it: SeqItem, slide: Slide): boolean {
       slide.cover.text === it.text &&
       (slide.cover.image ?? null) === (it.image?.src ?? null)
     );
-  if (it.kind === 'text')
-    return (
-      !src &&
-      !slide.picture &&
-      !slide.video &&
-      slide.lines[0]?.text === it.body &&
-      slide.reference === it.title.trim()
-    );
+  if (it.kind === 'text') {
+    if (slide.picture || slide.video || slide.reference !== it.title.trim()) return false;
+    // in slides (1.22.0-beta.2): a slide of it — its paragraphs, by their count
+    if (src?.kind === 'text') return !!it.slides && src.total === splitPages(it.body).length;
+    // «Багатий текст» (1.22.0-beta.1) goes on screen as plain lines, without its marks (review)
+    const shown = slide.lines[0]?.text;
+    return !src && (shown === it.body || shown === plainOf(parseRich(it.body)));
+  }
   return false;
 }
 

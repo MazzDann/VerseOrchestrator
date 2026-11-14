@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasMarkup, parseRich, parseSpans, plainOf, richOf } from './richText';
+import { hasMarkup, pageAt, parseRich, parseSpans, plainOf, richOf, splitPages } from './richText';
 
 describe('«Багатий текст» (1.22.0-beta.1, F1107-14)', () => {
   it('reads bold and italic, and leaves lone marks and snake_case alone', () => {
@@ -54,5 +54,25 @@ describe('«Багатий текст» (1.22.0-beta.1, F1107-14)', () => {
     expect(richOf({ blocks: 'x' })).toBeNull();
     expect(richOf({ blocks: [], align: 'diagonal' })).toEqual({ blocks: [] });
     expect(richOf(null)).toBeNull();
+  });
+});
+
+describe('«Абзаци — окремими слайдами» (1.22.0-beta.2, F1107-08)', () => {
+  const lines = (...xs: string[]) => xs.join('\n');
+  it('splits on empty lines, one or more; a paragraph keeps its own lines', () => {
+    expect(splitPages(lines('перший', 'рядок', '', 'другий', '', '', '  ', 'третій'))).toEqual([
+      lines('перший', 'рядок'),
+      'другий',
+      'третій',
+    ]);
+    expect(splitPages('один')).toEqual(['один']);
+    expect(splitPages(lines('', '', 'один', '', ''))).toEqual(['один']);
+  });
+  it('knows the slide the caret is in', () => {
+    const t = lines('а', 'б', '', 'в', '', 'г');
+    expect(pageAt(t, 0)).toBe(0);
+    expect(pageAt(t, 3)).toBe(0);
+    expect(pageAt(t, 5)).toBe(1);
+    expect(pageAt(t, t.length)).toBe(2);
   });
 });

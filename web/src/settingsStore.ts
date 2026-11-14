@@ -195,6 +195,8 @@ export interface TextItem {
   body: string;
   /** «Багатий текст» (1.22.0-beta.1): the text's own alignment; none = the look's */
   align?: RichAlign;
+  /** «Абзаци — окремими слайдами» (1.22.0-beta.2): its paragraphs go one by one */
+  slides?: boolean;
 }
 
 /** A named appearance bundle (look + layout) that can be saved, applied, and shared as a file. */
@@ -881,7 +883,12 @@ export const useSettings = create<SettingsState>()(
           const k = textKey({ title: item.title.trim(), body });
           return {
             recentTexts: [
-              { title: item.title.trim(), body, ...(item.align ? { align: item.align } : {}) },
+              {
+                title: item.title.trim(),
+                body,
+                ...(item.align ? { align: item.align } : {}),
+                ...(item.slides ? { slides: true } : {}),
+              },
               ...s.recentTexts.filter((t) => textKey(t) !== k),
             ].slice(0, 12),
           };

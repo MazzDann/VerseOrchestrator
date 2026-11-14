@@ -49,6 +49,8 @@ export interface SeqText {
   body: string;
   /** «Багатий текст» (1.22.0-beta.1): its own alignment; none = the look's */
   align?: RichAlign;
+  /** «Абзаци — окремими слайдами» (1.22.0-beta.2): its paragraphs go one by one */
+  slides?: boolean;
 }
 
 /**

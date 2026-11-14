@@ -634,18 +634,19 @@ export function Control() {
     setLive,
     setPreviewOverride,
   });
-  const { projectText, projectAnnouncement, songEnd } = useSongProjection({
-    slideStyle,
-    slideTemplate,
-    liveFollow,
-    pushLive,
-    setPreviewOverride,
-    setLive,
-    pushRecentText,
-    leaderRef,
-    liveSlideRef,
-    afterToggle,
-  });
+  const { projectText, projectAnnouncement, previewAnnouncement, stepText, songEnd } =
+    useSongProjection({
+      slideStyle,
+      slideTemplate,
+      liveFollow,
+      pushLive,
+      setPreviewOverride,
+      setLive,
+      pushRecentText,
+      leaderRef,
+      liveSlideRef,
+      afterToggle,
+    });
   const { projectPicture, refitPicture, pictureDeleted, addImageToPlaylist, pictureOf } =
     usePictures({
       slideStyle,
@@ -858,6 +859,7 @@ export function Control() {
     leaderRef,
     buildLines,
     pastItemRef,
+    stepText,
     pickToShow,
     liveSlideRef,
   });
@@ -1545,6 +1547,7 @@ export function Control() {
               open={textOpen}
               focusKey={textFocus}
               onProject={projectAnnouncement}
+              onPreview={previewAnnouncement}
               onAddToPlaylist={addTextToPlaylist}
             />
             <ImagesPanel

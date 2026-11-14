@@ -95,7 +95,12 @@ export function usePlaylistActions({
     });
   };
 
-  const addTextToPlaylist = (item: { title: string; body: string; align?: RichAlign }) => {
+  const addTextToPlaylist = (item: {
+    title: string;
+    body: string;
+    align?: RichAlign;
+    slides?: boolean;
+  }) => {
     if (!item.body.trim()) return;
     const label = item.title.trim() || item.body.trim().split('\n')[0].slice(0, 40);
     playlistAdd({
@@ -104,6 +109,7 @@ export function usePlaylistActions({
       title: item.title,
       body: item.body,
       ...(item.align ? { align: item.align } : {}),
+      ...(item.slides ? { slides: true } : {}),
     });
     notifications.show({ message: tr('Текст додано у показ'), color: 'green', autoClose: 1200 });
   };
