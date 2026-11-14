@@ -7,6 +7,13 @@ export const inDesktop = (): boolean =>
   typeof window !== 'undefined' && !!(window as unknown as { voDesktop?: unknown }).voDesktop;
 
 /**
+ * «Відкривати вікно показу автоматично» as it stands (1.21.1, F1107): the operator's choice, or —
+ * not chosen — on in the desktop app (it opens the window full-screen on the 2nd screen by itself)
+ * and off in a browser (a pop-up there waits for a click and the window-management permission).
+ */
+export const outputAtStartOn = (choice: boolean | null): boolean => choice ?? inDesktop();
+
+/**
  * «Поступитися екраном» for a video (1.21.0-beta.7, F1024-08): ask the desktop shell to drop this
  * output window's always-on-top (on = true) so the operator's own player can come forward on the
  * 2nd screen, or take the screen back (on = false). The page stays fullscreen; only the always-on-top

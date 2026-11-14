@@ -48,7 +48,7 @@ import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
 import { currentOutputs, useOutputWindows } from '../lib/outputs';
 import { openOutput } from '../openPresenter';
-import { inDesktop } from '../lib/desktop';
+import { inDesktop, outputAtStartOn } from '../lib/desktop';
 import { useSlideErrorNotices } from '../lib/slideErrorNotices';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
@@ -144,7 +144,7 @@ export function Control() {
   // «Простий вигляд» (1.8.12-beta.7): fewer tools in the header, only the preview on the right
   const simpleView = useSettings((s) => s.simpleView);
   const windowsMenu = useSettings((s) => s.windowsMenu);
-  const autoOutput = useSettings((s) => s.autoOutput);
+  const autoOutput = outputAtStartOn(useSettings((s) => s.outputAtStart));
   const pushHistory = useSettings((s) => s.pushHistory);
   const removeHistory = useSettings((s) => s.removeHistory);
   const clearHistory = useSettings((s) => s.clearHistory);

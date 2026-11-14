@@ -165,6 +165,9 @@ itself. So that the browser keeps none of the app's data, press **Clear the
 data from this browser**: the settings and the running order stay with the app (in the `data`
 folder).
 
+If the app is installed but the control window opened in a browser, it says **There is a desktop
+app**: **Open in the app** moves control there, **Stay in the browser** stops the reminder.
+
 On macOS, if the app's folder is in Documents, Desktop, Downloads or on a flash drive, macOS asks
 the first time whether VerseOrchestrator may use that folder — allow it (or later in **System
 Settings** → **Privacy & Security** → **Files & Folders**).
