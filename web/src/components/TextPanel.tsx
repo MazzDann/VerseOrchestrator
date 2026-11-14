@@ -102,11 +102,17 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
   }, [focusKey]);
 
   // F1107-09 («прев’ю тексту коли пишеш»): the text as typed goes into the preview after a short
-  // pause — never to the screen; an empty field leaves the preview as it is
+  // pause — never to the screen; an empty field leaves the preview as it is. Only once the operator
+  // works on the text here: a panel opened again over an old draft leaves the preview (and the
+  // verses following «Наживо») alone (review)
   const previewRef = useRef(onPreview);
   previewRef.current = onPreview;
+  const touched = useRef(false);
   useEffect(() => {
-    if (!open || !body.trim()) return;
+    if (!open) touched.current = false;
+  }, [open]);
+  useEffect(() => {
+    if (!open || !touched.current || !body.trim()) return;
     const t = setTimeout(
       () => previewRef.current?.(title, body, align, slides, slides ? pageAt(body, caret) : 0),
       250,
@@ -122,6 +128,7 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
   };
 
   const loadRecent = (t: TextItem) => {
+    touched.current = true;
     setTitle(t.title);
     setBody(t.body);
     setAlign(t.align);
@@ -140,6 +147,7 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
     const el = bodyRef.current;
     if (!el) return;
     const e = make(el.value, el.selectionStart, el.selectionEnd);
+    touched.current = true;
     setBody(e.text);
     requestAnimationFrame(() => {
       el.focus();
@@ -189,6 +197,7 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
           onClose={() => setQuotesOpen(false)}
           onPick={(quote) => {
             // the quote is the text, its author and the site the reference line
+            touched.current = true;
             setBody(quote.text);
             setTitle(quote.credit);
             setQuotesOpen(false);
@@ -201,7 +210,10 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
           size="sm"
           placeholder={tr('Заголовок (необов’язково)')}
           value={title}
-          onChange={(e) => setTitle(e.currentTarget.value)}
+          onChange={(e) => {
+            touched.current = true;
+            setTitle(e.currentTarget.value);
+          }}
         />
         <Group gap={4} wrap="wrap" role="toolbar" aria-label={tr('Форматування тексту')}>
           {tools.map(({ label, icon: Icon, run }) => (
@@ -229,7 +241,10 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
                 color={align === value ? 'brand' : 'gray'}
                 aria-label={tr(label)}
                 aria-pressed={align === value}
-                onClick={() => setAlign((a) => (a === value ? undefined : value))}
+                onClick={() => {
+                  touched.current = true;
+                  setAlign((a) => (a === value ? undefined : value));
+                }}
               >
                 <Icon size={16} />
               </ActionIcon>
@@ -247,7 +262,10 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
                 size="xs"
                 label={tr('Абзаци — окремими слайдами')}
                 checked={slides}
-                onChange={(e) => setSlides(e.currentTarget.checked)}
+                onChange={(e) => {
+                  touched.current = true;
+                  setSlides(e.currentTarget.checked);
+                }}
               />
             </Tooltip>
             <Switch
@@ -271,6 +289,7 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
           wrap={wrap ? 'soft' : 'off'}
           styles={wrap ? undefined : { input: { whiteSpace: 'pre', overflowX: 'auto' } }}
           onChange={(e) => {
+            touched.current = true;
             setBody(e.currentTarget.value);
             setCaret(e.currentTarget.selectionStart);
           }}

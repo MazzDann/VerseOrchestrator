@@ -51,6 +51,18 @@ describe('«Далі» past a running-order item (1.10.0-beta.1)', () => {
         slide({ lines: [{ translationAbbr: '', text: 'Інше', rtl: false }], reference: 'A' }),
       ),
     ).toBe(false);
+    // «Багатий текст» (1.22.0-beta.1): on screen without its marks — still this item (review)
+    const rich: SeqItem = { kind: 'text', id: 'r', label: 'R', title: 'R', body: '**Увага** всім' };
+    const line = (t: string) => [{ translationAbbr: '', text: t, rtl: false }];
+    expect(belongsTo(rich, slide({ lines: line('Увага всім'), reference: 'R' }))).toBe(true);
+    // in slides (1.22.0-beta.2): any of its slides, by their count
+    const paged: SeqItem = { ...rich, id: 's', body: 'один\n\nдва\n\nтри', slides: true };
+    const page = (n: number, total: number) =>
+      slide({ lines: line('два'), reference: 'R', source: { kind: 'text', page: n, total } });
+    expect(belongsTo(paged, page(1, 3))).toBe(true);
+    expect(belongsTo(paged, page(1, 2))).toBe(false);
+    expect(belongsTo({ ...paged, slides: false }, page(1, 3))).toBe(false);
+    expect(stillThere(paged, page(2, 3), { kind: 'slide' })).toBe(true);
     const image: SeqItem = {
       kind: 'image',
       id: 'i',
