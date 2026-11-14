@@ -1,3 +1,4 @@
+import type { RichAlign } from '../../lib/richText';
 import { flushSync } from 'react-dom';
 import {
   useEffect,
@@ -116,6 +117,7 @@ export function useRunningOrder({
     look?: SongStyle | null,
     quiet?: boolean,
     force?: boolean,
+    markup?: { align?: RichAlign },
   ) => Slide | undefined;
   projectPicture: (picture: SlidePicture, quiet?: boolean) => Slide;
   pictureOf: (it: SeqImage) => SlidePicture;
@@ -283,7 +285,9 @@ export function useRunningOrder({
   const showLoopSlide = (x: SeqLoopSlide, quiet?: SeqLoop) => {
     let slide: Slide | undefined;
     if (x.kind === 'text')
-      slide = projectText(x.body, x.title.trim(), null, undefined, null, !!quiet, true);
+      slide = projectText(x.body, x.title.trim(), null, undefined, null, !!quiet, true, {
+        align: x.align,
+      });
     else if (x.kind === 'image') slide = projectPicture(pictureOf(x), !!quiet);
     else {
       slide = coverOver(
@@ -342,7 +346,9 @@ export function useRunningOrder({
     followItem(it.kind);
     if (it.kind === 'passage') void activatePassage(it);
     else if (it.kind === 'text')
-      projectText(it.body, it.title.trim(), null, undefined, null, false, true);
+      projectText(it.body, it.title.trim(), null, undefined, null, false, true, {
+        align: it.align,
+      });
     else if (it.kind === 'image') projectPicture(pictureOf(it));
     else if (it.kind === 'album') void startAlbum(it.albumId, it.fit, it.label);
     else if (it.kind === 'video') void startVideo(it.videoId, it.fit, it.label);

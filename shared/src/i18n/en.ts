@@ -1094,8 +1094,17 @@ export const EN: Record<string, string> = {
   // custom text (web/src/components/TextPanel.tsx)
   'Текст на екран': 'Text to screen',
   'Заголовок (необов’язково)': 'Title (optional)',
-  'Текст слайда — оголошення, примітка, довільний текст…':
-    'Slide text — an announcement, a note, any text…',
+  'Текст слайда — оголошення, примітка, довільний текст… **жирний**, *курсив*, - список':
+    'Slide text — an announcement, a note, any text… **bold**, *italic*, - a list',
+  'Жирний ({key})': 'Bold ({key})',
+  'Курсив ({key})': 'Italic ({key})',
+  'Рядок-заголовок': 'Heading line',
+  Список: 'List',
+  'Нумерований список': 'Numbered list',
+  'Лінія-розділювач': 'Divider line',
+  'Форматування тексту': 'Text formatting',
+  '{label} — ще раз: як у вигляді': '{label} — again: as the look has it',
+  'Переносити рядки': 'Wrap lines',
   'У показ': 'To the running order',
   Нещодавні: 'Recent',
   'Прибрати зі списку': 'Remove from the list',

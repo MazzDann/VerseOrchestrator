@@ -10,6 +10,8 @@ import {
   Button,
   ActionIcon,
   Tooltip,
+  Switch,
+  Divider,
 } from '@mantine/core';
 import {
   IconLetterT,
@@ -17,20 +19,41 @@ import {
   IconTrash,
   IconPlaylistAdd,
   IconQuote,
+  IconBold,
+  IconItalic,
+  IconList,
+  IconListNumbers,
+  IconHeading,
+  IconSeparatorHorizontal,
+  IconAlignLeft,
+  IconAlignCenter,
+  IconAlignRight,
 } from '@tabler/icons-react';
 import { QuoteSearch } from './QuoteSearch';
 import { useSettings, type TextItem } from '../settingsStore';
-import { tr, useLang } from '../i18n';
+import { N_, tr, useLang } from '../i18n';
+import { type RichAlign } from '../lib/richText';
+import { insertDivider, markLines, surround, type Edit, type LineKind } from '../lib/richEdit';
+import { IS_MAC } from '../hotkeys';
 
 interface Props {
   open: boolean;
   /** changes when the operator picks «Текст на екран»: the caret goes to the text */
   focusKey?: number;
-  /** Project a free-text slide: `title` becomes the reference line, `body` the quote. */
-  onProject: (title: string, body: string) => void;
+  /**
+   * Project a free-text slide: `title` becomes the reference line, `body` the quote — read as
+   * «Багатий текст» (lib/richText.ts) — and `align` its own alignment (none = the look's).
+   */
+  onProject: (title: string, body: string, align?: RichAlign) => void;
   /** Add the composed text to the presentation sequence. */
-  onAddToPlaylist?: (item: { title: string; body: string }) => void;
+  onAddToPlaylist?: (item: { title: string; body: string; align?: RichAlign }) => void;
 }
+
+const ALIGNS: { value: RichAlign; label: string; icon: typeof IconAlignLeft }[] = [
+  { value: 'left', label: N_('Ліворуч'), icon: IconAlignLeft },
+  { value: 'center', label: N_('По центру'), icon: IconAlignCenter },
+  { value: 'right', label: N_('Праворуч'), icon: IconAlignRight },
+];
 
 /**
  * Free-text slide composer — announcements, notes, any custom text. Reuses the
@@ -40,6 +63,10 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
   useLang();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  // the text's own alignment (1.22.0-beta.1): none = the look's
+  const [align, setAlign] = useState<RichAlign | undefined>(undefined);
+  const wrap = useSettings((s) => s.textWrap);
+  const setWrap = useSettings((s) => s.setTextWrap);
   const recentTexts = useSettings((s) => s.recentTexts);
   const removeRecentText = useSettings((s) => s.removeRecentText);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -58,19 +85,48 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
 
   const project = () => {
     if (!body.trim()) return;
-    onProject(title, body);
+    onProject(title, body, align);
   };
 
   const loadRecent = (t: TextItem) => {
     setTitle(t.title);
     setBody(t.body);
+    setAlign(t.align);
   };
   // Enter or a double click on a past text shows it, as «На екран» does (F1107-15); a click or
   // Space only brings it back into the fields to edit
   const showRecent = (t: TextItem) => {
     loadRecent(t);
-    onProject(t.title, t.body);
+    onProject(t.title, t.body, t.align);
   };
+
+  // «Багатий текст» (1.22.0-beta.1, F1107-14): the toolbar writes the Markdown the screen reads
+  // (lib/richEdit.ts) and puts the selection back
+  const apply = (make: (text: string, start: number, end: number) => Edit) => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const e = make(el.value, el.selectionStart, el.selectionEnd);
+    setBody(e.text);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(e.start, e.end);
+    });
+  };
+  const mark = (m: string) => apply((t, a, b) => surround(t, a, b, m));
+  const chord = IS_MAC ? '⌘' : 'Ctrl+';
+  const lines = (kind: LineKind) => apply((t, a, b) => markLines(t, a, b, kind));
+  const tools: { label: string; icon: typeof IconBold; run: () => void }[] = [
+    { label: tr('Жирний ({key})', { key: `${chord}B` }), icon: IconBold, run: () => mark('**') },
+    { label: tr('Курсив ({key})', { key: `${chord}I` }), icon: IconItalic, run: () => mark('*') },
+    { label: tr('Рядок-заголовок'), icon: IconHeading, run: () => lines('heading') },
+    { label: tr('Список'), icon: IconList, run: () => lines('bullet') },
+    { label: tr('Нумерований список'), icon: IconListNumbers, run: () => lines('number') },
+    {
+      label: tr('Лінія-розділювач'),
+      icon: IconSeparatorHorizontal,
+      run: () => apply((t, a) => insertDivider(t, a)),
+    },
+  ];
 
   return (
     // «Текст на екран» is a kind of «Медіа» since 1.8.12-beta.7 (the author: no sense apart)
@@ -113,15 +169,70 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
           value={title}
           onChange={(e) => setTitle(e.currentTarget.value)}
         />
+        <Group gap={4} wrap="wrap" role="toolbar" aria-label={tr('Форматування тексту')}>
+          {tools.map(({ label, icon: Icon, run }) => (
+            <Tooltip key={label} label={label} withArrow openDelay={300}>
+              <ActionIcon size="sm" variant="subtle" color="gray" aria-label={label} onClick={run}>
+                <Icon size={16} />
+              </ActionIcon>
+            </Tooltip>
+          ))}
+          <Divider orientation="vertical" mx={4} />
+          {ALIGNS.map(({ value, label, icon: Icon }) => (
+            <Tooltip
+              key={value}
+              label={
+                align === value
+                  ? tr('{label} — ще раз: як у вигляді', { label: tr(label) })
+                  : tr(label)
+              }
+              withArrow
+              openDelay={300}
+            >
+              <ActionIcon
+                size="sm"
+                variant={align === value ? 'light' : 'subtle'}
+                color={align === value ? 'brand' : 'gray'}
+                aria-label={tr(label)}
+                aria-pressed={align === value}
+                onClick={() => setAlign((a) => (a === value ? undefined : value))}
+              >
+                <Icon size={16} />
+              </ActionIcon>
+            </Tooltip>
+          ))}
+          <Switch
+            size="xs"
+            ml="auto"
+            label={tr('Переносити рядки')}
+            checked={wrap}
+            onChange={(e) => setWrap(e.currentTarget.checked)}
+          />
+        </Group>
         <Textarea
           ref={bodyRef}
           autosize
           minRows={3}
           maxRows={8}
-          placeholder={tr('Текст слайда — оголошення, примітка, довільний текст…')}
+          placeholder={tr(
+            'Текст слайда — оголошення, примітка, довільний текст… **жирний**, *курсив*, - список',
+          )}
           value={body}
+          // «Переносити рядки» off: a long line runs on, so every Enter is where it shows (F1107-14)
+          wrap={wrap ? 'soft' : 'off'}
+          styles={wrap ? undefined : { input: { whiteSpace: 'pre', overflowX: 'auto' } }}
           onChange={(e) => setBody(e.currentTarget.value)}
           onKeyDown={(e) => {
+            // Ctrl/Cmd+B and +I: bold and italic, as in a text editor
+            if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+              const k = e.key.toLowerCase();
+              if (k === 'b' || k === 'i') {
+                e.preventDefault();
+                e.stopPropagation();
+                mark(k === 'b' ? '**' : '*');
+                return;
+              }
+            }
             // Ctrl/Cmd+Enter projects without reaching for the mouse. It stops here: ⌘↩ is
             // also «На екран» on a Mac, and that document hotkey would put the verse
             // selection over this text.
@@ -139,7 +250,7 @@ export function TextPanel({ open, focusKey = 0, onProject, onAddToPlaylist }: Pr
               variant="default"
               leftSection={<IconPlaylistAdd size={16} />}
               disabled={!body.trim()}
-              onClick={() => onAddToPlaylist({ title, body })}
+              onClick={() => onAddToPlaylist({ title, body, ...(align ? { align } : {}) })}
             >
               {tr('У показ')}
             </Button>

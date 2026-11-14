@@ -155,7 +155,7 @@ function LowerThird({ slide, band }: { slide: Slide; band: boolean }) {
             textShadow: band ? 'none' : '0 0 0.12em #000, 0 0.06em 0.3em rgba(0, 0, 0, 0.85)',
           }}
         >
-          <QuoteLines lines={slide.lines} style={style} />
+          <QuoteLines lines={slide.lines} style={style} rich={slide.rich} />
           {slide.reference && (
             <div style={{ fontSize: '0.5em', opacity: 0.8, marginTop: '0.25em', letterSpacing: 1 }}>
               {slide.reference}

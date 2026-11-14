@@ -13,6 +13,7 @@ import {
 import { type Outcome } from '../../lib/commands';
 import { tr } from '../../i18n';
 import { withSecond } from './songSlides';
+import { hasMarkup, parseRich, plainOf, type RichAlign, type RichText } from '../../lib/richText';
 
 /**
  * A song stanza or free text on screen (vo-songs): `projectText` (faithful or in the app's
@@ -59,6 +60,9 @@ export function useSongProjection({
     // the running order / loop show live whatever «Наживо» says; a panel click leaves it undefined
     // and follows «Наживо» — off = cue the preview only, «На екран» / Enter then show it (F1024-07)
     force?: boolean,
+    // the own text (1.22.0-beta.1, F1107-14): read as «Багатий текст» (lib/richText.ts), with its
+    // own alignment; a song's stanza never is
+    markup?: { align?: RichAlign },
   ): Slide | undefined => {
     if (!text.trim()) return;
     let style = slideStyle;
@@ -122,8 +126,17 @@ export function useSongProjection({
       const marked = markedText(text, look);
       if (marked) line = withSecond(line, marked);
     }
+    let rich: RichText | undefined;
+    if (markup) {
+      const blocks = parseRich(text);
+      // the plain text always from the blocks: an escape alone (`\*`) leaves no backslash (review)
+      line = { ...line, text: plainOf(blocks) };
+      if (hasMarkup(blocks) || markup.align)
+        rich = { blocks, ...(markup.align ? { align: markup.align } : {}) };
+    }
     const slide: Slide = {
       lines: [line],
+      ...(rich ? { rich } : {}),
       ...(subline ? { subline } : {}),
       reference,
       blank: false,
@@ -157,10 +170,11 @@ export function useSongProjection({
   };
 
   // Project a free-text slide (announcement / note / custom text) and keep it in recents.
-  const projectAnnouncement = (title: string, body: string) => {
+  const projectAnnouncement = (title: string, body: string, align?: RichAlign) => {
     if (!body.trim()) return;
-    projectText(body, title.trim(), null, undefined, null, false, true); // «Текст на екран»: show now
-    pushRecentText({ title, body });
+    // «Текст на екран»: show now, read as «Багатий текст» (1.22.0-beta.1)
+    projectText(body, title.trim(), null, undefined, null, false, true, { align });
+    pushRecentText({ title, body, ...(align ? { align } : {}) });
     if (!title.trim()) {
       notifications.show({ message: tr('Текст на екрані'), color: 'live', autoClose: 1500 });
     }

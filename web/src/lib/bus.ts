@@ -90,6 +90,8 @@ function slideAt(x: unknown, depth: number): x is Slide {
     (!s.template || Array.isArray((s.template as { objects: unknown }).objects)) &&
     obj(s.reveal) &&
     (!s.reveal || Array.isArray((s.reveal as { units: unknown }).units)) &&
+    // «Багатий текст» (1.22.0-beta.1): drawn only as SlideCanvas reads it (richOf), else plain
+    obj(s.rich) &&
     // «Відлік» (1.5.0): an end in ms — anything else would show NaN:NaN
     obj(s.countdown) &&
     (!s.countdown || Number.isFinite((s.countdown as { until: unknown }).until)) &&
