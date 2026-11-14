@@ -38,6 +38,11 @@ describe('«Багатий текст» (1.22.0-beta.1, F1107-14)', () => {
     expect(hasMarkup(parseRich('Сьогодні о 18:00\nмолитва'))).toBe(false);
     expect(hasMarkup(parseRich('**Увага**'))).toBe(true);
     expect(hasMarkup(parseRich('1. так'))).toBe(true);
+    // an escape alone: plain, its backslash gone (review)
+    const esc = parseRich(String.raw`2 \* 3 = \*6\*`);
+    expect(hasMarkup(esc)).toBe(false);
+    expect(plainOf(esc)).toBe('2 * 3 = *6*');
+    expect(plainOf(parseRich('рядок\r\nдругий'))).toBe('рядок\nдругий');
   });
 
   it('takes from the bus only what it can draw', () => {

@@ -129,10 +129,10 @@ export function useSongProjection({
     let rich: RichText | undefined;
     if (markup) {
       const blocks = parseRich(text);
-      if (hasMarkup(blocks) || markup.align) {
+      // the plain text always from the blocks: an escape alone (`\*`) leaves no backslash (review)
+      line = { ...line, text: plainOf(blocks) };
+      if (hasMarkup(blocks) || markup.align)
         rich = { blocks, ...(markup.align ? { align: markup.align } : {}) };
-        line = { ...line, text: plainOf(blocks) };
-      }
     }
     const slide: Slide = {
       lines: [line],
