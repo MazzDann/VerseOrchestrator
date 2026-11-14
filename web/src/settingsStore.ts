@@ -445,9 +445,13 @@ interface SettingsState {
   /** The chapter buttons' size (1.21.0-beta.2, F1024-04) */
   chapterSize: ChapterSize;
   setChapterSize: (v: ChapterSize) => void;
-  /** Open «Вікно показу» on a second screen by itself when the control window starts (1.21.0-beta.3, F1024-02) */
-  autoOutput: boolean;
-  setAutoOutput: (v: boolean) => void;
+  /**
+   * Open «Вікно показу» on a second screen by itself when the control window starts (1.21.0-beta.3,
+   * F1024-02). null = not chosen: the platform's own — on in the desktop app, off in a browser
+   * (1.21.1, F1107: there a pop-up waits for a click); read it through `outputAtStartOn`
+   */
+  outputAtStart: boolean | null;
+  setOutputAtStart: (v: boolean) => void;
   /**
    * «YouTube: мій вхід у браузері (Premium)» (1.19.0-beta.11): YouTube's players on youtube.com, not in its
    * privacy mode — they see the browser's Google sign-in (Premium: no ads; the views go into its history)
@@ -805,8 +809,8 @@ export const useSettings = create<SettingsState>()(
       setVerseField: (v) => set({ verseField: asVerseField(v) }),
       chapterSize: 'md',
       setChapterSize: (v) => set({ chapterSize: asChapterSize(v) }),
-      autoOutput: false,
-      setAutoOutput: (v) => set({ autoOutput: v === true }),
+      outputAtStart: null,
+      setOutputAtStart: (v) => set({ outputAtStart: v === true }),
       youtubeAccount: false,
       setYoutubeAccount: (v) => set({ youtubeAccount: v === true }),
       subheadings: true,
@@ -960,7 +964,11 @@ export const useSettings = create<SettingsState>()(
       // their defaults instead of being dropped for users with stored settings.
       // (Additive change — no version bump/migrate needed; merge backfills.)
       merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<SettingsState>;
+        // 1.21.0's `autoOutput` (default off) became `outputAtStart` (1.21.1): an «on» stays, an «off»
+        // was likely the old default, so it falls back to the platform's own
+        const { autoOutput: oldAuto, ...p } = (persisted ?? {}) as Partial<SettingsState> & {
+          autoOutput?: unknown;
+        };
         // the 0.x switch «Показувати номери віршів» became «Номери віршів на екрані» (1.13.0-beta.1)
         const { showVerseNumbers: _old, ...ap } = (p.appearance ?? {}) as Record<string, unknown>;
         void _old;
@@ -997,6 +1005,8 @@ export const useSettings = create<SettingsState>()(
           subheadings: p.subheadings !== false,
           subheadingSets: sanitizeSubheadingSets(p.subheadingSets),
           pickBeforeEnter: p.pickBeforeEnter !== false,
+          outputAtStart:
+            typeof p.outputAtStart === 'boolean' ? p.outputAtStart : oldAuto === true ? true : null,
         };
       },
     },
