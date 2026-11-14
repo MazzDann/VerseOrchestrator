@@ -43,8 +43,8 @@ The **Live** switch next to **To screen** decides what happens next:
 - **On** (the default). What you choose appears on screen at once, with no Enter: a verse
   clicked in the list, chosen in the **Verse** field, in the search, in **History** or
   **Saved** — even when the screen is empty or it is another book or chapter. **Black
-  screen** and **Hide text** are not lifted by a choice: they hold the screen until you
-  press them again.
+  screen**, **Hide text**, the **Cover** and a **Countdown** are not lifted by a choice: they
+  hold the screen until you take them off.
 - **Off.** The selection changes only the preview, and the text goes to the screen only
   with **To screen**. This is handy for preparing what comes next while something else is
   on screen.
