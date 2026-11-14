@@ -202,6 +202,7 @@ import { createVectorJob, listTranslations, readVectorSets, vectorsPath } from '
 import { mergeVectors, placeModule, receiveFile } from './dropImport.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
+import { diagnosticsName, diagnosticsZip } from './diagnostics.js';
 
 const app = express();
 const json = express.json({ limit: '1mb' });
@@ -582,6 +583,29 @@ const desktopState = () => ({
 app.get('/api/desktop', requireLocal, (_req, res) => {
   res.json(desktopState());
 });
+
+/**
+ * «Діагностика для відгуку» (1.22.0-beta.5, users' F1107-05): a .zip to attach to a report — the
+ * control window posts its own part (its notices, output windows, browser), the server adds what
+ * the app is and its log's end (diagnostics.ts). Loopback only; it reads, never writes.
+ */
+app.post(
+  '/api/diagnostics',
+  requireLocal,
+  wrap(async (req, res) => {
+    const buf = await diagnosticsZip({
+      dataDir,
+      version: appVersion,
+      label: appLabel,
+      release: !!releaseTop,
+      settings: getServerSettings(),
+      client: req.body ?? null,
+    });
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${diagnosticsName(appVersion)}"`);
+    res.send(buf);
+  }),
+);
 app.post(
   '/api/desktop/install',
   requireLocalControl,

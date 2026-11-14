@@ -1107,6 +1107,9 @@ export const EN: Record<string, string> = {
   'Переносити рядки': 'Wrap lines',
   'Абзаци — окремими слайдами': 'Paragraphs as separate slides',
   'Лінія між перекладами': 'A line between translations',
+  'Зберегти діагностику': 'Save diagnostics',
+  'Діагностика — файл .zip, який можна додати до відгуку: версія, система, кінець журналу, сповіщення цього сеансу, вікна виводу. Ваших текстів і зображень у ньому немає; у журналі є шляхи до папок цього комп’ютера.':
+    'Diagnostics is a .zip file you can attach to a report: the version, the system, the end of the log, this session’s notices, the output windows. None of your texts or pictures are in it; the log names folders of this computer.',
   'Тонка лінія між перекладами, коли на слайді їх кілька':
     'A thin line between the translations when a slide has several',
   'лінія між перекладами': 'a line between translations',

@@ -1122,6 +1122,7 @@ export const api = {
   desktop: () => getJson('/api/desktop', DesktopStateSchema),
   installDesktop: () => sendDesktop('/api/desktop/install'),
   openDesktop: () => sendDesktop('/api/desktop/open'),
+  diagnostics: fetchDiagnostics,
   /** The browsers on this computer, for «Відкривати вікно керування в…». */
   browsers: () => getJson('/api/browsers', BrowsersSchema),
   /**
@@ -1903,6 +1904,20 @@ export const DesktopStateSchema = z.object({
     .nullable(),
 });
 export type DesktopState = z.infer<typeof DesktopStateSchema>;
+
+/** «Діагностика для відгуку» (1.22.0-beta.5): the .zip, with the control window's own part in it. */
+async function fetchDiagnostics(client: unknown): Promise<{ blob: Blob; name: string }> {
+  const res = await request('/api/diagnostics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(client),
+  });
+  if (!res.ok) throw await failure(res);
+  const name =
+    /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ??
+    'VerseOrchestrator-diagnostics.zip';
+  return { blob: await res.blob(), name };
+}
 
 async function sendDesktop(url: string): Promise<DesktopState> {
   const res = await request(url, { method: 'POST', headers: CONTROL_HEADERS });
