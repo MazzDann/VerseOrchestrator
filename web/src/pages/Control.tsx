@@ -521,6 +521,8 @@ export function Control() {
   /** …and «Сповіщення», the session's notices (its list's keys are its own) */
   const [noticesOpen, setNoticesOpen] = useState(false);
   const toolOpen = countdownOpen || stageTimerOpen || stageMessageOpen || noticesOpen;
+  /** the operator's pick to put on screen while «Наживо» is on (useJumps sets, useShowSteps shows; F1107) */
+  const pickToShow = useRef<string | null>(null);
   // Finding the place (useJumps, vo-search): jumps, the go-to bar, the typed numbers (E3–E5)
   // and the search panel's scope — after toolOpen, which E3 reads
   const {
@@ -559,6 +561,7 @@ export function Control() {
     toolOpen,
     setSearchOpen,
     toBible,
+    pickToShow,
   });
   // A place picked in «Історія» or «Збережене» hands the keyboard to its verse, as a search pick
   // does: Enter then puts it on screen (users' reports F1010-03 / 06 — a click opened the place,
@@ -855,6 +858,8 @@ export function Control() {
     leaderRef,
     buildLines,
     pastItemRef,
+    pickToShow,
+    liveSlideRef,
   });
   // E17: a takeover restores its page and reveal step — after the steps' reset effects (E12,
   // E16), so it runs after them in the same commit and wins

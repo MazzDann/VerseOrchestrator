@@ -20,6 +20,7 @@ import {
   type SlideTemplate,
 } from '../../presenterBus';
 import { formatReference } from '../../lib/reference';
+import { placeKey } from '../../lib/quickRef';
 import {
   chapterName,
   crossTarget,
@@ -92,6 +93,8 @@ export function useShowSteps({
   leaderRef,
   buildLines,
   pastItemRef,
+  pickToShow,
+  liveSlideRef,
 }: {
   liveFollow: boolean;
   live: boolean;
@@ -148,6 +151,14 @@ export function useShowSteps({
   buildLines: (verseNums: number[]) => SlideLine[];
   /** the running order's answer past an item's end (useRunningOrder, 1.10.0-beta.1) */
   pastItemRef: MutableRefObject<PastItem | null>;
+  /**
+   * The operator's own pick (a click, the «Вірш» field, a search hit, «Історія»): its placeKey,
+   * to go on screen once it is in while «Наживо» is on — even onto an empty screen or after a
+   * jump to another chapter, which drops `live` (F1107-06/07: «у чому суть кнопки «Наживо»»)
+   */
+  pickToShow: MutableRefObject<string | null>;
+  /** the slide on screen: a pick doesn't lift «Чорний екран» or «Сховати текст» */
+  liveSlideRef: MutableRefObject<Slide>;
 }) {
   /**
    * «Прев’ю: далі / назад» (Alt+arrows, 1.1.0): the preview walked ahead and the screen stays,
@@ -165,7 +176,11 @@ export function useShowSteps({
   const setHold = (kind: 'preview' | 'pick' | null) =>
     setHeld(kind ? { kind, key: walkKey } : null);
   const screenHeld = hold !== null;
-  useEffect(() => setHeld(null), [liveFollow]);
+  useEffect(() => {
+    setHeld(null);
+    pickToShow.current = null; // a pick made with «Наживо» off is not shown by turning it on
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveFollow]);
   /**
    * The pick collected last (Ctrl / ⌘ / Shift) and the one «Далі» walks once it is on screen: all
    * together, one by one, then on after the last (1.13.0-beta.1).
@@ -224,14 +239,21 @@ export function useShowSteps({
     walk.current = null;
     const next = [...new Set(verses)].sort((a, b) => a - b);
     picked.current = { key: walkKey, verses: next };
+    // with «Кілька віршів — на екран після Enter» off a pick of several goes as a click does
+    if (!pickBeforeEnter) pickToShow.current = placeKey(bookNumber, chapter, next);
     setSelectedVerses(next);
   };
-  /** A plain click: one verse, and the screen follows it again. */
+  /** A plain click: one verse, and the screen follows it — at once while «Наживо» is on (F1107-07). */
   const selectVerses = (verses: number[]) => {
     if (hold === 'pick') setHold(null);
     // a plain click starts afresh: no walk through an earlier pick (review)
     picked.current = null;
     walk.current = null;
+    pickToShow.current = placeKey(
+      bookNumber,
+      chapter,
+      [...verses].sort((a, b) => a - b),
+    );
     setSelectedVerses(verses);
   };
   const holdPick = () => {
@@ -282,9 +304,27 @@ export function useShowSteps({
   // live-follow would clobber it back to the verse selection on the next render
   // (slideLines gets a fresh identity every render via useQueries). Navigating the
   // verses clears the override, after which live-follow resumes.
+  // The operator's own pick (`pickToShow`) goes on screen too while «Наживо» is on — onto an
+  // empty screen, past a held preview, after a jump to another chapter (which drops `live`) —
+  // but not through «Чорний екран» / «Сховати текст» (F1107-06/07).
   useEffect(() => {
     if (adopting.current) return; // taking over: the screen stays until page/reveal are set
-    if (liveFollow && live && !screenHeld && slideLines.length > 0 && !previewOverride) send();
+    const want = pickToShow.current;
+    const here = want !== null && want === placeKey(bookNumber, chapter, selectedVerses);
+    if (want !== null && !here) pickToShow.current = null; // the selection went on elsewhere
+    const off = liveSlideRef.current.blank || liveSlideRef.current.forceBlack;
+    const pick = liveFollow && here && !off;
+    if (here && off) pickToShow.current = null;
+    if (
+      liveFollow &&
+      (live || pick) &&
+      (!screenHeld || pick) &&
+      slideLines.length > 0 &&
+      !previewOverride
+    ) {
+      pickToShow.current = null;
+      send();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     slideLines,
@@ -324,7 +364,10 @@ export function useShowSteps({
     }
     walk.current = null;
     const all = primaryVerses.map((v) => v.verse);
-    const current = selectedVerses.length ? selectedVerses[selectedVerses.length - 1] : all[0] - 1;
+    // from a range, back goes before its first verse and on after its last — not from the last
+    // verse both ways (F1107-05: ↑ on a 60-verse pick landed 60 verses off)
+    const sel = selectedVerses.filter((v) => all.includes(v));
+    const current = sel.length ? (delta < 0 ? Math.min(...sel) : Math.max(...sel)) : all[0] - 1;
     const idx = all.indexOf(current);
     const next = all[Math.min(all.length - 1, Math.max(0, idx + delta))];
     if (next == null || next === current) return crossChapter(delta, previewOnly, held);
@@ -558,6 +601,7 @@ export function useShowSteps({
       return;
     }
     setSelectedVerses([verseNum]);
+    pickToShow.current = null; // shown here, at once
     const lines = buildLines([verseNum]);
     if (lines.length === 0) return;
     pushLive({
@@ -571,6 +615,7 @@ export function useShowSteps({
     });
     setLive(true);
     setPreviewOverride(null);
+    setHold(null); // the screen shows the preview: it follows again (a held preview walk too)
     notifications.show({
       message: tr('На екрані: {ref}', {
         ref: formatReference(currentBook, chapter, [verseNum], true),

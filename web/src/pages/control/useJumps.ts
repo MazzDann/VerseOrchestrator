@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react';
 import { type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type Book } from '../../api';
@@ -48,6 +55,7 @@ export function useJumps({
   toolOpen,
   setSearchOpen,
   toBible,
+  pickToShow,
 }: {
   selectedIds: number[];
   setTranslations: (ids: number[]) => void;
@@ -69,6 +77,8 @@ export function useJumps({
   setSearchOpen: (v: boolean | ((open: boolean) => boolean)) => void;
   /** a place in the Bible shows the Bible (1.8.12-beta.7): from «Презентації» or «Медіа» too */
   toBible: () => void;
+  /** the operator's pick to put on screen once it is in, while «Наживо» is on (useShowSteps, F1107) */
+  pickToShow: MutableRefObject<string | null>;
 }) {
   // one search (1.8.12-beta.4): the header's field and the results panel share the query; the
   // scope starts as the settings say (F3 / Ctrl+F — the main translation, F4 — all)
@@ -127,6 +137,9 @@ export function useJumps({
     const land = (chapter: number, at: number[], ids?: number[]) => {
       if (mine !== jumpTurn.current) return;
       if (opts?.show) showWhenReady(placeKey(r.bookNumber, chapter, at));
+      // the operator's own pick (search, «Перейти», «Історія», «Збережене»): on screen at once
+      // while «Наживо» is on, even onto an empty screen (F1107-07)
+      else if (opts?.focus) pickToShow.current = placeKey(r.bookNumber, chapter, at);
       if (ids) setTranslations(ids);
       selectBook(r.bookNumber);
       selectChapter(chapter);
@@ -283,6 +296,8 @@ export function useJumps({
     const to = Math.min(r.verseEnd ?? from, Math.max(...have));
     const picked = have.filter((v) => v >= from && v <= to).sort((a, b) => a - b);
     if (opts?.show) showWhenReady(placeKey(bn, ch, picked));
+    // the «Вірш» field, its arrows, the typed numbers: on screen while «Наживо» is on (F1107-06)
+    else pickToShow.current = placeKey(bn, ch, picked);
     if (ch !== chapter) selectChapter(ch);
     setSelectedVerses(picked);
     // from its first page and reveal step in the same render as the selection — live-follow

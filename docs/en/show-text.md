@@ -40,9 +40,11 @@ To show the selection:
 
 The **Live** switch next to **To screen** decides what happens next:
 
-- **On** (the default). After the first **To screen**, the screen follows the selection:
-  the next verse of the same chapter appears at once. Going to another book or chapter
-  stays in the preview until you click **To screen** again.
+- **On** (the default). What you choose appears on screen at once, with no Enter: a verse
+  clicked in the list, chosen in the **Verse** field, in the search, in **History** or
+  **Saved** — even when the screen is empty or it is another book or chapter. **Black
+  screen** and **Hide text** are not lifted by a choice: they hold the screen until you
+  press them again.
 - **Off.** The selection changes only the preview, and the text goes to the screen only
   with **To screen**. This is handy for preparing what comes next while something else is
   on screen.
@@ -56,9 +58,10 @@ To show several verses together, gather them:
   of them from the first to the last are chosen. Near the list's edge it scrolls on by itself.
 
 To skip scrolling a long chapter, type the verse number into the **Verse** field to the left
-of the chapter numbers, for example `16` or `16-18`, and press Enter: the verse is chosen and
-its row gets the focus, so the next Enter shows it. Ctrl+Enter (on macOS, ⌘↩) shows the verse
-on screen at once.
+of the chapter numbers, for example `16`, `16-18` or `4:24`: a moment later the verse is
+chosen, and with **Live** on it appears on screen too. ↑ and ↓ in the field step the verses.
+Enter moves the focus to the verse's row; Ctrl+Enter (on macOS, ⌘↩) shows the verse on screen
+even with **Live** off.
 
 While **Live** is on, the gathered verses wait in the preview, and the screen keeps what it
 shows. The badge above the verses names the chosen numbers and how many there are, for
@@ -75,6 +78,9 @@ To show the next or the previous verse, press:
 
 - → or ↓, PageDown — **Next**;
 - ← or ↑, PageUp — **Back**.
+
+With several verses chosen, **Back** goes to the verse before the first of them, and **Next**
+to the verse after the last.
 
 The same keys work in the presentation window and with a wireless presentation clicker.
 

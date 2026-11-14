@@ -79,15 +79,17 @@ export function ChapterBar({
     debounce.current = null;
   };
   useEffect(() => clearPending, []);
-  // which verse a step moves from: the last selected one, else what is typed
-  const stepFrom = () => {
-    if (selectedVerses.length > 0) return selectedVerses[selectedVerses.length - 1];
+  // which verse a step moves from: a range's first one going back, its last going on (F1107-05:
+  // ↑ from the last verse of a long pick landed far off), else what is typed
+  const stepFrom = (delta: number) => {
+    if (selectedVerses.length > 0)
+      return delta < 0 ? Math.min(...selectedVerses) : Math.max(...selectedVerses);
     const n = parseInt(verse, 10);
     return Number.isFinite(n) ? n : 0;
   };
   const stepVerse = (delta: number) => {
     clearPending();
-    const next = stepFrom() + delta;
+    const next = stepFrom(delta) + delta;
     if (next < 1) return;
     // show the number in the field only once it actually lands (don't leave an out-of-range one)
     void jumpVerse(String(next), false, true).then((ok) => ok && setVerse(String(next)));
