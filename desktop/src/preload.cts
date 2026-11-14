@@ -14,4 +14,8 @@ contextBridge.exposeInMainWorld('voDesktop', {
   outputYield: (on: boolean): void => {
     ipcRenderer.send('vo-output-yield', on === true);
   },
+  // F1107-03: a minimized output window asks to come back (something new on screen, «Вікно показу»)
+  outputRestore: (): void => {
+    ipcRenderer.send('vo-output-restore');
+  },
 });

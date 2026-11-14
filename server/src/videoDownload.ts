@@ -3,7 +3,14 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fetchableUrl } from './imageFetch.js';
-import { addVideo, sniffVideo, VIDEO_EXTS, youtubeIdOf, type Video } from './videos.js';
+import {
+  addVideo,
+  SNIFF_BYTES,
+  sniffVideo,
+  VIDEO_EXTS,
+  youtubeIdOf,
+  type Video,
+} from './videos.js';
 
 /**
  * «Відео за посиланням» (1.19.0-beta.8, the user after asking about YouTube, 2026-10-19): a direct link to
@@ -198,7 +205,7 @@ export function createVideoDownloads(
         if (done) break;
         awake();
         if (!head) {
-          const first = value.subarray(0, 64);
+          const first = value.subarray(0, SNIFF_BYTES);
           head = first;
           // the first bytes say: not a video (a page, a picture, an archive) — no point downloading on
           if (!sniffVideo(first)) {

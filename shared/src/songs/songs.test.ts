@@ -43,6 +43,7 @@ import {
   secondParts,
   songKey,
   songNumberTitle,
+  textSize,
   unmark,
 } from './pptx.js';
 
@@ -848,5 +849,26 @@ describe('song bundles on disk', () => {
     db.close();
     expect(syncFolderBundle(dir, legacy)).toBeNull(); // the same bundle, nothing newer
     expect(listBundles(dir)).toHaveLength(1);
+  });
+});
+
+describe('the font size of a box (PPTX_READER 6, F1107-11)', () => {
+  const run = (sz: number | null, text: string) =>
+    `<a:r><a:rPr lang="uk-UA"${sz ? ` sz="${sz}"` : ''}/><a:t>${text}</a:t></a:r>`;
+  const box = (...runs: string[]) =>
+    `<p:sp><p:txBody><a:p>${runs.join('')}</a:p></p:txBody></p:sp>`;
+  it('is the one most of the text is in — a small «Приспів:» first no longer sets it', () => {
+    expect(textSize(box(run(2400, 'Приспів:'), run(4400, 'Я ж хочу бачить чисте серце')))).toBe(
+      4400,
+    );
+    expect(textSize(box(run(4400, 'Боже Вічний, ми Тобі')))).toBe(4400);
+    // a tie goes to the bigger; runs with no size of their own don't count
+    expect(textSize(box(run(2000, 'abcd'), run(3000, 'efgh')))).toBe(3000);
+    expect(textSize(box(run(null, 'a long run that inherits its size'), run(2800, 'short')))).toBe(
+      2800,
+    );
+    // nothing sized with text: the first size in the box, as before
+    expect(textSize(`<a:rPr sz="3200"/>${box(run(null, 'x'))}`)).toBe(3200);
+    expect(textSize(box(run(null, 'x')))).toBe(0);
   });
 });

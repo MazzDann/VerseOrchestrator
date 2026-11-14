@@ -12,9 +12,10 @@ import { unzipSync, strFromU8 } from 'fflate';
  * older reader wrote it (2 — 1.2.1: title slides kept their authors in the title's box; 3 —
  * 1.3.0: a second part in another colour; 4: keys in one Unicode form, so a Mac's reading
  * replaces a Windows one instead of doubling it; 5 — 1.8.10: a box moved by the empty lines
- * around its text, so a title lifted with empty lines no longer drops onto the authors).
+ * around its text, so a title lifted with empty lines no longer drops onto the authors; 6 — 1.21.3:
+ * the font size most of a box's text is in, not its first run's — `textSize`).
  */
-export const PPTX_READER = 5;
+export const PPTX_READER = 6;
 
 /**
  * A second part (1.3.0): words the file colours apart from the rest of the box — an echo or
@@ -473,9 +474,33 @@ function boxOf(shape: string, sw: number, sh: number, theme: Theme) {
   // Original font size: <a:rPr sz="N"> is in hundredths of a point; express it as a
   // percentage of the slide height (cqh) so the projected slide matches the pptx
   // exactly, regardless of screen size, instead of auto-fitting to the text box.
-  const szRaw = Number(first(shape, /<a:rPr\b[^>]*\bsz="(\d+)"/) ?? 0);
+  const szRaw = textSize(shape);
   const size = szRaw && sh ? (szRaw * 12700) / sh : 0;
   return { color, font, bold, align, x, y, w, h, size };
+}
+
+/**
+ * The box's font size (hundredths of a point): the one most of its text is in — not the first
+ * run's (6, F1107-11: a chorus opening with a small «Приспів:» was drawn at that label's size,
+ * half the verses' — 286 of the ПС book's 2 899 slides); a tie goes to the bigger. Runs without
+ * a size of their own don't count; with none sized, the first size in the box, as before.
+ */
+export function textSize(shape: string): number {
+  const chars = new Map<number, number>();
+  for (const m of shape.matchAll(/<a:r\b[^>]*>([\s\S]*?)<\/a:r>/g)) {
+    const sz = Number(first(m[1], /<a:rPr\b[^>]*\bsz="(\d+)"/) ?? 0);
+    const text = [...m[1].matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)].map((t) => t[1]).join('');
+    const n = text.replace(/\s+/g, '').length;
+    if (sz && n) chars.set(sz, (chars.get(sz) ?? 0) + n);
+  }
+  let best = 0;
+  let most = 0;
+  for (const [sz, n] of chars)
+    if (n > most || (n === most && sz > best)) {
+      best = sz;
+      most = n;
+    }
+  return best || Number(first(shape, /<a:rPr\b[^>]*\bsz="(\d+)"/) ?? 0);
 }
 
 /**

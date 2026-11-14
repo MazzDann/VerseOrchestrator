@@ -175,7 +175,19 @@ ipcMain.on('vo-output-yield', (e, on: unknown) => {
   if (!w || !outputs.has(w) || !fullscreenOutputs.has(w)) return;
   const yielding = on === true;
   w.setAlwaysOnTop(!yielding);
-  w.setSkipTaskbar(!yielding);
+  w.setSkipTaskbar(!yielding && !w.isMinimized());
+});
+
+// F1107-03 (users, 2026-11-07): a full-screen output is out of the taskbar, so once minimized (Win+D,
+// Win+M, Win+↓) it had no button to come back from — «треба закрити й відкрити». Minimized, it gets
+// one; and it comes back by itself (not taking the keyboard from the control window) when something
+// new goes on screen or «Вікно показу» is pressed: the page asks, `vo-output-restore`.
+ipcMain.on('vo-output-restore', (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || !outputs.has(w) || !w.isMinimized()) return;
+  w.showInactive();
+  if (w.isMinimized()) w.restore();
+  if (control && !control.isDestroyed() && control.isVisible()) control.focus();
 });
 let awake: number | null = null;
 function followOutputs(win: BrowserWindow): void {
@@ -285,6 +297,24 @@ function openControl(): BrowserWindow {
     // and is never forced always-on-top on un-yield. The initial requestFullscreen below adds it.
     child.webContents.on('enter-html-full-screen', () => fullscreenOutputs.add(child));
     child.webContents.on('leave-html-full-screen', () => fullscreenOutputs.delete(child));
+    // F1107-03: minimized, a full-screen output shows in the taskbar; restored, it leaves it again
+    // and is full-screen as before (Windows may drop the page's fullscreen on the way)
+    let wasFull = false;
+    child.on('minimize', () => {
+      wasFull = fullscreenOutputs.has(child) || child.isFullScreen();
+      child.setSkipTaskbar(false);
+    });
+    child.on('restore', () => {
+      if (!wasFull) return;
+      child.setSkipTaskbar(child.isAlwaysOnTop());
+      if (fullscreenOutputs.has(child)) return;
+      void child.webContents
+        .executeJavaScript(
+          'document.fullscreenElement ? true : document.documentElement.requestFullscreen().then(() => true, () => false)',
+          true,
+        )
+        .catch(() => false);
+    });
     const full = pendingFullscreen.get(url) ?? false;
     pendingFullscreen.delete(url);
     if (!full) return;

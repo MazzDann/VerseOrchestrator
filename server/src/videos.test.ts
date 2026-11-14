@@ -93,6 +93,31 @@ describe('video files (1.8.12-beta.3)', () => {
     expect(sniffVideo(Buffer.from('RIFF....AVI LIST'))).toBeNull();
   });
 
+  it('finds the DocType past 64 bytes — a header written with 8-byte sizes (F1107-02, .mkv)', () => {
+    // every element with an 8-byte size (0x01 + 7 bytes), as some muxers write them
+    const el = (id: number[], value: Buffer) =>
+      Buffer.concat([Buffer.from(id), Buffer.from([0x01, 0, 0, 0, 0, 0, 0, value.length]), value]);
+    const long = (doc: string) => {
+      const body = Buffer.concat([
+        el([0x42, 0x86], Buffer.from([1])),
+        el([0x42, 0xf7], Buffer.from([1])),
+        el([0x42, 0xf2], Buffer.from([4])),
+        el([0x42, 0xf3], Buffer.from([8])),
+        el([0x42, 0x82], Buffer.from(doc)),
+      ]);
+      return Buffer.concat([
+        Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x01, 0, 0, 0, 0, 0, 0, body.length]),
+        body,
+        Buffer.alloc(64),
+      ]);
+    };
+    expect(long('matroska').indexOf('matroska')).toBeGreaterThan(64);
+    expect(sniffVideo(long('matroska'))).toBe('mkv');
+    expect(sniffVideo(long('webm'))).toBe('webm');
+    // a Matroska header cut before its DocType is still Matroska
+    expect(sniffVideo(long('matroska').subarray(0, 40))).toBe('mkv');
+  });
+
   it('adds a file once, by its path, named after it; refuses what is not a video here', async () => {
     const { dir, data } = folder({ 'Різдво 2025.mp4': MP4, 'fake.mp4': JPG, 'clip.webm': WEBM });
     const v = await added(data, path.join(dir, 'Різдво 2025.mp4'));

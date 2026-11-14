@@ -4,8 +4,9 @@ import { SlideCanvas } from '../components/SlideCanvas';
 import { VideoPlayerContext, VideoSoundContext } from '../lib/youtube';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
+import { showsSomething } from '../lib/slide';
 import { listenFullscreen, setOwnFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
-import { inDesktop, desktopOutputYield } from '../lib/desktop';
+import { inDesktop, desktopOutputRestore, desktopOutputYield } from '../lib/desktop';
 import { outputKeyAction } from '../lib/outputKeys';
 import { useWakeLock } from '../lib/wakeLock';
 import { aspectBox } from '../lib/aspect';
@@ -77,6 +78,12 @@ export function Presenter() {
       setOwnFullscreen(false).catch(() => undefined);
     }
   }, [yielding]);
+  // F1107-03: minimized in the desktop app («згорнули, а потім знову показ»), the window comes back
+  // by itself once something new goes on screen (the shell checks it is minimized)
+  useEffect(() => {
+    if (!inDesktop() || yielding || document.visibilityState !== 'hidden') return;
+    if (showsSomething(slide)) desktopOutputRestore();
+  }, [slide, yielding]);
 
   // The browser only grants fullscreen from a user gesture, so we can't do it on
   // window.open — toggle it on a click anywhere or the "F" key instead.
