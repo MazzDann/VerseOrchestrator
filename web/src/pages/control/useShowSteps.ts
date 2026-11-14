@@ -158,7 +158,7 @@ export function useShowSteps({
    * jump to another chapter, which drops `live` (F1107-06/07: «у чому суть кнопки «Наживо»»)
    */
   pickToShow: MutableRefObject<string | null>;
-  /** the slide on screen: a pick doesn't lift «Чорний екран» or «Сховати текст» */
+  /** the slide on screen: a pick doesn't lift «Чорний екран», «Сховати текст», «Заставка» or «Відлік» */
   liveSlideRef: MutableRefObject<Slide>;
   /** an own text shown in slides (useSongProjection, 1.22.0-beta.2): its next / previous slide */
   stepText: (dir: 1 | -1, from: number, total: number) => 'moved' | 'edge' | null;
@@ -309,13 +309,15 @@ export function useShowSteps({
   // verses clears the override, after which live-follow resumes.
   // The operator's own pick (`pickToShow`) goes on screen too while «Наживо» is on — onto an
   // empty screen, past a held preview, after a jump to another chapter (which drops `live`) —
-  // but not through «Чорний екран» / «Сховати текст» (F1107-06/07).
+  // but not through «Чорний екран» / «Сховати текст» (F1107-06/07), nor over «Заставка» or a
+  // «Відлік» running (the 1.22.0 sweep: a chapter looked up during a countdown item replaced it)
   useEffect(() => {
     if (adopting.current) return; // taking over: the screen stays until page/reveal are set
     const want = pickToShow.current;
     const here = want !== null && want === placeKey(bookNumber, chapter, selectedVerses);
     if (want !== null && !here) pickToShow.current = null; // the selection went on elsewhere
-    const off = liveSlideRef.current.blank || liveSlideRef.current.forceBlack;
+    const s = liveSlideRef.current;
+    const off = s.blank || s.forceBlack || !!s.cover;
     const pick = liveFollow && here && !off;
     if (here && off) pickToShow.current = null;
     if (
