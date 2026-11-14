@@ -175,10 +175,15 @@ To show custom text:
 Wednesday at 6 p.m.”, and the To the running order and To screen
 buttons](../img/en/own-text.png)
 
-The texts you showed go into the **Recent** list at the bottom of the panel. To show such a
-text again, select it in the list and press Enter, or double-click it. A single click puts the
-text back into the fields to edit — then click **To screen**.
-To remove a text from the list, click the trash icon **Remove from the list**.
+The texts you showed go into **History** at the bottom of the panel — by day: **Today**,
+**Yesterday**, then dates; the last hundred stay there. To show such a text again, select it in
+the list and press Enter, or double-click it. A single click puts the text back into the fields
+to edit — then click **To screen**. To remove a text from the list, click the trash icon
+**Remove from the list**.
+
+Keep the texts you will need again: the star **Save** by a text in **History**, or the **Save**
+button under the field (it keeps the text without showing it). Saved texts are on the **Saved**
+tab beside **History** and stay there until you remove them.
 
 **To the running order** doesn't show the text; it adds it to the
 [running order](running-order.md).
@@ -200,8 +205,8 @@ slide.
 | `---` on a line of its own | a divider line |
 
 The **Left**, **Centered**, and **Right** buttons align this text; press the chosen one again
-and the text follows the look's alignment. The alignment is kept with the text in **Recent**
-and in the running order.
+and the text follows the look's alignment. The alignment is kept with the text in **History**,
+**Saved**, and the running order.
 
 To see where a line of the field ends, turn off **Wrap lines**: a long line then runs on, and
 every new line of the field is your Enter.

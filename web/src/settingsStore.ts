@@ -197,6 +197,34 @@ export interface TextItem {
   align?: RichAlign;
   /** «Абзаци — окремими слайдами» (1.22.0-beta.2): its paragraphs go one by one */
   slides?: boolean;
+  /** when it went on screen last (1.22.0-beta.3, «Історія за датами»); none: kept before the dates */
+  at?: number;
+}
+
+/** How many own texts «Історія» keeps (1.22.0-beta.3, F1107-18: 12 before) and «Збережені» holds. */
+export const TEXT_HISTORY = 100;
+export const SAVED_TEXTS = 200;
+
+/** The own texts as stored: title and body strings, the rest only when sound (1.22.0-beta.3). */
+export function sanitizeTexts(x: unknown, cap: number): TextItem[] {
+  if (!Array.isArray(x)) return [];
+  const out: TextItem[] = [];
+  for (const t of x) {
+    if (!t || typeof t !== 'object') continue;
+    const r = t as Record<string, unknown>;
+    if (typeof r.title !== 'string' || typeof r.body !== 'string' || !r.body.trim()) continue;
+    out.push({
+      title: r.title,
+      body: r.body,
+      ...(r.align === 'left' || r.align === 'center' || r.align === 'right'
+        ? { align: r.align }
+        : {}),
+      ...(r.slides === true ? { slides: true } : {}),
+      ...(typeof r.at === 'number' && Number.isFinite(r.at) ? { at: r.at } : {}),
+    });
+    if (out.length >= cap) break;
+  }
+  return out;
 }
 
 /** A named appearance bundle (look + layout) that can be saved, applied, and shared as a file. */
@@ -425,8 +453,12 @@ interface SettingsState {
   slideTemplate: SlideTemplate | null;
   history: RefItem[];
   bookmarks: RefItem[];
-  /** Recently projected free-text slides (newest first). */
+  /** Recently projected free-text slides (newest first) — «Історія», by day since 1.22.0-beta.3. */
   recentTexts: TextItem[];
+  /** «Збережені» own texts (1.22.0-beta.3, F1107-18), newest first. */
+  savedTexts: TextItem[];
+  /** Keep a text in «Збережені» (or bring it to the top); again with `false` — take it out. */
+  setTextSaved: (item: TextItem, saved: boolean) => void;
   /** Operator keyboard shortcuts (action id → react-hotkeys-hook combo). */
   keymap: Keymap;
   /** Saved appearance presets (look + layout bundles). */
@@ -804,6 +836,23 @@ export const useSettings = create<SettingsState>()(
       history: [],
       bookmarks: [],
       recentTexts: [],
+      savedTexts: [],
+      setTextSaved: (item, saved) =>
+        set((s) => {
+          const body = item.body.trim();
+          if (!body) return s;
+          const k = textKey({ title: item.title.trim(), body });
+          const rest = s.savedTexts.filter((t) => textKey(t) !== k);
+          if (!saved) return { savedTexts: rest };
+          const kept: TextItem = {
+            title: item.title.trim(),
+            body,
+            ...(item.align ? { align: item.align } : {}),
+            ...(item.slides ? { slides: true } : {}),
+            at: Date.now(),
+          };
+          return { savedTexts: [kept, ...rest].slice(0, SAVED_TEXTS) };
+        }),
       keymap: DEFAULT_KEYMAP,
       presets: [],
       outputs: DEFAULT_OUTPUTS,
@@ -888,9 +937,10 @@ export const useSettings = create<SettingsState>()(
                 body,
                 ...(item.align ? { align: item.align } : {}),
                 ...(item.slides ? { slides: true } : {}),
+                at: Date.now(),
               },
               ...s.recentTexts.filter((t) => textKey(t) !== k),
-            ].slice(0, 12),
+            ].slice(0, TEXT_HISTORY),
           };
         }),
       removeRecentText: (item) =>
@@ -1023,6 +1073,8 @@ export const useSettings = create<SettingsState>()(
           outputAtStart:
             typeof p.outputAtStart === 'boolean' ? p.outputAtStart : oldAuto === true ? true : null,
           textWrap: p.textWrap !== false,
+          recentTexts: sanitizeTexts(p.recentTexts, TEXT_HISTORY),
+          savedTexts: sanitizeTexts(p.savedTexts, SAVED_TEXTS),
         };
       },
     },
