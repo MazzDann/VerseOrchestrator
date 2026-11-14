@@ -55,6 +55,11 @@ export interface Appearance {
   padLink: PadLink;
   strongSubline: StrongSubline; // lemma only vs full definition in the projected subline
   redLetter: boolean; // colour the words of Jesus (<J>)
+  /**
+   * «Лінія між перекладами» (1.22.0-beta.4, users' F1107-16 / F1107-04: «між рядками … розділ»,
+   * «між новим і старим … рисочку»): a thin line between the translations of a parallel slide
+   */
+  translationDivider: boolean;
   jesusColor: string;
   highlightColor: string; // emphasised (hot) word colour, e.g. the projected Strong word
   /** Split a long selection into pages of this many verses (0 = all on one slide). */
@@ -552,6 +557,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   padLink: 'all',
   strongSubline: 'lemma',
   redLetter: true,
+  translationDivider: false,
   jesusColor: '#ff6b6b',
   highlightColor: '#ffd43b',
   versesPerSlide: 0,
@@ -705,6 +711,7 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
       ? m.strongSubline
       : DEFAULT_APPEARANCE.strongSubline,
     redLetter: !!m.redLetter,
+    translationDivider: m.translationDivider === true,
     jesusColor: strOr(m.jesusColor, DEFAULT_APPEARANCE.jesusColor),
     highlightColor: strOr(m.highlightColor, DEFAULT_APPEARANCE.highlightColor),
     versesPerSlide: Math.max(0, Math.trunc(numOr(m.versesPerSlide, 0))),

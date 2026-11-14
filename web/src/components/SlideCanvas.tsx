@@ -99,6 +99,8 @@ export function QuoteLines({
         // keyed by the verse (1.13.0-beta.1): a verse added in the middle mounts on its own, the
         // pieces after it stay the same elements
         const seen = new Map<number, number>();
+        // «Лінія між перекладами» (1.22.0-beta.4, F1107-16 / 04): a thin rule above each next one
+        const rule = i > 0 && style.translationDivider;
         return (
           <p
             key={i}
@@ -108,6 +110,13 @@ export function QuoteLines({
               fontSize: '1em',
               fontWeight: style.bold ? 700 : 500,
               whiteSpace: 'pre-line',
+              ...(rule
+                ? {
+                    borderTop: '0.05em solid color-mix(in srgb, currentColor 40%, transparent)',
+                    paddingTop: '0.3em',
+                    marginTop: '0.3em',
+                  }
+                : null),
             }}
           >
             {lines.length > 1 && (
