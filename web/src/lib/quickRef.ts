@@ -1,3 +1,4 @@
+import { MEANING_PREFIX } from '@vo/shared';
 import { matchesCombo, type KeyChord } from '../hotkeys';
 
 /**
@@ -140,6 +141,17 @@ export function quickKey(
 export function searchEnter(e: KeyChord, project: string): { show: boolean } | null {
   if (e.key !== 'Enter') return null;
   return { show: matchesCombo(e, project) || e.ctrlKey || e.metaKey };
+}
+
+/**
+ * Shift+Enter in a search field (1.23.0-beta.2, the users' F1114-11: «шифт+пошук робив той плавний
+ * пошук»): the words typed, as a query by meaning («~ …») — null for any other key, an empty field or
+ * a query by meaning already (then Shift+Enter is an Enter).
+ */
+export function byMeaning(e: KeyChord, text: string): string | null {
+  if (e.key !== 'Enter' || !e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return null;
+  const words = text.trim();
+  return words && !MEANING_PREFIX.test(words) ? `~ ${words}` : null;
 }
 
 /** A keydown the control window hands to the box (a KeyboardEvent is one). */

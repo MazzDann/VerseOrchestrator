@@ -967,6 +967,19 @@ export function Control() {
   });
 
   // The 14 page hotkeys (their order kept) and Alt+arrows (E18) — here, below the handlers they
+  // «Наживо» from the keyboard (1.23.0-beta.2, F1114-12): the header's switch may be folded away,
+  // so the change is said too
+  const toggleLive = useCallback(() => {
+    const on = !useSettings.getState().liveFollow;
+    setLiveFollow(on);
+    notifications.show({
+      id: 'vo-live-toggle',
+      message: on
+        ? tr('Наживо: увімкнено — екран одразу повторює вибір')
+        : tr('Наживо: вимкнено — вибір лише в прев’ю, на екран кнопкою «На екран»'),
+      autoClose: 1800,
+    });
+  }, [setLiveFollow]);
   // take: after the timers' effects, the corner QR's and showJump's (E19–E21).
   useControlHotkeys({
     keymap,
@@ -981,6 +994,7 @@ export function Control() {
     blackToggle,
     coverToggle,
     countdownKey,
+    toggleLive,
     restoreRef,
     playlistStepRef,
     pageCount,

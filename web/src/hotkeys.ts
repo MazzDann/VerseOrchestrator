@@ -30,6 +30,7 @@ export type HotkeyActionId =
   | 'playlistPrev'
   | 'chorus'
   | 'project'
+  | 'liveToggle'
   | 'blank'
   | 'black'
   | 'cover'
@@ -120,6 +121,13 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     enableOnFormTags: true,
     default: 'f5,f2',
     mac: 'meta+enter',
+  },
+  // 1.23.0-beta.2 (the users' F1114-12: «Наживо можна скороченням перемикати?»)
+  {
+    id: 'liveToggle',
+    label: N_('Наживо: увімкнути / вимкнути'),
+    hint: N_('Увімкнено — екран одразу повторює вибір; вимкнено — лише прев’ю до «На екран»'),
+    default: 'n',
   },
   {
     id: 'blank',

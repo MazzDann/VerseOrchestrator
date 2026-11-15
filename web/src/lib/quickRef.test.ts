@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { MEANING_PREFIX } from '@vo/shared';
 import {
+  byMeaning,
   parseQuickRef,
   placeKey,
   quickKey,
@@ -236,6 +238,27 @@ describe('the keys of the typed-number box', () => {
   it('holds at most 12 characters', () => {
     const r = type([...'1234567890123'].map((n) => d(n)));
     expect(r.box).toBe('123456789012');
+  });
+});
+
+// --- Shift+Enter / «!»: a search by meaning (1.23.0-beta.2, F1114-11) ------------------
+
+describe('a search by meaning without «~»', () => {
+  it('Shift+Enter turns the words typed into a query by meaning', () => {
+    expect(byMeaning(ev('Enter', 'Enter', { shiftKey: true }), ' любіть ворогів ')).toBe(
+      '~ любіть ворогів',
+    );
+    expect(byMeaning(ev('Enter', 'Enter'), 'любіть')).toBeNull(); // a plain Enter goes as before
+    expect(byMeaning(ev('Enter', 'Enter', { shiftKey: true, ctrlKey: true }), 'любіть')).toBeNull();
+    expect(byMeaning(ev('Enter', 'Enter', { shiftKey: true }), '   ')).toBeNull();
+    // a query by meaning already: Shift+Enter is an Enter
+    expect(byMeaning(ev('Enter', 'Enter', { shiftKey: true }), '~ любіть')).toBeNull();
+    expect(byMeaning(ev('Enter', 'Enter', { shiftKey: true }), '!любіть')).toBeNull();
+  });
+  it('«!» starts a query by meaning, as «~» does', () => {
+    for (const q of ['~ мир', '!мир', '  ! мир']) expect(MEANING_PREFIX.test(q)).toBe(true);
+    for (const q of ['мир!', 'Ів 3:16', '"мир"', '-мир'])
+      expect(MEANING_PREFIX.test(q)).toBe(false);
   });
 });
 

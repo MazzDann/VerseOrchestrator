@@ -21,6 +21,7 @@ These are the control window's standard keys. You can change them in **Settings*
 | **Previous running order item**      | Shift+PageUp             |                        |
 | **To the chorus** — in a presentation        | C                        |                        |
 | **To screen**                        | F5, F2                   | ⌘↩                     |
+| **Live**: on / off                   | N                        |                        |
 | **Hide text**                        | B                        |                        |
 | **Black screen**                     | . (period)               |                        |
 | **Cover** — logo and text            | L                        |                        |
@@ -40,8 +41,10 @@ A browser keeps Ctrl+1…4 and Ctrl+Tab for itself (they switch its tabs), so th
 desktop app, and in a browser Alt+1…4 switch the modes: 1 — **Bible**, 2 — **Presentations**,
 3 — **Documents**, 4 — **Media**.
 
-What the arrows do can be chosen in the same place, in **Arrows**: **All — next / back** (the
-default), **← → screen, ↑ ↓ preview**, or **↑ ↓ verses, ← → items**. More in [Running
+What the arrows do can be chosen in the same place, in **Arrows**, or in the key cheat sheet
+that **?** opens: **All — next / back** (the default), **← → screen, ↑ ↓ preview**, or **↑ ↓
+verses, ← → items**. With **← → screen, ↑ ↓ preview** the ↑ ↓ arrows walk the preview to the
+verse you want without showing the ones between, and → then shows it on screen. More in [Running
 order](running-order.md#show-item-by-item).
 
 Other keys of the control window:
