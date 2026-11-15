@@ -9,6 +9,7 @@ import { listenFullscreen, setOwnFullscreen, toggleOwnFullscreen } from '../lib/
 import { inDesktop, desktopOutputRestore, desktopOutputYield } from '../lib/desktop';
 import { outputKeyAction } from '../lib/outputKeys';
 import { useWakeLock } from '../lib/wakeLock';
+import { usePinnedSlide } from '../lib/pin';
 import { aspectBox } from '../lib/aspect';
 import { useSettings } from '../settingsStore';
 import { tr, useLang } from '../i18n';
@@ -19,10 +20,16 @@ const toggleFullscreen = toggleOwnFullscreen;
 /**
  * One «Показ» window sounds a YouTube video (1.19.0-beta.6, lib/youtube.ts): the first to hold the
  * Web Lock; when it closes, the next one takes the sound. Without Web Locks, every one.
+ * `want` false (1.23.0-beta.1): a window pinned to anything but a video lets the sound go to the
+ * windows that follow the show.
  */
-function useYouTubeSound(): boolean {
+function useYouTubeSound(want: boolean): boolean {
   const [lead, setLead] = useState(false);
   useEffect(() => {
+    if (!want) {
+      setLead(false);
+      return;
+    }
     if (!navigator.locks) {
       setLead(true);
       return;
@@ -43,26 +50,30 @@ function useYouTubeSound(): boolean {
     return () => {
       stop.abort();
       release?.();
+      setLead(false);
     };
-  }, []);
+  }, [want]);
   return lead;
 }
 
 export function Presenter() {
-  const soundLead = useYouTubeSound();
   useLang();
-  const [slide, setSlide] = useState<Slide>(EMPTY_SLIDE);
+  const [live, setLive] = useState<Slide>(EMPTY_SLIDE);
+  // «Закріпити» (1.23.0-beta.1, F1107-11b): a pinned window keeps its own slide (lib/pin.ts)
+  const pin = usePinnedSlide(live);
+  const slide = pin.shown;
+  const soundLead = useYouTubeSound(!pin.pinned || !!pin.pinned.video);
   const [hint, setHint] = useState(true);
   // Hide the cursor over the projected image when the mouse sits idle.
   const [cursorHidden, setCursorHidden] = useState(false);
   // Tell the control window this output exists (its «Вікна виводу» list).
-  const identify = useAnnounceOutput('presenter');
+  const identify = useAnnounceOutput('presenter', pin.side);
   const aspect = useSettings((s) => s.outputs.aspect);
   useWakeLock(); // an open «Показ» is a show: the projector must not sleep (Mac check of 1.9.0)
 
   useEffect(() => {
-    setSlide(readSlide());
-    return subscribeSlide(setSlide);
+    setLive(readSlide());
+    return subscribeSlide(setLive);
   }, []);
 
   // «Поступитися екраном» (1.21.0-beta.7, F1024-08): a YouTube video under the «Поступитися» setting

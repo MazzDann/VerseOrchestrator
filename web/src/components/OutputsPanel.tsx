@@ -6,6 +6,7 @@ import {
   Divider,
   Group,
   Menu,
+  SegmentedControl,
   Stack,
   Switch,
   Text,
@@ -21,6 +22,8 @@ import {
   IconLayoutDashboard,
   IconMaximize,
   IconMinimize,
+  IconPin,
+  IconPinFilled,
   IconScreenShare,
   IconX,
 } from '@tabler/icons-react';
@@ -55,6 +58,9 @@ const KIND_ICON: Record<OutputKind, typeof IconScreenShare> = {
   presenter: IconScreenShare,
   stage: IconLayoutDashboard,
 };
+
+/** «Показ іде на» (1.23.0-beta.1): every «Показ» follows the show. */
+const TO_ALL = 'all';
 
 const NOT_OURS_FULLSCREEN = N_(
   'Відкрите з іншого вікна керування: на весь екран його переведе F або клік у самому вікні',
@@ -92,6 +98,18 @@ export function OutputsPanel() {
   );
 
   const labels = outputLabels(windows);
+  // «Закріпити» / «Показ іде на» (1.23.0-beta.1, F1107-11b): the «Показ» windows that know `pin`
+  // (a window of an older version doesn't announce `pinned` — it would read the command as a move)
+  const pinnable = windows.filter((o) => o.kind === 'presenter' && o.pinned !== undefined);
+  const following = pinnable.filter((o) => o.pinned == null);
+  const showGoesTo =
+    following.length === pinnable.length ? TO_ALL : following.length === 1 ? following[0]!.id : '';
+  const pin = (o: TrackedOutput, on: boolean) => outputs?.command(o.id, { do: 'pin', on });
+  // to every «Показ», not only those whose last announcement differs: `pin` is idempotent, and a
+  // quick second choice must not be lost before the windows answer the first (the review)
+  const sendShowTo = (to: string) => {
+    for (const o of pinnable) pin(o, to !== TO_ALL && o.id !== to);
+  };
   const opened = (ok: boolean, what: string) => {
     if (!ok) {
       notifications.show({
@@ -265,6 +283,31 @@ export function OutputsPanel() {
           </Text>
         ) : (
           <Stack gap={4}>
+            {pinnable.length > 1 && (
+              <div>
+                <Text size="xs" c="dimmed" mb={2}>
+                  {tr('Показ іде на')}
+                </Text>
+                <SegmentedControl
+                  size="xs"
+                  fullWidth
+                  value={showGoesTo}
+                  onChange={sendShowTo}
+                  aria-label={tr('Показ іде на')}
+                  data={[
+                    { value: TO_ALL, label: tr('Усі') },
+                    ...pinnable.map((o) => ({ value: o.id, label: labels.get(o.id)! })),
+                  ]}
+                />
+              </div>
+            )}
+            {pinnable.length > 0 && following.length === 0 && (
+              <Text size="xs" c="orange">
+                {pinnable.length === 1
+                  ? tr('Вікно показу закріплене — «На екран» його не змінить')
+                  : tr('Усі вікна показу закріплені — «На екран» їх не змінить')}
+              </Text>
+            )}
             {windows.map((o) => {
               const Icon = KIND_ICON[o.kind];
               const label = labels.get(o.id)!;
@@ -286,7 +329,35 @@ export function OutputsPanel() {
                     <Text size="xs" c={o.visible ? 'dimmed' : 'orange'} truncate>
                       {state.join(' · ')}
                     </Text>
+                    {o.pinned != null && (
+                      <Text size="xs" c="dimmed" truncate>
+                        {tr('Закріплене: {what}', { what: o.pinned })}
+                      </Text>
+                    )}
                   </div>
+                  {o.kind === 'presenter' && o.pinned !== undefined && (
+                    <Tooltip
+                      label={
+                        o.pinned != null
+                          ? tr('Відкріпити — вікно знову йтиме за показом')
+                          : tr('Закріпити — вікно лишить свій слайд, показ піде на інші')
+                      }
+                    >
+                      <ActionIcon
+                        variant={o.pinned != null ? 'light' : 'subtle'}
+                        size="sm"
+                        aria-label={
+                          o.pinned != null
+                            ? tr('Відкріпити: {window}', { window: label })
+                            : tr('Закріпити: {window}', { window: label })
+                        }
+                        aria-pressed={o.pinned != null}
+                        onClick={() => pin(o, o.pinned == null)}
+                      >
+                        {o.pinned != null ? <IconPinFilled size={14} /> : <IconPin size={14} />}
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
                   <Tooltip label={tr('Показати номер на цьому вікні')}>
                     <ActionIcon
                       variant="subtle"
