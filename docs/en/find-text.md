@@ -118,8 +118,9 @@ Uppercase and lowercase letters and accents don't matter.
 
 ### Search by meaning
 
-To find a verse by what it says rather than by its words, start the query with `~`, for
-example `~ love your enemies` or `~ about forgiveness`. The app finds verses that say the
+To find a verse by what it says rather than by its words, start the query with `~` or `!`,
+for example `~ love your enemies` or `!about forgiveness`, or type the words and press
+Shift+Enter: the app adds the `~` itself. The app finds verses that say the
 same thing, even in other words or another language: for `~ God so loved the world` it shows
 John 3:16 in Ukrainian too. Above the results it says **By meaning**, the nearest first.
 

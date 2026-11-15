@@ -33,6 +33,41 @@ const labelFor = (id: HotkeyActionId) => {
 };
 
 /**
+ * «Стрілки» (1.8.12-beta.6, F1005-06): a scheme writes the arrows' bindings, each stays editable.
+ * Its own component since 1.23.0-beta.2 — the cheat sheet «?» offers it too (the users' F1114-10
+ * asked for «← → екран, ↑ ↓ прев’ю», which was there, unfound).
+ */
+export function ArrowSchemeSelect() {
+  const keymap = useSettings((s) => s.keymap);
+  const setHotkey = useSettings((s) => s.setHotkey);
+  useLang();
+  const scheme = arrowScheme(keymap);
+  const pickScheme = (v: string | null) => {
+    if (!v) return;
+    const next = withArrowScheme(keymap, v as ArrowScheme);
+    for (const id of Object.keys(next) as HotkeyActionId[])
+      if (next[id] !== keymap[id]) setHotkey(id, next[id]);
+  };
+  return (
+    <Select
+      size="xs"
+      label={tr('Стрілки')}
+      description={
+        scheme
+          ? tr(ARROW_SCHEMES.find((s) => s.id === scheme)!.hint)
+          : tr('Клавіші кроків змінено вручну — виберіть схему, щоб повернути одну зі звичних')
+      }
+      placeholder={tr('Своя')}
+      data={ARROW_SCHEMES.map((s) => ({ value: s.id, label: tr(s.label) }))}
+      value={scheme}
+      onChange={pickScheme}
+      allowDeselect={false}
+      comboboxProps={{ withinPortal: true }}
+    />
+  );
+}
+
+/**
  * Rebind operator shortcuts. Click "змінити" to record the next key combo for an
  * action; capturing uses a capture-phase listener so the pressed keys don't also
  * trigger the app's own hotkeys (and so F5/Ctrl+F don't reach the browser).
@@ -66,8 +101,6 @@ export function HotkeysSettings() {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [recording, setHotkey]);
 
-  // «Стрілки» (1.8.12-beta.6, F1005-06): a scheme writes the arrows' bindings, each stays editable
-  const scheme = arrowScheme(keymap);
   const orderFlow = useSettings((s) => s.orderFlow);
   const setOrderFlow = useSettings((s) => s.setOrderFlow);
   const orderButtons = useSettings((s) => s.orderButtons);
@@ -76,30 +109,9 @@ export function HotkeysSettings() {
   const setPickBeforeEnter = useSettings((s) => s.setPickBeforeEnter);
   const continuousReading = useSettings((s) => s.continuousReading);
   const setContinuousReading = useSettings((s) => s.setContinuousReading);
-  const pickScheme = (v: string | null) => {
-    if (!v) return;
-    const next = withArrowScheme(keymap, v as ArrowScheme);
-    for (const id of Object.keys(next) as HotkeyActionId[])
-      if (next[id] !== keymap[id]) setHotkey(id, next[id]);
-  };
-
   return (
     <Stack gap="xs">
-      <Select
-        size="xs"
-        label={tr('Стрілки')}
-        description={
-          scheme
-            ? tr(ARROW_SCHEMES.find((s) => s.id === scheme)!.hint)
-            : tr('Клавіші кроків змінено вручну — виберіть схему, щоб повернути одну зі звичних')
-        }
-        placeholder={tr('Своя')}
-        data={ARROW_SCHEMES.map((s) => ({ value: s.id, label: tr(s.label) }))}
-        value={scheme}
-        onChange={pickScheme}
-        allowDeselect={false}
-        comboboxProps={{ withinPortal: true }}
-      />
+      <ArrowSchemeSelect />
       <Switch
         size="xs"
         label={tr('Після кінця пункту «Далі» відкриває наступний')}

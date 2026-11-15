@@ -3,6 +3,7 @@ import { formatChord, HOTKEY_ACTIONS } from '../hotkeys';
 import { useSettings } from '../settingsStore';
 import { tr, useLang } from '../i18n';
 import { docsUrl } from '../lib/docs';
+import { ArrowSchemeSelect } from './HotkeysSettings';
 
 /**
  * A read-only cheat sheet of the operator shortcuts (1.21.0-beta.5, users' F1024-06: «посібничок зі
@@ -17,6 +18,8 @@ export function HotkeysCheatsheet() {
       <Text size="xs" c="dimmed">
         {tr('Клавіші показу. Змінити — «Налаштування вигляду» → «Клавіші».')}
       </Text>
+      {/* what the arrows do, chosen right here (1.23.0-beta.2, F1114-10: «↑↓ — прев’ю, ←→ — екран») */}
+      <ArrowSchemeSelect />
       {HOTKEY_ACTIONS.map((a) => {
         const chords = (keymap[a.id] ?? a.default).split(',').filter(Boolean);
         return (

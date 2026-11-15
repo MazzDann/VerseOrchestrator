@@ -10,7 +10,7 @@ import {
 import { type Slide, type SlideCountdown, type SlideLine } from '../../presenterBus';
 import { type AfterZero, type CountdownPlace, type StageTimer } from '../../lib/countdown';
 import { type HeaderFold } from '../../lib/headerFold';
-import { type Keymap } from '../../hotkeys';
+import { formatCombo, type Keymap } from '../../hotkeys';
 import { useSettings } from '../../settingsStore';
 import { CountdownTool } from '../../components/CountdownTool';
 import { StageTimerTool } from '../../components/StageTimerTool';
@@ -101,7 +101,7 @@ export function LiveZone({
   return (
     <ToolZone label={tr('Вихід на екран')} divider={divider}>
       <Tooltip
-        label={
+        label={`${
           pickBeforeEnter
             ? tr(
                 'Увімкнено: екран одразу повторює вибір, а вірші, додані з Ctrl чи Shift, — після Enter. Вимкнено: лише прев’ю, показ кнопкою «На екран»',
@@ -109,7 +109,7 @@ export function LiveZone({
             : tr(
                 'Увімкнено: екран одразу повторює вибір. Вимкнено: лише прев’ю, показ кнопкою «На екран»',
               )
-        }
+        }${keymap.liveToggle ? ` (${formatCombo(keymap.liveToggle)})` : ''}`}
         multiline
         w={240}
         withArrow

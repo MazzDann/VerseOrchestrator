@@ -39,6 +39,12 @@ describe('the settings search knows every setting (1.13.0-beta.3, F1010-11)', ()
     expect(sections('шрифт')).toEqual(expect.arrayContaining(['text', 'countdown']));
     expect(sections('backup')).toEqual(['app']);
     expect(sections('Прев’ю: далі')).toContain('hotkeys');
+    // F1114-10: the arrow scheme by what it does (1.23.0-beta.2)
+    const arrows = (q: string) => findSettings(q).some((e) => e.label === 'Стрілки');
+    expect(arrows('вгору')).toBe(true);
+    expect(arrows('екран прев’ю')).toBe(true);
+    expect(arrows("прев'ю")).toBe(true);
+    expect(arrows('вліво')).toBe(true);
     expect(findSettings('q')).toEqual([]);
     expect(findSettings('щосьзовсімінше')).toEqual([]);
   });

@@ -139,8 +139,11 @@ export interface LibraryOptions {
   embed?: (text: string, models: string[]) => Promise<{ model: string; vec: Int8Array } | null>;
 }
 
-/** «~ слова» — a search by meaning; the rest of the query is what to look for. */
-export const MEANING_PREFIX = /^\s*~\s*/;
+/**
+ * «~ слова» — a search by meaning; the rest of the query is what to look for. «!» too (1.23.0-beta.2,
+ * the users' F1114-11: «~» is hard to reach on a Ukrainian layout).
+ */
+export const MEANING_PREFIX = /^\s*[~!]\s*/;
 const INT = 'CAST(? AS INTEGER)';
 
 /** How many places a query by meaning returns, at most. */

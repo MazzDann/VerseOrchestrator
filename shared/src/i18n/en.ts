@@ -1252,6 +1252,14 @@ export const EN: Record<string, string> = {
   'Перенести на інший екран': 'Move to another screen',
   'Перенести: {window}': 'Move: {window}',
   'Закрити вікно': 'Close the window',
+  // «Наживо» from the keyboard (1.23.0-beta.2, F1114-12)
+  'Наживо: увімкнути / вимкнути': 'Live: on / off',
+  'Увімкнено — екран одразу повторює вибір; вимкнено — лише прев’ю до «На екран»':
+    'On — the screen follows your choice at once; off — only the preview until “To screen”',
+  'Наживо: увімкнено — екран одразу повторює вибір':
+    'Live on — the screen follows your choice at once',
+  'Наживо: вимкнено — вибір лише в прев’ю, на екран кнопкою «На екран»':
+    'Live off — your choice goes to the preview; “To screen” shows it',
   // «Закріпити» / «Показ іде на» (1.23.0-beta.1, F1107-11b)
   'Показ іде на': 'The show goes to',
   'Вікно показу закріплене — «На екран» його не змінить':

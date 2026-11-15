@@ -2,7 +2,7 @@ import { type MutableRefObject } from 'react';
 import { TextInput } from '@mantine/core';
 import { IconSearch } from '@tabler/icons-react';
 import { formatCombo } from '../../hotkeys';
-import { searchEnter } from '../../lib/quickRef';
+import { byMeaning, searchEnter } from '../../lib/quickRef';
 import { useSettings } from '../../settingsStore';
 import { tr, useLang } from '../../i18n';
 
@@ -42,6 +42,15 @@ export function SearchField({
    * PageUp / PageDown keep stepping the show — the field lets go and hands the key on.
    */
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Shift+Enter: the same words by meaning — the field shows «~ …», the results follow
+    // (1.23.0-beta.2, F1114-11: «~» is hard to reach on a Ukrainian layout)
+    const meaning = byMeaning(e, value);
+    if (meaning) {
+      e.preventDefault();
+      e.stopPropagation();
+      setValue(meaning);
+      return;
+    }
     // the field owns Enter (Mac check of 1.9.0): ⌘↩ also reached the page's «На екран», which put
     // the old selection on screen — with ⌘ / Ctrl it now goes and shows the place gone to
     const enter = searchEnter(e, useSettings.getState().keymap.project);

@@ -31,6 +31,7 @@ export function useControlHotkeys({
   blackToggle,
   coverToggle,
   countdownKey,
+  toggleLive,
   restoreRef,
   playlistStepRef,
   pageCount,
@@ -65,6 +66,8 @@ export function useControlHotkeys({
   blackToggle: () => void;
   coverToggle: () => void;
   countdownKey: () => void;
+  /** «Наживо» on / off, said (1.23.0-beta.2) */
+  toggleLive: () => void;
   restoreRef: MutableRefObject<() => void>;
   /** the running order's next / previous item, said when there is none (1.8.12-beta.6) */
   playlistStepRef: MutableRefObject<(delta: 1 | -1) => void>;
@@ -259,6 +262,12 @@ export function useControlHotkeys({
   ]);
   useHotkeys(keymap.restore, (e) => !e.repeat && restoreRef.current(), { preventDefault: true }, [
     keymap.restore,
+  ]);
+  // «Наживо» from the keyboard (1.23.0-beta.2, F1114-12): the switch in the header may be folded
+  // away, so the change is said too
+  useHotkeys(keymap.liveToggle, (e) => !e.repeat && !inOverlay(e.target) && toggleLive(), [
+    keymap.liveToggle,
+    toggleLive,
   ]);
   // `/` (1.8.12-beta.4, F1005-07): to the search field where the browser keeps Ctrl+F for itself
   // (LibreWolf, Firefox); typed into a field it stays a «/»

@@ -26,7 +26,8 @@ import { useDocOpen } from '../lib/documents';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
-import { searchEnter } from '../lib/quickRef';
+import { MEANING_PREFIX } from '@vo/shared';
+import { byMeaning, searchEnter } from '../lib/quickRef';
 import { isScrolling } from '../lib/scrolling';
 import { useSearchRows } from '../lib/useSearchRows';
 import { useSettings } from '../settingsStore';
@@ -252,6 +253,14 @@ export function SearchPanel({
             value={query}
             onChange={(e) => setQuery(e.currentTarget.value)}
             onKeyDown={(e) => {
+              // Shift+Enter: the same words by meaning (1.23.0-beta.2, F1114-11)
+              const meaning = byMeaning(e, query);
+              if (meaning) {
+                e.preventDefault();
+                e.stopPropagation();
+                setQuery(meaning);
+                return;
+              }
               // the field owns Enter, as the header's does (Mac check of 1.9.0)
               const enter = searchEnter(e, useSettings.getState().keymap.project);
               if (enter) e.stopPropagation();
@@ -272,7 +281,9 @@ export function SearchPanel({
               {debounced.trim().length < 2
                 ? tr('Пошук')
                 : data?.kind === 'meaning'
-                  ? tr('За змістом: «{query}»', { query: debounced.trim().replace(/^~\s*/, '') })
+                  ? tr('За змістом: «{query}»', {
+                      query: debounced.replace(MEANING_PREFIX, '').trim(),
+                    })
                   : tr('Знайдено для «{query}»', { query: debounced.trim() })}
             </Text>
             {isFetching && <Loader size="xs" />}
