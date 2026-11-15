@@ -77,7 +77,8 @@ interface Props {
    * of the words searched (not a reference, not a «Можливо» guess) — it may open in its own
    * translation (1.13.0-beta.2)
    */
-  onPick: (result: SearchResult, opts?: { show: boolean; words?: boolean }) => void;
+  /** `lead`: open it in the hit's own translation (1.23.0-beta.3, F1114-17 — a click on its name) */
+  onPick: (result: SearchResult, opts?: { show: boolean; words?: boolean; lead?: boolean }) => void;
   /** the query — the header's field and this panel share it (1.8.12-beta.4) */
   query: string;
   setQuery: (q: string) => void;
@@ -156,17 +157,25 @@ export function SearchPanel({
   const rows = useMemo(
     () =>
       grouped.slice(0, 80).map((row) => {
-        const names = row.also.map((id) => abbr.get(id) ?? '').filter(Boolean);
+        // all of them named (F1114-16: «+1 … то най буде перелік»), each opens the place in that
+        // translation (F1114-17); the main one's own name only says which it is
+        const also = row.alsoHits
+          .map((hit) => ({ abbr: abbr.get(hit.translationId) ?? '', hit }))
+          .filter((x) => x.abbr);
+        const ownAbbr =
+          row.also.length > 0 || row.r.translationId !== primaryId
+            ? (abbr.get(row.r.translationId) ?? '')
+            : '';
         return {
           ...row,
-          alsoText:
-            names.length > 4
-              ? `${names.slice(0, 4).join(', ')} +${names.length - 4}`
-              : names.join(', '),
-          ownText:
-            row.also.length > 0 || row.r.translationId !== primaryId
-              ? (abbr.get(row.r.translationId) ?? '')
-              : '',
+          alsoNamed: also,
+          own: ownAbbr
+            ? {
+                abbr: ownAbbr,
+                hit: row.r,
+                other: primaryId != null && row.r.translationId !== primaryId,
+              }
+            : null,
         };
       }),
     [grouped, primaryId, abbr],
@@ -198,11 +207,14 @@ export function SearchPanel({
   const pickRef = useRef<(r: SearchResult) => void>(() => undefined);
   const onRowPick = useCallback((r: SearchResult) => pickRef.current(r), []);
 
-  const pick = (r: SearchResult, opts?: { show: boolean }) => {
+  const pick = (r: SearchResult, opts?: { show: boolean; lead?: boolean }) => {
     onPick(r, opts && { ...opts, words: data?.kind === 'text' });
     onDone();
   };
   pickRef.current = pick;
+  const openInRef = useRef<(r: SearchResult) => void>(() => undefined);
+  openInRef.current = (r) => pick(r, { show: false, lead: true });
+  const onOpenIn = useCallback((r: SearchResult) => openInRef.current(r), []);
 
   /** ↑ ↓ through the rows, Enter picks, Esc closes — from this panel's field or the header's */
   const onKey = (e: React.KeyboardEvent): boolean => {
@@ -342,12 +354,13 @@ export function SearchPanel({
               <ResultRow
                 key={row.key}
                 r={row.r}
-                also={row.alsoText}
-                own={row.ownText}
+                also={row.alsoNamed}
+                own={row.own}
                 index={i}
                 active={i === highlight}
                 terms={terms}
                 onPick={onRowPick}
+                onOpenIn={onOpenIn}
                 onPoint={setHighlight}
               />
             ))}
@@ -454,19 +467,44 @@ const ResultRow = memo(function ResultRow({
   active,
   terms,
   onPick,
+  onOpenIn,
   onPoint,
 }: {
   r: SearchResult;
-  /** the other translations that have this verse (one row for all), named */
-  also: string;
-  /** this row's own translation, named when it isn't the main one alone */
-  own: string;
+  /** the other translations that have this verse (one row for all), named, each with its hit */
+  also: { abbr: string; hit: SearchResult }[];
+  /** this row's own translation, named when it isn't the main one alone; `other`: not the main one */
+  own: { abbr: string; hit: SearchResult; other: boolean } | null;
   index: number;
   active: boolean;
   terms: string[];
   onPick: (r: SearchResult) => void;
+  /** open the place in that translation (it leads) — F1114-17 */
+  onOpenIn: (r: SearchResult) => void;
   onPoint: (index: number) => void;
 }) {
+  const named = (abbr: string, hit: SearchResult) => (
+    <span
+      key={hit.translationId}
+      className="vo-tr-link"
+      role="button"
+      tabIndex={-1}
+      title={tr('Відкрити в перекладі {abbr} (Ctrl+Enter — і на екран)', { abbr })}
+      aria-label={tr('Відкрити в перекладі {abbr}', { abbr })}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenIn(hit);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        e.stopPropagation();
+        onOpenIn(hit);
+      }}
+    >
+      {abbr}
+    </span>
+  );
   return (
     <Box
       onClick={() => onPick(r)}
@@ -483,8 +521,24 @@ const ResultRow = memo(function ResultRow({
       <Text size="xs" c="dimmed">
         {r.closeness && <Closeness level={r.closeness} />}
         {r.longName || r.shortName} {r.chapter}:{r.verse}
-        {own && ` · ${own}`}
-        {also && ` · ${tr('також: {list}', { list: also })}`}
+        {own && (
+          <>
+            {' · '}
+            {own.other ? named(own.abbr, own.hit) : own.abbr}
+          </>
+        )}
+        {also.length > 0 && (
+          <>
+            {' · '}
+            {tr('також:')}{' '}
+            {also.map((a, i) => (
+              <span key={a.hit.translationId}>
+                {i > 0 && ', '}
+                {named(a.abbr, a.hit)}
+              </span>
+            ))}
+          </>
+        )}
       </Text>
       <Text size="sm" lineClamp={1}>
         {highlightTerms(r.text, terms)}

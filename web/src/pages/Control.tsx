@@ -1532,7 +1532,12 @@ export function Control() {
               // Ctrl+Enter on words found in another translation opens them there; Enter keeps the
               // main one, the number converted (1.13.0-beta.2, the author: «лише Ctrl+Enter»)
               onPick={(r, opts) =>
-                jumpTo(r, { focus: true, show: opts?.show, lead: !!opts?.show && opts.words })
+                jumpTo(r, {
+                  focus: true,
+                  show: opts?.show,
+                  // a click on a translation's name in a row (1.23.0-beta.3, F1114-17) leads too
+                  lead: !!opts?.lead || (!!opts?.show && opts.words),
+                })
               }
               query={goToValue}
               setQuery={setGoToValue}

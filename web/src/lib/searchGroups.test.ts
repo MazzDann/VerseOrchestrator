@@ -30,11 +30,21 @@ describe('one search: one row per place (1.8.12-beta.4)', () => {
   it('keeps every hit when repeats are wanted, and a translation counts once', () => {
     expect(groupResults([hit(9, 500, 3, 16), hit(5, 500, 3, 16)], 5, false)).toHaveLength(2);
     expect(groupResults([hit(9, 500, 3, 16), hit(9, 500, 3, 16)], null, true)[0].also).toEqual([]);
+    // each other translation's own hit stays with the row, in the order of `also` (1.23.0-beta.3)
+    const one = groupResults(
+      [hit(2, 500, 3, 16), hit(1, 500, 3, 16), hit(3, 500, 3, 16)],
+      1,
+      true,
+    )[0];
+    expect(one.r.translationId).toBe(1);
+    expect(one.also).toEqual([2, 3]);
+    expect(one.alsoHits.map((h) => h.translationId)).toEqual([2, 3]);
   });
 
   it('reads stored search settings, whatever was stored', () => {
+    // «усі» by default since 1.23.0-beta.3 (F1114-09)
     expect(sanitizeSearch(undefined)).toEqual({
-      scope: 'current',
+      scope: 'all',
       dedupe: true,
       focusOnReturn: false,
       place: 'start',
@@ -49,7 +59,7 @@ describe('one search: one row per place (1.8.12-beta.4)', () => {
     });
     // the field's place (1.8.12-beta.9): an unknown one is the start, as before
     expect(sanitizeSearch({ scope: 'x', dedupe: 'yes', focusOnReturn: 1, place: 'top' })).toEqual({
-      scope: 'current',
+      scope: 'all',
       dedupe: true,
       focusOnReturn: false,
       place: 'start',

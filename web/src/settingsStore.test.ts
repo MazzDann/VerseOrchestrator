@@ -133,6 +133,23 @@ describe('«Простий вигляд» (1.8.12-beta.7)', () => {
   });
 });
 
+describe('the search looks in all translations first (1.23.0-beta.3, F1114-09)', () => {
+  const m = () => store.useSettings.persist.getOptions().merge!;
+  const cur = () => store.useSettings.getState();
+  it('the old default «поточний» becomes «усі» once; a later choice stays', () => {
+    expect(store.DEFAULT_SEARCH.scope).toBe('all');
+    expect(m()({}, cur()).search.scope).toBe('all');
+    expect(m()({ search: { scope: 'current', dedupe: false } }, cur()).search).toMatchObject({
+      scope: 'all',
+      dedupe: false,
+    });
+    expect(m()({ search: { scope: 'current' }, searchDefaults: 1 }, cur()).search.scope).toBe(
+      'current',
+    );
+    expect(m()({ search: { scope: 'all' } }, cur()).search.scope).toBe('all');
+  });
+});
+
 describe('animations off and the «Показ» buttons (1.18.3, F1017-04/07)', () => {
   const m = () => store.useSettings.persist.getOptions().merge!;
   const cur = () => store.useSettings.getState();
