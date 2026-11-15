@@ -302,6 +302,28 @@ The switches at the bottom of the panel:
   the control window and the other windows (Chrome, Edge). Such a window goes full screen
   with the F key or a click in the window itself.
 
+## Show different things on several screens
+
+When several presentation windows are open, you can **pin** any of them: it keeps the slide
+it shows now, and **To screen** goes on changing the other windows. This way one screen can
+hold, for example, a theme or a QR code while another shows the changing verses.
+
+1. Open **Output windows**.
+2. In a presentation window's row, click **Pin** (the pin icon). The row then says what the
+   window holds.
+3. To make the window follow the show again, click the pin once more — **Unpin**. The window
+   shows what is on screen right away.
+
+To switch where the show goes, choose a window in **The show goes to**: the other
+presentation windows are pinned on their slides. **All** — every window follows the show
+again.
+
+**Black screen** and **Cover** cover the pinned windows too, so one key clears every screen.
+When you take them away, a pinned window brings its slide back. Pinned while they are on
+screen, a window pins the slide under them. **Hide text** changes only the
+windows that follow the show. A pin stays when you reload the presentation window or take
+control from another control window. **Stage** and the viewers' phones always follow the show.
+
 ## Set the aspect ratio
 
 If the projector or the broadcast has another shape than the presentation window, open

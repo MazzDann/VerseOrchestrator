@@ -7,6 +7,9 @@ import {
   DESK_FRAME_MAX,
   forDesk,
   pictureSlide,
+  pinFrom,
+  pinnedView,
+  pinnedWords,
   inPhoneWords,
   qrOver,
   sameSlide,
@@ -497,5 +500,77 @@ describe('«Сховати текст» / «Чорний екран» toggles (0
     const empty = { lines: [], reference: '', blank: false, visible: false };
     expect(toggleHidden(empty)).toBeNull();
     expect(toggleBlack(empty)).toMatchObject({ forceBlack: true, visible: true });
+  });
+});
+
+describe('a pinned «Показ» window (1.23.0-beta.1, F1107-11b)', () => {
+  const pinned = base;
+  const next: Slide = {
+    ...base,
+    reference: 'Ів 3:17',
+    lines: [{ ...base.lines[0]!, text: 'Бо не послав' }],
+  };
+  const cover: Slide = {
+    lines: [],
+    reference: 'Заставка',
+    blank: false,
+    visible: true,
+    cover: { text: 'Недільне зібрання', image: null },
+  };
+
+  it('keeps its slide while the show goes on — hidden text and the QR stay with the show', () => {
+    expect(pinnedView(pinned, next)).toBe(pinned);
+    expect(pinnedView(pinned, toggleHidden(next)!)).toBe(pinned);
+    expect(pinnedView(pinned, qrOver(next, 'http://x', DEFAULT_STYLE, 'QR'))).toBe(pinned);
+  });
+
+  it('«Чорний екран» and «Заставка» / «Відлік» reach it; taken away, its slide is back', () => {
+    const black = pinnedView(pinned, toggleBlack(next));
+    expect(black.forceBlack).toBe(true);
+    expect(black.reference).toBe('Ів 3:16'); // its own slide under the black
+    const covered = coverOver(next, cover.cover!, DEFAULT_STYLE, 'Заставка');
+    expect(pinnedView(pinned, covered)).toBe(covered);
+    expect(pinnedView(pinned, toggleBlack(covered)).forceBlack).toBe(true);
+    expect(pinnedView(pinned, next)).toBe(pinned);
+  });
+
+  it('a video’s «Поступитися екраном» black is not the operator’s: the pinned window keeps its slide', () => {
+    const yielding: Slide = {
+      ...next,
+      forceBlack: true,
+      video: { src: 'yt:abc', name: 'Відео', screen: 'yield' } as Slide['video'],
+    };
+    expect(pinnedView(pinned, yielding)).toBe(pinned);
+  });
+
+  it('pins the slide under a black screen or «Заставка» — lifted, the window is not left black', () => {
+    expect(pinFrom(next)).toBe(next);
+    expect(pinFrom(toggleBlack(next))).toEqual({ ...next, forceBlack: false, visible: true });
+    const covered = coverOver(next, cover.cover!, DEFAULT_STYLE, 'Заставка');
+    expect(pinFrom(covered)).toBe(next);
+    expect(pinFrom(toggleBlack(covered))).toBe(next);
+    expect(
+      pinFrom(coverOver({ ...next, lines: [], visible: false }, cover.cover!, DEFAULT_STYLE, 'З'))
+        .visible,
+    ).toBe(false);
+    const qr = qrOver(next, 'http://x', DEFAULT_STYLE, 'QR');
+    expect(pinFrom(qr)).toBe(qr); // one screen may keep the viewers' QR
+    const yielding: Slide = {
+      ...next,
+      forceBlack: true,
+      video: { src: 'yt:abc', name: 'Відео', screen: 'yield' } as Slide['video'],
+    };
+    expect(pinFrom(yielding)).toMatchObject({ forceBlack: true, video: null });
+  });
+
+  it('names what it holds in a few words', () => {
+    expect(pinnedWords(qrOver(next, 'http://x', DEFAULT_STYLE, 'QR'))).toBe('QR для глядачів');
+    expect(pinnedWords(base)).toBe('Ів 3:16');
+    expect(pinnedWords({ ...base, forceBlack: true })).toBe('чорний екран');
+    expect(pinnedWords({ ...base, lines: [], visible: false })).toBe('порожній екран');
+    expect(pinnedWords(cover)).toBe('Заставка');
+    expect(
+      pinnedWords({ ...base, reference: '', lines: [{ ...base.lines[0]!, text: 'х'.repeat(80) }] }),
+    ).toHaveLength(60);
   });
 });

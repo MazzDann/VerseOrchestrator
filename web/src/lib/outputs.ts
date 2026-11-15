@@ -1,6 +1,6 @@
 import { translate, type Lang } from '@vo/shared';
 import { currentLang, N_, tr } from '../i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { onSlideError } from './slideErrors';
 import { onFullscreenRefused } from './fullscreen';
 import { createPeekGuardPoke } from './peekGuard';
@@ -23,6 +23,11 @@ import { desktopOutputRestore } from './desktop';
  * Since 0.13.0 a window also says when a slide failed to draw there (`error`): it keeps the
  * last slide that did, and the control window tells the operator. Since 1.2.1 it says when
  * the browser refused to put it fullscreen at the control window's request (`refused`).
+ *
+ * Since 1.23.0-beta.1 (F1107-11b) a «Показ» window can be PINNED (`{ do: 'pin', on }`): it keeps
+ * the slide it shows and lets the show go on to the other windows. The window holds that state
+ * itself (lib/pin.ts) and says so in `pinned` — so every control window, a new leader after a
+ * takeover, and the window's own reload see the same thing.
  */
 
 export type OutputKind = 'presenter' | 'stage';
@@ -42,6 +47,11 @@ export interface OutputInfo {
   openedAt: number;
   /** the control page that opened it (its CONTROL_PAGE_ID) — null: another / none */
   opener?: string | null;
+  /**
+   * A «Показ» window (1.23.0-beta.1): the words of the slide it is pinned to, null = it follows the
+   * show. Absent: a «Сцена», or a window of an older version — it doesn't know `pin`, never send it.
+   */
+  pinned?: string | null;
 }
 
 /** What a control window can ask an output window to do to itself. */
@@ -49,7 +59,9 @@ export type OutputCommand =
   | { do: 'move'; to: { x: number; y: number; w: number; h: number } }
   | { do: 'close' }
   | { do: 'focus' }
-  | { do: 'exitFullscreen' };
+  | { do: 'exitFullscreen' }
+  /** keep its own slide (on) or follow the show again (off) — a «Показ» window, 1.23.0-beta.1 */
+  | { do: 'pin'; on: boolean };
 
 export type OutputWire =
   | { t: 'win'; info: OutputInfo }
@@ -225,7 +237,7 @@ async function runCommand(cmd: OutputCommand): Promise<void> {
       desktopOutputRestore(); // minimized in the desktop app: back, full-screen (F1107-03)
     } else if (cmd.do === 'exitFullscreen') {
       if (document.fullscreenElement) await document.exitFullscreen();
-    } else {
+    } else if (cmd.do === 'move') {
       // a fullscreen window doesn't move: leave it first (no click needed for that)
       if (document.fullscreenElement) await document.exitFullscreen();
       // move, resize, move again: a window still as big as its screen gets clamped by the
@@ -260,8 +272,20 @@ function windowId(): string {
 function announceWindow(
   kind: OutputKind,
   onIdentify: (label: string | null) => void,
-): { failed: (message: string) => void; refused: (message: string) => void; stop: () => void } {
-  if (!outputs) return { failed: () => undefined, refused: () => undefined, stop: () => undefined };
+  pin: () => PinSide | undefined = () => undefined,
+): {
+  failed: (message: string) => void;
+  refused: (message: string) => void;
+  changed: () => void;
+  stop: () => void;
+} {
+  if (!outputs)
+    return {
+      failed: () => undefined,
+      refused: () => undefined,
+      changed: () => undefined,
+      stop: () => undefined,
+    };
   const openedAt = Date.now();
   const id = windowId();
   const info = (): OutputInfo => ({
@@ -274,6 +298,7 @@ function announceWindow(
     visible: document.visibilityState === 'visible',
     openedAt,
     opener: openerControlPage(),
+    ...(pin() ? { pinned: pin()!.pinned } : {}),
   });
   let timer: number | undefined;
   const a = outputs.announce(
@@ -283,7 +308,7 @@ function announceWindow(
       window.clearTimeout(timer);
       timer = window.setTimeout(() => onIdentify(null), 3000);
     },
-    (cmd) => void runCommand(cmd),
+    (cmd) => (cmd.do === 'pin' ? pin()?.set(cmd.on) : void runCommand(cmd)),
   );
   // its own title, and kept out of Windows «Peek» (F1005-05, lib/peekGuard.ts): asked now and
   // whenever the window changes — opened, moved, resized (a tab dragged out is a new browser
@@ -333,6 +358,7 @@ function announceWindow(
   return {
     failed: a.failed,
     refused: a.refused,
+    changed: a.changed,
     stop() {
       window.clearInterval(poll);
       window.clearTimeout(timer);
@@ -347,24 +373,39 @@ function announceWindow(
   };
 }
 
+/** A window that can be pinned (a «Показ», lib/pin.ts): what it holds now, and the command's target. */
+export interface PinSide {
+  /** the pinned slide's words, null = following the show */
+  pinned: string | null;
+  set: (on: boolean) => void;
+}
+
 /**
  * For an output page: announce this window while it's mounted. Returns the label to show
- * while the control window asks it to identify itself (null otherwise).
+ * while the control window asks it to identify itself (null otherwise). `pin`: a window that
+ * can be pinned (1.23.0-beta.1) — its state is announced again whenever it changes.
  */
-export function useAnnounceOutput(kind: OutputKind): string | null {
+export function useAnnounceOutput(kind: OutputKind, pin?: PinSide): string | null {
   const [identify, setIdentify] = useState<string | null>(null);
+  const pinRef = useRef(pin);
+  pinRef.current = pin;
+  const changedRef = useRef<() => void>(() => undefined);
   useEffect(() => {
-    const w = announceWindow(kind, setIdentify);
+    const w = announceWindow(kind, setIdentify, () => pinRef.current);
+    changedRef.current = w.changed;
     // a slide that failed to draw here: the control window tells the operator (0.13.0)
     const offError = onSlideError(w.failed);
     // fullscreen the control window asked for and the browser refused (1.2.1)
     const offRefused = onFullscreenRefused(w.refused);
     return () => {
+      changedRef.current = () => undefined;
       offError();
       offRefused();
       w.stop();
     };
   }, [kind]);
+  const pinned = pin?.pinned;
+  useEffect(() => changedRef.current(), [pinned]);
   return identify;
 }
 

@@ -1252,6 +1252,20 @@ export const EN: Record<string, string> = {
   'Перенести на інший екран': 'Move to another screen',
   'Перенести: {window}': 'Move: {window}',
   'Закрити вікно': 'Close the window',
+  // «Закріпити» / «Показ іде на» (1.23.0-beta.1, F1107-11b)
+  'Показ іде на': 'The show goes to',
+  'Вікно показу закріплене — «На екран» його не змінить':
+    'The presentation window is pinned — “To screen” won’t change it',
+  'Усі вікна показу закріплені — «На екран» їх не змінить':
+    'All presentation windows are pinned — “To screen” won’t change them',
+  'Закріплене: {what}': 'Pinned: {what}',
+  'Відкріпити — вікно знову йтиме за показом': 'Unpin — the window follows the show again',
+  'Закріпити — вікно лишить свій слайд, показ піде на інші':
+    'Pin — the window keeps its slide, the show goes on to the others',
+  'Відкріпити: {window}': 'Unpin: {window}',
+  'Закріпити: {window}': 'Pin: {window}',
+  'чорний екран': 'black screen',
+  'порожній екран': 'empty screen',
   'Закрити: {window}': 'Close: {window}',
   'Кілька вікон показу': 'Several presentation windows',
   '«Вікно показу» відкриває ще одне, а не повертає вже відкрите':

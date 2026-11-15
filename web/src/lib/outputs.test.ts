@@ -192,6 +192,33 @@ describe('output windows registry', () => {
     b.stop();
   });
 
+  it('«Закріпити» (1.23.0-beta.1): the command reaches the named «Показ», its new state comes back', async () => {
+    const h = hub();
+    const lists: TrackedOutput[][] = [];
+    const stopTrack = createOutputs(h.endpoint()).track((l) => lists.push(l));
+    let pinned: string | null = null;
+    const got: unknown[] = [];
+    const w = createOutputs(h.endpoint()).announce(
+      () => info('w1', 'presenter', { pinned }),
+      () => undefined,
+      (c) => {
+        got.push(c);
+        if (c.do === 'pin') {
+          pinned = c.on ? 'Ів 3:16' : null;
+          w.changed();
+        }
+      },
+    );
+    await flush();
+    expect(lists.at(-1)![0]!.pinned).toBeNull(); // following, and it knows `pin`
+    createOutputs(h.endpoint()).command('w1', { do: 'pin', on: true });
+    await flush();
+    expect(got).toEqual([{ do: 'pin', on: true }]);
+    expect(lists.at(-1)![0]!.pinned).toBe('Ів 3:16');
+    w.stop();
+    stopTrack();
+  });
+
   it('a slide that failed to draw in a window reaches the control windows (0.13.0)', async () => {
     const h = hub();
     const control = createOutputs(h.endpoint());

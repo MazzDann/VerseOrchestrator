@@ -231,6 +231,43 @@ export function uncover(now: Slide): Slide | null {
 }
 
 /**
+ * What a pinned «Показ» window shows (1.23.0-beta.1, F1107-11b): the slide it was pinned to, while
+ * the show goes on elsewhere — except the operator's «Чорний екран» and «Заставка» / «Відлік», which
+ * reach every window (the author's call: one key clears all screens); taken away, the pinned slide
+ * is back. «Сховати текст», the QR and a video's «Поступитися екраном» black stay with the show.
+ */
+export function pinnedView(pinned: Slide, live: Slide): Slide {
+  if (live.cover) return live;
+  if (live.forceBlack && live.video?.screen !== 'yield')
+    return pinned.forceBlack ? pinned : { ...pinned, forceBlack: true, visible: true };
+  return pinned;
+}
+
+/**
+ * What a window pins (1.23.0-beta.1): the slide under the operator's «Чорний екран» and «Заставка» /
+ * «Відлік» — those reach a pinned window anyway, and once lifted the window must show its own
+ * slide, not stay black (the review: «Показ іде на» pressed during black left the others black).
+ * The QR stays — one screen may keep it. A video's «Поступитися екраном» black stays black but
+ * no longer yields the window's screen.
+ */
+export function pinFrom(live: Slide): Slide {
+  if (live.forceBlack && live.video?.screen === 'yield') return { ...live, video: null };
+  const s = live.forceBlack ? { ...live, forceBlack: false } : live;
+  return s.cover ? (uncover(s) ?? EMPTY) : s;
+}
+
+const EMPTY: Slide = { lines: [], reference: '', blank: false, visible: false };
+
+/** A pinned slide in a few words for «Вікна виводу» (1.23.0-beta.1). */
+export function pinnedWords(s: Slide): string {
+  const sum = summarize(s);
+  if (sum.status === 'black') return tr('чорний екран');
+  if (sum.status === 'empty') return tr('порожній екран');
+  const words = (sum.kind ? sum.text : sum.reference || sum.text).trim();
+  return words.length > 60 ? `${words.slice(0, 59)}…` : words;
+}
+
+/**
  * A slide as the phones get it (the hub's follow-along relay): no background image — a data
  * URL of up to ~1.5 MB, past the hub's 256 KB frame (server/src/live.ts `MAX_FRAME_BYTES`:
  * the hub closes the socket) — and no «Заставка» image (1.4.0: an empty slide there). Nor
