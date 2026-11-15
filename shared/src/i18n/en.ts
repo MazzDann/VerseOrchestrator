@@ -447,7 +447,6 @@ export const EN: Record<string, string> = {
   'Знайдено для «{query}»': 'Found for “{query}”',
   'У поточному перекладі нічого — знайдено в інших.':
     'Nothing in the current translation — found in others.',
-  'також: {list}': 'also: {list}',
   'До поля пошуку': 'To the search field',
   'Курсор у полі пошуку вгорі — клавіша, якої браузер не забирає':
     "The cursor in the search field at the top — a key the browser doesn't take",
@@ -1252,6 +1251,11 @@ export const EN: Record<string, string> = {
   'Перенести на інший екран': 'Move to another screen',
   'Перенести: {window}': 'Move: {window}',
   'Закрити вікно': 'Close the window',
+  // the search's rows (1.23.0-beta.3, F1114-16/17)
+  'Відкрити в перекладі {abbr} (Ctrl+Enter — і на екран)':
+    'Open in the {abbr} translation (Ctrl+Enter — and on screen)',
+  'Відкрити в перекладі {abbr}': 'Open in the {abbr} translation',
+  'також:': 'also:',
   // «Наживо» from the keyboard (1.23.0-beta.2, F1114-12)
   'Наживо: увімкнути / вимкнути': 'Live: on / off',
   'Увімкнено — екран одразу повторює вибір; вимкнено — лише прев’ю до «На екран»':

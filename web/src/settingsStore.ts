@@ -389,7 +389,8 @@ export interface SearchPrefs {
 export type SearchPlace = 'start' | 'afterModes' | 'center' | 'verses';
 const SEARCH_PLACES: readonly SearchPlace[] = ['start', 'afterModes', 'center', 'verses'];
 export const DEFAULT_SEARCH: SearchPrefs = {
-  scope: 'current',
+  // «усі» since 1.23.0-beta.3 (the users' F1114-09: «Пошук за замовчуванням краще по всіх перекладах»)
+  scope: 'all',
   dedupe: true,
   focusOnReturn: false,
   place: 'start',
@@ -397,7 +398,7 @@ export const DEFAULT_SEARCH: SearchPrefs = {
 export function sanitizeSearch(raw: unknown): SearchPrefs {
   const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<SearchPrefs>;
   return {
-    scope: p.scope === 'all' ? 'all' : 'current',
+    scope: p.scope === 'current' ? 'current' : 'all',
     dedupe: typeof p.dedupe === 'boolean' ? p.dedupe : DEFAULT_SEARCH.dedupe,
     focusOnReturn: p.focusOnReturn === true,
     place: SEARCH_PLACES.includes(p.place as SearchPlace) ? (p.place as SearchPlace) : 'start',
@@ -441,6 +442,8 @@ interface SettingsState {
   setUiMotion: (v: boolean) => void;
   /** 1: the old default «Плавний» became «Без анімації» once (1.18.3) — not again after a choice */
   motionDefaults?: 1;
+  /** 1: the old default search scope «поточний» became «усі» once (1.23.0-beta.3) — not again after a choice */
+  searchDefaults?: 1;
   /**
    * «Кілька віршів — на екран після Enter» (1.13.0-beta.1, users' report F1010-05): while the
    * screen follows the selection, verses added with Ctrl / ⌘ / Shift gather in the preview and go
@@ -834,6 +837,7 @@ export const useSettings = create<SettingsState>()(
       uiMotion: false,
       setUiMotion: (v) => set({ uiMotion: v === true }),
       motionDefaults: 1,
+      searchDefaults: 1,
       pickBeforeEnter: true,
       setPickBeforeEnter: (v) => set({ pickBeforeEnter: v !== false }),
       followAlong: false,
@@ -1068,7 +1072,14 @@ export const useSettings = create<SettingsState>()(
             p.layout?.recentHeight === 170 ? { ...p.layout, recentHeight: 240 } : p.layout,
           ),
           outputs: sanitizeOutputs(p.outputs),
-          search: sanitizeSearch(p.search),
+          // «Пошук за замовчуванням краще по всіх перекладах» (F1114-09, 1.23.0-beta.3): the old default
+          // «поточний», kept by those who never chose, becomes «усі» once; a choice made after it stays
+          search: sanitizeSearch(
+            p.searchDefaults !== 1 && p.search?.scope === 'current'
+              ? { ...p.search, scope: 'all' }
+              : p.search,
+          ),
+          searchDefaults: 1,
           // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
           simpleView: p.simpleView === true,

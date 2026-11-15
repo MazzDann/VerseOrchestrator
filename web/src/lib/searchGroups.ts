@@ -14,6 +14,8 @@ export interface SearchRow {
   r: SearchResult;
   /** the other translations that have it there */
   also: number[];
+  /** their hits, in the order of `also` — each in its own numbering (opened there, 1.23.0-beta.3) */
+  alsoHits: SearchResult[];
 }
 
 /** A result's place as given: book · chapter · verse. */
@@ -26,7 +28,12 @@ export function groupResults(
   placeOf: (r: SearchResult) => string = exactPlace,
 ): SearchRow[] {
   if (!dedupe)
-    return results.map((r) => ({ key: `${r.translationId}-${exactPlace(r)}`, r, also: [] }));
+    return results.map((r) => ({
+      key: `${r.translationId}-${exactPlace(r)}`,
+      r,
+      also: [],
+      alsoHits: [],
+    }));
   const rows = new Map<string, SearchRow>();
   /** the place each translation already has in a row: a second one of its own is not the same verse */
   const seen = new Map<string, Map<number, string>>();
@@ -42,12 +49,15 @@ export function groupResults(
     if (!seen.has(key)) seen.set(key, new Map());
     seen.get(key)!.set(r.translationId, exactPlace(r));
     const row = rows.get(key);
-    if (!row) rows.set(key, { key, r, also: [] });
+    if (!row) rows.set(key, { key, r, also: [], alsoHits: [] });
     else if (r.translationId === primaryId && row.r.translationId !== primaryId) {
       row.also.unshift(row.r.translationId);
+      row.alsoHits.unshift(row.r);
       row.r = r;
-    } else if (r.translationId !== row.r.translationId && !row.also.includes(r.translationId))
+    } else if (r.translationId !== row.r.translationId && !row.also.includes(r.translationId)) {
       row.also.push(r.translationId);
+      row.alsoHits.push(r);
+    }
   }
   return [...rows.values()];
 }

@@ -95,6 +95,18 @@
   border-radius: 3px;
 }
 
+/* A translation's name in a search row (1.23.0-beta.3, F1114-17): opens the place in it. */
+.vo-tr-link {
+  cursor: pointer;
+  border-bottom: 1px dotted currentColor;
+  white-space: nowrap;
+}
+.vo-tr-link:hover {
+  color: var(--mantine-color-brand-text);
+  background: var(--mantine-color-brand-light);
+  border-radius: 3px;
+}
+
 /* A single concordance occurrence row (book ref + verse text). */
 .vo-strong-occurrence {
   display: block;

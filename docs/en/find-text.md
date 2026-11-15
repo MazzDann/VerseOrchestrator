@@ -71,19 +71,21 @@ To find a word or a phrase:
    translation, or F4 to search every translation in the library. On macOS, ⌘F and ⇧⌘F. If the
    browser keeps Ctrl+F for itself (Firefox, LibreWolf), press `/`.
 2. Type the query. The results appear under the header as you type, with the matches
-   highlighted. If the main translation has nothing, the app searches the others and says so.
+   highlighted. By default the app searches all translations. If you search the main
+   translation and it has nothing, the app searches the others and says so.
 3. Click a result, or choose it with ↓ and ↑ and press Enter. The results close, and the verse
    you found becomes the selection.
 
 If the words were found in another translation, Enter opens the same place in the main one,
 with its number (Hyzha's Ps 14:1 is Ohienko's Ps 15:1). Ctrl+Enter (⌘↩ on macOS) opens the
 translation where the words are: it becomes the main one, and the verse appears on screen at
-once.
+once. To only open the place in another translation, click that translation's name in the
+result's row — it is underlined with dots.
 
 The first Esc closes the results, the second clears the field. You can also switch where to
 search above the results: **Current (F3)** or **All (F4)**. When you search all translations,
 a verse found in several of them is one row: in the main translation's words, with “also:” and
-the other translations' names next to it. This holds even when translations number the verse
+the names of all the other translations next to it. This holds even when translations number the verse
 differently: for example, Psalm 22 of the Synodal translation is Psalm 23 in the KJV, and
 Malachi 3:19 in the Hebrew numbering is Malachi 4:1. The app aligns the numberings from the
 length of each book's chapters; the verses themselves don't change.
