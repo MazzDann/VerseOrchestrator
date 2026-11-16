@@ -1251,6 +1251,10 @@ export const EN: Record<string, string> = {
   'Перенести на інший екран': 'Move to another screen',
   'Перенести: {window}': 'Move: {window}',
   'Закрити вікно': 'Close the window',
+  // «По порядку» (1.23.0-beta.4, F1114-14)
+  'По порядку': 'In order',
+  'Слова — у тому самому порядку, між ними можуть бути інші. Точна фраза — у "лапках"':
+    'The words in the same order, others may stand between them. An exact phrase — in "quotes"',
   // the search's rows (1.23.0-beta.3, F1114-16/17)
   'Відкрити в перекладі {abbr} (Ctrl+Enter — і на екран)':
     'Open in the {abbr} translation (Ctrl+Enter — and on screen)',

@@ -189,7 +189,7 @@ interface SearchClause {
 /**
  * Parse a free-form text query, supporting operators:
  *   "exact phrase"   → a phrase match
- *   -word / !word    → exclude (NOT)
+ *   -word / !word    → exclude (NOT); a query STARTING with «!» is by meaning (1.23.0-beta.2)
  *   word             → prefix term ("любов" matches "любов'ю")
  * Everything is normalized the same way as the indexed column. Engine-neutral: FTS5
  * (parseFtsQuery) and Postgres (tsQuery) render the same clauses.
@@ -245,6 +245,34 @@ export function tsQuery(query: string): string | null {
   if (neg.length) q += ` & !(${neg.map(clause).join(' | ')})`;
   return q;
 }
+
+/**
+ * «По порядку» (1.23.0-beta.4, the users' F1114-14: «щоб "1 2" не видавало пошуки в яких "2 1"»):
+ * the query's words stand in the verse in the order typed — other words may stand between them.
+ * A word is a prefix, as in the search; a quoted phrase, its words one after another. Read on the
+ * normalized text, as the index is.
+ */
+export function keepsWordOrder(text: string, query: string): boolean {
+  const { pos } = parseSearchClauses(query);
+  const words = normalizeForSearch(text).split(' ').filter(Boolean);
+  let at = 0;
+  for (const c of pos) {
+    let found = -1;
+    for (let i = at; i + c.words.length <= words.length && found < 0; i++)
+      if (c.phrase ? c.words.every((w, k) => words[i + k] === w) : words[i].startsWith(c.words[0]))
+        found = i;
+    if (found < 0) return false;
+    at = found + c.words.length;
+  }
+  return true;
+}
+
+/** Whether the order of the query's words can matter: two clauses or more. */
+export const orderMatters = (query: string): boolean => parseSearchClauses(query).pos.length > 1;
+
+/** How many places a text search returns, at most — and how many «По порядку» reads first. */
+const TEXT_LIMIT = 300;
+const IN_ORDER_POOL = 1000;
 
 /** Smallest string greater than every string starting with `s` (prefix range end). */
 function prefixEnd(s: string): string {
@@ -1456,7 +1484,19 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     return rows.map((r) => ({ verse: Number(r.verse), title: String(r.title) }));
   }
 
-  async function search(query: string, translationIds: number[]): Promise<SearchResponse> {
+  /** `inOrder`: «По порядку» (1.23.0-beta.4) — the words in the order typed (`keepsWordOrder`) */
+  async function search(
+    query: string,
+    translationIds: number[],
+    opts: { inOrder?: boolean } = {},
+  ): Promise<SearchResponse> {
+    const inOrder = !!opts.inOrder && orderMatters(query);
+    // more places read when the order sifts them, so the ones in order past the first 300 aren't lost
+    const limit = inOrder ? IN_ORDER_POOL : TEXT_LIMIT;
+    const sift = (rows: AnyRow[]) =>
+      inOrder
+        ? rows.filter((r) => keepsWordOrder(String(r.text ?? ''), query)).slice(0, TEXT_LIMIT)
+        : rows;
     const ids = translationIds.length ? translationIds : (await getTranslations()).map((t) => t.id);
     if (ids.length === 0) return { kind: 'empty', results: [] };
 
@@ -1494,10 +1534,10 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
            JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
            WHERE f.translation_id IN (${placeholders(ids.length)})
            ORDER BY ts_rank(f.tsv, q) DESC, f.id
-           LIMIT 300`,
+           LIMIT ${limit}`,
           [q, ...ids],
         );
-        return { kind: 'text', results: rows.map(rowToResult) };
+        return { kind: 'text', results: sift(rows).map(rowToResult) };
       } catch {
         return { kind: 'empty', results: [] };
       }
@@ -1522,7 +1562,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
            JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
            WHERE verses_fts MATCH ?
            ORDER BY bm25(verses_fts, 1.0, 0.0)
-           LIMIT 300`,
+           LIMIT ${limit}`,
           [`{text_norm}: (${match}) AND {tr}: (${tr})`],
         );
       } else if (segmented) {
@@ -1536,7 +1576,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
            JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
            WHERE verses_fts MATCH ? AND v.translation_id IN (${placeholders(ids.length)})
            ORDER BY bm25(verses_fts, 1.0, 0.0)
-           LIMIT 300`,
+           LIMIT ${limit}`,
           [`{text_norm}: (${match})`, ...ids],
         );
       } else {
@@ -1549,7 +1589,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
            JOIN books b ON b.translation_id = v.translation_id AND b.book_number = v.book_number
            WHERE verses_fts MATCH ? AND v.translation_id IN (${placeholders(ids.length)})
            ORDER BY rank
-           LIMIT 300`,
+           LIMIT ${limit}`,
           [match, ...ids],
         );
       }
@@ -1558,7 +1598,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       return { kind: 'empty', results: [] };
     }
 
-    return { kind: 'text', results: rows.map(rowToResult) };
+    return { kind: 'text', results: sift(rows).map(rowToResult) };
   }
 
   return {
