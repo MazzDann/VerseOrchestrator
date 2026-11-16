@@ -2566,7 +2566,8 @@ app.get(
       .filter((s) => s !== '')
       .map(Number)
       .filter((n) => Number.isInteger(n) && n > 0);
-    res.json(await library().search(q, translations));
+    // «По порядку» (1.23.0-beta.4, F1114-14): the words in the order typed
+    res.json(await library().search(q, translations, { inOrder: req.query.order === '1' }));
   }),
 );
 

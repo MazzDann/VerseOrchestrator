@@ -380,6 +380,8 @@ export interface SearchPrefs {
   scope: 'current' | 'all';
   dedupe: boolean;
   focusOnReturn: boolean;
+  /** «По порядку» (1.23.0-beta.4, F1114-14): the words in the order typed; off by default, remembered */
+  inOrder: boolean;
   /**
    * Where the field stands (1.8.12-beta.9, A1007-01 — the author's ask): in the header before
    * the modes (as before), after them, in the middle — or above the verses in «Біблія».
@@ -393,6 +395,7 @@ export const DEFAULT_SEARCH: SearchPrefs = {
   scope: 'all',
   dedupe: true,
   focusOnReturn: false,
+  inOrder: false,
   place: 'start',
 };
 export function sanitizeSearch(raw: unknown): SearchPrefs {
@@ -401,6 +404,7 @@ export function sanitizeSearch(raw: unknown): SearchPrefs {
     scope: p.scope === 'current' ? 'current' : 'all',
     dedupe: typeof p.dedupe === 'boolean' ? p.dedupe : DEFAULT_SEARCH.dedupe,
     focusOnReturn: p.focusOnReturn === true,
+    inOrder: p.inOrder === true,
     place: SEARCH_PLACES.includes(p.place as SearchPlace) ? (p.place as SearchPlace) : 'start',
   };
 }

@@ -47,6 +47,7 @@ describe('one search: one row per place (1.8.12-beta.4)', () => {
       scope: 'all',
       dedupe: true,
       focusOnReturn: false,
+      inOrder: false,
       place: 'start',
     });
     expect(
@@ -55,13 +56,16 @@ describe('one search: one row per place (1.8.12-beta.4)', () => {
       scope: 'all',
       dedupe: false,
       focusOnReturn: true,
+      inOrder: false,
       place: 'verses',
     });
+    expect(sanitizeSearch({ inOrder: true }).inOrder).toBe(true); // «По порядку» (1.23.0-beta.4)
     // the field's place (1.8.12-beta.9): an unknown one is the start, as before
     expect(sanitizeSearch({ scope: 'x', dedupe: 'yes', focusOnReturn: 1, place: 'top' })).toEqual({
       scope: 'all',
       dedupe: true,
       focusOnReturn: false,
+      inOrder: false,
       place: 'start',
     });
   });

@@ -118,6 +118,10 @@ A query can combine these parts:
 
 Uppercase and lowercase letters and accents don't matter.
 
+To keep the words in the order you typed them, turn on **In order** above the results. Then
+`love faith` finds verses where “faith” comes after “love”, with other words allowed between
+them. The app remembers this choice.
+
 ### Search by meaning
 
 To find a verse by what it says rather than by its words, start the query with `~` or `!`,

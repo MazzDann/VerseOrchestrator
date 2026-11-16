@@ -887,11 +887,12 @@ export const api = {
       (l) => l.getVerses(id, book, chapter),
       `/api/translations/${id}/books/${book}/chapters/${chapter}/verses`,
     ),
-  search: (q: string, translationIds: number[]) =>
+  /** `inOrder`: «По порядку» (1.23.0-beta.4) — the words in the order typed */
+  search: (q: string, translationIds: number[], opts: { inOrder?: boolean } = {}) =>
     fromLibrary(
       SearchResponseSchema,
-      (l) => l.search(q, translationIds),
-      `/api/search?q=${encodeURIComponent(q)}&translations=${translationIds.join(',')}`,
+      (l) => l.search(q, translationIds, opts),
+      `/api/search?q=${encodeURIComponent(q)}&translations=${translationIds.join(',')}${opts.inOrder ? '&order=1' : ''}`,
     ),
   strong: (num: string, book?: number) =>
     fromLibrary(

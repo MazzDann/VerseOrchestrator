@@ -20,6 +20,8 @@ import {
   ActionIcon,
   Loader,
   Button,
+  Switch,
+  Tooltip,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useDocOpen } from '../lib/documents';
@@ -125,13 +127,16 @@ export function SearchPanel({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const current = scope === 'current' && primaryId != null;
+  // «По порядку» (1.23.0-beta.4, F1114-14): the words in the order typed — remembered
+  const inOrder = useSettings((s) => s.search.inOrder);
+  const setSearchPrefs = useSettings((s) => s.setSearch);
   const { data, isFetching, error, refetch } = useQuery({
-    queryKey: ['search', debounced, scope, primaryId],
+    queryKey: ['search', debounced, scope, primaryId, inOrder],
     queryFn: async () => {
-      const first = await api.search(debounced, current ? [primaryId] : []);
+      const first = await api.search(debounced, current ? [primaryId] : [], { inOrder });
       // nothing in the main translation: the others (the author's call)
       if (current && first.results.length === 0) {
-        const all = await api.search(debounced, []);
+        const all = await api.search(debounced, [], { inOrder });
         return { ...all, fallback: all.results.length > 0 };
       }
       return { ...first, fallback: false };
@@ -301,6 +306,23 @@ export function SearchPanel({
             {isFetching && <Loader size="xs" />}
           </Group>
         )}
+        <Tooltip
+          label={tr(
+            'Слова — у тому самому порядку, між ними можуть бути інші. Точна фраза — у "лапках"',
+          )}
+          multiline
+          w={260}
+          withArrow
+          openDelay={300}
+        >
+          <Switch
+            size="xs"
+            label={tr('По порядку')}
+            checked={inOrder}
+            onChange={(e) => setSearchPrefs({ inOrder: e.currentTarget.checked })}
+            styles={{ label: { whiteSpace: 'nowrap', paddingInlineStart: 4 } }}
+          />
+        </Tooltip>
         <SegmentedControl
           size="xs"
           value={scope}

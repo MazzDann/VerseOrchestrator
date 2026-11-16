@@ -222,6 +222,24 @@ describe('PostgreSQL (PGlite) answers like SQLite', () => {
     expect((await postgres.search('чотири', [1])).results).toHaveLength(30);
   });
 
+  it('«По порядку» (1.23.0-beta.4): the words in the order typed, on both engines', async () => {
+    for (const [q, want] of [
+      ['бог світ', 1],
+      ['світ бог', 0],
+      ['бог сина', 1],
+      ['сина бог', 0],
+      ['чотири 3', 2], // «Ісая чотири 3», «Навин чотири 3»
+    ] as [string, number][]) {
+      const a = await sqlite.search(q, [1], { inOrder: true });
+      const b = await postgres.search(q, [1], { inOrder: true });
+      expect(asSet(b.results), q).toEqual(asSet(a.results));
+      expect(a.results.length, q).toBeGreaterThanOrEqual(want);
+      if (want === 0) expect(a.results, q).toEqual([]);
+    }
+    // off: the order doesn't matter
+    expect((await sqlite.search('світ бог', [1])).results).toHaveLength(1);
+  });
+
   it('Strong numbers: lookup (H/G by testament), concordance, G-search', async () => {
     expect(await postgres.lookupStrong('2316', 500)).toEqual(
       await sqlite.lookupStrong('2316', 500),
