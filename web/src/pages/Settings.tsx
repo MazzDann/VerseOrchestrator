@@ -58,7 +58,8 @@ export function Settings() {
   }, []);
   return (
     <ScrollArea style={{ height: '100vh' }} type="auto">
-      <Box maw={560} mx="auto" px="md" py="lg">
+      {/* 960: room for the sections on the left (1.24.0-beta.1, F1114-04); narrower windows as before */}
+      <Box maw={960} mx="auto" px="md" py="lg">
         <Group gap={8} mb="md" wrap="nowrap">
           <IconAdjustments size={22} style={{ flexShrink: 0 }} />
           <Title order={4} style={{ flexShrink: 0 }}>

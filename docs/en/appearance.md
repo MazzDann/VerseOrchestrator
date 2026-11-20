@@ -16,6 +16,11 @@ above them stands the app's version.
 Below each section's name you see its current values; click the name to expand or
 collapse the section.
 
+When the panel is wide — the separate settings window, say, or a panel stretched across — the
+sections stand in a list on the left and the chosen one shows on the right. Click a section's
+name in the list to go to it. A search in the settings shows every section with a match on
+the right and marks them in the list.
+
 To find a setting, type a word in the **Search the settings** field at the top of the panel:
 the sections that hold it stay, expanded, with the matches highlighted. Esc clears the field,
 and the next Esc closes the panel. The command palette (Ctrl+K) finds settings too: choose a

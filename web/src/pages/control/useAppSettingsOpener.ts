@@ -16,6 +16,8 @@ export function openSettingsAt(
     const open = JSON.parse(localStorage.getItem('vo:settingsSections') ?? '[]');
     if (Array.isArray(open) && !open.includes(section))
       localStorage.setItem('vo:settingsSections', JSON.stringify([...open, section]));
+    // the two panes (1.24.0-beta.1) open on it too
+    localStorage.setItem('vo:settingsPane', section);
   } catch {
     /* storage unavailable */
   }
