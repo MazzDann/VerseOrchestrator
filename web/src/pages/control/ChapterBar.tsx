@@ -14,6 +14,8 @@ import {
   IconChevronRight,
   IconDeviceTv,
   IconPlaylistAdd,
+  IconSquarePlus,
+  IconX,
 } from '@tabler/icons-react';
 import { type Book } from '../../api';
 import { type Slide } from '../../presenterBus';
@@ -39,6 +41,10 @@ export function ChapterBar({
   selectedVerses,
   pickHeld,
   addCurrentPassage,
+  gatheredCount,
+  gather,
+  showGathered,
+  clearGathered,
   reference,
   chapters,
   selectChapter,
@@ -56,6 +62,11 @@ export function ChapterBar({
   /** a pick waits in the preview for Enter (1.13.0-beta.1) */
   pickHeld: boolean;
   addCurrentPassage: () => void;
+  /** «Додати до слайда» (1.23.0-beta.7, F1114-07): places gathered for one slide */
+  gatheredCount: number;
+  gather: () => void;
+  showGathered: () => void;
+  clearGathered: () => void;
   reference: string;
   chapters: number[];
   selectChapter: (chapter: number) => void;
@@ -136,6 +147,45 @@ export function ChapterBar({
               >
                 <IconChevronRight size={14} />
               </ActionIcon>
+            </Group>
+          )}
+          {selectedVerses.length > 0 && (
+            <Tooltip label={tr('Додати до слайда: кілька місць на одному слайді')}>
+              <ActionIcon
+                variant="subtle"
+                color="brand"
+                size="sm"
+                onClick={gather}
+                aria-label={tr('Додати до слайда')}
+              >
+                <IconSquarePlus size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          {gatheredCount > 0 && (
+            <Group gap={2} wrap="nowrap">
+              <Tooltip label={tr('Показати зібрані місця одним слайдом')}>
+                <Badge
+                  variant="light"
+                  color="cue"
+                  style={{ cursor: 'pointer' }}
+                  component="button"
+                  onClick={showGathered}
+                >
+                  {tr('Слайд: {n} — показати', { n: gatheredCount })}
+                </Badge>
+              </Tooltip>
+              <Tooltip label={tr('Прибрати зібрані місця')}>
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  onClick={clearGathered}
+                  aria-label={tr('Прибрати зібрані місця')}
+                >
+                  <IconX size={14} />
+                </ActionIcon>
+              </Tooltip>
             </Group>
           )}
           {selectedVerses.length > 0 && (

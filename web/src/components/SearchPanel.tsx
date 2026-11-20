@@ -30,6 +30,7 @@ import { IconSearch, IconX } from '@tabler/icons-react';
 import { api, type SearchResult } from '../api';
 import { MEANING_PREFIX } from '@vo/shared';
 import { byMeaning, searchEnter } from '../lib/quickRef';
+import { splitPlaces } from '../lib/places';
 import { isScrolling } from '../lib/scrolling';
 import { useSearchRows } from '../lib/useSearchRows';
 import { useSettings } from '../settingsStore';
@@ -141,8 +142,10 @@ export function SearchPanel({
       }
       return { ...first, fallback: false };
     },
-    enabled: open && debounced.trim().length >= 2,
+    // «Ів 3:16; Рим 5:8» (1.23.0-beta.7, F1114-07): no search — Enter puts the places on one slide
+    enabled: open && debounced.trim().length >= 2 && !splitPlaces(debounced),
   });
+  const placesTyped = splitPlaces(query);
   // words found in the documents too (1.17.0-beta.2) — a few rows under the verses; a click
   // opens the document at that paragraph
   const words = data?.kind === 'text' ? debounced.trim() : '';
@@ -224,6 +227,7 @@ export function SearchPanel({
   /** ↑ ↓ through the rows, Enter picks, Esc closes — from this panel's field or the header's */
   const onKey = (e: React.KeyboardEvent): boolean => {
     if (!open) return false;
+    if (e.key === 'Enter' && splitPlaces(query)) return false; // the field's goTo takes it
     if (e.key === 'ArrowDown' && rows.length > 0) {
       e.preventDefault();
       setHighlight((h) => Math.min(rows.length - 1, h + 1));
@@ -369,7 +373,14 @@ export function SearchPanel({
           ))}
         </Group>
       )}
-      {(debounced.trim().length >= 2 || rows.length > 0) && (
+      {placesTyped && (
+        <Text size="sm" c="dimmed" mt="xs">
+          {tr('Кілька місць на одному слайді: {list}. Натисніть Enter.', {
+            list: placesTyped.join('; '),
+          })}
+        </Text>
+      )}
+      {!placesTyped && (debounced.trim().length >= 2 || rows.length > 0) && (
         <ScrollArea.Autosize mah="min(320px, 30vh)" mt="xs">
           <Stack gap={0}>
             {rows.map((row, i) => (
