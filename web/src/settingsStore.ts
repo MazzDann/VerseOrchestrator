@@ -376,6 +376,12 @@ export function clampLayout(raw: unknown): PanelLayout {
  * main translation — with none there, the others — or all the selected ones), one row per place
  * found in several translations, and the cursor in the field when the window comes back.
  */
+/** How the verse list shows cross-references (1.23.0-beta.6, F1114-15). */
+export type CrossRefsShown = 'marker' | 'inline' | 'selected' | 'off';
+const CROSS_REFS_SHOWN: readonly CrossRefsShown[] = ['marker', 'inline', 'selected', 'off'];
+export const asCrossRefsShown = (v: unknown): CrossRefsShown =>
+  CROSS_REFS_SHOWN.includes(v as CrossRefsShown) ? (v as CrossRefsShown) : 'marker';
+
 export interface SearchPrefs {
   scope: 'current' | 'all';
   dedupe: boolean;
@@ -510,6 +516,13 @@ interface SettingsState {
    */
   youtubeAccount: boolean;
   setYoutubeAccount: (v: boolean) => void;
+  /**
+   * Cross-references in the control window's verse list (1.23.0-beta.6, the users' F1114-15): a
+   * marker with their count at each verse's end (the default; a click lists them), the main ones
+   * written at every verse's end, only at the selected verse's end — or none.
+   */
+  crossRefsShown: CrossRefsShown;
+  setCrossRefsShown: (v: CrossRefsShown) => void;
   /** a translation's section titles over its verses in the control window (1.16.0-beta.2) */
   subheadings: boolean;
   setSubheadings: (v: boolean) => void;
@@ -889,6 +902,8 @@ export const useSettings = create<SettingsState>()(
       setYoutubeAccount: (v) => set({ youtubeAccount: v === true }),
       subheadings: true,
       setSubheadings: (v) => set({ subheadings: v === true }),
+      crossRefsShown: 'marker',
+      setCrossRefsShown: (v) => set({ crossRefsShown: asCrossRefsShown(v) }),
       projectSubheadings: false,
       setProjectSubheadings: (v) => set({ projectSubheadings: v === true }),
       subheadingSets: {},
@@ -1087,6 +1102,7 @@ export const useSettings = create<SettingsState>()(
           // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
           simpleView: p.simpleView === true,
+          crossRefsShown: asCrossRefsShown(p.crossRefsShown),
           windowsMenu: p.windowsMenu !== false,
           youtubeAccount: p.youtubeAccount === true,
           subheadings: p.subheadings !== false,

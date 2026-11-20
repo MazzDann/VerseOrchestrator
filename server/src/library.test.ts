@@ -197,6 +197,7 @@ describe('library queries (shared, engine-agnostic)', () => {
 
   it('optional tables absent → empty, not an error', async () => {
     expect(await lib.getCrossrefs(500, 3, 16)).toEqual([]);
+    expect(await lib.getChapterCrossrefs(500, 3)).toEqual([]); // no table: none, no error
     expect(await lib.getCommentary(500, 3, 16)).toEqual([]);
   });
 });

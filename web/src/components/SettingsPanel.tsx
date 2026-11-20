@@ -50,6 +50,7 @@ import {
   type StrongSubline,
   type SearchPlace,
   type VerseNumbers,
+  type CrossRefsShown,
 } from '../settingsStore';
 import type { SlideTransition } from '../presenterBus';
 import { fileToDownscaledDataUrl, fileToLogoDataUrl } from '../lib/image';
@@ -115,6 +116,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const setUiMotion = useSettings((s) => s.setUiMotion);
   const subheadingsOn = useSettings((s) => s.subheadings);
   const projectSubheadingsOn = useSettings((s) => s.projectSubheadings);
+  const crossRefsShown = useSettings((s) => s.crossRefsShown);
   const setSimpleView = useSettings((s) => s.setSimpleView);
   const windowsMenu = useSettings((s) => s.windowsMenu);
   const youtubeAccount = useSettings((s) => s.youtubeAccount);
@@ -1392,6 +1394,22 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
               }
             />
             <SubheadingSetPicker />
+            {/* 1.23.0-beta.6 (F1114-15): cross-references at a verse's end in the verse list */}
+            <Select
+              size="xs"
+              label={tr('Перехресні посилання у списку віршів')}
+              description={tr('Клацніть посилання, щоб перейти до того місця.')}
+              data={[
+                { value: 'marker', label: tr('Позначка з кількістю в кінці вірша') },
+                { value: 'inline', label: tr('Основні посилання в кінці кожного вірша') },
+                { value: 'selected', label: tr('Лише в кінці вибраного вірша') },
+                { value: 'off', label: tr('Не показувати') },
+              ]}
+              value={crossRefsShown}
+              onChange={(v) => v && useSettings.getState().setCrossRefsShown(v as CrossRefsShown)}
+              allowDeselect={false}
+              comboboxProps={{ withinPortal: true }}
+            />
             <UpdateSection />
             <BackupSection />
             <CopyImportSection />

@@ -2524,6 +2524,19 @@ app.get(
   }),
 );
 
+// a chapter's cross-references in one read (1.23.0-beta.6, F1114-15) — before the per-verse route
+app.get(
+  '/api/crossrefs/chapter',
+  wrap(async (req, res) =>
+    res.json(
+      await library().getChapterCrossrefs(
+        asInt(req.query.book, 'book'),
+        asInt(req.query.chapter, 'chapter'),
+      ),
+    ),
+  ),
+);
+
 app.get(
   '/api/crossrefs',
   wrap(async (req, res) =>
