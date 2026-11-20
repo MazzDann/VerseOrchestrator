@@ -14,6 +14,7 @@ import { inOverlay, isFormField, scrollableAround } from '../../lib/keyScroll';
 import { floatingPanelOpen } from '../../lib/panelStack';
 import { type SearchScope } from '../../components/SearchPanel';
 import { type Workspace } from '../Control';
+import { openPresenter } from './outputWindows';
 
 /**
  * The control window's page hotkeys (react-hotkeys-hook; 20 calls (the six mode keys since 1.19.0-beta.1, after the palette), their order and their deps
@@ -265,6 +266,13 @@ export function useControlHotkeys({
   ]);
   // «Наживо» from the keyboard (1.23.0-beta.2, F1114-12): the switch in the header may be folded
   // away, so the change is said too
+  // «Вікно показу» (1.24.0-beta.2): F5 in the desktop app, as a presentation's start; none in a browser
+  useHotkeys(
+    keymap.outputWindow || 'f24+f23',
+    (e) => !e.repeat && !inOverlay(e.target) && void openPresenter(),
+    { preventDefault: true, enableOnFormTags: true, enabled: !!keymap.outputWindow },
+    [keymap.outputWindow],
+  );
   useHotkeys(keymap.liveToggle, (e) => !e.repeat && !inOverlay(e.target) && toggleLive(), [
     keymap.liveToggle,
     toggleLive,

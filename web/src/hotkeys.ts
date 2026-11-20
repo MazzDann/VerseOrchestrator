@@ -12,6 +12,14 @@ import { N_ } from '@vo/shared';
  * the Mac way there (⇧⌘F).
  */
 
+/**
+ * In the desktop app (1.24.0-beta.2): F5 / Ctrl+F5 reload nothing there, so they take the
+ * presentation's keys — F5 starts the show as in PowerPoint (the output window on the 2nd
+ * screen), Ctrl+F5 empties the screen; «На екран» keeps F2 and Enter (the author, 2026-11-20).
+ */
+export const IS_DESKTOP =
+  typeof window !== 'undefined' && !!(window as unknown as { voDesktop?: unknown }).voDesktop;
+
 /** Running on a Mac (or an iPad with a keyboard)? */
 export const IS_MAC =
   typeof navigator !== 'undefined' &&
@@ -30,6 +38,7 @@ export type HotkeyActionId =
   | 'playlistPrev'
   | 'chorus'
   | 'project'
+  | 'outputWindow'
   | 'liveToggle'
   | 'blank'
   | 'black'
@@ -59,6 +68,8 @@ export interface HotkeyActionDef {
   mac?: string;
   /** the default on macOS instead of `default` (where macOS itself takes those keys) */
   macInstead?: string;
+  /** the default in the desktop app instead of `default` (1.24.0-beta.2: F5 is no reload there) */
+  desktopInstead?: string;
 }
 
 /** The operator actions that can be rebound, in display order. */
@@ -121,6 +132,17 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     enableOnFormTags: true,
     default: 'f5,f2',
     mac: 'meta+enter',
+    desktopInstead: 'f2',
+  },
+  // 1.24.0-beta.2 (the author: «щоб F5 було інтуїтивно як у презентаціях»): the output window on the
+  // 2nd screen — F5 in the desktop app; in a browser F5 stays «На екран» (and reloads elsewhere)
+  {
+    id: 'outputWindow',
+    label: N_('Вікно показу'),
+    hint: N_('Відкрити вікно показу на другому екрані — як F5 у презентаціях'),
+    enableOnFormTags: true,
+    default: '',
+    desktopInstead: 'f5',
   },
   // 1.23.0-beta.2 (the users' F1114-12: «Наживо можна скороченням перемикати?»)
   {
@@ -162,6 +184,7 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     label: N_('Очистити'),
     hint: N_('Прибрати слайд з екрана'),
     default: 'escape',
+    desktopInstead: 'escape,ctrl+f5',
   },
   {
     id: 'restore',
@@ -240,12 +263,18 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
 
 export type Keymap = Record<HotkeyActionId, string>;
 
-const defaultFor = (a: HotkeyActionDef, mac: boolean) =>
-  mac && a.macInstead ? a.macInstead : mac && a.mac ? `${a.default},${a.mac}` : a.default;
+const defaultFor = (a: HotkeyActionDef, mac: boolean, desktop = IS_DESKTOP) => {
+  const base = desktop && a.desktopInstead !== undefined ? a.desktopInstead : a.default;
+  if (mac && a.macInstead) return a.macInstead;
+  if (mac && a.mac) return base ? `${base},${a.mac}` : a.mac;
+  return base;
+};
 
-/** The default keymap for a platform (the Mac one adds the ⌘ chords). */
-export function defaultKeymap(mac: boolean = IS_MAC): Keymap {
-  return Object.fromEntries(HOTKEY_ACTIONS.map((a) => [a.id, defaultFor(a, mac)])) as Keymap;
+/** The default keymap for a platform (the Mac one adds the ⌘ chords; the desktop app its F5s). */
+export function defaultKeymap(mac: boolean = IS_MAC, desktop: boolean = IS_DESKTOP): Keymap {
+  return Object.fromEntries(
+    HOTKEY_ACTIONS.map((a) => [a.id, defaultFor(a, mac, desktop)]),
+  ) as Keymap;
 }
 
 export const DEFAULT_KEYMAP: Keymap = defaultKeymap();
@@ -506,13 +535,24 @@ export function conflictsForAction(keymap: Keymap, self: HotkeyActionId): Hotkey
  * they are dropped from one saved on a Mac (settings travel with the app folder since
  * 0.7.4). Anything the user changed stays.
  */
-export function sanitizeKeymap(raw: unknown, mac: boolean = IS_MAC): Keymap {
+export function sanitizeKeymap(
+  raw: unknown,
+  mac: boolean = IS_MAC,
+  desktop: boolean = IS_DESKTOP,
+): Keymap {
   const r = (raw ?? {}) as Record<string, unknown>;
   const keymap = Object.fromEntries(
     HOTKEY_ACTIONS.map((a) => {
       const v = r[a.id];
-      if (typeof v !== 'string' || !v || v === defaultFor(a, !mac))
-        return [a.id, defaultFor(a, mac)];
+      // the other platform's default, or the browser's in the desktop app (a keymap saved before
+      // 1.24.0-beta.2 keeps F5 on «На екран»): this one's own default
+      if (
+        typeof v !== 'string' ||
+        !v ||
+        v === defaultFor(a, !mac, desktop) ||
+        (desktop && v === defaultFor(a, mac, false))
+      )
+        return [a.id, defaultFor(a, mac, desktop)];
       return [a.id, v];
     }),
   ) as Keymap;
