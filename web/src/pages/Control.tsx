@@ -52,8 +52,8 @@ import { usePhoneUrl } from '../lib/phoneUrl';
 import { ModulesFloating } from '../components/ModulesPanel';
 import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
-import { currentOutputs, useOutputWindows } from '../lib/outputs';
-import { openOutput } from '../openPresenter';
+import { currentOutputs, outputs as outputsBus, useOutputWindows } from '../lib/outputs';
+import { closeOutput, openOutput } from '../openPresenter';
 import { inDesktop, outputAtStartOn } from '../lib/desktop';
 import { useSlideErrorNotices } from '../lib/slideErrorNotices';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
@@ -82,7 +82,9 @@ import { openPresenter } from './control/outputWindows';
 import { usePlacesSlide } from './control/usePlacesSlide';
 import { splitPlaces } from '../lib/places';
 import { useVerseListEffects } from './control/useVerseListEffects';
-import { useControlHotkeys, type AppKeys } from './control/useControlHotkeys';
+import { NO_APP_KEYS, useControlHotkeys, type AppKeys } from './control/useControlHotkeys';
+import { openStage } from './control/outputWindows';
+import { clampTextScale } from '../settingsStore';
 import { placeNav } from '../lib/placeNav';
 import { useTimerSignals } from './control/useTimerSignals';
 import { usePaletteCommands } from './control/usePaletteCommands';
@@ -1020,14 +1022,10 @@ export function Control() {
     });
   }, [setLiveFollow]);
   /** the desktop app's own keys (1.24.0-beta.2): filled further down, where their parts are */
-  const appKeys = useRef<AppKeys>({
-    historyFocus: () => undefined,
-    bookmarkAdd: () => undefined,
-    placeStep: () => undefined,
-    helpKeys: () => undefined,
-    openSettings: () => undefined,
-    openFile: () => undefined,
-  });
+  const appKeys = useRef<AppKeys>(NO_APP_KEYS);
+  const say = (message: string) => {
+    notifications.show({ message, color: 'gray', autoClose: 1500 });
+  };
   // take: after the timers' effects, the corner QR's and showJump's (E19–E21).
   useControlHotkeys({
     keymap,
@@ -1456,6 +1454,82 @@ export function Control() {
       input.onchange = () => openFiles([...(input.files ?? [])]);
       input.click();
     },
+    // 1.24.0-beta.3 (the author's picks)
+    newText: pickText,
+    stageWindow: () => void openStage(),
+    closeOutputs: () => {
+      const shown = currentOutputs().filter((o) => o.kind === 'presenter');
+      for (const o of shown) closeOutput(o);
+      if (!shown.length) say(tr('Вікон показу не відкрито'));
+    },
+    unpinAll: () => {
+      const pinned = currentOutputs().filter((o) => o.kind === 'presenter' && o.pinned != null);
+      for (const o of pinned) outputsBus?.command(o.id, { do: 'pin', on: false });
+      say(pinned.length ? tr('Показ іде на всі вікна') : tr('Закріплених вікон немає'));
+    },
+    textSize: (d) => {
+      const s = useSettings.getState();
+      const next = d === 0 ? 1 : clampTextScale(s.appearance.textScale + d * 0.05);
+      s.setAppearance({ textScale: next });
+      say(tr('Розмір тексту: {n}%', { n: Math.round(next * 100) }));
+    },
+    chapterStep: (d) => {
+      if (chapter == null || primaryId == null || bookNumber == null) return;
+      const i = chapters.indexOf(chapter);
+      if (i < 0) return; // the list not here yet (review)
+      const next = chapters[i + d];
+      if (next == null) return say(d > 0 ? tr('Це останній розділ') : tr('Це перший розділ'));
+      jumpTo({ translationId: primaryId, bookNumber, chapter: next, verse: 1 });
+    },
+    bookStep: (d) => {
+      if (primaryId == null || bookNumber == null) return;
+      const i = books.findIndex((b) => b.bookNumber === bookNumber);
+      if (i < 0) return;
+      const next = books[i + d];
+      if (!next) return say(d > 0 ? tr('Це остання книга') : tr('Це перша книга'));
+      // its first chapter as the module has it (some start at 0 or skip one — review)
+      void queryClient
+        .fetchQuery({
+          queryKey: ['chapters', primaryId, next.bookNumber],
+          queryFn: () => api.chapters(primaryId, next.bookNumber),
+        })
+        .then(
+          (list) => list[0] ?? 1,
+          () => 1,
+        )
+        .then((first) =>
+          jumpTo({
+            translationId: primaryId,
+            bookNumber: next.bookNumber,
+            chapter: first,
+            verse: 1,
+          }),
+        );
+    },
+    verseField: () => {
+      const f = document.querySelector<HTMLInputElement>(
+        `input[aria-label="${tr('Вірш у розділі')}"]`,
+      );
+      if (f && f.offsetParent) {
+        f.focus();
+        f.select();
+      } else
+        say(
+          tr('Поле «Вірш» сховане: Налаштування вигляду → Застосунок → Поле «Вірш» біля розділів'),
+        );
+    },
+    qrToggle: () => (liveSlideRef.current.qr ? hideQr() : showQr()),
+    videoMute: () => {
+      const muted = videoShow.toggleMute();
+      say(
+        muted === null
+          ? tr('Звук YouTube вмикайте й вимикайте в його плеєрі')
+          : muted
+            ? tr('Відео без звуку')
+            : tr('Звук відео увімкнено'),
+      );
+    },
+    videoStop: () => videoShow.stopVideo(),
   };
 
   return (

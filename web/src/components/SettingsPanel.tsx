@@ -50,6 +50,7 @@ import {
   type StrongSubline,
   type SearchPlace,
   type VerseNumbers,
+  clampTextScale,
   type CrossRefsShown,
   type DisplayBack,
 } from '../settingsStore';
@@ -458,6 +459,23 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 description={tr('Тонка лінія між перекладами, коли на слайді їх кілька')}
                 checked={a.translationDivider}
                 onChange={(e) => set({ translationDivider: e.currentTarget.checked })}
+              />
+              {/* 1.24.0-beta.3 (the author): the text's share of what fits — Ctrl+«+» / «−» / 0 in the app */}
+              <NumberInput
+                size="xs"
+                label={tr('Розмір тексту')}
+                description={tr(
+                  '100% — найбільший, що вміщається. Менше — текст дрібніший, з полями довкола. У застосунку — Ctrl+«+», Ctrl+«−», Ctrl+0.',
+                )}
+                min={50}
+                max={100}
+                step={5}
+                suffix="%"
+                value={Math.round(a.textScale * 100)}
+                onChange={(v) =>
+                  typeof v === 'number' && set({ textScale: clampTextScale(v / 100) })
+                }
+                w={140}
               />
             </Section>
 

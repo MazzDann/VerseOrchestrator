@@ -70,6 +70,8 @@ export interface SlideStyle {
   redLetter: boolean; // colour the words of Jesus
   /** a thin line between the translations of a parallel slide (1.22.0-beta.4); absent = none */
   translationDivider?: boolean;
+  /** «Розмір тексту» (1.24.0-beta.3): the share of the fitted size, 0.5–1; absent — 1 */
+  textScale?: number;
   jesusColor: string;
   highlightColor: string; // emphasised (hot) word colour
   bold?: boolean; // bold body text (e.g. faithful pptx song slides)

@@ -564,6 +564,13 @@ export function useVideo({
     refit,
     videoRemoved,
     stopVideo,
+    /** Ctrl+M (1.24.0-beta.3): this window's sound of a file's video off / on; null — none sounding here */
+    toggleMute: (): boolean | null => {
+      const el = audio.current;
+      if (!el || !soundSrc) return null;
+      el.muted = !el.muted;
+      return el.muted;
+    },
     leadMove,
     isLeader,
     youtubeLengthOf,

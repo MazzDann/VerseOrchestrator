@@ -291,3 +291,13 @@ describe('«Історія» by day and «Збережені» (1.22.0-beta.3, F
     expect(cur().savedTexts).toHaveLength(0);
   });
 });
+
+describe('«Розмір тексту» (1.24.0-beta.3)', () => {
+  it('0.5–1 in steps of 0.05; anything else is 1', () => {
+    expect(store.clampTextScale(0.83)).toBe(0.85);
+    expect(store.clampTextScale(0.2)).toBe(0.5);
+    expect(store.clampTextScale(1.4)).toBe(1);
+    expect(store.clampTextScale('x')).toBe(1);
+    expect(store.DEFAULT_APPEARANCE.textScale).toBe(1);
+  });
+});

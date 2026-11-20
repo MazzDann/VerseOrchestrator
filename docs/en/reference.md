@@ -53,6 +53,17 @@ A few more keys a browser keeps for itself work in the separate app as in famili
 | The control window full screen                  | F11             |
 | Settings                                        | Ctrl+,          |
 | Open a file (as if dropped on the window)       | Ctrl+O          |
+| The cursor into the search field                | Ctrl+L (and /)  |
+| New **Text on screen**                          | Ctrl+N          |
+| **Stage** on a free screen                      | Ctrl+Shift+F5   |
+| Close the presentation windows                  | Ctrl+W          |
+| **The show goes to: all** (unpin the windows)   | Ctrl+E          |
+| The text on screen bigger / smaller / as usual  | Ctrl+“+” / Ctrl+“−” / Ctrl+0 |
+| Previous / next chapter                         | Ctrl+PageUp / Ctrl+PageDown |
+| Previous / next book                            | Ctrl+Shift+PageUp / Ctrl+Shift+PageDown |
+| The cursor into the **Verse** field             | Ctrl+G          |
+| The viewers' QR on screen and back              | Ctrl+Q          |
+| Video muted / stop the video                    | Ctrl+M / Ctrl+Shift+M |
 
 In a browser these actions have no keys, but you can give them some in **Hotkeys**. On macOS
 ⌥← and ⌥→ walk the preview, so back and forward have no key there.
