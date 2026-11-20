@@ -75,7 +75,8 @@ import { usePlaylist, type SeqItem } from '../playlistStore';
 import { ImagesPanel } from '../components/ImagesPanel';
 import { standbyNotice } from './control/standby';
 import { usePanelResize } from './control/usePanelResize';
-import { useAppSettingsOpener } from './control/useAppSettingsOpener';
+import { openSettingsAt, useAppSettingsOpener } from './control/useAppSettingsOpener';
+import { UpdateNotice } from '../components/UpdateNotice';
 import { useVerseListEffects } from './control/useVerseListEffects';
 import { useControlHotkeys } from './control/useControlHotkeys';
 import { useTimerSignals } from './control/useTimerSignals';
@@ -1500,6 +1501,11 @@ export function Control() {
               height: 'calc(100vh - var(--app-shell-header-height, 3.5rem))',
             }}
           >
+            {/* a new version, said once at the start (1.23.0-beta.5, F1114-03) */}
+            <UpdateNotice
+              enabled={isLeader}
+              openUpdates={() => openSettingsAt(setSettingsOpen, 'app', 'vo-update-section')}
+            />
             <HubBanners
               isLeader={isLeader}
               appOff={appOff}
