@@ -77,6 +77,8 @@ import { standbyNotice } from './control/standby';
 import { usePanelResize } from './control/usePanelResize';
 import { openSettingsAt, useAppSettingsOpener } from './control/useAppSettingsOpener';
 import { UpdateNotice } from '../components/UpdateNotice';
+import { usePlacesSlide } from './control/usePlacesSlide';
+import { splitPlaces } from '../lib/places';
 import { useVerseListEffects } from './control/useVerseListEffects';
 import { useControlHotkeys } from './control/useControlHotkeys';
 import { useTimerSignals } from './control/useTimerSignals';
@@ -882,7 +884,28 @@ export function Control() {
     stepText,
     pickToShow,
     liveSlideRef,
+  }); // several places on one slide (1.23.0-beta.7, F1114-07): no effects — the order above holds
+  const places = usePlacesSlide({
+    queryClient,
+    translations,
+    selectedIds,
+    appearance,
+    slideStyle,
+    slideTemplate,
+    liveFollow,
+    pushLive,
+    setPreviewOverride,
+    setLive,
+    leaderRef,
   });
+  /** the search's Enter: «Ів 3:16; Рим 5:8» goes on one slide, anything else as before */
+  const goToOrPlaces = (q: string, opts?: { show?: boolean }) => {
+    const parts = splitPlaces(q);
+    if (!parts) return goTo(q, opts);
+    clearSearch();
+    return places.showTyped(parts);
+  };
+
   // E17: a takeover restores its page and reveal step — after the steps' reset effects (E12,
   // E16), so it runs after them in the same commit and wins
   useAdoptRestore({
@@ -1383,7 +1406,7 @@ export function Control() {
             openSearch={openSearch}
             goToValue={goToValue}
             setGoToValue={setGoToValue}
-            goTo={goTo}
+            goTo={goToOrPlaces}
             clearSearch={clearSearch}
             searchFieldRef={searchFieldRef}
             searchKeysRef={searchKeysRef}
@@ -1521,7 +1544,7 @@ export function Control() {
                   fieldRef={searchFieldRef}
                   value={goToValue}
                   setValue={setGoToValue}
-                  goTo={goTo}
+                  goTo={goToOrPlaces}
                   clearSearch={clearSearch}
                   keysRef={searchKeysRef}
                   focusKey={keymap.searchFocus}
@@ -1551,7 +1574,7 @@ export function Control() {
               keysRef={searchKeysRef}
               translations={translations}
               dedupe={searchPrefs.dedupe}
-              onEnter={(q, opts) => void goTo(q, opts)}
+              onEnter={(q, opts) => void goToOrPlaces(q, opts)}
               onDone={clearSearch}
             />
             {/* the modes (1.8.12-beta.7): «Презентації» and «Медіа» take the centre, the Bible's chapter bar
@@ -1629,6 +1652,14 @@ export function Control() {
                 selectedVerses={selectedVerses}
                 pickHeld={pickHeld}
                 addCurrentPassage={addCurrentPassage}
+                gatheredCount={places.gathered.length}
+                gather={() =>
+                  bookNumber != null &&
+                  chapter != null &&
+                  places.gather({ bookNumber, chapter, verses: selectedVerses })
+                }
+                showGathered={() => void places.showGathered()}
+                clearGathered={places.clearGathered}
                 reference={reference}
                 chapters={chapters}
                 selectChapter={selectChapter}
