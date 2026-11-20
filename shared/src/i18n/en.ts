@@ -1290,6 +1290,8 @@ export const EN: Record<string, string> = {
   'Не показувати': 'Don’t show',
   'Перехресні посилання: {n}': 'Cross-references: {n}',
   'Відкрити {place}': 'Open {place}',
+  // the settings' sections on the left (1.24.0-beta.1, F1114-04)
+  'Розділи налаштувань': 'Settings sections',
   // «Наживо» from the keyboard (1.23.0-beta.2, F1114-12)
   'Наживо: увімкнути / вимкнути': 'Live: on / off',
   'Увімкнено — екран одразу повторює вибір; вимкнено — лише прев’ю до «На екран»':
