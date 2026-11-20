@@ -539,5 +539,9 @@ export function useMediaDrop({
     return null;
   };
 
-  return { dragging, zone };
+  // Ctrl+O in the desktop app (1.24.0-beta.2): files picked as if dropped on the window
+  const openFiles = (files: File[]) => {
+    if (files.length) void take(files.map((file) => ({ entry: null, file })));
+  };
+  return { dragging, zone, openFiles };
 }

@@ -42,6 +42,21 @@ presentations: **F5** opens the presentation window on the second screen, **Ctrl
 slide from the screen (as Esc does), and **To screen** is F2 (on macOS, ⌘↩) or Enter on a verse. In a
 browser everything is as in the table.
 
+A few more keys a browser keeps for itself work in the separate app as in familiar programs:
+
+| Action                                          | Key             |
+| ----------------------------------------------- | --------------- |
+| The cursor into **History** (↑ ↓ choose, Enter) | Ctrl+H          |
+| The chosen place into **Saved**                 | Ctrl+D          |
+| Back / forward through the places opened        | Alt+← / Alt+→   |
+| The key cheat sheet (as **?**)                  | F1              |
+| The control window full screen                  | F11             |
+| Settings                                        | Ctrl+,          |
+| Open a file (as if dropped on the window)       | Ctrl+O          |
+
+In a browser these actions have no keys, but you can give them some in **Hotkeys**. On macOS
+⌥← and ⌥→ walk the preview, so back and forward have no key there.
+
 A browser keeps Ctrl+1…4 and Ctrl+Tab for itself (they switch its tabs), so they work in the
 desktop app, and in a browser Alt+1…4 switch the modes: 1 — **Bible**, 2 — **Presentations**,
 3 — **Documents**, 4 — **Media**.

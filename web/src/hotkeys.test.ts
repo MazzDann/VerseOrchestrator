@@ -161,6 +161,40 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
     expect(sanitizeKeymap({ ...old, project: 'f9' }, false, true).project).toBe('f9');
   });
 
+  it('the keys a browser keeps are the desktop app’s, clashing with nothing (1.24.0-beta.2)', () => {
+    const ids = [
+      'historyFocus',
+      'bookmarkAdd',
+      'placeBack',
+      'placeForward',
+      'helpKeys',
+      'controlFullscreen',
+      'openSettings',
+      'openFile',
+    ] as const;
+    for (const mac of [false, true]) {
+      const app = defaultKeymap(mac, true);
+      for (const id of ids) expect(conflictsForAction(app, id), id).toEqual([]);
+      // a browser: none of them bound
+      for (const id of ids) expect(defaultKeymap(mac, false)[id], id).toBe('');
+    }
+    const win = defaultKeymap(false, true);
+    expect([win.historyFocus, win.bookmarkAdd, win.placeBack, win.placeForward]).toEqual([
+      'ctrl+h',
+      'ctrl+d',
+      'alt+left',
+      'alt+right',
+    ]);
+    expect([win.helpKeys, win.controlFullscreen, win.openSettings, win.openFile]).toEqual([
+      'f1',
+      'f11',
+      'ctrl+comma',
+      'ctrl+o',
+    ]);
+    // a Mac: ⌥← / ⌥→ are the preview's — back / forward have no key there
+    expect(defaultKeymap(true, true).placeBack).toBe('');
+  });
+
   it('«Наживо» on N everywhere, clashing with nothing (1.23.0-beta.2, F1114-12)', () => {
     for (const mac of [false, true]) {
       expect(defaultKeymap(mac).liveToggle).toBe('n');

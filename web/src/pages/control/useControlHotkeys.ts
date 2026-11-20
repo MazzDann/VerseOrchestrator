@@ -33,6 +33,7 @@ export function useControlHotkeys({
   coverToggle,
   countdownKey,
   toggleLive,
+  appKeys,
   restoreRef,
   playlistStepRef,
   pageCount,
@@ -69,6 +70,8 @@ export function useControlHotkeys({
   countdownKey: () => void;
   /** «Наживо» on / off, said (1.23.0-beta.2) */
   toggleLive: () => void;
+  /** the desktop app's own keys (1.24.0-beta.2) — read through a ref, so their deps stay put */
+  appKeys: MutableRefObject<AppKeys>;
   restoreRef: MutableRefObject<() => void>;
   /** the running order's next / previous item, said when there is none (1.8.12-beta.6) */
   playlistStepRef: MutableRefObject<(delta: 1 | -1) => void>;
@@ -273,6 +276,25 @@ export function useControlHotkeys({
     { preventDefault: true, enableOnFormTags: true, enabled: !!keymap.outputWindow },
     [keymap.outputWindow],
   );
+  // the keys a browser keeps — the desktop app's (1.24.0-beta.2); none bound in a browser
+  const appKey = (combo: string, run: (k: AppKeys) => void) =>
+    [
+      combo || 'f24+f23',
+      (e: KeyboardEvent) => {
+        if (e.repeat || inOverlay(e.target)) return;
+        run(appKeys.current);
+      },
+      { preventDefault: true, enableOnFormTags: true, enabled: !!combo },
+      [combo],
+    ] as const;
+  useHotkeys(...appKey(keymap.historyFocus, (k) => k.historyFocus()));
+  useHotkeys(...appKey(keymap.bookmarkAdd, (k) => k.bookmarkAdd()));
+  useHotkeys(...appKey(keymap.placeBack, (k) => k.placeStep(-1)));
+  useHotkeys(...appKey(keymap.placeForward, (k) => k.placeStep(1)));
+  useHotkeys(...appKey(keymap.helpKeys, (k) => k.helpKeys()));
+  useHotkeys(...appKey(keymap.controlFullscreen, () => toggleControlFullscreen()));
+  useHotkeys(...appKey(keymap.openSettings, (k) => k.openSettings()));
+  useHotkeys(...appKey(keymap.openFile, (k) => k.openFile()));
   useHotkeys(keymap.liveToggle, (e) => !e.repeat && !inOverlay(e.target) && toggleLive(), [
     keymap.liveToggle,
     toggleLive,
@@ -306,6 +328,22 @@ export function useControlHotkeys({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [keymap]);
+}
+
+/** The desktop app's own keys' actions (1.24.0-beta.2), from Control. */
+export interface AppKeys {
+  historyFocus: () => void;
+  bookmarkAdd: () => void;
+  placeStep: (d: 1 | -1) => void;
+  helpKeys: () => void;
+  openSettings: () => void;
+  openFile: () => void;
+}
+
+/** F11 (the desktop app): the control window full screen and back. */
+function toggleControlFullscreen(): void {
+  if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+  else void document.documentElement.requestFullscreen().catch(() => undefined);
 }
 
 const MODES: Workspace[] = ['bible', 'songs', 'docs', 'media'];
