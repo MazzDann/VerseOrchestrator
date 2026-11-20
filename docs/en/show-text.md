@@ -72,6 +72,17 @@ verses one by one (16, 17, 18, 20) and, after the last, on to the chapter's next
 For each added verse to appear on screen at once, turn off **Settings** → **Hotkeys** →
 **Several verses — to the screen after Enter**.
 
+### Show several places on one slide
+
+Places from different chapters or books can be shown together, each with its reference:
+
+- type them in the search with semicolons, for example `John 3:16; Rom 5:8`, and press Enter;
+- or choose the verses, click **Add to the slide** above them, go to another place and add it
+  the same way. Then click **Slide: 2 — show**. The cross next to it clears what you gathered.
+
+With **Live** off, such a slide waits in the preview until **To screen**. **Next** after it
+goes on with the verses in the list.
+
 ## Step through
 
 To show the next or the previous verse, press:

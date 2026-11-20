@@ -1267,6 +1267,20 @@ export const EN: Record<string, string> = {
   'Зараз у вас {version}.': 'You have {version} now.',
   Оновити: 'Update',
   Пізніше: 'Later',
+  // several places on one slide (1.23.0-beta.7, F1114-07)
+  'Додати до слайда: кілька місць на одному слайді':
+    'Add to the slide: several places on one slide',
+  'Додати до слайда': 'Add to the slide',
+  'Показати зібрані місця одним слайдом': 'Show the gathered places as one slide',
+  'Слайд: {n} — показати': 'Slide: {n} — show',
+  'Прибрати зібрані місця': 'Clear the gathered places',
+  'У прев’ю: {ref} — на екран кнопкою «На екран»': 'In the preview: {ref} — “To screen” shows it',
+  'Не всі місця знайдено: перевірте посилання через «;»':
+    'Not every place was found: check the references between “;”',
+  'Не всі місця є в позначених перекладах: позначте переклад угорі':
+    'Not every place is in the ticked translations: tick a translation at the top',
+  'Кілька місць на одному слайді: {list}. Натисніть Enter.':
+    'Several places on one slide: {list}. Press Enter.',
   // cross-references in the verse list (1.23.0-beta.6, F1114-15)
   'Перехресні посилання у списку віршів': 'Cross-references in the verse list',
   'Клацніть посилання, щоб перейти до того місця.': 'Click a reference to go to that place.',
