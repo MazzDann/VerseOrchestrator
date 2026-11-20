@@ -263,7 +263,7 @@ export function UpdateSection() {
     });
 
   return (
-    <div ref={freshRef}>
+    <div ref={freshRef} id="vo-update-section">
       <Text size="sm" fw={500} mb={2}>
         {tr('Оновлення')}
       </Text>

@@ -89,6 +89,8 @@ import { formatCombo } from '../hotkeys';
 import { stageLook, type StageLayout, type StageTextSize, type StageTheme } from '../lib/stage';
 
 const SECTIONS_KEY = 'vo:settingsSections';
+/** «Відкрийте цей розділ» from outside the panel (lib: openSettingsAt) — the event's detail is the section */
+export const OPEN_SECTION_EVENT = 'vo:open-settings-section';
 
 /** Appearance controls for the projected screen. Persisted via the settings store. */
 export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
@@ -176,6 +178,15 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
       /* storage unavailable — keep in memory */
     }
   };
+  // a section asked for while the panel is already open (openSettingsAt, 1.23.0-beta.5): unfold it
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const section = (e as CustomEvent<string>).detail;
+      setOpenSectionsState((cur) => (cur.includes(section) ? cur : [...cur, section]));
+    };
+    window.addEventListener(OPEN_SECTION_EVENT, onAsk);
+    return () => window.removeEventListener(OPEN_SECTION_EVENT, onAsk);
+  }, []);
 
   // A picked image (1.4.1): one the browser can't read — an iPhone's HEIC in Chrome, a renamed
   // file — says so (it was dropped without a word); one the settings can't store is taken back

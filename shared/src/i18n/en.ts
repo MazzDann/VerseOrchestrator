@@ -1262,6 +1262,11 @@ export const EN: Record<string, string> = {
   'також:': 'also:',
   // the remote's «Пошук» (1.23.0-beta.6, F1114-02)
   'Пошук: «рим 15 4» чи слова…': 'Search: “rom 15 4” or words…',
+  // a new version said at the start (1.23.0-beta.5, F1114-03)
+  'Є нова версія {version}': 'Version {version} is out',
+  'Зараз у вас {version}.': 'You have {version} now.',
+  Оновити: 'Update',
+  Пізніше: 'Later',
   // «Наживо» from the keyboard (1.23.0-beta.2, F1114-12)
   'Наживо: увімкнути / вимкнути': 'Live: on / off',
   'Увімкнено — екран одразу повторює вибір; вимкнено — лише прев’ю до «На екран»':

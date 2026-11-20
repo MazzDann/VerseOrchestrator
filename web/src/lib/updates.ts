@@ -26,6 +26,17 @@ export function useUpdateState(): UpdateState | undefined {
 const BUSY = new Set(['download', 'verify', 'unpack']);
 
 /**
+ * The version a notice at the start offers (1.23.0-beta.5, F1114-03), or null: a copy from a release
+ * whose server has looked (`checkedAt`) and found a newer version of its channel, not a version chosen
+ * on purpose (`pinned`), not said already in this window (`seen`).
+ */
+export function versionToNotice(state: UpdateState, seen: string | null): string | null {
+  if (state.checkedAt == null || !state.available || state.pinned) return null;
+  if (state.install !== 'release' || !state.latest) return null;
+  return state.latest.version === seen ? null : state.latest.version;
+}
+
+/**
  * «Оновлення» in sight (1.12.3): the server asks GitHub again when its answer is older than ten
  * minutes — a release out this morning shows now, not at the next look (users' report F1010-01b:
  * «У вас остання версія», checked hours before a fix came out). The ref goes on the section.

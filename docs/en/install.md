@@ -269,6 +269,10 @@ Versions 0.x are previews: while you have a 0.x version, the app offers previews
 
 ### Update the app from the archive
 
+When a new version is out, the app says so as soon as you start it: “Version … is out” with an
+**Update** button. It starts the download and opens **Updates**, where you can see how it goes.
+**Later** closes the notice until the next start.
+
 To update an app installed from the archive:
 
 1. In **Settings** → **App** → **Updates**, click **Download the update**. The app downloads

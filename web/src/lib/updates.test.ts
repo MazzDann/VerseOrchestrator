@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { compareVersions } from './updates';
+import { compareVersions, versionToNotice } from './updates';
+import type { UpdateState } from '../api';
 
 // the same order as server/src/updates.ts compareVersions (its tests: «reads and orders betas»)
 describe('versions in the page (1.8.11)', () => {
@@ -51,5 +52,31 @@ describe('«Заставка» items and a step down (1.10.0-beta.2)', () => {
     const cover = { kind: 'cover', id: 'c', label: 'c' } as never;
     expect(kindsBreaking('1.9.0', [[cover]])).toEqual(['cover']);
     expect(kindsBreaking('1.9.10', [[cover]])).toEqual([]);
+  });
+});
+
+describe('a new version said at the start (1.23.0-beta.5, F1114-03)', () => {
+  const st = (over: Partial<UpdateState> = {}): UpdateState =>
+    ({
+      current: '1.22.1',
+      channel: 'stable',
+      install: 'release',
+      enabled: true,
+      checkedAt: 1,
+      latest: { version: '1.23.0', url: '', publishedAt: '', prerelease: false, asset: null },
+      available: true,
+      error: null,
+      ...over,
+    }) as UpdateState;
+  it('offers the newer version of a release copy once its server has looked', () => {
+    expect(versionToNotice(st(), null)).toBe('1.23.0');
+    expect(versionToNotice(st({ checkedAt: null }), null)).toBeNull(); // not looked yet: wait
+    expect(versionToNotice(st({ available: false }), null)).toBeNull();
+  });
+  it('not a version chosen on purpose, a copy of the repository, or one said already', () => {
+    expect(versionToNotice(st({ pinned: true }), null)).toBeNull();
+    expect(versionToNotice(st({ install: 'source' }), null)).toBeNull();
+    expect(versionToNotice(st(), '1.23.0')).toBeNull();
+    expect(versionToNotice(st(), '1.22.9')).toBe('1.23.0'); // a newer one than the one said
   });
 });
