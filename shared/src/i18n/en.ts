@@ -1316,6 +1316,53 @@ export const EN: Record<string, string> = {
   'У «Збереженому»: {ref}': 'In “Saved”: {ref}',
   'Далі назад місць немає': 'No more places back',
   'Далі вперед місць немає': 'No more places forward',
+  // more keys (1.24.0-beta.3)
+  'Новий «Текст на екран»': 'New “Text on screen”',
+  'Курсор у поле «Текст на екран»': 'The cursor into the “Text on screen” field',
+  'Вікно «Сцена»': 'The “Stage” window',
+  'Відкрити «Сцену» на вільному екрані': 'Open “Stage” on a free screen',
+  'Закрити вікна показу': 'Close the presentation windows',
+  'Закрити всі вікна «Показ»': 'Close every “Presentation” window',
+  'Показ іде на: усі': 'The show goes to: all',
+  'Відкріпити всі вікна показу — вони знову йдуть за показом':
+    'Unpin every presentation window — they follow the show again',
+  'Текст більший': 'Bigger text',
+  'Текст на екрані більший — до найбільшого, що вміщається':
+    'The text on screen bigger — up to the largest that fits',
+  'Текст менший': 'Smaller text',
+  'Текст на екрані менший': 'The text on screen smaller',
+  'Текст звичайний': 'Text as usual',
+  'Текст на екрані знову найбільший, що вміщається':
+    'The text on screen the largest that fits again',
+  'Попередній розділ': 'Previous chapter',
+  'Відкрити попередній розділ книги': 'Open the book’s previous chapter',
+  'Наступний розділ': 'Next chapter',
+  'Відкрити наступний розділ книги': 'Open the book’s next chapter',
+  'Попередня книга': 'Previous book',
+  'Відкрити попередню книгу': 'Open the previous book',
+  'Наступна книга': 'Next book',
+  'Відкрити наступну книгу': 'Open the next book',
+  'До поля «Вірш»': 'To the “Verse” field',
+  'Курсор у поле «Вірш» біля розділів': 'The cursor into the “Verse” field by the chapters',
+  'QR на екран і назад': 'The QR on screen and back',
+  'Відео: без звуку': 'Video: no sound',
+  'Вимкнути й увімкнути звук відео з файлу': 'Turn a file video’s sound off and on',
+  'Вікон показу не відкрито': 'No presentation windows are open',
+  'Показ іде на всі вікна': 'The show goes to every window',
+  'Закріплених вікон немає': 'No pinned windows',
+  'Розмір тексту: {n}%': 'Text size: {n}%',
+  'Це останній розділ': 'This is the last chapter',
+  'Це перший розділ': 'This is the first chapter',
+  'Це остання книга': 'This is the last book',
+  'Це перша книга': 'This is the first book',
+  'Поле «Вірш» сховане: Налаштування вигляду → Застосунок → Поле «Вірш» біля розділів':
+    'The “Verse” field is hidden: Settings → App → The “Verse” field by the chapters',
+  'Звук YouTube вмикайте й вимикайте в його плеєрі':
+    'Turn YouTube’s sound on and off in its player',
+  'Відео без звуку': 'Video muted',
+  'Звук відео увімкнено': 'Video sound on',
+  '100% — найбільший, що вміщається. Менше — текст дрібніший, з полями довкола. У застосунку — Ctrl+«+», Ctrl+«−», Ctrl+0.':
+    '100% — the largest that fits. Less — smaller text with room around it. In the app — Ctrl+“+”, Ctrl+“−”, Ctrl+0.',
   // a 2nd screen plugged back in (1.24.0-beta.2)
   'Коли другий екран під’єднано знову': 'When the second screen is plugged back in',
   'Вікно показу, яке перейшло на перший екран, повертається на другий на весь екран. Що на ньому показати:':

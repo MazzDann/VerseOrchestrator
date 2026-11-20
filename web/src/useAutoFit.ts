@@ -23,6 +23,8 @@ export function useAutoFit(
    * the shown lines shrink with the added verse coming in instead of jumping.
    */
   settleMs?: number | null,
+  /** «Розмір тексту» (1.24.0-beta.3): the share of the largest size that fits, 0.5–1 */
+  scale = 1,
 ) {
   const containerEl = useRef<HTMLDivElement | null>(null);
   const contentEl = useRef<HTMLElement | null>(null);
@@ -79,6 +81,8 @@ export function useAutoFit(
         hi = mid - 1;
       }
     }
+    // a smaller text by the operator's choice: the fitted size times it, never under the minimum
+    if (scale > 0 && scale < 1) best = Math.max(min, Math.round(best * scale));
     content.style.fontSize = `${best}px`;
     const ms = left ?? (armed.current ? settle.current : null);
     armed.current = false;
@@ -96,7 +100,7 @@ export function useAutoFit(
         () => undefined,
       );
     }
-  }, [min, max, maxCqh]);
+  }, [min, max, maxCqh, scale]);
 
   // Fit next frame (refs attached) AND again shortly after, because on initial mount
   // the box can be measured before its final size settles (percentage heights under

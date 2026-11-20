@@ -177,6 +177,9 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
       for (const id of ids) expect(conflictsForAction(app, id), id).toEqual([]);
       // a browser: none of them bound
       for (const id of ids) expect(defaultKeymap(mac, false)[id], id).toBe('');
+      // the search field: «/» everywhere, Ctrl+L too in the app
+      expect(app.searchFocus).toBe('slash,ctrl+l');
+      expect(conflictsForAction(app, 'searchFocus')).toEqual([]);
     }
     const win = defaultKeymap(false, true);
     expect([win.historyFocus, win.bookmarkAdd, win.placeBack, win.placeForward]).toEqual([

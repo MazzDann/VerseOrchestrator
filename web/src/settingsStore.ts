@@ -60,6 +60,11 @@ export interface Appearance {
    * «між новим і старим … рисочку»): a thin line between the translations of a parallel slide
    */
   translationDivider: boolean;
+  /**
+   * «Розмір тексту» (1.24.0-beta.3, the author: Ctrl+«+» / Ctrl+«−» / Ctrl+0 during a show): the
+   * share of the fitted size the text takes, 0.5–1 (1 — as large as fits, as before)
+   */
+  textScale: number;
   jesusColor: string;
   highlightColor: string; // emphasised (hot) word colour, e.g. the projected Strong word
   /** Split a long selection into pages of this many verses (0 = all on one slide). */
@@ -376,6 +381,13 @@ export function clampLayout(raw: unknown): PanelLayout {
  * main translation — with none there, the others — or all the selected ones), one row per place
  * found in several translations, and the cursor in the field when the window comes back.
  */
+/** «Розмір тексту» (1.24.0-beta.3): 0.5–1 in steps of 0.05; anything else is 1. */
+export const TEXT_SCALE_MIN = 0.5;
+export function clampTextScale(v: unknown): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return 1;
+  return Math.round(Math.min(1, Math.max(TEXT_SCALE_MIN, v)) * 20) / 20;
+}
+
 /** A 2nd screen plugged back in, in the desktop app (1.24.0-beta.2). */
 export type DisplayBack = 'return' | 'black' | 'clear';
 export const asDisplayBack = (v: unknown): DisplayBack =>
@@ -590,6 +602,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   strongSubline: 'lemma',
   redLetter: true,
   translationDivider: false,
+  textScale: 1,
   jesusColor: '#ff6b6b',
   highlightColor: '#ffd43b',
   versesPerSlide: 0,
@@ -744,6 +757,7 @@ function sanitizeAppearance(ap: Record<string, unknown>): Appearance {
       : DEFAULT_APPEARANCE.strongSubline,
     redLetter: !!m.redLetter,
     translationDivider: m.translationDivider === true,
+    textScale: clampTextScale(m.textScale),
     jesusColor: strOr(m.jesusColor, DEFAULT_APPEARANCE.jesusColor),
     highlightColor: strOr(m.highlightColor, DEFAULT_APPEARANCE.highlightColor),
     versesPerSlide: Math.max(0, Math.trunc(numOr(m.versesPerSlide, 0))),

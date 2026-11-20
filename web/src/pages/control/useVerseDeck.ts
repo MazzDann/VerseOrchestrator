@@ -257,6 +257,7 @@ export function useVerseDeck({
       padUnit: appearance.padUnit,
       redLetter: appearance.redLetter,
       ...(appearance.translationDivider ? { translationDivider: true } : {}),
+      ...(appearance.textScale < 1 ? { textScale: appearance.textScale } : {}),
       jesusColor: appearance.jesusColor,
       highlightColor: appearance.highlightColor,
       transition: appearance.transition,

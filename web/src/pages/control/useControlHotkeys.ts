@@ -277,24 +277,41 @@ export function useControlHotkeys({
     [keymap.outputWindow],
   );
   // the keys a browser keeps — the desktop app's (1.24.0-beta.2); none bound in a browser
-  const appKey = (combo: string, run: (k: AppKeys) => void) =>
+  // in a text field only the F-keys act: a field keeps its own Ctrl chords (a Mac's Ctrl+E / N are
+  // the caret's — review)
+  const appKey = (combo: string, run: (k: AppKeys) => void, inFields = false) =>
     [
       combo || 'f24+f23',
       (e: KeyboardEvent) => {
         if (e.repeat || inOverlay(e.target)) return;
         run(appKeys.current);
       },
-      { preventDefault: true, enableOnFormTags: true, enabled: !!combo },
+      { preventDefault: true, enableOnFormTags: inFields, enabled: !!combo },
       [combo],
     ] as const;
   useHotkeys(...appKey(keymap.historyFocus, (k) => k.historyFocus()));
   useHotkeys(...appKey(keymap.bookmarkAdd, (k) => k.bookmarkAdd()));
   useHotkeys(...appKey(keymap.placeBack, (k) => k.placeStep(-1)));
   useHotkeys(...appKey(keymap.placeForward, (k) => k.placeStep(1)));
-  useHotkeys(...appKey(keymap.helpKeys, (k) => k.helpKeys()));
-  useHotkeys(...appKey(keymap.controlFullscreen, () => toggleControlFullscreen()));
+  useHotkeys(...appKey(keymap.helpKeys, (k) => k.helpKeys(), true));
+  useHotkeys(...appKey(keymap.controlFullscreen, () => toggleControlFullscreen(), true));
   useHotkeys(...appKey(keymap.openSettings, (k) => k.openSettings()));
   useHotkeys(...appKey(keymap.openFile, (k) => k.openFile()));
+  useHotkeys(...appKey(keymap.newText, (k) => k.newText()));
+  useHotkeys(...appKey(keymap.stageWindow, (k) => k.stageWindow(), true));
+  useHotkeys(...appKey(keymap.closeOutputs, (k) => k.closeOutputs()));
+  useHotkeys(...appKey(keymap.unpinAll, (k) => k.unpinAll()));
+  useHotkeys(...appKey(keymap.textBigger, (k) => k.textSize(1)));
+  useHotkeys(...appKey(keymap.textSmaller, (k) => k.textSize(-1)));
+  useHotkeys(...appKey(keymap.textReset, (k) => k.textSize(0)));
+  useHotkeys(...appKey(keymap.chapterPrev, (k) => k.chapterStep(-1)));
+  useHotkeys(...appKey(keymap.chapterNext, (k) => k.chapterStep(1)));
+  useHotkeys(...appKey(keymap.bookPrev, (k) => k.bookStep(-1)));
+  useHotkeys(...appKey(keymap.bookNext, (k) => k.bookStep(1)));
+  useHotkeys(...appKey(keymap.verseField, (k) => k.verseField()));
+  useHotkeys(...appKey(keymap.qrToggle, (k) => k.qrToggle()));
+  useHotkeys(...appKey(keymap.videoMute, (k) => k.videoMute()));
+  useHotkeys(...appKey(keymap.videoStop, (k) => k.videoStop()));
   useHotkeys(keymap.liveToggle, (e) => !e.repeat && !inOverlay(e.target) && toggleLive(), [
     keymap.liveToggle,
     toggleLive,
@@ -338,7 +355,23 @@ export interface AppKeys {
   helpKeys: () => void;
   openSettings: () => void;
   openFile: () => void;
+  // 1.24.0-beta.3
+  newText: () => void;
+  stageWindow: () => void;
+  closeOutputs: () => void;
+  unpinAll: () => void;
+  /** 1 bigger, -1 smaller, 0 back to the largest that fits */
+  textSize: (d: 1 | -1 | 0) => void;
+  chapterStep: (d: 1 | -1) => void;
+  bookStep: (d: 1 | -1) => void;
+  verseField: () => void;
+  qrToggle: () => void;
+  videoMute: () => void;
+  videoStop: () => void;
 }
+
+/** Nothing yet: Control fills its keys' actions further down its render (1.24.0-beta.2). */
+export const NO_APP_KEYS = new Proxy({} as AppKeys, { get: () => () => undefined });
 
 /** F11 (the desktop app): the control window full screen and back. */
 function toggleControlFullscreen(): void {

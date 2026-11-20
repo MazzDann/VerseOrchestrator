@@ -63,7 +63,22 @@ export type HotkeyActionId =
   | 'helpKeys'
   | 'controlFullscreen'
   | 'openSettings'
-  | 'openFile';
+  | 'openFile'
+  | 'newText'
+  | 'stageWindow'
+  | 'closeOutputs'
+  | 'unpinAll'
+  | 'textBigger'
+  | 'textSmaller'
+  | 'textReset'
+  | 'chapterPrev'
+  | 'chapterNext'
+  | 'bookPrev'
+  | 'bookNext'
+  | 'verseField'
+  | 'qrToggle'
+  | 'videoMute'
+  | 'videoStop';
 
 export interface HotkeyActionDef {
   id: HotkeyActionId;
@@ -225,6 +240,8 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     label: N_('До поля пошуку'),
     hint: N_('Курсор у полі пошуку вгорі — клавіша, якої браузер не забирає'),
     default: 'slash',
+    // and Ctrl+L, as a browser's address bar (1.24.0-beta.3, the desktop app)
+    desktopInstead: 'slash,ctrl+l',
   },
   {
     id: 'palette',
@@ -314,6 +331,57 @@ HOTKEY_ACTIONS.push(
         N_('Презентація, документ, картинка чи відео з диска — як перетягнуті у вікно'),
         'ctrl+o',
       ],
+      // 1.24.0-beta.3 (the author's picks)
+      ['newText', N_('Новий «Текст на екран»'), N_('Курсор у поле «Текст на екран»'), 'ctrl+n'],
+      [
+        'stageWindow',
+        N_('Вікно «Сцена»'),
+        N_('Відкрити «Сцену» на вільному екрані'),
+        'ctrl+shift+f5',
+      ],
+      ['closeOutputs', N_('Закрити вікна показу'), N_('Закрити всі вікна «Показ»'), 'ctrl+w'],
+      [
+        'unpinAll',
+        N_('Показ іде на: усі'),
+        N_('Відкріпити всі вікна показу — вони знову йдуть за показом'),
+        'ctrl+e',
+      ],
+      [
+        'textBigger',
+        N_('Текст більший'),
+        N_('Текст на екрані більший — до найбільшого, що вміщається'),
+        'ctrl+equal,ctrl+add',
+      ],
+      ['textSmaller', N_('Текст менший'), N_('Текст на екрані менший'), 'ctrl+minus,ctrl+subtract'],
+      [
+        'textReset',
+        N_('Текст звичайний'),
+        N_('Текст на екрані знову найбільший, що вміщається'),
+        'ctrl+0',
+      ],
+      [
+        'chapterPrev',
+        N_('Попередній розділ'),
+        N_('Відкрити попередній розділ книги'),
+        'ctrl+pageup',
+      ],
+      [
+        'chapterNext',
+        N_('Наступний розділ'),
+        N_('Відкрити наступний розділ книги'),
+        'ctrl+pagedown',
+      ],
+      ['bookPrev', N_('Попередня книга'), N_('Відкрити попередню книгу'), 'ctrl+shift+pageup'],
+      ['bookNext', N_('Наступна книга'), N_('Відкрити наступну книгу'), 'ctrl+shift+pagedown'],
+      ['verseField', N_('До поля «Вірш»'), N_('Курсор у поле «Вірш» біля розділів'), 'ctrl+g'],
+      ['qrToggle', N_('QR для глядачів'), N_('QR на екран і назад'), 'ctrl+q'],
+      [
+        'videoMute',
+        N_('Відео: без звуку'),
+        N_('Вимкнути й увімкнути звук відео з файлу'),
+        'ctrl+m',
+      ],
+      ['videoStop', N_('Зупинити відео'), N_('Прибрати відео з екрана'), 'ctrl+shift+m'],
     ] as const
   ).map(
     ([id, label, hint, desktop, macDesktop]): HotkeyActionDef => ({

@@ -744,13 +744,16 @@ function DrawnSlide({
     transition,
     plainText,
   );
+  // «Розмір тексту» (1.24.0-beta.3): the operator's share of the fitted size; never on «Заставка»
+  const textScale = slide.cover ? 1 : (style.textScale ?? 1);
   const { containerRef, contentRef, refit } = useAutoFit(
-    [slideKey, style.font, style.align],
+    [slideKey, style.font, style.align, textScale],
     6,
     240,
     maxCqh,
     // the font settles along with the added verse instead of jumping (the user: «не переспавн»)
     grown ? growTiming(transition) : null,
+    textScale,
   );
   // A picture is drawn in the layout of the last text slide: the text layer leaving for it keeps
   // its place and fades out — a layout switch unmounted it at once (review of #46: a faithful
