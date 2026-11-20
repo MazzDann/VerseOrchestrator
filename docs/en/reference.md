@@ -37,6 +37,11 @@ These are the control window's standard keys. You can change them in **Settings*
 
 On macOS the F keys work together with Fn, so there are ⌘ keys by default as well.
 
+In the separate app F5 and Ctrl+F5 reload nothing, so there they differ by default, as in
+presentations: **F5** opens the presentation window on the second screen, **Ctrl+F5** clears the
+slide from the screen (as Esc does), and **To screen** is F2 (on macOS, ⌘↩) or Enter on a verse. In a
+browser everything is as in the table.
+
 A browser keeps Ctrl+1…4 and Ctrl+Tab for itself (they switch its tabs), so they work in the
 desktop app, and in a browser Alt+1…4 switch the modes: 1 — **Bible**, 2 — **Presentations**,
 3 — **Documents**, 4 — **Media**.

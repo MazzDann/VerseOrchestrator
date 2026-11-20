@@ -141,6 +141,26 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
     expect(matchesCombo(evt('д', 'KeyL'), 'l')).toBe(true); // «д» on a Ukrainian layout
   });
 
+  it('the desktop app: F5 starts the show (the output window), Ctrl+F5 empties the screen (1.24.0-beta.2)', () => {
+    for (const mac of [false, true]) {
+      const app = defaultKeymap(mac, true);
+      expect(app.outputWindow).toBe('f5');
+      expect(app.clear).toBe('escape,ctrl+f5');
+      expect(app.project).toBe(mac ? 'f2,meta+enter' : 'f2');
+      for (const id of ['outputWindow', 'clear', 'project'] as const)
+        expect(conflictsForAction(app, id)).toEqual([]);
+      // a browser as before: F5 is «На екран», no key for the output window
+      expect(defaultKeymap(mac, false).project).toBe(mac ? 'f5,f2,meta+enter' : 'f5,f2');
+      expect(defaultKeymap(mac, false).outputWindow).toBe('');
+    }
+    // a keymap saved in the app before (F5 on «На екран», no output window key) takes the new ones
+    const old = defaultKeymap(false, false);
+    const now = sanitizeKeymap(old, false, true);
+    expect([now.project, now.outputWindow, now.clear]).toEqual(['f2', 'f5', 'escape,ctrl+f5']);
+    // …a key the operator chose stays
+    expect(sanitizeKeymap({ ...old, project: 'f9' }, false, true).project).toBe('f9');
+  });
+
   it('«Наживо» on N everywhere, clashing with nothing (1.23.0-beta.2, F1114-12)', () => {
     for (const mac of [false, true]) {
       expect(defaultKeymap(mac).liveToggle).toBe('n');
