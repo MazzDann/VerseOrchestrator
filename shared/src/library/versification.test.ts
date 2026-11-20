@@ -13,6 +13,23 @@ import {
 const prof = (...counts: number[]): Profile => counts.map((n, i) => [i + 1, n] as const);
 
 describe('versification alignment (1.8.12-beta.5)', () => {
+  it('Song 1: its title counted as verse 1 in one translation is a superscription (F1114-06)', () => {
+    // RST Song 1 has 16 verses (1:1 the title), Огієнко 17 — no: one counts the title, one doesn't
+    const a = prof(16, 17, 11, 16, 16, 12, 13, 14); // the title as 1:1
+    const b = prof(15, 17, 11, 16, 16, 12, 13, 14); // no title verse
+    const map = versificationMap(a, b, 260);
+    expect(map(1, 1)).toEqual([1, 2]); // b's first verse is a's second
+    expect(map(1, 15)).toEqual([1, 16]);
+    expect(map(2, 3)).toEqual([2, 3]); // the next chapters as they are
+    // the other way: the title goes with the first verse
+    const back = versificationMap(b, a, 260);
+    expect(back(1, 1)).toEqual([1, 1]);
+    expect(back(1, 2)).toEqual([1, 1]);
+    expect(back(1, 16)).toEqual([1, 15]);
+    // elsewhere an extra verse is at the end, as before
+    expect(versificationMap(a, b, 250)(1, 1)).toEqual([1, 1]);
+  });
+
   it('the same numbering maps every place to itself', () => {
     const a = prof(31, 25, 24);
     expect(isIdentity(a, a, alignChapters(a, a))).toBe(true);

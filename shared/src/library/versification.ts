@@ -36,6 +36,15 @@ const MERGE = 2;
 const GAP = 1;
 /** The Psalms (canonical book number): their extra verses are superscriptions, at the start. */
 export const PSALMS = 230;
+/**
+ * The Song of Songs: its first chapter's title («Пісня над піснями, Соломонова») is verse 1 in some
+ * translations and no verse in others — a superscription, as in the Psalms (1.23.0, the users'
+ * F1114-06 survey: Song 1 read one verse off between UKRK and Огієнко, RST and the Tanakh).
+ */
+const SONG = 260;
+/** Where a chapter's extra verses are a superscription at its start, not verses at its end. */
+const superscribed = (book: number, chapter: number) =>
+  book === PSALMS || (book === SONG && chapter === 1);
 /** How many chapter steps a run may take to balance a verse moved across chapter edges. */
 const RUN_STEPS = 3;
 /**
@@ -163,10 +172,10 @@ export function versificationMap(
   }
   const runOf = new Map<number, (typeof runs)[number]>();
   for (const r of runs) for (const c of r.b) runOf.set(c, r);
-  const atStart = book === PSALMS;
   return (chapter, verse) => {
     const r = runOf.get(chapter);
     if (!r || r.a.length === 0) return null;
+    const atStart = superscribed(book, r.b[0]);
     // the place in the run's text, counted over its chapters in order
     let pos = verse;
     for (const c of r.b) {
