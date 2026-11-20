@@ -1260,6 +1260,8 @@ export const EN: Record<string, string> = {
     'Open in the {abbr} translation (Ctrl+Enter — and on screen)',
   'Відкрити в перекладі {abbr}': 'Open in the {abbr} translation',
   'також:': 'also:',
+  // the remote's «Пошук» (1.23.0-beta.6, F1114-02)
+  'Пошук: «рим 15 4» чи слова…': 'Search: “rom 15 4” or words…',
   // «Наживо» from the keyboard (1.23.0-beta.2, F1114-12)
   'Наживо: увімкнути / вимкнути': 'Live: on / off',
   'Увімкнено — екран одразу повторює вибір; вимкнено — лише прев’ю до «На екран»':

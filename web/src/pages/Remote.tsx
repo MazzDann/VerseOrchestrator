@@ -190,6 +190,8 @@ export function Remote() {
     remember(CURSOR_KEY, t);
   };
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** «Пошук» (1.23.0-beta.6, F1114-02): the picker opened on its search field, the keyboard in it */
+  const [pickerSearch, setPickerSearch] = useState(false);
   /** The operator's running order (0.6.9) — when this remote may see it. */
   const [playlist, setPlaylist] = useState<SharedPlaylist | null>(null);
   const [listOpen, setListOpen] = useState(false);
@@ -751,7 +753,8 @@ export function Remote() {
 
             {pickerOpen && (
               <RemotePicker
-                start={cursor ?? screenTarget(screen)}
+                start={pickerSearch ? null : (cursor ?? screenTarget(screen))}
+                search={pickerSearch}
                 translationIds={
                   passage?.translationIds ??
                   recall<number[]>(TRANSLATIONS_KEY) ??
@@ -925,7 +928,10 @@ export function Remote() {
                     type="button"
                     className="vo-remote-btn"
                     disabled={!ready}
-                    onClick={() => setPickerOpen(true)}
+                    onClick={() => {
+                      setPickerSearch(false);
+                      setPickerOpen(true);
+                    }}
                   >
                     {tr('Вибрати…')}
                   </button>
@@ -947,7 +953,10 @@ export function Remote() {
                 type="button"
                 className="vo-remote-btn"
                 disabled={!ready}
-                onClick={() => setPickerOpen(true)}
+                onClick={() => {
+                  setPickerSearch(false);
+                  setPickerOpen(true);
+                }}
               >
                 {canDocs
                   ? canVerses && canSongs
@@ -962,6 +971,21 @@ export function Remote() {
                     : canSongs
                       ? tr('Вибрати презентацію…')
                       : tr('Вибрати вірш…')}
+              </button>
+            )}
+            {/* «Пошук» (F1114-02: «у пульт додати пошук … як от рим 15 4»): the field was there, two
+                «назад» deep — now one tap away, an address or words */}
+            {canPick && canVerses && (
+              <button
+                type="button"
+                className="vo-remote-btn"
+                disabled={!ready}
+                onClick={() => {
+                  setPickerSearch(true);
+                  setPickerOpen(true);
+                }}
+              >
+                {tr('Пошук: «рим 15 4» чи слова…')}
               </button>
             )}
 
