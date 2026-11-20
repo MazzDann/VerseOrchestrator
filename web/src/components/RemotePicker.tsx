@@ -36,6 +36,7 @@ export function RemotePicker({
   songs: songsAllowed,
   documents: docsAllowed,
   token,
+  search = false,
   onPick,
   onQueue,
   onClose,
@@ -50,6 +51,8 @@ export function RemotePicker({
   /** «Документи» (1.18.0-beta.7): read with the phone's token — the server checks the permission */
   documents: boolean;
   token: string;
+  /** open on the search field, the keyboard in it (1.23.0-beta.6, F1114-02) */
+  search?: boolean;
   onPick: (t: RemoteTarget, show: boolean) => void;
   /** «+ У послідовність» (0.6.9): absent when this remote may not add to the running order */
   onQueue?: (t: RemoteTarget) => void;
@@ -72,6 +75,9 @@ export function RemotePicker({
     if (docsAllowed && (startDoc || (!versesAllowed && !songsAllowed)))
       return startDoc ? 'units' : 'docs';
     if (songsAllowed && (startSong || !versesAllowed)) return startSong ? 'stanzas' : 'songs';
+    // «Пошук»: the field first — it searches every translation while none is chosen yet, and a
+    // hit opened leads with its own (openHit)
+    if (search && versesAllowed) return 'books';
     if (ids.length === 0) return 'translations';
     return startPassage ? 'verses' : 'books';
   });
@@ -365,6 +371,9 @@ export function RemotePicker({
             }
           }}
           enterKeyHint={step === 'books' ? 'search' : undefined}
+          // opened by «Пошук»: the phone's keyboard comes up at once
+          // eslint-disable-next-line jsx-a11y/no-autofocus
+          autoFocus={search && step === 'books'}
         />
       )}
 

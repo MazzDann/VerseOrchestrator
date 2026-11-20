@@ -114,9 +114,10 @@ with one chapter, such as 3 John, needs no chapter choice: its verses open at on
 **To screen** permission they can tap **To screen** straight away, and with the
 **Running order** permission, **+ To the running order**.
 
-A verse can also be found by search, as in the control window. In the field above the books
-(**Book, reference, or words…**), type a reference such as `John 3:16`, or words from the
-text. The books that match stay at the top, and **Verses** appear below them: first from the
+A verse can also be found by search, as in the control window. Tap **Search** on the
+remote's main screen — the field opens with the keyboard — or use the field above the books
+(**Book, reference, or words…**). Type a reference such as `John 3:16` or `rom 15 4`, or
+words from the text. The books that match stay at the top, and **Verses** appear below them: first from the
 remote's translations, and when there is nothing there — from all of them (then “Nothing in
 the remote’s translations — found in others” stands above them). The same verse from
 different translations is one row. Tap a row and the chapter opens at that verse. The Enter key

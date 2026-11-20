@@ -1260,6 +1260,8 @@ export const EN: Record<string, string> = {
     'Open in the {abbr} translation (Ctrl+Enter — and on screen)',
   'Відкрити в перекладі {abbr}': 'Open in the {abbr} translation',
   'також:': 'also:',
+  // the remote's «Пошук» (1.23.0-beta.6, F1114-02)
+  'Пошук: «рим 15 4» чи слова…': 'Search: “rom 15 4” or words…',
   // a new version said at the start (1.23.0-beta.5, F1114-03)
   'Є нова версія {version}': 'Version {version} is out',
   'Зараз у вас {version}.': 'You have {version} now.',
