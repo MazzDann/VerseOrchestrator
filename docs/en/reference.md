@@ -11,6 +11,12 @@ ports. How to do a task is in the parts of the [documentation](README.md).
 These are the control window's standard keys. You can change them in **Settings** →
 **Hotkeys**; the tooltips on the buttons show the current keys.
 
+There the actions are grouped (Show, Going and searching, Windows, Modes, App), and the **Find an
+action or a key** field narrows them. Each key has × to remove it, and **+** records one more; an
+action with no key stays at **no key**. **Key set** puts in a ready set — **Standard**, **As in
+PowerPoint** or **Clicker** — and **Save the set to a file** and **Open a set from a file** carry
+yours to another computer.
+
 | Action                               | Windows and Linux        | Also on macOS          |
 | ------------------------------------ | ------------------------ | ---------------------- |
 | **Next** — the next verse            | →, ↓, PageDown           |                        |
