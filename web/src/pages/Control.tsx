@@ -77,6 +77,8 @@ import { standbyNotice } from './control/standby';
 import { usePanelResize } from './control/usePanelResize';
 import { openSettingsAt, useAppSettingsOpener } from './control/useAppSettingsOpener';
 import { UpdateNotice } from '../components/UpdateNotice';
+import { DisplayBack } from '../components/DisplayBack';
+import { openPresenter } from './control/outputWindows';
 import { usePlacesSlide } from './control/usePlacesSlide';
 import { splitPlaces } from '../lib/places';
 import { useVerseListEffects } from './control/useVerseListEffects';
@@ -1599,6 +1601,14 @@ export function Control() {
               height: 'calc(100vh - var(--app-shell-header-height, 3.5rem))',
             }}
           >
+            {/* a 2nd screen plugged back in, the desktop app (1.24.0-beta.2) */}
+            <DisplayBack
+              enabled={isLeader}
+              black={blackToggle}
+              clear={clearScreen}
+              isBlack={() => !!liveSlideRef.current.forceBlack}
+              openOutput={() => void openPresenter()}
+            />
             {/* a new version, said once at the start (1.23.0-beta.5, F1114-03) */}
             <UpdateNotice
               enabled={isLeader}

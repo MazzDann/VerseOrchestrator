@@ -147,6 +147,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('app', N_('Розмір розділів'), 'chapter size buttons розмір розділи глави'), // i18n-ignore: Ukrainian search words
   e('app', N_('Підзаголовки над віршами'), 'subheadings titles sets заголовки набір'), // i18n-ignore: Ukrainian search words
   e('app', N_('Підзаголовки на екрані'), 'subheadings output screen projected section title'),
+  e('app', N_('Коли другий екран під’єднано знову'), 'display reconnect монітор'), // i18n-ignore: Ukrainian search words
   e('app', N_('Перехресні посилання у списку віршів'), 'cross references xref links посилання'), // i18n-ignore: Ukrainian search words
   e('app', N_('Мова інтерфейсу'), 'language english українська'), // i18n-ignore: Ukrainian search words
   e('app', N_('Розташування панелі прев’ю'), 'preview panel bottom'),

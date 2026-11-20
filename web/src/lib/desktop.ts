@@ -36,6 +36,19 @@ export function desktopOutputRestore(): void {
 }
 
 /**
+ * A 2nd screen plugged back in (1.24.0-beta.2): the shell returned `n` output windows to it. A no-op
+ * outside the app (or in an older shell).
+ */
+export function onDesktopDisplayBack(cb: (n: number) => void): () => void {
+  const d = (
+    window as unknown as {
+      voDesktop?: { onDisplayBack?: (cb: (n: number) => void) => () => void };
+    }
+  ).voDesktop;
+  return d?.onDisplayBack?.(cb) ?? (() => undefined);
+}
+
+/**
  * Control went to the desktop app (1.18.1: the hub's `movedId: 'desktop'` — «Відкрити застосунок»,
  * or the app opened after «Встановити застосунок»): a browser's control window closes itself; a
  * tab the browser keeps (one the user opened) goes to a page that says where the show is.

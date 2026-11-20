@@ -16,7 +16,14 @@ import {
   type BrowserWindowConstructorOptions,
   type Rectangle,
 } from 'electron';
-import { featureRect, outputPage, pageKind, placeOutput, type Display } from './displays.js';
+import {
+  featureRect,
+  outputPage,
+  pageKind,
+  placeOutput,
+  returnDisplay,
+  type Display,
+} from './displays.js';
 
 /**
  * VerseOrchestrator as a desktop app (feat/desktop, the user's ask 2026-10-13: the dependence on
@@ -451,8 +458,58 @@ async function updateNow(win: BrowserWindow, version: string): Promise<void> {
   win.reload();
 }
 
-/** A screen unplugged: its fullscreen windows come back as windows on the control window's screen. */
+/**
+ * The output windows a screen's unplug moved (1.24.0-beta.2): kept, so that the screen plugged back
+ * gets the same windows back, full screen, instead of new ones.
+ */
+const displaced = new Set<BrowserWindow>();
+
+/** Back, full screen and on top, on `d` — as an output opened there would be. */
+function returnOutput(w: BrowserWindow, d: Electron.Display): void {
+  // its place first, then back — the one fullscreen request below is made on that screen (review)
+  w.setBounds({ ...d.bounds });
+  if (w.isMinimized()) w.restore();
+  w.showInactive();
+  w.setAlwaysOnTop(true);
+  w.setSkipTaskbar(true);
+  void w.webContents
+    .executeJavaScript(
+      'document.fullscreenElement ? true : document.documentElement.requestFullscreen().then(() => true, () => false)',
+      true,
+    )
+    .catch(() => false);
+}
+
+/**
+ * A screen unplugged: its fullscreen windows come back as windows on the control window's screen —
+ * minimized since 1.24.0-beta.2, so they don't cover the operator; plugged back in, the same
+ * windows return to it full screen, and the control window hears of it (`vo-display-back`: the
+ * operator's choice — leave it, black, clear — and «Відкривати вікно показу автоматично» when
+ * none had been there).
+ */
 function followDisplays(): void {
+  /** a screen went with an output on it: the next screen to come is its return (review: not any) */
+  let lost = false;
+  screen.on('display-added', (_e, added) => {
+    if (!lost) return;
+    const main = control ? screen.getDisplayMatching(control.getBounds()) : null;
+    const to = returnDisplay(
+      { id: added.id, bounds: added.bounds },
+      main ? { id: main.id, bounds: main.bounds } : null,
+    );
+    if (!to) return;
+    lost = false;
+    let returned = 0;
+    for (const w of displaced) {
+      if (w.isDestroyed()) continue;
+      returnOutput(w, added);
+      returned++;
+    }
+    displaced.clear();
+    // none returned (closed meanwhile) and none open: the control window may open one
+    if (returned === 0 && outputs.size > 0) return;
+    if (control && !control.isDestroyed()) control.webContents.send('vo-display-back', returned);
+  });
   screen.on('display-removed', () => {
     const ids = new Set(screen.getAllDisplays().map((d) => d.id));
     const main = control
@@ -461,6 +518,9 @@ function followDisplays(): void {
     for (const w of outputs) {
       const d = screen.getDisplayMatching(w.getBounds());
       if (ids.has(d.id) && d.id !== main.id) continue;
+      // full screen = it was on the screen that went (an output on the control window's screen
+      // is a window): only those wait for the screen's return (review)
+      const wasOnTheOther = fullscreenOutputs.has(w) || w.isFullScreen();
       void w.webContents.executeJavaScript(
         'document.fullscreenElement && document.exitFullscreen()',
         true,
@@ -469,6 +529,14 @@ function followDisplays(): void {
       w.setAlwaysOnTop(false);
       w.setSkipTaskbar(false);
       w.setBounds({ x: main.bounds.x + 80, y: main.bounds.y + 80, width: 960, height: 540 });
+      if (!wasOnTheOther) continue;
+      // out of the operator's way until its screen comes back (it has a taskbar button now); not
+      // full screen any more — its 'restore' must not ask for it on the control window's screen
+      fullscreenOutputs.delete(w);
+      lost = true;
+      displaced.add(w);
+      w.once('closed', () => displaced.delete(w));
+      w.minimize();
     }
   });
 }

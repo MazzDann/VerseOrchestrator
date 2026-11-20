@@ -18,4 +18,13 @@ contextBridge.exposeInMainWorld('voDesktop', {
   outputRestore: (): void => {
     ipcRenderer.send('vo-output-restore');
   },
+  // 1.24.0-beta.2: a 2nd screen plugged back in — the shell returned `n` output windows to it; the
+  // control window does the operator's choice (leave it, black, clear) or opens one when none was
+  onDisplayBack: (cb: (n: number) => void): (() => void) => {
+    const h = (_e: unknown, n: unknown) => cb(typeof n === 'number' ? n : 0);
+    ipcRenderer.on('vo-display-back', h);
+    return () => {
+      ipcRenderer.removeListener('vo-display-back', h);
+    };
+  },
 });

@@ -307,6 +307,12 @@ In the desktop app a minimized presentation window has a taskbar button and come
 — full-screen — as soon as something new goes on screen or you press **Presentation window**. The
 keyboard stays in the control window.
 
+If the second screen is unplugged, the app minimizes the presentation window, so it doesn't cover
+the control window. When the screen is plugged back in, the same window returns to it, full
+screen. What it shows then, choose in **Settings** → **App** → **When the second screen is
+plugged back in**: what it showed (the default), a black screen, or nothing. If there was no
+presentation window and **Open the presentation window automatically** is on, one opens by itself.
+
 The switches at the bottom of the panel:
 
 - **Several presentation windows** — **Presentation window** opens a new window each time
