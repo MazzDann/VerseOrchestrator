@@ -91,7 +91,11 @@ export function SearchField({
       size="sm"
       w={width}
       display={hidden ? 'none' : undefined}
-      placeholder={tr('Пошук: Ів 3:16, любов ({key})', { key: formatCombo(focusKey) })}
+      placeholder={
+        focusKey
+          ? tr('Пошук: Ів 3:16, любов ({key})', { key: formatCombo(focusKey) })
+          : tr('Пошук: Ів 3:16, любов')
+      }
       value={value}
       onChange={(e) => setValue(e.currentTarget.value)}
       onKeyDown={onKey}

@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   type Dispatch,
   type MutableRefObject,
@@ -22,7 +23,7 @@ import { openPresenter } from './outputWindows';
  * render its deps last changed in; the restore key reads its ref.
  */
 export function useControlHotkeys({
-  keymap,
+  keymap: savedKeymap,
   advanceAndSay,
   hideToggle,
   clearScreen,
@@ -99,6 +100,16 @@ export function useControlHotkeys({
   workspace: Workspace;
   setWorkspace: (ws: Workspace) => void;
 }) {
+  // «без клавіші» (1.24.0-beta.4): an empty binding becomes a chord no keyboard sends — react-hotkeys-
+  // hook reads '' as a key named '', which a keydown with no code (a virtual keyboard, an IME, a
+  // remote) matched (review)
+  const keymap = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(savedKeymap).map(([id, combo]) => [id, combo || NEVER]),
+      ) as Keymap,
+    [savedKeymap],
+  );
   // Hotkeys are user-rebindable (settingsStore.keymap; defaults in hotkeys.ts).
   // "advanceNext/Prev" default to arrows + PageDown/PageUp (the keys USB clickers emit).
   // a held key steps on (its repeats), but never across a chapter's edge — and the toggles below
@@ -378,6 +389,9 @@ function toggleControlFullscreen(): void {
   if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
   else void document.documentElement.requestFullscreen().catch(() => undefined);
 }
+
+/** A chord no keyboard sends: what a cleared binding stands for while bound (1.24.0-beta.4). */
+const NEVER = 'f24+f23';
 
 const MODES: Workspace[] = ['bible', 'songs', 'docs', 'media'];
 /** the mode after (or before) this one, round the four */

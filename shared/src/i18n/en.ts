@@ -1316,6 +1316,7 @@ export const EN: Record<string, string> = {
   'Далі назад місць немає': 'No more places back',
   'Далі вперед місць немає': 'No more places forward',
   // the keys' settings (1.24.0-beta.4)
+  'Пошук: Ів 3:16, любов': 'Search: John 3:16, love',
   'Перехід і пошук': 'Going and searching',
   Режими: 'Modes',
   Стандартний: 'Standard',
