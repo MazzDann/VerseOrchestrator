@@ -3,6 +3,33 @@ import { notifications } from '@mantine/notifications';
 import { useDataSource } from '../../dataSourceStore';
 import { tr } from '../../i18n';
 
+/**
+ * The settings panel opened with `section` unfolded (its accordion keeps the open ones in
+ * `vo:settingsSections`), and `anchor` (an element id) brought into sight once it is drawn.
+ */
+export function openSettingsAt(
+  setSettingsOpen: (open: boolean) => void,
+  section: string,
+  anchor?: string,
+): void {
+  try {
+    const open = JSON.parse(localStorage.getItem('vo:settingsSections') ?? '[]');
+    if (Array.isArray(open) && !open.includes(section))
+      localStorage.setItem('vo:settingsSections', JSON.stringify([...open, section]));
+  } catch {
+    /* storage unavailable */
+  }
+  setSettingsOpen(true);
+  // the panel already open reads no storage: it unfolds the section on this (SettingsPanel)
+  window.dispatchEvent(new CustomEvent('vo:open-settings-section', { detail: section }));
+  if (anchor)
+    window.setTimeout(
+      () =>
+        document.getElementById(anchor)?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+      400,
+    );
+}
+
 /** «Дані» in the settings panel (1.15.1; «Застосунок» before), and the first run with no server that opens it (E1). */
 export function useAppSettingsOpener({
   setSettingsOpen,
@@ -12,16 +39,7 @@ export function useAppSettingsOpener({
   serverAvailable: boolean | null;
 }) {
   /** The settings panel, opened on «Дані» (where «Джерело даних» is since 1.15.1). */
-  const openAppSettings = () => {
-    try {
-      const open = JSON.parse(localStorage.getItem('vo:settingsSections') ?? '[]');
-      if (Array.isArray(open) && !open.includes('data'))
-        localStorage.setItem('vo:settingsSections', JSON.stringify([...open, 'data']));
-    } catch {
-      /* storage unavailable */
-    }
-    setSettingsOpen(true);
-  };
+  const openAppSettings = () => openSettingsAt(setSettingsOpen, 'data');
   // First run with no server and nothing loaded: the library can only come from the
   // browser engine — open the settings on «Джерело даних» and say why.
   useEffect(() => {
