@@ -18,7 +18,7 @@ import {
 } from '@tabler/icons-react';
 
 import { useStore } from '../store';
-import { placeKey } from '../lib/quickRef';
+import { parseQuickRef, placeKey } from '../lib/quickRef';
 import {
   useSettings,
   bookmarkKey,
@@ -36,7 +36,7 @@ import {
   type SlideSource,
 } from '../presenterBus';
 import { type CountdownPlace } from '../lib/countdown';
-import { strongLangFor } from '@vo/shared';
+import { parseReference, strongLangFor } from '@vo/shared';
 import { SearchPanel } from '../components/SearchPanel';
 import { DesktopHint } from '../components/DesktopHint';
 import { PresenterShape } from '../components/AspectFrame';
@@ -897,13 +897,25 @@ export function Control() {
     setPreviewOverride,
     setLive,
     leaderRef,
+    liveSlideRef,
   });
-  /** the search's Enter: «Ів 3:16; Рим 5:8» goes on one slide, anything else as before */
-  const goToOrPlaces = (q: string, opts?: { show?: boolean }) => {
+  /**
+   * The search's Enter: «Ів 3:16; Рим 5:8» goes on one slide; Ctrl+Enter on a reference adds it
+   * to the verses on screen (1.24.0-beta.2, the author's ask); anything else as before
+   */
+  const goToOrPlaces = async (q: string, opts?: { show?: boolean }) => {
     const parts = splitPlaces(q);
-    if (!parts) return goTo(q, opts);
-    clearSearch();
-    return places.showTyped(parts);
+    if (parts) {
+      clearSearch();
+      return places.showTyped(parts);
+    }
+    if (opts?.show && parseReference(q.trim()) && !parseQuickRef(q.trim())) {
+      if (await places.addTyped(q.trim())) {
+        clearSearch();
+        return;
+      }
+    }
+    return goTo(q, opts);
   };
 
   // E17: a takeover restores its page and reveal step — after the steps' reset effects (E12,

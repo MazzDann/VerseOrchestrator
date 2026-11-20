@@ -241,6 +241,9 @@ export function SearchPanel({
     // the results of what is typed now (not of a query the debounce hasn't caught up with);
     // ⌘↩ / Ctrl+Enter: the hit on screen too (Mac check of 1.9.0)
     const enter = searchEnter(e, useSettings.getState().keymap.project);
+    // Ctrl+Enter on a reference: the field's goTo takes it — it adds to the verses on screen
+    // (1.24.0-beta.2)
+    if (enter?.show && data?.kind === 'reference') return false;
     if (enter && rows[highlight] && debounced === query) {
       e.preventDefault();
       pick(rows[highlight].r, enter);
