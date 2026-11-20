@@ -1316,6 +1316,12 @@ export const EN: Record<string, string> = {
   'У «Збереженому»: {ref}': 'In “Saved”: {ref}',
   'Далі назад місць немає': 'No more places back',
   'Далі вперед місць немає': 'No more places forward',
+  // a 2nd screen plugged back in (1.24.0-beta.2)
+  'Коли другий екран під’єднано знову': 'When the second screen is plugged back in',
+  'Вікно показу, яке перейшло на перший екран, повертається на другий на весь екран. Що на ньому показати:':
+    'The presentation window that moved to the first screen goes back to the second, full screen. What it shows:',
+  'Те, що й було': 'What it showed',
+  'Нічого — очистити екран': 'Nothing — clear the screen',
   // F5 in the desktop app (1.24.0-beta.2)
   'Відкрити вікно показу на другому екрані — як F5 у презентаціях':
     'Open the presentation window on the second screen — like F5 in presentations',

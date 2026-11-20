@@ -376,6 +376,11 @@ export function clampLayout(raw: unknown): PanelLayout {
  * main translation — with none there, the others — or all the selected ones), one row per place
  * found in several translations, and the cursor in the field when the window comes back.
  */
+/** A 2nd screen plugged back in, in the desktop app (1.24.0-beta.2). */
+export type DisplayBack = 'return' | 'black' | 'clear';
+export const asDisplayBack = (v: unknown): DisplayBack =>
+  v === 'black' || v === 'clear' ? v : 'return';
+
 /** How the verse list shows cross-references (1.23.0-beta.6, F1114-15). */
 export type CrossRefsShown = 'marker' | 'inline' | 'selected' | 'off';
 const CROSS_REFS_SHOWN: readonly CrossRefsShown[] = ['marker', 'inline', 'selected', 'off'];
@@ -507,6 +512,13 @@ interface SettingsState {
    */
   outputAtStart: boolean | null;
   setOutputAtStart: (v: boolean) => void;
+  /**
+   * The desktop app, a 2nd screen plugged back in (1.24.0-beta.2, the author): the output windows
+   * its unplug moved go back full screen, and then — as they were ('return', the default), on
+   * «Чорний екран» ('black'), or the screen emptied as by «Очистити» ('clear').
+   */
+  displayBack: DisplayBack;
+  setDisplayBack: (v: DisplayBack) => void;
   /** «Переносити рядки» in «Текст на екран» (1.22.0-beta.1, F1107-14): off — every Enter shows where it is */
   textWrap: boolean;
   setTextWrap: (v: boolean) => void;
@@ -896,6 +908,8 @@ export const useSettings = create<SettingsState>()(
       setChapterSize: (v) => set({ chapterSize: asChapterSize(v) }),
       outputAtStart: null,
       setOutputAtStart: (v) => set({ outputAtStart: v === true }),
+      displayBack: 'return',
+      setDisplayBack: (v) => set({ displayBack: asDisplayBack(v) }),
       textWrap: true,
       setTextWrap: (v) => set({ textWrap: v !== false }),
       youtubeAccount: false,
@@ -1103,6 +1117,7 @@ export const useSettings = create<SettingsState>()(
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
           simpleView: p.simpleView === true,
           crossRefsShown: asCrossRefsShown(p.crossRefsShown),
+          displayBack: asDisplayBack(p.displayBack),
           windowsMenu: p.windowsMenu !== false,
           youtubeAccount: p.youtubeAccount === true,
           subheadings: p.subheadings !== false,

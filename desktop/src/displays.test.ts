@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { displayAt, featureRect, outputPage, placeOutput, type Display } from './displays.js';
+import {
+  displayAt,
+  featureRect,
+  outputPage,
+  placeOutput,
+  returnDisplay,
+  type Display,
+} from './displays.js';
 
 const O = 'http://localhost:4747';
 const BENQ: Display = { id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 } };
@@ -68,5 +75,13 @@ describe('the desktop shell places output windows', () => {
       placeOutput('key', 'popup,left=1920,top=0,width=960,height=540', [BENQ, ASUS], BENQ)
         .fullscreen,
     ).toBe(false);
+  });
+});
+
+describe('a screen plugged back in (1.24.0-beta.2)', () => {
+  it('the moved windows go to the screen that came — not onto the control window', () => {
+    expect(returnDisplay(ASUS, BENQ)).toBe(ASUS);
+    expect(returnDisplay(BENQ, BENQ)).toBeNull();
+    expect(returnDisplay(ASUS, null)).toBe(ASUS);
   });
 });

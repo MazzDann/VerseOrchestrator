@@ -128,3 +128,13 @@ export function placeOutput(
         };
   return { bounds, fullscreen, display };
 }
+
+/**
+ * A screen plugged back in (1.24.0-beta.2, the author: «перепід'єднано і під'єднано знову … те
+ * перше вікно, яке автоматом на перший екран кидає»): where the windows the unplug moved go — the
+ * screen that came, unless it is the control window's own (it would cover the operator); null:
+ * they stay where they are.
+ */
+export function returnDisplay(added: Display, controlDisplay: Display | null): Display | null {
+  return controlDisplay && added.id === controlDisplay.id ? null : added;
+}

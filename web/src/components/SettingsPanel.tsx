@@ -51,6 +51,7 @@ import {
   type SearchPlace,
   type VerseNumbers,
   type CrossRefsShown,
+  type DisplayBack,
 } from '../settingsStore';
 import type { SlideTransition } from '../presenterBus';
 import { fileToDownscaledDataUrl, fileToLogoDataUrl } from '../lib/image';
@@ -117,6 +118,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const subheadingsOn = useSettings((s) => s.subheadings);
   const projectSubheadingsOn = useSettings((s) => s.projectSubheadings);
   const crossRefsShown = useSettings((s) => s.crossRefsShown);
+  const displayBack = useSettings((s) => s.displayBack);
   const setSimpleView = useSettings((s) => s.setSimpleView);
   const windowsMenu = useSettings((s) => s.windowsMenu);
   const youtubeAccount = useSettings((s) => s.youtubeAccount);
@@ -1396,6 +1398,25 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 checked={autoOutput}
                 onChange={(e) => setAutoOutput(e.currentTarget.checked)}
               />
+              {/* 1.24.0-beta.2 (the author): a 2nd screen plugged back in — the desktop app only */}
+              {inDesktop() && (
+                <Select
+                  size="xs"
+                  label={tr('Коли другий екран під’єднано знову')}
+                  description={tr(
+                    'Вікно показу, яке перейшло на перший екран, повертається на другий на весь екран. Що на ньому показати:',
+                  )}
+                  data={[
+                    { value: 'return', label: tr('Те, що й було') },
+                    { value: 'black', label: tr('Чорний екран') },
+                    { value: 'clear', label: tr('Нічого — очистити екран') },
+                  ]}
+                  value={displayBack}
+                  onChange={(v) => v && useSettings.getState().setDisplayBack(v as DisplayBack)}
+                  allowDeselect={false}
+                  comboboxProps={{ withinPortal: true }}
+                />
+              )}
               {/* 1.21.0-beta.2 (F1024-03): where the verse field sits by the chapter grid */}
               <div>
                 <Text size="sm" fw={500} mb={4}>
