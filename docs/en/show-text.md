@@ -77,6 +77,10 @@ For each added verse to appear on screen at once, turn off **Settings** → **Ho
 Places from different chapters or books can be shown together, each with its reference:
 
 - type them in the search with semicolons, for example `John 3:16; Rom 5:8`, and press Enter;
+- or add them one by one: type a reference such as `rom 2 3` and press Ctrl+Enter (on macOS,
+  ⌘↩), then the next, such as `john 4 6`, and Ctrl+Enter again. While verses are on screen,
+  Ctrl+Enter adds the place to them; on an empty screen, after a song, a cover or a picture it
+  shows the place alone. To start afresh, clear the screen (Esc);
 - or choose the verses, click **Add to the slide** above them, go to another place and add it
   the same way. Then click **Slide: 2 — show**. The cross next to it clears what you gathered.
 

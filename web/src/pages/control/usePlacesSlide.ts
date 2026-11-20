@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type Translation } from '../../api';
@@ -31,6 +31,7 @@ export function usePlacesSlide({
   setPreviewOverride,
   setLive,
   leaderRef,
+  liveSlideRef,
 }: {
   queryClient: QueryClient;
   translations: Translation[];
@@ -43,8 +44,12 @@ export function usePlacesSlide({
   setPreviewOverride: Dispatch<SetStateAction<Slide | null>>;
   setLive: (live: boolean) => void;
   leaderRef: MutableRefObject<boolean>;
+  /** what is on screen now: Ctrl+Enter adds to the verses there (1.24.0-beta.2) */
+  liveSlideRef: MutableRefObject<Slide>;
 }) {
   const [gathered, setGathered] = useState<Place[]>([]);
+  /** the places of the last slide made here, to know it again on screen */
+  const lastShown = useRef<{ slide: Slide; places: Place[] } | null>(null);
 
   const bookList = (id: number) =>
     queryClient.fetchQuery({ queryKey: ['books', id], queryFn: () => api.books(id) });
@@ -107,21 +112,24 @@ export function usePlacesSlide({
   };
 
   /** false: a window on standby — nothing shown */
-  const show = (slide: Slide): boolean => {
+  /** `now`: on screen whatever «Наживо» says — Ctrl+Enter shows, as it always did */
+  const show = (slide: Slide, places?: Place[], now = false): boolean => {
     if (!leaderRef.current) {
       standbyNotice();
       return false;
     }
+    if (places) lastShown.current = { slide, places };
     setPreviewOverride(slide);
-    if (liveFollow) {
+    const onScreen = liveFollow || now;
+    if (onScreen) {
       pushLive(slide);
       setLive(true);
     }
     notifications.show({
-      message: liveFollow
+      message: onScreen
         ? tr('На екрані: {ref}', { ref: slide.reference })
         : tr('У прев’ю: {ref} — на екран кнопкою «На екран»', { ref: slide.reference }),
-      color: liveFollow ? 'live' : 'cue',
+      color: onScreen ? 'live' : 'cue',
       autoClose: 2000,
     });
     return true;
@@ -139,8 +147,47 @@ export function usePlacesSlide({
       return;
     }
     const slide = await build(places);
-    if (slide) show(slide);
+    if (slide) show(slide, places);
     else say(tr('Не всі місця є в позначених перекладах: позначте переклад угорі'));
+  };
+
+  /**
+   * The verses on screen as places (1.24.0-beta.2): a slide of places made here, or a verse
+   * selection's slide — null when the screen shows no verses (empty, black, hidden, a song, a
+   * cover, a picture…), when Ctrl+Enter shows a place as before.
+   */
+  const placesOnScreen = (): Place[] | null => {
+    const s = liveSlideRef.current;
+    if (!s.visible || s.blank || s.forceBlack || s.cover || s.qr || s.picture || s.video)
+      return null;
+    if (!s.lines.length) return null;
+    const last = lastShown.current;
+    if (last && last.slide.reference === s.reference && !s.source) return last.places;
+    if (s.source?.kind === 'verses')
+      return [
+        { bookNumber: s.source.bookNumber, chapter: s.source.chapter, verses: s.source.verses },
+      ];
+    return null;
+  };
+
+  /**
+   * Ctrl+Enter on a reference (1.24.0-beta.2, the author: «рим 2 3» + Ctrl+Enter, «ів 4 6» +
+   * Ctrl+Enter — both on screen): added to the verses on screen; false when none are there (the
+   * caller then goes and shows it as before).
+   */
+  const addTyped = async (ref: string): Promise<boolean> => {
+    const now = placesOnScreen();
+    if (!now) return false;
+    const p = await resolve(ref);
+    if (!p) {
+      say(tr('Не всі місця знайдено: перевірте посилання через «;»'));
+      return true;
+    }
+    const places = addPlace(now, p);
+    const slide = await build(places);
+    if (!slide) say(tr('Не всі місця є в позначених перекладах: позначте переклад угорі'));
+    else show(slide, places, true);
+    return true;
   };
 
   /** «Додати до слайда»: the selected verses gathered for one slide. */
@@ -157,8 +204,15 @@ export function usePlacesSlide({
       return;
     }
     // kept on a standby window: shown later from the one in charge (the review)
-    if (show(slide)) setGathered([]);
+    if (show(slide, gathered)) setGathered([]);
   };
 
-  return { gathered, gather, showGathered, clearGathered: () => setGathered([]), showTyped };
+  return {
+    gathered,
+    gather,
+    showGathered,
+    clearGathered: () => setGathered([]),
+    showTyped,
+    addTyped,
+  };
 }
