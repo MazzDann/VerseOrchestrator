@@ -930,6 +930,13 @@ export const api = {
       (l) => l.getCrossrefs(book, chapter, verse),
       `/api/crossrefs?book=${book}&chapter=${chapter}&verse=${verse}`,
     ),
+  /** a chapter's cross-references in one read (1.23.0-beta.6, F1114-15) */
+  chapterCrossrefs: (book: number, chapter: number) =>
+    fromLibrary(
+      z.array(CrossRefSchema.extend({ verse: z.number() })),
+      (l) => l.getChapterCrossrefs(book, chapter),
+      `/api/crossrefs/chapter?book=${book}&chapter=${chapter}`,
+    ),
   commentary: (book: number, chapter: number, verse: number) =>
     fromLibrary(
       z.array(CommentarySchema),

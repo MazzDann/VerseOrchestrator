@@ -199,6 +199,12 @@ when the library has the matching module files:
   the dictionary's language).
 - **Context** — cross-references and commentaries on the chosen verse.
 
+Cross-references show in the verse list too, at the end of a verse. By default there is a
+marker with their count, such as `↗23`: click it to see them all, and click a reference to go
+to that place. In **Settings** → **App** → **Cross-references in the verse list** you can choose
+otherwise: the main three references at the end of every verse, the references only at the end of
+the selected verse, or none.
+
 ## What's next
 
 - [Show a text](show-text.md): the preview and the screen, output windows, the stage

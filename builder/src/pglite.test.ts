@@ -256,6 +256,15 @@ describe('PostgreSQL (PGlite) answers like SQLite', () => {
 
   it('cross-references, commentaries, songs', async () => {
     expect(await postgres.getCrossrefs(500, 3, 16)).toEqual(await sqlite.getCrossrefs(500, 3, 16));
+    // a chapter in one read (1.23.0-beta.6, F1114-15): the same rows on both engines, by verse
+    const chapterRefs = await sqlite.getChapterCrossrefs(500, 3);
+    expect(await postgres.getChapterCrossrefs(500, 3)).toEqual(chapterRefs);
+    expect(
+      chapterRefs.map((x) => [x.verse, x.bookNumber, x.chapter, x.verseStart, x.verseEnd]),
+    ).toEqual([
+      [16, 450, 5, 8, 8],
+      [16, 690, 4, 9, 10],
+    ]);
     expect(await postgres.getCommentary(500, 3, 16)).toEqual(
       await sqlite.getCommentary(500, 3, 16),
     );
