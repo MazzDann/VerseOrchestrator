@@ -57,6 +57,11 @@ export interface CrossRefTarget {
   verseEnd: number;
 }
 
+/** A chapter's cross-references (1.23.0-beta.6): `verse` of that chapter → a related place. */
+export interface ChapterCrossRef extends CrossRefTarget {
+  verse: number;
+}
+
 export interface CommentaryNote {
   source: string;
   marker: string;
@@ -597,6 +602,29 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       chapter: r.chapter_to,
       verseStart: r.verse_to_start,
       verseEnd: r.verse_to_end || r.verse_to_start,
+    }));
+  }
+
+  /**
+   * All the cross-references of a chapter in one read (1.23.0-beta.6, the users' F1114-15: the
+   * references at each verse's end in the control window) — by verse, then in the order of the
+   * Bible, as `getCrossrefs` gives one verse's.
+   */
+  async function getChapterCrossrefs(book: number, chapter: number): Promise<ChapterCrossRef[]> {
+    if (!(await tableExists('cross_references'))) return [];
+    const rows = await db.all<AnyRow>(
+      `SELECT verse, book_to, chapter_to, verse_to_start, verse_to_end
+       FROM cross_references
+       WHERE book = ? AND chapter = ?
+       ORDER BY verse, book_to, chapter_to, verse_to_start, verse_to_end`,
+      [book, chapter],
+    );
+    return rows.map((r) => ({
+      verse: Number(r.verse),
+      bookNumber: Number(r.book_to),
+      chapter: Number(r.chapter_to),
+      verseStart: Number(r.verse_to_start),
+      verseEnd: Number(r.verse_to_end || r.verse_to_start),
     }));
   }
 
@@ -1617,6 +1645,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     lookupWord,
     strongRefs,
     getCrossrefs,
+    getChapterCrossrefs,
     getCommentary,
     searchSongs,
     listSongBundles,

@@ -107,6 +107,33 @@
   border-radius: 3px;
 }
 
+/* Cross-references at a verse's end (1.23.0-beta.6, F1114-15): small, quiet, each opens its place. */
+.vo-xrefs {
+  margin-inline-start: 6px;
+}
+.vo-xref,
+.vo-xref-mark {
+  font: inherit;
+  font-size: 12px;
+  color: var(--mantine-color-dimmed);
+  background: none;
+  border: 0;
+  padding: 0 3px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.vo-xref {
+  border-bottom: 1px dotted currentColor;
+  border-radius: 0;
+  margin-inline-end: 4px;
+}
+.vo-xref:hover,
+.vo-xref-mark:hover {
+  color: var(--mantine-color-brand-text);
+  background: var(--mantine-color-brand-light);
+}
+
 /* A single concordance occurrence row (book ref + verse text). */
 .vo-strong-occurrence {
   display: block;

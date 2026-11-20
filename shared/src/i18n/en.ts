@@ -1265,6 +1265,15 @@ export const EN: Record<string, string> = {
   'Зараз у вас {version}.': 'You have {version} now.',
   Оновити: 'Update',
   Пізніше: 'Later',
+  // cross-references in the verse list (1.23.0-beta.6, F1114-15)
+  'Перехресні посилання у списку віршів': 'Cross-references in the verse list',
+  'Клацніть посилання, щоб перейти до того місця.': 'Click a reference to go to that place.',
+  'Позначка з кількістю в кінці вірша': 'A marker with their count at a verse’s end',
+  'Основні посилання в кінці кожного вірша': 'The main references at the end of every verse',
+  'Лише в кінці вибраного вірша': 'Only at the end of the selected verse',
+  'Не показувати': 'Don’t show',
+  'Перехресні посилання: {n}': 'Cross-references: {n}',
+  'Відкрити {place}': 'Open {place}',
   // «Наживо» from the keyboard (1.23.0-beta.2, F1114-12)
   'Наживо: увімкнути / вимкнути': 'Live: on / off',
   'Увімкнено — екран одразу повторює вибір; вимкнено — лише прев’ю до «На екран»':

@@ -1,9 +1,11 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { ScrollArea, Stack, Text } from '@mantine/core';
 import { parseRedLetter } from '@vo/shared';
 import { useQuery } from '@tanstack/react-query';
 import { api, type Book, type Verse } from '../../api';
 import { setFor } from '../../lib/subheadingSets';
+import { VerseCrossRefs } from '../../components/VerseCrossRefs';
+import { useBookNames, useChapterCrossRefs } from '../../lib/crossRefs';
 import { useSettings, type Appearance, type PanelPlacement } from '../../settingsStore';
 import { type Keymap, matchesCombo } from '../../hotkeys';
 import { ConcordancePanel } from '../../components/ConcordancePanel';
@@ -61,6 +63,23 @@ export function VerseList({
   useLang();
   // the chapter's section titles in the main translation (1.16.0-beta.2), by the verse they open
   const showHeadings = useSettings((x) => x.subheadings);
+  // cross-references at a verse's end (1.23.0-beta.6, F1114-15)
+  const xrefsShown = useSettings((x) => x.crossRefsShown);
+  const xrefs = useChapterCrossRefs(currentBook?.bookNumber ?? null, chapter, xrefsShown);
+  const bookName = useBookNames(primaryId);
+  const jumpRef = useRef(jumpTo);
+  jumpRef.current = jumpTo;
+  const openXref = useCallback(
+    (x: { bookNumber: number; chapter: number; verseStart: number }) =>
+      primaryId != null &&
+      jumpRef.current({
+        translationId: primaryId,
+        bookNumber: x.bookNumber,
+        chapter: x.chapter,
+        verse: x.verseStart,
+      }),
+    [primaryId],
+  );
   const chosenSets = useSettings((x) => x.subheadingSets);
   const book = currentBook?.bookNumber ?? null;
   // or a set of them picked for the translation (1.16.0-beta.3)
@@ -289,6 +308,13 @@ export function VerseList({
                         </Text>
                       ))
                     : v.text}
+                  <VerseCrossRefs
+                    refs={xrefs.get(v.verse)}
+                    shown={xrefsShown}
+                    selected={selectedVerses.includes(v.verse)}
+                    bookName={bookName}
+                    onOpen={openXref}
+                  />
                 </span>
               </div>
             </Fragment>
