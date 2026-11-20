@@ -2212,6 +2212,14 @@ form.vo-remote-countdown {
   color: inherit;
   cursor: pointer;
 }
+.vo-settings-nav .vo-list-item:hover {
+  background: var(--mantine-color-default-hover);
+}
+.vo-settings-nav .vo-list-item[data-selected='true'] {
+  background: var(--mantine-color-brand-light);
+  color: var(--mantine-color-brand-light-color);
+  font-weight: 500;
+}
 .vo-settings-nav .vo-list-item[data-found='true'] {
   font-weight: 600;
   color: var(--mantine-color-brand-text);
