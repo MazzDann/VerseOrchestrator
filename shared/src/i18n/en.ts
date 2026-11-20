@@ -1292,6 +1292,30 @@ export const EN: Record<string, string> = {
   'Відкрити {place}': 'Open {place}',
   // the settings' sections on the left (1.24.0-beta.1, F1114-04)
   'Розділи налаштувань': 'Settings sections',
+  // the desktop app's own keys (1.24.0-beta.2)
+  'До «Історії»': 'To “History”',
+  'Курсор у список «Історія»: ↑ ↓ вибрати, Enter відкрити':
+    'The cursor into the “History” list: ↑ ↓ to choose, Enter to open',
+  'У «Збережене»': 'To “Saved”',
+  'Вибране місце — у «Збережене»': 'The chosen place into “Saved”',
+  'Назад по місцях': 'Back through the places',
+  'До місця, відкритого перед цим, — як «назад» у браузері':
+    'To the place opened before this one — like “back” in a browser',
+  'Вперед по місцях': 'Forward through the places',
+  'Знову до місця, з якого повернулися': 'Again to the place you came back from',
+  'Підказка клавіш': 'Key cheat sheet',
+  'Ця підказка (як «?»)': 'This cheat sheet (as “?”)',
+  'Вікно керування на весь екран': 'The control window full screen',
+  'Вікно керування на весь екран і назад': 'The control window full screen and back',
+  'Відкрити налаштування вигляду': 'Open the settings',
+  'Відкрити файл': 'Open a file',
+  'Презентація, документ, картинка чи відео з диска — як перетягнуті у вікно':
+    'A presentation, a document, a picture or a video from the disk — as if dropped on the window',
+  '«Історія» поки порожня': '“History” is empty for now',
+  'Уже в «Збереженому»: {ref}': 'Already in “Saved”: {ref}',
+  'У «Збереженому»: {ref}': 'In “Saved”: {ref}',
+  'Далі назад місць немає': 'No more places back',
+  'Далі вперед місць немає': 'No more places forward',
   // F5 in the desktop app (1.24.0-beta.2)
   'Відкрити вікно показу на другому екрані — як F5 у презентаціях':
     'Open the presentation window on the second screen — like F5 in presentations',

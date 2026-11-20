@@ -1,4 +1,5 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
+import { placeNav } from '../../lib/placeNav';
 import { type Verse } from '../../api';
 import { type RefItem } from '../../settingsStore';
 import { opensAtTop, type OpenPlace } from '../../lib/bookPick';
@@ -71,7 +72,7 @@ export function useVerseListEffects({
       chapter != null &&
       selectedVerses.length
     ) {
-      pushHistory({
+      const item = {
         ref: reference,
         refShort: referenceShort,
         translationId: primaryId,
@@ -80,7 +81,9 @@ export function useVerseListEffects({
         verse: selectedVerses[0],
         // the whole pick (1.12.6): «Ів 3:16–18» opens as it was
         ...(selectedVerses.length > 1 ? { verses: [...selectedVerses] } : {}),
-      });
+      };
+      pushHistory(item);
+      placeNav.visit(item); // Alt+← / Alt+→ (1.24.0-beta.2)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference]);

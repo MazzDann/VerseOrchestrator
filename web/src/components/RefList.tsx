@@ -53,6 +53,17 @@ export const RefList = memo(function RefList({
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 onPick(item);
+              } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                // ↑ ↓ along the rows (1.24.0-beta.2, Ctrl+H puts the cursor here) — not the verses
+                e.preventDefault();
+                e.stopPropagation();
+                const rows = [
+                  ...(e.currentTarget
+                    .closest('.mantine-Stack-root')
+                    ?.querySelectorAll<HTMLElement>('[role="button"]') ?? []),
+                ];
+                const i = rows.indexOf(e.currentTarget);
+                rows[i + (e.key === 'ArrowDown' ? 1 : -1)]?.focus();
               }
             }}
           >

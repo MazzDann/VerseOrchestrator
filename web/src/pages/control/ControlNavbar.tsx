@@ -222,7 +222,7 @@ export function ControlNavbar({
               </Button>
             )}
           </Group>
-          <Box ref={recentBoxRef} style={{ height: layout.recentHeight }}>
+          <Box ref={recentBoxRef} style={{ height: layout.recentHeight }} data-history-list>
             <ScrollArea h="100%" scrollbars="y" className="vo-scroll-rows">
               <RefList
                 items={history}

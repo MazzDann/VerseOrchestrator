@@ -80,7 +80,8 @@ import { UpdateNotice } from '../components/UpdateNotice';
 import { usePlacesSlide } from './control/usePlacesSlide';
 import { splitPlaces } from '../lib/places';
 import { useVerseListEffects } from './control/useVerseListEffects';
-import { useControlHotkeys } from './control/useControlHotkeys';
+import { useControlHotkeys, type AppKeys } from './control/useControlHotkeys';
+import { placeNav } from '../lib/placeNav';
 import { useTimerSignals } from './control/useTimerSignals';
 import { usePaletteCommands } from './control/usePaletteCommands';
 import { useLivePipeline, useFollowAlongRelay } from './control/useLivePipeline';
@@ -1016,6 +1017,15 @@ export function Control() {
       autoClose: 1800,
     });
   }, [setLiveFollow]);
+  /** the desktop app's own keys (1.24.0-beta.2): filled further down, where their parts are */
+  const appKeys = useRef<AppKeys>({
+    historyFocus: () => undefined,
+    bookmarkAdd: () => undefined,
+    placeStep: () => undefined,
+    helpKeys: () => undefined,
+    openSettings: () => undefined,
+    openFile: () => undefined,
+  });
   // take: after the timers' effects, the corner QR's and showJump's (E19–E21).
   useControlHotkeys({
     keymap,
@@ -1031,6 +1041,7 @@ export function Control() {
     coverToggle,
     countdownKey,
     toggleLive,
+    appKeys,
     restoreRef,
     playlistStepRef,
     pageCount,
@@ -1385,13 +1396,65 @@ export function Control() {
 
   // files and folders dropped on the window (1.14.0-beta.1): pictures, albums, videos — the last
   // hook: it starts no effect the others wait for
-  const { dragging, zone: dropZone } = useMediaDrop({
+  const {
+    dragging,
+    zone: dropZone,
+    openFiles,
+  } = useMediaDrop({
     openMedia: (tab) => setPlace({ ws: 'media', tab }),
     openDocs: () => setPlace((p) => ({ ...p, ws: 'docs' })),
     openSongs: () => setPlace((p) => ({ ...p, ws: 'songs' })),
     enabled: isLeader,
     server: serverAvailable !== false,
-  });
+  }); // the desktop app's own keys (1.24.0-beta.2): their actions, now that their parts exist
+  appKeys.current = {
+    historyFocus: () => {
+      const row = document.querySelector<HTMLElement>('[data-history-list] [role="button"]');
+      if (row) row.focus();
+      else
+        notifications.show({
+          message: tr('«Історія» поки порожня'),
+          color: 'gray',
+          autoClose: 1500,
+        });
+    },
+    bookmarkAdd: () => {
+      if (!currentRef) return;
+      if (isSaved) {
+        notifications.show({
+          message: tr('Уже в «Збереженому»: {ref}', { ref: currentRef.ref }),
+          color: 'gray',
+          autoClose: 1500,
+        });
+        return;
+      }
+      toggleBookmark(currentRef);
+      notifications.show({
+        message: tr('У «Збереженому»: {ref}', { ref: currentRef.ref }),
+        color: 'green',
+        autoClose: 1500,
+      });
+    },
+    placeStep: (d) => {
+      const p = d < 0 ? placeNav.back() : placeNav.forward();
+      if (p) jumpTo(p, { focus: true });
+      else
+        notifications.show({
+          message: d < 0 ? tr('Далі назад місць немає') : tr('Далі вперед місць немає'),
+          color: 'gray',
+          autoClose: 1200,
+        });
+    },
+    helpKeys: () => setCheatsheetOpen((o) => !o),
+    openSettings: () => setSettingsOpen(true),
+    openFile: () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.onchange = () => openFiles([...(input.files ?? [])]);
+      input.click();
+    },
+  };
 
   return (
     <>

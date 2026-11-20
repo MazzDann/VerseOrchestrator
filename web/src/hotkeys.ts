@@ -55,7 +55,15 @@ export type HotkeyActionId =
   | 'modeDocs'
   | 'modeMedia'
   | 'modeNext'
-  | 'modePrev';
+  | 'modePrev'
+  | 'historyFocus'
+  | 'bookmarkAdd'
+  | 'placeBack'
+  | 'placeForward'
+  | 'helpKeys'
+  | 'controlFullscreen'
+  | 'openSettings'
+  | 'openFile';
 
 export interface HotkeyActionDef {
   id: HotkeyActionId;
@@ -70,6 +78,8 @@ export interface HotkeyActionDef {
   macInstead?: string;
   /** the default in the desktop app instead of `default` (1.24.0-beta.2: F5 is no reload there) */
   desktopInstead?: string;
+  /** …and in the desktop app on a Mac, where it differs from `desktopInstead` */
+  macDesktop?: string;
 }
 
 /** The operator actions that can be rebound, in display order. */
@@ -261,9 +271,67 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
   },
 ];
 
+/**
+ * Keys a browser keeps for itself — the desktop app hands them to the app (1.24.0-beta.2, the
+ * author's picks): «Історія», «Збережене», back / forward, the key cheat sheet, full screen, the
+ * settings, a file. In a browser none of them has a key (each can be given one).
+ */
+HOTKEY_ACTIONS.push(
+  ...(
+    [
+      [
+        'historyFocus',
+        N_('До «Історії»'),
+        N_('Курсор у список «Історія»: ↑ ↓ вибрати, Enter відкрити'),
+        'ctrl+h',
+      ],
+      ['bookmarkAdd', N_('У «Збережене»'), N_('Вибране місце — у «Збережене»'), 'ctrl+d'],
+      [
+        'placeBack',
+        N_('Назад по місцях'),
+        N_('До місця, відкритого перед цим, — як «назад» у браузері'),
+        'alt+left',
+        '',
+      ],
+      [
+        'placeForward',
+        N_('Вперед по місцях'),
+        N_('Знову до місця, з якого повернулися'),
+        'alt+right',
+        '',
+      ],
+      ['helpKeys', N_('Підказка клавіш'), N_('Ця підказка (як «?»)'), 'f1'],
+      [
+        'controlFullscreen',
+        N_('Вікно керування на весь екран'),
+        N_('Вікно керування на весь екран і назад'),
+        'f11',
+      ],
+      ['openSettings', N_('Налаштування'), N_('Відкрити налаштування вигляду'), 'ctrl+comma'],
+      [
+        'openFile',
+        N_('Відкрити файл'),
+        N_('Презентація, документ, картинка чи відео з диска — як перетягнуті у вікно'),
+        'ctrl+o',
+      ],
+    ] as const
+  ).map(
+    ([id, label, hint, desktop, macDesktop]): HotkeyActionDef => ({
+      id,
+      label,
+      hint,
+      default: '',
+      desktopInstead: desktop,
+      // ⌥← / ⌥→ are the preview's keys on a Mac
+      ...(macDesktop !== undefined ? { macDesktop } : {}),
+    }),
+  ),
+);
+
 export type Keymap = Record<HotkeyActionId, string>;
 
 const defaultFor = (a: HotkeyActionDef, mac: boolean, desktop = IS_DESKTOP) => {
+  if (mac && desktop && a.macDesktop !== undefined) return a.macDesktop;
   const base = desktop && a.desktopInstead !== undefined ? a.desktopInstead : a.default;
   if (mac && a.macInstead) return a.macInstead;
   if (mac && a.mac) return base ? `${base},${a.mac}` : a.mac;
