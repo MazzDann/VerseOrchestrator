@@ -1,5 +1,5 @@
 import { Anchor, Group, Kbd, Stack, Text } from '@mantine/core';
-import { formatChord, HOTKEY_ACTIONS } from '../hotkeys';
+import { formatChord, groupOf, HOTKEY_ACTIONS, HOTKEY_GROUPS } from '../hotkeys';
 import { useSettings } from '../settingsStore';
 import { tr, useLang } from '../i18n';
 import { docsUrl } from '../lib/docs';
@@ -20,26 +20,45 @@ export function HotkeysCheatsheet() {
       </Text>
       {/* what the arrows do, chosen right here (1.23.0-beta.2, F1114-10: «↑↓ — прев’ю, ←→ — екран») */}
       <ArrowSchemeSelect />
-      {HOTKEY_ACTIONS.map((a) => {
-        const chords = (keymap[a.id] ?? a.default).split(',').filter(Boolean);
+      {/* by group, as «Гарячі клавіші» (1.24.0-beta.4); an action with no key is left out */}
+      {HOTKEY_GROUPS.map((g) => {
+        const rows = HOTKEY_ACTIONS.filter(
+          (a) => groupOf(a.id) === g.id && (keymap[a.id] ?? a.default).split(',').some(Boolean),
+        );
+        if (!rows.length) return null;
         return (
-          <Group key={a.id} justify="space-between" wrap="nowrap" align="flex-start" gap="sm">
-            <div style={{ minWidth: 0 }}>
-              <Text size="sm" fw={500}>
-                {tr(a.label)}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {tr(a.hint)}
-              </Text>
-            </div>
-            <Group gap={4} wrap="wrap" justify="flex-end" style={{ flexShrink: 0, maxWidth: 160 }}>
-              {chords.map((c, i) => (
-                <Kbd key={i} size="xs">
-                  {formatChord(c)}
-                </Kbd>
-              ))}
-            </Group>
-          </Group>
+          <Stack key={g.id} gap={6}>
+            <Text size="xs" fw={600} c="dimmed" mt={4}>
+              {tr(g.label)}
+            </Text>
+            {rows.map((a) => {
+              const chords = (keymap[a.id] ?? a.default).split(',').filter(Boolean);
+              return (
+                <Group key={a.id} justify="space-between" wrap="nowrap" align="flex-start" gap="sm">
+                  <div style={{ minWidth: 0 }}>
+                    <Text size="sm" fw={500}>
+                      {tr(a.label)}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {tr(a.hint)}
+                    </Text>
+                  </div>
+                  <Group
+                    gap={4}
+                    wrap="wrap"
+                    justify="flex-end"
+                    style={{ flexShrink: 0, maxWidth: 160 }}
+                  >
+                    {chords.map((c, i) => (
+                      <Kbd key={i} size="xs">
+                        {formatChord(c)}
+                      </Kbd>
+                    ))}
+                  </Group>
+                </Group>
+              );
+            })}
+          </Stack>
         );
       })}
       <Text size="xs" c="dimmed">

@@ -398,6 +398,110 @@ HOTKEY_ACTIONS.push(
 
 export type Keymap = Record<HotkeyActionId, string>;
 
+/** The keys' groups in «Гарячі клавіші» and the «?» sheet (1.24.0-beta.4, the author's ask). */
+export type HotkeyGroup = 'show' | 'find' | 'windows' | 'modes' | 'app';
+export const HOTKEY_GROUPS: { id: HotkeyGroup; label: string }[] = [
+  { id: 'show', label: N_('Показ') },
+  { id: 'find', label: N_('Перехід і пошук') },
+  { id: 'windows', label: N_('Вікна') },
+  { id: 'modes', label: N_('Режими') },
+  { id: 'app', label: N_('Застосунок') },
+];
+const GROUP_OF: Partial<Record<HotkeyActionId, HotkeyGroup>> = {
+  searchCurrent: 'find',
+  searchAll: 'find',
+  searchFocus: 'find',
+  palette: 'find',
+  historyFocus: 'find',
+  bookmarkAdd: 'find',
+  placeBack: 'find',
+  placeForward: 'find',
+  chapterPrev: 'find',
+  chapterNext: 'find',
+  bookPrev: 'find',
+  bookNext: 'find',
+  verseField: 'find',
+  newText: 'find',
+  outputWindow: 'windows',
+  stageWindow: 'windows',
+  closeOutputs: 'windows',
+  unpinAll: 'windows',
+  controlFullscreen: 'windows',
+  modeBible: 'modes',
+  modeSongs: 'modes',
+  modeDocs: 'modes',
+  modeMedia: 'modes',
+  modeNext: 'modes',
+  modePrev: 'modes',
+  helpKeys: 'app',
+  openSettings: 'app',
+  openFile: 'app',
+};
+/** An action's group; the show's own keys are the rest. */
+export const groupOf = (id: HotkeyActionId): HotkeyGroup => GROUP_OF[id] ?? 'show';
+
+/** Where a key acts (1.24.0-beta.4): also in a text field; only in the desktop app. */
+export function whereItWorks(a: HotkeyActionDef): { inFields: boolean; appOnly: boolean } {
+  return { inFields: !!a.enableOnFormTags, appOnly: !a.default && !!a.desktopInstead };
+}
+
+/** One more key for an action (1.24.0-beta.4): appended once; `remove` takes one out. */
+export function addChord(combo: string, chord: string): string {
+  const list = combo.split(',').filter(Boolean);
+  return list.includes(chord) ? combo : [...list, chord].join(',');
+}
+export function removeChord(combo: string, chord: string): string {
+  return combo
+    .split(',')
+    .filter((c) => c && c !== chord)
+    .join(',');
+}
+
+/** Ready key sets (1.24.0-beta.4): the standard, as in PowerPoint, for a clicker. */
+export type KeySet = 'standard' | 'powerpoint' | 'clicker';
+export const KEY_SETS: { id: KeySet; label: string; hint: string }[] = [
+  { id: 'standard', label: N_('Стандартний'), hint: N_('Клавіші застосунку як від початку') },
+  {
+    id: 'powerpoint',
+    label: N_('Як у PowerPoint'),
+    hint: N_(
+      'Пробіл і N — далі, P і Backspace — назад, B і . — чорний екран, W і , — сховати текст, F5 — вікно показу',
+    ),
+  },
+  {
+    id: 'clicker',
+    label: N_('Клікер'),
+    hint: N_(
+      'Лише те, що надсилає клікер: стрілки, PageUp/PageDown, B, ., F5, Esc — літери без дій, щоб випадковий натиск нічого не зробив',
+    ),
+  },
+];
+export function keySet(id: KeySet, mac: boolean = IS_MAC, desktop: boolean = IS_DESKTOP): Keymap {
+  const base = defaultKeymap(mac, desktop);
+  if (id === 'powerpoint')
+    return {
+      ...base,
+      advanceNext: addChord(addChord(base.advanceNext, 'space'), 'n'),
+      advancePrev: addChord(addChord(base.advancePrev, 'p'), 'backspace'),
+      black: 'b,period',
+      blank: 'w,comma',
+      outputWindow: 'f5',
+      project: mac ? 'f2,meta+enter' : 'f2',
+      liveToggle: '',
+    };
+  if (id === 'clicker')
+    return {
+      ...base,
+      outputWindow: desktop ? 'f5' : '',
+      project: mac ? 'f2,meta+enter' : 'f2',
+      chorus: '',
+      cover: '',
+      countdown: '',
+      liveToggle: '',
+    };
+  return base;
+}
+
 const defaultFor = (a: HotkeyActionDef, mac: boolean, desktop = IS_DESKTOP) => {
   if (mac && desktop && a.macDesktop !== undefined) return a.macDesktop;
   const base = desktop && a.desktopInstead !== undefined ? a.desktopInstead : a.default;
@@ -675,18 +779,23 @@ export function sanitizeKeymap(
   raw: unknown,
   mac: boolean = IS_MAC,
   desktop: boolean = IS_DESKTOP,
+  /**
+   * a keymap saved in a browser, read in the desktop app for the first time: the browser's
+   * defaults become the app's (1.24.0-beta.2) — once (`keymapApp`, 1.24.0-beta.4), so a key
+   * cleared on purpose in the app («без клавіші») stays cleared
+   */
+  fromBrowser: boolean = desktop,
 ): Keymap {
   const r = (raw ?? {}) as Record<string, unknown>;
   const keymap = Object.fromEntries(
     HOTKEY_ACTIONS.map((a) => {
       const v = r[a.id];
-      // the other platform's default, or the browser's in the desktop app (a keymap saved before
-      // 1.24.0-beta.2 keeps F5 on «На екран»): this one's own default
+      // missing (an action newer than the keymap) or the other platform's default: this one's own;
+      // '' is «без клавіші» on purpose since 1.24.0-beta.4 and stays
       if (
         typeof v !== 'string' ||
-        !v ||
-        v === defaultFor(a, !mac, desktop) ||
-        (desktop && v === defaultFor(a, mac, false))
+        (v !== '' && v === defaultFor(a, !mac, desktop)) ||
+        (fromBrowser && desktop && v === defaultFor(a, mac, false))
       )
         return [a.id, defaultFor(a, mac, desktop)];
       return [a.id, v];

@@ -135,6 +135,8 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('highlight', N_('Колір слів Ісуса'), 'red letter color'),
   e('highlight', N_('Колір виділеного слова (Стронг)'), 'strong highlight'),
   e('highlight', N_('Текст Стронга на показі'), 'strong subline'),
+  e('hotkeys', N_('Набір клавіш'), 'key set preset powerpoint clicker file'),
+  e('hotkeys', N_('Знайти дію чи клавішу'), 'find action key filter'),
   e('hotkeys', N_('Стрілки'), 'arrows keys клавіші вгору вниз вліво вправо екран прев’ю'), // i18n-ignore: Ukrainian search words
   e('hotkeys', N_('Після кінця пункту «Далі» відкриває наступний'), 'running order next item'),
   e('hotkeys', N_('Кнопки «Показ»'), 'running order buttons arrows стрілки кнопки далі назад'), // i18n-ignore: Ukrainian search words
