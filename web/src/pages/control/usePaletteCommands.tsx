@@ -33,6 +33,7 @@ import { openFeedback } from '../../lib/feedback';
 import { useModulesPanel } from '../../lib/modules';
 import { tr, useLang } from '../../i18n';
 import { openPresenter, openStage } from './outputWindows';
+import { openSettingsAt } from './useAppSettingsOpener';
 
 /** The command palette's lines (Ctrl+K): the operator's actions, built afresh each render. */
 export function usePaletteCommands({
@@ -235,7 +236,7 @@ export function usePaletteCommands({
       label: tr('Налаштування вигляду'),
       keywords: 'settings nalashtuvannia',
       icon: <IconAdjustments size={16} />,
-      run: () => setSettingsOpen(true),
+      run: () => openSettingsAt(setSettingsOpen),
     },
     {
       id: 'cheatsheet',

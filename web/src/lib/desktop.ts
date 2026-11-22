@@ -14,6 +14,12 @@ export const inDesktop = (): boolean =>
 export const outputAtStartOn = (choice: boolean | null): boolean => choice ?? inDesktop();
 
 /**
+ * «Налаштування — окремим вікном» as it stands (1.24.1, the author): the operator's choice, or — not
+ * chosen — a window of their own in the desktop app and the panel in the control window in a browser.
+ */
+export const settingsWindowOn = (choice: boolean | null): boolean => choice ?? inDesktop();
+
+/**
  * «Поступитися екраном» for a video (1.21.0-beta.7, F1024-08): ask the desktop shell to drop this
  * output window's always-on-top (on = true) so the operator's own player can come forward on the
  * 2nd screen, or take the screen back (on = false). The page stays fullscreen; only the always-on-top

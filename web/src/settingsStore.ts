@@ -533,6 +533,13 @@ interface SettingsState {
   outputAtStart: boolean | null;
   setOutputAtStart: (v: boolean) => void;
   /**
+   * «Налаштування — окремим вікном» (1.24.1, the author): every way of opening the settings opens the
+   * /settings window (wide: two panes). null = not chosen: on in the desktop app, the panel in a
+   * browser; read it through `settingsWindowOn`
+   */
+  settingsWindow: boolean | null;
+  setSettingsWindow: (v: boolean) => void;
+  /**
    * The desktop app, a 2nd screen plugged back in (1.24.0-beta.2, the author): the output windows
    * its unplug moved go back full screen, and then — as they were ('return', the default), on
    * «Чорний екран» ('black'), or the screen emptied as by «Очистити» ('clear').
@@ -930,6 +937,8 @@ export const useSettings = create<SettingsState>()(
       setChapterSize: (v) => set({ chapterSize: asChapterSize(v) }),
       outputAtStart: null,
       setOutputAtStart: (v) => set({ outputAtStart: v === true }),
+      settingsWindow: null,
+      setSettingsWindow: (v) => set({ settingsWindow: v === true }),
       displayBack: 'return',
       setDisplayBack: (v) => set({ displayBack: asDisplayBack(v) }),
       textWrap: true,
@@ -1147,6 +1156,7 @@ export const useSettings = create<SettingsState>()(
           subheadings: p.subheadings !== false,
           subheadingSets: sanitizeSubheadingSets(p.subheadingSets),
           pickBeforeEnter: p.pickBeforeEnter !== false,
+          settingsWindow: typeof p.settingsWindow === 'boolean' ? p.settingsWindow : null,
           outputAtStart:
             typeof p.outputAtStart === 'boolean' ? p.outputAtStart : oldAuto === true ? true : null,
           textWrap: p.textWrap !== false,

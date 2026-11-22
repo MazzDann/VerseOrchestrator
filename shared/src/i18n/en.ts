@@ -2901,6 +2901,9 @@ export const EN: Record<string, string> = {
   'Не вдалося завантажити зображення — перевірте адресу й інтернет':
     'Couldn’t download the picture — check the address and the internet connection',
   'Вікна в одному меню': 'Windows in one menu',
+  'Налаштування — окремим вікном': 'Settings in a window of their own',
+  'Налаштування відкриваються у своєму вікні з розділами ліворуч. Вимкнено — панеллю у вікні керування.':
+    'The settings open in their own window, sections on the left. Off: a panel in the control window.',
   'Вікно показу, «Сцена», вікна виводу, глядачі й пульт — під однією кнопкою «Вікна» вгорі':
     'The presentation window, «Сцена» (Stage), the output windows, viewers and the remote — under one «Вікна» (Windows) button at the top',
   'Вікно показу, «Сцена», вікна виводу, глядачі й пульт':

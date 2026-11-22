@@ -253,7 +253,7 @@ function openControl(): BrowserWindow {
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
-          ...(f.width ? { width: f.width, height: f.height } : { width: 560, height: 820 }),
+          ...(f.width ? { width: f.width, height: f.height } : { width: 960, height: 720 }),
           ...(f.x !== undefined ? { x: f.x, y: f.y } : {}),
           parent: win, // above the control window always, minimized with it
           autoHideMenuBar: true,

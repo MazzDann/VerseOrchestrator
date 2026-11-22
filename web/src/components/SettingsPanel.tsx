@@ -35,7 +35,7 @@ import {
   IconSearch,
 } from '@tabler/icons-react';
 import { findSettings, SECTION_TITLES, textHolds, useSettingsFind } from '../lib/settingsSearch';
-import { inDesktop, outputAtStartOn } from '../lib/desktop';
+import { inDesktop, outputAtStartOn, settingsWindowOn } from '../lib/desktop';
 import { notifications } from '@mantine/notifications';
 import {
   useSettings,
@@ -130,6 +130,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const chapterSize = useSettings((s) => s.chapterSize);
   const setChapterSize = useSettings((s) => s.setChapterSize);
   const autoOutput = outputAtStartOn(useSettings((s) => s.outputAtStart));
+  const settingsAsWindow = settingsWindowOn(useSettings((s) => s.settingsWindow));
+  const setSettingsAsWindow = useSettings((s) => s.setSettingsWindow);
   const setAutoOutput = useSettings((s) => s.setOutputAtStart);
   const language = useLang();
   const setLanguage = useSettings((s) => s.setLanguage);
@@ -1399,6 +1401,15 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 )}
                 checked={windowsMenu}
                 onChange={(e) => setWindowsMenu(e.currentTarget.checked)}
+              />
+              {/* 1.24.1 (the author): the settings in a window of their own — on by default in the app */}
+              <Switch
+                label={tr('Налаштування — окремим вікном')}
+                description={tr(
+                  'Налаштування відкриваються у своєму вікні з розділами ліворуч. Вимкнено — панеллю у вікні керування.',
+                )}
+                checked={settingsAsWindow}
+                onChange={(e) => setSettingsAsWindow(e.currentTarget.checked)}
               />
               {/* 1.21.0-beta.3 (F1024-02): open the output window on a 2nd screen by itself at startup;
                 1.21.1 (F1107): on by default in the app, and each platform says what it does */}

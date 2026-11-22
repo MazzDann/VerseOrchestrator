@@ -5,6 +5,7 @@ import {
   growBox,
   placeInView,
   rememberPanelSize,
+  settingsWindowBox,
   resizeBox,
 } from './panelBox';
 
@@ -165,5 +166,51 @@ describe('the separate settings window’s size (1.4.6)', () => {
       },
     };
     expect(() => rememberPanelSize('k', 500, 600, broken)).not.toThrow();
+  });
+});
+
+// 1.24.1: the settings window opened by itself — two panes wide, over the control window
+describe('settingsWindowBox', () => {
+  const opener = {
+    screenX: 100,
+    screenY: 50,
+    outerWidth: 1600,
+    outerHeight: 900,
+    avail: { left: 0, top: 0, width: 1920, height: 1040 },
+  };
+  it('opens 960 × 720, centred over the control window', () => {
+    expect(settingsWindowBox(null, opener)).toEqual({
+      left: 420,
+      top: 140,
+      width: 960,
+      height: 720,
+    });
+  });
+  it('keeps the size it was dragged to, never narrower than the two panes', () => {
+    expect(settingsWindowBox({ w: 1100, h: 800 }, opener)).toMatchObject({
+      width: 1100,
+      height: 800,
+    });
+    expect(settingsWindowBox({ w: 500, h: 300 }, opener)).toMatchObject({
+      width: 760,
+      height: 480,
+    });
+    expect(settingsWindowBox({ w: 'x' }, opener)).toMatchObject({ width: 960, height: 720 });
+  });
+  it('stays on the control window’s screen', () => {
+    const atEdge = {
+      ...opener,
+      screenX: 1700,
+      avail: { left: 0, top: 0, width: 1920, height: 1040 },
+    };
+    const b = settingsWindowBox(null, atEdge);
+    expect(b.left + b.width).toBeLessThanOrEqual(1920);
+    const second = {
+      ...opener,
+      screenX: 1920,
+      avail: { left: 1920, top: 0, width: 1280, height: 1000 },
+    };
+    const c = settingsWindowBox({ w: 2000, h: 2000 }, second);
+    expect(c).toMatchObject({ left: 1920, width: 1280, height: 1000 });
   });
 });

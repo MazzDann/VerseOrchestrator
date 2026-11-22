@@ -145,6 +145,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('app', N_('Простий вигляд'), 'simple view'),
   e('app', N_('Вікна в одному меню'), 'windows menu вікна меню кнопки'), // i18n-ignore: Ukrainian search words
   e('app', N_('Відкривати вікно показу автоматично'), 'output window auto second screen startup'),
+  e('app', N_('Налаштування — окремим вікном'), 'settings window separate panes'),
   e('app', N_('Поле «Вірш» біля розділів'), 'verse field chapters place вірш поле розділи'), // i18n-ignore: Ukrainian search words
   e('app', N_('Розмір розділів'), 'chapter size buttons розмір розділи глави'), // i18n-ignore: Ukrainian search words
   e('app', N_('Підзаголовки над віршами'), 'subheadings titles sets заголовки набір'), // i18n-ignore: Ukrainian search words

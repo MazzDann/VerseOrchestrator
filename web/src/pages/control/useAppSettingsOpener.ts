@@ -2,34 +2,52 @@ import { useEffect } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useDataSource } from '../../dataSourceStore';
 import { tr } from '../../i18n';
+import { settingsWindowOn } from '../../lib/desktop';
+import { useSettingsFind } from '../../lib/settingsSearch';
+import { openSettingsWindow } from '../../openPresenter';
+import { useSettings } from '../../settingsStore';
 
 /**
- * The settings panel opened with `section` unfolded (its accordion keeps the open ones in
- * `vo:settingsSections`), and `anchor` (an element id) brought into sight once it is drawn.
+ * The settings opened with `section` in sight (its accordion keeps the open ones in
+ * `vo:settingsSections`, the two panes the chosen one in `vo:settingsPane`), `anchor` (an element id)
+ * brought into sight once it is drawn and `find` typed into their search. In a window of their own
+ * when «Налаштування — окремим вікном» is on (1.24.1: by default in the desktop app), else the panel —
+ * also when the browser refuses the window.
  */
 export function openSettingsAt(
   setSettingsOpen: (open: boolean) => void,
-  section: string,
+  section?: string,
   anchor?: string,
+  find?: string,
 ): void {
-  try {
-    const open = JSON.parse(localStorage.getItem('vo:settingsSections') ?? '[]');
-    if (Array.isArray(open) && !open.includes(section))
-      localStorage.setItem('vo:settingsSections', JSON.stringify([...open, section]));
-    // the two panes (1.24.0-beta.1) open on it too
-    localStorage.setItem('vo:settingsPane', section);
-  } catch {
-    /* storage unavailable */
-  }
-  setSettingsOpen(true);
-  // the panel already open reads no storage: it unfolds the section on this (SettingsPanel)
-  window.dispatchEvent(new CustomEvent('vo:open-settings-section', { detail: section }));
-  if (anchor)
-    window.setTimeout(
-      () =>
-        document.getElementById(anchor)?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
-      400,
-    );
+  if (section)
+    try {
+      const open = JSON.parse(localStorage.getItem('vo:settingsSections') ?? '[]');
+      if (Array.isArray(open) && !open.includes(section))
+        localStorage.setItem('vo:settingsSections', JSON.stringify([...open, section]));
+      // the two panes (1.24.0-beta.1) open on it too
+      localStorage.setItem('vo:settingsPane', section);
+    } catch {
+      /* storage unavailable */
+    }
+  const inPanel = () => {
+    if (find !== undefined) useSettingsFind.getState().setQuery(find);
+    setSettingsOpen(true);
+    // the panel already open reads no storage: it unfolds the section on this (SettingsPanel)
+    if (section)
+      window.dispatchEvent(new CustomEvent('vo:open-settings-section', { detail: section }));
+    if (anchor)
+      window.setTimeout(
+        () =>
+          document.getElementById(anchor)?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+        400,
+      );
+  };
+  if (!settingsWindowOn(useSettings.getState().settingsWindow)) return inPanel();
+  void openSettingsWindow(undefined, section, { anchor, find }).then((w) => {
+    if (w) setSettingsOpen(false);
+    else inPanel();
+  });
 }
 
 /** «Дані» in the settings panel (1.15.1; «Застосунок» before), and the first run with no server that opens it (E1). */
