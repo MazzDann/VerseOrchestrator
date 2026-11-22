@@ -106,7 +106,6 @@ import { useTranslationSwitch } from './control/useTranslationSwitch';
 import { useShowSteps } from './control/useShowSteps';
 import { useMediaDrop } from './control/useMediaDrop';
 import { DropOverlay } from '../components/DropOverlay';
-import { useSettingsFind } from '../lib/settingsSearch';
 import { formatReference } from '../lib/reference';
 import { api, type DocRef } from '../api';
 import { useDocOpen } from '../lib/documents';
@@ -1446,7 +1445,7 @@ export function Control() {
         });
     },
     helpKeys: () => setCheatsheetOpen((o) => !o),
-    openSettings: () => setSettingsOpen(true),
+    openSettings: () => openSettingsAt(setSettingsOpen),
     openFile: () => {
       const input = document.createElement('input');
       input.type = 'file';
@@ -1964,8 +1963,8 @@ export function Control() {
         }}
         onGoReference={(q) => void goTo(q)}
         onSetting={(label) => {
-          useSettingsFind.getState().setQuery(tr(label));
-          setSettingsOpen(true);
+          // the words go to the panel or the settings window (1.24.1)
+          openSettingsAt(setSettingsOpen, undefined, undefined, tr(label));
         }}
       />
     </>

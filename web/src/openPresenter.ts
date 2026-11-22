@@ -18,6 +18,7 @@ import { delegateFullscreen } from './lib/fullscreen';
 import { inDesktop } from './lib/desktop';
 import { watchOpenedAsTab } from './lib/tabNotice';
 import { useSettings } from './settingsStore';
+import { SETTINGS_WINDOW_KEY, settingsWindowBox } from './lib/panelBox';
 
 /**
  * Opening output windows (`/presenter`, `/stage`) and the settings window. With the
@@ -344,31 +345,87 @@ export function openStageWindow(another = false): Promise<boolean> {
 
 let settingsWin: Window | null = null;
 
+/** «Show this» sent into the settings window (1.24.1): its search's words (pages/Settings.tsx) */
+export const SETTINGS_FIND_EVENT = 'vo:settings-find';
+
 /**
  * Open the settings in a standalone window. From the settings panel (1.1.0, the operator's
- * ask): where the panel was and its size — the panel closes; else on a secondary screen if
- * possible. Already open: brought forward (this window opened it, so it may).
+ * ask): where the panel was and its size — the panel closes. Opened by itself (1.24.1, the author:
+ * by default in the desktop app): wide enough for the two panes, centred over the control window
+ * (settingsWindowBox). Already open: brought forward (this window opened it, so it may) and shown
+ * `at` the section, with `anchor` in sight and `find` in its search.
  */
-export async function openSettingsWindow(from?: DOMRect, at?: string): Promise<Window | null> {
+export async function openSettingsWindow(
+  from?: DOMRect,
+  at?: string,
+  more: { anchor?: string; find?: string } = {},
+): Promise<Window | null> {
   if (settingsWin && !settingsWin.closed) {
+    const w = settingsWin;
     if (from) {
       const b = screenBox(from);
-      settingsWin.moveTo(b.left, b.top);
+      w.moveTo(b.left, b.top);
     }
-    settingsWin.focus();
-    return settingsWin;
+    w.focus();
+    // the same origin: its page takes the events as the panel does (SettingsPanel, Settings.tsx)
+    try {
+      if (at) w.dispatchEvent(new CustomEvent('vo:open-settings-section', { detail: at }));
+      if (more.find !== undefined)
+        w.dispatchEvent(new CustomEvent(SETTINGS_FIND_EVENT, { detail: more.find }));
+      const anchor = more.anchor;
+      if (anchor)
+        window.setTimeout(() => {
+          try {
+            w.document
+              .getElementById(anchor)
+              ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          } catch {
+            /* closed meanwhile */
+          }
+        }, 400);
+    } catch {
+      /* the window went away meanwhile */
+    }
+    return w;
   }
-  let features = 'popup,width=560,height=820';
+  let features: string;
+  const query = new URLSearchParams();
   if (from) {
     const b = screenBox(from);
     features = `popup,width=${b.width},height=${b.height},left=${b.left},top=${b.top}`;
+    // the window's size goes back to the panel's (Settings.tsx)
+    query.set('from', 'panel');
   } else {
-    // a screen no output is on — not the projector under «Показ» (review, 2026-10-10)
-    const s = (await defaultScreen('other')).screen;
-    if (s) features += `,left=${s.x},top=${s.y}`;
+    let stored: unknown = null;
+    try {
+      stored = JSON.parse(localStorage.getItem(SETTINGS_WINDOW_KEY) ?? 'null');
+    } catch {
+      /* none kept */
+    }
+    const s = window.screen as Screen & { availLeft?: number; availTop?: number };
+    const b = settingsWindowBox(stored, {
+      screenX: window.screenX,
+      screenY: window.screenY,
+      outerWidth: window.outerWidth,
+      outerHeight: window.outerHeight,
+      avail: {
+        left: s.availLeft ?? 0,
+        top: s.availTop ?? 0,
+        width: s.availWidth,
+        height: s.availHeight,
+      },
+    });
+    features = `popup,width=${b.width},height=${b.height},left=${b.left},top=${b.top}`;
   }
-  // `at`: the section to show first — the one the panel was showing
-  const query = at ? `?at=${encodeURIComponent(at)}` : '';
-  settingsWin = window.open(`${location.origin}/settings${query}`, 'vo-settings', features);
+  // `at`: the section to show first — the one the panel was showing, or the one asked for
+  if (at) query.set('at', at);
+  if (more.anchor) query.set('anchor', more.anchor);
+  if (more.find) query.set('find', more.find);
+  const q = query.toString();
+  settingsWin = window.open(
+    `${location.origin}/settings${q ? `?${q}` : ''}`,
+    'vo-settings',
+    features,
+  );
   return settingsWin;
 }

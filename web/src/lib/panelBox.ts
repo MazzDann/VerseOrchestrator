@@ -153,3 +153,42 @@ export function rememberPanelSize(
     /* storage unavailable — the panel keeps its default size */
   }
 }
+
+/** Where the settings window opened by itself keeps its size (1.24.1) — not the panel's. */
+export const SETTINGS_WINDOW_KEY = 'vo:settingsWindowBox';
+
+/** The settings window opened by itself (1.24.1): wide enough for the two panes. */
+export const SETTINGS_WINDOW_SIZE = { w: 960, h: 720, minW: 760, minH: 480 };
+
+interface Opener {
+  screenX: number;
+  screenY: number;
+  outerWidth: number;
+  outerHeight: number;
+  /** the opener's screen, where there is room */
+  avail: { left: number; top: number; width: number; height: number };
+}
+
+/**
+ * The settings window's place and size when it opens by itself (1.24.1, the author: in the app the
+ * settings are a window of their own, in two panes): the size it was last dragged to (never narrower
+ * than the two panes need), else 960 × 720, centred over the control window and kept on its screen.
+ */
+export function settingsWindowBox(
+  stored: unknown,
+  o: Opener,
+): { left: number; top: number; width: number; height: number } {
+  const s = SETTINGS_WINDOW_SIZE;
+  const kept = stored && typeof stored === 'object' ? (stored as { w?: unknown; h?: unknown }) : {};
+  const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+  const width = Math.min(Math.max(num(kept.w, s.w), s.minW), Math.max(o.avail.width, s.minW));
+  const height = Math.min(Math.max(num(kept.h, s.h), s.minH), Math.max(o.avail.height, s.minH));
+  const clamp = (v: number, lo: number, len: number, size: number) =>
+    Math.round(Math.min(Math.max(v, lo), Math.max(lo, lo + len - size)));
+  return {
+    left: clamp(o.screenX + (o.outerWidth - width) / 2, o.avail.left, o.avail.width, width),
+    top: clamp(o.screenY + (o.outerHeight - height) / 2, o.avail.top, o.avail.height, height),
+    width: Math.round(width),
+    height: Math.round(height),
+  };
+}

@@ -7,7 +7,9 @@ import { tr, useLang } from '../i18n';
 import { useUiMotion } from '../lib/uiMotion';
 import { probeServer, useServer, versionHeading } from '../serverStore';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
-import { SETTINGS_PANEL_KEY, rememberPanelSize } from '../lib/panelBox';
+import { SETTINGS_PANEL_KEY, SETTINGS_WINDOW_KEY, rememberPanelSize } from '../lib/panelBox';
+import { useSettingsFind } from '../lib/settingsSearch';
+import { SETTINGS_FIND_EVENT } from '../openPresenter';
 
 /**
  * Standalone settings window (`/settings`) — opened on a second monitor next to the
@@ -31,11 +33,18 @@ export function Settings() {
   // popup — the address typed into a browser tab would hand the panel the whole browser.
   useEffect(() => {
     if (!window.opener) return;
+    const fromPanel = new URLSearchParams(location.search).get('from') === 'panel';
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onResize = () => {
       clearTimeout(timer);
       timer = setTimeout(
-        () => rememberPanelSize(SETTINGS_PANEL_KEY, window.innerWidth, window.innerHeight),
+        () =>
+          rememberPanelSize(
+            // opened from the panel: its size goes back there; opened by itself (1.24.1): its own
+            fromPanel ? SETTINGS_PANEL_KEY : SETTINGS_WINDOW_KEY,
+            window.innerWidth,
+            window.innerHeight,
+          ),
         400,
       );
     };
@@ -46,15 +55,31 @@ export function Settings() {
     };
   }, []);
   // opened from the panel: at the section it was showing (openSettingsWindow `at`)
+  // asked for a place (1.24.1): its element in sight, and words in the search
   useEffect(() => {
-    const at = new URLSearchParams(location.search).get('at');
-    if (!at) return;
-    const t = setTimeout(() => {
-      document
-        .querySelector(`[data-settings-section="${CSS.escape(at)}"]`)
-        ?.scrollIntoView({ block: 'start' });
-    }, 50);
-    return () => clearTimeout(t);
+    const params = new URLSearchParams(location.search);
+    const at = params.get('at');
+    const anchor = params.get('anchor');
+    const find = params.get('find');
+    if (find) useSettingsFind.getState().setQuery(find);
+    const t = setTimeout(
+      () => {
+        if (at)
+          document
+            .querySelector(`[data-settings-section="${CSS.escape(at)}"]`)
+            ?.scrollIntoView({ block: 'start' });
+        if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: 'center' });
+      },
+      anchor ? 400 : 50,
+    );
+    // words sent while the window is open (openSettingsWindow)
+    const onFind = (e: Event) =>
+      useSettingsFind.getState().setQuery((e as CustomEvent<string>).detail);
+    window.addEventListener(SETTINGS_FIND_EVENT, onFind);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener(SETTINGS_FIND_EVENT, onFind);
+    };
   }, []);
   return (
     <ScrollArea style={{ height: '100vh' }} type="auto">

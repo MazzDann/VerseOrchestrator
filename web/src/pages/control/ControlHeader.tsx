@@ -50,6 +50,8 @@ import { NoticeHistoryPopover } from '../../components/NoticeHistory';
 import { tr, trn, useLang } from '../../i18n';
 import { openPresenter, openStage } from './outputWindows';
 import { SearchField } from './SearchField';
+import { openSettingsAt } from './useAppSettingsOpener';
+import { settingsWindowOn } from '../../lib/desktop';
 import { LiveZone, type LiveZoneProps } from './LiveZone';
 
 type Toggle = Dispatch<SetStateAction<boolean>>;
@@ -321,7 +323,12 @@ export function ControlHeader({
     icon: <IconAdjustments size={18} stroke={1.5} />,
     dot: !!newer || !!code?.changed,
     active: settingsOpen,
-    onClick: () => setSettingsOpen((o) => !o),
+    // a window of their own (1.24.1: by default in the app) comes forward; the panel toggles
+    // (an open panel — also the one a refused window fell back to — closes)
+    onClick: () =>
+      !settingsOpen && settingsWindowOn(useSettings.getState().settingsWindow)
+        ? openSettingsAt(setSettingsOpen)
+        : setSettingsOpen((o) => !o),
   };
   // «Сповіщення» (the user's ask, 2026-10-09): the notices of this session, a dot for new ones
   const unseen = useNoticeHistory(unseenCount);
