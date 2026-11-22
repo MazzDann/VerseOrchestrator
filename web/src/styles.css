@@ -220,6 +220,12 @@ html[data-scrolling] .vo-list-item:hover:not([data-selected='true']) {
 .vo-stanza-row[data-part='chorus'][data-selected='true'] .vo-verse-num {
   color: var(--mantine-color-brand-light-color);
 }
+/* The slide a «~ тема» search found in the song opened from it (1.25.0-beta.1): a grey mark on
+   the left, apart from the selection's solid one — told by its shape, not a colour of its own. */
+.vo-stanza-row[data-hint='true']:not([data-selected='true']) {
+  box-shadow: inset 2px 0 0 var(--mantine-color-dimmed);
+  background-image: linear-gradient(to right, var(--mantine-color-default-hover), transparent 60%);
+}
 
 /* Chapter picker: compact fixed-width cells so long books wrap into a tidy grid. */
 .vo-chapter-grid {
@@ -2230,4 +2236,19 @@ form.vo-remote-countdown {
 }
 .vo-settings-two[data-pane] .mantine-Accordion-item {
   border-bottom: 0;
+}
+
+/* «Фонова робота» (1.25.0-beta.1): a ring with no count to show turns slowly; still with reduced motion */
+.vo-ring-spin {
+  animation: vo-ring-spin 1.6s linear infinite;
+}
+@keyframes vo-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vo-ring-spin {
+    animation: none;
+  }
 }

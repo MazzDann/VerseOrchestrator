@@ -37,7 +37,23 @@ CREATE TABLE IF NOT EXISTS chapter_vectors (
   vecs        BLOB NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_vectors ON chapter_vectors (model, source_hash, book, chapter);
+CREATE TABLE IF NOT EXISTS song_vectors (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  model   TEXT NOT NULL,
+  song_id INTEGER NOT NULL,
+  hash    TEXT NOT NULL,
+  ords    BLOB NOT NULL,
+  vecs    BLOB NOT NULL,
+  UNIQUE (model, song_id)
+);
 `;
+
+/*
+ * Songs by meaning (1.25.0-beta.1): a row per song — its passages' slide numbers (int16) and their
+ * int8 vectors, as a chapter's (packChapter) — keyed by the song's library id (stable: its bundle's
+ * id and its key) with `hash` of its passages (songPassagesHash), so only a changed song is embedded
+ * again. Server only: the browser engines don't carry them (yet).
+ */
 
 /** The same for Postgres — pgvector must be loaded (PGlite: the `vector` extension). */
 export const PG_VECTORS_SQL = /* sql */ `

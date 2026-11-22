@@ -51,6 +51,7 @@ import { tr, trn, useLang } from '../../i18n';
 import { openPresenter, openStage } from './outputWindows';
 import { SearchField } from './SearchField';
 import { openSettingsAt } from './useAppSettingsOpener';
+import { BackgroundWork } from '../../components/BackgroundWork';
 import { settingsWindowOn } from '../../lib/desktop';
 import { LiveZone, type LiveZoneProps } from './LiveZone';
 
@@ -495,6 +496,8 @@ export function ControlHeader({
         )}
         {moreFirst && moreAnchor}
         <LiveZone {...live} divider={!folded('windows') || moreFirst} fold={fold} keymap={keymap} />
+        {/* the server working on its own (1.25.0-beta.1): a quiet ring, a click to «Дані» */}
+        <BackgroundWork onOpen={() => openSettingsAt(setSettingsOpen, 'data')} />
         {folded('app') ? (
           !moreFirst && (
             <>

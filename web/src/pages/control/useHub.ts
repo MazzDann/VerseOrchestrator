@@ -231,6 +231,8 @@ export function useHub({
           void queryClient.invalidateQueries({ queryKey: ['semantic'] });
           // a «~ …» answered «not set up» before is asked again (review)
           void queryClient.invalidateQueries({ queryKey: ['search'] });
+          // …and the songs' «~ …» (1.25.0-beta.1)
+          void queryClient.invalidateQueries({ queryKey: ['songs-meaning'] });
         } else if (f.type === 'documents') {
           // the documents folder changed (1.17.0-beta.1): a file put there, dropped or deleted
           for (const key of DOC_KEYS) void queryClient.invalidateQueries({ queryKey: [key] });

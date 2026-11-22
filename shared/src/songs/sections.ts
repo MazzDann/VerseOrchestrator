@@ -111,3 +111,8 @@ export function nextChorus(parts: SongPart[], current: number | null): number | 
 
 const startOf = (p: SongPart | undefined): number | undefined =>
   p?.kind === 'chorus' ? p.start : undefined;
+
+/** A slide's words without its label line («Приспів:»), for a model that weighs words (1.25.0-beta.1). */
+export function slideWords(text: string): string {
+  return bodyOf(text);
+}

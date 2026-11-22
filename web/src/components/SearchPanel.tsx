@@ -478,7 +478,7 @@ export function SearchPanel({
 const CLOSENESS = [N_('Споріднене'), N_('Близько'), N_('Дуже близько')];
 
 /** «~ …»: how close a place is to the best one — three dots (1.16.0-beta.4, the author's ask). */
-function Closeness({ level }: { level: 1 | 2 | 3 }) {
+export function Closeness({ level }: { level: 1 | 2 | 3 }) {
   const label = tr(CLOSENESS[level - 1]);
   return (
     <span className="vo-closeness" title={label} aria-label={label} role="img">

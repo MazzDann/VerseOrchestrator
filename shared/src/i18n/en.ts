@@ -1052,7 +1052,30 @@ export const EN: Record<string, string> = {
   Кінець: 'End',
   'Порожній слайд: текст сховано, фон лишається':
     'An empty slide: the text hidden, the background stays',
-  'Презентація: номер або назва': 'Presentation: number or title',
+  'Презентація: номер, назва або ~ тема': 'Presentation: number, title or ~ theme',
+  'Ще обчислюється ({done} з {total}) — знайдено не все':
+    'Still computing ({done} of {total}) — not everything is found yet',
+  'Презентації ще не мають векторів: вони обчислюються самі, щойно модель завантажено.':
+    'The presentations have no vectors yet: they are computed by themselves once a model is downloaded.',
+  'Бібліотека збирається: {step} з {total}': 'The library is being built: {step} of {total}',
+  'Бібліотека збирається…': 'The library is being built…',
+  'Завантажується модель «{model}»': 'Downloading the model «{model}»',
+  'Модель перевіряє ядра процесора…': 'The model is testing the processor cores…',
+  'Модель обчислює вектори {abbr}: {done} з {total}':
+    'The model is computing vectors of {abbr}: {done} of {total}',
+  'Модель обчислює вектори…': 'The model is computing vectors…',
+  'Модель обчислює вектори презентацій: {done} з {total}':
+    'The model is computing vectors of the presentations: {done} of {total}',
+  'Модель обчислює вектори презентацій…': 'The model is computing vectors of the presentations…',
+  'Пошук презентацій за змістом готовий: «~ тема» у полі «Презентація»':
+    'Search of presentations by meaning is ready: «~ theme» in the «Presentation» field',
+  'Фонова робота: {what}': 'Background work: {what}',
+  'Презентації: обчислюю вектори, {done} з {total}':
+    'Presentations: computing vectors, {done} of {total}',
+  'Презентації: вектори є в усіх ({total}) — «~ тема» у полі «Презентація»':
+    'Presentations: all have vectors ({total}) — «~ theme» in the «Presentation» field',
+  'Презентації: вектори є в {done} з {total}; решта обчислиться сама':
+    'Presentations: {done} of {total} have vectors; the rest will be computed by themselves',
   'Набір презентацій': 'Presentation bundle',
   'Усі набори': 'All bundles',
   'Імпорт презентацій з файлів .pptx': 'Import presentations from .pptx files',
