@@ -1,7 +1,6 @@
 import Database from 'better-sqlite3';
 import {
-  commentaryEntry,
-  MODULE_COMMENTARIES_SQL,
+  readModuleCommentaries,
   readSubheadings,
   stripTags,
   type CommentaryEntry,
@@ -53,8 +52,7 @@ export function readCommentaries(path: string): CommentaryEntry[] {
   const db = new Database(path, { readonly: true, fileMustExist: true });
   try {
     if (!tableExists(db, 'commentaries')) return [];
-    const rows = db.prepare(MODULE_COMMENTARIES_SQL).all() as Record<string, unknown>[];
-    return rows.map(commentaryEntry).filter((c) => c.text.trim());
+    return readModuleCommentaries((sql) => db.prepare(sql).all() as Record<string, unknown>[]);
   } finally {
     db.close();
   }

@@ -236,9 +236,22 @@ export interface CommentaryEntry {
   text: string;
 }
 
-export const MODULE_COMMENTARIES_SQL = `SELECT book_number, chapter_number_from, verse_number_from,
-       chapter_number_to, verse_number_to, marker, text
+/** Columns of `commentaries` that older commentary modules don't have. */
+const OPTIONAL_COMMENTARY_COLUMNS = ['chapter_number_to', 'verse_number_to', 'marker'];
+
+/**
+ * The notes of a `*.commentaries.SQLite3` module, blank ones left out. Only the columns the
+ * table has are read: a fixed list failed whole modules on «no such column: marker».
+ */
+export function readModuleCommentaries(all: (sql: string) => Row[]): CommentaryEntry[] {
+  const has = new Set(all('PRAGMA table_info(commentaries)').map((c) => String(c.name)));
+  const optional = OPTIONAL_COMMENTARY_COLUMNS.map((c) => (has.has(c) ? c : `NULL AS ${c}`));
+  const sql = `SELECT book_number, chapter_number_from, verse_number_from, ${optional.join(', ')}, text
 FROM commentaries`;
+  return all(sql)
+    .map(commentaryEntry)
+    .filter((c) => c.text.trim());
+}
 
 export function commentaryEntry(r: Row): CommentaryEntry {
   return {
@@ -533,10 +546,7 @@ export function convertModule(
   }
 
   if (kind === 'commentaries') {
-    const notes = src
-      .all(MODULE_COMMENTARIES_SQL)
-      .map(commentaryEntry)
-      .filter((c) => c.text.trim());
+    const notes = readModuleCommentaries((sql) => src.all(sql));
     bulk(
       out,
       'commentaries',

@@ -19,6 +19,7 @@ import {
   type SqlDriver,
   type SyncConn,
 } from '@vo/shared';
+import { readCommentaries } from './extras.js';
 
 /**
  * A raw module dropped into the browser is converted into a segment by the
@@ -194,6 +195,35 @@ describe('module → segment conversion', { timeout: 30_000 }, () => {
       verse_to: 16,
       text: 'Любов Божа',
     });
+
+    // an older commentary module: no marker, no «to» columns
+    const oldModule = module(
+      'Old.commentaries.SQLite3',
+      `CREATE TABLE commentaries (book_number NUMERIC, chapter_number_from NUMERIC,
+         verse_number_from NUMERIC, text TEXT);
+       INSERT INTO commentaries VALUES (500, 3, 16, '<p>For God so loved</p>');`,
+    );
+    const old = convert(oldModule, 'Old.commentaries.SQLite3', droppedId(6));
+    expect(old).toMatchObject({ kind: 'commentaries', abbr: 'Old', items: 1 });
+    expect(open(old.file).prepare('SELECT * FROM commentaries').get()).toMatchObject({
+      source: 'Old',
+      chapter_to: 3,
+      verse_to: 16,
+      marker: '',
+      text: 'For God so loved',
+    });
+    // …and the library builder reads it too
+    expect(readCommentaries(path.join(dir, 'Old.commentaries.SQLite3'))).toEqual([
+      {
+        book: 500,
+        chapterFrom: 3,
+        verseFrom: 16,
+        chapterTo: 3,
+        verseTo: 16,
+        marker: '',
+        text: '<p>For God so loved</p>',
+      },
+    ]);
 
     const x = convert(
       module(
