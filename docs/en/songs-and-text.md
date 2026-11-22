@@ -148,6 +148,21 @@ command palette: press Ctrl+K (on macOS, ⌘K) and type its number or title. To 
 verses, click **Bible** at the top or find a verse in the **Search** field: a verse you pick
 there takes you back to **Bible** by itself.
 
+### Find a presentation by its theme
+
+To find songs on a theme rather than by title, type `~` and the theme in the presentation search,
+for example `~ salvation` or `~ Christmas`. You can also type just the words and press
+Shift+Enter: the app adds the `~` itself. The app compares the theme with the text of every stanza,
+not only the title, and lists the closest songs first. The dots to the right of a title say how
+close the song is to the theme, and the line under the title is the stanza that fits best. When
+you open such a song, that stanza is marked with a grey line on its left.
+
+The theme search needs a model from **Search by meaning** in **Appearance settings → Data**. Once
+the model is downloaded, the app computes vectors for every presentation by itself, and later only
+for new and changed ones. While it works, a small ring turns in the header: hover over it to see
+how much is done, or click it to open **Data**. Until the work is finished, the results say that
+not everything is found yet.
+
 ## Choose how a presentation looks
 
 Above the presentation's slides there is a switch:

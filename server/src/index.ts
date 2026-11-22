@@ -117,6 +117,7 @@ import {
   EMBED_MODEL_IDS,
   EMBED_MODELS,
   isEmbedModelId,
+  type EmbedModelId,
   keyedError,
   modelBytes,
   MODULE_KINDS,
@@ -199,6 +200,7 @@ import { createModelStore, modelInstalled } from './models.js';
 import { createCoresTest, sampleVerses } from './coresTest.js';
 import { coreLimit, cpuInfo, createQueryEmbedder, openChildEmbedder } from './embedding.js';
 import { createVectorJob, listTranslations, readVectorSets, vectorsPath } from './vectorJob.js';
+import { createSongVectorJob, songVectorCounts } from './songVectors.js';
 import { mergeVectors, placeModule, receiveFile } from './dropImport.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
@@ -246,6 +248,7 @@ const rebuild = createRebuildJob({
   start: startBuilder,
   onSettled: () => {
     closeDb(); // the next read opens the new library
+    songVectorsSoon(2000); // its songs by meaning (1.25.0-beta.1)
     // a file put into the documents folder while the builder ran
     setTimeout(() => {
       documents.refresh().catch((err: Error) => console.warn(`[server] documents: ${err.message}`));
@@ -1296,6 +1299,33 @@ app.get(
       ),
     ),
   ),
+);
+
+/**
+ * Songs by meaning (1.25.0-beta.1): «~ спасіння» in «Презентації». `pending`: the songs' vectors are
+ * being made — what is found is not all yet.
+ */
+app.get(
+  '/api/songs/meaning',
+  wrap(async (req, res) => {
+    const found = await library().searchSongsByMeaning(
+      String(req.query.q ?? ''),
+      req.query.bundle ? String(req.query.bundle) : undefined,
+    );
+    // being made, or about to be (waiting for another job, or a change just now): not all yet
+    const coming = songVectors.running() || songsWaiting || songsTimer !== null;
+    const model = getServerSettings().semantic.model;
+    const counts = songVectors.running()
+      ? songVectors.state()
+      : model && !rebuild.running()
+        ? songsWithVectors(model)
+        : null;
+    res.json(
+      coming && counts && counts.done < counts.total && !found.missing
+        ? { ...found, pending: { done: counts.done, total: counts.total } }
+        : found,
+    );
+  }),
 );
 
 /** The song bundles in the library, by name, with their song counts (0.10.0). */
@@ -2388,6 +2418,7 @@ function refreshSongs(dir: string): number | null {
   if (!fs.existsSync(libraryPath)) return null;
   const n = refreshLibrarySongs(libraryPath, dir);
   closeDb(); // the next read sees the new songs
+  songVectorsSoon(); // the changed songs by meaning too (1.25.0-beta.1)
   return n;
 }
 
@@ -2905,26 +2936,36 @@ app.put(
 const models = createModelStore({
   dataDir,
   version: appVersion,
-  onChange: () => notifySemantic({}),
+  onChange: () => {
+    notifySemantic({});
+    // the chosen model just downloaded: the songs get their vectors (1.25.0-beta.1)
+    songVectorsSoon(1000);
+  },
 });
 const queryEmbedder = createQueryEmbedder(dataDir, () => getServerSettings().semantic.model);
 setLibraryOptions({ embed: (text) => queryEmbedder.embed(text) });
+/** A model opened for a job — the verses' or the songs' — on the cores found best (coresTest.ts). */
+async function openForJob(model: EmbedModelId) {
+  // the cores this job takes: found once per model and limit (coresTest.ts), then remembered
+  const { threads, tuned } = getServerSettings().semantic;
+  const cap = coreLimit(threads);
+  const known = tuned[model];
+  let n = known && known.cap === cap ? known.threads : cap === 1 ? 1 : null;
+  if (n === null) {
+    n = await coresTest.measure(model, cap);
+    if (n === null && coresTest.state().phase === 'stopped') throw new Error('stopped');
+  }
+  return openChildEmbedder(dataDir, model, n ?? cap);
+}
 const vectors = createVectorJob({
   dataDir,
   libraryPath,
-  open: async (model) => {
-    // the cores this job takes: found once per model and limit (coresTest.ts), then remembered
-    const { threads, tuned } = getServerSettings().semantic;
-    const cap = coreLimit(threads);
-    const known = tuned[model];
-    let n = known && known.cap === cap ? known.threads : cap === 1 ? 1 : null;
-    if (n === null) {
-      n = await coresTest.measure(model, cap);
-      if (n === null && coresTest.state().phase === 'stopped') throw new Error('stopped');
-    }
-    return openChildEmbedder(dataDir, model, n ?? cap);
+  open: openForJob,
+  onChange: (s) => {
+    notifySemantic(s);
+    // the songs' pass waited for the verses' (one model on the processor at a time)
+    if (s.phase !== 'running' && songsWaiting) songVectorsSoon(1000);
   },
-  onChange: (s) => notifySemantic(s),
   // a library connection opened before data/vectors.db was made attaches it when reopened
   onSet: () => {
     if (!vectorsAttached()) closeDb();
@@ -2935,16 +2976,74 @@ const vectors = createVectorJob({
 const coresTest = createCoresTest({
   open: (model, threads) => openChildEmbedder(dataDir, model, threads),
   sample: () => sampleVerses(libraryPath),
-  onChange: () => notifySemantic({}),
+  onChange: () => {
+    notifySemantic({});
+    // the songs' pass waited for the cores test «Перевірити ще раз» started
+    if (!coresTest.running() && songsWaiting) songVectorsSoon(1000);
+  },
   onBest: (model, cap, best) =>
     updateServerSettings({
       semantic: { tuned: { ...getServerSettings().semantic.tuned, [model]: { cap, ...best } } },
     }),
 });
-/** A rebuild started: the vector job stops (declared here, the rebuild job is set up first). */
+/** A rebuild started: the vector jobs stop (declared here, the rebuild job is set up first). */
 function stopVectors(): void {
   vectors.stop();
   coresTest.stop();
+  if (songVectors.running()) {
+    songVectors.stop();
+    songsWaiting = true;
+  }
+}
+
+// --- Songs by meaning (1.25.0-beta.1, songVectors.ts): their vectors made by themselves ----------
+
+const songVectors = createSongVectorJob({
+  dataDir,
+  libraryPath,
+  open: openForJob,
+  onChange: (s) => notifySemantic({ songs: s }),
+  // a library connection opened before data/vectors.db was made attaches it when reopened
+  onWritten: () => {
+    if (!vectorsAttached()) closeDb();
+  },
+});
+/** a pass wanted while another job had the processor: it runs when that one ends */
+let songsWaiting = false;
+let songsTimer: ReturnType<typeof setTimeout> | null = null;
+/**
+ * The songs' vectors, soon (the author: «самі, якщо модель є»): at the start, after a bundle
+ * changed, a model was chosen or downloaded, a rebuild — only with a chosen, downloaded model, and
+ * never beside the verses' job, the cores test or a rebuild (it waits for them).
+ */
+function songVectorsSoon(ms = 3000): void {
+  if (songsTimer) clearTimeout(songsTimer);
+  songsTimer = setTimeout(() => {
+    songsTimer = null;
+    const model = getServerSettings().semantic.model;
+    if (!model || !modelInstalled(dataDir, model)) return;
+    // a pass under way (its cores test too): one more after it, for this model
+    if (songVectors.running()) {
+      songVectors.start(model);
+      return;
+    }
+    if (rebuild.running() || vectors.running() || coresTest.running()) {
+      songsWaiting = true;
+      return;
+    }
+    songsWaiting = false;
+    songVectors.start(model);
+  }, ms);
+  songsTimer.unref();
+}
+// counting the songs with vectors reads the library: kept until a file changes
+let songCounts: { key: string; v: { done: number; total: number } } | null = null;
+function songsWithVectors(model: EmbedModelId): { done: number; total: number } {
+  const m = (p: string) => (fs.existsSync(p) ? fs.statSync(p).mtimeMs : 0);
+  const key = `${model}|${m(libraryPath)}|${m(`${libraryPath}-wal`)}|${m(vectorsPath(dataDir))}`;
+  if (songCounts?.key !== key)
+    songCounts = { key, v: songVectorCounts(dataDir, libraryPath, model) };
+  return songCounts.v;
 }
 
 function semanticState() {
@@ -2982,6 +3081,16 @@ function semanticState() {
     }),
     job: vectors.state(),
     coresTest: coresTest.state(),
+    // the songs' vectors (1.25.0-beta.1): the pass under way, else how many songs have them
+    songs: songVectors.running()
+      ? songVectors.state()
+      : {
+          ...songVectors.state(),
+          // not recounted while a rebuild rewrites the library (it would read it every poll)
+          ...(chosen && !rebuild.running()
+            ? songsWithVectors(chosen)
+            : (songCounts?.v ?? { done: 0, total: 0 })),
+        },
   };
 }
 
@@ -3005,6 +3114,7 @@ app.put(
       throw new ApiError(400, N_('Очікую { model }'));
     if (threads !== undefined && threads !== null && sanitizeThreads(threads) === null)
       throw new ApiError(400, N_('Очікую { model }'));
+    const before = getServerSettings().semantic.model;
     const cores =
       threads !== undefined
         ? sanitizeThreads(threads)
@@ -3019,7 +3129,12 @@ app.put(
         ...(cores !== undefined ? { threads: cores } : {}),
       },
     });
-    if (model !== undefined) await queryEmbedder.release();
+    if (model !== undefined && model !== before) {
+      await queryEmbedder.release();
+      // another model: its own song vectors (a pass of the old one stops)
+      if (songVectors.state().model !== model) songVectors.stop();
+      songVectorsSoon(1000);
+    }
     notifySemantic({});
     res.json(semanticState());
   }),
@@ -3046,6 +3161,7 @@ app.delete(
     if (!isEmbedModelId(id)) throw new ApiError(404, N_('Немає такої моделі'));
     if (vectors.running() && vectors.state().model === id)
       throw new ApiError(409, N_('Зачекайте, доки обчисляться вектори, або зупиніть їх'));
+    if (songVectors.running() && songVectors.state().model === id) songVectors.stop();
     if (getServerSettings().semantic.model === id) await queryEmbedder.release();
     await models.remove(id);
     notifySemantic({});
@@ -3056,7 +3172,7 @@ app.post(
   '/api/semantic/compute',
   requireLocalControl,
   json,
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const model = getServerSettings().semantic.model;
     if (!model || !modelInstalled(dataDir, model))
       throw new ApiError(409, N_('Спершу виберіть і завантажте модель'));
@@ -3066,6 +3182,13 @@ app.post(
     const ids = Array.isArray(req.body?.translations)
       ? (req.body.translations as unknown[]).map(Number).filter((n) => Number.isInteger(n))
       : null;
+    // one model on the processor at a time: the songs' pass goes on after the verses'
+    // (stopped and released first: two model processes would share the cores — review)
+    if (songVectors.running()) {
+      songVectors.stop();
+      songsWaiting = true;
+      await songVectors.settled();
+    }
     vectors.start(model, ids);
     res.json(semanticState());
   }),
@@ -3180,18 +3303,27 @@ app.post(
 app.post('/api/semantic/stop', requireLocalControl, (_req, res) => {
   vectors.stop();
   coresTest.stop();
+  // «Зупинити» stops the songs' pass too; the next bundle change or start makes it again
+  songVectors.stop();
+  songsWaiting = false;
   res.json(semanticState());
 });
 app.post(
   '/api/semantic/cores-test',
   requireLocalControl,
-  wrap((_req, res) => {
+  wrap(async (_req, res) => {
     const model = getServerSettings().semantic.model;
     if (!model || !modelInstalled(dataDir, model))
       throw new ApiError(409, N_('Спершу виберіть і завантажте модель'));
     if (rebuild.running()) throw new ApiError(409, N_('Зачекайте, доки бібліотека збереться'));
-    if (vectors.state().phase === 'running')
+    if (vectors.state().phase === 'running' || coresTest.running())
       throw new ApiError(409, N_('Зачекайте, доки вектори обчисляться'));
+    // the songs' pass gives the processor up for the test, and goes on after it
+    if (songVectors.running()) {
+      songVectors.stop();
+      songsWaiting = true;
+      await songVectors.settled();
+    }
     void coresTest.measure(model, coreLimit(getServerSettings().semantic.threads));
     res.json(semanticState());
   }),
@@ -3335,6 +3467,8 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`[server] http://${HOST}:${port}`);
   // Started by the standby waiter (standby.ts, PORT=0 → any free port): tell it where.
   process.send?.({ type: 'ready', port });
+  // the songs' vectors a little after the start (the songs of a new bundle or a new model)
+  songVectorsSoon(15000);
 });
 // pages follow a restart with new code by the UI build they were made from (1.6.0): told only by
 // an app the waiter started — under `npm run dev` Vite serves the pages, not web/dist

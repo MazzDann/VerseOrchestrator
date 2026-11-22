@@ -24,6 +24,8 @@ import {
   meaningStems,
 } from './meaning.js';
 import { EMBED_MODELS, isEmbedModelId } from '../embed/models.js';
+import { slideWords } from '../songs/sections.js';
+import { songScore } from '../songs/songVectors.js';
 
 /**
  * Every read the app makes against a library database, written once against the
@@ -74,6 +76,17 @@ export interface SongInfo {
   title: string;
   /** The song bundle's name (0.10.0); '' in a library built before bundles. */
   bundle: string;
+}
+/** A song found by meaning (1.25.0-beta.1): how close (1–3), its nearest slide and that slide's first line. */
+export interface SongMeaningHit extends SongInfo {
+  closeness: number;
+  stanza: number;
+  line: string;
+}
+/** «~ …» in the songs: what was found, or the part missing (`server`: a browser engine has no song vectors). */
+export interface SongMeaningResponse {
+  results: SongMeaningHit[];
+  missing?: 'model' | 'vectors' | 'server';
 }
 export interface SongSlideOut {
   text: string;
@@ -155,6 +168,9 @@ const INT = 'CAST(? AS INTEGER)';
 export const MEANING_LIMIT = 60;
 /** How many places of the query's language are weighed: the vectors' nearest, the word-richest. */
 const MEANING_POOL = 200;
+/** How many song passages are weighed, and how many songs a query by meaning returns (1.25.0-beta.1). */
+const SONG_MEANING_POOL = 600;
+const SONG_MEANING_LIMIT = 40;
 /** A word in more verses than this is common anyway: its count stops there. */
 const STEM_CAP = 3000;
 
@@ -698,6 +714,137 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       title: r.title,
       bundle: r.bundle ?? '',
     }));
+  }
+
+  // a model's song vectors, read once until they change (the job writes them a song at a time)
+  let songVecCache: { key: string; rows: ChapterVectors[] } | null = null;
+
+  /**
+   * Songs by meaning (1.25.0-beta.1, the author: «пишеш тему як от спасіння і воно тобі автопідбирає
+   * пісні»): the songs whose passages (songPassages: the title, each slide once) are nearest to the
+   * words — a song by its best passage and a little of its next (songScore), the words in its title
+   * weighed in like a verse's. Server only: the browser engines carry no song vectors (`server`).
+   */
+  async function searchSongsByMeaning(text: string, bundle?: string): Promise<SongMeaningResponse> {
+    const words = text.replace(MEANING_PREFIX, '').trim();
+    if (!words) return { results: [] };
+    if (pg) return { results: [], missing: 'server' };
+    if (!opts.embed) return { results: [], missing: 'model' };
+    if (!(await tableExists('songs'))) return { results: [] };
+    let models: string[] = [];
+    try {
+      if (await db.get("SELECT 1 FROM pragma_table_list WHERE name = 'song_vectors'"))
+        models = (await db.all<AnyRow>('SELECT DISTINCT model FROM song_vectors')).map((r) =>
+          String(r.model),
+        );
+    } catch {
+      /* no vectors file attached */
+    }
+    if (!models.length) return { results: [], missing: 'vectors' };
+    const asked = await opts.embed(words, models);
+    if (!asked) return { results: [], missing: 'model' };
+    const capitalized = capitalizeWords(words);
+    const also = capitalized !== words ? await opts.embed(capitalized, [asked.model]) : null;
+    const q = also?.model === asked.model ? blendVectors(asked.vec, also.vec) : asked.vec;
+
+    const mark = await db.get<AnyRow>(
+      // AUTOINCREMENT ids never come back: a row replaced or deleted always moves the mark
+      'SELECT COUNT(*) AS n, MAX(id) AS m FROM song_vectors WHERE model = ?',
+      [asked.model],
+    );
+    // the model asked has none yet (another one has): say so, not «nothing found»
+    if (!Number(mark?.n)) return { results: [], missing: 'vectors' };
+    const key = `${asked.model}|${mark?.n}|${mark?.m}`;
+    if (songVecCache?.key !== key) {
+      const rows = await db.all<AnyRow>(
+        'SELECT song_id, ords, vecs FROM song_vectors WHERE model = ?',
+        [asked.model],
+      );
+      songVecCache = {
+        key,
+        rows: rows.map((r) => ({
+          book: Number(r.song_id),
+          chapter: 0,
+          verses: r.ords as Uint8Array,
+          vecs: r.vecs as Uint8Array,
+        })),
+      };
+    }
+    const cols = await songColumns();
+    const inBundle = bundle && cols.endsWith(', bundle');
+    // the songs there are now (a deleted song's vectors stay until the next pass), of the bundle asked
+    const songs = new Map(
+      (
+        await db.all<AnyRow>(
+          `SELECT ${cols}, title_norm FROM songs${inBundle ? ' WHERE bundle = ?' : ''}`,
+          inBundle ? [bundle!] : [],
+        )
+      ).map((r) => [Number(r.id), r]),
+    );
+    const hits = nearest(
+      songVecCache.rows.filter((r) => songs.has(r.book)),
+      q,
+      SONG_MEANING_POOL,
+    );
+    const bySong = new Map<number, { cos: number[]; best: number; bestCos: number }>();
+    for (const h of hits) {
+      const s = bySong.get(h.book);
+      if (!s) bySong.set(h.book, { cos: [h.score], best: h.verse, bestCos: h.score });
+      else s.cos.push(h.score);
+    }
+    const { wordsWeight, cut } = isEmbedModelId(asked.model)
+      ? EMBED_MODELS[asked.model].ranking
+      : DEFAULT_RANKING;
+    const stems = meaningStems(words);
+    const scored = [...bySong].map(([id, s]) => {
+      const title = ` ${normalizeForSearch(String(songs.get(id)?.title_norm ?? ''))} `;
+      const inTitle = stems.length
+        ? stems.filter((st) => title.includes(` ${st}`)).length / stems.length
+        : 0;
+      return {
+        id,
+        best: s.best,
+        score: (1 - wordsWeight) * songScore(s.cos) + wordsWeight * inTitle,
+      };
+    });
+    scored.sort((x, y) => y.score - x.score || x.id - y.id);
+    if (!scored.length) return { results: [] };
+    const top = scored[0].score;
+    const kept = scored
+      .filter((h, i) => i < MEANING_MIN || top - h.score <= cut)
+      .slice(0, SONG_MEANING_LIMIT);
+    // each song's best passage, as a line to show under its title
+    const lines = new Map<number, string>();
+    if (kept.length) {
+      const rows = await db.all<AnyRow>(
+        `SELECT song_id, ord, text FROM song_slides WHERE song_id IN (${placeholders(kept.length)})`,
+        kept.map((h) => h.id),
+      );
+      const want = new Map(kept.map((h) => [h.id, h.best]));
+      for (const r of rows)
+        if (want.get(Number(r.song_id)) === Number(r.ord))
+          lines.set(Number(r.song_id), String(r.text ?? ''));
+    }
+    return {
+      results: kept.map((h) => {
+        const r = songs.get(h.id)!;
+        const line =
+          h.best === 0
+            ? ''
+            : slideWords(lines.get(h.id) ?? '')
+                .split('\n')[0]
+                .trim();
+        return {
+          id: h.id,
+          number: r.number,
+          title: r.title,
+          bundle: r.bundle ?? '',
+          closeness: closenessOf(top - h.score, cut),
+          stanza: h.best,
+          line,
+        };
+      }),
+    };
   }
 
   /** A song with its stanzas (one per slide). */
@@ -1648,6 +1795,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     getChapterCrossrefs,
     getCommentary,
     searchSongs,
+    searchSongsByMeaning,
     listSongBundles,
     getSong,
     listDocuments,

@@ -93,6 +93,15 @@ const SongInfoSchema = z.object({
     .nullish()
     .transform((v) => v ?? ''),
 });
+/** Songs found by meaning (1.25.0-beta.1). */
+const SongMeaningSchema = z.object({
+  results: z.array(
+    SongInfoSchema.extend({ closeness: z.number(), stanza: z.number(), line: z.string() }),
+  ),
+  missing: z.enum(['model', 'vectors', 'server']).optional(),
+  pending: z.object({ done: z.number(), total: z.number() }).optional(),
+});
+export type SongMeaning = z.infer<typeof SongMeaningSchema>;
 export type SongInfo = z.infer<typeof SongInfoSchema>;
 const SongBundleSchema = z.object({ name: z.string(), count: z.number() });
 const DiskPartSchema = z.object({
@@ -948,6 +957,16 @@ export const api = {
       z.array(SongInfoSchema),
       (l) => l.searchSongs(q, 60, bundle),
       `/api/songs?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}`,
+    ),
+  /**
+   * Songs by meaning (1.25.0-beta.1): «~ спасіння» in «Презентації». The browser engines have no
+   * song vectors (`missing: 'server'`); `pending`: the server is still making them.
+   */
+  songsByMeaning: (q: string, bundle?: string) =>
+    fromLibrary(
+      SongMeaningSchema,
+      (l) => l.searchSongsByMeaning(q, bundle),
+      `/api/songs/meaning?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}`,
     ),
   /** The song bundles in the library, with their song counts (0.10.0). */
   songBundles: () =>
@@ -1895,6 +1914,18 @@ export const SemanticSchema = z.object({
     }),
   ),
   job: VectorJobSchema,
+  // the songs' vectors (1.25.0-beta.1); a server before it answers without them
+  songs: z
+    .object({
+      phase: z.enum(['idle', 'running', 'done', 'failed', 'stopped']),
+      model: EmbedModelIdSchema.nullable(),
+      done: z.number(),
+      total: z.number(),
+      startedAt: z.number().nullable(),
+      rate: z.number(),
+      error: z.object({ key: z.string(), vars: z.record(z.string()).optional() }).nullable(),
+    })
+    .optional(),
 });
 export type SemanticState = z.infer<typeof SemanticSchema>;
 

@@ -385,6 +385,29 @@ export function SemanticSection({ active }: { active: boolean }) {
                   {tr(job.error.key, job.error.vars)}
                 </Text>
               )}
+              {/* the presentations (1.25.0-beta.1): their vectors are made by themselves */}
+              {s.songs && s.songs.total > 0 && (
+                <Text size="xs" c={s.songs.phase === 'failed' ? 'orange' : 'dimmed'}>
+                  {s.songs.phase === 'failed' && s.songs.error
+                    ? tr(s.songs.error.key, s.songs.error.vars)
+                    : s.songs.phase === 'running'
+                      ? tr('Презентації: обчислюю вектори, {done} з {total}', {
+                          done: String(s.songs.done),
+                          total: String(s.songs.total),
+                        })
+                      : s.songs.done >= s.songs.total
+                        ? tr(
+                            'Презентації: вектори є в усіх ({total}) — «~ тема» у полі «Презентація»',
+                            {
+                              total: String(s.songs.total),
+                            },
+                          )
+                        : tr('Презентації: вектори є в {done} з {total}; решта обчислиться сама', {
+                            done: String(s.songs.done),
+                            total: String(s.songs.total),
+                          })}
+                </Text>
+              )}
               <Group>
                 <Button
                   size="compact-xs"

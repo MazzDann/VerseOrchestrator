@@ -26,7 +26,7 @@ import {
   IconStack2,
   IconArrowBackUp,
 } from '@tabler/icons-react';
-import { nextChorus, songParts, type SongPart } from '@vo/shared';
+import { MEANING_PREFIX, nextChorus, songParts, type SongPart } from '@vo/shared';
 import { api, type SongStyle } from '../api';
 import type { SlideSource } from '../presenterBus';
 import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
@@ -40,6 +40,18 @@ import { noticeOnce } from '../lib/noticeOnce';
 import { useSettings } from '../settingsStore';
 import { SONG_KEYS } from '../lib/songKeys';
 import { useDrop } from '../lib/drop';
+import { byMeaning } from '../lib/quickRef';
+import { Closeness } from './SearchPanel';
+import type { SongMeaning } from '../api';
+
+/** A row of the list: a song found by meaning also says how close it is and its nearest slide. */
+type SongRow =
+  | SongMeaning['results'][number]
+  | (Awaited<ReturnType<typeof api.songs>>[number] & {
+      closeness?: undefined;
+      stanza?: undefined;
+      line?: undefined;
+    });
 
 interface Props {
   open: boolean;
@@ -157,16 +169,36 @@ export function SongsPanel({
   // with one bundle its name says nothing: no filter, no name on the rows
   const several = bundles.length > 1;
   const inBundle = several && bundles.some((b) => b.name === bundle) ? bundle : '';
+  // «~ спасіння» (1.25.0-beta.1): the songs by meaning, the nearest first
+  const meaning = MEANING_PREFIX.test(debounced) && !!debounced.replace(MEANING_PREFIX, '').trim();
   const listQuery = useQuery({
     queryKey: ['songs', debounced, inBundle],
     queryFn: () => api.songs(debounced, inBundle || undefined),
-    enabled: open,
+    enabled: open && !meaning,
   });
+  const meaningQuery = useQuery({
+    queryKey: ['songs-meaning', debounced, inBundle],
+    queryFn: () => api.songsByMeaning(debounced, inBundle || undefined),
+    enabled: open && meaning,
+    // still being computed: look again as more songs get their vectors
+    refetchInterval: (q) => (q.state.data?.pending ? 5000 : false),
+  });
+  /** the slide that matched «~ …» in the song opened from it: marked and brought into sight */
+  const [hint, setHint] = useState<{ songId: number; stanza: number } | null>(null);
   const songQuery = useQuery({
     queryKey: ['song', songId],
     queryFn: () => api.song(songId!),
     enabled: open && songId != null,
   });
+  useEffect(() => {
+    if (!hint || songQuery.data?.id !== hint.songId) return;
+    const t = setTimeout(
+      () =>
+        document.querySelector('.vo-stanza-row[data-hint]')?.scrollIntoView({ block: 'center' }),
+      50,
+    );
+    return () => clearTimeout(t);
+  }, [hint, songQuery.data?.id]);
   // title, verses, choruses (1.3.0): the labels and «До приспіву»
   const parts = useMemo(
     () => (songQuery.data ? songParts(songQuery.data.slides.map((sl) => sl.text)) : []),
@@ -355,7 +387,9 @@ export function SongsPanel({
   );
 
   if (!open) return null;
-  const songs = listQuery.data ?? [];
+  const found = meaning ? meaningQuery.data : undefined;
+  const songs: SongRow[] = meaning ? (found?.results ?? []) : (listQuery.data ?? []);
+  const fetching = meaning ? meaningQuery.isFetching : listQuery.isFetching;
   const song = songQuery.data;
 
   const project = (idx: number) => showStanza(idx);
@@ -380,18 +414,27 @@ export function SongsPanel({
           onChange={(e) => setQuery(e.currentTarget.value)}
           // Enter: the song found first (or the one chosen in the list) on screen (F1017-01)
           onKeyDown={(e) => {
+            // Shift+Enter: the same words by meaning (1.25.0-beta.1, as in the verses' search)
+            const byWords = byMeaning(e, query);
+            if (byWords) {
+              e.preventDefault();
+              e.stopPropagation();
+              setQuery(byWords);
+              return;
+            }
             if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
             const pick = songs.find((x) => x.id === songId) ?? songs[0];
             if (!pick) return;
             e.preventDefault();
             e.stopPropagation();
             openAndShow(pick.id);
+            setHint(pick.stanza !== undefined ? { songId: pick.id, stanza: pick.stanza } : null);
             // shown: the keyboard leaves the field, so ← → step it too (F1114-05)
             e.currentTarget.blur();
           }}
-          placeholder={tr('Презентація: номер або назва')}
+          placeholder={tr('Презентація: номер, назва або ~ тема')}
           leftSection={<IconMusic size={18} />}
-          rightSection={listQuery.isFetching ? <Loader size="xs" /> : null}
+          rightSection={fetching ? <Loader size="xs" /> : null}
         />
         {several && (
           <Select
@@ -483,16 +526,21 @@ export function SongsPanel({
               role="button"
               tabIndex={0}
               data-selected={s.id === songId ? 'true' : undefined}
-              onClick={() => openOnly(s.id)}
+              onClick={() => {
+                openOnly(s.id);
+                setHint(s.stanza !== undefined ? { songId: s.id, stanza: s.stanza } : null);
+              }}
               onKeyDown={(e) => {
                 // Enter: open it and show its first stanza (F1017-01); Space: only open it
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   e.stopPropagation();
                   openAndShow(s.id);
+                  setHint(s.stanza !== undefined ? { songId: s.id, stanza: s.stanza } : null);
                 } else if (e.key === ' ') {
                   e.preventDefault();
                   openOnly(s.id);
+                  setHint(s.stanza !== undefined ? { songId: s.id, stanza: s.stanza } : null);
                 }
               }}
             >
@@ -507,11 +555,38 @@ export function SongsPanel({
                 </Badge>
               )}
               {s.title}
+              {s.closeness !== undefined && (
+                <>
+                  {' '}
+                  <Closeness level={s.closeness as 1 | 2 | 3} />
+                  {s.line && (
+                    <Text size="xs" c="dimmed" lineClamp={1}>
+                      {s.line}
+                    </Text>
+                  )}
+                </>
+              )}
             </Box>
           ))}
-          {debounced && songs.length === 0 && !listQuery.isFetching && (
+          {/* the songs' vectors still being made (1.25.0-beta.1): what is found is not all yet */}
+          {meaning && found?.pending && (
+            <Text size="xs" c="dimmed" p="sm">
+              {tr('Ще обчислюється ({done} з {total}) — знайдено не все', found.pending)}
+            </Text>
+          )}
+          {debounced && songs.length === 0 && !fetching && (
             <Text size="sm" c="dimmed" p="sm">
-              {tr('Нічого не знайдено')}
+              {found?.missing === 'model'
+                ? tr(
+                    'Пошук за змістом ще не налаштовано: виберіть і завантажте модель у «Налаштування вигляду → Пошук → Пошук за змістом».',
+                  )
+                : found?.missing === 'vectors'
+                  ? tr(
+                      'Презентації ще не мають векторів: вони обчислюються самі, щойно модель завантажено.',
+                    )
+                  : found?.missing === 'server'
+                    ? tr(NEEDS_SERVER)
+                    : tr('Нічого не знайдено')}
             </Text>
           )}
           {!debounced && songs.length === 0 && listQuery.isSuccess && !inBundle && (
@@ -622,6 +697,7 @@ export function SongsPanel({
                     tabIndex={0}
                     data-selected={activeStanza === i ? 'true' : undefined}
                     data-part={parts[i]?.kind}
+                    data-hint={hint?.songId === song.id && hint.stanza === i ? 'true' : undefined}
                     onClick={() => project(i)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
