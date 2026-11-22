@@ -35,6 +35,12 @@ the top of the panel. The window opens where the panel was, at the same size, an
 panel closes; you can drag the window, for example to a second monitor. The size you give
 the separate window is remembered: the panel and the window open with it next time.
 
+In the app, the settings open in a separate window right away: wide, with the sections on
+the left, centered over the control window. The gear button, **Ctrl+,**, and a settings hit
+in the palette all lead to that window; if it is already open, it comes to the front. To
+get the panel back, turn off **Settings in a window of their own** in the **App** section.
+In a browser, the panel stays the default, and the same switch turns the window on.
+
 ![The Settings panel: the Presets section expanded with three built-in presets, and the
 Text section with the font, color, and alignment](../img/en/appearance.png)
 
