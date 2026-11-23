@@ -107,6 +107,15 @@ export const EN: Record<string, string> = {
   'Гарячі клавіші': 'Hotkeys',
   'клавіші дій оператора': "the operator's keys",
   Застосунок: 'App',
+  Загальне: 'General',
+  Програма: 'Program',
+  'Вікно керування': 'Control window',
+  'Список віршів': 'Verse list',
+  'розділи, підзаголовки, посилання': 'chapters, section titles, references',
+  'відкривається само': 'opens by itself',
+  'відкривається кнопкою': 'opened with its button',
+  'копія, відновлення, перенесення': 'backup, restore, carry over',
+  'запуск, програма, відгук': 'start, program, feedback',
   'дані в браузері': 'data in the browser',
   'дані з сервера': 'data from the server',
   'прев’ю праворуч': 'preview on the right',
@@ -1417,8 +1426,8 @@ export const EN: Record<string, string> = {
   'Це перший розділ': 'This is the first chapter',
   'Це остання книга': 'This is the last book',
   'Це перша книга': 'This is the first book',
-  'Поле «Вірш» сховане: Налаштування вигляду → Застосунок → Поле «Вірш» біля розділів':
-    'The “Verse” field is hidden: Settings → App → The “Verse” field by the chapters',
+  'Поле «Вірш» сховане: Налаштування вигляду → Список віршів → Поле «Вірш» біля розділів':
+    'The “Verse” field is hidden: Settings → Verse list → The “Verse” field by the chapters',
   'Звук YouTube вмикайте й вимикайте в його плеєрі':
     'Turn YouTube’s sound on and off in its player',
   'Відео без звуку': 'Video muted',
@@ -1963,10 +1972,10 @@ export const EN: Record<string, string> = {
   'У браузері ще немає перекладів': 'No translations in the browser yet',
   'Вектори для пошуку за змістом': 'Vectors for search by meaning',
   'За змістом: «{query}»': 'By meaning: “{query}”',
-  'Пошук за змістом ще не налаштовано: виберіть і завантажте модель у «Налаштування вигляду → Пошук → Пошук за змістом».':
-    'Search by meaning isn’t set up yet: choose and download a model in “Settings → Search → Search by meaning”.',
-  'Для цих перекладів ще немає векторів: обчисліть їх у «Налаштування вигляду → Пошук → Пошук за змістом».':
-    'These translations have no vectors yet: make them in “Settings → Search → Search by meaning”.',
+  'Пошук за змістом ще не налаштовано: виберіть і завантажте модель у «Налаштування вигляду → Дані → Пошук за змістом».':
+    'Search by meaning isn’t set up yet: choose and download a model in “Settings → Data → Search by meaning”.',
+  'Для цих перекладів ще немає векторів: обчисліть їх у «Налаштування вигляду → Дані → Пошук за змістом».':
+    'These translations have no vectors yet: make them in “Settings → Data → Search by meaning”.',
   'Пошук за змістом': 'Search by meaning',
   'Почніть запит із ~, наприклад «~ про прощення», — і застосунок знайде вірші за змістом, навіть іншими словами чи іншою мовою.':
     'Start a query with ~, for example “~ about forgiveness”, and the app finds verses by what they say, even in other words or another language.',
@@ -2139,8 +2148,8 @@ export const EN: Record<string, string> = {
   'Перезапускаю застосунок з новим кодом…': 'Restarting the app with the new code…',
   'Застосунок не відповідає після перезапуску. Запустіть його файлом запуску; що сталося — у data/standby.log.':
     "The app doesn't answer after the restart. Start it with the start file; what happened is in data/standby.log.",
-  'Код застосунку змінився — див. «Застосунок» → «Оновлення»':
-    "The app's code has changed — see “App” → “Updates”",
+  'Код застосунку змінився — див. «Програма» → «Оновлення»':
+    "The app's code has changed — see “Program” → “Updates”",
   // upd2 (1.6.1)
   'Копію відкрито не на гілці — отримайте оновлення вручну':
     'The copy is not on a branch — get the updates by hand',
@@ -2207,8 +2216,8 @@ export const EN: Record<string, string> = {
     'Betas bring new things sooner but may have flaws. To go back at any time, switch to “Stable” and pick a stable version in the list.',
   'Лише стабільні версії: кожна збирає кілька перевірених бета-версій.':
     'Stable versions only: each one gathers several tested betas.',
-  'Доступна версія {version} — див. «Застосунок» → «Оновлення»':
-    'Version {version} is available — see “App” → “Updates”',
+  'Доступна версія {version} — див. «Програма» → «Оновлення»':
+    'Version {version} is available — see “Program” → “Updates”',
   'Не вдалося перевірити оновлення: немає зв’язку з GitHub':
     'Couldn’t check for updates: no connection to GitHub',
   // 1.0.0 installing updates

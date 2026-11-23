@@ -40,7 +40,7 @@ function about(c: CopyInfo): string {
 }
 
 /**
- * «Перенести з іншої копії…» (1.12.0-beta.2, Налаштування вигляду → Застосунок, under «Резервна
+ * «Перенести з іншої копії…» (1.12.0-beta.2, Налаштування вигляду → Резервні копії, under «Резервна
  * копія»): another copy of the app on this computer — the one running on the port, the ones beside
  * this folder, or a folder picked — hands over the operator's things, the start settings and the
  * speaker remotes' pairings (server/src/otherCopy.ts). What it replaces is kept: «Повернути як

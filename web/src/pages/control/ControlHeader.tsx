@@ -314,9 +314,9 @@ export function ControlHeader({
   const settingsTool: ToolProps = {
     label: tr('Налаштування вигляду'),
     hint: code?.changed
-      ? tr('Код застосунку змінився — див. «Застосунок» → «Оновлення»')
+      ? tr('Код застосунку змінився — див. «Програма» → «Оновлення»')
       : newer
-        ? tr('Доступна версія {version} — див. «Застосунок» → «Оновлення»', {
+        ? tr('Доступна версія {version} — див. «Програма» → «Оновлення»', {
             version: newer,
           })
         : // the settings can be searched now (1.13.0-beta.3, F1010-11/12)

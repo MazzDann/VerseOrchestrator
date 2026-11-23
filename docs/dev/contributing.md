@@ -180,7 +180,7 @@ are in the run's artifacts for seven days.
 
 The interface is Ukrainian and English. The Ukrainian stays in the code, and it is also the
 key of the English version in one dictionary, `shared/src/i18n/en.ts`. The operator picks
-the language in **Налаштування вигляду** → **Застосунок**; a phone or a browser that has
+the language in **Налаштування вигляду** → **Вікно керування**; a phone or a browser that has
 saved nothing takes its own language.
 
 To add or change interface text:

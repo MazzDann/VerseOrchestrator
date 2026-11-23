@@ -2213,9 +2213,25 @@ form.vo-remote-countdown {
   gap: var(--mantine-spacing-md);
   align-items: start;
 }
+/* one size in the settings (1.25.4): a setting's name 14 px, its note 12 px, whatever the control */
+.vo-settings .mantine-InputWrapper-label,
+.vo-settings .mantine-Switch-label {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+}
+.vo-settings .mantine-InputWrapper-description,
+.vo-settings .mantine-Switch-description {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+}
+.vo-settings .mantine-InputWrapper-label {
+  margin-bottom: 4px;
+}
 .vo-settings-nav {
   position: sticky;
   top: 0;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2242,6 +2258,30 @@ form.vo-remote-countdown {
 .vo-settings-nav .vo-list-item[data-found='true'] {
   font-weight: 600;
   color: var(--mantine-color-brand-text);
+}
+/* a theme's line and its sections under it (1.25.4) */
+.vo-settings-nav button {
+  width: 100%;
+}
+.vo-settings-nav .vo-settings-theme {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.vo-settings-nav .vo-settings-theme svg {
+  flex-shrink: 0;
+}
+.vo-settings-theme[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+.vo-settings-nav .vo-list-item:not(.vo-settings-theme) {
+  padding-inline-start: 28px;
+}
+/* a search unfolds the themes: longer than a low panel, the list scrolls with it */
+.vo-settings-two:not([data-pane]) .vo-settings-nav {
+  position: static;
+  max-height: none;
 }
 /* the chosen section alone: its accordion header is the left list's line */
 .vo-settings-two[data-pane] .mantine-Accordion-control {

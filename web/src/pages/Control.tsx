@@ -1516,7 +1516,9 @@ export function Control() {
         f.select();
       } else
         say(
-          tr('Поле «Вірш» сховане: Налаштування вигляду → Застосунок → Поле «Вірш» біля розділів'),
+          tr(
+            'Поле «Вірш» сховане: Налаштування вигляду → Список віршів → Поле «Вірш» біля розділів',
+          ),
         );
     },
     qrToggle: () => (liveSlideRef.current.qr ? hideQr() : showQr()),
@@ -1691,7 +1693,7 @@ export function Control() {
             {/* a new version, said once at the start (1.23.0-beta.5, F1114-03) */}
             <UpdateNotice
               enabled={isLeader}
-              openUpdates={() => openSettingsAt(setSettingsOpen, 'app', 'vo-update-section')}
+              openUpdates={() => openSettingsAt(setSettingsOpen, 'updates', 'vo-update-section')}
             />
             <HubBanners
               isLeader={isLeader}

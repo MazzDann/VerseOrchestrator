@@ -46,7 +46,7 @@ The chosen passage appears at once on the **Preview** monitor on the right.
 
 If the main translation has section titles (such as “The Creation”), they stand in the list
 over their verses. To hide them, turn off **Section titles over the verses** in **Settings** →
-**App**.
+**Verse list**.
 
 Section titles also come as module files of their own (`*.subheadings.SQLite3`, such as
 «Хом-д» or «KJV-s»; **Modules** downloads them). Choose a set for the main translation in
@@ -214,7 +214,7 @@ when the library has the matching module files:
 
 Cross-references show in the verse list too, at the end of a verse. By default there is a
 marker with their count, such as `↗23`: click it to see them all, and click a reference to go
-to that place. In **Settings** → **App** → **Cross-references in the verse list** you can choose
+to that place. In **Settings** → **Verse list** → **Cross-references in the verse list** you can choose
 otherwise: the main three references at the end of every verse, the references only at the end of
 the selected verse, or none.
 
