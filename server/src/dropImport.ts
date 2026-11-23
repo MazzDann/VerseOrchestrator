@@ -3,13 +3,17 @@ import path from 'node:path';
 import type { IncomingMessage } from 'node:http';
 import Database from 'better-sqlite3';
 import {
+  detectTextFormat,
   LibraryError,
   moduleFileKind,
   N_,
+  TEXT_MODULE_EXT,
+  TEXT_MODULE_MAX,
   VECTORS_SQL,
   type ModuleFileKind,
   type ModuleKind,
 } from '@vo/shared';
+import type { TextModule } from './textModuleCheck.js';
 
 /**
  * Files dropped anywhere on the control window (1.17.1, the user's ask: «драг ен дроп документів і
@@ -132,13 +136,34 @@ export function moduleFileName(dropped: string, kind: ModuleFileKind): string | 
     /\.(dictionary|commentaries|crossreferences|subheadings|devotions|plan|bundle|referencedata)$/i;
   let named = base.replace(/\.sqlite3$/i, '');
   while (kindSuffix.test(named)) named = named.replace(kindSuffix, '');
+  const stem = safeStem(named);
+  return stem && `${stem}${SUFFIX[kind]}.SQLite3`;
+}
+
+/** A name any system takes as a file's; null when nothing is left of it. */
+function safeStem(named: string): string | null {
   const stem = named
     // eslint-disable-next-line no-control-regex -- control characters are in no file name
     .replace(/[<>:"|?*\u0000-\u001f]/g, '_')
     .replace(/[. ]+$/, '')
     .trim();
   if (!stem || /^(con|prn|aux|nul|com\d|lpt\d)$/i.test(stem) || stem.startsWith('.')) return null;
-  return `${stem}${SUFFIX[kind]}.SQLite3`;
+  return stem;
+}
+
+/** A text module (1.25.0-beta.6) keeps its name and extension: the content tells the format. */
+export function textModuleFileName(dropped: string): string | null {
+  const base = dropped.replace(/^.*[\\/]/, '').normalize('NFC');
+  const ext = TEXT_MODULE_EXT.exec(base)?.[0];
+  const stem = ext && safeStem(base.slice(0, -ext.length));
+  return stem ? `${stem}${ext}` : null;
+}
+
+/** Is a received file a module in a text format? (Read whole apart: textModuleCheck.ts.) */
+export function isTextDrop(tmp: string, dropped: string): boolean {
+  if (!TEXT_MODULE_EXT.test(dropped) || fs.statSync(tmp).size > TEXT_MODULE_MAX) return false;
+  if (tablesOf(tmp)) return false;
+  return detectTextFormat(dropped, fs.readFileSync(tmp)) !== null;
 }
 
 export interface ModuleAdded {
@@ -146,23 +171,31 @@ export interface ModuleAdded {
   kind: ModuleKind;
   /** the same file was there already */
   same: boolean;
+  /** a text module's books the library has no number for (left out) */
+  skipped?: string[];
 }
 
 /**
  * A received file into modules/ as a module: refused when it is no module the library takes or a
  * different file of that name is there (never written over). The caller adds it to the library's
- * selection and starts the rescan.
+ * selection and starts the rescan. `text`: it was read as a module in a text format.
  */
-export function placeModule(tmp: string, dropped: string, modulesDir: string): ModuleAdded {
+export function placeModule(
+  tmp: string,
+  dropped: string,
+  modulesDir: string,
+  text: TextModule | null = null,
+): ModuleAdded {
   const tables = tablesOf(tmp);
-  const kind = tables ? moduleFileKind(tables) : null;
+  const kind = text ? 'bible' : tables ? moduleFileKind(tables) : null;
   if (!kind) {
     fs.rmSync(tmp, { force: true });
     throw new LibraryError(400, N_('Це не модуль, який бере бібліотека: «{file}»'), {
       file: dropped,
     });
   }
-  const file = moduleFileName(dropped, kind);
+  const file = text ? textModuleFileName(dropped) : moduleFileName(dropped, kind);
+  const skipped = text?.skipped.length ? { skipped: text.skipped } : {};
   if (!file) {
     fs.rmSync(tmp, { force: true });
     throw new LibraryError(400, N_('Така назва файлу не підходить — перейменуйте його'));
@@ -171,13 +204,13 @@ export function placeModule(tmp: string, dropped: string, modulesDir: string): M
   if (fs.existsSync(to)) {
     const same = sameBytes(to, tmp);
     fs.rmSync(tmp, { force: true });
-    if (same) return { file, kind: KIND[kind], same: true };
+    if (same) return { file, kind: KIND[kind], same: true, ...skipped };
     throw new LibraryError(409, N_('У modules/ уже є інший «{file}» — перейменуйте один із них'), {
       file,
     });
   }
   fs.renameSync(tmp, to);
-  return { file, kind: KIND[kind], same: false };
+  return { file, kind: KIND[kind], same: false, ...skipped };
 }
 
 export interface VectorsMerged {

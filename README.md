@@ -114,7 +114,8 @@ In a terminal, you can pass these options to any launcher (for example,
 ## Modules and copyright
 
 The repository doesn't ship modules: they are large and have their own licensing. You
-provide them as `.SQLite3` module files. Next to Bible translations, the library also imports Strong's
+provide them as `.SQLite3` module files; Bibles may also come in the USFM, OSIS, Zefania, and VPL text
+formats. Next to Bible translations, the library also imports Strong's
 dictionaries (`*.dictionary.SQLite3`), cross-references (`*.crossreferences.SQLite3`),
 and commentaries (`*.commentaries.SQLite3`) for the «Стронг» and «Контекст» tabs, and
 songs from song bundles (`data/songs/*.vosongs`, one file per songbook), which the app

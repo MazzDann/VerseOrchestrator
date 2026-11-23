@@ -61,7 +61,7 @@ another origin can't send without a CORS preflight.
 ## How the library travels
 
 ```text
-modules/*.SQLite3, data/songs/*.vosongs (← songs/*.pptx)
+modules/* (.SQLite3, USFM, OSIS, Zefania, VPL), data/songs/*.vosongs (← songs/*.pptx)
   └─ builder ──> data/library.db ──> app server (better-sqlite3, read-only) ──> HTTP API ──┐
                └─> data/segments/*.vodb.gz ──> browser worker (SQLite-WASM or PGlite) ─────┤
                                                                                           └─> web/src/api.ts
@@ -198,6 +198,7 @@ alone.
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | a library query or the schema             | `shared/src/library/` (`queries.ts`, `schema.ts`, `postgres.ts`); tests in `server/src/library.test.ts` and `builder/src/pglite.test.ts`                   |
 | how module files are converted            | `shared/src/library/moduleFormat.ts`, used by the builder and the browser alike                                                                            |
+| how text modules (USFM, OSIS, Zefania, VPL) are read | `shared/src/library/textFormats.ts` (detection, archives, the tables written) and `formats/` (a reader per format, all through `ModuleText`)        |
 | how slides look                           | `Appearance` in `web/src/settingsStore.ts`, `web/src/components/SlideCanvas.tsx`, `SettingsPanel.tsx`                                                      |
 | a hotkey                                  | `web/src/hotkeys.ts`                                                                                                                                       |
 | what the control window does on an action | `web/src/pages/control/` — see [The control window's code](#the-control-windows-code)                                                                      |

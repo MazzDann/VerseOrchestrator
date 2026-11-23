@@ -129,6 +129,10 @@ const KIND_LABEL: Record<ModuleFileKind, string> = {
   subheadings: N_('підзаголовки'),
 };
 
+/** A text module's books the library has no place for, said. */
+export const skippedBooks = (codes: string[]) =>
+  tr('Пропущено невідомі книги: {codes}', { codes: codes.slice(0, 8).join(', ') });
+
 export interface Dropped {
   key: string;
   /** e.g. «UKRK — Біблія, 31 102 вірші (перетворено за 1,2 с)» */
@@ -145,7 +149,10 @@ export async function addDroppedFile(
   onStage?: (stage: 'convert' | 'merge') => void,
 ): Promise<Dropped> {
   onStage?.('convert');
-  const { bytes, converted, ms } = await localEngine.convert(file.name, await file.arrayBuffer());
+  const { bytes, converted, skipped, ms } = await localEngine.convert(
+    file.name,
+    await file.arrayBuffer(),
+  );
   const sha = await cacheDropped(bytes);
   // The same file under another name: its rows are already in (same ids) — reuse the key.
   const same = sha && (await localEngine.status()).find((s) => parseDropKey(s.key)?.sha === sha);
@@ -161,7 +168,7 @@ export async function addDroppedFile(
         s: fmtNumber(ms / 1000, { maximumFractionDigits: 1 }),
       })
     : `${file.name} — ${what}`;
-  return { key, summary };
+  return { key, summary: skipped?.length ? `${summary}. ${skippedBooks(skipped)}` : summary };
 }
 
 /**

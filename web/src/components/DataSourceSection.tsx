@@ -28,7 +28,7 @@ import {
   switchEngine,
 } from '../lib/engine/restore';
 import { cacheAvailable, cacheUsage, clearCache, requestPersistence } from '../lib/engine/cache';
-import { addToBrowserLibrary, BROWSER_DROPPABLE } from '../lib/browserLibrary';
+import { addToBrowserLibrary, isBrowserDroppable } from '../lib/browserLibrary';
 import { fmtNumber, tr, trn, useLang } from '../i18n';
 
 const mb = (b: number) =>
@@ -36,7 +36,6 @@ const mb = (b: number) =>
 const segs = (n: number) => trn(n, '{n} сегм.|{n} сегм.|{n} сегм.');
 
 /** modules (converted in the browser) and ready segments. */
-const DROPPABLE = BROWSER_DROPPABLE;
 
 /**
  * «Джерело даних»: read the library from the server, or from the browser engine
@@ -131,10 +130,14 @@ export function DataSourceSection() {
   };
 
   const addFiles = async (files: FileList | File[]) => {
-    const list = [...files].filter((f) => DROPPABLE.test(f.name));
+    const all = [...files];
+    const ok = await Promise.all(all.map(isBrowserDroppable));
+    const list = all.filter((_, i) => ok[i]);
     if (list.length === 0) {
       notifications.show({
-        message: tr('Підходять модулі (.SQLite3) і сегменти (.vodb / .vodb.gz)'),
+        message: tr(
+          'Підходять модулі (.SQLite3, USFM, OSIS, Zefania, VPL) і сегменти (.vodb / .vodb.gz)',
+        ),
         color: 'red',
       });
       return;
@@ -431,13 +434,13 @@ export function DataSourceSection() {
           <IconDatabase size={14} />
           <Text size="xs" c="dimmed">
             {tr(
-              'Перетягніть сюди модулі (.SQLite3) — Біблії, словники, коментарі, посилання — або сегменти .vodb',
+              'Перетягніть сюди модулі (.SQLite3, USFM, OSIS, Zefania, VPL) — Біблії, словники, коментарі, посилання — або сегменти .vodb',
             )}
           </Text>
         </Group>
         <FileButton
           onChange={(f) => void addFiles(f)}
-          accept=".SQLite3,.sqlite3,.vodb,.gz"
+          accept=".SQLite3,.sqlite3,.vodb,.gz,.usfm,.sfm,.osis,.vpl,.xml,.txt,.zip"
           multiple
         >
           {(props) => (

@@ -77,5 +77,7 @@ export interface ConvertResult {
   bytes: ArrayBuffer;
   /** null when the file already was a segment */
   converted: Converted | null;
+  /** a text module's books the library has no number for (left out) */
+  skipped?: string[];
   ms: number;
 }

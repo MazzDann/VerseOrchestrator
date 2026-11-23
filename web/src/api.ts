@@ -1663,7 +1663,12 @@ export const api = {
     });
     if (!res.ok) throw await failure(res);
     return z
-      .object({ file: z.string(), kind: z.string(), same: z.boolean() })
+      .object({
+        file: z.string(),
+        kind: z.string(),
+        same: z.boolean(),
+        skipped: z.array(z.string()).optional(),
+      })
       .parse(await res.json());
   },
   /** Another copy's vectors.db dropped (1.17.1): the sets this copy lacks come in. */

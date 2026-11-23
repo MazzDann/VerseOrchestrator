@@ -2,6 +2,7 @@
 import sqlite3InitModule, { type Database, type Sqlite3Static } from '@sqlite.org/sqlite-wasm';
 import {
   convertModule,
+  detectTextFormat,
   droppedId,
   FTS_INSERT_SQL,
   ftsFillSql,
@@ -12,12 +13,14 @@ import {
   mergeSql,
   moduleHash,
   N_,
+  parseTextModule,
   PG_ADDED_SQL,
   PG_SCHEMA_SQL,
   pgPlaceholders,
   SCHEMA_SQL,
   SEGMENT_NORM_TABLE_SQL,
   VECTORS_SQL,
+  writeModuleTables,
   type SqlParam,
   type SyncConn,
   type Vars,
@@ -209,7 +212,7 @@ function deserialize(s3: Sqlite3Static, conn: Database, schema: string, raw: Uin
 
 // shown by the page through tr (lib/engine/index.ts): the worker has no interface language
 const NOT_SQLITE = N_(
-  'Це не файл бази SQLite (очікується модуль .SQLite3 або сегмент .vodb / .vodb.gz)',
+  'Це не модуль (.SQLite3, USFM, OSIS, Zefania, VPL) і не сегмент (.vodb / .vodb.gz)',
 );
 
 /** What the attached segment mostly holds — for the UI («31 102 вірші», «14 250 статей»). */
@@ -370,7 +373,8 @@ function syncConn(conn: Database): SyncConn {
     prepare: (sql) => {
       const st = conn.prepare(sql);
       return {
-        run: (params) => void st.bind(params as SqlParam[]).stepReset(),
+        // a statement without parameters (DDL) takes no bind at all
+        run: (params) => void (params.length ? st.bind(params as SqlParam[]) : st).stepReset(),
         done: () => void st.finalize(),
       };
     },
@@ -386,12 +390,19 @@ function syncConn(conn: Database): SyncConn {
 async function convert(name: string, bytes: ArrayBuffer): Promise<Omit<ConvertResult, 'ms'>> {
   const head = new Uint8Array(bytes);
   if (isGzip(head)) return { bytes, converted: null }; // our segments ship gzip'd
-  if (!isSqlite(head)) throw new Error(NOT_SQLITE);
+  // a module in a text format (1.25.0-beta.6): its tables written here, then the same way on
+  const text = isSqlite(head) ? null : detectTextFormat(name, head);
+  if (!isSqlite(head) && !text) throw new Error(NOT_SQLITE);
   const s3 = await init();
-  const id = droppedId(moduleHash(head)); // before deserialize() touches the header
+  const id = droppedId(moduleHash(head, text !== null)); // before deserialize() touches the header
   const src = new s3.oo1.DB(':memory:');
+  let skipped: string[] = [];
   try {
-    deserialize(s3, src, 'main', head);
+    if (text) {
+      const parsed = parseTextModule(head);
+      skipped = parsed.skipped;
+      src.transaction(() => writeModuleTables(syncConn(src), parsed));
+    } else deserialize(s3, src, 'main', head);
     const tables = src
       .selectValues("SELECT name FROM sqlite_master WHERE type = 'table'")
       .map(String);
@@ -402,13 +413,17 @@ async function convert(name: string, bytes: ArrayBuffer): Promise<Omit<ConvertRe
       out.exec(SEGMENT_NORM_TABLE_SQL);
       let converted!: ReturnType<typeof convertModule>;
       out.transaction(() => {
-        converted = convertModule(syncConn(src), syncConn(out), { fileName: name, id });
+        converted = convertModule(syncConn(src), syncConn(out), {
+          fileName: name,
+          id,
+          notes: text !== null,
+        });
       });
       const img = s3.capi.sqlite3_js_db_export(out);
       // Not gzip'd: CompressionStream managed ~35 MB/s here (a 118 MB dictionary: 3.3 s),
       // and a raw image also skips inflating on every reload. Costs ~3× cache space.
       const exact = img.byteOffset === 0 && img.byteLength === img.buffer.byteLength;
-      return { bytes: exact ? img.buffer : img.slice().buffer, converted };
+      return { bytes: exact ? img.buffer : img.slice().buffer, converted, skipped };
     } finally {
       out.close();
     }

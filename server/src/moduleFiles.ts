@@ -5,6 +5,7 @@ import {
   type LibrarySelection,
   type ModuleKind,
 } from '@vo/shared';
+import { listTextModules } from '@vo/shared/modules-node';
 
 /**
  * «Модулі»: the module files the operator keeps in modules/ and which of them the library takes
@@ -43,6 +44,8 @@ export function listModuleFiles(dir: string): Record<ModuleKind, string[]> {
     if (!m) out.bibles.push(f);
     else if (SUFFIX_KIND[m[1].toLowerCase()]) out[SUFFIX_KIND[m[1].toLowerCase()]].push(f);
   }
+  // Bibles in the text formats (USFM, OSIS, Zefania, VPL)
+  out.bibles.push(...listTextModules(dir));
   for (const k of MODULE_KINDS) out[k].sort((a, b) => a.localeCompare(b));
   return out;
 }
