@@ -98,7 +98,8 @@ function fakeOpen(calls: string[][]) {
   });
 }
 
-describe('the songs’ vectors and «~ …»', () => {
+// a model in a child process and a few files each: slow on a loaded CI machine (8 s seen on #144)
+describe('the songs’ vectors and «~ …»', { timeout: 20_000 }, () => {
   it('a row per song; a second pass embeds only what changed', async () => {
     const dataDir = mkTmp();
     const lib = path.join(dataDir, 'library.db');
