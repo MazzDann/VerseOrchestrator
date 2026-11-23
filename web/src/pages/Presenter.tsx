@@ -70,7 +70,8 @@ export function Presenter() {
   // Tell the control window this output exists (its «Вікна виводу» list).
   const identify = useAnnounceOutput('presenter', pin.side);
   const aspect = useSettings((s) => s.outputs.aspect);
-  useFollowVersion(); // an update under the show: the new code (1.25.3)
+  // an update under the show: the new code (1.25.3), not while the screen is yielded to a player
+  useFollowVersion(slide.video?.screen === 'yield');
   useWakeLock(); // an open «Показ» is a show: the projector must not sleep (Mac check of 1.9.0)
 
   useEffect(() => {

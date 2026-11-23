@@ -21,7 +21,10 @@ const same = (a: string, b: string) => {
   }
 };
 
-/** The files of app/top put beside app/ when they are missing or older there; their names. */
+/**
+ * The files of app/top put beside app/ when they are missing or other there — the program is always
+ * the version's own, after a rollback too; their names.
+ */
 export function bringTopFiles(appRoot: string): string[] {
   const from = path.join(appRoot, TOP_DIR);
   const top = path.dirname(appRoot);

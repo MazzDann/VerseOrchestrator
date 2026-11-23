@@ -343,16 +343,21 @@ function openControl(): BrowserWindow {
     child.webContents.on('did-start-navigation', (d) => {
       if (d.isMainFrame && !d.isSameDocument) again = fullscreenOutputs.has(child);
     });
-    child.webContents.on('did-finish-load', () => {
-      if (!again) return;
-      again = false;
+    const fullAgain = () => {
+      if (!again || child.isDestroyed()) return;
       void child.webContents
         .executeJavaScript(
-          'document.documentElement.requestFullscreen().then(() => true, () => false)',
+          'document.fullscreenElement ? true : document.documentElement.requestFullscreen().then(() => true, () => false)',
           true,
         )
-        .catch(() => false);
-    });
+        .then((ok) => {
+          if (ok === true) again = false; // else once more when all has loaded
+        })
+        .catch(() => undefined);
+    };
+    // as soon as there is a page: a framed window is in the hall's sight as short as can be
+    child.webContents.on('dom-ready', fullAgain);
+    child.webContents.on('did-finish-load', fullAgain);
     const full = pendingFullscreen.get(url) ?? false;
     pendingFullscreen.delete(url);
     if (!full) return;
