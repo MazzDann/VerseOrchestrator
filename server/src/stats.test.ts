@@ -103,6 +103,20 @@ describe('the statistics file', () => {
     // the song's gap (off screen, then back) isn't time on screen; the one still on screen counts up to now
     expect(rows[0].gap).toBe(RESUME_MS - 1000);
     expect(s.total.ms).toBe(120_000 + 10_000 + 5_000);
+    // «~» in «Історія» (1.25.0-beta.3): each passage and song once, how often, when last
+    expect(stats.things().sort((x, y) => x.kind.localeCompare(y.kind))).toEqual([
+      { kind: 'song', label: 'Пісня 7', shows: 1, last: rows[0].at, songId: 7 },
+      expect.objectContaining({
+        kind: 'verses',
+        shows: 2,
+        last: rows[2].at,
+        book: 500,
+        chapter: 3,
+        from: 16,
+        to: 16,
+      }),
+    ]);
+    stats.shutdown();
     expect(s.songs).toEqual([expect.objectContaining({ songId: 7, label: 'Пісня 7', shows: 1 })]);
     expect(s.books).toEqual([expect.objectContaining({ book: 500, shows: 2 })]);
     expect(s.passages[0]).toMatchObject({ book: 500, shows: 2 });

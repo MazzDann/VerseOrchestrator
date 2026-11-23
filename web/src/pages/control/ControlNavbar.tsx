@@ -1,5 +1,16 @@
-import { type RefObject } from 'react';
-import { Box, Button, Divider, Group, ScrollArea, Text, TextInput } from '@mantine/core';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Divider,
+  Group,
+  ScrollArea,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core';
+import { useDebouncedValue } from '@mantine/hooks';
 import {
   IconAlbum,
   IconHistory,
@@ -15,6 +26,8 @@ import { TranslationPicker } from '../../components/TranslationPicker';
 import { VirtualList } from '../../components/VirtualList';
 import { RefList } from '../../components/RefList';
 import { useHistoryTexts } from './useHistoryTexts';
+import { HistoryMeaning } from './HistoryMeaning';
+import { byMeaning, isMeaningQuery } from '../../lib/quickRef';
 import { ResizeHandle } from '../../components/ResizeHandle';
 import { type LibraryGap } from '../../components/NoLibrary';
 import { type MediaTab } from '../../components/ImagesPanel';
@@ -53,6 +66,7 @@ export function ControlNavbar({
   songListSlot,
   mediaTab,
   onMediaTab,
+  onOpenSong,
 }: {
   panelResize: PanelResize['panelResize'];
   translations: Translation[];
@@ -81,8 +95,24 @@ export function ControlNavbar({
   songListSlot: (el: HTMLElement | null) => void;
   mediaTab: MediaTab;
   onMediaTab: (tab: MediaTab) => void;
+  /** a song found in the show history by meaning (1.25.0-beta.3): open in «Презентації» */
+  onOpenSong: (songId: number) => void;
 }) {
   useLang();
+  // «Історія» searched (1.25.0-beta.3): words filter the places, «~ тема» every show by meaning
+  const [historyQuery, setHistoryQuery] = useState<string | null>(null);
+  const [historyDebounced] = useDebouncedValue(historyQuery ?? '', 250);
+  const historyField = useRef<HTMLInputElement>(null);
+  const searching = historyQuery !== null;
+  // the field opened: the keyboard goes there
+  useEffect(() => {
+    if (searching) historyField.current?.focus();
+  }, [searching]);
+  const words = (historyQuery ?? '').trim().toLocaleLowerCase();
+  const shownHistory =
+    words && !words.startsWith('~')
+      ? history.filter((h) => h.ref.toLocaleLowerCase().includes(words))
+      : history;
   // «Історія» shows each place's text (1.13.0-beta.3, F1010-09)
   const historyTexts = useHistoryTexts(history, translations);
   const resize = (
@@ -210,27 +240,83 @@ export function ControlNavbar({
                 {tr('Історія')}
               </Text>
             </Group>
-            {history.length > 0 && (
-              <Button
-                size="compact-xs"
-                variant="subtle"
-                color="gray"
-                leftSection={<IconTrash size={12} />}
-                onClick={clearHistory}
-              >
-                {tr('Очистити')}
-              </Button>
-            )}
+            <Group gap={2} wrap="nowrap">
+              <Tooltip label={tr('Шукати в історії; ~ тема — серед усіх показів за змістом')}>
+                <ActionIcon
+                  size="sm"
+                  variant={historyQuery !== null ? 'light' : 'subtle'}
+                  color="gray"
+                  aria-label={tr('Шукати в історії')}
+                  aria-pressed={historyQuery !== null}
+                  onClick={() => setHistoryQuery((q) => (q === null ? '' : null))}
+                >
+                  <IconSearch size={14} />
+                </ActionIcon>
+              </Tooltip>
+              {history.length > 0 && (
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="gray"
+                  leftSection={<IconTrash size={12} />}
+                  onClick={clearHistory}
+                >
+                  {tr('Очистити')}
+                </Button>
+              )}
+            </Group>
           </Group>
+          {historyQuery !== null && (
+            <Box px="xs" pb={4}>
+              <TextInput
+                size="xs"
+                ref={historyField}
+                aria-label={tr('Шукати в історії')}
+                placeholder={tr('Місце або ~ тема')}
+                value={historyQuery}
+                onChange={(e) => setHistoryQuery(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  // Shift+Enter: the words by meaning, as in the other searches
+                  const meant = byMeaning(e, historyQuery);
+                  if (meant) {
+                    e.preventDefault();
+                    setHistoryQuery(meant);
+                  } else if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setHistoryQuery(null);
+                  }
+                }}
+              />
+            </Box>
+          )}
           <Box ref={recentBoxRef} style={{ height: layout.recentHeight }} data-history-list>
             <ScrollArea h="100%" scrollbars="y" className="vo-scroll-rows">
-              <RefList
-                items={history}
-                onPick={jumpTo}
-                onRemove={removeHistory}
-                texts={historyTexts}
-                empty={tr('Тут з’являтимуться місця, які ви відкривали')}
-              />
+              {isMeaningQuery(historyDebounced) ? (
+                <HistoryMeaning
+                  query={historyDebounced}
+                  translationIds={
+                    primaryId
+                      ? [primaryId, ...selectedIds.filter((x) => x !== primaryId)]
+                      : selectedIds
+                  }
+                  onPlace={jumpTo}
+                  onSong={onOpenSong}
+                />
+              ) : (
+                <RefList
+                  items={shownHistory}
+                  onPick={jumpTo}
+                  onRemove={removeHistory}
+                  texts={historyTexts}
+                  empty={
+                    words
+                      ? tr('В історії немає «{query}». Шукайте за змістом: ~ {query}', {
+                          query: historyQuery!.trim(),
+                        })
+                      : tr('Тут з’являтимуться місця, які ви відкривали')
+                  }
+                />
+              )}
             </ScrollArea>
           </Box>
         </Box>

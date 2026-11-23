@@ -179,6 +179,14 @@ reference is a pale line of its text; point at the line or reach it with Tab, an
 shows the whole chosen text and its translation. Click a line to go back to the passage, or ×
 next to it to remove it. To clear the whole history, click **Clear**.
 
+To find something in the history, click the magnifier **Search the history** next to **Clear**
+and type part of a reference, for example `John`. To find what you showed on a topic, type `~`
+and the topic, for example `~ Christmas`, or just the words and press Shift+Enter. The app then
+searches not this list but every show it remembers: the passages and songs that were on screen.
+Under each is how many times and when it was last shown, and the dots say how close it is to the
+topic. Click a passage to open it, or a song to open it in **Presentations**. This needs a model
+from **Search by meaning** and the vectors of a translation or of the presentations.
+
 To keep the current passage for longer, click the bookmark icon to the right of the
 **Preview** label above the monitor. Saved passages are on the right under the monitors, on
 the **Saved** tab; from there you can also add them to the running order. “John 3:16” and

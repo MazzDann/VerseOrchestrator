@@ -22,7 +22,7 @@ import {
   IconTrash,
   IconX,
 } from '@tabler/icons-react';
-import { DEFAULT_TOPICS } from '@vo/shared';
+import { DEFAULT_TOPICS, SERVICE_TOPICS, type SongTopic } from '@vo/shared';
 import { api } from '../api';
 import { tr, useLang } from '../i18n';
 import { SONG_KEYS } from '../lib/songKeys';
@@ -108,9 +108,8 @@ export function SongTopics({
     const empty = !rows?.length;
     if (dirty && !(await save())) return;
     if (!own && empty) {
-      const ready = DEFAULT_TOPICS.map((t) => ({ name: tr(t.name), about: tr(t.about) }));
       try {
-        await api.saveBundleTopics(bundle.id, ready);
+        await api.saveBundleTopics(bundle.id, ready(DEFAULT_TOPICS));
       } catch (e) {
         return fail(e);
       }
@@ -134,6 +133,10 @@ export function SongTopics({
       setBusy(null);
     }
   };
+
+  /** a ready list in the interface's language, to change before it is saved */
+  const ready = (list: SongTopic[]): Row[] =>
+    list.map((t) => ({ name: tr(t.name), about: tr(t.about) }));
 
   const set = (i: number, patch: Partial<Row>) =>
     setRows((rs) => rs && rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -188,11 +191,21 @@ export function SongTopics({
         )}
       </Group>
       {rows && rows.length === 0 && !own && (
-        <Text size="sm" c="dimmed" mb="xs">
-          {tr(
-            'Тем ще немає. «Розкласти» візьме готовий список (Хвала, Подяка, Молитва…), або додайте свої теми.',
-          )}
-        </Text>
+        <>
+          <Text size="sm" c="dimmed" mb={4}>
+            {tr(
+              'Тем ще немає. Візьміть готовий список і змініть його як вам зручно, або додайте свої теми. Без списку «Розкласти» візьме «За темами».',
+            )}
+          </Text>
+          <Group gap="xs" mb="xs">
+            <Button size="xs" variant="light" onClick={() => setRows(ready(DEFAULT_TOPICS))}>
+              {tr('За темами: Хвала, Подяка, Різдво…')}
+            </Button>
+            <Button size="xs" variant="light" onClick={() => setRows(ready(SERVICE_TOPICS))}>
+              {tr('За порядком служіння: Початок, Суботні, До праці…')}
+            </Button>
+          </Group>
+        </>
       )}
       <ScrollArea style={{ flex: 1 }} scrollbars="y" className="vo-scroll-rows">
         <Stack gap={4}>

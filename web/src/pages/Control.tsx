@@ -1661,6 +1661,10 @@ export function Control() {
             songListSlot={setSongListSlot}
             mediaTab={mediaTab}
             onMediaTab={pickMediaTab}
+            onOpenSong={(id) => {
+              openSong(id);
+              setSongsOpen(true);
+            }}
           />
         </AppShell.Navbar>
 

@@ -154,6 +154,10 @@ export function byMeaning(e: KeyChord, text: string): string | null {
   return words && !MEANING_PREFIX.test(words) ? `~ ${words}` : null;
 }
 
+/** Is this «~ …» with words after it (a search by meaning, 1.25.0-beta.3 «Історія»)? */
+export const isMeaningQuery = (q: string): boolean =>
+  MEANING_PREFIX.test(q) && !!q.replace(MEANING_PREFIX, '').trim();
+
 /** A keydown the control window hands to the box (a KeyboardEvent is one). */
 export interface QuickKeydown extends QuickKeyEvent {
   preventDefault(): void;

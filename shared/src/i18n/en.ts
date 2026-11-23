@@ -3018,7 +3018,6 @@ export const EN: Record<string, string> = {
     'The output windows go dark for the restart (up to a minute) and come back on their own.',
   'Теми набору: розкласти презентації': 'Bundle topics: sort the presentations',
   'Теми набору «{bundle}»': 'Topics of “{bundle}”',
-  'Усі теми': 'All topics',
   'Теми презентації': 'Presentation topics',
   'Теми: додайте або виберіть': 'Topics: add or choose',
   'Розкладено: {sorted} з {songs} презентацій': 'Sorted: {sorted} of {songs} presentations',
@@ -3030,8 +3029,6 @@ export const EN: Record<string, string> = {
     'The model gathers presentations close in meaning into groups and names them by the words a group shares. Then rename the topics and correct them.',
   Розкласти: 'Sort',
   'З темою: {sorted} з {songs}': 'With a topic: {sorted} of {songs}',
-  'Тем ще немає. «Розкласти» візьме готовий список (Хвала, Подяка, Молитва…), або додайте свої теми.':
-    'No topics yet. “Sort” takes a ready list (Praise, Thanksgiving, Prayer…), or add your own topics.',
   'Назва теми': 'Topic name',
   'Слова теми для моделі': 'The topic’s words for the model',
   'Слова для моделі, через кому': 'Words for the model, comma-separated',
@@ -3119,4 +3116,47 @@ export const EN: Record<string, string> = {
   Служіння: 'Service',
   'служіння, праця для Бога, місія, іди і проповідуй, жнива':
     'service, work for God, mission, go and preach, the harvest',
+  'Шукати в історії; ~ тема — серед усіх показів за змістом':
+    'Search the history; ~ topic — every show, by meaning',
+  'Шукати в історії': 'Search the history',
+  'Місце або ~ тема': 'A place or ~ topic',
+  'В історії немає «{query}». Шукайте за змістом: ~ {query}':
+    'No “{query}” in the history. Search by meaning: ~ {query}',
+  'Показаного ще немає з векторами: вони з’являться, щойно модель обчислить переклад чи презентації.':
+    'Nothing shown has vectors yet: they come once the model has computed a translation or the presentations.',
+  'Серед показаного нічого близького до цієї теми': 'Nothing shown is close to this topic',
+  'показано {n} раз|показано {n} рази|показано {n} разів': 'shown {n} time|shown {n} times',
+  'Тем ще немає. Візьміть готовий список і змініть його як вам зручно, або додайте свої теми. Без списку «Розкласти» візьме «За темами».':
+    'No topics yet. Take a ready list and change it as suits you, or add your own topics. Without a list, “Sort” takes “By topic”.',
+  'За темами: Хвала, Подяка, Різдво…': 'By topic: Praise, Thanksgiving, Christmas…',
+  'За порядком служіння: Початок, Суботні, До праці…':
+    'By the order of service: Opening, Sabbath, To work…',
+  Початок: 'Opening',
+  'початок богослужіння, прийдіть, зберімось у домі Божім, Господи, будь з нами':
+    'the start of the service, come, let us gather in God’s house, Lord, be with us',
+  Суботні: 'Sabbath',
+  Прославлення: 'Glorifying',
+  'хвала і прославлення Бога, славте Господа, алілуя':
+    'praise and glory to God, glorify the Lord, hallelujah',
+  'Слово Боже, Біблія, Писання, світло на моїй дорозі':
+    'the Word of God, the Bible, the Scriptures, a light on my path',
+  Посвячення: 'Consecration',
+  'посвячення Богові, віддаю Тобі серце й життя, хочу йти за Тобою':
+    'consecration to God, I give You my heart and life, I want to follow You',
+  'віра і довіра Богові, вірю, тверда основа':
+    'faith and trust in God, I believe, a firm foundation',
+  'молитва, почуй мене, Господи, у молитві до Тебе': 'prayer, hear me, Lord, in prayer to You',
+  'До праці': 'To work',
+  'праця для Бога, жнива, іди і проповідуй, слуги Христові, до праці':
+    'work for God, the harvest, go and preach, servants of Christ, to work',
+  Прихід: 'Advent',
+  'друге пришестя Христа, Він прийде на хмарах, будьте готові':
+    'the second coming of Christ, He comes on the clouds, be ready',
+  Вечеря: 'Supper',
+  'вечеря Господня, хліб і вино, тіло і кров Христа, омовіння ніг':
+    'the Lord’s Supper, bread and wine, the body and blood of Christ, foot washing',
+  Групувати: 'Group',
+  'Без груп': 'No groups',
+  Набори: 'Bundles',
+  Теми: 'Topics',
 };
