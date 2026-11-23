@@ -813,12 +813,13 @@ function SongTopicsInput({
   const [value, setValue] = useState(topics);
   useEffect(() => setValue(topics), [topics]);
   const change = async (next: string[]) => {
+    const before = value;
     setValue(next);
     try {
       await api.setSongTopics(songId, next);
       for (const key of SONG_KEYS) void queryClient.invalidateQueries({ queryKey: [key] });
     } catch (e) {
-      setValue(topics);
+      setValue(before);
       notifications.show({ message: tr((e as Error).message), color: 'red' });
     }
   };

@@ -75,8 +75,12 @@ export function SongTopics({
   const twice = names.findIndex((n, i) => n && names.indexOf(n) !== i);
   const blank = (rows ?? []).some((r) => !r.name.trim());
 
-  const refresh = () => {
-    for (const key of SONG_KEYS) void queryClient.invalidateQueries({ queryKey: [key] });
+  /** the list read again before the rows reset: a cached, older list must not refill them (review) */
+  const refresh = async () => {
+    await queryClient.refetchQueries({ queryKey: ['bundle-topics', bundle.id] });
+    setRows(null);
+    for (const key of SONG_KEYS)
+      if (key !== 'bundle-topics') void queryClient.invalidateQueries({ queryKey: [key] });
   };
   const fail = (e: unknown) =>
     notifications.show({ message: tr((e as Error).message), color: 'red' });
@@ -89,8 +93,7 @@ export function SongTopics({
         bundle.id,
         rows.map((r) => ({ name: r.name.trim(), about: r.about.trim(), was: r.was })),
       );
-      setRows(null); // read again: the renames are names now
-      refresh();
+      await refresh(); // read again: the renames are names now
       return true;
     } catch (e) {
       fail(e);
@@ -115,9 +118,8 @@ export function SongTopics({
     setBusy('sort');
     try {
       const r = await api.sortBundleTopics(bundle.id, own);
-      setRows(null);
       setOwn(false);
-      refresh();
+      await refresh();
       notifications.show({
         message: tr('Розкладено: {sorted} з {songs} презентацій', {
           sorted: String(r.sorted),
