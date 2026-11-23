@@ -1,7 +1,9 @@
 /**
  * A desktop shortcut and the control window as an app window (0.7.5). The shortcut starts the
  * app with `--app`: the launcher then opens the control window in Chrome or Edge as a window of
- * its own — no tabs, no address bar — or in the default browser when neither is there.
+ * its own — no tabs, no address bar — or in the default browser when neither is there. With the
+ * desktop app in the release the Windows shortcut is that program itself (1.25.1): no start file, no
+ * console window flashing.
  *   Windows: VerseOrchestrator.lnk on the desktop (filled in by PowerShell's Shell.Application),
  *   macOS: VerseOrchestrator.command on the desktop (a Finder alias needs the Finder),
  *   Linux: verseorchestrator.desktop on the desktop and in the applications menu.
@@ -13,6 +15,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { tr } from './lang.ts';
+import { readLayout } from './layout.ts';
+import { shellPresent, shellProgram } from './shellOpen.ts';
 
 /** Chrome first (the user's choice for tests and work), then Edge. */
 export function appBrowserCandidates(
@@ -126,6 +130,49 @@ export function emptyShellLink(): Buffer {
   return head;
 }
 
+export interface WindowsTarget {
+  path: string;
+  args: string;
+  dir: string;
+  icon: string;
+}
+
+/** What the Windows shortcut starts: the release's desktop app, else the start file. */
+export function windowsTarget(
+  root: string,
+  hasShell: (top: string) => boolean = (top) => shellPresent(top, 'win32'),
+): WindowsTarget {
+  const top = path.win32.dirname(root);
+  const icon = path.join(root, 'web', 'public', 'icon.ico');
+  // the release's own folder to work in, never app/ (an update renames it)
+  if (readLayout(root) && hasShell(top))
+    return { path: shellProgram(top, 'win32'), args: '', dir: top, icon };
+  return { path: path.join(root, 'start.cmd'), args: '--app', dir: root, icon };
+}
+
+/**
+ * Is it this copy's shortcut from before the desktop app was its target (1.25.1)? Told by the bytes:
+ * a Shell Link keeps the working folder as a string and the file's name beside it.
+ */
+export function isOldShortcut(lnk: Buffer, root: string): boolean {
+  const has = (s: string) => lnk.includes(Buffer.from(s, 'utf16le'));
+  return has(root) && (has('start.cmd') || lnk.includes('start.cmd'));
+}
+
+/** A shortcut this copy made to its start file now starts its desktop app; true when renewed. */
+export function renewShortcut(root: string, platform: NodeJS.Platform = process.platform): boolean {
+  if (platform !== 'win32' || windowsTarget(root).args !== '') return false;
+  const desktop = process.env.VO_DESKTOP_DIR ?? path.join(os.homedir(), 'Desktop');
+  try {
+    const file = path.join(desktop, 'VerseOrchestrator.lnk');
+    if (!fs.existsSync(file) || !isOldShortcut(fs.readFileSync(file), root)) return false;
+    createShortcut(root, platform);
+    return true;
+  } catch {
+    return false; // the old one still starts the app
+  }
+}
+
 /** Make the shortcut; returns the file(s) made. */
 export function createShortcut(
   root: string,
@@ -136,6 +183,8 @@ export function createShortcut(
   if (platform === 'win32') {
     const name = 'VerseOrchestrator.lnk';
     const file = path.join(desktop, name);
+    const target = windowsTarget(root);
+    const had = fs.existsSync(file) ? fs.readFileSync(file) : null;
     fs.writeFileSync(file, emptyShellLink());
     // the paths go in through the environment: no quoting of Cyrillic or spaces in a command;
     // Shell.Application's link object is Unicode all the way (emptyShellLink), and a failure
@@ -148,7 +197,7 @@ export function createShortcut(
           '-Command',
           "$ErrorActionPreference = 'Stop'; " +
             '$l = (New-Object -ComObject Shell.Application).NameSpace($env:VO_DIR).ParseName($env:VO_NAME).GetLink; ' +
-            '$l.Path = $env:VO_TARGET; $l.Arguments = "--app"; $l.WorkingDirectory = $env:VO_ROOT; ' +
+            '$l.Path = $env:VO_TARGET; $l.Arguments = "$env:VO_ARGS"; $l.WorkingDirectory = $env:VO_ROOT; ' +
             '$l.SetIconLocation($env:VO_ICON, 0); $l.Description = "VerseOrchestrator"; $l.Save()',
         ],
         {
@@ -157,14 +206,17 @@ export function createShortcut(
             ...process.env,
             VO_DIR: desktop,
             VO_NAME: name,
-            VO_TARGET: path.join(root, 'start.cmd'),
-            VO_ROOT: root,
-            VO_ICON: path.join(root, 'web', 'public', 'icon.ico'),
+            VO_TARGET: target.path,
+            VO_ARGS: target.args,
+            VO_ROOT: target.dir,
+            VO_ICON: target.icon,
           },
         },
       );
     } catch (err) {
-      fs.rmSync(file, { force: true }); // no empty shortcut left on the desktop
+      // no empty shortcut left on the desktop: the one there was, or none
+      if (had) fs.writeFileSync(file, had);
+      else fs.rmSync(file, { force: true });
       throw err;
     }
     return [file];

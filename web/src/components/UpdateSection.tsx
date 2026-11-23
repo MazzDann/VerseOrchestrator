@@ -285,6 +285,18 @@ export function UpdateSection() {
             ` · ${tr('Щоб оновити копію репозиторію, виконайте git pull і запустіть застосунок.')}`}
         </Text>
       )}
+      {!restarting && state?.install === 'source' && state.available && state.latest && (
+        // a copy of the code has no button for a release: said, not left to be looked for (1.25.1)
+        <Text size="xs" mb={4}>
+          {tr('Це копія з кодом (гілка {branch}): сама вона до релізу не оновлюється.', {
+            branch: code?.git?.branch ?? '—',
+          })}{' '}
+          <Anchor href={state.latest.url} target="_blank" rel="noreferrer" size="xs">
+            {tr('Завантажте реліз {version}', { version: state.latest.version })}
+          </Anchor>{' '}
+          {tr('і запускайте його — далі він оновлюється кнопкою.')}
+        </Text>
+      )}
       {!restarting && code?.git && (
         <GitSyncLine git={code.git} pending={pull.isPending} onPull={() => pull.mutate()} />
       )}

@@ -245,6 +245,14 @@ export const EN: Record<string, string> = {
   'Так, перезапустити': 'Yes, restart',
   // desktop shortcut (web/src/components/ShortcutSection.tsx)
   'Ярлик створено: {file}': 'Shortcut created: {file}',
+  'Відкриває застосунок.': 'Opens the app.',
+  'Це копія з кодом: окремої апки в ній немає, ярлик запускає скрипт.':
+    'This is a copy of the code: it has no app of its own, the shortcut runs a script.',
+  'Це копія з кодом (гілка {branch}): сама вона до релізу не оновлюється.':
+    'This is a copy of the code (branch {branch}): it doesn’t update itself to a release.',
+  'Завантажте реліз {version}': 'Download release {version}',
+  'і запускайте його — далі він оновлюється кнопкою.':
+    'and start that one — from then on it updates with a button.',
   'Ярлик не створено: {error}': 'Shortcut not created: {error}',
   'Ярлик на робочому столі': 'Desktop shortcut',
   'Запускає застосунок і відкриває вікно керування окремим вікном — без вкладок і адресного рядка: у браузері, вибраному вище, якщо він на основі Chromium, а з «Браузер системи» — у Chrome чи Edge.':

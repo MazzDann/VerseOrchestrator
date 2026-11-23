@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Text } from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
 import { IconDeviceDesktop } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api } from '../api';
@@ -15,6 +16,12 @@ import { tr, useLang } from '../i18n';
 export function ShortcutSection() {
   const serverAvailable = useServer((s) => s.available);
   const [busy, setBusy] = useState(false);
+  const desktop = useQuery({
+    queryKey: ['desktop'],
+    queryFn: api.desktop,
+    enabled: serverAvailable !== false,
+    retry: false,
+  }).data;
   useLang();
 
   const make = async () => {
@@ -42,9 +49,13 @@ export function ShortcutSection() {
         {tr('Ярлик на робочому столі')}
       </Text>
       <Text size="xs" c="dimmed" mb={8}>
-        {tr(
-          'Запускає застосунок і відкриває вікно керування окремим вікном — без вкладок і адресного рядка: у браузері, вибраному вище, якщо він на основі Chromium, а з «Браузер системи» — у Chrome чи Edge.',
-        )}
+        {desktop?.present
+          ? tr('Відкриває застосунок.')
+          : tr(
+              'Запускає застосунок і відкриває вікно керування окремим вікном — без вкладок і адресного рядка: у браузері, вибраному вище, якщо він на основі Chromium, а з «Браузер системи» — у Chrome чи Edge.',
+            )}
+        {desktop?.release === false &&
+          ` ${tr('Це копія з кодом: окремої апки в ній немає, ярлик запускає скрипт.')}`}
       </Text>
       <Button
         size="xs"
