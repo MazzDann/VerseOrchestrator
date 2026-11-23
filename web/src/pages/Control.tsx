@@ -54,7 +54,7 @@ import { RemotePanel } from '../components/RemotePanel';
 import { OutputsPanel } from '../components/OutputsPanel';
 import { currentOutputs, outputs as outputsBus, useOutputWindows } from '../lib/outputs';
 import { closeOutput, openOutput } from '../openPresenter';
-import { inDesktop, outputAtStartOn } from '../lib/desktop';
+import { hasSecondScreen, inDesktop, outputAtStartOn } from '../lib/desktop';
 import { useSlideErrorNotices } from '../lib/slideErrorNotices';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 import { useFullscreenRefusedNotices } from '../lib/fullscreenNotices';
@@ -376,6 +376,8 @@ export function Control() {
     if (!autoOutput || !isLeader || autoOutputTried.current) return;
     autoOutputTried.current = true;
     if (currentOutputs().some((o) => o.kind === 'presenter')) return; // one is already open
+    // one screen: not over the control window; a 2nd one plugged in opens it (DisplayBack)
+    if (!hasSecondScreen()) return;
     let cancelled = false;
     let retry: (() => void) | null = null;
     void openOutput('presenter')

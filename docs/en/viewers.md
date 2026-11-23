@@ -9,7 +9,7 @@ is in [Speaker remote](remote.md).
 
 ## Before you begin
 
-- The app is started from the start window (`start.cmd`, `start.command`, or
+- The app is started from the start window (`VerseOrchestrator.exe`, `start.command`, or
   `./start.sh`). If the app runs “In the browser”, without the server, the **Viewers** and
   **Speaker remote** buttons are inactive.
 - The computer and the viewers' phones are on the same Wi-Fi network. The computer can also

@@ -40,6 +40,7 @@ import {
   alreadyOpenLines,
   appWindowCommand,
   createShortcut,
+  windowsTarget,
   readControlWindows,
   type ControlWindows,
 } from './shortcut.ts';
@@ -740,7 +741,9 @@ async function main(argv: string[]): Promise<number> {
       const files = createShortcut(root);
       say(`✓ ${tr('Ярлик на робочому столі: {file}', { file: files[0] })}`);
       say(
-        `  ${tr('Він запускає застосунок і відкриває вікно керування окремим вікном — у браузері на основі Chromium, вибраному в Налаштування вигляду → Застосунок, або в Chrome чи Edge.')}`,
+        windowsTarget(root).args === ''
+          ? `  ${tr('Він відкриває застосунок.')}`
+          : `  ${tr('Він запускає застосунок і відкриває вікно керування окремим вікном — у браузері на основі Chromium, вибраному в Налаштування вигляду → Застосунок, або в Chrome чи Edge.')}`,
       );
       return 0;
     } catch (err) {

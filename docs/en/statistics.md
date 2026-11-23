@@ -6,7 +6,7 @@ statistics show which presentations are shown most, which haven’t been shown f
 Bible are read, and what exactly was on screen on a given day.
 
 The app's server keeps the statistics, so showings are recorded when the app runs the usual way
-(`start.cmd`, `start.command` or `start.sh`). In the “in the browser” mode without a server,
+(`VerseOrchestrator.exe`, `start.command` or `start.sh`). In the “in the browser” mode without a server,
 nothing is recorded. The statistics stay on this computer in `data/stats.db` and are never sent
 anywhere.
 

@@ -31,7 +31,7 @@ At the top of the app's folder there is only what you need:
 
 | What                                        | What for                                                        |
 | ------------------------------------------- | --------------------------------------------------------------- |
-| `start.cmd`, `start.command`, or `start.sh` | starting the app                                                |
+| `VerseOrchestrator.exe`, `start.command`, or `start.sh` | starting the app                                                |
 | `modules/`                                  | module files (`.SQLite3`): the app builds its library from them |
 | `data/`                                     | your data: settings, library, presentations                             |
 | `ЯК ЗАПУСТИТИ.txt`, `HOW TO START.txt`      | how to start and switch off the app                             |
@@ -127,7 +127,7 @@ with the import in the control window or through the `songs/` folder — see
 
 To start the app, in its folder:
 
-- on Windows, double-click `start.cmd`;
+- on Windows, double-click `VerseOrchestrator.exe` (in a copy of the code — `start.cmd`);
 - on macOS, double-click `start.command`;
 - on Linux, run `./start.sh` in a terminal.
 
@@ -138,7 +138,7 @@ stay open while the app runs.
 
 On the first start from the archive, the system may warn about a file from the internet:
 
-- on Windows, confirm running `start.cmd`;
+- on Windows, confirm running `VerseOrchestrator.exe`;
 - on macOS, the app isn't signed by Apple, so the system blocks `start.command`. Open
   **System Settings** → **Privacy & Security**, click **Open Anyway** next to
   `start.command`, and confirm. Before macOS 15, it's enough to right-click the file and
@@ -552,7 +552,7 @@ At the top of the copy there is only what a user needs:
 
 | What                                        | What for                                                              |
 | ------------------------------------------- | --------------------------------------------------------------------- |
-| `start.cmd`, `start.command`, or `start.sh` | starting: the file for the system the copy was made for               |
+| `VerseOrchestrator.exe`, `start.command`, or `start.sh` | starting: the file for the system the copy was made for               |
 | `modules/`                                  | module files (`.SQLite3`): the app builds its library from them       |
 | `data/`                                     | your data: settings, library, presentations                                   |
 | `HOW TO START.txt`                          | how to start and switch off the copy (in the start window's language) |
@@ -569,7 +569,7 @@ keeps waiting and starts with the computer. To switch everything off, open **Set
 **Switch off**. To also erase the app's data in the browser, first select **Also erase the
 browser's data**.
 
-If the control window doesn't open, run `.\start.cmd --off` in a terminal in the app's
+If the control window doesn't open, run `.\app\start.cmd --off` in a terminal in the app's
 folder (on macOS and Linux, `./start.sh --off`). This switches off everything except the
 browser's data.
 

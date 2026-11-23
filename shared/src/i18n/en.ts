@@ -127,8 +127,8 @@ export const EN: Record<string, string> = {
   'На кінці розділу «Далі» одразу відкриває наступний розділ (а «Назад» на початку — попередній), без другого натиску для підтвердження. Утримана клавіша все одно спиняється на межі.':
     'At the end of a chapter «Next» opens the next chapter at once (and «Back» at the start the previous one), with no second press to confirm. A held key still stops at the edge.',
   'Відкривати вікно показу автоматично': 'Open the presentation window automatically',
-  'Коли застосунок запускається, «Вікно показу» відкривається само — на другому екрані й на весь екран, якщо екран є.':
-    'When the app starts, the presentation window opens on its own — on the second screen and full-screen, if there is one.',
+  'Коли застосунок запускається, «Вікно показу» відкривається само на другому екрані, на весь екран. Коли екран один, не відкривається.':
+    'When the app starts, the presentation window opens by itself on the second screen, full-screen. With one screen it doesn’t open.',
   'У браузері вікно відкривається після першого кліку у вікні керування. Дозвольте спливні вікна, а щоб воно стало на другий екран — «Керування вікнами» (браузер спитає).':
     'In a browser the window opens after your first click in the control window. Allow pop-ups, and “Window management” for it to go to the second screen (the browser will ask).',
   'Поле «Вірш» біля розділів': 'The «Verse» field by the chapters',
@@ -245,6 +245,7 @@ export const EN: Record<string, string> = {
   'Так, перезапустити': 'Yes, restart',
   // desktop shortcut (web/src/components/ShortcutSection.tsx)
   'Ярлик створено: {file}': 'Shortcut created: {file}',
+  'Він відкриває застосунок.': 'It opens the app.',
   'Відкриває застосунок.': 'Opens the app.',
   'Це копія з кодом: окремої апки в ній немає, ярлик запускає скрипт.':
     'This is a copy of the code: it has no app of its own, the shortcut runs a script.',
@@ -1786,20 +1787,21 @@ export const EN: Record<string, string> = {
     'no npm next to {node} — Node.js with npm is needed',
   '{node} — Node.js, що залежить від бібліотек поруч (так його встановлює Homebrew): у копії він не запуститься. Запустіть npm run portable з Node.js з nodejs.org (або встановленим через fnm чи nvm).':
     '{node} is a Node.js that depends on libraries next to it (Homebrew installs it that way): it won’t start in a copy. Run npm run portable with Node.js from nodejs.org (or installed with fnm or nvm).',
-  'двічі клацніть start.cmd': 'double-click start.cmd',
+  'двічі клацніть VerseOrchestrator.exe (або start.cmd, якщо її немає)':
+    'double-click VerseOrchestrator.exe (or start.cmd if it isn’t there)',
   'двічі клацніть start.command': 'double-click start.command',
   'виконайте ./start.sh у терміналі': 'run ./start.sh in a terminal',
   'VerseOrchestrator {version} — портативна копія для {system} ({arch})':
     'VerseOrchestrator {version} — a portable copy for {system} ({arch})',
   'Node.js та інтернет не потрібні: усе потрібне — у цій папці.':
     'No Node.js or internet needed: everything is in this folder.',
-  'Запуск: {launcher}. Вікно керування відкриється в браузері, адресу для\nтелефонів видно у вікні запуску.':
-    'To start: {launcher}. The control window opens in a browser; the address for\nphones shows in the start window.',
-  'Зупинити: закрийте вікно запуску. Вимкнути все й прибрати автозапуск: {off}.':
-    'To stop: close the start window. To switch everything off and remove the autostart: {off}.',
+  'Запуск: {launcher}. Відкриється вікно керування;\nадреса для телефонів — у «Глядачі».':
+    'To start: {launcher}. The control window opens;\nthe address for phones is in “Viewers”.',
+  'Зупинити: закрийте вікно застосунку. Вимкнути все й прибрати автозапуск: {off}.':
+    'To stop: close the app’s window. To switch everything off and remove the autostart: {off}.',
   'Тексти: бібліотеку вже додано.': 'Texts: the library is already included.',
-  'Тексти: покладіть модулі (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).':
-    'Texts: put modules (*.SQLite3) into the modules/ folder — the app builds\nthe library itself (a few minutes).',
+  'Тексти: покладіть модулі (*.SQLite3, USFM, OSIS, Zefania, VPL) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).':
+    'Texts: put modules (*.SQLite3, USFM, OSIS, Zefania, VPL) into the modules/ folder — the app builds\nthe library itself (a few minutes).',
   'Невідомий параметр «{arg}». Можна: --with-library, --release':
     'Unknown option “{arg}”. Options: --with-library, --release',
   'Портативна копія {name}': 'Portable copy {name}',

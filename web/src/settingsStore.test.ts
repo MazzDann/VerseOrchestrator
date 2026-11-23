@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type * as Settings from './settingsStore';
-import { outputAtStartOn } from './lib/desktop';
+import { hasSecondScreen, outputAtStartOn } from './lib/desktop';
 
 // The store takes `window.localStorage` as it is created, on import: stub it first.
 const local = new Map<string, string>();
@@ -299,5 +299,24 @@ describe('«Розмір тексту» (1.24.0-beta.3)', () => {
     expect(store.clampTextScale(1.4)).toBe(1);
     expect(store.clampTextScale('x')).toBe(1);
     expect(store.DEFAULT_APPEARANCE.textScale).toBe(1);
+  });
+});
+
+describe('a second screen for the presentation window (1.25.2)', () => {
+  it('one screen is none; a browser that does not say is taken to have one', () => {
+    const had = Object.getOwnPropertyDescriptor(globalThis, 'screen');
+    const say = (v: unknown) =>
+      Object.defineProperty(globalThis, 'screen', { value: v, configurable: true });
+    try {
+      say({ isExtended: false });
+      expect(hasSecondScreen()).toBe(false);
+      say({ isExtended: true });
+      expect(hasSecondScreen()).toBe(true);
+      say({});
+      expect(hasSecondScreen()).toBe(true);
+    } finally {
+      if (had) Object.defineProperty(globalThis, 'screen', had);
+      else delete (globalThis as { screen?: unknown }).screen;
+    }
   });
 });

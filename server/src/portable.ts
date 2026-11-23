@@ -156,12 +156,14 @@ export function howToStart(
 ): string {
   const launcher =
     o.platform === 'win32'
-      ? tr('двічі клацніть start.cmd', undefined, lang)
+      ? tr('двічі клацніть VerseOrchestrator.exe (або start.cmd, якщо її немає)', undefined, lang)
       : o.platform === 'darwin'
         ? tr('двічі клацніть start.command', undefined, lang)
         : tr('виконайте ./start.sh у терміналі', undefined, lang);
   const off =
-    o.platform === 'win32' ? 'start.cmd --off' : `./${START_FILE[o.platform] ?? 'start.sh'} --off`;
+    o.platform === 'win32'
+      ? 'app\\start.cmd --off'
+      : `./${START_FILE[o.platform] ?? 'start.sh'} --off`;
   return [
     tr(
       'VerseOrchestrator {version} — портативна копія для {system} ({arch})',
@@ -172,12 +174,12 @@ export function howToStart(
     tr('Node.js та інтернет не потрібні: усе потрібне — у цій папці.', undefined, lang),
     '',
     tr(
-      'Запуск: {launcher}. Вікно керування відкриється в браузері, адресу для\nтелефонів видно у вікні запуску.',
+      'Запуск: {launcher}. Відкриється вікно керування;\nадреса для телефонів — у «Глядачі».',
       { launcher },
       lang,
     ),
     tr(
-      'Зупинити: закрийте вікно запуску. Вимкнути все й прибрати автозапуск: {off}.',
+      'Зупинити: закрийте вікно застосунку. Вимкнути все й прибрати автозапуск: {off}.',
       { off },
       lang,
     ),
@@ -185,7 +187,7 @@ export function howToStart(
     o.withLibrary
       ? tr('Тексти: бібліотеку вже додано.', undefined, lang)
       : tr(
-          'Тексти: покладіть модулі (*.SQLite3) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).',
+          'Тексти: покладіть модулі (*.SQLite3, USFM, OSIS, Zefania, VPL) у папку modules/ — застосунок збере\nбібліотеку сам (кілька хвилин).',
           undefined,
           lang,
         ),

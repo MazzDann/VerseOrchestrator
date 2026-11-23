@@ -2,7 +2,7 @@
 //
 // The desktop app (feat/desktop) put into a release copy that `npm run portable -- --release`
 // made (portable/VerseOrchestrator-<version>-<os>-<arch>/). The desktop app replaces the browser
-// there (the author, 2026-10-13): start.cmd / start.command / start.sh open it.
+// there (the author, 2026-10-13): VerseOrchestrator.exe / start.command / start.sh open it.
 //   - app/desktop/dist — the shell's code: part of app/, so «Оновлення» updates it with the rest;
 //   - shell/ (Windows, Linux) or VerseOrchestrator.app (macOS) — Electron itself, with a stub app
 //     that finds app/ and runs that code. Electron changes rarely; a new one comes in a new archive.
@@ -147,6 +147,33 @@ async function brandExe(exe, ico) {
   }
 }
 
+/**
+ * VerseOrchestrator.exe at the top (1.25.2, the author: «блимає з цим смд і викликає підозри»): what a user
+ * double-clicks — it opens the app with no console window. The start file stays in app\ for its
+ * options (--off, --check …). Built with the C# compiler every Windows has; without it the release
+ * would go out without its program, so a failure stops the build.
+ */
+function putStart(top) {
+  const csc = path.join(
+    process.env.WINDIR ?? 'C:\\Windows',
+    'Microsoft.NET',
+    'Framework64',
+    'v4.0.30319',
+    'csc.exe',
+  );
+  execFileSync(csc, [
+    '/nologo',
+    '/target:winexe',
+    '/optimize+',
+    '/codepage:65001',
+    `/win32icon:${path.join(top, 'app', 'web', 'dist', 'icon.ico')}`,
+    '/reference:System.Windows.Forms.dll',
+    `/out:${path.join(top, 'VerseOrchestrator.exe')}`,
+    path.join(desktop, 'launcher', 'Start.cs'),
+  ]);
+  fs.rmSync(path.join(top, 'start.cmd'), { force: true });
+}
+
 /** Chromium's interface languages: the two the app speaks (the rest is ~40 MB). */
 function pruneLocales(dir) {
   if (!fs.existsSync(dir)) return;
@@ -224,6 +251,7 @@ if (process.platform === 'darwin') {
     const exe = path.join(to, 'VerseOrchestrator.exe');
     fs.renameSync(path.join(to, 'electron.exe'), exe);
     await brandExe(exe, path.join(top, 'app', 'web', 'dist', 'icon.ico'));
+    putStart(top);
   } else {
     fs.renameSync(path.join(to, 'electron'), path.join(to, 'verseorchestrator'));
   }
