@@ -122,6 +122,8 @@ export interface SongDetail extends SongInfo {
   slides: SongSlideOut[];
   /** its topics (1.25.0-beta.2), in its bundle's order; none in a library before them */
   topics: string[];
+  /** the same number in the bundle paired with its own (1.25.0-beta.4): the song in another language */
+  other?: SongInfo;
 }
 /** A topic the songs hold (1.25.0-beta.2), with how many of them. */
 export interface SongTopicCount {
@@ -1081,7 +1083,32 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
           )
         ).map((r) => String(r.topic))
       : [];
-    return { id: s.id, number: s.number, title: s.title, bundle: s.bundle ?? '', slides, topics };
+    // the bundle paired by number: its song of the same number
+    let other: SongInfo | undefined;
+    if (s.number != null && s.bundle && (await tableExists('song_pairs'))) {
+      const o = await db.get<AnyRow>(
+        `SELECT x.id, x.number, x.title, x.bundle FROM song_pairs p
+         JOIN songs x ON x.bundle = p.other AND x.number = ?
+         WHERE p.bundle = ? ORDER BY x.id LIMIT 1`,
+        [s.number, s.bundle],
+      );
+      if (o)
+        other = {
+          id: Number(o.id),
+          number: o.number,
+          title: String(o.title),
+          bundle: String(o.bundle ?? ''),
+        };
+    }
+    return {
+      id: s.id,
+      number: s.number,
+      title: s.title,
+      bundle: s.bundle ?? '',
+      slides,
+      topics,
+      ...(other ? { other } : {}),
+    };
   }
 
   /** The documents (1.17.0-beta.1), by title; none in a library built before them. */

@@ -28,6 +28,7 @@ import {
   IconArrowBackUp,
   IconChevronDown,
   IconChevronRight,
+  IconLanguage,
 } from '@tabler/icons-react';
 import { MEANING_PREFIX, nextChorus, songParts, type SongPart } from '@vo/shared';
 import { api, type SongStyle } from '../api';
@@ -279,7 +280,7 @@ export function SongsPanel({
 
   // Enter on a found song (F1017-01): it opens and its first stanza goes on screen — once it has
   // loaded, when it wasn't open yet
-  const showOnLoad = useRef<number | null>(null);
+  const showOnLoad = useRef<{ id: number; stanza: number } | null>(null);
   /** a plain open (a click, Space) drops a show still waiting for another song (review) */
   const openOnly = (id: number) => {
     showOnLoad.current = null;
@@ -291,14 +292,27 @@ export function SongsPanel({
       showStanza(0);
       return;
     }
-    showOnLoad.current = id;
+    showOnLoad.current = { id, stanza: 0 };
     onSongIdChange(id);
+  };
+  /**
+   * «Іншою мовою» (1.25.0-beta.4): the same song in the paired bundle — and, when one of this song's
+   * slides is on, the same slide of it (the stanzas go alike in both).
+   */
+  const openOther = (id: number) => {
+    const at = activeStanza;
+    const len = songQuery.data?.slides.length ?? 0;
+    if (at != null && at < len) {
+      showOnLoad.current = { id, stanza: at };
+      onSongIdChange(id);
+    } else openOnly(id);
   };
   useEffect(() => {
     const s = songQuery.data;
-    if (!s || showOnLoad.current !== s.id) return;
+    const want = showOnLoad.current;
+    if (!s || want?.id !== s.id) return;
     showOnLoad.current = null;
-    if (s.slides.length > 0) showStanza(0);
+    if (s.slides.length > 0) showStanza(Math.min(want.stanza, s.slides.length - 1));
   }, [songQuery.data, showStanza]);
 
   // «До приспіву» (1.3.0): the next chorus of the open song — a different one where the song
@@ -739,6 +753,28 @@ export function SongsPanel({
                 </Text>
               </Group>
               <Group gap={4} wrap="nowrap">
+                {song.other && (
+                  <Tooltip
+                    label={tr('Іншою мовою: №{number} {title} · {bundle}', {
+                      number: String(song.other.number ?? ''),
+                      title: song.other.title,
+                      bundle: song.other.bundle,
+                    })}
+                    withArrow
+                  >
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      color="gray"
+                      leftSection={<IconLanguage size={14} />}
+                      onClick={() => openOther(song.other!.id)}
+                      aria-label={tr('Іншою мовою: {bundle}', { bundle: song.other.bundle })}
+                      data-song-other
+                    >
+                      {song.other.bundle}
+                    </Button>
+                  </Tooltip>
+                )}
                 {hasChorus && (
                   <Tooltip
                     label={`${tr('До приспіву')}${chorusKey ? ` · ${formatCombo(chorusKey)}` : ''}`}

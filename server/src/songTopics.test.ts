@@ -16,6 +16,8 @@ import {
 import {
   bundleTopics,
   importSongs,
+  listBundles,
+  pairBundles,
   refreshLibrarySongs,
   saveSongTopics,
 } from '@vo/shared/songs-node';
@@ -152,5 +154,40 @@ describe('sorting a bundle by topics', () => {
     fs.rmSync(path.join(s.dataDir, 'vectors.db'));
     const out = await sortBundleTopics({ ...s, own: false, model: 'fast', embed });
     expect(out).toEqual({ ok: false, missing: 'vectors', done: 0, total: 12 });
+  });
+});
+
+describe('bundles paired by number (1.25.0-beta.4)', () => {
+  it('a song has its counterpart in the paired bundle; unpaired, none; a new pair frees the old', async () => {
+    const s = setup();
+    const other = importSongs(s.dir, { name: 'Інша' }, SONGS.slice(0, 5));
+    const third = importSongs(s.dir, { name: 'Третя' }, SONGS.slice(0, 2));
+    const read = async () => {
+      refreshLibrarySongs(s.libraryPath, s.dir);
+      const c = new Database(s.libraryPath, { readonly: true });
+      const lib = createLibrary(betterSqliteDriver(() => c));
+      const three = (await lib.searchSongs('3', 60, 'Збірка'))[0];
+      const twelve = (await lib.searchSongs('12', 60, 'Збірка'))[0];
+      const out = {
+        three: (await lib.getSong(three.id))?.other,
+        twelve: (await lib.getSong(twelve.id))?.other,
+      };
+      c.close();
+      return out;
+    };
+    expect(pairBundles(s.dir, s.bundleId, other.bundle.meta.id)).toBe(true);
+    let got = await read();
+    expect(got.three).toMatchObject({ number: 3, bundle: 'Інша' });
+    expect(got.twelve).toBeUndefined(); // «Інша» has no 12
+    const metas = () => new Map(listBundles(s.dir).map((b) => [b.meta.name, b.meta.pair]));
+    expect(metas().get('Інша')).toBe(s.bundleId);
+    // «Третя» pairs with «Інша»: «Збірка» is free again
+    pairBundles(s.dir, third.bundle.meta.id, other.bundle.meta.id);
+    expect(metas().get('Збірка')).toBeUndefined();
+    got = await read();
+    expect(got.three).toBeUndefined();
+    pairBundles(s.dir, other.bundle.meta.id, null);
+    expect(metas().get('Третя')).toBeUndefined();
+    expect(pairBundles(s.dir, s.bundleId, s.bundleId)).toBe(false);
   });
 });

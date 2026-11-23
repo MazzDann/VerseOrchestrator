@@ -3159,4 +3159,14 @@ export const EN: Record<string, string> = {
   'Без груп': 'No groups',
   Набори: 'Bundles',
   Теми: 'Topics',
+  'Пара за номером: {bundle}': 'Paired by number: {bundle}',
+  'Пара за номером: той самий номер іншою мовою':
+    'Paired by number: the same number in another language',
+  'Пара за номером для «{bundle}»': 'Pair by number for “{bundle}”',
+  'Той самий номер — та сама пісня в наборі:': 'The same number is the same song in the bundle:',
+  'Без пари': 'No pair',
+  'Іншою мовою: №{number} {title} · {bundle}':
+    'In another language: No. {number} {title} · {bundle}',
+  'Іншою мовою: {bundle}': 'In another language: {bundle}',
+  'Виберіть набір для пари': 'Choose a bundle to pair with',
 };

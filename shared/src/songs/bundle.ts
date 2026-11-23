@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS song_topics (
   ord     INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_song_topics ON song_topics (topic, song_id);
+CREATE TABLE IF NOT EXISTS song_pairs (
+  bundle TEXT NOT NULL,
+  other  TEXT NOT NULL
+);
 `;
 export const BUNDLE_FORMAT = 1;
 
@@ -69,6 +73,11 @@ export interface BundleMeta {
    * written by an older one is read again (1.2.1). Absent: before 1.2.1.
    */
   reader?: number;
+  /**
+   * The bundle paired with this one by number (1.25.0-beta.4: ПС ↔ «Псалмы Сиона» — the same number,
+   * the same hymn in another language): its id. Both bundles name each other.
+   */
+  pair?: string;
 }
 
 export interface BundleSong {
@@ -159,6 +168,8 @@ export function writeBundleMeta(db: SyncDb, meta: BundleMeta): void {
     put.run('created', meta.created);
     if (meta.source) put.run('source', meta.source);
     if (meta.reader) put.run('reader', String(meta.reader));
+    if (meta.pair) put.run('pair', meta.pair);
+    else db.prepare("DELETE FROM meta WHERE key = 'pair'").run();
   })();
 }
 
@@ -176,6 +187,7 @@ export function readBundleMeta(db: SyncDb): BundleMeta | null {
   if (!id || !name) return null;
   const source = m.get('source');
   const reader = Number(m.get('reader'));
+  const pair = m.get('pair');
   return {
     id,
     name,
@@ -183,6 +195,7 @@ export function readBundleMeta(db: SyncDb): BundleMeta | null {
     created: m.get('created') ?? '',
     ...(source ? { source } : {}),
     ...(reader > 0 ? { reader } : {}),
+    ...(pair ? { pair } : {}),
   };
 }
 
@@ -386,7 +399,15 @@ export function writeLibrarySongs(lib: SyncDb, bundles: Bundle[]): number {
   const ids = librarySongIds(bundles);
   let count = 0;
   lib.transaction(() => {
-    lib.exec('DELETE FROM song_slides; DELETE FROM songs; DELETE FROM song_topics;');
+    lib.exec(
+      'DELETE FROM song_slides; DELETE FROM songs; DELETE FROM song_topics; DELETE FROM song_pairs;',
+    );
+    // bundles paired by number (1.25.0-beta.4), by name as the library knows them
+    const insPair = lib.prepare('INSERT INTO song_pairs (bundle, other) VALUES (?, ?)');
+    for (const b of bundles) {
+      const other = b.meta.pair ? bundles.find((x) => x.meta.id === b.meta.pair) : undefined;
+      if (other && other !== b) insPair.run(b.meta.name, other.meta.name);
+    }
     bundles.forEach((b, bi) => {
       const topics = b.topics ? visibleTopics(b.topics) : new Map<string, string[]>();
       const ord = new Map(b.topics?.list.map((t, i) => [t.name, i]) ?? []);

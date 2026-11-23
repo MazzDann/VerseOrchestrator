@@ -201,6 +201,19 @@ list. What you changed yourself, the model doesn't rewrite when you click **Sort
 sorts a bundle, the background work ring turns in the header. You can give topics without a model
 too — by hand, in an open presentation.
 
+### Show the same song in another language
+
+If you have the same songbook in two languages with the same numbers — say, Ukrainian and Russian
+— pair them:
+
+1. To the right of the presentation search, click the **Presentation bundles** icon.
+2. In one bundle's row, click the **Pair by number** icon and choose the other bundle.
+
+"Paired by number: …" appears under the bundle's name. Now an open song that has a counterpart with
+the same number shows a button with the other bundle's name above its slides. Click it to open
+that song in the other language. If a slide of the first song was on screen, the same slide of the
+other goes on screen at once. To undo the pair, choose **No pair** in the same menu.
+
 ## Choose how a presentation looks
 
 Above the presentation's slides there is a switch:

@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Group,
+  Menu,
   Stack,
   Text,
   TextInput,
@@ -14,6 +15,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import {
   IconArrowBackUp,
+  IconArrowsLeftRight,
   IconCheck,
   IconChevronLeft,
   IconPencil,
@@ -92,6 +94,19 @@ export function SongBundles({
       refresh();
     } catch (e) {
       setEditing({ ...editing, error: tr((e as Error).message) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** pair a bundle by number with another, or unpair it (1.25.0-beta.4) */
+  const pair = async (id: string, withId: string | null) => {
+    setBusy(true);
+    try {
+      await api.pairSongBundle(id, withId);
+      refresh();
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -204,15 +219,62 @@ export function SongBundles({
     ) : (
       <Box key={b.id} className="vo-list-item" style={{ cursor: 'default' }}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
-          <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-            <Text size="sm" truncate title={b.name} style={{ minWidth: 0 }}>
-              {b.name}
-            </Text>
-            <Badge size="xs" variant="light" color="gray">
-              {b.count}
-            </Badge>
-          </Group>
+          <Box style={{ minWidth: 0 }}>
+            <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+              <Text size="sm" truncate title={b.name} style={{ minWidth: 0 }}>
+                {b.name}
+              </Text>
+              <Badge size="xs" variant="light" color="gray">
+                {b.count}
+              </Badge>
+            </Group>
+            {b.pair && bundles.some((x) => x.id === b.pair) && (
+              <Text size="xs" c="dimmed" truncate>
+                {tr('Пара за номером: {bundle}', {
+                  bundle: bundles.find((x) => x.id === b.pair)!.name,
+                })}
+              </Text>
+            )}
+          </Box>
           <Group gap={2} wrap="nowrap">
+            {bundles.length > 1 && (
+              <Menu position="bottom-end" withinPortal>
+                <Menu.Target>
+                  <Tooltip label={tr('Пара за номером: той самий номер іншою мовою')} withArrow>
+                    <ActionIcon
+                      variant="subtle"
+                      color={b.pair ? 'brand' : 'gray'}
+                      disabled={busy}
+                      aria-label={tr('Пара за номером для «{bundle}»', { bundle: b.name })}
+                    >
+                      <IconArrowsLeftRight size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Label>{tr('Той самий номер — та сама пісня в наборі:')}</Menu.Label>
+                  {bundles
+                    .filter((x) => x.id !== b.id)
+                    .map((x) => (
+                      <Menu.Item
+                        key={x.id}
+                        onClick={() => void pair(b.id, x.id)}
+                        rightSection={b.pair === x.id ? <IconCheck size={14} /> : undefined}
+                      >
+                        {x.name}
+                      </Menu.Item>
+                    ))}
+                  {b.pair && (
+                    <>
+                      <Menu.Divider />
+                      <Menu.Item color="red" onClick={() => void pair(b.id, null)}>
+                        {tr('Без пари')}
+                      </Menu.Item>
+                    </>
+                  )}
+                </Menu.Dropdown>
+              </Menu>
+            )}
             <Tooltip label={tr('Теми набору: розкласти презентації')} withArrow>
               <ActionIcon
                 variant="subtle"

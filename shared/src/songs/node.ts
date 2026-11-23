@@ -376,6 +376,32 @@ export function saveSongTopics(
   return { bundle: song.meta.name };
 }
 
+// ── Paired bundles (1.25.0-beta.4): the same number, the same song in another language ──────
+
+/**
+ * Pair two bundles by number — or unpair `id` (`withId` null). Each names the other in its meta;
+ * a bundle paired before lets go of its old partner. False: no such bundle.
+ */
+export function pairBundles(dir: string, id: string, withId: string | null): boolean {
+  const all = listBundles(dir);
+  const a = all.find((b) => b.meta.id === id);
+  const b = withId ? all.find((x) => x.meta.id === withId) : undefined;
+  if (!a || (withId && (!b || b === a))) return false;
+  const write = (x: BundleFile, pair: string | undefined) => {
+    const meta: BundleMeta = { ...x.meta };
+    if (pair) meta.pair = pair;
+    else delete meta.pair;
+    withBundle(path.join(dir, x.file), false, (db) => writeBundleMeta(db, meta));
+  };
+  // the old partners, of either side, are free again
+  for (const x of all)
+    if (x !== a && x !== b && (x.meta.pair === a.meta.id || (b && x.meta.pair === b.meta.id)))
+      write(x, undefined);
+  write(a, b?.meta.id);
+  if (b) write(b, a.meta.id);
+  return true;
+}
+
 // ── Managing bundles (1.4.0): rename, delete with «Скасувати», undo an import ──────────────
 
 /** Deleted bundles wait here for «Скасувати»; an import's «before» copy waits in UNDO_DIR. */

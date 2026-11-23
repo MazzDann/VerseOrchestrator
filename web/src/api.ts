@@ -300,6 +300,8 @@ const SongDetailSchema = SongInfoSchema.extend({
   slides: z.array(z.object({ text: z.string(), style: SongStyleSchema })),
   // 1.25.0-beta.2; a server before it answers without them
   topics: z.array(z.string()).default([]),
+  // the same number in the paired bundle (1.25.0-beta.4)
+  other: SongInfoSchema.optional(),
 });
 const SongTopicCountSchema = z.object({ name: z.string(), count: z.number() });
 /** A bundle's topics as «Теми набору» edits them (1.25.0-beta.2). */
@@ -1762,6 +1764,8 @@ export const api = {
           count: z.number(),
           /** the .pptx folder that keeps it up to date (1.4.0) */
           source: z.string().optional(),
+          /** the bundle paired with it by number (1.25.0-beta.4): its id */
+          pair: z.string().optional(),
         }),
       ),
     ),
@@ -1800,6 +1804,15 @@ export const api = {
     return z
       .object({ songs: z.number(), sorted: z.number(), topics: z.number(), ms: z.number() })
       .parse(await res.json());
+  },
+  /** Pair a bundle with another by number (1.25.0-beta.4), or unpair it (`withId` null). */
+  pairSongBundle: async (id: string, withId: string | null) => {
+    const res = await request(`/api/song-bundles/${encodeURIComponent(id)}/pair`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ with: withId }),
+    });
+    if (!res.ok) throw await failure(res);
   },
   /** A song's topics as the operator sets them. */
   setSongTopics: async (songId: number, topics: string[]) => {
