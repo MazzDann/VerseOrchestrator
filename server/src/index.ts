@@ -745,6 +745,16 @@ app.get(
   ),
 );
 
+// what a version's download would take here (the parts that changed, or the whole archive)
+app.get(
+  '/api/update/size',
+  requireLocal,
+  wrap(async (req, res) => {
+    const release = updates.state().releases.find((r) => r.version === req.query.version);
+    res.json({ size: installer && release ? await installer.downloadSize(release) : null });
+  }),
+);
+
 app.post(
   '/api/update/check',
   requireLocalControl,

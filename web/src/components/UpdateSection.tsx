@@ -686,6 +686,29 @@ function Install({
   const older = !!target && compareVersions(target, state.current) < 0;
   // before 1.9.1 an item kind it doesn't know keeps the control window shut (a hook: above the return)
   const breaking = useBreaking(older ? target : null);
+  // «Поточний реліз» (1.6.3, the user's ask): back to the newest from a version chosen over it
+  const current =
+    !target && state.pinned && state.available && newest && newest !== state.current
+      ? (versions.find((v) => v.version === newest) ?? null)
+      : null;
+  // the button says what the download really takes: an update in parts brings only what changed
+  // (the user's ask on the Mac: 215 МБ on the button, 46 downloaded)
+  const asked = current?.version ?? (target !== ready && target !== state.current ? target : null);
+  const real = useQuery({
+    queryKey: ['update-size', state.current, asked],
+    queryFn: async () =>
+      (
+        (await (
+          await fetch(`/api/update/size?version=${encodeURIComponent(asked ?? '')}`)
+        ).json()) as {
+          size?: number | null;
+        }
+      ).size ?? null,
+    enabled: !!asked && phase !== 'download' && phase !== 'verify' && phase !== 'unpack',
+    staleTime: 10 * 60_000,
+    retry: false,
+  }).data;
+  const size = real ?? (current ?? chosen)?.size ?? state.latest?.asset?.size ?? 0;
   if (phase === 'download' || phase === 'verify' || phase === 'unpack') {
     const total = inst?.total || chosen?.size || state.latest?.asset?.size || 0;
     const label =
@@ -724,13 +747,7 @@ function Install({
   const stranded = versions.some((v) => v.updatesBack === false);
   // a version downloaded on another channel still waits to be installed: shown as it is
   if (ready && !listed.has(ready)) options.unshift({ value: ready, label: ready, disabled: false });
-  const size = chosen?.size ?? state.latest?.asset?.size ?? 0;
   const restart = !!ready && target === ready;
-  // «Поточний реліз» (1.6.3, the user's ask): back to the newest from a version chosen over it
-  const current =
-    !target && state.pinned && state.available && newest && newest !== state.current
-      ? (versions.find((v) => v.version === newest) ?? null)
-      : null;
   return (
     <div>
       {phase === 'error' && inst?.error && (
@@ -786,7 +803,7 @@ function Install({
           >
             {tr('Поточний реліз {version} ({mb} МБ)', {
               version: current.version,
-              mb: mb(current.size),
+              mb: mb(size),
             })}
           </Button>
         ) : (
