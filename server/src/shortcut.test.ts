@@ -33,6 +33,7 @@ import {
   emptyShellLink,
   GECKO_ENGINE,
   geckoAppsConnectedTo,
+  isOldShortcut,
   linuxDesktopEntry,
   MAC_ACTIVATE_SCRIPT,
   MAC_ACTIVATE_TIMEOUT_MS,
@@ -46,6 +47,7 @@ import {
   raiseReport,
   readControlWindows,
   runningMacBrowsers,
+  windowsTarget,
   type RunResult,
 } from './shortcut';
 
@@ -125,6 +127,37 @@ describe('app window and desktop shortcut (0.7.5)', () => {
       ]);
     },
   );
+
+  it('a release with the desktop app: the Windows shortcut is the app itself (1.25.1)', () => {
+    const top = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-top-'));
+    dirs.push(top);
+    const app = path.join(top, 'app');
+    fs.mkdirSync(app);
+    // a copy of the code, or a release without the desktop app: the start file
+    expect(windowsTarget(app, () => true)).toMatchObject({ args: '--app', dir: app });
+    fs.writeFileSync(
+      path.join(app, '.vo-portable'),
+      JSON.stringify({ data: '../data', modules: '../modules' }),
+    );
+    expect(windowsTarget(app, () => false).path).toBe(path.join(app, 'start.cmd'));
+    expect(windowsTarget(app, () => true)).toEqual({
+      path: path.join(top, 'shell', 'VerseOrchestrator.exe'),
+      args: '',
+      dir: top,
+      icon: path.join(app, 'web', 'public', 'icon.ico'),
+    });
+  });
+
+  it('knows its own older shortcut, not another copy’s or one that opens the app (1.25.1)', () => {
+    const lnk = (dir: string, file: string) =>
+      Buffer.concat([emptyShellLink(), Buffer.from(file), Buffer.from(dir, 'utf16le')]);
+    const root = 'C:\\VerseOrchestrator тест\\app';
+    expect(isOldShortcut(lnk(root, 'start.cmd'), root)).toBe(true);
+    expect(isOldShortcut(lnk('C:\\Other\\app', 'start.cmd'), root)).toBe(false);
+    expect(isOldShortcut(lnk('C:\\VerseOrchestrator тест', 'VerseOrchestrator.exe'), root)).toBe(
+      false,
+    );
+  });
 
   it('an empty Windows shortcut is a Shell Link header and nothing else', () => {
     const head = emptyShellLink();

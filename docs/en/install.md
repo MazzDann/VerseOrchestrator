@@ -240,7 +240,9 @@ copy from the repository says `dev` and the branch there, for example
 
 ## Create a shortcut
 
-When the app is next to the `app` folder, the shortcut opens it. Without it, the shortcut starts
+When the app is next to the `app` folder, the shortcut opens it; on Windows without a console window,
+and a shortcut made earlier to the start file is switched to the app by itself. A copy of the code (git)
+has no app: the shortcut runs the start file. Without it, the shortcut starts
 the app and opens the control window as a window of its own — without
 tabs or an address bar: in the browser chosen in **Open the control window in…** if it is
 built on Chromium; with **System browser**, in Chrome or Edge. Firefox, Zen, Safari, and Opera
