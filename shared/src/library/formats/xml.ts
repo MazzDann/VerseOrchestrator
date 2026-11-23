@@ -1,6 +1,3 @@
-import { decodeText } from '../../documents/parse.js';
-import { decodeEntities } from '../../normalize.js';
-
 /**
  * A little XML reader for the module formats (no DOM: it runs in the builder, the server and a
  * worker alike): the tags and the texts in order. Only the named and numeric entities are read —
@@ -12,6 +9,25 @@ export interface XmlHandler {
   open(name: string, attrs: Record<string, string>, empty: boolean): void;
   close(name: string): void;
   text(s: string): void;
+}
+
+const NAMED: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+};
+
+/** Entities, each read once («&amp;lt;» is the text «&lt;»). */
+function decodeEntities(s: string): string {
+  if (!s.includes('&')) return s;
+  return s.replace(/&(?:#x([0-9a-f]{1,6})|#(\d{1,7})|(\w{2,8}));/gi, (whole, hex, dec, name) => {
+    if (name) return NAMED[name] ?? whole;
+    const n = hex ? Number.parseInt(hex, 16) : Number(dec);
+    return n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '';
+  });
 }
 
 /** Where the innermost open element of that name is; -1 when none is open. */
@@ -79,17 +95,4 @@ export function readXml(s: string, h: XmlHandler): void {
       else h.open(local(m[2]), readAttrs(inner.slice(m[0].length)), inner.endsWith('/'));
     }
   }
-}
-
-/** An XML file's text: in the encoding it declares, else as any text file. */
-export function decodeXmlFile(bytes: Uint8Array): string {
-  const head = new TextDecoder('latin1').decode(bytes.subarray(0, 200));
-  const said = /<\?xml[^>]*encoding\s*=\s*["']([\w-]+)["']/i.exec(head)?.[1];
-  if (said && !/^utf-?(8|16)/i.test(said))
-    try {
-      return new TextDecoder(said).decode(bytes);
-    } catch {
-      // an encoding no decoder knows: read as any text
-    }
-  return decodeText(bytes);
 }

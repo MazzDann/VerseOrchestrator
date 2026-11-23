@@ -3,10 +3,11 @@ import { decodeText } from '../documents/parse.js';
 import { N_ } from '../i18n/index.js';
 import { bulk, DROPPED_VERSE_STRIDE, ModuleError, type SyncConn } from './moduleFormat.js';
 import type { ParsedModule, TextFormat } from './formats/moduleText.js';
+import { bookOfCode } from './formats/books.js';
 import { readOsis } from './formats/osis.js';
 import { readUsfm } from './formats/usfm.js';
 import { looksLikeVpl, readVpl } from './formats/vpl.js';
-import { decodeXmlFile } from './formats/xml.js';
+import { decodeModuleText, decodeUsfmFile, decodeXmlFile } from './formats/decode.js';
 import { readZefania } from './formats/zefania.js';
 
 /**
@@ -24,11 +25,14 @@ export const TEXT_MODULE_EXT = /\.(usfm|sfm|osis|vpl|xml|txt|zip)$/i;
 export const TEXT_MODULE_SURE_EXT = /\.(usfm|sfm|osis|vpl|osis\.xml|vpl\.txt)$/i;
 /** A whole Bible in text is under 40 MB in any of them, its Strong numbers included. */
 export const TEXT_MODULE_MAX = 128 * 1024 * 1024;
+/** …and packed, under 10 MB. */
+export const TEXT_MODULE_ZIP_MAX = 48 * 1024 * 1024;
 /** How much of a file (not a .zip) is enough to tell its format. */
 export const TEXT_MODULE_HEAD = 64 * 1024;
 const UNZIPPED_MAX = 256 * 1024 * 1024;
 
 const TEXT_PART = /\.(usfm|sfm|ptx|osis|vpl|xml|txt)$/i;
+const USFM_PART = /\.(usfm|sfm|ptx)$/i;
 const baseName = (name: string) => name.replace(/^.*[\\/]/, '');
 /** A Mac's own copies and hidden files in an archive. */
 const isJunk = (name: string) => /(^|\/)(__MACOSX\/|\.)/.test(name);
@@ -43,7 +47,7 @@ function formatOfText(head: Uint8Array): TextFormat | null {
   const utf16 = (head[0] === 0xff && head[1] === 0xfe) || (head[0] === 0xfe && head[1] === 0xff);
   const s = (utf16 ? decodeText(head) : new TextDecoder('utf-8').decode(head)).trimStart();
   if (s.startsWith('<')) {
-    if (/<(\w+:)?osis[\s>]/i.test(s)) return 'osis';
+    if (/<(\w+:)?osis(text)?[\s>]/i.test(s)) return 'osis';
     if (/<xmlbible[\s>]/i.test(s)) return 'zefania';
     return null;
   }
@@ -51,31 +55,50 @@ function formatOfText(head: Uint8Array): TextFormat | null {
   return looksLikeVpl(s) ? 'vpl' : null;
 }
 
-/** The text files in an archive that are modules' parts, unpacked within the limit. */
-function unzipTexts(bytes: Uint8Array): { name: string; bytes: Uint8Array }[] {
+/** The archive's files of these names, unpacked within the limit. */
+function unzipOnly(bytes: Uint8Array, names: Set<string>): Record<string, Uint8Array> {
   let total = 0;
-  const parts = unzipSync(bytes, {
+  return unzipSync(bytes, {
     filter: (f) => {
-      if (!TEXT_PART.test(f.name) || isJunk(f.name)) return false;
+      if (!names.has(f.name)) return false;
       total += f.originalSize;
       if (total > UNZIPPED_MAX) throw new ModuleError(N_('Файл завеликий'));
       return true;
     },
   });
-  return Object.entries(parts)
-    .map(([name, b]) => ({ name, bytes: b }))
-    .sort((a, b) => (a.name < b.name ? -1 : 1));
 }
 
-/** An archive's module: the USFM books in it, else its first OSIS, Zefania or VPL file. */
-function zipModule(
-  bytes: Uint8Array,
-): { format: TextFormat; files: { name: string; bytes: Uint8Array }[] } | null {
-  const parts = unzipTexts(bytes).map((p) => ({ ...p, format: formatOfText(p.bytes) }));
-  const usfm = parts.filter((p) => p.format === 'usfm');
-  if (usfm.length > 0) return { format: 'usfm', files: usfm };
-  const one = parts.find((p) => p.format !== null);
-  return one ? { format: one.format!, files: [one] } : null;
+/**
+ * An archive's module: the USFM books in it, else its OSIS, Zefania or VPL files. USFM is told by
+ * the names alone (nothing unpacked: modules/ is listed often); `files` unpacks what is to be read.
+ */
+function zipModule(bytes: Uint8Array): { format: TextFormat; files: () => Uint8Array[] } | null {
+  const names: string[] = [];
+  unzipSync(bytes, {
+    filter: (f) => {
+      if (TEXT_PART.test(f.name) && !isJunk(f.name)) names.push(f.name);
+      return false;
+    },
+  });
+  names.sort();
+  const read = (list: string[]) => {
+    const got = unzipOnly(bytes, new Set(list));
+    return list.map((n) => got[n]).filter(Boolean);
+  };
+  const books = names.filter((n) => USFM_PART.test(n));
+  if (books.length > 0) return { format: 'usfm', files: () => read(books) };
+  for (const name of names) {
+    const [one] = read([name]);
+    const format = one ? formatOfText(one.subarray(0, TEXT_MODULE_HEAD)) : null;
+    // the other files in the same format too: books of USFM in .txt, a Testament in each
+    if (format)
+      return {
+        format,
+        files: () =>
+          read(names).filter((f) => formatOfText(f.subarray(0, TEXT_MODULE_HEAD)) === format),
+      };
+  }
+  return null;
 }
 
 /**
@@ -93,7 +116,7 @@ export function detectTextFormat(name: string, bytes: Uint8Array): TextFormat | 
 
 /** USFM books given one by one, read as one module (a folder of them). */
 export function parseUsfmFiles(files: Uint8Array[]): ParsedModule {
-  return checked(readUsfm(files.map(decodeText)));
+  return checked(readUsfm(files.map(decodeUsfmFile)));
 }
 
 function checked(parsed: ParsedModule): ParsedModule {
@@ -104,59 +127,80 @@ function checked(parsed: ParsedModule): ParsedModule {
   return parsed;
 }
 
+/** A translation in several files (an Old and a New Testament): what a file has that no one before it had. */
+function joined(parts: ParsedModule[]): ParsedModule {
+  const [first, ...rest] = parts;
+  for (const p of rest) {
+    const had = new Set(first.books.map((b) => b.number));
+    const mine = <T extends { book: number }>(list: T[]) => list.filter((x) => !had.has(x.book));
+    first.books.push(...p.books.filter((b) => !had.has(b.number)));
+    first.verses = first.verses.concat(mine(p.verses));
+    first.subheadings = first.subheadings.concat(mine(p.subheadings));
+    first.notes = first.notes.concat(mine(p.notes));
+    first.info.hasStrong ||= p.info.hasStrong;
+    first.skipped = [...new Set([...first.skipped, ...p.skipped])];
+  }
+  first.books.sort((a, b) => a.number - b.number);
+  if (rest.length)
+    first.verses.sort((a, b) => a.book - b.book || a.chapter - b.chapter || a.verse - b.verse);
+  return first;
+}
+
 /** A module file in any of the text formats, read; a ModuleError when nothing can be. */
-export function parseTextModule(name: string, bytes: Uint8Array): ParsedModule {
-  let files = [{ name, bytes }];
+export function parseTextModule(bytes: Uint8Array): ParsedModule {
+  let files = [bytes];
   let format: TextFormat | null;
   if (isZip(bytes)) {
-    let zip: ReturnType<typeof zipModule>;
     try {
-      zip = zipModule(bytes);
+      const zip = zipModule(bytes);
+      format = zip?.format ?? null;
+      files = zip?.files() ?? [];
     } catch (e) {
       if (e instanceof ModuleError) throw e;
       throw new ModuleError(N_('Архів не читається'));
     }
-    format = zip?.format ?? null;
-    files = zip?.files ?? [];
   } else format = formatOfText(bytes.subarray(0, TEXT_MODULE_HEAD));
   if (format === null) throw new ModuleError(NO_VERSES);
-  if (format === 'usfm') return parseUsfmFiles(files.map((f) => f.bytes));
-  const one = files[0].bytes;
-  if (format === 'vpl') return checked(readVpl(decodeText(one)));
-  const xml = decodeXmlFile(one);
-  return checked(format === 'osis' ? readOsis(xml) : readZefania(xml));
+  if (format === 'usfm') return parseUsfmFiles(files);
+  const read = (b: Uint8Array): ParsedModule => {
+    if (format === 'vpl') return readVpl(decodeModuleText(b));
+    const xml = decodeXmlFile(b);
+    return format === 'osis' ? readOsis(xml) : readZefania(xml);
+  };
+  return checked(joined(files.map(read)));
+}
+
+interface NamedBytes {
+  name: string;
+  bytes: Uint8Array;
 }
 
 /**
- * Several USFM books dropped together are one module: packed into one .zip. Its name: what the
- * files' names share («01-GENxyz.usfm», «02-EXOxyz.usfm» → «xyz»), else `fallback`.
+ * Several USFM books dropped together are one module: packed into one .zip, named by what the files'
+ * names share («01-GENxyz.usfm», «02-EXOxyz.usfm» → «xyz»). Books of two translations at once — every
+ * such name has several files — are a module each, unless they are known to be `one` (a folder).
  */
-export function packUsfm(
-  files: { name: string; bytes: Uint8Array }[],
-  fallback = 'USFM',
-): { name: string; bytes: Uint8Array } {
-  const entries: Record<string, Uint8Array> = {};
-  for (const f of files) entries[baseName(f.name)] = f.bytes;
-  return {
-    name: `${sharedName(files.map((f) => f.name)) || fallback}.zip`,
-    bytes: zipSync(entries, { mtime: PACKED }),
-  };
+export function packUsfm(files: NamedBytes[], fallback = 'USFM', one = false): NamedBytes[] {
+  const groups = new Map<string, NamedBytes[]>();
+  for (const f of files) groups.set(stemOf(f.name), [...(groups.get(stemOf(f.name)) ?? []), f]);
+  const apart = !one && [...groups.values()].every((g) => g.length > 1);
+  const list: [string, NamedBytes[]][] = apart ? [...groups] : [['', files]];
+  return list.map(([name, books]) => ({
+    name: `${name || fallback}.zip`,
+    bytes: zipSync(Object.fromEntries(books.map((b) => [baseName(b.name), b.bytes])), {
+      mtime: PACKED,
+    }),
+  }));
 }
 
 /** One time for every packed file: the same books make the same archive (the same module again). */
 const PACKED = new Date(2000, 0, 1);
 
-/** What every book's file name has beside its number and code. */
-function sharedName(names: string[]): string {
-  const rests = new Set(
-    names.map((n) => {
-      const stem = baseName(n).replace(/\.[^.]+$/, '');
-      const m = /^\d{0,3}[-_ ]?([1-4A-Z][A-Z]{2})(.*)$/i.exec(stem);
-      return (m ? m[2] : stem).replace(/^[-_ .]+|[-_ .]+$/g, '');
-    }),
-  );
-  const [only] = rests;
-  return rests.size === 1 ? only : '';
+/** A book's file name without its number and code: what every book of a translation shares. */
+function stemOf(name: string): string {
+  const stem = baseName(name).replace(/\.[^.]+$/, '');
+  const m = /^\d{0,3}[-_ ]?([1-4A-Z][A-Z]{2})(.*)$/i.exec(stem);
+  return (m && bookOfCode(m[1]) !== null ? m[2] : stem).replace(/^[-_ .]+|[-_ .]+$/g, '');
 }
 
 /**

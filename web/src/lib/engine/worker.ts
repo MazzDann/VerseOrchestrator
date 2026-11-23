@@ -394,12 +394,12 @@ async function convert(name: string, bytes: ArrayBuffer): Promise<Omit<ConvertRe
   const text = isSqlite(head) ? null : detectTextFormat(name, head);
   if (!isSqlite(head) && !text) throw new Error(NOT_SQLITE);
   const s3 = await init();
-  const id = droppedId(moduleHash(head)); // before deserialize() touches the header
+  const id = droppedId(moduleHash(head, text !== null)); // before deserialize() touches the header
   const src = new s3.oo1.DB(':memory:');
   let skipped: string[] = [];
   try {
     if (text) {
-      const parsed = parseTextModule(name, head);
+      const parsed = parseTextModule(head);
       skipped = parsed.skipped;
       src.transaction(() => writeModuleTables(syncConn(src), parsed));
     } else deserialize(s3, src, 'main', head);

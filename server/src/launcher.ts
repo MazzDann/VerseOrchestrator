@@ -221,12 +221,42 @@ export type LibraryState =
   | { kind: 'browser' }
   | { kind: 'missing' };
 
+/** The start of a file, for telling what is in it. */
+function headText(file: string): string {
+  const head = Buffer.alloc(65536);
+  const fd = fs.openSync(file, 'r');
+  try {
+    return head.toString('latin1', 0, fs.readSync(fd, head, 0, head.length, 0));
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/**
+ * Is it a module the builder would take? A text format too (1.25.0-beta.6): the builder tells them by
+ * content (`listTextModules`) — here, before `npm ci`, by the extension or a look at the file's start.
+ */
+function isModule(dir: string, f: string): boolean {
+  if (f.startsWith('.')) return false;
+  if (/\.(sqlite3|usfm|sfm|osis|vpl)$|\.(osis\.xml|vpl\.txt)$/i.test(f)) return true;
+  const file = path.join(dir, f);
+  try {
+    if (/\.xml$/i.test(f)) return /<(\w+:)?(osis|xmlbible)[\s>]/i.test(headText(file));
+    // an archive's files are named before their bytes
+    if (/\.zip$/i.test(f)) return /\.(usfm|sfm|osis|vpl|xml)/i.test(headText(file));
+    return (
+      f !== 'documents' &&
+      fs.statSync(file).isDirectory() &&
+      fs.readdirSync(file).some((x) => /\.(usfm|sfm)$/i.test(x))
+    );
+  } catch {
+    return false;
+  }
+}
+
 const hasModules = (dir: string) => {
   try {
-    // a module in a text format too (the builder tells them by content)
-    return fs
-      .readdirSync(dir)
-      .some((f) => /\.(sqlite3|usfm|sfm|osis|vpl|xml|zip)$/i.test(f) || /\.vpl\.txt$/i.test(f));
+    return fs.readdirSync(dir).some((f) => isModule(dir, f));
   } catch {
     return false;
   }

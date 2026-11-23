@@ -130,7 +130,11 @@ export class ModuleText {
 
   title(s: string): void {
     const t = squash(escapeText(s));
-    if (t) this.waitingTitles.push(t);
+    if (!t) return;
+    // inside a verse before its first word it is the verse's own (a psalm's superscription)
+    if (this.cur && this.runs.every((r) => !r.s.trim()))
+      this.headings.push({ ...this.cur, ord: 0, title: t });
+    else this.waitingTitles.push(t);
   }
 
   note(marker: string, s: string): void {

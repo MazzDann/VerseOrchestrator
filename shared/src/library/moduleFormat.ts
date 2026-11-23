@@ -309,10 +309,11 @@ const fnvStep = (h: number, byte: number) => Math.imul(h ^ byte, 0x01000193);
  * (SQLite header with its change counter, schema, info table) and every 61st byte after.
  * A sample — a 100 MB dictionary hashes in milliseconds, not most of a second.
  */
-export function moduleHash(bytes: Uint8Array): number {
+export function moduleHash(bytes: Uint8Array, whole = false): number {
   let h = FNV_OFFSET;
   for (const b of String(bytes.length)) h = fnvStep(h, b.charCodeAt(0));
-  const head = Math.min(bytes.length, 65536);
+  // `whole`: a text module has no change counter — one corrected letter makes it another module
+  const head = whole ? bytes.length : Math.min(bytes.length, 65536);
   for (let i = 0; i < head; i++) h = fnvStep(h, bytes[i]);
   for (let i = head; i < bytes.length; i += 61) h = fnvStep(h, bytes[i]);
   return h >>> 0;

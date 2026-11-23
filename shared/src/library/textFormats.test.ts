@@ -7,7 +7,7 @@ import { ModuleError, moduleLabel } from './moduleFormat.js';
 import { detectTextFormat, packUsfm, parseTextModule, type ParsedModule } from './textFormats.js';
 import { profilesOf, PSALMS, versificationMap } from './versification.js';
 
-const parse = (name: string, s: string) => parseTextModule(name, strToU8(s));
+const parse = (_name: string, s: string) => parseTextModule(strToU8(s));
 const verseOf = (m: ParsedModule, book: number, chapter: number, verse: number) =>
   m.verses.find((v) => v.book === book && v.chapter === chapter && v.verse === verse)?.text;
 
@@ -78,7 +78,7 @@ describe('a text module read (1.25.0-beta.6)', () => {
       expect(verseOf(m, 500, 2, 1)).toMatch(
         /^Grace<S>5485<\/S>(<m>N-NSF<\/m>)? and truth<S>225<\/S>\.$/,
       );
-      expect(verseOf(m, 500, 2, 2)).toMatch(/^joined ‹ word/);
+      expect(verseOf(m, 500, 2, 2)).toMatch(/^joined(<S>1<\/S>)? ‹ word/);
       expect(m.subheadings).toEqual([
         { book: 500, chapter: 1, verse: 1, ord: 0, title: 'The word' },
       ]);
@@ -90,7 +90,7 @@ describe('a text module read (1.25.0-beta.6)', () => {
     expect(all.osis.skipped).toEqual(['Nobook']);
     expect(all.zefania.skipped).toEqual(['Other']);
     // the words of Jesus go on over a line
-    expect(verseOf(all.usfm, 500, 2, 2)).toBe('joined ‹ word <J>over the line</J> end');
+    expect(verseOf(all.usfm, 500, 2, 2)).toBe('joined<S>1</S> ‹ word <J>over the line</J> end');
     expect(verseOf(all.osis, 500, 2, 2)).toBe('joined ‹ word <J>over the line</J> end');
 
     const vpl = parse('s.txt', VPL);
@@ -107,7 +107,7 @@ describe('a text module read (1.25.0-beta.6)', () => {
     expect(m.verses.map((v) => v.text).join(' ')).not.toMatch(
       /lemma|strong=|zaln|introduction|\\|\|/,
     );
-    expect(verseOf(m, 500, 2, 2)).toContain('joined ‹ word');
+    expect(verseOf(m, 500, 2, 2)).toContain('joined<S>1</S> ‹ word');
   });
 
   it('USFM: a marker never closed takes no other verse with it', () => {
@@ -134,14 +134,53 @@ describe('a text module read (1.25.0-beta.6)', () => {
       '__MACOSX/x/._01-GEN.usfm': strToU8('\\id GEN junk'),
       'x/readme.txt': strToU8('Read me'),
     });
-    const m = parseTextModule('abc_usfm.zip', zip);
+    const m = parseTextModule(zip);
     expect(m.books.map((b) => b.number)).toEqual([10, 20]);
     expect(verseOf(m, 20, 1, 1)).toBe('A copy'); // the first by name
     expect(m.info.description).toBe('The Sample');
     expect(m.skipped).toEqual(['QQQ']);
     // an archive with one file of another format
-    expect(parseTextModule('a.zip', zipSync({ 'a.xml': strToU8(OSIS) })).format).toBe('osis');
+    expect(parseTextModule(zipSync({ 'a.xml': strToU8(OSIS) })).format).toBe('osis');
     expect(detectTextFormat('a.zip', zipSync({ 'a.txt': strToU8('Nothing') }))).toBeNull();
+  });
+
+  it('found in the review (1.25.0-beta.6)', () => {
+    // an OSIS without its outer element; a title inside its verse; a text that looks like an entity
+    const osis = parse(
+      'x.xml',
+      '<osisText><div type="book" osisID="Ps"><chapter osisID="Ps.3"><verse osisID="Ps.3.1"><title canonical="true">A Psalm</title>Lord &amp;lt; x</verse><verse osisID="Ps.3.2">Many</verse></chapter></div></osisText>',
+    );
+    expect(osis.subheadings).toMatchObject([{ chapter: 3, verse: 1, title: 'A Psalm' }]);
+    expect(verseOf(osis, 230, 3, 1)).toBe('Lord &lt; x');
+    // a translation in two files of one archive
+    const part = (osisID: string) =>
+      strToU8(
+        `<osis><osisText><div type="book" osisID="${osisID}"><chapter osisID="${osisID}.1"><verse osisID="${osisID}.1.1">${osisID}</verse></chapter></div></osisText></osis>`,
+      );
+    const two = parseTextModule(zipSync({ 'nt.xml': part('Matt'), 'ot.xml': part('Gen') }));
+    expect(two.verses.map((v) => v.text)).toEqual(['Gen', 'Matt']);
+    expect(two.books.map((b) => b.number)).toEqual([10, 470]);
+    // a note's last attribute; a code page named, and one told by the letters
+    const usfm = parse('x.usfm', '\\id GEN\n\\c 1\n\\v 1 One\\f + \\ft text|attr="x"\\f*\n');
+    expect(usfm.notes[0].text).toBe('text');
+    const latin = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
+    const french = 'Au commencement, Dieu cr\u00e9a';
+    const said = parseTextModule(latin(`\\id GEN\n\\ide CP1252\n\\c 1\n\\v 1 ${french}\n`));
+    expect(said.verses[0].text).toBe(french);
+    expect(parseTextModule(latin(`GEN 1:1 ${french}\n`)).verses[0].text).toBe(french);
+    expect(
+      parseTextModule(latin('GEN 1:1 \u00cd\u00e0 \u00ef\u00ee\u00f7\u00e0\u00f2\u00ea\u00f3\n'))
+        .verses[0].text,
+    ).toBe('На початку');
+  });
+
+  it('USFM: a long file of unclosed or closed notes is read in a straight line', () => {
+    const many = (note: string) => '\\id GEN\n\\c 1\n' + `\\v 1 a ${note}\n`.repeat(40_000);
+    for (const note of ['\\f + \\ft open', '\\f + \\ft closed\\f*']) {
+      const t = performance.now();
+      parse('x.usfm', many(note));
+      expect(performance.now() - t).toBeLessThan(3000);
+    }
   });
 
   it('is told by content, not only by name', () => {
@@ -155,9 +194,7 @@ describe('a text module read (1.25.0-beta.6)', () => {
     expect(is('a.docx', USFM)).toBeNull();
     expect(is('._a.usfm', USFM)).toBeNull();
     expect(() => parse('a.usfm', '\\id GEN\n\\c 1\n')).toThrow(ModuleError);
-    expect(() => parseTextModule('a.zip', new Uint8Array([0x50, 0x4b, 3, 4, 1, 2]))).toThrow(
-      ModuleError,
-    );
+    expect(() => parseTextModule(new Uint8Array([0x50, 0x4b, 3, 4, 1, 2]))).toThrow(ModuleError);
   });
 
   it('other encodings: UTF-16, Windows-1251, the one an XML declares', () => {
@@ -168,7 +205,7 @@ describe('a text module read (1.25.0-beta.6)', () => {
       u16[2 + i * 2] = line.charCodeAt(i) & 255;
       u16[3 + i * 2] = line.charCodeAt(i) >> 8;
     }
-    const m = parseTextModule('a.vpl.txt', u16);
+    const m = parseTextModule(u16);
     expect(m.verses[0].text).toBe('На початку Бог створив небо та землю, і її');
     expect(m.info.language).toBe('uk');
     expect(m.books[0]).toMatchObject({ short: 'Бут', long: 'Буття' });
@@ -177,7 +214,7 @@ describe('a text module read (1.25.0-beta.6)', () => {
         c >= 'А' && c <= 'я' ? c.charCodeAt(0) - 0x410 + 0xc0 : c.charCodeAt(0),
       );
     const xml = `<?xml version="1.0" encoding="windows-1251"?><XMLBIBLE><BIBLEBOOK bnumber="1"><CHAPTER cnumber="1"><VERS vnumber="1">Слово</VERS></CHAPTER></BIBLEBOOK></XMLBIBLE>`;
-    expect(parseTextModule('a.xml', cp(xml)).verses[0].text).toBe('Слово');
+    expect(parseTextModule(cp(xml)).verses[0].text).toBe('Слово');
   });
 
   it('the Psalms keep the file’s numbering, and are aligned to the other', () => {
@@ -264,9 +301,17 @@ describe('what the readers share', () => {
       ].map(moduleLabel),
     ).toEqual(['abc', 'x', 'y', 'z', "U'62", 'S']);
     const b = (name: string) => ({ name, bytes: strToU8('\\id GEN\n') });
-    const one = packUsfm([b('01-GENabc.usfm'), b('02-EXOabc.usfm')]);
+    const two = [b('01-GENabc.usfm'), b('02-EXOabc.usfm')];
+    const [one] = packUsfm(two);
     expect(one.name).toBe('abc.zip');
-    expect(packUsfm([b('GEN.usfm'), b('EXO.usfm')]).name).toBe('USFM.zip');
-    expect(packUsfm([b('01-GENabc.usfm'), b('02-EXOabc.usfm')]).bytes).toEqual(one.bytes);
+    expect(packUsfm([b('GEN.usfm'), b('EXO.usfm')]).map((z) => z.name)).toEqual(['USFM.zip']);
+    expect(packUsfm(two)[0].bytes).toEqual(one.bytes);
+    // names that say nothing are one module; two translations' books are two
+    expect(packUsfm([b('Genesis.usfm'), b('Exodus.usfm')]).map((z) => z.name)).toEqual([
+      'USFM.zip',
+    ]);
+    const other = [b('01-GENxyz.usfm'), b('02-EXOxyz.usfm')];
+    expect(packUsfm([...two, ...other]).map((z) => z.name)).toEqual(['abc.zip', 'xyz.zip']);
+    expect(packUsfm([...two, ...other], 'x', true)).toHaveLength(1);
   });
 });

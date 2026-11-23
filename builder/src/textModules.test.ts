@@ -130,7 +130,7 @@ describe('a text module dropped into the browser → a segment', () => {
     const src = new Database(':memory:');
     const out = new Database(':memory:');
     try {
-      writeModuleTables(sync(src), parseTextModule('abc_usfm.zip', bytes));
+      writeModuleTables(sync(src), parseTextModule(bytes));
       out.exec(SCHEMA_SQL);
       out.exec(SEGMENT_NORM_TABLE_SQL);
       const r = convertModule(sync(src), sync(out), {

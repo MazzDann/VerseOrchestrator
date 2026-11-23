@@ -208,7 +208,8 @@ import { coreLimit, cpuInfo, createQueryEmbedder, openChildEmbedder } from './em
 import { createVectorJob, listTranslations, readVectorSets, vectorsPath } from './vectorJob.js';
 import { createSongVectorJob, songVectorCounts } from './songVectors.js';
 import { sortBundleTopics } from './songTopics.js';
-import { mergeVectors, placeModule, receiveFile } from './dropImport.js';
+import { mergeVectors, isTextDrop, placeModule, receiveFile } from './dropImport.js';
+import { checkTextModule } from './textModuleCheck.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
 import { diagnosticsName, diagnosticsZip } from './diagnostics.js';
@@ -3089,7 +3090,9 @@ app.post(
     const tmp = path.join(dir, `.drop-${randomUUID()}.part`);
     try {
       await receiveFile(req, tmp);
-      const added = placeModule(tmp, name, dir);
+      const text = isTextDrop(tmp, name) ? await checkTextModule(tmp) : null;
+      notDuringRebuild();
+      const added = placeModule(tmp, name, dir, text);
       if (!added.same) moduleFiles.add(added.kind, added.file);
       console.log(
         `[server] modules: «${name}» → ${added.file}${added.same ? ' (already there)' : ''}`,

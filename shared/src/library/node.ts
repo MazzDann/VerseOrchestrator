@@ -7,6 +7,7 @@ import {
   TEXT_MODULE_EXT,
   TEXT_MODULE_HEAD,
   TEXT_MODULE_MAX,
+  TEXT_MODULE_ZIP_MAX,
   type ParsedModule,
 } from './textFormats.js';
 
@@ -21,16 +22,23 @@ const USFM = /\.(usfm|sfm)$/i;
 const told = new Map<string, boolean>();
 const TOLD_MAX = 2000;
 
-function usfmBooks(dir: string): string[] {
+/** The USFM books in a folder — or, when it has none, in a folder right in it («Bible/usfm/…»). */
+function usfmBooks(dir: string, deeper = true): string[] {
   try {
-    return fs
-      .readdirSync(dir)
-      .filter((f) => USFM.test(f) && !f.startsWith('.'))
-      .sort()
-      .map((f) => path.join(dir, f));
+    const all = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => !e.name.startsWith('.'));
+    const books = all
+      .filter((e) => e.isFile() && USFM.test(e.name))
+      .map((e) => path.join(dir, e.name))
+      .sort();
+    if (books.length > 0 || !deeper) return books;
+    for (const e of all) {
+      const inner = e.isDirectory() ? usfmBooks(path.join(dir, e.name), false) : [];
+      if (inner.length > 0) return inner;
+    }
   } catch {
-    return [];
+    /* not a folder that can be read */
   }
+  return [];
 }
 
 /** The file's first 64 KB — a .zip's all (its list of files is at its end). */
@@ -54,6 +62,8 @@ export function isTextModule(file: string): boolean {
     const st = fs.statSync(file);
     if (st.isDirectory()) return usfmBooks(file).length > 0;
     if (!TEXT_MODULE_EXT.test(name) || st.size > TEXT_MODULE_MAX) return false;
+    // an archive that big is no Bible's text: never read whole just to look
+    if (/\.zip$/i.test(name) && st.size > TEXT_MODULE_ZIP_MAX) return false;
     const key = `${file}|${st.size}|${st.mtimeMs}`;
     let is = told.get(key);
     if (is === undefined) {
@@ -82,5 +92,5 @@ export function listTextModules(dir: string): string[] {
 export function readTextModule(file: string): ParsedModule {
   if (fs.statSync(file).isDirectory())
     return parseUsfmFiles(usfmBooks(file).map((f) => fs.readFileSync(f)));
-  return parseTextModule(path.basename(file), fs.readFileSync(file));
+  return parseTextModule(fs.readFileSync(file));
 }

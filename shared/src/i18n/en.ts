@@ -2756,6 +2756,7 @@ export const EN: Record<string, string> = {
     'A module is a .SQLite3, USFM, OSIS, Zefania or VPL file',
   'У файлі немає віршів, які можна прочитати (USFM, OSIS, Zefania, VPL)':
     'The file has no verses that can be read (USFM, OSIS, Zefania, VPL)',
+  'Не вдалося прочитати модуль: {error}': 'Couldn’t read the module: {error}',
   'Архів не читається': 'The archive can’t be read',
   'Пропущено невідомі книги: {codes}': 'Unknown books left out: {codes}',
   'Перетворюю «{file}»…': 'Converting «{file}»…',

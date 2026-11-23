@@ -38,7 +38,7 @@ function noteText(s: string): string {
   return clean(
     s
       .replace(/\\\+?(?:fr|xo)\s[^\\]*(?:\\\+?(?:fr|xo)\*)?/g, ' ')
-      .replace(/\|[^\\]*(?=\\)/g, '')
+      .replace(/\|[^\\]*(?=\\|$)/g, '')
       .replace(/\\fp\s?/g, ' ')
       .replace(/\\\+?[a-z]+\d*(?:\*|\s|(?=\\)|$)/gi, ''),
   );
@@ -62,6 +62,9 @@ class UsfmReader {
   private quoted = false;
   private ids = new Set<string>();
   private books = 0;
+  private marks = new Map<string, number>();
+  /** `\zaln-s`: the Strong numbers of the words up to its end */
+  private aligned: number[][] = [];
 
   constructor(private out: ModuleText) {}
 
@@ -154,7 +157,18 @@ class UsfmReader {
     this.red();
   }
 
+  /** Where `mark` is next; asked over and over in one file, each stretch of it is searched once. */
+  private ahead(s: string, mark: string, from: number): number {
+    const known = this.marks.get(mark);
+    if (known !== undefined && known >= from) return known;
+    const at = s.indexOf(mark, from);
+    const next = at < 0 ? Infinity : at;
+    this.marks.set(mark, next);
+    return next;
+  }
+
   read(s: string): void {
+    this.marks.clear();
     const re = new RegExp(MARKER);
     const milestone = new RegExp(MILESTONE);
     let at = 0;
@@ -171,6 +185,15 @@ class UsfmReader {
   }
 
   private atMilestone(name: string, side: string, attrs: string): void {
+    if (/^zaln$/i.test(name)) {
+      // words aligned to the original's: its number goes after them
+      if (side === 's') this.aligned.push(strongsOf(STRONG.exec(attrs)?.[1] ?? '', true));
+      else {
+        const strong = this.aligned.pop();
+        if (strong && this.para === 'text') this.out.strong(strong);
+      }
+      return;
+    }
     if (!/^qt\d?$/i.test(name)) return;
     if (side === 's') this.quoted = this.quoted || WHO_JESUS.test(attrs);
     else this.quoted = false;
@@ -211,12 +234,13 @@ class UsfmReader {
       this.endPara();
       this.para = 'text';
       this.chars = this.chars.filter((c) => c.name === 'wj');
+      this.aligned = [];
       if (this.book !== null && n) this.out.startVerse(this.book, this.chapter, Number(n));
       return after + whole.length;
     }
     if (name === 'esb') {
-      const end = s.indexOf('\\esbe', after);
-      return end < 0 ? lineEnd(s, after) : end + 5;
+      const end = this.ahead(s, '\\esbe', after);
+      return end === Infinity ? lineEnd(s, after) : end + 5;
     }
     const kind = TEXT.test(name)
       ? 'text'
@@ -236,10 +260,9 @@ class UsfmReader {
       return from;
     }
     if (NOTES.has(name) || APART.has(name)) {
-      const end = s.indexOf(`\\${m[1]}${name}*`, after);
-      const chapter = s.indexOf('\\c ', after);
+      const end = this.ahead(s, `\\${m[1]}${name}*`, after);
       // never closed: the marker's line at most
-      if (end < 0 || (chapter >= 0 && chapter < end)) return lineEnd(s, after);
+      if (end === Infinity || this.ahead(s, '\\c ', after) < end) return lineEnd(s, after);
       if (NOTES.has(name) && this.book !== null && this.para !== 'none') {
         const [, caller, words] = /^\s*(\S*)\s*([\s\S]*)$/.exec(s.slice(after, end)) ?? [
           '',

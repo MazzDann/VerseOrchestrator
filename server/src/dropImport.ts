@@ -6,15 +6,14 @@ import {
   detectTextFormat,
   LibraryError,
   moduleFileKind,
-  ModuleError,
   N_,
-  parseTextModule,
   TEXT_MODULE_EXT,
   TEXT_MODULE_MAX,
   VECTORS_SQL,
   type ModuleFileKind,
   type ModuleKind,
 } from '@vo/shared';
+import type { TextModule } from './textModuleCheck.js';
 
 /**
  * Files dropped anywhere on the control window (1.17.1, the user's ask: «драг ен дроп документів і
@@ -160,18 +159,11 @@ export function textModuleFileName(dropped: string): string | null {
   return stem ? `${stem}${ext}` : null;
 }
 
-/** A received file read as a module in a text format; null when it is in none of them. */
-function readAsText(tmp: string, dropped: string): { skipped: string[] } | null {
-  if (!TEXT_MODULE_EXT.test(dropped)) return null;
-  if (fs.statSync(tmp).size > TEXT_MODULE_MAX) return null;
-  const bytes = fs.readFileSync(tmp);
-  if (detectTextFormat(dropped, bytes) === null) return null;
-  try {
-    return { skipped: parseTextModule(dropped, bytes).skipped };
-  } catch (e) {
-    if (e instanceof ModuleError) throw new LibraryError(400, e.key, e.vars);
-    throw e;
-  }
+/** Is a received file a module in a text format? (Read whole apart: textModuleCheck.ts.) */
+export function isTextDrop(tmp: string, dropped: string): boolean {
+  if (!TEXT_MODULE_EXT.test(dropped) || fs.statSync(tmp).size > TEXT_MODULE_MAX) return false;
+  if (tablesOf(tmp)) return false;
+  return detectTextFormat(dropped, fs.readFileSync(tmp)) !== null;
 }
 
 export interface ModuleAdded {
@@ -186,11 +178,15 @@ export interface ModuleAdded {
 /**
  * A received file into modules/ as a module: refused when it is no module the library takes or a
  * different file of that name is there (never written over). The caller adds it to the library's
- * selection and starts the rescan.
+ * selection and starts the rescan. `text`: it was read as a module in a text format.
  */
-export function placeModule(tmp: string, dropped: string, modulesDir: string): ModuleAdded {
+export function placeModule(
+  tmp: string,
+  dropped: string,
+  modulesDir: string,
+  text: TextModule | null = null,
+): ModuleAdded {
   const tables = tablesOf(tmp);
-  const text = tables ? null : readAsText(tmp, dropped);
   const kind = text ? 'bible' : tables ? moduleFileKind(tables) : null;
   if (!kind) {
     fs.rmSync(tmp, { force: true });
