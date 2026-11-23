@@ -223,6 +223,7 @@ CREATE TABLE sources (
   file TEXT NOT NULL  -- file name in the modules folder
 );
 
+DROP TABLE IF EXISTS song_topics;
 DROP TABLE IF EXISTS song_slides;
 DROP TABLE IF EXISTS songs;
 
@@ -245,6 +246,14 @@ CREATE TABLE song_slides (
   render  TEXT          -- JSON faithful style {bg,color,font,bold,align,x,y,w,h}, or NULL
 );
 CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
+
+-- A song's topics (1.25.0-beta.2), from its bundle; ord = the topic's place in the bundle's list.
+CREATE TABLE song_topics (
+  song_id INTEGER NOT NULL,
+  topic   TEXT NOT NULL,
+  ord     INTEGER NOT NULL
+);
+CREATE INDEX idx_song_topics ON song_topics (topic, song_id);
 
 DROP TABLE IF EXISTS doc_refs;
 DROP TABLE IF EXISTS doc_units;

@@ -95,6 +95,13 @@ export interface SongSlideOut {
 }
 export interface SongDetail extends SongInfo {
   slides: SongSlideOut[];
+  /** its topics (1.25.0-beta.2), in its bundle's order; none in a library before them */
+  topics: string[];
+}
+/** A topic the songs hold (1.25.0-beta.2), with how many of them. */
+export interface SongTopicCount {
+  name: string;
+  count: number;
 }
 
 /** A document in the library (1.17.0-beta.1): a file of modules/documents. */
@@ -678,15 +685,42 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     return rows.map((r) => ({ name: r.name, count: Number(r.count) }));
   }
 
+  /** The topics the songs hold (1.25.0-beta.2) — of one bundle, or all — in their lists' order. */
+  async function listSongTopics(bundle?: string): Promise<SongTopicCount[]> {
+    if (!(await tableExists('song_topics'))) return [];
+    const rows = await db.all<AnyRow>(
+      `SELECT t.topic AS name, COUNT(DISTINCT t.song_id) AS count, MIN(t.ord) AS ord
+       FROM song_topics t JOIN songs s ON s.id = t.song_id
+       ${bundle ? 'WHERE s.bundle = ?' : ''}
+       GROUP BY t.topic ORDER BY MIN(t.ord), t.topic`,
+      bundle ? [bundle] : [],
+    );
+    return rows.map((r) => ({ name: String(r.name), count: Number(r.count) }));
+  }
+
   /**
    * Search songs by number (prefix) or title (diacritic-insensitive); an empty query lists
-   * them by number. `bundle` narrows the search to one bundle.
+   * them by number. `bundle` narrows the search to one bundle, `topic` to the songs of one topic
+   * (1.25.0-beta.2: all of them, not the first `limit`).
    */
-  async function searchSongs(q: string, limit = 60, bundle?: string): Promise<SongInfo[]> {
+  async function searchSongs(
+    q: string,
+    limit = 60,
+    bundle?: string,
+    topic?: string,
+  ): Promise<SongInfo[]> {
     if (!(await tableExists('songs'))) return [];
     const cols = await songColumns();
-    const inBundle = bundle && cols.endsWith(', bundle') ? ' AND bundle = ?' : '';
-    const bundleArg = inBundle ? [bundle!] : [];
+    const byTopic = !!topic && (await tableExists('song_topics'));
+    if (topic && !byTopic) return [];
+    if (byTopic) limit = Math.max(limit, 2000);
+    const inBundle =
+      (bundle && cols.endsWith(', bundle') ? ' AND bundle = ?' : '') +
+      (byTopic ? ' AND id IN (SELECT song_id FROM song_topics WHERE topic = ?)' : '');
+    const bundleArg = [
+      ...(bundle && cols.endsWith(', bundle') ? [bundle] : []),
+      ...(byTopic ? [topic!] : []),
+    ];
     const query = q.trim();
     let rows: AnyRow[];
     if (/^\d+$/.test(query)) {
@@ -857,7 +891,15 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
         id,
       ])
     ).map((r) => ({ text: r.text as string, style: r.render ? JSON.parse(r.render) : null }));
-    return { id: s.id, number: s.number, title: s.title, bundle: s.bundle ?? '', slides };
+    const topics = (await tableExists('song_topics'))
+      ? (
+          await db.all<AnyRow>(
+            'SELECT topic FROM song_topics WHERE song_id = ? ORDER BY ord, topic',
+            [id],
+          )
+        ).map((r) => String(r.topic))
+      : [];
+    return { id: s.id, number: s.number, title: s.title, bundle: s.bundle ?? '', slides, topics };
   }
 
   /** The documents (1.17.0-beta.1), by title; none in a library built before them. */
@@ -1796,6 +1838,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     getCommentary,
     searchSongs,
     searchSongsByMeaning,
+    listSongTopics,
     listSongBundles,
     getSong,
     listDocuments,

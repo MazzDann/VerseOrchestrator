@@ -91,12 +91,15 @@ import { createShellInstaller, openShell, shellPresent } from './desktopShell.js
 import { createInstaller, hasRollback, updatesBack } from './installer.js';
 import { precompressed } from './precompressed.js';
 import {
+  bundleTopics,
   bundlesDir,
   importSongs,
   listBundles,
   refreshLibrarySongs,
   renameBundle,
   restoreBundle,
+  saveSongTopics,
+  saveTopicList,
   snapshotBundle,
   trashBundle,
   undoImport,
@@ -124,6 +127,7 @@ import {
   N_,
   parseDocument,
   sameBundleName,
+  topicName,
   type ModuleKind,
   type ParsedDocument,
 } from '@vo/shared';
@@ -201,6 +205,7 @@ import { createCoresTest, sampleVerses } from './coresTest.js';
 import { coreLimit, cpuInfo, createQueryEmbedder, openChildEmbedder } from './embedding.js';
 import { createVectorJob, listTranslations, readVectorSets, vectorsPath } from './vectorJob.js';
 import { createSongVectorJob, songVectorCounts } from './songVectors.js';
+import { sortBundleTopics } from './songTopics.js';
 import { mergeVectors, placeModule, receiveFile } from './dropImport.js';
 import { describeCopy, findCopies, importCopy, resolveCopy, sameFolder } from './otherCopy.js';
 import { dailyDue, listAutoBackups, makeAutoBackup, readAutoBackup } from './autoBackup.js';
@@ -1296,6 +1301,7 @@ app.get(
         String(req.query.q ?? ''),
         60,
         req.query.bundle ? String(req.query.bundle) : undefined,
+        req.query.topic ? String(req.query.topic) : undefined,
       ),
     ),
   ),
@@ -2497,6 +2503,157 @@ app.post(
   }),
 );
 
+// ── Topics (1.25.0-beta.2, songTopics.ts): «Розкласти за темами» ──────────────────────────────
+
+/** A topic list as the control window sends it: names 1–60, words ≤ 300, at most 60 topics, no two alike. */
+function parseTopicList(body: unknown): { name: string; about: string; was?: string }[] {
+  const list = (body as { list?: unknown })?.list;
+  if (!Array.isArray(list) || list.length > 60) throw new ApiError(400, N_('Тем може бути до 60'));
+  const seen = new Set<string>();
+  return list.map((t) => {
+    const name = topicName(String((t as { name?: unknown })?.name ?? ''));
+    const about = String((t as { about?: unknown })?.about ?? '').slice(0, 300);
+    const was = (t as { was?: unknown })?.was;
+    if (!name) throw new ApiError(400, N_('Введіть назву теми'));
+    if (seen.has(name.toLocaleLowerCase('uk')))
+      throw new ApiError(409, N_('Тема «{topic}» уже є в списку'), { topic: name });
+    seen.add(name.toLocaleLowerCase('uk'));
+    return { name, about, ...(typeof was === 'string' && was ? { was } : {}) };
+  });
+}
+
+/** The bundle being sorted now (the «Фонова робота» ring shows it), or null. */
+let sortingTopics: string | null = null;
+
+/** A bundle's topics: its list, how many of its songs hold each, and how many songs it has. */
+app.get(
+  '/api/song-bundles/:id/topics',
+  requireLocal,
+  wrap(async (req, res) => {
+    const bt = bundleTopics(bundlesDir(dataDir), String(req.params.id));
+    if (!bt) throw new ApiError(404, N_('Набір не знайдено — відкрийте список ще раз'));
+    const keys = new Set(bt.keys);
+    const counts: Record<string, number> = {};
+    const shown = new Map<string, Set<string>>();
+    for (const m of bt.topics.marks) {
+      if (!keys.has(m.key)) continue;
+      const set = shown.get(m.topic) ?? new Set<string>();
+      if (m.by === 'off') set.delete(m.key);
+      else set.add(m.key);
+      shown.set(m.topic, set);
+    }
+    for (const t of bt.topics.list) counts[t.name] = shown.get(t.name)?.size ?? 0;
+    res.json({
+      name: bt.meta.name,
+      list: bt.topics.list,
+      counts,
+      songs: bt.keys.length,
+      sorted: new Set(
+        bt.topics.marks.filter((m) => m.by !== 'off' && keys.has(m.key)).map((m) => m.key),
+      ).size,
+    });
+  }),
+);
+
+/** The operator's list of topics for a bundle (renames keep their songs). */
+app.put(
+  '/api/song-bundles/:id/topics',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const list = parseTopicList(req.body);
+    const dir = bundlesDir(dataDir);
+    if (!saveTopicList(dir, String(req.params.id), list))
+      throw new ApiError(404, N_('Набір не знайдено — відкрийте список ще раз'));
+    refreshSongs(dir);
+    res.json({ ok: true });
+  }),
+);
+
+/** «Розкласти»: the model puts the bundle's songs under its topics (`own`: under topics of its own). */
+app.post(
+  '/api/song-bundles/:id/topics/sort',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const model = getServerSettings().semantic.model;
+    if (!model || !modelInstalled(dataDir, model))
+      throw new ApiError(
+        409,
+        N_(
+          'Спершу виберіть і завантажте модель у «Налаштування вигляду → Дані → Пошук за змістом»',
+        ),
+      );
+    if (sortingTopics) throw new ApiError(409, N_('Модель уже розкладає набір — зачекайте'));
+    const dir = bundlesDir(dataDir);
+    const id = String(req.params.id);
+    sortingTopics = bundleTopics(dir, id)?.meta.name ?? id;
+    notifySemantic({});
+    try {
+      const out = await sortBundleTopics({
+        dataDir,
+        libraryPath,
+        dir,
+        bundleId: id,
+        own: req.body?.own === true,
+        model,
+        embed: async (text) => {
+          const got = await queryEmbedder.embed(text);
+          return got?.model === model ? got.vec : null;
+        },
+      });
+      if (!out.ok) {
+        if (out.missing === 'bundle')
+          throw new ApiError(404, N_('Набір не знайдено — відкрийте список ще раз'));
+        if (out.missing === 'model')
+          throw new ApiError(409, N_('Модель зараз недоступна — спробуйте за хвилину'));
+        songVectorsSoon(500);
+        throw new ApiError(
+          409,
+          N_('Спершу мають обчислитися вектори презентацій: {done} з {total}'),
+          { done: String(out.done ?? 0), total: String(out.total ?? 0) },
+        );
+      }
+      refreshSongs(dir);
+      console.log(
+        `[server] songs: «${sortingTopics}» sorted by ${req.body?.own === true ? 'its own' : 'the list of'} topics: ` +
+          `${out.sorted} of ${out.songs} songs under ${out.topics} topics (${out.ms} ms)`,
+      );
+      res.json(out);
+    } finally {
+      sortingTopics = null;
+      notifySemantic({});
+    }
+  }),
+);
+
+/** The operator's topics of one song (those added are theirs, those taken off stay off for the model). */
+app.put(
+  '/api/song-bundles/song/:songId/topics',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const raw = (req.body as { topics?: unknown })?.topics;
+    if (!Array.isArray(raw) || raw.length > 20) throw new ApiError(400, N_('Тем може бути до 20'));
+    const topics = [...new Set(raw.map((t) => topicName(String(t))).filter(Boolean))];
+    const dir = bundlesDir(dataDir);
+    const done = saveSongTopics(dir, asInt(req.params.songId, 'song id'), topics);
+    if (!done) throw new ApiError(404, 'Song not found');
+    refreshSongs(dir);
+    res.json({ topics });
+  }),
+);
+
+/** The topics the songs hold (of one bundle, or all), with how many songs each. */
+app.get(
+  '/api/songs/topics',
+  wrap(async (req, res) =>
+    res.json(
+      await library().listSongTopics(req.query.bundle ? String(req.query.bundle) : undefined),
+    ),
+  ),
+);
+
 app.get(
   '/api/songs/:id',
   wrap(async (req, res) => {
@@ -3081,6 +3238,8 @@ function semanticState() {
     }),
     job: vectors.state(),
     coresTest: coresTest.state(),
+    // «Розкласти за темами» under way (1.25.0-beta.2): the bundle's name
+    sorting: sortingTopics,
     // the songs' vectors (1.25.0-beta.1): the pass under way, else how many songs have them
     songs: songVectors.running()
       ? songVectors.state()

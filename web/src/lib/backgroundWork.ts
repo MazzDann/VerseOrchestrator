@@ -41,6 +41,11 @@ export function worksOf(sem: SemanticState | undefined, rebuild: RebuildState | 
         : tr('Модель обчислює вектори…'),
       part: job.current && job.current.total > 0 ? job.current.done / job.current.total : null,
     });
+  if (sem?.sorting)
+    out.push({
+      text: tr('Модель розкладає «{bundle}» за темами…', { bundle: sem.sorting }),
+      part: null,
+    });
   const songs = sem?.songs;
   if (songs?.phase === 'running')
     out.push({

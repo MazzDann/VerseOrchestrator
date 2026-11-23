@@ -163,6 +163,38 @@ for new and changed ones. While it works, a small ring turns in the header: hove
 how much is done, or click it to open **Data**. Until the work is finished, the results say that
 not everything is found yet.
 
+### Sort presentations by topic
+
+Topics help you find songs for a service quickly: for Christmas, for the Lord's Supper, for the
+Sabbath. Each bundle has its own list of topics, and the topics are kept in the bundle's file, so
+they travel with it to another computer.
+
+To sort a bundle by topic:
+
+1. To the right of the presentation search, click the **Presentation bundles** icon.
+2. In the bundle's row, click the **Bundle topics** icon.
+3. Click **Sort**. If the bundle has no topics yet, the app takes a ready list: Praise,
+   Thanksgiving, Prayer, Salvation, Christmas, Easter, Sabbath, and more.
+
+The model puts each presentation under the one to three topics closest to its slides. A
+presentation that fits no topic is left without one. You can change the list: rename a topic, type
+in the field to its right the words the model knows it by, delete a topic, or click **Add a
+topic**, and then **Save the list**. A topic's words found in a song's text count too: "Bethlehem"
+in a stanza helps the model put the song under Christmas. A renamed topic keeps its presentations.
+
+To let the model propose topics itself, turn on **Let the model propose its own topics** and click
+**Sort**. The model gathers presentations close in meaning into groups and names each by two words
+its songs share. Rename such topics the way that suits you.
+
+When a bundle has topics, an **All topics** list appears under the presentation search: choose a
+topic, and only its presentations stay in the list. An open presentation shows its topics above its
+slides: to take a topic away, click the cross on it; to add one, type its name or choose it in the
+list. What you changed yourself, the model doesn't rewrite when you click **Sort** again.
+
+**Sort** needs a model from **Search by meaning** and the presentations' vectors. While the model
+sorts a bundle, the background work ring turns in the header. You can give topics without a model
+too — by hand, in an open presentation.
+
 ## Choose how a presentation looks
 
 Above the presentation's slides there is a switch:

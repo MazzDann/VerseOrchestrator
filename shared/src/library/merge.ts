@@ -25,6 +25,7 @@ export const SEGMENT_TABLES = [
   'commentaries',
   'songs',
   'song_slides',
+  'song_topics',
   'documents',
   'doc_units',
   'doc_refs',

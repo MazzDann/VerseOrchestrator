@@ -1,5 +1,6 @@
 import { normalizeForSearch } from '../normalize.js';
 import type { SongSlide } from './pptx.js';
+import { topicName, type SongTopic, type TopicMark } from './topics.js';
 
 /**
  * Song bundles (0.10.0): a songbook in a file of its own — `data/songs/NAME.vosongs`, a small
@@ -14,6 +15,19 @@ import type { SongSlide } from './pptx.js';
  */
 
 export const BUNDLE_EXT = '.vosongs';
+
+/**
+ * The library's songs' topics (1.25.0-beta.2): a row per song and topic, `ord` = the topic's
+ * place in its bundle's list.
+ */
+export const SONG_TOPICS_SQL = `
+CREATE TABLE IF NOT EXISTS song_topics (
+  song_id INTEGER NOT NULL,
+  topic   TEXT NOT NULL,
+  ord     INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_song_topics ON song_topics (topic, song_id);
+`;
 export const BUNDLE_FORMAT = 1;
 
 export const BUNDLE_SCHEMA_SQL = `
@@ -27,6 +41,18 @@ CREATE TABLE IF NOT EXISTS songs (
   number INTEGER,
   title  TEXT NOT NULL,
   slides TEXT NOT NULL      -- JSON [{text, style}], style as in pptx.ts or null
+);
+-- 1.25.0-beta.2: the bundle's topics in their order, and which songs hold them (topics.ts)
+CREATE TABLE IF NOT EXISTS topics (
+  name  TEXT PRIMARY KEY,
+  about TEXT NOT NULL DEFAULT '',
+  ord   INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS song_topics (
+  key   TEXT NOT NULL,     -- songs.key
+  topic TEXT NOT NULL,     -- topics.name
+  by    TEXT NOT NULL,     -- 'model' | 'user' | 'off' (the operator took the model's away)
+  PRIMARY KEY (key, topic)
 );
 `;
 
@@ -55,6 +81,14 @@ export interface BundleSong {
 export interface Bundle {
   meta: BundleMeta;
   songs: BundleSong[];
+  /** its topics (1.25.0-beta.2); absent: none */
+  topics?: BundleTopics;
+}
+
+/** A bundle's topics (1.25.0-beta.2): the list in order, and who put which on which song. */
+export interface BundleTopics {
+  list: SongTopic[];
+  marks: { key: string; topic: string; by: TopicMark }[];
 }
 
 /** The part of a better-sqlite3 `Database` the helpers use. */
@@ -222,6 +256,116 @@ export function upsertBundleSongs(
   return { added, updated };
 }
 
+// ── Topics (1.25.0-beta.2) ─────────────────────────────────────────────────────────────────
+
+/** A bundle's topics; a bundle from before them (no tables) has none. */
+export function readBundleTopics(db: SyncDb): BundleTopics {
+  try {
+    const list = (
+      db.prepare('SELECT name, about FROM topics ORDER BY ord, name').all() as SongTopic[]
+    ).map((t) => ({ name: t.name.normalize('NFC'), about: t.about ?? '' }));
+    const marks = (
+      db.prepare('SELECT key, topic, by FROM song_topics').all() as BundleTopics['marks']
+    ).map((m) => ({ key: m.key.normalize('NFC'), topic: m.topic.normalize('NFC'), by: m.by }));
+    return { list, marks };
+  } catch {
+    return { list: [], marks: [] };
+  }
+}
+
+/** Each song's topics as shown (the list's order): the model's and the operator's, not those taken off. */
+export function visibleTopics(t: BundleTopics): Map<string, string[]> {
+  const order = new Map(t.list.map((x, i) => [x.name, i]));
+  const off = new Set(t.marks.filter((m) => m.by === 'off').map((m) => `${m.key}\n${m.topic}`));
+  const by = new Map<string, Set<string>>();
+  for (const m of t.marks) {
+    if (m.by === 'off' || !order.has(m.topic) || off.has(`${m.key}\n${m.topic}`)) continue;
+    const set = by.get(m.key) ?? new Set<string>();
+    set.add(m.topic);
+    by.set(m.key, set);
+  }
+  return new Map(
+    [...by].map(([key, set]) => [key, [...set].sort((a, b) => order.get(a)! - order.get(b)!)]),
+  );
+}
+
+/**
+ * The bundle's list of topics, as the operator left it: `was` = the name a topic had (a rename
+ * keeps its songs); a topic gone from the list goes from its songs too.
+ */
+export function writeTopicList(db: SyncDb, list: (SongTopic & { was?: string })[]): void {
+  prepareBundle(db);
+  const before = new Set(
+    (db.prepare('SELECT name FROM topics').all() as { name: string }[]).map((r) => r.name),
+  );
+  const next = list.map((t) => ({ ...t, name: topicName(t.name), about: t.about.trim() }));
+  db.transaction(() => {
+    for (const t of next) {
+      const was = t.was ? topicName(t.was) : undefined;
+      if (!was || was === t.name || !before.has(was)) continue;
+      // a rename onto a topic also kept: the songs of both under the one name
+      db.prepare(
+        'DELETE FROM song_topics WHERE topic = ? AND key IN (SELECT key FROM song_topics WHERE topic = ?)',
+      ).run(was, t.name);
+      db.prepare('UPDATE song_topics SET topic = ? WHERE topic = ?').run(t.name, was);
+      before.delete(was);
+    }
+    const kept = new Set(next.map((t) => t.name));
+    const drop = db.prepare('DELETE FROM song_topics WHERE topic = ?');
+    for (const name of before) if (!kept.has(name)) drop.run(name);
+    db.exec('DELETE FROM topics');
+    const put = db.prepare('INSERT OR REPLACE INTO topics (name, about, ord) VALUES (?, ?, ?)');
+    next.forEach((t, i) => put.run(t.name, t.about, i));
+  })();
+}
+
+/**
+ * The model's topics for these songs (key → names): its earlier ones go, the operator's stay — a
+ * topic the operator gave or took away is never the model's to change.
+ */
+export function writeModelTopics(db: SyncDb, byKey: Map<string, string[]>): void {
+  prepareBundle(db);
+  const del = db.prepare("DELETE FROM song_topics WHERE key = ? AND by = 'model'");
+  const put = db.prepare(
+    "INSERT OR IGNORE INTO song_topics (key, topic, by) VALUES (?, ?, 'model')",
+  );
+  db.transaction(() => {
+    for (const [key, topics] of byKey) {
+      del.run(key);
+      for (const t of topics) put.run(key, t);
+    }
+  })();
+}
+
+/** The operator set a song's topics: all they kept are theirs, those removed stay off for the model. */
+export function writeSongTopics(db: SyncDb, key: string, topics: string[]): void {
+  prepareBundle(db);
+  const now = visibleTopics(readBundleTopics(db)).get(key) ?? [];
+  const want = new Set(topics.map(topicName));
+  const put = db.prepare('INSERT OR REPLACE INTO song_topics (key, topic, by) VALUES (?, ?, ?)');
+  db.transaction(() => {
+    // the set is the operator's now: what they kept of the model's too
+    for (const t of want) put.run(key, t, 'user');
+    for (const t of now) if (!want.has(t)) put.run(key, t, 'off');
+  })();
+}
+
+/**
+ * The library id of every song of `bundles` (in that order): stable for (bundle, key), and a hash
+ * collision takes the next free id — for `writeLibrarySongs` and whoever looks a song up by its id.
+ */
+export function librarySongIds(bundles: Bundle[]): number[][] {
+  const used = new Set<number>();
+  return bundles.map((b) =>
+    b.songs.map((s) => {
+      let id = stableSongId(b.meta.id, s.key);
+      while (used.has(id)) id = (id % 0x7fffffff) + 1; // a hash collision: the next free id
+      used.add(id);
+      return id;
+    }),
+  );
+}
+
 /**
  * Replace the library's songs with those of `bundles` (in the order given): stable ids,
  * each song tagged with its bundle's name. Returns how many songs went in.
@@ -236,22 +380,26 @@ export function writeLibrarySongs(lib: SyncDb, bundles: Bundle[]): number {
   const insSlide = lib.prepare(
     'INSERT INTO song_slides (song_id, ord, text, render) VALUES (?, ?, ?, ?)',
   );
-  const used = new Set<number>();
+  // nor a song_topics table before 1.25.0-beta.2
+  lib.exec(SONG_TOPICS_SQL);
+  const insTopic = lib.prepare('INSERT INTO song_topics (song_id, topic, ord) VALUES (?, ?, ?)');
+  const ids = librarySongIds(bundles);
   let count = 0;
   lib.transaction(() => {
-    lib.exec('DELETE FROM song_slides; DELETE FROM songs;');
-    for (const b of bundles) {
-      for (const s of b.songs) {
-        let id = stableSongId(b.meta.id, s.key);
-        while (used.has(id)) id = (id % 0x7fffffff) + 1; // a hash collision: the next free id
-        used.add(id);
+    lib.exec('DELETE FROM song_slides; DELETE FROM songs; DELETE FROM song_topics;');
+    bundles.forEach((b, bi) => {
+      const topics = b.topics ? visibleTopics(b.topics) : new Map<string, string[]>();
+      const ord = new Map(b.topics?.list.map((t, i) => [t.name, i]) ?? []);
+      b.songs.forEach((s, si) => {
+        const id = ids[bi][si];
         insSong.run(id, s.number, s.title, normalizeForSearch(s.title), b.meta.name);
         s.slides.forEach((sl, i) =>
           insSlide.run(id, i, sl.text, sl.style ? JSON.stringify(sl.style) : null),
         );
+        for (const t of topics.get(s.key) ?? []) insTopic.run(id, t, ord.get(t) ?? 0);
         count++;
-      }
-    }
+      });
+    });
   })();
   return count;
 }
