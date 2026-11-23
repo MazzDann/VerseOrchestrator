@@ -52,7 +52,7 @@ import { openPresenter, openStage } from './outputWindows';
 import { SearchField } from './SearchField';
 import { openSettingsAt } from './useAppSettingsOpener';
 import { BackgroundWork } from '../../components/BackgroundWork';
-import { settingsWindowOn } from '../../lib/desktop';
+import { inDesktop, settingsWindowOn } from '../../lib/desktop';
 import { LiveZone, type LiveZoneProps } from './LiveZone';
 
 type Toggle = Dispatch<SetStateAction<boolean>>;
@@ -437,13 +437,17 @@ export function ControlHeader({
           size="sm"
           aria-label={tr('Навігація')}
         />
-        {!fold.noTitle && (
+        {/* the app’s own window has the name (and the version) in its title (1.25.2, the author) */}
+        {!fold.noTitle && !inDesktop() && (
           <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
             VerseOrchestrator
           </Text>
         )}
         {/* a rule after the title or the burger, not at the window's edge */}
-        <ToolZone label={tr('Навігація')} divider={!fold.noTitle || !navBreakpoint}>
+        <ToolZone
+          label={tr('Навігація')}
+          divider={(!fold.noTitle && !inDesktop()) || !navBreakpoint}
+        >
           <ToolIcon
             label={tr('Пошук')}
             hint={tr('У поточному перекладі; {combo} — в усіх', {

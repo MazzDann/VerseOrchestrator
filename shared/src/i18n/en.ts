@@ -246,6 +246,7 @@ export const EN: Record<string, string> = {
   // desktop shortcut (web/src/components/ShortcutSection.tsx)
   'Ярлик створено: {file}': 'Shortcut created: {file}',
   'Він відкриває застосунок.': 'It opens the app.',
+  'Це вікно можна закрити.': 'You can close this window.',
   'Відкриває застосунок.': 'Opens the app.',
   'Це копія з кодом: окремої апки в ній немає, ярлик запускає скрипт.':
     'This is a copy of the code: it has no app of its own, the shortcut runs a script.',

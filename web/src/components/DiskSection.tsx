@@ -9,6 +9,7 @@ import { useServer, NEEDS_SERVER } from '../serverStore';
 import { tr, useLang } from '../i18n';
 import { formatSize } from '../lib/modules';
 import { browserDataBytes, clearBrowserCaches } from '../lib/browserData';
+import { inDesktop } from '../lib/desktop';
 
 /** Each part's name and what removing it means (or whose it is). */
 const PARTS: Record<DiskPart['id'], { name: string; note: string }> = {
@@ -234,7 +235,15 @@ export function DiskSection({ active }: { active: boolean }) {
         </Stack>
       )}
       {/* this browser's caches: here even without a server (the «У браузері» mode needs it most) */}
-      <Group justify="space-between" wrap="nowrap" gap="xs" align="flex-start" mt="xs">
+      <Group
+        justify="space-between"
+        wrap="nowrap"
+        gap="xs"
+        align="flex-start"
+        mt="xs"
+        // the app is no browser: nothing of the kind is kept there (1.25.2)
+        display={inDesktop() ? 'none' : undefined}
+      >
         <div style={{ minWidth: 0, flex: 1 }}>
           <Text size="sm">
             {tr('Дані цього браузера')}

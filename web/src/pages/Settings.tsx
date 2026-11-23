@@ -10,6 +10,7 @@ import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 import { SETTINGS_PANEL_KEY, SETTINGS_WINDOW_KEY, rememberPanelSize } from '../lib/panelBox';
 import { useSettingsFind } from '../lib/settingsSearch';
 import { SETTINGS_FIND_EVENT } from '../openPresenter';
+import { inDesktop } from '../lib/desktop';
 
 /**
  * Standalone settings window (`/settings`) — opened on a second monitor next to the
@@ -17,7 +18,7 @@ import { SETTINGS_FIND_EVENT } from '../openPresenter';
  * `storage` listener that rehydrates the persisted settings store (see main.tsx).
  */
 export function Settings() {
-  useLang();
+  const lang = useLang();
   useUiMotion();
   // the version in the header (2026-10-01): a git checkout by its label
   const devLabel = useServer((s) => s.devLabel);
@@ -81,19 +82,26 @@ export function Settings() {
       window.removeEventListener(SETTINGS_FIND_EVENT, onFind);
     };
   }, []);
+  const heading = versionHeading(devLabel, __APP_VERSION__);
+  useEffect(() => {
+    if (inDesktop()) document.title = `${tr('Налаштування вигляду')} — ${heading}`;
+  }, [heading, lang]);
   return (
     <ScrollArea style={{ height: '100vh' }} type="auto">
       {/* 960: room for the sections on the left (1.24.0-beta.1, F1114-04); narrower windows as before */}
       <Box maw={960} mx="auto" px="md" py="lg">
-        <Group gap={8} mb="md" wrap="nowrap">
-          <IconAdjustments size={22} style={{ flexShrink: 0 }} />
-          <Title order={4} style={{ flexShrink: 0 }}>
-            {tr('Налаштування вигляду')}
-          </Title>
-          <Text size="xs" c="dimmed" ml="auto" ta="right" style={{ minWidth: 0 }}>
-            {versionHeading(devLabel, __APP_VERSION__)}
-          </Text>
-        </Group>
+        {/* the app's window says it in its title (1.25.2) */}
+        {!inDesktop() && (
+          <Group gap={8} mb="md" wrap="nowrap">
+            <IconAdjustments size={22} style={{ flexShrink: 0 }} />
+            <Title order={4} style={{ flexShrink: 0 }}>
+              {tr('Налаштування вигляду')}
+            </Title>
+            <Text size="xs" c="dimmed" ml="auto" ta="right" style={{ minWidth: 0 }}>
+              {versionHeading(devLabel, __APP_VERSION__)}
+            </Text>
+          </Group>
+        )}
         <SettingsPanel />
       </Box>
       <ModulesFloating />
