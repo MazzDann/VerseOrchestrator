@@ -1071,8 +1071,11 @@ function startWaiter(): void {
 
 async function standbyState() {
   const { port, idleMinutes } = getServerSettings().standby;
-  const lan = lanIps().map((ip) => `http://${ip}:${port}`);
+  // started with `--port`: the addresses that answer now; `port` is the setting, for the next start
+  const runsOn = (process.env.VO_STANDBY === '1' && Number(process.env.VO_STANDBY_PORT)) || port;
+  const lan = lanIps().map((ip) => `http://${ip}:${runsOn}`);
   return {
+    runsOn,
     enabled: isAutostartOn(autostart),
     supported: !!autostart,
     port,
@@ -1080,7 +1083,7 @@ async function standbyState() {
     waiter: await waiterAt(port),
     /** this app was started by the waiter (so a relaunch reloads this very page elsewhere) */
     underWaiter: process.env.VO_STANDBY === '1',
-    urls: { local: `http://localhost:${port}`, lan },
+    urls: { local: `http://localhost:${runsOn}`, lan },
   };
 }
 
@@ -1127,7 +1130,13 @@ app.put(
       if (running) await tellWaiter(before.port, 'retire'); // exits once the app is idle
       relaunch = false;
     }
-    res.json({ ...(await standbyState()), relaunching: relaunch });
+    const state = await standbyState();
+    // a waiter moving over: its new addresses
+    const at = (u: string) => u.replace(/:\d+$/, `:${port}`);
+    const urls = relaunch
+      ? { local: at(state.urls.local), lan: state.urls.lan.map(at) }
+      : state.urls;
+    res.json({ ...state, urls, relaunching: relaunch });
     // Relaunch AFTER answering: when this very app runs under the waiter, it is stopped.
     if (relaunch) setTimeout(() => void tellWaiter(before.port, 'relaunch'), 300);
   }),

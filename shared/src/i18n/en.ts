@@ -253,6 +253,8 @@ export const EN: Record<string, string> = {
   Скасувати: 'Cancel',
   'Так, перезапустити': 'Yes, restart',
   // desktop shortcut (web/src/components/ShortcutSection.tsx)
+  'Зараз застосунок працює на порту {now}; {port} — для звичайного запуску.':
+    'The app runs on port {now} now; {port} is for an ordinary start.',
   'Ярлик створено: {file}': 'Shortcut created: {file}',
   'Він відкриває застосунок.': 'It opens the app.',
   'Це вікно можна закрити.': 'You can close this window.',
