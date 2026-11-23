@@ -48,7 +48,7 @@ more than 60 modules of one kind: list the files you need in `data/settings.json
 Another program already holds the app's address. Start the app with another port — in a
 terminal in the app's folder:
 
-- on Windows: `.\start.cmd --port 4748`;
+- on Windows: `.\app\start.cmd --port 4748`;
 - on macOS and Linux: `./start.sh --port 4748`.
 
 To change the port for good, open **Settings** → **App** in the control window and change

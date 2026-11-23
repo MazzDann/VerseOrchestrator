@@ -9,6 +9,7 @@ import { browserDataBytes, clearBrowserData } from '../lib/browserData';
 import { currentOutputs } from '../lib/outputs';
 import { closeOutput } from '../openPresenter';
 import { tr, useLang } from '../i18n';
+import { inDesktop } from '../lib/desktop';
 
 const size = (b: number) =>
   b < 1048576 ? tr('менше 1 МБ') : tr('≈ {mb} МБ', { mb: Math.round(b / 1048576) });
@@ -62,7 +63,8 @@ export function ShutdownSection() {
           {tr('Застосунок вимкнено')}
         </Text>
         <Text size="xs" c="dimmed">
-          {tr(START_AGAIN)} {tr('Цю вкладку можна закрити.')}
+          {tr(START_AGAIN)}{' '}
+          {inDesktop() ? tr('Це вікно можна закрити.') : tr('Цю вкладку можна закрити.')}
         </Text>
       </div>
     );
@@ -110,18 +112,20 @@ export function ShutdownSection() {
               )}{' '}
               {tr(START_AGAIN)}
             </Text>
-            <Checkbox
-              size="xs"
-              checked={forget}
-              onChange={(e) => setForget(e.currentTarget.checked)}
-              label={
-                tr('Також стерти дані браузера для {host}', { host: location.host }) +
-                (bytes != null ? ` (${size(bytes)})` : '')
-              }
-              description={tr(
-                'Копії налаштувань і послідовності в цьому браузері та кеш бібліотеки. Самі налаштування лишаються в папці застосунку (data/).',
-              )}
-            />
+            {!inDesktop() && (
+              <Checkbox
+                size="xs"
+                checked={forget}
+                onChange={(e) => setForget(e.currentTarget.checked)}
+                label={
+                  tr('Також стерти дані браузера для {host}', { host: location.host }) +
+                  (bytes != null ? ` (${size(bytes)})` : '')
+                }
+                description={tr(
+                  'Копії налаштувань і послідовності в цьому браузері та кеш бібліотеки. Самі налаштування лишаються в папці застосунку (data/).',
+                )}
+              />
+            )}
             <Group gap="xs" justify="flex-end">
               <Button size="xs" variant="default" onClick={() => setConfirming(false)}>
                 {tr('Скасувати')}

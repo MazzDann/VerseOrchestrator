@@ -32,6 +32,8 @@ import {
 } from '../../lib/handover';
 import { tr } from '../../i18n';
 import { noticeOnce } from '../../lib/noticeOnce';
+import { inDesktop } from '../../lib/desktop';
+import { useServer, versionHeading } from '../../serverStore';
 
 /**
  * The hub (vo-remote, vo-sync): the server's control socket, held by the leading window — the
@@ -137,8 +139,18 @@ export function useHub({
   // name, so the start file never brings that one forward.
   const inCharge = isLeader && hubActive;
   useEffect(() => {
-    document.title = inCharge ? `VerseOrchestrator — ${tr('керування')}` : 'VerseOrchestrator';
+    // the desktop app's window is named as a program's: its name and version (1.25.2)
+    const name = () => {
+      if (inDesktop())
+        document.title = versionHeading(useServer.getState().devLabel, __APP_VERSION__);
+      else
+        document.title = inCharge ? `VerseOrchestrator — ${tr('керування')}` : 'VerseOrchestrator';
+    };
+    name();
+    // the label of a copy of the code comes with the first health check
+    const off = inDesktop() ? useServer.subscribe(name) : () => undefined;
     return () => {
+      off();
       document.title = 'VerseOrchestrator';
     };
   }, [inCharge, lang]);

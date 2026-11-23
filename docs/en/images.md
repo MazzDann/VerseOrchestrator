@@ -6,7 +6,7 @@ This page is for the operator: how to show a poster, an announcement, or a photo
 add an image to the running order, show the photos of a folder in turn, and show a video. To show a logo between the items of a show, see
 [Set up the cover](appearance.md#set-up-the-cover).
 
-The app keeps the images, so they work while the app is running (`start.cmd`,
+The app keeps the images, so they work while the app is running (`VerseOrchestrator.exe`,
 `start.command`, or `./start.sh`). If the app's server isn't running (“in the browser” without
 the server), the images panel says the app's server is needed.
 

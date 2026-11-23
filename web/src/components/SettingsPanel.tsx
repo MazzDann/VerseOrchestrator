@@ -299,7 +299,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
     <Stack gap="sm" p="md" ref={rootRef}>
       <SettingsHits root={rootRef} query={finding ? query : ''} sections={shown} />
       {/* the /settings window shows it in its own header (pages/Settings.tsx) */}
-      {!inSettingsWindow && (
+      {!inSettingsWindow && !inDesktop() && (
         <Text size="xs" c="dimmed">
           {versionHeading(devLabel, __APP_VERSION__)}
         </Text>
@@ -477,7 +477,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 onChange={(v) =>
                   typeof v === 'number' && set({ textScale: clampTextScale(v / 100) })
                 }
-                w={140}
+                styles={{ wrapper: { maxWidth: 140 } }}
               />
             </Section>
 
@@ -1310,13 +1310,15 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                   </Text>
                 )}
               </div>
-              {inSettingsWindow ? (
-                <Text size="xs" c="dimmed">
-                  {tr('Джерело даних налаштовується в головному вікні керування.')}
-                </Text>
-              ) : (
-                <DataSourceSection />
-              )}
+              {/* the app has its server beside it: the browser's own library is no question there,
+                unless it was switched to it already */}
+              {inSettingsWindow
+                ? !inDesktop() && (
+                    <Text size="xs" c="dimmed">
+                      {tr('Джерело даних налаштовується в головному вікні керування.')}
+                    </Text>
+                  )
+                : (!inDesktop() || dataSource === 'local') && <DataSourceSection />}
               {/* «Пошук за змістом» (1.15.0-beta.2): «~ …», the model, the vectors */}
               <SemanticSection active={isOpen('data')} />
               {/* «Статистика показу» (1.18.0-beta.4): what was on screen — a page of its own */}
@@ -1341,7 +1343,8 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 </Button>
               </div>
               {/* «Місце на диску» (1.17.0-beta.4): what the app keeps, and «Прибрати» */}
-              {!inSettingsWindow && <DiskSection active={isOpen('data')} />}
+              {/* in the app the settings are a window of their own: it had no way to the disk there */}
+              {(!inSettingsWindow || inDesktop()) && <DiskSection active={isOpen('data')} />}
             </Section>
 
             <Section
@@ -1418,7 +1421,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
                 description={
                   inDesktop()
                     ? tr(
-                        'Коли застосунок запускається, «Вікно показу» відкривається само — на другому екрані й на весь екран, якщо екран є.',
+                        'Коли застосунок запускається, «Вікно показу» відкривається само на другому екрані, на весь екран. Коли екран один, не відкривається.',
                       )
                     : tr(
                         'У браузері вікно відкривається після першого кліку у вікні керування. Дозвольте спливні вікна, а щоб воно стало на другий екран — «Керування вікнами» (браузер спитає).',

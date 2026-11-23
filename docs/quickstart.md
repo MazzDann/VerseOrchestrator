@@ -23,7 +23,7 @@
 
 Щоб запустити VerseOrchestrator, відкрийте його папку й:
 
-- у Windows двічі клацніть `start.cmd`;
+- у Windows двічі клацніть `VerseOrchestrator.exe`;
 - у macOS двічі клацніть `start.command`;
 - у Linux виконайте в терміналі `./start.sh`.
 

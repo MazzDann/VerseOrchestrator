@@ -34,7 +34,7 @@ To start the app:
 
 1. Extract the archive to a folder of your choice.
 2. Put module files (`*.SQLite3`) in its `modules/` folder.
-3. Run `start.cmd` (Windows), `start.command` (macOS), or `./start.sh` (Linux).
+3. Run `VerseOrchestrator.exe` (Windows), `start.command` (macOS), or `./start.sh` (Linux).
 
 The archive carries its own Node.js and needs no internet connection. On the first start,
 Windows may warn about a file from the internet: confirm to run it. macOS blocks

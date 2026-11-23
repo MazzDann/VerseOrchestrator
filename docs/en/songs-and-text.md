@@ -22,7 +22,7 @@ presentation in the list shows its bundle's name. Each bundle has its own presen
 Presentations come from PowerPoint files (`.pptx`): one file, one presentation. A presentation can be a song with its stanzas and chorus — the
 app takes those from text formats too (see [Supported song formats](#supported-song-formats)). The browser reads the
 files, and the app writes the presentations into the bundle you choose. Import works while the app
-is running (`start.cmd`, `start.command`, or `./start.sh`).
+is running (`VerseOrchestrator.exe`, `start.command`, or `./start.sh`).
 
 The quickest way is to drag `.pptx`, ChordPro, or OpenLyrics files into the control window, anywhere: **Presentations** opens with
 the import, the files already read — only the bundle is left to choose.

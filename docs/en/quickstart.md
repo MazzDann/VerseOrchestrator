@@ -24,7 +24,7 @@ too. More about the requirements is in [Install and start](install.md#requiremen
 
 To start VerseOrchestrator, open its folder and:
 
-- on Windows, double-click `start.cmd`;
+- on Windows, double-click `VerseOrchestrator.exe`;
 - on macOS, double-click `start.command`;
 - on Linux, run `./start.sh` in a terminal.
 

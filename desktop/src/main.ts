@@ -256,6 +256,7 @@ function openControl(): BrowserWindow {
           ...(f.width ? { width: f.width, height: f.height } : { width: 960, height: 720 }),
           ...(f.x !== undefined ? { x: f.x, y: f.y } : {}),
           parent: win, // above the control window always, minimized with it
+          show: false, // drawn first: it opened as an empty dark rectangle (1.25.2)
           autoHideMenuBar: true,
           backgroundColor: '#1e2025',
           webPreferences: PAGE,
@@ -291,10 +292,23 @@ function openControl(): BrowserWindow {
       settings = child;
       child.on('closed', () => {
         if (settings === child) settings = null;
+        // Windows may hand the keyboard to another program when an owned window closes: the control
+        // window went behind it (1.25.2, the author)
+        if (!win.isDestroyed() && !win.isMinimized()) win.focus();
       });
       // the keyboard goes there: the settings' search field takes it (SettingsPanel)
-      child.once('ready-to-show', () => child.focus());
-      child.webContents.once('did-finish-load', () => child.focus());
+      const reveal = () => {
+        if (child.isDestroyed() || child.isVisible()) return;
+        child.show();
+        child.focus();
+      };
+      child.once('ready-to-show', reveal);
+      child.webContents.once('did-finish-load', () => {
+        reveal();
+        if (!child.isDestroyed()) child.focus();
+      });
+      // a page that never finishes is shown all the same
+      setTimeout(reveal, 3000);
       return;
     }
     if (kind !== 'output') return;

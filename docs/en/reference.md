@@ -186,7 +186,7 @@ example `3:16`, or type the reference in the command palette (Ctrl+K, on macOS â
 ## Start options
 
 You pass options to the start file in a terminal, in the app's folder, for example
-`.\start.cmd --check` on Windows or `./start.sh --no-browser` on macOS and Linux.
+`.\app\start.cmd --check` on Windows (in a copy of the code, `.\start.cmd --check`) or `./start.sh --no-browser` on macOS and Linux.
 
 | Option         | What it does                                                                                      |
 | -------------- | ------------------------------------------------------------------------------------------------- |

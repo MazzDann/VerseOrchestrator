@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { onDesktopDisplayBack, outputAtStartOn } from '../lib/desktop';
+import { hasSecondScreen, onDesktopDisplayBack, outputAtStartOn } from '../lib/desktop';
 import { useSettings } from '../settingsStore';
 
 /**
@@ -30,7 +30,7 @@ export function DisplayBack({
         if (!k.enabled) return;
         const s = useSettings.getState();
         if (returned === 0) {
-          if (outputAtStartOn(s.outputAtStart)) k.openOutput();
+          if (outputAtStartOn(s.outputAtStart) && hasSecondScreen()) k.openOutput();
           return;
         }
         if (s.displayBack === 'black' && !k.isBlack()) k.black();

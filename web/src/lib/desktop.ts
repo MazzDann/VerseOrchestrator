@@ -14,6 +14,15 @@ export const inDesktop = (): boolean =>
 export const outputAtStartOn = (choice: boolean | null): boolean => choice ?? inDesktop();
 
 /**
+ * Is there a second screen to open the presentation window on? On one screen it would cover the
+ * control window (1.25.2, the author: «мало ж тільки на двох»). A browser that doesn't say
+ * (Firefox, Safari) is taken to have one: there the operator switched it on.
+ */
+export const hasSecondScreen = (): boolean =>
+  typeof screen === 'undefined' ||
+  (screen as unknown as { isExtended?: boolean }).isExtended !== false;
+
+/**
  * «Налаштування — окремим вікном» as it stands (1.24.1, the author): the operator's choice, or — not
  * chosen — a window of their own in the desktop app and the panel in the control window in a browser.
  */
