@@ -29,8 +29,15 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconLanguage,
+  IconTag,
 } from '@tabler/icons-react';
-import { MEANING_PREFIX, nextChorus, songParts, type SongPart } from '@vo/shared';
+import {
+  MEANING_PREFIX,
+  nextChorus,
+  songParts,
+  withoutChordLines,
+  type SongPart,
+} from '@vo/shared';
 import { api, type SongStyle } from '../api';
 import type { SlideSource } from '../presenterBus';
 import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
@@ -143,6 +150,8 @@ export function SongsPanel({
    */
   const [grouping, setGrouping] = useState<Grouping>(readGrouping);
   const [unfolded, setUnfolded] = useState<Set<string>>(() => new Set());
+  /** the song whose topics field was opened by «Додати тему» (1.25.0-beta.5) */
+  const [topicsFor, setTopicsFor] = useState<number | null>(null);
   /** «Теми набору» open for this bundle (1.25.0-beta.2), instead of the bundles' list */
   const [topicsOf, setTopicsOf] = useState<{ id: string; name: string } | null>(null);
   /** the import view (0.10.1) instead of the search */
@@ -266,12 +275,19 @@ export function SongsPanel({
       const s = songQuery.data;
       if (!s) return;
       onActiveStanzaChange(idx);
+      // chord-only lines stay in this list, not on the screen (1.25.0-beta.5)
+      const sl = s.slides[idx];
+      const clean = withoutChordLines(sl.text, sl.style?.second?.text);
+      const look =
+        sl.style?.second && clean.second !== undefined
+          ? { ...sl.style, second: { ...sl.style.second, text: clean.second } }
+          : sl.style;
       onProjectStanza(
-        s.slides[idx].text,
+        clean.text,
         `№${s.number ?? ''} ${s.title}`.trim(),
-        faithful ? s.slides[idx].style : null,
+        faithful ? look : null,
         { kind: 'song', songId: s.id, stanza: idx, total: s.slides.length },
-        s.slides[idx].style,
+        look,
         step,
       );
     },
@@ -502,43 +518,44 @@ export function SongsPanel({
   // the left column: the search, the bundles, the list (a portal into the navbar's slot)
   const list = (
     <Box p="xs" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <Group gap="xs" wrap="nowrap">
-        <TextInput
-          ref={inputRef}
-          flex={1}
-          value={query}
-          onChange={(e) => setQuery(e.currentTarget.value)}
-          // Enter: the song found first (or the one chosen in the list) on screen (F1017-01)
-          onKeyDown={(e) => {
-            // Shift+Enter: the same words by meaning (1.25.0-beta.1, as in the verses' search)
-            const byWords = byMeaning(e, query);
-            if (byWords) {
-              e.preventDefault();
-              e.stopPropagation();
-              setQuery(byWords);
-              return;
-            }
-            if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
-            // grouped (nothing typed): the open song, the groups hold the rest (review)
-            const pick =
-              songs.find((x) => x.id === songId) ??
-              songs[0] ??
-              (songId != null ? { id: songId, stanza: undefined } : undefined);
-            if (!pick) return;
+      {/* the search on a row of its own (1.25.0-beta.5): beside the bundle filter it was a few letters wide */}
+      <TextInput
+        ref={inputRef}
+        value={query}
+        onChange={(e) => setQuery(e.currentTarget.value)}
+        // Enter: the song found first (or the one chosen in the list) on screen (F1017-01)
+        onKeyDown={(e) => {
+          // Shift+Enter: the same words by meaning (1.25.0-beta.1, as in the verses' search)
+          const byWords = byMeaning(e, query);
+          if (byWords) {
             e.preventDefault();
             e.stopPropagation();
-            openAndShow(pick.id);
-            setHint(pick.stanza !== undefined ? { songId: pick.id, stanza: pick.stanza } : null);
-            // shown: the keyboard leaves the field, so ← → step it too (F1114-05)
-            e.currentTarget.blur();
-          }}
-          placeholder={tr('Презентація: номер, назва або ~ тема')}
-          leftSection={<IconMusic size={18} />}
-          rightSection={fetching ? <Loader size="xs" /> : null}
-        />
+            setQuery(byWords);
+            return;
+          }
+          if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+          // grouped (nothing typed): the open song, the groups hold the rest (review)
+          const pick =
+            songs.find((x) => x.id === songId) ??
+            songs[0] ??
+            (songId != null ? { id: songId, stanza: undefined } : undefined);
+          if (!pick) return;
+          e.preventDefault();
+          e.stopPropagation();
+          openAndShow(pick.id);
+          setHint(pick.stanza !== undefined ? { songId: pick.id, stanza: pick.stanza } : null);
+          // shown: the keyboard leaves the field, so ← → step it too (F1114-05)
+          e.currentTarget.blur();
+        }}
+        placeholder={tr('Презентація: номер, назва або ~ тема')}
+        leftSection={<IconMusic size={18} />}
+        rightSection={fetching ? <Loader size="xs" /> : null}
+      />
+      <Group gap="xs" wrap="nowrap" mt="xs" justify={several ? undefined : 'flex-end'}>
         {several && (
           <Select
-            w={120}
+            size="xs"
+            flex={1}
             aria-label={tr('Набір презентацій')}
             data={[
               { value: '', label: tr('Усі набори') },
@@ -753,6 +770,19 @@ export function SongsPanel({
                 </Text>
               </Group>
               <Group gap={4} wrap="nowrap">
+                {serverAvailable !== false && song.topics.length === 0 && (
+                  <Tooltip label={tr('Додати тему')} withArrow>
+                    <ActionIcon
+                      variant={topicsFor === song.id ? 'light' : 'subtle'}
+                      color="gray"
+                      onClick={() => setTopicsFor((t) => (t === song.id ? null : song.id))}
+                      aria-label={tr('Додати тему')}
+                      aria-pressed={topicsFor === song.id}
+                    >
+                      <IconTag size={18} />
+                    </ActionIcon>
+                  </Tooltip>
+                )}
                 {song.other && (
                   <Tooltip
                     label={tr('Іншою мовою: №{number} {title} · {bundle}', {
@@ -815,7 +845,9 @@ export function SongsPanel({
                 )}
               </Group>
             </Group>
-            {serverAvailable !== false && (
+            {/* the topics only when it has some or one is being added (1.25.0-beta.5: an empty row
+                above every song, for operators who never use topics) */}
+            {serverAvailable !== false && (song.topics.length > 0 || topicsFor === song.id) && (
               <SongTopicsInput songId={song.id} topics={song.topics} bundle={song.bundle} />
             )}
             <SegmentedControl

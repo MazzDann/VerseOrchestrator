@@ -13,6 +13,7 @@ import {
 import { type Outcome } from '../../lib/commands';
 import { tr } from '../../i18n';
 import { withSecond } from './songSlides';
+import { noticeOnScreen } from '../../lib/onScreenNotice';
 import {
   hasMarkup,
   parseRich,
@@ -172,13 +173,7 @@ export function useSongProjection({
     setPreviewOverride(slide);
     if (goLive) {
       setLive(true);
-      if (reference) {
-        notifications.show({
-          message: tr('На екрані: {ref}', { ref: reference }),
-          color: 'live',
-          autoClose: 1500,
-        });
-      }
+      noticeOnScreen(reference);
     } else if (reference) {
       // «Наживо» off: cued into the preview, not shown — «На екран» (чи Enter) показує
       notifications.show({

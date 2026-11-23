@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   Group,
@@ -22,6 +22,7 @@ import {
 } from '@tabler/icons-react';
 import { type Translation } from '../api';
 import { tr, useLang } from '../i18n';
+import { languageFirst } from '../lib/translationOrder';
 
 interface Props {
   translations: Translation[];
@@ -47,8 +48,15 @@ export function TranslationPicker({
   onEnter,
   max = 5,
 }: Props) {
-  useLang();
+  const uiLang = useLang();
+  // a short screen with a translation ticked starts folded (1.25.0-beta.5): at 768 px the open list
+  // left the books four rows; the folded header names the ticked ones
   const [open, setOpen] = useState(true);
+  const touched = useRef(false);
+  const ticked = selectedIds.length > 0;
+  useEffect(() => {
+    if (!touched.current && ticked && window.innerHeight < 900) setOpen(false);
+  }, [ticked]);
   const [filter, setFilter] = useState('');
 
   const groups = useMemo(() => {
@@ -61,8 +69,9 @@ export function TranslationPicker({
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(t);
     }
-    return [...map.entries()];
-  }, [translations, filter]);
+    // the interface language's group first (1.25.0-beta.5)
+    return languageFirst([...map.entries()], uiLang);
+  }, [translations, filter, uiLang]);
 
   const atMax = selectedIds.length >= max;
   const toggle = (id: number) => {
@@ -73,7 +82,10 @@ export function TranslationPicker({
   return (
     <Box>
       <UnstyledButton
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          touched.current = true;
+          setOpen((o) => !o);
+        }}
         aria-label={tr('Переклади')}
         style={{
           width: '100%',
@@ -83,11 +95,19 @@ export function TranslationPicker({
           padding: '6px 8px',
         }}
       >
-        <Group gap={6} wrap="nowrap">
+        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
           {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
           <Text size="sm" fw={600}>
             {tr('Переклади')}
           </Text>
+          {!open && selectedIds.length > 0 && (
+            <Text size="xs" c="dimmed" truncate style={{ minWidth: 0 }}>
+              {selectedIds
+                .map((id) => translations.find((t) => t.id === id)?.abbr)
+                .filter(Boolean)
+                .join(', ')}
+            </Text>
+          )}
         </Group>
         <Badge size="sm" variant={selectedIds.length ? 'filled' : 'light'} color="brand">
           {selectedIds.length}/{max}

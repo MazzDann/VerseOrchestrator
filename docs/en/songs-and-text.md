@@ -99,6 +99,8 @@ New and changed files in the same folder update that bundle after the rescan.
   **Chorus · 1/2**. A label in the file that says more, such as «Приспів (до 5-го куплету)»,
   is shown as the file writes it.
 - The lines and paragraphs of the text stay as they are in the file.
+- Lines of chords only (such as "F Dm Gm C-C7") show in the list of slides but don't go on
+  screen.
 - For **As in the file**, the app takes the background color, the text's color and font,
   bold, alignment, the text box's place and size, the font size, and where the text sits
   in its box — top, middle, or bottom — from the file. Empty lines before or after the text
@@ -195,7 +197,7 @@ click a topic or a bundle to unfold its presentations, and again to fold them. A
 a number or a title, the list is a plain one again. Each row shows the presentation's number and
 title first, and its bundle as a pale caption on the right. An open presentation shows its topics above its
 slides: to take a topic away, click the cross on it; to add one, type its name or choose it in the
-list. What you changed yourself, the model doesn't rewrite when you click **Sort** again.
+list. A presentation with no topics shows only the **Add a topic** icon in its heading instead. What you changed yourself, the model doesn't rewrite when you click **Sort** again.
 
 **Sort** needs a model from **Search by meaning** and the presentations' vectors. While the model
 sorts a bundle, the background work ring turns in the header. You can give topics without a model

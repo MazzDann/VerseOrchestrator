@@ -239,6 +239,10 @@ html[data-scrolling] .vo-list-item:hover:not([data-selected='true']) {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+/* A scroll box with more below (1.25.0-beta.5): its last few pixels fade instead of a cut row. */
+.vo-fade-bottom {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 12px), transparent);
+}
 /* Chapter button size (1.21.0-beta.2, F1024-04): small fits a long book with less scroll. */
 .vo-chapter-grid[data-size='sm'] {
   grid-template-columns: repeat(auto-fill, minmax(26px, 1fr));

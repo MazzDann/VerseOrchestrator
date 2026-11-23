@@ -24,7 +24,10 @@ export function Monitor({
   title,
   detail,
   actions,
+  screen,
 }: {
+  /** it shows what is on screen (1.25.0-beta.5): «На екрані: …» notices stay away while it is in sight */
+  screen?: boolean;
   slide: Slide;
   state: TallyState;
   title: string;
@@ -35,7 +38,7 @@ export function Monitor({
   // (read at once, so a monitor that mounts with a slide doesn't fade it in first)
   const calm = useReducedMotion(false, { getInitialValueInEffect: false });
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ width: '100%' }} data-screen-monitor={screen || undefined}>
       <Group justify="space-between" gap={6} wrap="nowrap" mb={6} mih={22}>
         <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
           <span

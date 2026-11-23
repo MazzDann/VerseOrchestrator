@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextChorus, songParts } from './sections.js';
+import { isChordLine, nextChorus, songParts, withoutChordLines } from './sections.js';
 
 // Slides as the song panel gets them; «T» is the title slide.
 const C = (words: string, label = 'Приспів:') => `${label}\n${words}`;
@@ -92,5 +92,29 @@ describe('«До приспіву»', () => {
   it('the part of a chorus that isn’t its start, with none after: its start', () => {
     const two = songParts(['T', 'v one', C('a'), C('b')]);
     expect(nextChorus(two, 3)).toBe(2);
+  });
+});
+
+describe('chord lines (1.25.0-beta.5)', () => {
+  it('a line of chords only; words are not chords', () => {
+    expect(isChordLine('F Dm Gm C-C7')).toBe(true);
+    expect(isChordLine('Gm C-C7')).toBe(true);
+    expect(isChordLine('(Am) G/B Fmaj7 Esus4')).toBe(true);
+    expect(isChordLine('А ты не думай, что тебе тяжело')).toBe(false);
+    expect(isChordLine('A mighty fortress')).toBe(false);
+    expect(isChordLine('F Dm Gm С-С7')).toBe(true); // a Cyrillic «С», as a file had it
+    expect(isChordLine('А В')).toBe(false); // Cyrillic capitals alone: words
+    expect(isChordLine('A')).toBe(false); // one bare letter: a lyric line as often
+    expect(isChordLine('Am')).toBe(true);
+    expect(isChordLine('')).toBe(false);
+  });
+  it('the screen text without them; a marked copy loses the same lines', () => {
+    const text = 'Перший рядок\nF Dm Gm C-C7\nДругий рядок';
+    const second = 'Перший рядок\nF Dm Gm C-C7\nДругий рядок';
+    expect(withoutChordLines(text, second)).toEqual({
+      text: 'Перший рядок\nДругий рядок',
+      second: 'Перший рядок\nДругий рядок',
+    });
+    expect(withoutChordLines('Без акордів')).toEqual({ text: 'Без акордів', second: undefined });
   });
 });

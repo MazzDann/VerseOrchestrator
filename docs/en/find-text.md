@@ -22,6 +22,11 @@ You choose translations in the **Translations** list at the top left:
 - The letter **S** next to a name means the translation has Strong's numbers.
 - To find a translation in a long list quickly, type part of its name in the
   **Filter translations…** field.
+- Translations in the interface language come first in the list. While none is selected, the
+  app selects the first of them itself.
+- On a short screen (under 900 pixels) the list folds as soon as a translation is selected, so
+  more books show under it. The folded heading names the selected translations; click it to
+  unfold the list.
 
 ![The control window with two translations: KJV in the verse list, KJV and Kulish's
 Ukrainian one below the other on the preview slide](../img/en/find-parallel.png)
