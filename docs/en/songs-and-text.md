@@ -173,8 +173,11 @@ To sort a bundle by topic:
 
 1. To the right of the presentation search, click the **Presentation bundles** icon.
 2. In the bundle's row, click the **Bundle topics** icon.
-3. Click **Sort**. If the bundle has no topics yet, the app takes a ready list: Praise,
-   Thanksgiving, Prayer, Salvation, Christmas, Easter, Sabbath, and more.
+3. If the bundle has no topics yet, choose a ready list: **By topic** (Praise, Thanksgiving,
+   Prayer, Salvation, Christmas, Easter, Sabbath, and more) or **By the order of service**
+   (Opening, Sabbath, Glorifying, Bible, Christ, Consecration, Faith, Prayer, To work, Advent,
+   Supper). Change it the way that suits you.
+4. Click **Sort**. Without a list, the app takes **By topic**.
 
 The model puts each presentation under the one to three topics closest to its slides. A
 presentation that fits no topic is left without one. You can change the list: rename a topic, type
@@ -186,8 +189,11 @@ To let the model propose topics itself, turn on **Let the model propose its own 
 **Sort**. The model gathers presentations close in meaning into groups and names each by two words
 its songs share. Rename such topics the way that suits you.
 
-When a bundle has topics, an **All topics** list appears under the presentation search: choose a
-topic, and only its presentations stay in the list. An open presentation shows its topics above its
+When the search field is empty, a **Group** switch is under it: **No groups**, **Bundles** (when
+there are several) and **Topics** (when the bundles have topics). In groups the list is folded:
+click a topic or a bundle to unfold its presentations, and again to fold them. As soon as you type
+a number or a title, the list is a plain one again. Each row shows the presentation's number and
+title first, and its bundle as a pale caption on the right. An open presentation shows its topics above its
 slides: to take a topic away, click the cross on it; to add one, type its name or choose it in the
 list. What you changed yourself, the model doesn't rewrite when you click **Sort** again.
 

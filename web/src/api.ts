@@ -987,6 +987,32 @@ export const api = {
       (l) => l.searchSongsByMeaning(q, bundle),
       `/api/songs/meaning?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}`,
     ),
+  /**
+   * «~ тема» in «Історія» (1.25.0-beta.3): the passages and songs ever shown, the nearest first —
+   * from the server's show history (data/stats.db); `ids`: the translations, the first leads.
+   */
+  shownByMeaning: (q: string, ids: number[]) =>
+    getJson(
+      `/api/stats/meaning?q=${encodeURIComponent(q)}&t=${ids.join(',')}`,
+      z.object({
+        results: z.array(
+          z.object({
+            kind: z.enum(['verses', 'song']),
+            label: z.string(),
+            shows: z.number(),
+            last: z.number(),
+            book: z.number().optional(),
+            chapter: z.number().optional(),
+            from: z.number().optional(),
+            to: z.number().optional(),
+            songId: z.number().optional(),
+            closeness: z.number(),
+            translationId: z.number().optional(),
+          }),
+        ),
+        missing: z.enum(['model', 'vectors', 'server']).optional(),
+      }),
+    ),
   /** The song bundles in the library, with their song counts (0.10.0). */
   songBundles: () =>
     fromLibrary(z.array(SongBundleSchema), (l) => l.listSongBundles(), '/api/song-bundles'),

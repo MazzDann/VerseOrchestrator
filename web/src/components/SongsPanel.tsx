@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   TextInput,
@@ -26,6 +26,8 @@ import {
   IconRepeat,
   IconStack2,
   IconArrowBackUp,
+  IconChevronDown,
+  IconChevronRight,
 } from '@tabler/icons-react';
 import { MEANING_PREFIX, nextChorus, songParts, type SongPart } from '@vo/shared';
 import { api, type SongStyle } from '../api';
@@ -134,8 +136,12 @@ export function SongsPanel({
   const [faithful, setFaithful] = useState(true);
   /** '' = every bundle (0.10.0) */
   const [bundle, setBundle] = useState('');
-  /** '' = every topic (1.25.0-beta.2) */
-  const [topic, setTopic] = useState('');
+  /**
+   * The list in groups (1.25.0-beta.3, the author: «розбивало за категоріями в пачки які можуть буть
+   * розгорнуті»): by bundle or by topic, each group folded until opened — when nothing is typed.
+   */
+  const [grouping, setGrouping] = useState<Grouping>(readGrouping);
+  const [unfolded, setUnfolded] = useState<Set<string>>(() => new Set());
   /** «Теми набору» open for this bundle (1.25.0-beta.2), instead of the bundles' list */
   const [topicsOf, setTopicsOf] = useState<{ id: string; name: string } | null>(null);
   /** the import view (0.10.1) instead of the search */
@@ -184,11 +190,18 @@ export function SongsPanel({
     enabled: open,
   });
   const topicList = topicsQuery.data ?? [];
-  const inTopic = topicList.some((t) => t.name === topic) ? topic : '';
+  // the groups there can be: bundles when there are several (and none chosen), topics when any
+  const groupings: Grouping[] = [
+    'none',
+    ...(several && !inBundle ? (['bundles'] as const) : []),
+    ...(topicList.length ? (['topics'] as const) : []),
+  ];
+  // the field typed into: a plain list at once, not after the debounce (Enter must find a song)
+  const groupedBy: Grouping = !query.trim() && groupings.includes(grouping) ? grouping : 'none';
   const listQuery = useQuery({
-    queryKey: ['songs', debounced, inBundle, inTopic],
-    queryFn: () => api.songs(debounced, inBundle || undefined, inTopic || undefined),
-    enabled: open && !meaning,
+    queryKey: ['songs', debounced, inBundle],
+    queryFn: () => api.songs(debounced, inBundle || undefined),
+    enabled: open && !meaning && groupedBy === 'none',
   });
   const meaningQuery = useQuery({
     queryKey: ['songs-meaning', debounced, inBundle],
@@ -417,6 +430,61 @@ export function SongsPanel({
     }
   };
 
+  /** One song of the list: its number and title first, its bundle quiet at the end (1.25.0-beta.3) */
+  const row = (s: SongRow) => (
+    <Box
+      key={s.id}
+      className="vo-list-item"
+      role="button"
+      tabIndex={0}
+      data-selected={s.id === songId ? 'true' : undefined}
+      onClick={() => {
+        openOnly(s.id);
+        setHint(s.stanza !== undefined ? { songId: s.id, stanza: s.stanza } : null);
+      }}
+      onKeyDown={(e) => {
+        // Enter: open it and show its first stanza (F1017-01); Space: only open it
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          openAndShow(s.id);
+          setHint(s.stanza !== undefined ? { songId: s.id, stanza: s.stanza } : null);
+        } else if (e.key === ' ') {
+          e.preventDefault();
+          openOnly(s.id);
+          setHint(s.stanza !== undefined ? { songId: s.id, stanza: s.stanza } : null);
+        }
+      }}
+    >
+      <Group gap={6} wrap="nowrap" justify="space-between">
+        <Text size="sm" truncate style={{ minWidth: 0 }}>
+          {s.number != null && (
+            <Badge size="xs" variant="light" mr={6}>
+              {s.number}
+            </Badge>
+          )}
+          {s.title}
+          {s.closeness !== undefined && (
+            <>
+              {' '}
+              <Closeness level={s.closeness as 1 | 2 | 3} />
+            </>
+          )}
+        </Text>
+        {several && !inBundle && s.bundle && (
+          <Text size="xs" c="dimmed" truncate maw="40%" style={{ flexShrink: 0 }}>
+            {s.bundle}
+          </Text>
+        )}
+      </Group>
+      {s.line && (
+        <Text size="xs" c="dimmed" lineClamp={1}>
+          {s.line}
+        </Text>
+      )}
+    </Box>
+  );
+
   // the left column: the search, the bundles, the list (a portal into the navbar's slot)
   const list = (
     <Box p="xs" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -437,7 +505,11 @@ export function SongsPanel({
               return;
             }
             if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
-            const pick = songs.find((x) => x.id === songId) ?? songs[0];
+            // grouped (nothing typed): the open song, the groups hold the rest (review)
+            const pick =
+              songs.find((x) => x.id === songId) ??
+              songs[0] ??
+              (songId != null ? { id: songId, stanza: undefined } : undefined);
             if (!pick) return;
             e.preventDefault();
             e.stopPropagation();
@@ -496,20 +568,21 @@ export function SongsPanel({
           </Tooltip>
         )}
       </Group>
-      {topicList.length > 0 && !meaning && (
-        <Select
+      {groupings.length > 1 && !query.trim() && (
+        <SegmentedControl
           size="xs"
           mt="xs"
-          aria-label={tr('Тема')}
-          data={[
-            { value: '', label: tr('Усі теми') },
-            ...topicList.map((t) => ({ value: t.name, label: `${t.name} (${t.count})` })),
-          ]}
-          value={inTopic}
-          onChange={(v) => setTopic(v ?? '')}
-          allowDeselect={false}
-          searchable
-          comboboxProps={{ withinPortal: true }}
+          fullWidth
+          aria-label={tr('Групувати')}
+          value={groupedBy}
+          onChange={(v) => {
+            setGrouping(v as Grouping);
+            keepGrouping(v as Grouping);
+          }}
+          data={groupings.map((g) => ({
+            value: g,
+            label: g === 'none' ? tr('Без груп') : g === 'bundles' ? tr('Набори') : tr('Теми'),
+          }))}
         />
       )}
       {imported && (
@@ -549,62 +622,51 @@ export function SongsPanel({
       )}
       <ScrollArea style={{ flex: 1 }} mt="xs" scrollbars="y" className="vo-scroll-rows">
         <Stack gap={0}>
-          {songs.map((s) => (
-            <Box
-              key={s.id}
-              className="vo-list-item"
-              role="button"
-              tabIndex={0}
-              data-selected={s.id === songId ? 'true' : undefined}
-              onClick={() => {
-                openOnly(s.id);
-                setHint(s.stanza !== undefined ? { songId: s.id, stanza: s.stanza } : null);
-              }}
-              onKeyDown={(e) => {
-                // Enter: open it and show its first stanza (F1017-01); Space: only open it
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  openAndShow(s.id);
-                  setHint(s.stanza !== undefined ? { songId: s.id, stanza: s.stanza } : null);
-                } else if (e.key === ' ') {
-                  e.preventDefault();
-                  openOnly(s.id);
-                  setHint(s.stanza !== undefined ? { songId: s.id, stanza: s.stanza } : null);
+          {groupedBy !== 'none' &&
+            (groupedBy === 'bundles'
+              ? bundles.map(
+                  (b): GroupOf => ({
+                    key: `b:${b.name}`,
+                    name: b.name,
+                    count: b.count,
+                    bundle: b.name,
+                  }),
+                )
+              : topicList.map(
+                  (t): GroupOf => ({
+                    key: `t:${t.name}`,
+                    name: t.name,
+                    count: t.count,
+                    bundle: inBundle,
+                    topic: t.name,
+                  }),
+                )
+            ).map((g) => (
+              <SongGroup
+                key={g.key}
+                name={g.name}
+                count={g.count}
+                open={unfolded.has(g.key)}
+                onToggle={() =>
+                  setUnfolded((u) => {
+                    const next = new Set(u);
+                    if (!next.delete(g.key)) next.add(g.key);
+                    return next;
+                  })
                 }
-              }}
-            >
-              {several && !inBundle && s.bundle && (
-                <Badge size="xs" variant="light" color="gray" mr={4}>
-                  {s.bundle}
-                </Badge>
-              )}
-              {s.number != null && (
-                <Badge size="xs" variant="light" mr={6}>
-                  {s.number}
-                </Badge>
-              )}
-              {s.title}
-              {s.closeness !== undefined && (
-                <>
-                  {' '}
-                  <Closeness level={s.closeness as 1 | 2 | 3} />
-                  {s.line && (
-                    <Text size="xs" c="dimmed" lineClamp={1}>
-                      {s.line}
-                    </Text>
-                  )}
-                </>
-              )}
-            </Box>
-          ))}
+                bundle={g.bundle || undefined}
+                topic={g.topic}
+                row={row}
+              />
+            ))}
+          {groupedBy === 'none' && songs.map((s) => row(s))}
           {/* the songs' vectors still being made (1.25.0-beta.1): what is found is not all yet */}
           {meaning && found?.pending && (
             <Text size="xs" c="dimmed" p="sm">
               {tr('Ще обчислюється ({done} з {total}) — знайдено не все', found.pending)}
             </Text>
           )}
-          {(debounced || inTopic) && songs.length === 0 && !fetching && (
+          {debounced && songs.length === 0 && !fetching && (
             <Text size="sm" c="dimmed" p="sm">
               {found?.missing === 'model'
                 ? tr(
@@ -836,5 +898,93 @@ function SongTopicsInput({
       clearable={false}
       comboboxProps={{ withinPortal: true }}
     />
+  );
+}
+
+type Grouping = 'none' | 'bundles' | 'topics';
+/** A group of the songs list: a bundle, or a topic (of the bundle chosen, if one is). */
+interface GroupOf {
+  key: string;
+  name: string;
+  count: number;
+  bundle: string;
+  topic?: string;
+}
+const GROUPING_KEY = 'vo:songGrouping';
+/** The grouping last chosen (this browser's convenience; none when storage is unavailable). */
+function readGrouping(): Grouping {
+  try {
+    const v = localStorage.getItem(GROUPING_KEY);
+    return v === 'bundles' || v === 'topics' ? v : 'none';
+  } catch {
+    return 'none';
+  }
+}
+function keepGrouping(g: Grouping): void {
+  try {
+    localStorage.setItem(GROUPING_KEY, g);
+  } catch {
+    /* private window: the choice lasts this visit */
+  }
+}
+
+/** A folded group of the songs list (1.25.0-beta.3): its songs asked for only when it opens. */
+function SongGroup({
+  name,
+  count,
+  open,
+  onToggle,
+  bundle,
+  topic,
+  row,
+}: {
+  name: string;
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+  bundle?: string;
+  topic?: string;
+  row: (s: SongRow) => ReactNode;
+}) {
+  useLang();
+  const songs = useQuery({
+    queryKey: ['songs', '', bundle ?? '', topic ?? ''],
+    queryFn: () => api.songs('', bundle, topic),
+    enabled: open,
+  });
+  return (
+    <>
+      <Box
+        className="vo-list-item"
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        data-song-group={name}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+      >
+        <Group gap={6} wrap="nowrap" justify="space-between">
+          <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
+            {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+            <Text size="sm" fw={500} truncate>
+              {name}
+            </Text>
+          </Group>
+          <Badge size="xs" variant="light" color="gray">
+            {count}
+          </Badge>
+        </Group>
+      </Box>
+      {open && (
+        <Box pl="md">
+          {songs.isPending ? <Loader size="xs" m="xs" /> : (songs.data ?? []).map((s) => row(s))}
+        </Box>
+      )}
+    </>
   );
 }

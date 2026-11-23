@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import type { ShownThing } from '@vo/shared';
 
 /**
  * «Статистика показу» (1.18.0-beta.4): what was on screen, when and how long — in data/stats.db,
@@ -317,6 +318,40 @@ export function createStats(file: string, now: () => number = Date.now) {
       .all(from, to) as ShownRow[];
   }
 
+  /**
+   * Every passage and song ever shown, once each (1.25.0-beta.3, «~» in «Історія»): how many times,
+   * when last, under the label of its last showing.
+   */
+  function things(): ShownThing[] {
+    const rows = db
+      .prepare(
+        `SELECT kind, MAX(at) AS last, label, book, chapter, verse_from, verse_to, song_id,
+           COUNT(*) AS shows FROM shown WHERE kind IN ('verses', 'song') GROUP BY key`,
+      )
+      .all() as {
+      kind: 'verses' | 'song';
+      last: number;
+      label: string;
+      book: number | null;
+      chapter: number | null;
+      verse_from: number | null;
+      verse_to: number | null;
+      song_id: number | null;
+      shows: number;
+    }[];
+    return rows.map((r) => ({
+      kind: r.kind,
+      label: r.label,
+      shows: r.shows,
+      last: r.last,
+      ...(r.book != null ? { book: r.book } : {}),
+      ...(r.chapter != null ? { chapter: r.chapter } : {}),
+      ...(r.verse_from != null ? { from: r.verse_from } : {}),
+      ...(r.verse_to != null ? { to: r.verse_to } : {}),
+      ...(r.song_id != null ? { songId: r.song_id } : {}),
+    }));
+  }
+
   /** Every showing gone (the operator's «Очистити статистику»); what is on screen starts again. */
   function clear(): void {
     db.prepare('DELETE FROM shown').run();
@@ -330,7 +365,7 @@ export function createStats(file: string, now: () => number = Date.now) {
     db.close();
   }
 
-  return { note, close, summary, rows, clear, shutdown };
+  return { note, close, summary, rows, things, clear, shutdown };
 }
 
 export type Stats = ReturnType<typeof createStats>;

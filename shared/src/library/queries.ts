@@ -88,6 +88,31 @@ export interface SongMeaningResponse {
   results: SongMeaningHit[];
   missing?: 'model' | 'vectors' | 'server';
 }
+/**
+ * A passage or a song shown before (1.25.0-beta.3, data/stats.db), once each: how many times, when
+ * last (ms), under the label it was last shown with.
+ */
+export interface ShownThing {
+  kind: 'verses' | 'song';
+  label: string;
+  shows: number;
+  last: number;
+  book?: number;
+  chapter?: number;
+  from?: number;
+  to?: number;
+  songId?: number;
+}
+/** A thing shown before, found by meaning: how close (1–3); a passage, the translation it was weighed in. */
+export interface ShownMeaningHit extends ShownThing {
+  closeness: number;
+  translationId?: number;
+}
+/** «~ …» in «Історія»: what was shown on the theme, or the part missing. */
+export interface ShownMeaningResponse {
+  results: ShownMeaningHit[];
+  missing?: 'model' | 'vectors' | 'server';
+}
 export interface SongSlideOut {
   text: string;
   /** Faithful pptx style {bg,color,font,bold,align,x,y,w,h} or null. */
@@ -178,6 +203,8 @@ const MEANING_POOL = 200;
 /** How many song passages are weighed, and how many songs a query by meaning returns (1.25.0-beta.1). */
 const SONG_MEANING_POOL = 600;
 const SONG_MEANING_LIMIT = 40;
+/** «~ …» in «Історія» (1.25.0-beta.3): at most this many things shown before */
+const SHOWN_MEANING_LIMIT = 40;
 /** A word in more verses than this is common anyway: its count stops there. */
 const STEM_CAP = 3000;
 
@@ -879,6 +906,161 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
         };
       }),
     };
+  }
+
+  /**
+   * What was shown on a theme (1.25.0-beta.3, the author: «~» in «Історія», по всіх показах): the
+   * passages and songs shown before (`items`, from data/stats.db), each by its vectors — a passage
+   * by its verses in the first of `ids` with vectors of the model (else any translation that has
+   * them), a song by its passages — taken as a song is in «~ тема» (songScore). The nearest first.
+   */
+  async function shownByMeaning(
+    text: string,
+    items: ShownThing[],
+    ids: number[],
+  ): Promise<ShownMeaningResponse> {
+    const words = text.replace(MEANING_PREFIX, '').trim();
+    if (!words || !items.length) return { results: [] };
+    if (pg) return { results: [], missing: 'server' };
+    if (!opts.embed) return { results: [], missing: 'model' };
+    const models = new Set<string>();
+    for (const sql of [
+      'SELECT DISTINCT model FROM vector_sets WHERE done = 1',
+      'SELECT DISTINCT model FROM song_vectors',
+    ])
+      try {
+        for (const r of await db.all<AnyRow>(sql)) models.add(String(r.model));
+      } catch {
+        /* no vectors file attached, or none of this kind */
+      }
+    if (!models.size) return { results: [], missing: 'vectors' };
+    const asked = await opts.embed(words, [...models]);
+    if (!asked) return { results: [], missing: 'model' };
+    const capitalized = capitalizeWords(words);
+    const also = capitalized !== words ? await opts.embed(capitalized, [asked.model]) : null;
+    const q = also?.model === asked.model ? blendVectors(asked.vec, also.vec) : asked.vec;
+    const d = q.length;
+    const cosOf = (vecs: Uint8Array, i: number) => {
+      const x = new Int8Array(vecs.buffer, vecs.byteOffset + i * d, d);
+      let sum = 0;
+      for (let j = 0; j < d; j++) sum += x[j] * q[j];
+      return sum / (127 * 127);
+    };
+
+    // the passages: one translation's chapters of this model
+    const passages = items.filter((t) => t.kind === 'verses' && t.book && t.chapter);
+    let chapters = new Map<string, ChapterVectors>();
+    let passagesIn: number | undefined;
+    if (passages.length) {
+      let sets = ids.length ? await vectorTranslations(asked.model, ids) : [];
+      if (!sets.length) {
+        const any = await db
+          .get<AnyRow>(
+            `SELECT t.id, s.source_hash FROM vector_sets s
+             JOIN translations t ON t.source_hash = s.source_hash
+             WHERE s.model = ? AND s.done = 1 ORDER BY s.verses DESC, t.id`,
+            [asked.model],
+          )
+          .catch(() => undefined);
+        if (any)
+          sets = [{ id: Number(any.id), hash: String(any.source_hash), language: '', verses: 0 }];
+      }
+      passagesIn = sets[0]?.id;
+      if (sets.length)
+        chapters = new Map(
+          (await chapterVectors(asked.model, sets[0].hash)).map((c) => [
+            `${c.book}:${c.chapter}`,
+            c,
+          ]),
+        );
+    }
+    // the songs: their rows of this model
+    const songIds = items.filter((t) => t.kind === 'song' && t.songId).map((t) => t.songId!);
+    const songVecs = new Map<number, Uint8Array>();
+    if (songIds.length)
+      try {
+        for (let k = 0; k < songIds.length; k += 500) {
+          const part = songIds.slice(k, k + 500);
+          for (const r of await db.all<AnyRow>(
+            `SELECT song_id, vecs FROM song_vectors WHERE model = ? AND song_id IN (${placeholders(part.length)})`,
+            [asked.model, ...part],
+          ))
+            songVecs.set(Number(r.song_id), r.vecs as Uint8Array);
+        }
+      } catch {
+        /* no song vectors */
+      }
+
+    const scored: { item: ShownThing; score: number }[] = [];
+    for (const item of items) {
+      const cos: number[] = [];
+      if (item.kind === 'verses') {
+        const c = chapters.get(`${item.book}:${item.chapter}`);
+        if (!c) continue;
+        const nums = new DataView(c.verses.buffer, c.verses.byteOffset, c.verses.byteLength);
+        const n = Math.min(c.vecs.byteLength / d, nums.byteLength / 2);
+        for (let i = 0; i < n; i++) {
+          const v = nums.getInt16(i * 2, true);
+          if (item.from !== undefined && (v < item.from || v > (item.to ?? item.from))) continue;
+          cos.push(cosOf(c.vecs, i));
+        }
+      } else {
+        const v = item.songId ? songVecs.get(item.songId) : undefined;
+        if (!v) continue;
+        for (let i = 0; i < v.byteLength / d; i++) cos.push(cosOf(v, i));
+      }
+      if (cos.length) scored.push({ item, score: songScore(cos) });
+    }
+    if (!scored.length) return { results: [], missing: 'vectors' };
+    const { cut } = isEmbedModelId(asked.model)
+      ? EMBED_MODELS[asked.model].ranking
+      : DEFAULT_RANKING;
+    // passages and songs each against their own best: a stanza is nearer a short theme than any
+    // verse is, so one scale put every song above the passage that fits best (measured: «~
+    // воскресіння Христа» had Мт 28 fourth, under songs about baptism and the Sabbath)
+    const kept: { hit: ShownMeaningHit; gap: number; score: number }[] = [];
+    for (const kind of ['verses', 'song'] as const) {
+      const mine = scored
+        .filter((h) => h.item.kind === kind)
+        .sort((a, b) => b.score - a.score || b.item.last - a.item.last);
+      const top = mine[0]?.score ?? 0;
+      mine
+        .filter((h, i) => i < MEANING_MIN || top - h.score <= cut)
+        .forEach((h) =>
+          kept.push({
+            hit: {
+              ...h.item,
+              closeness: closenessOf(top - h.score, cut),
+              ...(kind === 'verses' && passagesIn ? { translationId: passagesIn } : {}),
+            },
+            gap: top - h.score,
+            score: h.score,
+          }),
+        );
+    }
+    kept.sort((a, b) => a.gap - b.gap || b.score - a.score);
+    const results = kept.slice(0, SHOWN_MEANING_LIMIT).map((k) => k.hit);
+    // a passage's label from its place, in the translation it was weighed in: what a showing kept
+    // as its label is the screen's caption, at times the verse's own text
+    const lead = passagesIn ?? ids[0];
+    if (lead && results.some((r) => r.kind === 'verses')) {
+      const names = new Map(
+        (
+          await db.all<AnyRow>(
+            'SELECT book_number, short_name FROM books WHERE translation_id = ?',
+            [lead],
+          )
+        ).map((r) => [Number(r.book_number), String(r.short_name)]),
+      );
+      for (const r of results) {
+        const name = r.kind === 'verses' && r.book ? names.get(r.book) : undefined;
+        if (!name) continue;
+        const span =
+          r.from === undefined ? '' : `:${r.from}${r.to && r.to > r.from ? `–${r.to}` : ''}`;
+        r.label = `${name} ${r.chapter}${span}`;
+      }
+    }
+    return { results };
   }
 
   /** A song with its stanzas (one per slide). */
@@ -1838,6 +2020,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     getCommentary,
     searchSongs,
     searchSongsByMeaning,
+    shownByMeaning,
     listSongTopics,
     listSongBundles,
     getSong,

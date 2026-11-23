@@ -11,7 +11,9 @@ import {
   songPassages,
   songPassagesHash,
   songScore,
+  packChapter,
   type Embedder,
+  type ShownThing,
 } from '@vo/shared';
 import { betterSqliteDriver } from './db';
 import { createSongVectorJob, songVectorCounts } from './songVectors';
@@ -96,7 +98,8 @@ function fakeOpen(calls: string[][]) {
   });
 }
 
-describe('the songs’ vectors and «~ …»', () => {
+// a model in a child process and a few files each: slow on a loaded CI machine (8 s seen on #144)
+describe('the songs’ vectors and «~ …»', { timeout: 20_000 }, () => {
   it('a row per song; a second pass embeds only what changed', async () => {
     const dataDir = mkTmp();
     const lib = path.join(dataDir, 'library.db');
@@ -169,5 +172,51 @@ describe('the songs’ vectors and «~ …»', () => {
     expect((await bare.searchSongsByMeaning('~ спасіння')).missing).toBe('vectors');
     c.close();
     c2.close();
+  });
+
+  it('«~ …» in «Історія»: passages and songs shown before, the nearest first (1.25.0-beta.3)', async () => {
+    const dataDir = mkTmp();
+    const lib = path.join(dataDir, 'library.db');
+    library(lib);
+    const job = createSongVectorJob({ dataDir, libraryPath: lib, open: fakeOpen([]) });
+    job.start('fast');
+    await vi.waitFor(() => expect(job.state().phase).toBe('done'));
+    // one translation's chapter: verse 1 about salvation, 2 about praise, 3 about the night
+    const w = new Database(lib);
+    w.prepare("INSERT INTO translations (id, abbr, source_hash) VALUES (1, 'T', 'h1')").run();
+    w.close();
+    const v = new Database(vectorsPath(dataDir));
+    v.prepare(
+      "INSERT INTO vector_sets (model, source_hash, abbr, verses, done) VALUES ('fast', 'h1', 'T', 3, 1)",
+    ).run();
+    const p = packChapter([1, 2, 3], ['спасіння', 'хвала', 'ніч'].map(themeVec));
+    v.prepare(
+      "INSERT INTO chapter_vectors (model, source_hash, book, chapter, verses, vecs) VALUES ('fast', 'h1', 500, 3, ?, ?)",
+    ).run(p.verses, p.vecs);
+    v.close();
+    const c = new Database(lib, { readonly: true });
+    c.prepare('ATTACH DATABASE ? AS vectors').run(vectorsPath(dataDir));
+    const l = createLibrary(
+      betterSqliteDriver(() => c),
+      { embed: async (text) => ({ model: 'fast', vec: themeVec(text) }) },
+    );
+    const items: ShownThing[] = [
+      { kind: 'verses', label: 'Ів 3:2', book: 500, chapter: 3, from: 2, to: 2, shows: 1, last: 1 },
+      { kind: 'verses', label: 'Ів 3:1', book: 500, chapter: 3, from: 1, to: 1, shows: 2, last: 2 },
+      { kind: 'song', label: '№2', songId: 102, shows: 1, last: 3 },
+      { kind: 'verses', label: 'Мт 1:1', book: 470, chapter: 1, from: 1, to: 1, shows: 1, last: 4 },
+    ];
+    const praise = await l.shownByMeaning('~ хвала', items, [1]);
+    expect(
+      praise.results
+        .map((r) => r.label)
+        .slice(0, 2)
+        .sort(),
+    ).toEqual(['Ів 3:2', '№2']);
+    expect(praise.results.some((r) => r.label === 'Мт 1:1')).toBe(false); // no vectors: left out
+    const saved = await l.shownByMeaning('~ спасіння', items, [99]); // another translation: any set
+    expect(saved.results[0]).toMatchObject({ label: 'Ів 3:1', closeness: 3, shows: 2 });
+    expect(await l.shownByMeaning('~ спасіння', [], [1])).toEqual({ results: [] });
+    c.close();
   });
 });

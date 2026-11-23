@@ -3607,6 +3607,21 @@ app.get('/api/stats/day', requireLocal, (req, res) => {
   const end = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 1).getTime();
   res.json({ day: localDay(start), rows: stats.rows(start, end), now: Date.now() });
 });
+/**
+ * «~ тема» in «Історія» (1.25.0-beta.3, the author: «по всіх показах»): the passages and songs ever
+ * shown, the nearest to the theme first. `t`: the translations asked (the first with vectors leads).
+ */
+app.get(
+  '/api/stats/meaning',
+  requireLocal,
+  wrap(async (req, res) => {
+    const ids = String(req.query.t ?? '')
+      .split(',')
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n > 0);
+    res.json(await library().shownByMeaning(String(req.query.q ?? ''), stats.things(), ids));
+  }),
+);
 app.get('/api/stats/export', requireLocal, (req, res) => {
   const { from, to } = period(req.query);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
