@@ -174,6 +174,13 @@ function keepPlace(win: BrowserWindow): void {
 const outputs = new Set<BrowserWindow>();
 /** the output windows that were opened fullscreen (always-on-top): the ones «Поступитися» toggles */
 const fullscreenOutputs = new WeakSet<BrowserWindow>();
+/**
+ * The output windows a screen's unplug moved (1.24.0-beta.2): kept, so that the screen plugged back
+ * gets the same windows back, full screen, instead of new ones.
+ */
+const displaced = new Set<BrowserWindow>();
+/** …and on a Mac hidden: with Stage Manager on, macOS doesn't minimize a window for the program */
+const setAside = new WeakSet<BrowserWindow>();
 
 // «Поступитися екраном» for a video (1.21.0-beta.7, F1024-08): an output window (only a fullscreen
 // one — a windowed output never hogs the screen) drops its always-on-top so the operator's own
@@ -191,9 +198,13 @@ ipcMain.on('vo-output-yield', (e, on: unknown) => {
 // Win+M, Win+↓) it had no button to come back from — «треба закрити й відкрити». Minimized, it gets
 // one; and it comes back by itself (not taking the keyboard from the control window) when something
 // new goes on screen or «Вікно показу» is pressed: the page asks, `vo-output-restore`.
-ipcMain.on('vo-output-restore', (e) => {
+ipcMain.on('vo-output-restore', (e, asked: unknown) => {
   const w = BrowserWindow.fromWebContents(e.sender);
-  if (!w || !outputs.has(w) || !w.isMinimized()) return;
+  if (!w || !outputs.has(w) || !(w.isMinimized() || setAside.has(w))) return;
+  // put aside because its screen went: a new slide doesn't bring it over the operator, only
+  // «Вікно показу» does (an older page doesn't say which: it comes, as before)
+  if (displaced.has(w) && asked === false) return;
+  setAside.delete(w);
   w.showInactive();
   if (w.isMinimized()) w.restore();
   if (control && !control.isDestroyed() && control.isVisible()) control.focus();
@@ -355,9 +366,17 @@ function openControl(): BrowserWindow {
         })
         .catch(() => undefined);
     };
-    // as soon as there is a page: a framed window is in the hall's sight as short as can be
-    child.webContents.on('dom-ready', fullAgain);
-    child.webContents.on('did-finish-load', fullAgain);
+    if (process.platform === 'darwin') {
+      // a Mac's full screen is a Space, left with an animation (~0.6 s): asked for during it, the page
+      // hears «full screen» but the window stays framed in the hall's sight. So after its end — not in
+      // its event either, the window still counts as on its way there
+      child.on('leave-full-screen', () => setTimeout(fullAgain, 0));
+      child.webContents.on('did-finish-load', () => setTimeout(fullAgain, 2000));
+    } else {
+      // as soon as there is a page: a framed window is in the hall's sight as short as can be
+      child.webContents.on('dom-ready', fullAgain);
+      child.webContents.on('did-finish-load', fullAgain);
+    }
     const full = pendingFullscreen.get(url) ?? false;
     pendingFullscreen.delete(url);
     if (!full) return;
@@ -494,25 +513,34 @@ async function updateNow(win: BrowserWindow, version: string): Promise<void> {
   win.reload();
 }
 
-/**
- * The output windows a screen's unplug moved (1.24.0-beta.2): kept, so that the screen plugged back
- * gets the same windows back, full screen, instead of new ones.
- */
-const displaced = new Set<BrowserWindow>();
-
 /** Back, full screen and on top, on `d` — as an output opened there would be. */
 function returnOutput(w: BrowserWindow, d: Electron.Display): void {
   // its place first, then back — the one fullscreen request below is made on that screen (review)
   w.setBounds({ ...d.bounds });
   if (w.isMinimized()) w.restore();
+  setAside.delete(w);
   w.showInactive();
   w.setAlwaysOnTop(true);
   w.setSkipTaskbar(true);
-  void w.webContents
+  void askFullscreen(w);
+  // a Mac: a window just shown again may not be drawn yet, and its page's request is then lost — until
+  // the window itself is full screen
+  if (process.platform === 'darwin')
+    for (const ms of [700, 2000, 4000])
+      setTimeout(() => {
+        if (w.isDestroyed() || w.isFullScreen() || displaced.has(w)) return;
+        void askFullscreen(w);
+      }, ms);
+}
+
+/** The page's own full screen, with no click first; whether it got it. */
+function askFullscreen(w: BrowserWindow): Promise<boolean> {
+  return w.webContents
     .executeJavaScript(
       'document.fullscreenElement ? true : document.documentElement.requestFullscreen().then(() => true, () => false)',
       true,
     )
+    .then((ok) => ok === true)
     .catch(() => false);
 }
 
@@ -564,15 +592,28 @@ function followDisplays(): void {
       w.setFullScreen(false);
       w.setAlwaysOnTop(false);
       w.setSkipTaskbar(false);
-      w.setBounds({ x: main.bounds.x + 80, y: main.bounds.y + 80, width: 960, height: 540 });
-      if (!wasOnTheOther) continue;
-      // out of the operator's way until its screen comes back (it has a taskbar button now); not
-      // full screen any more — its 'restore' must not ask for it on the control window's screen
-      fullscreenOutputs.delete(w);
-      lost = true;
-      displaced.add(w);
-      w.once('closed', () => displaced.delete(w));
-      w.minimize();
+      const place = () => {
+        // closed, or its screen is back already
+        if (w.isDestroyed() || (wasOnTheOther && !displaced.has(w))) return;
+        w.setBounds({ x: main.bounds.x + 80, y: main.bounds.y + 80, width: 960, height: 540 });
+        if (!wasOnTheOther) return;
+        if (process.platform !== 'darwin') return w.minimize();
+        setAside.add(w);
+        w.hide();
+      };
+      if (wasOnTheOther) {
+        // out of the operator's way until its screen comes back (it has a taskbar button now); not
+        // full screen any more — its 'restore' must not ask for it on the control window's screen
+        fullscreenOutputs.delete(w);
+        lost = true;
+        displaced.add(w);
+        w.once('closed', () => displaced.delete(w));
+      }
+      // a Mac's window leaves its full screen with an animation and gets a place of macOS's own at its
+      // end (it stood over the control window): ours after it
+      if (process.platform === 'darwin' && w.isFullScreen())
+        w.once('leave-full-screen', () => setTimeout(place, 0));
+      else place();
     }
   });
 }

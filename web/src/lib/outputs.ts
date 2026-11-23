@@ -234,7 +234,7 @@ async function runCommand(cmd: OutputCommand): Promise<void> {
     if (cmd.do === 'close') window.close();
     else if (cmd.do === 'focus') {
       window.focus();
-      desktopOutputRestore(); // minimized in the desktop app: back, full-screen (F1107-03)
+      desktopOutputRestore(true); // minimized in the desktop app: back, full-screen (F1107-03)
     } else if (cmd.do === 'exitFullscreen') {
       if (document.fullscreenElement) await document.exitFullscreen();
     } else if (cmd.do === 'move') {
