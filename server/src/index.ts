@@ -131,6 +131,7 @@ import {
   topicName,
   type ModuleKind,
   type ParsedDocument,
+  TEXT_MODULE_EXT,
 } from '@vo/shared';
 import { createShortcut } from './shortcut.js';
 import { browserListing, detectBrowsers } from './browsers.js';
@@ -3081,7 +3082,8 @@ app.post(
   wrap(async (req, res) => {
     notDuringRebuild();
     const name = String(req.query.name ?? '');
-    if (!/\.sqlite3$/i.test(name)) throw new ApiError(400, N_('Модуль — це файл .SQLite3'));
+    if (!/\.sqlite3$/i.test(name) && !TEXT_MODULE_EXT.test(name))
+      throw new ApiError(400, N_('Модуль — це файл .SQLite3 або USFM, OSIS, Zefania, VPL'));
     const dir = modulesDir();
     fs.mkdirSync(dir, { recursive: true });
     const tmp = path.join(dir, `.drop-${randomUUID()}.part`);

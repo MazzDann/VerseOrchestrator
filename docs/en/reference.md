@@ -204,7 +204,7 @@ Everything the app remembers is in its folder:
 
 | Path                 | What's there                                                                                             |
 | -------------------- | -------------------------------------------------------------------------------------------------------- |
-| `modules/`           | module files (`*.SQLite3`) the library is built from                                                     |
+| `modules/`           | module files (`*.SQLite3`, USFM, OSIS, Zefania, VPL) the library is built from                                                     |
 | `modules/documents/` | documents (`*.docx`, `*.md`, `*.txt`, `*.pdf`); `.trash/` keeps the last twenty deleted or replaced      |
 | `songs/`             | `.pptx` files with presentations that the app moves into a bundle                                     |
 | `data/songs/`        | presentation bundles (`*.vosongs`)                                                                               |

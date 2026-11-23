@@ -9,6 +9,7 @@ import {
   strongNumbers,
   strongLangFor,
   cleanAbbr,
+  moduleLabel,
   dictTopicNorm,
   strongLang,
 } from '@vo/shared';
@@ -17,6 +18,7 @@ import { readModule } from './bibleModule.js';
 import { readDictionary } from './dictionary.js';
 import { readCrossrefs, readCommentaries, readSubheadingSet } from './extras.js';
 import { writeLibrarySongs } from '@vo/shared';
+import { listTextModules } from '@vo/shared/modules-node';
 import { bundlesDir, legacySongsDir, readBundles, syncFolderBundle } from '@vo/shared/songs-node';
 import { documentsDir, writeLibraryDocuments } from '@vo/shared/documents-node';
 import { selectModules, SelectionError } from './selection.js';
@@ -47,10 +49,11 @@ const SKIP =
 
 function listModuleFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
-  return fs
+  const sqlite = fs
     .readdirSync(dir)
-    .filter((f) => f.toLowerCase().endsWith('.sqlite3') && !SKIP.test(f))
-    .map((f) => path.join(dir, f));
+    .filter((f) => f.toLowerCase().endsWith('.sqlite3') && !SKIP.test(f));
+  // the text formats too (USFM, OSIS, Zefania, VPL — 1.25.0-beta.6)
+  return [...sqlite, ...listTextModules(dir)].map((f) => path.join(dir, f));
 }
 
 function listDictionaryFiles(dir: string): string[] {
@@ -132,10 +135,7 @@ function buildOnce(): void {
     3;
   let at = 0;
   const step = (name: string) => console.log(`[builder] step ${++at}/${steps} ${name}`);
-  const moduleName = (file: string) =>
-    path
-      .basename(file)
-      .replace(/(\.(dictionary|commentaries|crossreferences|subheadings))?\.SQLite3$/i, '');
+  const moduleName = (file: string) => moduleLabel(path.basename(file));
 
   const run = db.transaction(() => {
     // Create the schema first, then prepare statements against the new tables.
@@ -170,6 +170,10 @@ function buildOnce(): void {
       `INSERT INTO subheadings (translation_id, book_number, chapter, verse, ord, title)
        VALUES (?, ?, ?, ?, ?, ?)`,
     );
+    const insComment = db.prepare(
+      `INSERT INTO commentaries (source, book, chapter_from, verse_from, chapter_to, verse_to, marker, text)
+       VALUES (@source, @book, @chapterFrom, @verseFrom, @chapterTo, @verseTo, @marker, @text)`,
+    );
     const insName = db.prepare(
       `INSERT INTO book_names (translation_id, book_number, name_norm)
        VALUES (@translationId, @bookNumber, @nameNorm)`,
@@ -195,7 +199,7 @@ function buildOnce(): void {
       }
 
       translationId += 1;
-      const abbr = cleanAbbr(name.replace(/\.SQLite3$/i, ''), mod.info.description);
+      const abbr = cleanAbbr(moduleLabel(name), mod.info.description);
       const hash = textHash(
         mod.verses.map((v) => ({
           book_number: v.book_number,
@@ -265,6 +269,22 @@ function buildOnce(): void {
           }
         }
       }
+
+      // a text module's footnotes: commentaries named after the translation
+      for (const n of mod.notes)
+        insComment.run({
+          source: abbr,
+          book: n.book,
+          chapterFrom: n.chapter,
+          verseFrom: n.verse,
+          chapterTo: n.chapter,
+          verseTo: n.verse,
+          marker: n.marker,
+          text: cleanDefinition(n.text),
+        });
+      if (mod.notes.length) console.log(`[builder]     ${mod.notes.length} notes`);
+      if (mod.skipped.length)
+        console.warn(`[builder]   ! ${name}: no such books here — ${mod.skipped.join(', ')}`);
 
       totalVerses += mod.verses.length;
       if (strongRows > 0) {
@@ -346,10 +366,6 @@ function buildOnce(): void {
     }
 
     // Commentaries — one `source` per module; clean the HTML to plain text at import.
-    const insComment = db.prepare(
-      `INSERT INTO commentaries (source, book, chapter_from, verse_from, chapter_to, verse_to, marker, text)
-       VALUES (@source, @book, @chapterFrom, @verseFrom, @chapterTo, @verseTo, @marker, @text)`,
-    );
     for (const file of commentaryFiles) {
       step(moduleName(file));
       const source = path.basename(file).replace(/\.commentaries\.SQLite3$/i, '');

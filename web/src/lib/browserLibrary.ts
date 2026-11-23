@@ -3,9 +3,14 @@ import { notifications } from '@mantine/notifications';
 import { useDataSource } from '../dataSourceStore';
 import { tr } from '../i18n';
 import { addDroppedFile, type Dropped } from './engine/restore';
+import { isTextModuleFile, joinUsfm } from './moduleDrop';
 
-/** The files the browser's engine takes: modules (.SQLite3, converted here) and library segments. */
-export const BROWSER_DROPPABLE = /\.(sqlite3|vodb|vodb\.gz)$/i;
+/**
+ * Can the browser's engine take the file: a module (.SQLite3 or a text format — converted here) or a
+ * library segment?
+ */
+export const isBrowserDroppable = async (f: File) =>
+  /\.(sqlite3|vodb|vodb\.gz)$/i.test(f.name) || isTextModuleFile(f);
 
 /**
  * Modules and segments into this browser's engine (0.3.8; from anywhere on the window since
@@ -17,7 +22,7 @@ export async function addToBrowserLibrary(
   queryClient: QueryClient,
   onProgress?: (done: number, total: number, label: string) => void,
 ): Promise<Dropped[]> {
-  const list = files.filter((f) => BROWSER_DROPPABLE.test(f.name));
+  const list = await joinUsfm(files);
   const added: Dropped[] = [];
   try {
     for (const [i, f] of list.entries()) {

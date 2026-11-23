@@ -130,8 +130,15 @@ function keysOf(file: string, src: string): Key[] {
 const files = SOURCES.flatMap((d) => walk(path.join(ROOT, d))).filter(
   (f) => !f.endsWith(path.join('i18n', 'en.ts')),
 );
-/** Not interface at all: a developer's command-line benchmark whose Ukrainian is its queries. */
-const NOT_INTERFACE = new Set(['server/src/bench.ts']);
+/**
+ * Not interface at all: a developer's command-line benchmark whose Ukrainian is its queries, the book
+ * names a module without its own gets (in the module's language), the letters a language is told by.
+ */
+const NOT_INTERFACE = new Set([
+  'server/src/bench.ts',
+  'shared/src/library/formats/books.ts',
+  'shared/src/library/formats/language.ts',
+]);
 const TRANSLATED = files
   .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
   .filter((rel) => !NOT_INTERFACE.has(rel));

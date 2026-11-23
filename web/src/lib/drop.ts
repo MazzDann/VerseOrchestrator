@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { TEXT_MODULE_SURE_EXT } from '@vo/shared';
 
 /**
  * Files and folders dropped on the control window (1.14.0-beta.1, the author's ask: «перетягнута
@@ -12,7 +13,7 @@ export type DroppedKind =
   | 'video'
   /** a .docx / .md / .txt / .pdf (1.17.0) */
   | 'document'
-  /** a module (.SQLite3, 1.17.1): into the library */
+  /** a module (.SQLite3, 1.17.1; a text format, 1.25.0-beta.6): into the library */
   | 'module'
   /** a library segment (.vodb): into the browser's engine */
   | 'segment'
@@ -31,7 +32,8 @@ export function droppedKind(file: { name: string; type: string }): DroppedKind {
   const name = file.name.replace(/^.*[\\/]/, '');
   if (file.type.startsWith('image/') || IMAGE_EXT.test(name)) return 'image';
   if (file.type.startsWith('video/') || VIDEO_EXT.test(name)) return 'video';
-  if (/\.sqlite3$/i.test(name)) return 'module';
+  // a text format's own extension; .xml, .txt, .zip are told by content (moduleDrop.ts)
+  if (/\.sqlite3$/i.test(name) || TEXT_MODULE_SURE_EXT.test(name)) return 'module';
   if (/\.vodb(\.gz)?$/i.test(name)) return 'segment';
   if (/\.pptx$/i.test(name) && !name.startsWith('~$')) return 'song';
   // the vectors file travels by its name (data/vectors.db), a copy perhaps renamed

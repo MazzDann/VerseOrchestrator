@@ -4,7 +4,7 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { VECTORS_SQL } from '@vo/shared';
-import { mergeVectors, moduleFileName, placeModule } from './dropImport.js';
+import { mergeVectors, moduleFileName, placeModule, textModuleFileName } from './dropImport.js';
 
 let dir = '';
 afterEach(() => {
@@ -58,6 +58,35 @@ describe('a module dropped anywhere (1.17.1)', () => {
     fs.writeFileSync(t, 'not sqlite');
     expect(() => placeModule(t, 'Y.SQLite3', modules)).toThrow(/не модуль/);
     expect(fs.readdirSync(modules)).toEqual(['Strong.dictionary.SQLite3']);
+  });
+});
+
+describe('a module in a text format dropped (1.25.0-beta.6)', () => {
+  it('keeps its name and bytes; what holds no verses is refused', () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-drop-'));
+    const modules = path.join(dir, 'modules');
+    fs.mkdirSync(modules);
+    const put = (text: string) => {
+      const tmp = path.join(dir, `in-${Math.random()}.part`);
+      fs.writeFileSync(tmp, text);
+      return tmp;
+    };
+    const vpl = 'GEN 1:1 One\nQQQ 1:1 Lost\n';
+    expect(placeModule(put(vpl), 'C:\\x\\abc.vpl.txt', modules)).toEqual({
+      file: 'abc.vpl.txt',
+      kind: 'bibles',
+      same: false,
+      skipped: ['QQQ'],
+    });
+    expect(fs.readFileSync(path.join(modules, 'abc.vpl.txt'), 'utf8')).toBe(vpl);
+    expect(placeModule(put(vpl), 'abc.vpl.txt', modules).same).toBe(true);
+    expect(() => placeModule(put('GEN 1:1 Two\n'), 'abc.vpl.txt', modules)).toThrow(/уже є інший/);
+    expect(() => placeModule(put('A letter\n'), 'note.txt', modules)).toThrow(/не модуль/);
+    expect(() => placeModule(put('\\id GEN\n\\c 1\n'), 'x.usfm', modules)).toThrow(/немає віршів/);
+    expect(fs.readdirSync(modules)).toEqual(['abc.vpl.txt']);
+    expect(textModuleFileName('a:b.osis.xml')).toBe('a_b.osis.xml');
+    expect(textModuleFileName('con.zip')).toBeNull();
+    expect(textModuleFileName('.zip')).toBeNull();
   });
 });
 

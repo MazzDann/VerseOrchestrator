@@ -60,8 +60,10 @@ You can also run the app from a clone of the repository — developers do; see t
 
 ## Add texts and presentations
 
-The app reads texts from module files — `*.SQLite3`. You put
-the files into the app's `modules/` folder yourself; the app downloads nothing.
+The app reads texts from module files — `*.SQLite3`, or Bibles in the USFM, OSIS, Zefania, or VPL
+format (see [Supported module formats](#supported-module-formats)). You put the files into the app's
+`modules/` folder yourself; the app downloads nothing. Whoever adds a file is responsible for the
+rights to it.
 
 The **Modules…** window (**Settings** → **Data** → **Modules: choice for the library…**, or the
 button in the middle of the window while there is no library yet) shows the files in the
@@ -69,7 +71,7 @@ button in the middle of the window while there is no library yet) shows the file
 
 ### Drag a module into the window
 
-The easiest way is to drag a `.SQLite3` module file into the control window, anywhere. The app
+The easiest way is to drag a module file into the control window, anywhere. The app
 puts it into the `modules/` folder (a dictionary, commentaries, cross-references or a set of
 section titles gets its kind in the name, for example `Strong.dictionary.SQLite3`), takes it into
 the library, and rescans the modules. A file with the same name but other content is never
@@ -78,10 +80,28 @@ overwritten — rename one of them.
 Everything else the app takes is dragged in the same way: documents, presentations with presentations,
 pictures, videos, a folder of photos, and the vectors file `vectors.db` from another copy.
 
+### Supported module formats
+
+| Format  | Files                                                                              | What the app takes                                                              |
+| ------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| SQLite3 | `*.SQLite3`                                                                        | Bibles, dictionaries, commentaries, cross-references, section titles            |
+| USFM    | `*.usfm`, `*.sfm` — one book or several; a folder or a `.zip` of books             | verses, words of Jesus, Strong's numbers, section titles, footnotes, book names |
+| OSIS    | `*.osis.xml`, `*.osis`, `*.xml`                                                    | verses, words of Jesus, Strong's numbers and grammar codes, titles, footnotes   |
+| Zefania | `*.xml`                                                                            | verses, words of Jesus, Strong's numbers and grammar codes, titles, footnotes   |
+| VPL     | `*.vpl.txt`, `*.vpl`, `*.txt` — a line per verse: `GEN 1:1 text`                  | verses                                                                          |
+
+A text file can be inside a `.zip` too. The app tells the format of `.xml`, `.txt`, and `.zip` files
+by their content. Several USFM books dragged together, or a folder of them, become one translation.
+Footnotes are shown on the **Context** tab under the translation's name. Verse numbering (the Psalms
+included) stays as it is in the file: next to a translation that numbers differently, the app matches
+the places itself. Books the app doesn't know are left out and named.
+
+Whoever adds a file is responsible for the rights to it.
+
 ### Add module files
 
 1. Copy the modules into the app's `modules/` folder:
-   - Bible translations, for example `KJV.SQLite3`;
+   - Bible translations, for example `KJV.SQLite3` or `KJV.osis.xml`;
    - optionally, a Strong's dictionary (`*.dictionary.SQLite3`), cross-references
      (`*.crossreferences.SQLite3`), and commentaries (`*.commentaries.SQLite3`) for the
      **Strong's** and **Context** tabs.

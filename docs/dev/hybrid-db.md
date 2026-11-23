@@ -82,7 +82,13 @@ checks them against the manifest, keeps them in Cache Storage by hash, and merge
 into its local database (`shared/src/library/merge.ts`).
 
 The browser can also take raw module files — dropped or picked — and convert them in
-the worker with the same rules the builder uses (`shared/src/library/moduleFormat.ts`). The
+the worker with the same rules the builder uses (`shared/src/library/moduleFormat.ts`). A module in
+a text format (USFM, OSIS, Zefania, VPL) goes through one reading too
+(`shared/src/library/textFormats.ts`): the builder takes its rows as they are, the worker first writes
+them as a `.SQLite3` module's tables (`writeModuleTables`) and converts those. A Bible of 31,102
+verses with 376,281 Strong's numbers, medians: reading takes 1.08 s in USFM, 1.22 s in OSIS, 0.93 s in
+Zefania, and 0.11 s in VPL (without the numbers); building the library takes 3.6, 3.8, 3.4, and 1.0 s,
+against 2.6 s from `.SQLite3`. The
 converted segment is cached, so a reload doesn't convert again.
 
 ## Measurements

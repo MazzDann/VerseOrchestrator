@@ -13,6 +13,8 @@ import {
   useDocOpen,
 } from '../../lib/documents';
 import { addToBrowserLibrary } from '../../lib/browserLibrary';
+import { isTextModuleFile, joinUsfm, usfmFolder } from '../../lib/moduleDrop';
+import { skippedBooks } from '../../lib/engine/restore';
 import { effectiveSource } from '../../dataSourceStore';
 import { NEEDS_SERVER } from '../../serverStore';
 import { fileToPicture } from '../../lib/image';
@@ -221,8 +223,13 @@ export function useMediaDrop({
     // server reads it into the library; a Keynote file becomes a .pptx for «Презентації» first
     if (server) await loadConvertKinds();
     for (const { entry, file: dropped } of entries) {
-      if (entry?.isDirectory) folders.push(entry as FileSystemDirectoryEntry);
-      else if (dropped) {
+      if (entry?.isDirectory) {
+        // a folder of USFM books is a translation, any other an album
+        const dir = entry as FileSystemDirectoryEntry;
+        const usfm = await usfmFolder(dir).catch(() => null);
+        if (usfm) by.set('module', [...(by.get('module') ?? []), usfm]);
+        else folders.push(dir);
+      } else if (dropped) {
         let file = dropped;
         if (isConvertedDocument(file.name)) {
           by.set('document', [...(by.get('document') ?? []), file]);
@@ -240,7 +247,7 @@ export function useMediaDrop({
             notifications.show({ message: tr((e as Error).message), color: 'red' });
             continue;
           }
-        const kind = droppedKind(file);
+        const kind = (await isTextModuleFile(file)) ? 'module' : droppedKind(file);
         if (kind === 'other') others.push(file.name);
         else by.set(kind, [...(by.get(kind) ?? []), file]);
       }
@@ -268,7 +275,7 @@ export function useMediaDrop({
       });
     }
     // a module or a segment: into the library (before the rest — a rescan takes a while)
-    const modules = of('module');
+    const modules = await joinUsfm(of('module'));
     const segments = of('segment');
     // modules to the server's library when it serves the reads, else (and segments always) to
     // this browser's engine — once for all of them
@@ -401,7 +408,10 @@ export function useMediaDrop({
           id,
           message: r.same
             ? tr('Модуль «{file}» уже є в modules/', { file: r.file })
-            : tr('Модуль додано: {file}', { file: r.file }),
+            : [
+                tr('Модуль додано: {file}', { file: r.file }),
+                ...(r.skipped?.length ? [skippedBooks(r.skipped)] : []),
+              ].join('. '),
           color: r.same ? 'gray' : 'green',
           loading: false,
           autoClose: 3000,

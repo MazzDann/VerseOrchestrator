@@ -304,8 +304,8 @@ export const EN: Record<string, string> = {
   Готово: 'Done',
   'Бібліотека в браузері готова': 'The library in the browser is ready',
   'Не вдалося: {error}': 'Failed: {error}',
-  'Підходять модулі (.SQLite3) і сегменти (.vodb / .vodb.gz)':
-    'Modules (.SQLite3) and segments (.vodb / .vodb.gz) work here',
+  'Підходять модулі (.SQLite3, USFM, OSIS, Zefania, VPL) і сегменти (.vodb / .vodb.gz)':
+    'Modules (.SQLite3, USFM, OSIS, Zefania, VPL) and segments (.vodb / .vodb.gz) work here',
   Перетворення: 'Converting',
   'Не вдалося додати файл: {error}': "Couldn't add the file: {error}",
   'Запуск: {engine}': 'Starting: {engine}',
@@ -337,8 +337,8 @@ export const EN: Record<string, string> = {
   'Очистити кеш': 'Clear the cache',
   'Кеш браузера недоступний (сторінка відкрита не через localhost/HTTPS) — сегменти щоразу завантажуються з сервера.':
     "The browser cache isn't available (the page isn't opened through localhost/HTTPS) — segments download from the server every time.",
-  'Перетягніть сюди модулі (.SQLite3) — Біблії, словники, коментарі, посилання — або сегменти .vodb':
-    'Drop modules (.SQLite3) here — Bibles, dictionaries, commentaries, cross-references — or .vodb segments',
+  'Перетягніть сюди модулі (.SQLite3, USFM, OSIS, Zefania, VPL) — Біблії, словники, коментарі, посилання — або сегменти .vodb':
+    'Drop modules (.SQLite3, USFM, OSIS, Zefania, VPL) here — Bibles, dictionaries, commentaries, cross-references — or .vodb segments',
   'Вибрати файли…': 'Choose files…',
   'Файл «{name}» більше не в кеші браузера — перетягніть його ще раз':
     "The file “{name}” is no longer in the browser's cache — drop it here again",
@@ -365,8 +365,8 @@ export const EN: Record<string, string> = {
     'The segment {file} was damaged in download (the checksum does not match)',
   'Помилка рушія бази': 'Database engine error',
   'Рушій бази зупинено': 'The database engine stopped',
-  'Це не файл бази SQLite (очікується модуль .SQLite3 або сегмент .vodb / .vodb.gz)':
-    'This is not an SQLite database file (expected a .SQLite3 module or a .vodb / .vodb.gz segment)',
+  'Це не модуль (.SQLite3, USFM, OSIS, Zefania, VPL) і не сегмент (.vodb / .vodb.gz)':
+    'This is neither a module (.SQLite3, USFM, OSIS, Zefania, VPL) nor a segment (.vodb / .vodb.gz)',
   'Це не сегмент бібліотеки — модулі .SQLite3 спершу перетворюються (convert)':
     'This is not a library segment — .SQLite3 modules are converted first (convert)',
   // the control window (web/src/pages/Control.tsx)
@@ -2078,10 +2078,10 @@ export const EN: Record<string, string> = {
   'Модулі: вибір для бібліотеки…': 'Modules: choice for the library…',
   'Модулі…': 'Modules…',
   'Назва файлу': 'File name',
-  'У папці modules/ немає модулів цього виду. Покладіть туди файли .SQLite3 і зберіть бібліотеку.':
-    'The modules/ folder has no modules of this kind. Put .SQLite3 files there and build the library.',
-  'Покладіть модулі (*.SQLite3) у папку modules/ поруч із застосунком і натисніть «Пересканувати модулі». Які модулі брати до бібліотеки — у вікні «Модулі…» нижче.':
-    'Put the modules (*.SQLite3) in the modules/ folder next to the app and click “Rescan modules”. Which modules the library takes is chosen in the “Modules…” window below.',
+  'У папці modules/ немає модулів цього виду. Покладіть туди файли .SQLite3 (Біблії — також USFM, OSIS, Zefania, VPL) і зберіть бібліотеку.':
+    'The modules/ folder has no modules of this kind. Put .SQLite3 files there (Bibles — USFM, OSIS, Zefania, VPL too) and build the library.',
+  'Покладіть модулі (*.SQLite3 або USFM, OSIS, Zefania, VPL) у папку modules/ поруч із застосунком і натисніть «Пересканувати модулі». Які модулі брати до бібліотеки — у вікні «Модулі…» нижче.':
+    'Put the modules (*.SQLite3 or USFM, OSIS, Zefania, VPL) in the modules/ folder next to the app and click “Rescan modules”. Which modules the library takes is chosen in the “Modules…” window below.',
   'Очікую { kind, files }': 'Expected { kind, files }',
   'Або відкрийте модуль прямо в браузері: додайте файл у «Джерело даних» (Налаштування вигляду → Дані) і виберіть «У браузері».':
     'Or open a module right in the browser: add the file under “Data source” (Settings → Data) and choose “In the browser”.',
@@ -2732,8 +2732,8 @@ export const EN: Record<string, string> = {
   'Цього тут немає': 'There is none here',
   'Цього прибрати не можна': 'This can’t be removed',
   // a drop anywhere (1.17.1)
-  'Фото, відео, папку — наступним у показі (і в бібліотеку); документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Презентації», модуль (.SQLite3) — у бібліотеку, vectors.db — у вектори.':
-    'A photo, a video, a folder — next in the show (and into the library); a document (.docx, .md, .txt, .pdf) to «Документи», a presentation (.pptx) to «Презентації», a module (.SQLite3) into the library, vectors.db into the vectors.',
+  'Фото, відео, папку — наступним у показі (і в бібліотеку); документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Презентації», модуль (.SQLite3, USFM, OSIS, Zefania, VPL) — у бібліотеку, vectors.db — у вектори.':
+    'A photo, a video, a folder — next in the show (and into the library); a document (.docx, .md, .txt, .pdf) to «Документи», a presentation (.pptx) to «Презентації», a module (.SQLite3, USFM, OSIS, Zefania, VPL) into the library, vectors.db into the vectors.',
   'Цього застосунок не бере — не додано: {names}':
     'The app doesn’t take these — not added: {names}',
   'Додаю модуль {file}…': 'Adding the module {file}…',
@@ -2752,7 +2752,12 @@ export const EN: Record<string, string> = {
     'modules/ already holds another “{file}” — rename one of them',
   'Це не файл векторів (vectors.db з іншої копії застосунку)':
     'This is no vectors file (vectors.db from another copy of the app)',
-  'Модуль — це файл .SQLite3': 'A module is a .SQLite3 file',
+  'Модуль — це файл .SQLite3 або USFM, OSIS, Zefania, VPL':
+    'A module is a .SQLite3, USFM, OSIS, Zefania or VPL file',
+  'У файлі немає віршів, які можна прочитати (USFM, OSIS, Zefania, VPL)':
+    'The file has no verses that can be read (USFM, OSIS, Zefania, VPL)',
+  'Архів не читається': 'The archive can’t be read',
+  'Пропущено невідомі книги: {codes}': 'Unknown books left out: {codes}',
   'Перетворюю «{file}»…': 'Converting «{file}»…',
   'Файл завеликий — до 512 МБ': 'The file is too big — up to 512 MB',
   'Цей формат тут не перетворюється': 'This format isn’t converted here',

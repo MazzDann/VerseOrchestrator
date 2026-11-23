@@ -128,8 +128,14 @@ export function readMorphology(
   return out;
 }
 
-/** File name without the module extensions: "UKRK.SQLite3" → "UKRK". */
+/** A text module's extensions and the format its name may say («abc_usfm.zip», textFormats.ts). */
+const TEXT_EXT = /(\.(osis|zefania))?\.xml$|(\.vpl)?\.txt$|\.(usfm|sfm|osis|vpl|zip)$/i;
+const TEXT_TAIL = /[-_. ](usfm|sfm|osis|zefania|vpl)$/i;
+
+/** File name without the module extensions: "UKRK.SQLite3" → "UKRK", "abc_usfm.zip" → "abc". */
 export function moduleLabel(fileName: string): string {
+  if (TEXT_EXT.test(fileName))
+    return fileName.replace(TEXT_EXT, '').replace(TEXT_TAIL, '') || fileName;
   return fileName
     .replace(/\.SQLite3$/i, '')
     .replace(/\.(dictionary|commentaries|crossreferences|subheadings)$/i, '');
@@ -344,7 +350,7 @@ function readInfo(src: SyncConn): Record<string, string> {
  * itself (json_each). In WASM every statement run is a JS↔SQLite crossing, and a Strong's
  * Bible has ~300k index rows — per-row inserts cost seconds there (KJV+: 6.5 s).
  */
-function bulk(
+export function bulk(
   conn: SyncConn,
   table: string,
   cols: string[],
@@ -363,6 +369,27 @@ function bulk(
   }
 }
 
+/** The module's notes, as commentaries of `source`; how many. */
+function writeCommentaries(src: SyncConn, out: SyncConn, source: string): number {
+  const notes = readModuleCommentaries((sql) => src.all(sql));
+  bulk(
+    out,
+    'commentaries',
+    ['source', 'book', 'chapter_from', 'verse_from', 'chapter_to', 'verse_to', 'marker', 'text'],
+    notes.map((c) => [
+      source,
+      c.book,
+      c.chapterFrom,
+      c.verseFrom,
+      c.chapterTo,
+      c.verseTo,
+      c.marker,
+      cleanDefinition(c.text),
+    ]),
+  );
+  return notes.length;
+}
+
 /**
  * Convert the module open as `src` into `out` — an empty database with
  * SCHEMA_SQL and SEGMENT_NORM_TABLE_SQL (i.e. a segment). Run it inside a transaction.
@@ -370,7 +397,12 @@ function bulk(
 export function convertModule(
   src: SyncConn,
   out: SyncConn,
-  opts: { fileName: string; id: number },
+  opts: {
+    fileName: string;
+    id: number;
+    /** a Bible's own notes (a text module's footnotes) come in too, as commentaries */
+    notes?: boolean;
+  },
 ): Converted {
   const tables = src
     .all("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -480,6 +512,7 @@ export function convertModule(
         (a[3] as number) - (b[3] as number),
     );
     bulk(out, 'verse_strongs', ['strong', 'lang', 'translation_id', 'verse_id'], strongRows, true);
+    if (opts.notes) writeCommentaries(src, out, abbr);
     return { kind, abbr, title: meta.description || abbr, items: verses.length };
   }
 
@@ -546,23 +579,8 @@ export function convertModule(
   }
 
   if (kind === 'commentaries') {
-    const notes = readModuleCommentaries((sql) => src.all(sql));
-    bulk(
-      out,
-      'commentaries',
-      ['source', 'book', 'chapter_from', 'verse_from', 'chapter_to', 'verse_to', 'marker', 'text'],
-      notes.map((c) => [
-        label,
-        c.book,
-        c.chapterFrom,
-        c.verseFrom,
-        c.chapterTo,
-        c.verseTo,
-        c.marker,
-        cleanDefinition(c.text),
-      ]),
-    );
-    return { kind, abbr: label, title: info.description || label, items: notes.length };
+    const items = writeCommentaries(src, out, label);
+    return { kind, abbr: label, title: info.description || label, items };
   }
 
   const refs = src.all(MODULE_CROSSREFS_SQL);

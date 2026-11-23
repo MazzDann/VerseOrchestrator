@@ -132,7 +132,7 @@ function LibraryList() {
             files.length
               ? tr('Нічого не знайдено за «{query}»', { query })
               : tr(
-                  'У папці modules/ немає модулів цього виду. Покладіть туди файли .SQLite3 і зберіть бібліотеку.',
+                  'У папці modules/ немає модулів цього виду. Покладіть туди файли .SQLite3 (Біблії — також USFM, OSIS, Zefania, VPL) і зберіть бібліотеку.',
                 )
           }
           renderRow={(f) => (

@@ -223,7 +223,10 @@ export type LibraryState =
 
 const hasModules = (dir: string) => {
   try {
-    return fs.readdirSync(dir).some((f) => /\.sqlite3$/i.test(f));
+    // a module in a text format too (the builder tells them by content)
+    return fs
+      .readdirSync(dir)
+      .some((f) => /\.(sqlite3|usfm|sfm|osis|vpl|xml|zip)$/i.test(f) || /\.vpl\.txt$/i.test(f));
   } catch {
     return false;
   }
