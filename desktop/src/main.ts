@@ -602,27 +602,107 @@ function grantPermissions(): void {
 
 /**
  * No browser menu: its keys (Ctrl+F, Ctrl+R, Ctrl+W…) reach the app's own. A Mac keeps the menu
- * bar it can't do without — the app menu (⌘Q) and Edit (copy, paste in the fields).
+ * bar it can't do without — the app menu (⌘Q, «Налаштування…»), Edit (copy, paste in the fields) and
+ * Window (⌘M, ⌘W, the open windows). In the system's language: Electron's own labels are English.
  */
 function setMenu(): void {
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null);
     return;
   }
-  Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]));
+  const name = 'VerseOrchestrator';
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: name,
+        submenu: [
+          { role: 'about', label: say(`Про ${name}`, `About ${name}`) },
+          { type: 'separator' },
+          {
+            label: say('Налаштування…', 'Settings…'),
+            accelerator: 'Cmd+,',
+            // shown only: the key itself is the page's (a rebound one too)
+            registerAccelerator: false,
+            click: openSettings,
+          },
+          { type: 'separator' },
+          { role: 'services', label: say('Служби', 'Services') },
+          { type: 'separator' },
+          { role: 'hide', label: say(`Сховати ${name}`, `Hide ${name}`) },
+          { role: 'hideOthers', label: say('Сховати інші', 'Hide Others') },
+          { role: 'unhide', label: say('Показати всі', 'Show All') },
+          { type: 'separator' },
+          { role: 'quit', label: say(`Завершити ${name}`, `Quit ${name}`) },
+        ],
+      },
+      {
+        label: say('Редагування', 'Edit'),
+        submenu: [
+          { role: 'undo', label: say('Скасувати', 'Undo') },
+          { role: 'redo', label: say('Повторити', 'Redo') },
+          { type: 'separator' },
+          { role: 'cut', label: say('Вирізати', 'Cut') },
+          { role: 'copy', label: say('Скопіювати', 'Copy') },
+          { role: 'paste', label: say('Вставити', 'Paste') },
+          { role: 'delete', label: say('Видалити', 'Delete') },
+          { role: 'selectAll', label: say('Вибрати все', 'Select All') },
+        ],
+      },
+      {
+        role: 'window',
+        label: say('Вікно', 'Window'),
+        submenu: [
+          { role: 'minimize', label: say('Згорнути', 'Minimize') },
+          { role: 'zoom', label: say('Масштабувати', 'Zoom') },
+          {
+            label: say('Закрити вікно', 'Close Window'),
+            accelerator: 'Cmd+W',
+            // the control window (the show goes with it) and a full-screen output stay
+            click: (_item, w) => {
+              const win = w instanceof BrowserWindow ? w : null;
+              if (!win || win === control || win.isFullScreen()) shell.beep();
+              else win.close();
+            },
+          },
+          { type: 'separator' },
+          { role: 'front', label: say('На передній план усі', 'Bring All to Front') },
+        ],
+      },
+    ]),
+  );
+}
+
+/** «Налаштування…» of the Mac's app menu: the control window opens them (useAppSettingsOpener). */
+function openSettings(): void {
+  if (!control || control.isDestroyed()) return;
+  void control.webContents
+    .executeJavaScript(`window.dispatchEvent(new Event('vo:open-settings'))`)
+    .catch(() => undefined);
+}
+
+/** The control window in front: from the Dock (macOS), or the app started again. */
+function showControl(): void {
+  if (!control || control.isDestroyed()) return;
+  if (control.isMinimized()) control.restore();
+  control.show();
+  control.focus();
 }
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', (_e, argv) => {
     if (!control) return;
-    if (control.isMinimized()) control.restore();
-    control.focus();
+    showControl();
     // opened again from a browser's control window: this one takes charge (the token)
     const token = handoverOf(argv);
     if (token) void control.loadURL(controlUrl(token));
   });
   app.on('window-all-closed', () => app.quit());
+  // a Mac's Dock: with the output shown on the other screen macOS takes the app for visible, and the
+  // minimized control window did not come back
+  app.on('activate', (_e, hasVisible) => {
+    if (!hasVisible || control?.isMinimized()) showControl();
+  });
   // no window of the app ever leaves the app's pages (F1017-03): a file dropped where no page took
   // it would open in its place; a web link goes to the system's browser
   app.on('web-contents-created', (_e, contents) => {
