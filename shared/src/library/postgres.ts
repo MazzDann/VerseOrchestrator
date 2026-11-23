@@ -173,6 +173,11 @@ CREATE TABLE song_topics (
   ord     INTEGER NOT NULL
 );
 CREATE INDEX idx_song_topics ON song_topics (topic, song_id);
+
+CREATE TABLE song_pairs (
+  bundle TEXT NOT NULL,
+  other  TEXT NOT NULL
+);
 ${DOCS_SCHEMA_SQL}`;
 
 /** Text-search configuration: plain lowercase words, like the SQLite index. */

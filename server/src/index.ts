@@ -95,6 +95,7 @@ import {
   bundlesDir,
   importSongs,
   listBundles,
+  pairBundles,
   refreshLibrarySongs,
   renameBundle,
   restoreBundle,
@@ -1352,6 +1353,8 @@ app.get(
         count: b.count,
         // a .pptx folder keeps it up to date (1.4.0: deleting it lasts only as long as the folder)
         ...(b.meta.source ? { source: b.meta.source } : {}),
+        // paired by number with (1.25.0-beta.4)
+        ...(b.meta.pair ? { pair: b.meta.pair } : {}),
       })),
     ),
   ),
@@ -2499,6 +2502,26 @@ app.post(
     if (!u || !undoImport(dir, u)) throw new ApiError(409, N_('Імпорт уже не скасувати'));
     refreshSongs(dir);
     console.log('[server] songs: the last import undone');
+    res.json({ ok: true });
+  }),
+);
+
+/**
+ * Pair a bundle with another by number (1.25.0-beta.4: ПС ↔ «Псалмы Сиона»), or unpair it
+ * (`with` null): a song then offers its counterpart «Іншою мовою».
+ */
+app.put(
+  '/api/song-bundles/:id/pair',
+  requireLocalControl,
+  wrap(async (req, res) => {
+    notDuringRebuild();
+    const other = (req.body as { with?: unknown })?.with;
+    if (other !== null && typeof other !== 'string')
+      throw new ApiError(400, N_('Виберіть набір для пари'));
+    const dir = bundlesDir(dataDir);
+    if (!pairBundles(dir, String(req.params.id), other))
+      throw new ApiError(404, N_('Набір не знайдено — відкрийте список ще раз'));
+    refreshSongs(dir);
     res.json({ ok: true });
   }),
 );

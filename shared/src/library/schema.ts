@@ -223,6 +223,7 @@ CREATE TABLE sources (
   file TEXT NOT NULL  -- file name in the modules folder
 );
 
+DROP TABLE IF EXISTS song_pairs;
 DROP TABLE IF EXISTS song_topics;
 DROP TABLE IF EXISTS song_slides;
 DROP TABLE IF EXISTS songs;
@@ -254,6 +255,12 @@ CREATE TABLE song_topics (
   ord     INTEGER NOT NULL
 );
 CREATE INDEX idx_song_topics ON song_topics (topic, song_id);
+
+-- Bundles paired by number (1.25.0-beta.4): the same number in «other» is the same song.
+CREATE TABLE song_pairs (
+  bundle TEXT NOT NULL,
+  other  TEXT NOT NULL
+);
 
 DROP TABLE IF EXISTS doc_refs;
 DROP TABLE IF EXISTS doc_units;
