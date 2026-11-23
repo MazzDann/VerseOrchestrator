@@ -134,6 +134,7 @@ import {
   TEXT_MODULE_EXT,
 } from '@vo/shared';
 import { createShortcut, renewShortcut } from './shortcut.js';
+import { bringTopFiles } from './topProgram.js';
 import { browserListing, detectBrowsers } from './browsers.js';
 import { handoverRoutes, handovers, spawnBrowser } from './handover.js';
 import { createPeekGuard } from './peekGuard.js';
@@ -596,10 +597,13 @@ app.get('/api/desktop', requireLocal, (_req, res) => {
 });
 // a desktop shortcut made to the start file starts the desktop app itself since 1.25.1 (once: a
 // PowerShell of a second, when the start's own work is done)
-if (release)
+if (release) {
+  // the program beside app/ (1.25.3): an update in parts brings it inside app/
+  for (const f of bringTopFiles(repoRoot)) console.log(`[server] ${f} put beside app/`);
   setTimeout(() => {
     if (renewShortcut(repoRoot)) console.log('[server] the desktop shortcut now opens the app');
   }, 20_000).unref();
+}
 
 /**
  * «Діагностика для відгуку» (1.22.0-beta.5, users' F1107-05): a .zip to attach to a report — the

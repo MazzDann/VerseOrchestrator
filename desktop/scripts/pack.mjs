@@ -172,6 +172,13 @@ function putStart(top) {
     path.join(desktop, 'launcher', 'Start.cs'),
   ]);
   fs.rmSync(path.join(top, 'start.cmd'), { force: true });
+  // inside app/ too: an update in parts brings app/ alone (server/src/topProgram.ts)
+  const inApp = path.join(top, 'app', 'top');
+  fs.mkdirSync(inApp, { recursive: true });
+  fs.copyFileSync(
+    path.join(top, 'VerseOrchestrator.exe'),
+    path.join(inApp, 'VerseOrchestrator.exe'),
+  );
 }
 
 /** Chromium's interface languages: the two the app speaks (the rest is ~40 MB). */

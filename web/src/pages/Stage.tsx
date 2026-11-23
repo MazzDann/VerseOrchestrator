@@ -23,6 +23,7 @@ import { GrownWords } from '../components/GrownWords';
 import { clockOf, positionIn } from '../lib/video';
 import { IdentifyOverlay } from '../components/IdentifyOverlay';
 import { useAnnounceOutput } from '../lib/outputs';
+import { useFollowVersion } from '../lib/followVersion';
 import { listenFullscreen, toggleOwnFullscreen } from '../lib/fullscreen';
 import { outputKeyAction } from '../lib/outputKeys';
 import { showsSomething } from '../lib/slide';
@@ -197,6 +198,7 @@ export function Stage() {
       : '';
   // Tell the control window this output exists (its «Вікна виводу» list).
   const identify = useAnnounceOutput('stage');
+  useFollowVersion(); // an update under the show: the new code (1.25.3)
 
   useEffect(() => {
     setSlide(readSlide());

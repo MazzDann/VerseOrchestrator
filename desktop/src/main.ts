@@ -79,6 +79,8 @@ const PAGE = {
   sandbox: true,
   preload: PRELOAD,
   autoplayPolicy: 'no-user-gesture-required' as const,
+  // this shell puts a reloaded full-screen window back full screen (1.25.3, preload.cts)
+  additionalArguments: ['--vo-reload-fullscreen'],
 };
 
 /** Node for the launcher: the release's own (app/node), VO_NODE, else the one on PATH. */
@@ -332,6 +334,21 @@ function openControl(): BrowserWindow {
       void child.webContents
         .executeJavaScript(
           'document.fullscreenElement ? true : document.documentElement.requestFullscreen().then(() => true, () => false)',
+          true,
+        )
+        .catch(() => false);
+    });
+    // reloaded into a new version (1.25.3): full screen again, as it was
+    let again = false;
+    child.webContents.on('did-start-navigation', (d) => {
+      if (d.isMainFrame && !d.isSameDocument) again = fullscreenOutputs.has(child);
+    });
+    child.webContents.on('did-finish-load', () => {
+      if (!again) return;
+      again = false;
+      void child.webContents
+        .executeJavaScript(
+          'document.documentElement.requestFullscreen().then(() => true, () => false)',
           true,
         )
         .catch(() => false);

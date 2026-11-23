@@ -2184,6 +2184,15 @@ form.vo-remote-countdown {
 :root[data-vo-motion='off'] *::after {
   transition: none !important;
 }
+/*
+ * An unfolded part (Mantine's Collapse: the settings' sections, the translations, the programs) keeps the
+ * height it was measured with until its transition ends — with no transition that end never comes, and
+ * what loads later was cut off (1.25.3, the author). Unfolded, it is as high as it is.
+ */
+:root[data-vo-motion='off'] [aria-hidden='false'][style*='will-change: height'] {
+  height: auto !important;
+  overflow: visible !important;
+}
 
 /* a YouTube video in «Відео» (1.19.0-beta.6): its mark over the picture */
 .vo-video-badge {
