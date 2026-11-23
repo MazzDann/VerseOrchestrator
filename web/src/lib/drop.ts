@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { TEXT_MODULE_SURE_EXT } from '@vo/shared';
+import { songFormat, TEXT_MODULE_SURE_EXT } from '@vo/shared';
 
 /**
  * Files and folders dropped on the control window (1.14.0-beta.1, the author's ask: «перетягнута
@@ -17,7 +17,7 @@ export type DroppedKind =
   | 'module'
   /** a library segment (.vodb): into the browser's engine */
   | 'segment'
-  /** a song in a presentation (1.17.1): «Презентації» → import */
+  /** a song — a .pptx (1.17.1), ChordPro or OpenLyrics (1.25.0-beta.7): «Презентації» → import */
   | 'song'
   /** another copy's vectors.db (1.17.1) */
   | 'vectors'
@@ -35,7 +35,9 @@ export function droppedKind(file: { name: string; type: string }): DroppedKind {
   // a text format's own extension; .xml, .txt, .zip are told by content (moduleDrop.ts)
   if (/\.sqlite3$/i.test(name) || TEXT_MODULE_SURE_EXT.test(name)) return 'module';
   if (/\.vodb(\.gz)?$/i.test(name)) return 'segment';
-  if (/\.pptx$/i.test(name) && !name.startsWith('~$')) return 'song';
+  // a song's own extension (.txt stays a document, an .xml is told by content)
+  const song = songFormat(name);
+  if (song === 'pptx' || song === 'chordpro') return 'song';
   // the vectors file travels by its name (data/vectors.db), a copy perhaps renamed
   if (/^vectors.*\.db$/i.test(name)) return 'vectors';
   if (DOC_EXT.test(name) && !name.startsWith('~$') && !name.startsWith('.')) return 'document';

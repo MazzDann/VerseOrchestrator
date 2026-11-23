@@ -107,6 +107,9 @@ describe('chord lines (1.25.0-beta.5)', () => {
     expect(isChordLine('A')).toBe(false); // one bare letter: a lyric line as often
     expect(isChordLine('Am')).toBe(true);
     expect(isChordLine('')).toBe(false);
+    // the kinds the text formats write (1.25.0-beta.7)
+    expect(isChordLine('Bm7b5 E7#9 C6/9 G+ B° F#maj7#11')).toBe(true);
+    expect(isChordLine('Babe Dad')).toBe(false);
   });
   it('the screen text without them; a marked copy loses the same lines', () => {
     const text = 'Перший рядок\nF Dm Gm C-C7\nДругий рядок';

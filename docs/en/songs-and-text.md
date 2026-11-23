@@ -19,11 +19,12 @@ presentation in the list shows its bundle's name. Each bundle has its own presen
 
 ## Import presentations from .pptx files
 
-Presentations come from PowerPoint files (`.pptx`): one file, one presentation. A presentation can be a song with its stanzas and chorus. The browser reads the
+Presentations come from PowerPoint files (`.pptx`): one file, one presentation. A presentation can be a song with its stanzas and chorus — the
+app takes those from text formats too (see [Supported song formats](#supported-song-formats)). The browser reads the
 files, and the app writes the presentations into the bundle you choose. Import works while the app
 is running (`start.cmd`, `start.command`, or `./start.sh`).
 
-The quickest way is to drag `.pptx` files into the control window, anywhere: **Presentations** opens with
+The quickest way is to drag `.pptx`, ChordPro, or OpenLyrics files into the control window, anywhere: **Presentations** opens with
 the import, the files already read — only the bundle is left to choose.
 
 On a Mac you can drag a **Keynote** presentation (`.key`) the same way: the app asks Keynote to
@@ -34,8 +35,8 @@ To import presentations:
 
 1. At the top, click **Presentations**. The presentation search and list appear on the left instead of the
    books.
-2. To the right of the presentation search, click the **Import presentations** icon.
-3. Under **From**, click **.pptx files…** and choose the files, or click **Folder…** and
+2. Below the presentation search, click the **Import presentations** icon.
+3. Under **From**, click **Files…** and choose the files, or click **Folder…** and
    choose a folder. Subfolders are read too. Below the buttons you see how many presentations were
    found and which files were skipped.
 4. In the **To** list, choose a bundle. To create a bundle, choose **New bundle…** and type
@@ -50,6 +51,24 @@ Below the presentation search, “Imported into “…”: … new, … updated�
 button. It brings the bundle back to how it was before the import, and deletes a bundle the
 import created. You can cancel until you switch to another mode, import again, rename or
 delete a bundle, or rescan the modules.
+
+## Supported song formats
+
+| Format     | Files                                                | What the app takes                                                                       |
+| ---------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| PowerPoint | `.pptx`                                              | the slides with their look (see [below](#how-the-app-reads-a-pptx-file))                 |
+| OpenLyrics | `.xml`                                               | the title, number, authors, stanzas in the order the file gives, the chorus, chords      |
+| ChordPro   | `.cho`, `.crd`, `.chopro`, `.chordpro`, `.chord`     | the title, authors, stanzas, the chorus (`{chorus}` repeats it), chords; several songs    |
+| Text       | `.txt`                                               | a blank line starts a slide; “Chorus:” names the chorus, alone on a line repeats it       |
+
+- The first slide is the song's title and authors. A text file's title is its first line when it stands
+  alone, otherwise the file's name.
+- Chords stand in a line above the words in the list of slides and never go on screen.
+- Such songs are shown in the app's look: these formats have no look of their own.
+- In a folder with `.pptx` files, `.txt` files aren't imported. A `.txt` file dragged into the window
+  becomes a [document](documents.md); to take it as a song, choose it in the import.
+
+Whoever adds a file is responsible for the rights to it.
 
 ## Rename or delete a bundle
 

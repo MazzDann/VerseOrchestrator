@@ -13,7 +13,7 @@ import {
   useDocOpen,
 } from '../../lib/documents';
 import { addToBrowserLibrary } from '../../lib/browserLibrary';
-import { isTextModuleFile, joinUsfm, usfmFolder } from '../../lib/moduleDrop';
+import { isOpenLyricsFile, isTextModuleFile, joinUsfm, usfmFolder } from '../../lib/moduleDrop';
 import { skippedBooks } from '../../lib/engine/restore';
 import { effectiveSource } from '../../dataSourceStore';
 import { NEEDS_SERVER } from '../../serverStore';
@@ -247,7 +247,11 @@ export function useMediaDrop({
             notifications.show({ message: tr((e as Error).message), color: 'red' });
             continue;
           }
-        const kind = (await isTextModuleFile(file)) ? 'module' : droppedKind(file);
+        const kind = (await isTextModuleFile(file))
+          ? 'module'
+          : (await isOpenLyricsFile(file))
+            ? 'song'
+            : droppedKind(file);
         if (kind === 'other') others.push(file.name);
         else by.set(kind, [...(by.get(kind) ?? []), file]);
       }

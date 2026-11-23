@@ -341,7 +341,7 @@ export function SongBundles({
         {files.isSuccess && bundles.length === 0 && !deleted && (
           <Text size="sm" c="dimmed" p="sm">
             {tr(
-              'Наборів ще немає. Щоб додати презентації з файлів .pptx, відкрийте «Імпорт презентацій».',
+              'Наборів ще немає. Щоб додати презентації з файлів, відкрийте «Імпорт презентацій».',
             )}
           </Text>
         )}

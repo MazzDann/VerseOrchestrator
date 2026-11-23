@@ -119,9 +119,9 @@ export function slideWords(text: string): string {
 
 // ── Chord lines (1.25.0-beta.5 «Зручність»: «F Dm Gm C-C7» went to the hall) ──────────────────
 
-/** A chord: a note A–H, a sharp or flat, a kind (m, maj7, sus4, dim …), a bass after «/». */
+/** A chord: a note A–H, a sharp or flat, a kind (m, maj7, sus4, dim, m7b5, 6/9 …), a bass after «/». */
 const CHORD =
-  /^\(?[A-H](?:#|b|♯|♭)?(?:m|maj|min|dim|aug|sus|add|M)?\d*(?:(?:sus|add|maj)\d+)?(?:\/[A-H](?:#|b|♯|♭)?)?\)?$/;
+  /^\(?[A-H](?:#|b|♯|♭)?(?:m|maj|min|dim|aug|sus|add|M|\+|°|º|ø)?\d*(?:(?:sus|add|maj|M|#|b|♯|♭)\d+)*(?:\/(?:9|[A-H](?:#|b|♯|♭)?))?\)?$/;
 
 /** Cyrillic letters typed for notes: «С-С7» in a file is C-C7. */
 const LOOKALIKE: Record<string, string> = { А: 'A', В: 'B', С: 'C', Е: 'E', Н: 'H' }; // i18n-ignore
