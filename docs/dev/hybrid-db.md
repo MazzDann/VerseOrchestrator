@@ -211,6 +211,14 @@ seven-digit fractions as text it was about three times longer); an exact `<#>` s
 HNSW index took 35 s to build and answered in 2.2 ms, but returned 40 of the 60 nearest with
 its default `ef_search`. At a Bible's size the exact scan is kept.
 
+Songs: a ready topic's name («Різдво») is one word, which tells a small model little. A query that
+names one is asked with the topic's own words too, and a song whose text holds them comes up
+(`shared/src/songs/topicQuery.ts`). Right songs among the first 20 of 2,544 with «Швидка», told by words
+only such songs have (partly the same words): Christmas 3 → 11 of 11, Easter 1 → 20 of 20, Second Coming
+9 → 14, Baptism 6 of 10 → 9 of 10, Lord's Supper 7 → 8 of 12, Sabbath 18 of 18 → 17 of 17, Thanksgiving
+17 → 19, Hope 8 of 10 → 11. A query takes 52–92 ms (38–67 before); the first one, with the model starting, 1,666 ms
+(1,516).
+
 Measured in the app (1.15.0-beta.2): the server answers «~ …» in 31–40 ms (word search 16 ms);
 in the browser, typed → rows takes 0.33–0.45 s (SQLite-WASM) and 0.36–0.78 s (PGlite), with the
 200 ms typing pause. The vector segment of UBIO'62 is 7.1 MB gzipped; a fresh PGlite with it

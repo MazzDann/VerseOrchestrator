@@ -1,5 +1,6 @@
 import {
   detectTextFormat,
+  isOpenLyrics,
   packUsfm,
   TEXT_MODULE_HEAD,
   TEXT_MODULE_MAX,
@@ -9,7 +10,8 @@ import {
 
 /**
  * Dropped modules in the text formats — USFM, OSIS, Zefania, VPL (1.25.0-beta.6): told from other
- * files (a .txt may be a document, a .zip anything), USFM books brought together made one module.
+ * files (a .txt may be a document, a .zip anything), USFM books brought together made one module; and
+ * songs in .xml (1.25.0-beta.7).
  */
 const USFM = /\.(usfm|sfm)$/i;
 /** Extensions a module shares with other files: the content tells. */
@@ -27,6 +29,12 @@ export async function isTextModuleFile(file: File): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Is an .xml a song (OpenLyrics)? Told by its content. */
+export async function isOpenLyricsFile(file: File): Promise<boolean> {
+  if (!/\.xml$/i.test(file.name)) return false;
+  return isOpenLyrics(new Uint8Array(await file.slice(0, 4096).arrayBuffer()));
 }
 
 async function packed(books: File[]): Promise<File[]> {

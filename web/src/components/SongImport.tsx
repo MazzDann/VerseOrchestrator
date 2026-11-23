@@ -3,7 +3,7 @@ import { ActionIcon, Button, Group, Progress, Select, Stack, Text, TextInput } f
 import { notifications } from '@mantine/notifications';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconChevronLeft, IconFileImport, IconFiles, IconFolder, IconX } from '@tabler/icons-react';
-import { isSongFile, parsePptx, sameBundleName, type BundleSong } from '@vo/shared';
+import { parseSongFile, sameBundleName, songFilesOf, type BundleSong } from '@vo/shared';
 import { api } from '../api';
 import { useEffectiveSource } from '../dataSourceStore';
 import { tr, trn, useLang } from '../i18n';
@@ -14,21 +14,21 @@ const NEW = '__new__';
 
 interface Found {
   songs: BundleSong[];
-  /** files that aren't songs: not a readable .pptx, or no slide with text */
+  /** files that aren't songs: not readable as one, or no slide with text */
   failed: string[];
 }
 
-/** Read .pptx files in the browser, a few at a time so the page keeps responding. */
+/** Read the files in the browser, a few at a time so the page keeps responding. */
 async function readSongs(files: File[], onProgress: (done: number) => void): Promise<Found> {
   const byKey = new Map<string, BundleSong>();
   const failed: string[] = [];
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     try {
-      const song = parsePptx(new Uint8Array(await f.arrayBuffer()), f.name);
+      const songs = parseSongFile(new Uint8Array(await f.arrayBuffer()), f.name);
       // one file name twice (two subfolders): the later one wins, as in the bundle
-      if (song) byKey.set(song.key, song);
-      else failed.push(f.name);
+      for (const song of songs) byKey.set(song.key, song);
+      if (songs.length === 0) failed.push(f.name);
     } catch {
       failed.push(f.name);
     }
@@ -42,7 +42,8 @@ async function readSongs(files: File[], onProgress: (done: number) => void): Pro
 }
 
 /**
- * Import songs (0.10.1): pick .pptx files or a folder — they are read here, in the browser —
+ * Import songs (0.10.1): pick files (.pptx; OpenLyrics, ChordPro and plain text since
+ * 1.25.0-beta.7) or a folder — they are read here, in the browser —
  * then the bundle they go into, or a name for a new one. The server writes the bundle file
  * and brings the library's songs up to date.
  */
@@ -87,11 +88,11 @@ export function SongImport({
     setTarget(shown?.id ?? (all.length === 1 ? all[0].id : all.length === 0 ? NEW : null));
   }, [bundles.data, target, preferred]);
 
-  const pick = async (list: FileList | File[] | null) => {
-    const files = [...(list ?? [])].filter((f) => isSongFile(f.webkitRelativePath || f.name));
+  const pick = async (list: FileList | File[] | null, folder = false) => {
+    const files = songFilesOf([...(list ?? [])], (f) => f.webkitRelativePath || f.name, folder);
     if (files.length === 0) {
       notifications.show({
-        message: tr('Файлів .pptx тут немає — виберіть інші файли або папку'),
+        message: tr('Файлів, які можна імпортувати, тут немає — виберіть інші або папку'),
         color: 'orange',
         autoClose: 4000,
       });
@@ -144,7 +145,7 @@ export function SongImport({
   };
 
   const onFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    void pick(e.currentTarget.files);
+    void pick(e.currentTarget.files, e.currentTarget === folderRef.current);
     e.currentTarget.value = ''; // the same choice again reads the files again
   };
 
@@ -176,7 +177,7 @@ export function SongImport({
             disabled={!!reading || busy}
             onClick={() => filesRef.current?.click()}
           >
-            {tr('Файли .pptx…')}
+            {tr('Файли…')}
           </Button>
           <Button
             size="xs"
@@ -188,7 +189,19 @@ export function SongImport({
             {tr('Папка…')}
           </Button>
         </Group>
-        <input ref={filesRef} type="file" accept=".pptx" multiple hidden onChange={onFiles} />
+        <Text size="xs" c="dimmed" mt={4}>
+          {tr(
+            'Підтримувані формати: PowerPoint (.pptx), OpenLyrics (.xml), ChordPro (.cho), текст (.txt).',
+          )}
+        </Text>
+        <input
+          ref={filesRef}
+          type="file"
+          accept=".pptx,.xml,.cho,.crd,.chopro,.chordpro,.chord,.txt"
+          multiple
+          hidden
+          onChange={onFiles}
+        />
         <input ref={folderRef} type="file" hidden onChange={onFiles} />
         {reading && (
           <Stack gap={4} mt="xs">

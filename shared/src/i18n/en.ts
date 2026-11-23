@@ -882,8 +882,8 @@ export const EN: Record<string, string> = {
   'Набори презентацій': 'Presentation bundles',
   'Перейменування не змінює презентацій: послідовності показу знаходять їх і далі. Видалений набір можна повернути, доки відкритий цей список. «Теми набору» розкладають презентації за темами.':
     'Renaming doesn’t change the presentations: running orders still find them. A deleted bundle can be brought back while this list is open. “Bundle topics” sorts the presentations by topic.',
-  'Наборів ще немає. Щоб додати презентації з файлів .pptx, відкрийте «Імпорт презентацій».':
-    'No bundles yet. To add presentations from .pptx files, open “Import presentations”.',
+  'Наборів ще немає. Щоб додати презентації з файлів, відкрийте «Імпорт презентацій».':
+    'No bundles yet. To add presentations from files, open “Import presentations”.',
   'Набори презентацій: перейменувати, видалити': 'Presentation bundles: rename, delete',
   'Імпорт скасовано': 'Import undone',
   'Назва набору — від 1 до 100 символів': 'A bundle’s name is 1 to 100 characters',
@@ -1078,18 +1078,20 @@ export const EN: Record<string, string> = {
     'Presentations: {done} of {total} have vectors; the rest will be computed by themselves',
   'Набір презентацій': 'Presentation bundle',
   'Усі набори': 'All bundles',
-  'Імпорт презентацій з файлів .pptx': 'Import presentations from .pptx files',
+  'Імпорт презентацій з файлів': 'Import presentations from files',
   'Імпорт презентацій': 'Import presentations',
-  'Презентацій ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт презентацій» праворуч від пошуку.':
-    'No presentations yet. To add them from .pptx files, click “Import presentations” to the right of the search.',
+  'Презентацій ще немає. Щоб додати їх з файлів, натисніть «Імпорт презентацій» під пошуком.':
+    'No presentations yet. To add them from files, click “Import presentations” below the search.',
   // song import (web/src/components/SongImport.tsx)
-  'Файлів .pptx тут немає — виберіть інші файли або папку':
-    'No .pptx files here — choose other files or another folder',
+  'Файлів, які можна імпортувати, тут немає — виберіть інші або папку':
+    'No files to import here — choose others or another folder',
   'Імпортовано в «{bundle}»: нових {added}, оновлено {updated}':
     'Imported into “{bundle}”: {added} new, {updated} updated',
   'Не вдалося імпортувати: {error}': "Couldn't import: {error}",
   Звідки: 'From',
-  'Файли .pptx…': '.pptx files…',
+  'Файли…': 'Files…',
+  'Підтримувані формати: PowerPoint (.pptx), OpenLyrics (.xml), ChordPro (.cho), текст (.txt).':
+    'Supported formats: PowerPoint (.pptx), OpenLyrics (.xml), ChordPro (.cho), text (.txt).',
   'Папка…': 'Folder…',
   'Читаю файли: {done} з {total}': 'Reading files: {done} of {total}',
   'Знайдено {n} презентацію.|Знайдено {n} презентації.|Знайдено {n} презентацій.':
@@ -2732,8 +2734,8 @@ export const EN: Record<string, string> = {
   'Цього тут немає': 'There is none here',
   'Цього прибрати не можна': 'This can’t be removed',
   // a drop anywhere (1.17.1)
-  'Фото, відео, папку — наступним у показі (і в бібліотеку); документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Презентації», модуль (.SQLite3, USFM, OSIS, Zefania, VPL) — у бібліотеку, vectors.db — у вектори.':
-    'A photo, a video, a folder — next in the show (and into the library); a document (.docx, .md, .txt, .pdf) to «Документи», a presentation (.pptx) to «Презентації», a module (.SQLite3, USFM, OSIS, Zefania, VPL) into the library, vectors.db into the vectors.',
+  'Фото, відео, папку — наступним у показі (і в бібліотеку); документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію чи пісню (.pptx, ChordPro, OpenLyrics) — у «Презентації», модуль (.SQLite3, USFM, OSIS, Zefania, VPL) — у бібліотеку, vectors.db — у вектори.':
+    'A photo, a video, a folder — next in the show (and into the library); a document (.docx, .md, .txt, .pdf) to «Документи», a presentation or a song (.pptx, ChordPro, OpenLyrics) to «Презентації», a module (.SQLite3, USFM, OSIS, Zefania, VPL) into the library, vectors.db into the vectors.',
   'Цього застосунок не бере — не додано: {names}':
     'The app doesn’t take these — not added: {names}',
   'Додаю модуль {file}…': 'Adding the module {file}…',

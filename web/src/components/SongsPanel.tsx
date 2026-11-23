@@ -568,9 +568,7 @@ export function SongsPanel({
           />
         )}
         <Tooltip
-          label={
-            serverAvailable === false ? tr(NEEDS_SERVER) : tr('Імпорт презентацій з файлів .pptx')
-          }
+          label={serverAvailable === false ? tr(NEEDS_SERVER) : tr('Імпорт презентацій з файлів')}
           multiline={serverAvailable === false}
           w={serverAvailable === false ? 280 : undefined}
         >
@@ -715,7 +713,7 @@ export function SongsPanel({
           {!debounced && songs.length === 0 && listQuery.isSuccess && !inBundle && (
             <Text size="sm" c="dimmed" p="sm">
               {tr(
-                'Презентацій ще немає. Щоб додати їх з файлів .pptx, натисніть «Імпорт презентацій» праворуч від пошуку.',
+                'Презентацій ще немає. Щоб додати їх з файлів, натисніть «Імпорт презентацій» під пошуком.',
               )}
             </Text>
           )}

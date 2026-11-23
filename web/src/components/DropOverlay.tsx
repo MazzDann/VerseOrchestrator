@@ -34,7 +34,7 @@ export function DropOverlay({ zone }: { zone: 'order' | null }) {
           <Text fw={600}>{tr('Відпустіть, щоб додати')}</Text>
           <Text size="sm" c="dimmed" ta="center" maw={360}>
             {tr(
-              'Фото, відео, папку — наступним у показі (і в бібліотеку); документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію (.pptx) — у «Презентації», модуль (.SQLite3, USFM, OSIS, Zefania, VPL) — у бібліотеку, vectors.db — у вектори.',
+              'Фото, відео, папку — наступним у показі (і в бібліотеку); документ (.docx, .md, .txt, .pdf) — у «Документи», презентацію чи пісню (.pptx, ChordPro, OpenLyrics) — у «Презентації», модуль (.SQLite3, USFM, OSIS, Zefania, VPL) — у бібліотеку, vectors.db — у вектори.',
             )}
           </Text>
           {orderShown && (

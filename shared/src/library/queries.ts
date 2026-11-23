@@ -26,6 +26,12 @@ import {
 import { EMBED_MODELS, isEmbedModelId } from '../embed/models.js';
 import { slideWords } from '../songs/sections.js';
 import { songScore } from '../songs/songVectors.js';
+import {
+  TOPIC_WORD_BOOST,
+  topicQueryOf,
+  topicWordsIn,
+  type TopicQuery,
+} from '../songs/topicQuery.js';
 
 /**
  * Every read the app makes against a library database, written once against the
@@ -788,6 +794,27 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
    * words — a song by its best passage and a little of its next (songScore), the words in its title
    * weighed in like a verse's. Server only: the browser engines carry no song vectors (`server`).
    */
+  /** The songs' texts normalized, once per library (a new one is made after a change: closeDb). */
+  let songTexts: Map<number, string> | null = null;
+
+  /** The songs whose texts hold a ready topic's own words, and how many (1 or 2). */
+  async function songsWithWords(topic: TopicQuery): Promise<Map<number, number>> {
+    if (!songTexts) {
+      const all = new Map<number, string>();
+      for (const r of await db.all<AnyRow>('SELECT song_id, text FROM song_slides')) {
+        const id = Number(r.song_id);
+        all.set(id, `${all.get(id) ?? ''} ${normalizeForSearch(String(r.text ?? ''))}`);
+      }
+      songTexts = all;
+    }
+    const out = new Map<number, number>();
+    for (const [id, text] of songTexts) {
+      const n = topicWordsIn(text, topic);
+      if (n) out.set(id, n);
+    }
+    return out;
+  }
+
   async function searchSongsByMeaning(text: string, bundle?: string): Promise<SongMeaningResponse> {
     const words = text.replace(MEANING_PREFIX, '').trim();
     if (!words) return { results: [] };
@@ -808,7 +835,11 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     if (!asked) return { results: [], missing: 'model' };
     const capitalized = capitalizeWords(words);
     const also = capitalized !== words ? await opts.embed(capitalized, [asked.model]) : null;
-    const q = also?.model === asked.model ? blendVectors(asked.vec, also.vec) : asked.vec;
+    let q = also?.model === asked.model ? blendVectors(asked.vec, also.vec) : asked.vec;
+    // a ready topic's name («Різдво»): its own words are asked too, and looked for in the texts
+    const topic = topicQueryOf(words);
+    const told = topic ? await opts.embed(topic.about, [asked.model]) : null;
+    if (told?.model === asked.model) q = blendVectors(q, told.vec);
 
     const mark = await db.get<AnyRow>(
       // AUTOINCREMENT ids never come back: a row replaced or deleted always moves the mark
@@ -844,11 +875,15 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
         )
       ).map((r) => [Number(r.id), r]),
     );
-    const hits = nearest(
-      songVecCache.rows.filter((r) => songs.has(r.book)),
-      q,
-      SONG_MEANING_POOL,
-    );
+    const mine = songVecCache.rows.filter((r) => songs.has(r.book));
+    const hits = nearest(mine, q, SONG_MEANING_POOL);
+    const ownWords = topic ? await songsWithWords(topic) : new Map<number, number>();
+    if (ownWords.size) {
+      // those with the topic's words further than the pool reaches are weighed too
+      const near = new Set(hits.map((h) => h.book));
+      const others = mine.filter((r) => ownWords.has(r.book) && !near.has(r.book));
+      hits.push(...nearest(others, q, SONG_MEANING_POOL));
+    }
     const bySong = new Map<number, { cos: number[]; best: number; bestCos: number }>();
     for (const h of hits) {
       const s = bySong.get(h.book);
@@ -867,14 +902,19 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       return {
         id,
         best: s.best,
-        score: (1 - wordsWeight) * songScore(s.cos) + wordsWeight * inTitle,
+        score:
+          (1 - wordsWeight) * songScore(s.cos) +
+          wordsWeight * inTitle +
+          TOPIC_WORD_BOOST * (ownWords.get(id) ?? 0),
       };
     });
     scored.sort((x, y) => y.score - x.score || x.id - y.id);
     if (!scored.length) return { results: [] };
     const top = scored[0].score;
+    // a topic's words in the first song must not cut those that are as close without them
+    const far = cut + (ownWords.size ? TOPIC_WORD_BOOST : 0);
     const kept = scored
-      .filter((h, i) => i < MEANING_MIN || top - h.score <= cut)
+      .filter((h, i) => i < MEANING_MIN || top - h.score <= far)
       .slice(0, SONG_MEANING_LIMIT);
     // each song's best passage, as a line to show under its title
     const lines = new Map<number, string>();
