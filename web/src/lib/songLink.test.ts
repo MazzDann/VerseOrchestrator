@@ -8,6 +8,7 @@ const song = (id: number, number: number | null, title: string, bundle = 'ПС')
   title,
   bundle,
   slides: [{ text: title, style: null }],
+  topics: [],
 });
 
 /** A library after 0.10.0: stable ids; the running order still has the old one. */

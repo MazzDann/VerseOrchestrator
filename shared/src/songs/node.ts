@@ -14,7 +14,13 @@ import {
   upsertBundleSongs,
   writeBundleMeta,
   writeLibrarySongs,
+  librarySongIds,
+  readBundleTopics,
+  writeModelTopics,
+  writeSongTopics,
+  writeTopicList,
   type Bundle,
+  type BundleTopics,
   type BundleMeta,
   type BundleSong,
 } from './bundle.js';
@@ -121,7 +127,10 @@ export function listBundles(dir: string): BundleFile[] {
 export function readBundles(dir: string): Bundle[] {
   return listBundles(dir).map(({ file, meta }) => ({
     meta,
-    songs: withBundle(path.join(dir, file), true, (db) => readBundleSongs(db)),
+    ...withBundle(path.join(dir, file), true, (db) => ({
+      songs: readBundleSongs(db),
+      topics: readBundleTopics(db),
+    })),
   }));
 }
 
@@ -289,6 +298,82 @@ export function refreshLibrarySongs(libraryPath: string, dir: string): number {
   } finally {
     db.close();
   }
+}
+
+// ── Topics (1.25.0-beta.2): a bundle's list, the model's and the operator's ───────────────
+
+/** A bundle's topics and its songs' keys; null: no such bundle. */
+export function bundleTopics(
+  dir: string,
+  id: string,
+): { file: string; meta: BundleMeta; topics: BundleTopics; keys: string[] } | null {
+  const b = findBundle(dir, id);
+  if (!b) return null;
+  return withBundle(path.join(dir, b.file), true, (db) => ({
+    file: b.file,
+    meta: b.meta,
+    topics: readBundleTopics(db),
+    keys: readBundleSongs(db).map((x) => x.key),
+  }));
+}
+
+/** Write a bundle's list of topics (see writeTopicList); false: no such bundle. */
+export function saveTopicList(
+  dir: string,
+  id: string,
+  list: Parameters<typeof writeTopicList>[1],
+): boolean {
+  const b = findBundle(dir, id);
+  if (!b) return false;
+  withBundle(path.join(dir, b.file), false, (db) => writeTopicList(db, list));
+  return true;
+}
+
+/** Write the model's topics of a bundle's songs (see writeModelTopics); false: no such bundle. */
+export function saveModelTopics(dir: string, id: string, byKey: Map<string, string[]>): boolean {
+  const b = findBundle(dir, id);
+  if (!b) return false;
+  withBundle(path.join(dir, b.file), false, (db) => writeModelTopics(db, byKey));
+  return true;
+}
+
+/** The bundle and key of the library's song `songId` (the ids writeLibrarySongs gave). */
+export function findLibrarySong(
+  dir: string,
+  songId: number,
+): { file: string; meta: BundleMeta; key: string } | null {
+  const files = listBundles(dir);
+  const bundles = readBundles(dir);
+  const ids = librarySongIds(bundles);
+  for (let bi = 0; bi < bundles.length; bi++) {
+    const si = ids[bi].indexOf(songId);
+    if (si >= 0) {
+      const file = files.find((x) => x.meta.id === bundles[bi].meta.id);
+      return file ? { file: file.file, meta: file.meta, key: bundles[bi].songs[si].key } : null;
+    }
+  }
+  return null;
+}
+
+/**
+ * The operator set a song's topics (see writeSongTopics) — a topic not in its bundle's list yet
+ * joins the list's end. Null: no such song.
+ */
+export function saveSongTopics(
+  dir: string,
+  songId: number,
+  topics: string[],
+): { bundle: string } | null {
+  const song = findLibrarySong(dir, songId);
+  if (!song) return null;
+  withBundle(path.join(dir, song.file), false, (db) => {
+    const { list } = readBundleTopics(db);
+    const known = new Set(list.map((t) => t.name));
+    const extra = topics.filter((t) => !known.has(t));
+    if (extra.length) writeTopicList(db, [...list, ...extra.map((name) => ({ name, about: '' }))]);
+    writeSongTopics(db, song.key, topics);
+  });
+  return { bundle: song.meta.name };
 }
 
 // ── Managing bundles (1.4.0): rename, delete with «Скасувати», undo an import ──────────────

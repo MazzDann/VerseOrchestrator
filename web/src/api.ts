@@ -298,7 +298,19 @@ const SongStyleSchema = z
 export type SongStyle = NonNullable<z.infer<typeof SongStyleSchema>>;
 const SongDetailSchema = SongInfoSchema.extend({
   slides: z.array(z.object({ text: z.string(), style: SongStyleSchema })),
+  // 1.25.0-beta.2; a server before it answers without them
+  topics: z.array(z.string()).default([]),
 });
+const SongTopicCountSchema = z.object({ name: z.string(), count: z.number() });
+/** A bundle's topics as «Теми набору» edits them (1.25.0-beta.2). */
+const BundleTopicsSchema = z.object({
+  name: z.string(),
+  list: z.array(z.object({ name: z.string(), about: z.string() })),
+  counts: z.record(z.number()),
+  songs: z.number(),
+  sorted: z.number(),
+});
+export type BundleTopics = z.infer<typeof BundleTopicsSchema>;
 export type SongDetail = z.infer<typeof SongDetailSchema>;
 
 /**
@@ -952,11 +964,18 @@ export const api = {
       (l) => l.getCommentary(book, chapter, verse),
       `/api/commentary?book=${book}&chapter=${chapter}&verse=${verse}`,
     ),
-  songs: (q: string, bundle?: string) =>
+  songs: (q: string, bundle?: string, topic?: string) =>
     fromLibrary(
       z.array(SongInfoSchema),
-      (l) => l.searchSongs(q, 60, bundle),
-      `/api/songs?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}`,
+      (l) => l.searchSongs(q, 60, bundle, topic),
+      `/api/songs?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`,
+    ),
+  /** The topics the songs hold (1.25.0-beta.2), of one bundle or all, with their song counts. */
+  songTopics: (bundle?: string) =>
+    fromLibrary(
+      z.array(SongTopicCountSchema),
+      (l) => l.listSongTopics(bundle),
+      `/api/songs/topics${bundle ? `?bundle=${encodeURIComponent(bundle)}` : ''}`,
     ),
   /**
    * Songs by meaning (1.25.0-beta.1): «~ спасіння» in «Презентації». The browser engines have no
@@ -1732,6 +1751,39 @@ export const api = {
       .object({ id: z.string(), name: z.string(), count: z.number() })
       .parse(await res.json());
   },
+  /** A bundle's topics (1.25.0-beta.2): its list, the songs under each. */
+  bundleTopics: (id: string) =>
+    getJson(`/api/song-bundles/${encodeURIComponent(id)}/topics`, BundleTopicsSchema),
+  /** Save a bundle's list of topics (`was`: the name a renamed topic had). */
+  saveBundleTopics: async (id: string, list: { name: string; about: string; was?: string }[]) => {
+    const res = await request(`/api/song-bundles/${encodeURIComponent(id)}/topics`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ list }),
+    });
+    if (!res.ok) throw await failure(res);
+  },
+  /** «Розкласти»: the model puts the bundle's songs under its topics (`own`: under its own). */
+  sortBundleTopics: async (id: string, own: boolean) => {
+    const res = await request(`/api/song-bundles/${encodeURIComponent(id)}/topics/sort`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ own }),
+    });
+    if (!res.ok) throw await failure(res);
+    return z
+      .object({ songs: z.number(), sorted: z.number(), topics: z.number(), ms: z.number() })
+      .parse(await res.json());
+  },
+  /** A song's topics as the operator sets them. */
+  setSongTopics: async (songId: number, topics: string[]) => {
+    const res = await request(`/api/song-bundles/song/${songId}/topics`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...CONTROL_HEADERS },
+      body: JSON.stringify({ topics }),
+    });
+    if (!res.ok) throw await failure(res);
+  },
   /** Delete a bundle (1.4.0): it waits aside for «Скасувати» (`restoreSongBundle`). */
   deleteSongBundle: async (id: string) => {
     const res = await request(`/api/song-bundles/${encodeURIComponent(id)}`, {
@@ -1914,6 +1966,8 @@ export const SemanticSchema = z.object({
     }),
   ),
   job: VectorJobSchema,
+  // «Розкласти за темами» under way (1.25.0-beta.2): the bundle's name
+  sorting: z.string().nullable().optional(),
   // the songs' vectors (1.25.0-beta.1); a server before it answers without them
   songs: z
     .object({

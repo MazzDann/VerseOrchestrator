@@ -166,6 +166,13 @@ CREATE TABLE song_slides (
   render  TEXT
 );
 CREATE INDEX idx_song_slides ON song_slides (song_id, ord);
+
+CREATE TABLE song_topics (
+  song_id INTEGER NOT NULL,
+  topic   TEXT NOT NULL,
+  ord     INTEGER NOT NULL
+);
+CREATE INDEX idx_song_topics ON song_topics (topic, song_id);
 ${DOCS_SCHEMA_SQL}`;
 
 /** Text-search configuration: plain lowercase words, like the SQLite index. */

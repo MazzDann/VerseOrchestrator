@@ -17,6 +17,7 @@ import {
   IconCheck,
   IconChevronLeft,
   IconPencil,
+  IconTags,
   IconTrash,
   IconX,
 } from '@tabler/icons-react';
@@ -37,9 +38,12 @@ export function SongBundles({
   onBack,
   onClose,
   onChanged,
+  onTopics,
 }: {
   onBack: () => void;
   onClose: () => void;
+  /** «Теми набору» (1.25.0-beta.2) */
+  onTopics: (bundle: { id: string; name: string }) => void;
   /** a bundle was renamed or deleted: the search's bundle filter may name it no more */
   onChanged: () => void;
 }) {
@@ -209,6 +213,17 @@ export function SongBundles({
             </Badge>
           </Group>
           <Group gap={2} wrap="nowrap">
+            <Tooltip label={tr('Теми набору: розкласти презентації')} withArrow>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                disabled={busy}
+                onClick={() => onTopics({ id: b.id, name: b.name })}
+                aria-label={tr('Теми набору «{bundle}»', { bundle: b.name })}
+              >
+                <IconTags size={16} />
+              </ActionIcon>
+            </Tooltip>
             <Tooltip label={tr('Перейменувати')} withArrow>
               <ActionIcon
                 variant="subtle"
@@ -256,7 +271,7 @@ export function SongBundles({
       </Group>
       <Text size="xs" c="dimmed" mb="xs">
         {tr(
-          'Перейменування не змінює презентацій: послідовності показу знаходять їх і далі. Видалений набір можна повернути, доки відкритий цей список.',
+          'Перейменування не змінює презентацій: послідовності показу знаходять їх і далі. Видалений набір можна повернути, доки відкритий цей список. «Теми набору» розкладають презентації за темами.',
         )}
       </Text>
       <Stack gap={0}>

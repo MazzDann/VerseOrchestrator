@@ -10,6 +10,7 @@ export * from './songs/pptx.js';
 export * from './songs/bundle.js';
 export * from './songs/sections.js';
 export * from './songs/songVectors.js';
+export * from './songs/topics.js';
 export * from './documents/parse.js';
 export * from './documents/pdf.js';
 export * from './i18n/index.js';

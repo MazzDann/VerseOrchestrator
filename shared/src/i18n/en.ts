@@ -880,8 +880,8 @@ export const EN: Record<string, string> = {
   'Видалити набір': 'Delete the bundle',
   'Видалити набір «{bundle}»': 'Delete the bundle “{bundle}”',
   'Набори презентацій': 'Presentation bundles',
-  'Перейменування не змінює презентацій: послідовності показу знаходять їх і далі. Видалений набір можна повернути, доки відкритий цей список.':
-    'Renaming doesn’t change the presentations: running orders still find them. A deleted bundle can be brought back while this list is open.',
+  'Перейменування не змінює презентацій: послідовності показу знаходять їх і далі. Видалений набір можна повернути, доки відкритий цей список. «Теми набору» розкладають презентації за темами.':
+    'Renaming doesn’t change the presentations: running orders still find them. A deleted bundle can be brought back while this list is open. “Bundle topics” sorts the presentations by topic.',
   'Наборів ще немає. Щоб додати презентації з файлів .pptx, відкрийте «Імпорт презентацій».':
     'No bundles yet. To add presentations from .pptx files, open “Import presentations”.',
   'Набори презентацій: перейменувати, видалити': 'Presentation bundles: rename, delete',
@@ -3016,4 +3016,107 @@ export const EN: Record<string, string> = {
     'YouTube’s player will see your Google sign-in in this browser: with YouTube Premium — no ads, and the views go into your YouTube history. Off — YouTube’s privacy mode. The desktop app has no Google sign-in.',
   'Вікна показу згаснуть на час перезапуску (до хвилини) і повернуться самі.':
     'The output windows go dark for the restart (up to a minute) and come back on their own.',
+  'Теми набору: розкласти презентації': 'Bundle topics: sort the presentations',
+  'Теми набору «{bundle}»': 'Topics of “{bundle}”',
+  'Усі теми': 'All topics',
+  'Теми презентації': 'Presentation topics',
+  'Теми: додайте або виберіть': 'Topics: add or choose',
+  'Розкладено: {sorted} з {songs} презентацій': 'Sorted: {sorted} of {songs} presentations',
+  'Назад до наборів': 'Back to the bundles',
+  'Модель відносить кожну презентацію до однієї–трьох тем зі списку, за змістом її слайдів. Теми, які ви дали презентації чи забрали в неї самі, модель не змінює.':
+    'The model puts each presentation under one to three topics of the list, by what its slides say. Topics you gave a presentation or took from it yourself, the model doesn’t change.',
+  'Нехай модель запропонує свої теми': 'Let the model propose its own topics',
+  'Модель збере близькі за змістом презентації в групи й назве їх словами, спільними для групи. Потім перейменуйте теми й виправте їх.':
+    'The model gathers presentations close in meaning into groups and names them by the words a group shares. Then rename the topics and correct them.',
+  Розкласти: 'Sort',
+  'З темою: {sorted} з {songs}': 'With a topic: {sorted} of {songs}',
+  'Тем ще немає. «Розкласти» візьме готовий список (Хвала, Подяка, Молитва…), або додайте свої теми.':
+    'No topics yet. “Sort” takes a ready list (Praise, Thanksgiving, Prayer…), or add your own topics.',
+  'Назва теми': 'Topic name',
+  'Слова теми для моделі': 'The topic’s words for the model',
+  'Слова для моделі, через кому': 'Words for the model, comma-separated',
+  'Презентацій із цією темою': 'Presentations with this topic',
+  'Видалити тему': 'Delete the topic',
+  'Видалити тему «{topic}»': 'Delete the topic “{topic}”',
+  'Дві теми з однією назвою — перейменуйте одну': 'Two topics have one name — rename one',
+  'Додати тему': 'Add a topic',
+  'Зберегти список': 'Save the list',
+  'Модель розкладає «{bundle}» за темами…': 'The model is sorting “{bundle}” by topic…',
+  'Тем може бути до 60': 'Up to 60 topics',
+  'Введіть назву теми': 'Type the topic’s name',
+  'Тема «{topic}» уже є в списку': 'The topic “{topic}” is already in the list',
+  'Спершу виберіть і завантажте модель у «Налаштування вигляду → Дані → Пошук за змістом»':
+    'First choose and download a model in “Appearance settings → Data → Search by meaning”',
+  'Модель уже розкладає набір — зачекайте': 'The model is already sorting a bundle — please wait',
+  'Модель зараз недоступна — спробуйте за хвилину':
+    'The model isn’t available now — try again in a minute',
+  'Спершу мають обчислитися вектори презентацій: {done} з {total}':
+    'The presentations’ vectors must be computed first: {done} of {total}',
+  'Тем може бути до 20': 'Up to 20 topics',
+  Хвала: 'Praise',
+  'хвала і прославлення Бога, хваліть Господа, алілуя, славте Його':
+    'praise and glory to God, praise the Lord, hallelujah, glorify Him',
+  Подяка: 'Thanksgiving',
+  'подяка Богові, дякуємо Тобі за все, за Твої дари і милість':
+    'thanks to God, we thank You for everything, for Your gifts and mercy',
+  Молитва: 'Prayer',
+  'молитва, прохання до Бога, почуй мене, Господи, у молитві до Тебе':
+    'prayer, asking God, hear me, Lord, in prayer to You',
+  Спасіння: 'Salvation',
+  'спасіння грішника, благодать, прощення гріхів, Христос мене спас':
+    'a sinner saved, grace, forgiveness of sins, Christ saved me',
+  Покаяння: 'Repentance',
+  'покаяння, сповідь гріха, навернися, блудний син повертається до Бога':
+    'repentance, confessing sin, turn back, the prodigal son comes home to God',
+  Віра: 'Faith',
+  'віра і довіра Богові, упевненість у Ньому, вірю, тверда основа':
+    'faith and trust in God, assurance in Him, I believe, a firm foundation',
+  Надія: 'Hope',
+  'надія і розрада в смутку й випробуваннях, втіха, не падай духом':
+    'hope and consolation in sorrow and trials, comfort, take heart',
+  'Любов Божа': 'God’s love',
+  'любов Бога до людини, Бог є любов, так полюбив Бог світ':
+    'God’s love for us, God is love, God so loved the world',
+  Христос: 'Christ',
+  'Ісус Христос, Спаситель і Друг, ім’я Ісуса':
+    'Jesus Christ, Saviour and Friend, the name of Jesus',
+  Хрест: 'The cross',
+  'хрест, Голгофа, кров Христа, страждання і смерть Ісуса за нас':
+    'the cross, Calvary, the blood of Christ, the suffering and death of Jesus for us',
+  Пасха: 'Easter',
+  'воскресіння Христа, Христос воскрес, гріб порожній, Він переміг смерть':
+    'the resurrection of Christ, Christ is risen, the empty tomb, He conquered death',
+  Різдво: 'Christmas',
+  'Різдво Христове, народився Ісус у Вифлеємі, ясла, пастухи, ангели співають, зоря':
+    'Christmas, Jesus born in Bethlehem, the manger, shepherds, angels singing, the star',
+  'Друге пришестя': 'Second coming',
+  'друге пришестя Христа, Він прийде на хмарах, знаки часу, будьте готові':
+    'the second coming of Christ, He comes on the clouds, the signs of the times, be ready',
+  Небо: 'Heaven',
+  'небо, вічна батьківщина, новий Єрусалим, вічний дім, золоті вулиці':
+    'heaven, the eternal homeland, the New Jerusalem, the eternal home, streets of gold',
+  'Святий Дух': 'Holy Spirit',
+  'Святий Дух, сила з висоти, Утішитель, зійди на нас':
+    'the Holy Spirit, power from on high, the Comforter, come upon us',
+  Хрещення: 'Baptism',
+  'хрещення, занурення у воду, поховані з Христом, нове життя, обітниця Богові':
+    'baptism, going down into the water, buried with Christ, a new life, a vow to God',
+  'Вечеря Господня': 'Lord’s Supper',
+  'вечеря Господня, хліб і вино, тіло і кров Христа, причастя, омовіння ніг':
+    'the Lord’s Supper, bread and wine, the body and blood of Christ, communion, foot washing',
+  Субота: 'Sabbath',
+  'субота, день спочинку, святий день Господній, сьомий день':
+    'the Sabbath, a day of rest, the Lord’s holy day, the seventh day',
+  'Сім’я': 'Family',
+  'сім’я, батьки і діти, чоловік і дружина, рідний дім, мама':
+    'family, parents and children, husband and wife, home, mother',
+  Дитячі: 'Children',
+  'пісня для дітей, маленькі діти, Ісус любить дітей':
+    'a song for children, little children, Jesus loves the children',
+  'Ранок і вечір': 'Morning and evening',
+  'ранок і вечір, сонце сходить, новий день, вечірня молитва, нічний спочинок':
+    'morning and evening, the sun rises, a new day, evening prayer, the night’s rest',
+  Служіння: 'Service',
+  'служіння, праця для Бога, місія, іди і проповідуй, жнива':
+    'service, work for God, mission, go and preach, the harvest',
 };

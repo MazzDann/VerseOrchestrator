@@ -12,6 +12,7 @@ import {
   Badge,
   SegmentedControl,
   Select,
+  TagsInput,
   Tooltip,
   Button,
 } from '@mantine/core';
@@ -33,6 +34,7 @@ import { PRIORITY, useCommandHandler, type Outcome } from '../lib/commands';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { SongImport } from './SongImport';
 import { SongBundles } from './SongBundles';
+import { SongTopics } from './SongTopics';
 import { tr, useLang } from '../i18n';
 import { formatCombo, matchesCombo, stepDirection } from '../hotkeys';
 import { inOverlay, isFormField, isResizeKey, isTextEntry } from '../lib/keyScroll';
@@ -132,6 +134,10 @@ export function SongsPanel({
   const [faithful, setFaithful] = useState(true);
   /** '' = every bundle (0.10.0) */
   const [bundle, setBundle] = useState('');
+  /** '' = every topic (1.25.0-beta.2) */
+  const [topic, setTopic] = useState('');
+  /** «Теми набору» open for this bundle (1.25.0-beta.2), instead of the bundles' list */
+  const [topicsOf, setTopicsOf] = useState<{ id: string; name: string } | null>(null);
   /** the import view (0.10.1) instead of the search */
   const [importing, setImporting] = useState(false);
   /** presentations dropped anywhere on the window (1.17.1): the import opens with them */
@@ -171,9 +177,17 @@ export function SongsPanel({
   const inBundle = several && bundles.some((b) => b.name === bundle) ? bundle : '';
   // «~ спасіння» (1.25.0-beta.1): the songs by meaning, the nearest first
   const meaning = MEANING_PREFIX.test(debounced) && !!debounced.replace(MEANING_PREFIX, '').trim();
+  // the topics the songs of this bundle (or all) hold (1.25.0-beta.2): the filter under the search
+  const topicsQuery = useQuery({
+    queryKey: ['song-topics', inBundle],
+    queryFn: () => api.songTopics(inBundle || undefined),
+    enabled: open,
+  });
+  const topicList = topicsQuery.data ?? [];
+  const inTopic = topicList.some((t) => t.name === topic) ? topic : '';
   const listQuery = useQuery({
-    queryKey: ['songs', debounced, inBundle],
-    queryFn: () => api.songs(debounced, inBundle || undefined),
+    queryKey: ['songs', debounced, inBundle, inTopic],
+    queryFn: () => api.songs(debounced, inBundle || undefined, inTopic || undefined),
     enabled: open && !meaning,
   });
   const meaningQuery = useQuery({
@@ -482,6 +496,22 @@ export function SongsPanel({
           </Tooltip>
         )}
       </Group>
+      {topicList.length > 0 && !meaning && (
+        <Select
+          size="xs"
+          mt="xs"
+          aria-label={tr('Тема')}
+          data={[
+            { value: '', label: tr('Усі теми') },
+            ...topicList.map((t) => ({ value: t.name, label: `${t.name} (${t.count})` })),
+          ]}
+          value={inTopic}
+          onChange={(v) => setTopic(v ?? '')}
+          allowDeselect={false}
+          searchable
+          comboboxProps={{ withinPortal: true }}
+        />
+      )}
       {imported && (
         <Group justify="space-between" wrap="nowrap" gap="xs" mt="xs" className="vo-import-done">
           <Text size="xs" style={{ minWidth: 0 }}>
@@ -574,7 +604,7 @@ export function SongsPanel({
               {tr('Ще обчислюється ({done} з {total}) — знайдено не все', found.pending)}
             </Text>
           )}
-          {debounced && songs.length === 0 && !fetching && (
+          {(debounced || inTopic) && songs.length === 0 && !fetching && (
             <Text size="sm" c="dimmed" p="sm">
               {found?.missing === 'model'
                 ? tr(
@@ -617,6 +647,16 @@ export function SongsPanel({
               setImported({ bundle: name, ...counts });
             }}
           />
+        ) : managing && topicsOf ? (
+          <SongTopics
+            key={topicsOf.id}
+            bundle={topicsOf}
+            onBack={() => setTopicsOf(null)}
+            onClose={() => {
+              setTopicsOf(null);
+              setManaging(false);
+            }}
+          />
         ) : managing ? (
           <SongBundles
             onBack={() => setManaging(false)}
@@ -625,6 +665,7 @@ export function SongsPanel({
               setBundle('');
               setImported(null); // the undo of an import doesn't reach across a rename / delete
             }}
+            onTopics={setTopicsOf}
           />
         ) : song ? (
           <>
@@ -676,6 +717,9 @@ export function SongsPanel({
                 )}
               </Group>
             </Group>
+            {serverAvailable !== false && (
+              <SongTopicsInput songId={song.id} topics={song.topics} bundle={song.bundle} />
+            )}
             <SegmentedControl
               fullWidth
               size="xs"
@@ -744,5 +788,53 @@ export function SongsPanel({
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * An open song's topics (1.25.0-beta.2): chips to take one off, a field to add one — from its
+ * bundle's list, or a new one, which joins the list. The model never changes what is set here.
+ */
+function SongTopicsInput({
+  songId,
+  topics,
+  bundle,
+}: {
+  songId: number;
+  topics: string[];
+  bundle: string;
+}) {
+  useLang();
+  const queryClient = useQueryClient();
+  const known = useQuery({
+    queryKey: ['song-topics', bundle],
+    queryFn: () => api.songTopics(bundle || undefined),
+  });
+  const [value, setValue] = useState(topics);
+  useEffect(() => setValue(topics), [topics]);
+  const change = async (next: string[]) => {
+    const before = value;
+    setValue(next);
+    try {
+      await api.setSongTopics(songId, next);
+      for (const key of SONG_KEYS) void queryClient.invalidateQueries({ queryKey: [key] });
+    } catch (e) {
+      setValue(before);
+      notifications.show({ message: tr((e as Error).message), color: 'red' });
+    }
+  };
+  return (
+    <TagsInput
+      size="xs"
+      mb="xs"
+      aria-label={tr('Теми презентації')}
+      placeholder={value.length ? undefined : tr('Теми: додайте або виберіть')}
+      data={(known.data ?? []).map((t) => t.name)}
+      value={value}
+      onChange={(next) => void change(next)}
+      maxTags={20}
+      clearable={false}
+      comboboxProps={{ withinPortal: true }}
+    />
   );
 }

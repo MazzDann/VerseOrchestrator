@@ -212,7 +212,8 @@ export function buildSegments(
       seg.transaction(() => {
         for (const r of rows) ins.run(...cols.map((c) => r[c]));
       })();
-      items += rows.length;
+      // a song's topics (1.25.0-beta.2) are not items of their own
+      if (table !== 'song_topics') items += rows.length;
     }
     // no documents yet: no segment for them (1.17.0-beta.1)
     if (items === 0 && kind === 'docs') {
@@ -228,7 +229,7 @@ export function buildSegments(
     ['cross_references', 'commentaries', 'subheading_sets', 'set_subheadings'],
     'Перехресні посилання, коментарі, підзаголовки', // i18n-ignore: the manifest's title (data)
   );
-  bundle('songs', 'songs', ['songs', 'song_slides'], 'Пісні'); // i18n-ignore: the manifest's title
+  bundle('songs', 'songs', ['songs', 'song_slides', 'song_topics'], 'Пісні'); // i18n-ignore: the manifest's title
   bundle('docs', 'docs', ['documents', 'doc_units', 'doc_refs'], 'Документи'); // i18n-ignore: the manifest's title
 
   // --- verse vectors: one segment per (model, translation) the vectors file holds whole
