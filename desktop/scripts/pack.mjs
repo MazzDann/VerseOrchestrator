@@ -61,9 +61,14 @@ function look() {
   return { main: null, denied };
 }
 function missing(denied) {
+  // a quarantined .app (a fresh download, opened before start.command): macOS runs it from a folder of
+  // its own, where app/ is not beside it
+  const apart = process.execPath.includes('/AppTranslocation/');
   dialog.showErrorBox(
     'VerseOrchestrator',
-    denied
+    apart
+      ? 'Спершу відкрийте start.command — він лежить поруч із програмою. Досить одного разу: далі програма відкривається сама.\\n\\nOpen start.command first — it is next to the program. Once is enough: after that the program opens by itself.'
+      : denied
       ? 'macOS не дає застосунку доступу до теки, де він лежить (Документи, Робочий стіл, Завантаження чи флешка). Дозвольте: Системні параметри → Приватність і безпека → Файли та папки → VerseOrchestrator — або перенесіть теку застосунку, наприклад, у свою домашню теку.\\n\\nmacOS keeps the app from the folder it is in (Documents, Desktop, Downloads or a flash drive). Allow it: System Settings → Privacy & Security → Files & Folders → VerseOrchestrator — or move the app’s folder, say, into your home folder.'
       : 'Поруч із програмою немає app/desktop — розпакуйте архів ще раз.\\n\\napp/desktop is missing next to the program — unpack the archive again.',
   );

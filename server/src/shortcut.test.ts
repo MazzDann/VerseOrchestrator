@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setLang } from './lang';
+import { LAYOUT_MARKER, RELEASE_MARKER } from './layout';
 
 /**
  * No test here may run osascript, pgrep, lsof, open or PowerShell for real: AppleScript that
@@ -94,6 +95,41 @@ describe('app window and desktop shortcut (0.7.5)', () => {
     delete process.env.VO_DESKTOP_DIR;
     for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
   });
+
+  it.runIf(process.platform !== 'win32')(
+    'makes the macOS shortcut a link to the release’s desktop app, with no Terminal window',
+    () => {
+      const top = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-mac-тест-'));
+      const desktop = fs.mkdtempSync(path.join(os.tmpdir(), 'vo-desktop-'));
+      dirs.push(top, desktop);
+      process.env.VO_DESKTOP_DIR = desktop;
+      const root = path.join(top, 'app');
+      fs.mkdirSync(root);
+      const old = path.join(desktop, 'VerseOrchestrator.command');
+      // no release, or no desktop app in it: the start file, as before
+      expect(createShortcut(root, 'darwin')).toEqual([old]);
+      fs.writeFileSync(path.join(root, LAYOUT_MARKER), JSON.stringify(RELEASE_MARKER));
+      expect(createShortcut(root, 'darwin')).toEqual([old]);
+      const app = path.join(top, 'VerseOrchestrator.app');
+      fs.mkdirSync(app);
+      const link = path.join(desktop, 'VerseOrchestrator.app');
+      expect(createShortcut(root, 'darwin')).toEqual([link]);
+      expect(fs.readlinkSync(link)).toBe(app);
+      expect(fs.existsSync(old)).toBe(false); // ours from before went
+      // again, and over a link to a copy that is gone; another copy's shortcut stays
+      fs.rmSync(link);
+      fs.symlinkSync(path.join(top, 'gone.app'), link);
+      fs.writeFileSync(old, macCommand('/Users/op/other'));
+      expect(createShortcut(root, 'darwin')).toEqual([link]);
+      expect(fs.readlinkSync(link)).toBe(app);
+      expect(fs.existsSync(old)).toBe(true);
+      // an app moved there by hand is left as it is
+      fs.rmSync(link);
+      fs.mkdirSync(link);
+      expect(createShortcut(root, 'darwin')).toEqual([link]);
+      expect(fs.lstatSync(link).isSymbolicLink()).toBe(false);
+    },
+  );
 
   it.runIf(process.platform === 'win32')(
     'makes a Windows shortcut: start.cmd --app, in the app folder, with its icon',

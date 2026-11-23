@@ -142,7 +142,9 @@ On the first start from the archive, the system may warn about a file from the i
 - on macOS, the app isn't signed by Apple, so the system blocks `start.command`. Open
   **System Settings** → **Privacy & Security**, click **Open Anyway** next to
   `start.command`, and confirm. Before macOS 15, it's enough to right-click the file and
-  choose **Open**. After that the file opens with a normal double-click.
+  choose **Open**. After that the file opens with a normal double-click. Begin with
+  `start.command`: after it `VerseOrchestrator.app` opens by itself, with no Terminal window, and
+  can stay in the Dock.
 
 When the app is running already and a control window is open, starting it again doesn't
 open a second control window: it switches to that one (on Windows; on macOS when it is in
@@ -240,8 +242,9 @@ copy from the repository says `dev` and the branch there, for example
 
 ## Create a shortcut
 
-When the app is next to the `app` folder, the shortcut opens it; on Windows without a console window,
-and a shortcut made earlier to the start file is switched to the app by itself. A copy of the code (git)
+When the app is next to the `app` folder, the shortcut opens it: on Windows without a console window,
+and a shortcut made earlier to the start file is switched to the app by itself; on macOS without a
+Terminal window (**Create shortcut** replaces an earlier `VerseOrchestrator.command`). A copy of the code (git)
 has no app: the shortcut runs the start file. Without it, the shortcut starts
 the app and opens the control window as a window of its own — without
 tabs or an address bar: in the browser chosen in **Open the control window in…** if it is
