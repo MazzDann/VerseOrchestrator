@@ -100,16 +100,75 @@ async function answers(): Promise<boolean> {
 }
 
 let launcher: ChildProcess | null = null;
+/** What the launcher says goes to a file, not a pipe: the app outlives a crashed shell. */
+const LAUNCHER_LOG = () => path.join(app.getPath('userData'), 'launcher.log');
+const launcherLines = (): string[] => {
+  try {
+    return fs
+      .readFileSync(LAUNCHER_LOG(), 'utf8')
+      .split(/\r?\n/)
+      .filter((l) => l.trim());
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * The first start may take minutes (the library, the parts) with nothing on the screen: a small
+ * window says what is being done, once it takes longer than a moment.
+ */
+function openStart(): BrowserWindow {
+  const w = new BrowserWindow({
+    width: 440,
+    height: 150,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    autoHideMenuBar: true,
+    backgroundColor: '#1e2025',
+    title: 'VerseOrchestrator',
+    icon,
+    webPreferences: { contextIsolation: true, sandbox: true },
+  });
+  const html =
+    '<meta charset="utf-8"><title>VerseOrchestrator</title><body style="margin:0;height:100vh;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:0 28px;box-sizing:border-box;background:#1e2025;color:#e9e9ea;font:15px system-ui,sans-serif;user-select:none">' +
+    `<div>${say('Готую застосунок…', 'Getting the app ready…')}</div>` +
+    '<div id="s" style="color:#9a9ca3;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">&nbsp;</div></body>';
+  void w.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  const timer = setInterval(() => {
+    const line = launcherLines()
+      .filter((l) => /^[…✓!]|^\[builder\] step/.test(l))
+      .at(-1);
+    if (!line || w.isDestroyed()) return;
+    // the folder's path is too long for it
+    const said = line.replace(/^\[builder\] step/, '…').replace(/\s*\([^)]*[\\/][^)]*\)/, '');
+    void w.webContents
+      .executeJavaScript(`document.getElementById('s').textContent = ${JSON.stringify(said)}`)
+      .catch(() => undefined);
+  }, 400);
+  w.on('closed', () => clearInterval(timer));
+  return w;
+}
 /**
  * The app on the port was started by this shell: it stops at quit — even after an update, when
  * the swap started a new waiter of its own (server/src/swap.ts) and `launcher` is gone.
  */
 let ownsApp = false;
+/** the app is being started (the start window may be open); the program is quitting */
+let starting = false;
+let quitting = false;
 
 /** The app on PORT: the one already running, or the launcher started now (and waited for). */
 async function startApp(): Promise<void> {
   if (await answers()) return;
   ownsApp = true;
+  let log: number | 'ignore' = 'ignore';
+  try {
+    log = fs.openSync(LAUNCHER_LOG(), 'w');
+  } catch {
+    /* no log: the start window only says it is getting ready */
+  }
   launcher = spawn(
     nodeRuntime(),
     [
@@ -120,8 +179,9 @@ async function startApp(): Promise<void> {
       String(PORT),
     ],
     // from the home folder: a process sitting in app/ blocks an update's swap (EBUSY)
-    { cwd: os.homedir(), stdio: 'inherit', windowsHide: true },
+    { cwd: os.homedir(), stdio: ['ignore', log, log], windowsHide: true },
   );
+  if (typeof log === 'number') fs.closeSync(log);
   launcher.on('exit', (code) => {
     launcher = null;
     if (code) console.error(`[desktop] the launcher exited (${code})`);
@@ -633,6 +693,9 @@ else {
     });
   });
   app.on('before-quit', () => {
+    quitting = true;
+    // closed while it was getting ready: nothing answers on the port yet
+    if (starting && launcher) launcher.kill();
     // the app this shell started stops with it; one it found running stays
     if (ownsApp)
       void fetch(`${ORIGIN}/__standby/shutdown`, { method: 'POST', headers: HEADERS }).catch(
@@ -643,13 +706,29 @@ else {
     setMenu();
     grantPermissions();
     followDisplays();
+    let start: BrowserWindow | null = null;
+    starting = true;
+    const timer = setTimeout(() => (start = openStart()), 1500);
     try {
       await startApp();
     } catch (e) {
       console.error(`[desktop] ${(e as Error).message}`);
+      const why = launcherLines().slice(-4).join('\n');
+      clearTimeout(timer);
+      if (!quitting)
+        dialog.showErrorBox(
+          'VerseOrchestrator',
+          `${say('Застосунок не запустився.', 'The app did not start.')}\n\n${why}`,
+        );
       app.quit();
       return;
     }
+    clearTimeout(timer);
+    starting = false;
+    if (quitting) return;
     control = openControl();
+    const opened = start as BrowserWindow | null;
+    if (opened && !opened.isDestroyed())
+      control.once('ready-to-show', () => !opened.isDestroyed() && opened.destroy());
   });
 }

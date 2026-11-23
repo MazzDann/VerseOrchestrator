@@ -253,6 +253,13 @@ export const EN: Record<string, string> = {
   Скасувати: 'Cancel',
   'Так, перезапустити': 'Yes, restart',
   // desktop shortcut (web/src/components/ShortcutSection.tsx)
+  'У застосунку вікно на другому екрані відкривається на весь екран саме':
+    'In the app, a window on the second screen opens full screen by itself',
+  'Збій одного вікна виводу не зачепить вікно керування й інші вікна. Діє для нових вікон':
+    'A crash of one output window won’t affect the control window and the others. Applies to new windows',
+  'Застосунок у Dock': 'The app in the Dock',
+  'Щоб мати застосунок під рукою, клацніть його значок у Dock правою кнопкою → «Параметри» → «Тримати в Dock».':
+    'To keep the app at hand, right-click its icon in the Dock → “Options” → “Keep in Dock”.',
   'Ярлик створено: {file}': 'Shortcut created: {file}',
   'Він відкриває застосунок.': 'It opens the app.',
   'Це вікно можна закрити.': 'You can close this window.',

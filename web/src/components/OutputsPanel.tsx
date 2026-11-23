@@ -53,6 +53,7 @@ import {
   outputRef,
 } from '../openPresenter';
 import { N_, tr, trn, useLang } from '../i18n';
+import { inDesktop } from '../lib/desktop';
 
 const KIND_ICON: Record<OutputKind, typeof IconScreenShare> = {
   presenter: IconScreenShare,
@@ -248,7 +249,7 @@ export function OutputsPanel() {
                   </Text>
                   <Text size="xs" c="dimmed">
                     {[
-                      s.w && s.h ? `${s.w}×${s.h}` : null,
+                      s.fullW && s.fullH ? `${s.fullW}×${s.fullH}` : null,
                       here ? tr('вікон: {n}', { n: here }) : null,
                     ]
                       .filter(Boolean)
@@ -458,18 +459,20 @@ export function OutputsPanel() {
         />
         <Switch
           size="xs"
-          checked={fullscreen && !separate}
-          disabled={separate}
+          checked={inDesktop() || (fullscreen && !separate)}
+          disabled={inDesktop() || separate}
           onChange={(e) => setOutputs({ fullscreen: e.currentTarget.checked })}
           label={tr('Відкривати на весь екран')}
           description={
-            separate
-              ? tr(
-                  'З окремими процесами вікно стає на весь екран клавішею F або кліком у ньому самому',
-                )
-              : tr(
-                  'Нове вікно стає на весь екран з вашим наступним кліком у цьому вікні — по одному вікну на клік (Chrome, Edge); в інших браузерах — F у самому вікні',
-                )
+            inDesktop()
+              ? tr('У застосунку вікно на другому екрані відкривається на весь екран саме')
+              : separate
+                ? tr(
+                    'З окремими процесами вікно стає на весь екран клавішею F або кліком у ньому самому',
+                  )
+                : tr(
+                    'Нове вікно стає на весь екран з вашим наступним кліком у цьому вікні — по одному вікну на клік (Chrome, Edge); в інших браузерах — F у самому вікні',
+                  )
           }
         />
         <Switch
@@ -478,7 +481,13 @@ export function OutputsPanel() {
           onChange={(e) => setOutputs({ separate: e.currentTarget.checked })}
           label={tr('Окремий процес для кожного вікна')}
           description={tr(
-            'Збій одного вікна виводу не зачепить вікно керування й інші вікна (Chrome, Edge). Діє для нових вікон; на весь екран — F або клік у самому вікні',
+            inDesktop()
+              ? N_(
+                  'Збій одного вікна виводу не зачепить вікно керування й інші вікна. Діє для нових вікон',
+                )
+              : N_(
+                  'Збій одного вікна виводу не зачепить вікно керування й інші вікна (Chrome, Edge). Діє для нових вікон; на весь екран — F або клік у самому вікні',
+                ),
           )}
         />
         {/* natural widths: a narrow panel wraps them to two rows instead of cutting labels */}

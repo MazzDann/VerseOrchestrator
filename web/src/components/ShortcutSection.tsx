@@ -6,6 +6,8 @@ import { notifications } from '@mantine/notifications';
 import { api } from '../api';
 import { useServer, NEEDS_SERVER } from '../serverStore';
 import { tr, useLang } from '../i18n';
+import { IS_MAC } from '../hotkeys';
+import { inDesktop } from '../lib/desktop';
 
 /**
  * «Ярлик на робочому столі» (0.7.5): starts the app and opens the control window as an app
@@ -42,6 +44,21 @@ export function ShortcutSection() {
       setBusy(false);
     }
   };
+
+  // a Mac keeps its programs in the Dock
+  if (IS_MAC && inDesktop())
+    return (
+      <div>
+        <Text size="sm" fw={500} mb={2}>
+          {tr('Застосунок у Dock')}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {tr(
+            'Щоб мати застосунок під рукою, клацніть його значок у Dock правою кнопкою → «Параметри» → «Тримати в Dock».',
+          )}
+        </Text>
+      </div>
+    );
 
   return (
     <div>
