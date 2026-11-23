@@ -4,6 +4,7 @@ import { type ImageInfo } from '../../api';
 import { type NewSeqItem, type SeqImage } from '../../playlistStore';
 import { type Slide, type SlidePicture, type SlideStyle } from '../../presenterBus';
 import { pictureSlide } from '../../lib/slide';
+import { noticeOnScreen } from '../../lib/onScreenNotice';
 import { tr } from '../../i18n';
 
 /**
@@ -37,11 +38,7 @@ export function usePictures({
     if (quiet) return slide; // a «Цикл» tick (1.10.4): the screen only
     setPreviewOverride(slide);
     setLive(true);
-    notifications.show({
-      message: tr('На екрані: {ref}', { ref: picture.name }),
-      color: 'live',
-      autoClose: 1500,
-    });
+    noticeOnScreen(picture.name);
     return slide;
   };
   // «Вписати / Заповнити» (1.7.1, the user's call): the picture on screen takes the switch at once

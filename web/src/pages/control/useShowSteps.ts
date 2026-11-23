@@ -36,6 +36,7 @@ import { joinVerses, numbersOn, strongHighlightSegments } from './slideText';
 import { standbyNotice } from './standby';
 import { type PastItem } from '../../lib/orderFlow';
 import { noticeOnce } from '../../lib/noticeOnce';
+import { noticeOnScreen } from '../../lib/onScreenNotice';
 import { type PickWalk, walkStep } from '../../lib/pickWalk';
 
 /**
@@ -586,13 +587,7 @@ export function useShowSteps({
   const sendAndNotify = () => {
     if (!leaderRef.current) return standbyNotice();
     send();
-    if (slideLines.length > 0) {
-      notifications.show({
-        message: tr('На екрані: {ref}', { ref: pageReference }),
-        color: 'live',
-        autoClose: 1500,
-      });
-    }
+    if (slideLines.length > 0) noticeOnScreen(pageReference);
   };
 
   // «На екран» / F5 / the palette: put on screen whatever the preview shows — a song, text or Strong
@@ -604,13 +599,7 @@ export function useShowSteps({
       pushLive(previewOverride);
       setLive(previewOverride.visible !== false && !previewOverride.blank);
       setHold(null);
-      if (previewOverride.reference) {
-        notifications.show({
-          message: tr('На екрані: {ref}', { ref: previewOverride.reference }),
-          color: 'live',
-          autoClose: 1500,
-        });
-      }
+      noticeOnScreen(previewOverride.reference);
       return;
     }
     sendAndNotify();
@@ -643,13 +632,7 @@ export function useShowSteps({
     setLive(true);
     setPreviewOverride(null);
     setHold(null); // the screen shows the preview: it follows again (a held preview walk too)
-    notifications.show({
-      message: tr('На екрані: {ref}', {
-        ref: formatReference(currentBook, chapter, [verseNum], true),
-      }),
-      color: 'live',
-      autoClose: 1500,
-    });
+    noticeOnScreen(formatReference(currentBook, chapter, [verseNum], true));
   };
 
   return {

@@ -2,7 +2,7 @@ import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } 
 import { flushSync } from 'react-dom';
 import { type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { markedText } from '@vo/shared';
+import { markedText, withoutChordLines } from '@vo/shared';
 import { api, type Translation } from '../../api';
 import { type Appearance } from '../../settingsStore';
 import { type NewSeqItem, type SeqImage, type SeqItem } from '../../playlistStore';
@@ -281,8 +281,13 @@ export function useShowCommands({
     });
     const stanza = s.slides[p.stanza];
     if (!stanza) throw new Error(tr('Такого слайда немає'));
-    const line: SlideLine = { translationAbbr: '', text: stanza.text, rtl: false };
-    const marked = markedText(stanza.text, stanza.style);
+    // chord-only lines never reach the hall (1.25.0-beta.5)
+    const clean = withoutChordLines(
+      stanza.text,
+      markedText(stanza.text, stanza.style) ?? undefined,
+    );
+    const line: SlideLine = { translationAbbr: '', text: clean.text, rtl: false };
+    const marked = clean.second;
     return {
       // its second part dimmer, as in «Простий текст» (1.3.0)
       lines: [marked ? withSecond(line, marked) : line],

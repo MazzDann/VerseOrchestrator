@@ -9,6 +9,7 @@ import { formatReference } from '../../lib/reference';
 import { addPlace, type Place } from '../../lib/places';
 import { numbersOn } from './slideText';
 import { standbyNotice } from './standby';
+import { noticeOnScreen } from '../../lib/onScreenNotice';
 import { tr } from '../../i18n';
 
 /**
@@ -125,13 +126,13 @@ export function usePlacesSlide({
       pushLive(slide);
       setLive(true);
     }
-    notifications.show({
-      message: onScreen
-        ? tr('На екрані: {ref}', { ref: slide.reference })
-        : tr('У прев’ю: {ref} — на екран кнопкою «На екран»', { ref: slide.reference }),
-      color: onScreen ? 'live' : 'cue',
-      autoClose: 2000,
-    });
+    if (onScreen) noticeOnScreen(slide.reference, 2000);
+    else
+      notifications.show({
+        message: tr('У прев’ю: {ref} — на екран кнопкою «На екран»', { ref: slide.reference }),
+        color: 'cue',
+        autoClose: 2000,
+      });
     return true;
   };
 

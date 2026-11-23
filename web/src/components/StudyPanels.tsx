@@ -185,6 +185,7 @@ export function StudyPanels({
       slide={previewSlide}
       state={previewState}
       title={merged ? tr('На екрані') : tr('Прев’ю')}
+      screen={merged}
       // the slide's own reference — a song or a text isn't the verse selection (the
       // merged monitor said «На екрані Psalms 135:15» over a song stanza, 0.6.11)
       detail={
@@ -208,6 +209,7 @@ export function StudyPanels({
       slide={liveSlide}
       state={liveActive ? 'live' : 'idle'}
       title={tr('На екрані')}
+      screen
       detail={liveDetail}
     />
   );

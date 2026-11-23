@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '../../api';
+import { defaultTranslation } from '../../lib/translationOrder';
+import { useSettings } from '../../settingsStore';
 import { profilesQuery } from '../../lib/passageLines';
 import { remapPlace } from '../../lib/remapPlace';
 import { useStore } from '../../store';
@@ -22,6 +25,18 @@ export function useTranslationSwitch(): (ids: number[]) => void {
   const ticked = useStore((s) => s.selectedTranslationIds);
   const book = useStore((s) => s.bookNumber);
   const turn = useRef(0);
+  // none ticked at the start: one in the interface language (1.25.0-beta.5), once — a window whose
+  // operator unticks them all later is left so
+  const lang = useSettings((s) => s.language);
+  const all = useQuery({ queryKey: ['translations'], queryFn: api.translations });
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !all.data?.length) return;
+    seeded.current = true;
+    if (useStore.getState().selectedTranslationIds.length > 0) return;
+    const t = defaultTranslation(all.data, lang);
+    if (t) useStore.setState({ selectedTranslationIds: [t.id] });
+  }, [all.data, lang]);
   useEffect(() => {
     if (ticked.length >= 2 && book != null)
       void queryClient.prefetchQuery(profilesQuery(ticked, book));

@@ -283,6 +283,9 @@ export function ChapterBar({
           const grid = (
             <ScrollArea.Autosize
               mah={64}
+              // more chapters than two rows: the half row at the bottom fades — «there is more», not a
+              // row cut off (1.25.0-beta.5, the vo-ux walk-through)
+              className={chapters.length > 20 ? 'vo-fade-bottom' : undefined}
               style={placement === 'beside' ? { flex: 1, minWidth: 0 } : { width: '100%' }}
             >
               <div

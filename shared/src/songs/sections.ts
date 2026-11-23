@@ -116,3 +116,50 @@ const startOf = (p: SongPart | undefined): number | undefined =>
 export function slideWords(text: string): string {
   return bodyOf(text);
 }
+
+// ── Chord lines (1.25.0-beta.5 «Зручність»: «F Dm Gm C-C7» went to the hall) ──────────────────
+
+/** A chord: a note A–H, a sharp or flat, a kind (m, maj7, sus4, dim …), a bass after «/». */
+const CHORD =
+  /^\(?[A-H](?:#|b|♯|♭)?(?:m|maj|min|dim|aug|sus|add|M)?\d*(?:(?:sus|add|maj)\d+)?(?:\/[A-H](?:#|b|♯|♭)?)?\)?$/;
+
+/** Cyrillic letters typed for notes: «С-С7» in a file is C-C7. */
+const LOOKALIKE: Record<string, string> = { А: 'A', В: 'B', С: 'C', Е: 'E', Н: 'H' }; // i18n-ignore
+
+/**
+ * Is a line nothing but chords («F Dm Gm C-C7», «(Am) G», «С-С7» with Cyrillic letters)? A line of
+ * Cyrillic capitals alone is words, not chords: a Latin letter, a digit or a ♯ ♭ / is asked for.
+ */
+export function isChordLine(line: string): boolean {
+  const tokens = line
+    .trim()
+    .split(/[\s\-–—|]+/)
+    .filter(Boolean);
+  if (!tokens.length || !tokens.some((t) => /[A-Za-z0-9#♯♭/]/.test(t))) return false;
+  return tokens.every((t) => CHORD.test(t.replace(/[АВСЕН]/g, (c) => LOOKALIKE[c]))); // i18n-ignore
+}
+
+/**
+ * A slide's text for the screen: its chord-only lines gone — the operator's list keeps them. `second`
+ * (a marked copy of the same text, pptx.ts `markedText`) loses the same lines, so the two still match.
+ */
+export function withoutChordLines(
+  text: string,
+  second?: string,
+): { text: string; second?: string } {
+  const lines = text.split('\n');
+  const drop = lines.map((l) => isChordLine(l.replace(/[]/g, '')));
+  if (!drop.some(Boolean)) return { text, second };
+  const keep = (t: string) =>
+    t
+      .split('\n')
+      .filter((_, i) => !drop[i])
+      .join('\n');
+  const secondLines = second?.split('\n');
+  return {
+    text: keep(text),
+    ...(second !== undefined
+      ? { second: secondLines && secondLines.length === lines.length ? keep(second) : second }
+      : {}),
+  };
+}
