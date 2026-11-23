@@ -136,6 +136,8 @@ export function isChordLine(line: string): boolean {
     .split(/[\s\-–—|]+/)
     .filter(Boolean);
   if (!tokens.length || !tokens.some((t) => /[A-Za-z0-9#♯♭/]/.test(t))) return false;
+  // one bare letter alone is a word as often as a chord (a lyric line «A»): left as it is
+  if (tokens.length === 1 && tokens[0].length === 1) return false;
   return tokens.every((t) => CHORD.test(t.replace(/[АВСЕН]/g, (c) => LOOKALIKE[c]))); // i18n-ignore
 }
 

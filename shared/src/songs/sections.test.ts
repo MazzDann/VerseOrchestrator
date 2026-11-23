@@ -104,6 +104,8 @@ describe('chord lines (1.25.0-beta.5)', () => {
     expect(isChordLine('A mighty fortress')).toBe(false);
     expect(isChordLine('F Dm Gm С-С7')).toBe(true); // a Cyrillic «С», as a file had it
     expect(isChordLine('А В')).toBe(false); // Cyrillic capitals alone: words
+    expect(isChordLine('A')).toBe(false); // one bare letter: a lyric line as often
+    expect(isChordLine('Am')).toBe(true);
     expect(isChordLine('')).toBe(false);
   });
   it('the screen text without them; a marked copy loses the same lines', () => {
