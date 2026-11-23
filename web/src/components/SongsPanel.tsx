@@ -196,7 +196,8 @@ export function SongsPanel({
     ...(several && !inBundle ? (['bundles'] as const) : []),
     ...(topicList.length ? (['topics'] as const) : []),
   ];
-  const groupedBy: Grouping = !debounced.trim() && groupings.includes(grouping) ? grouping : 'none';
+  // the field typed into: a plain list at once, not after the debounce (Enter must find a song)
+  const groupedBy: Grouping = !query.trim() && groupings.includes(grouping) ? grouping : 'none';
   const listQuery = useQuery({
     queryKey: ['songs', debounced, inBundle],
     queryFn: () => api.songs(debounced, inBundle || undefined),
@@ -504,7 +505,11 @@ export function SongsPanel({
               return;
             }
             if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
-            const pick = songs.find((x) => x.id === songId) ?? songs[0];
+            // grouped (nothing typed): the open song, the groups hold the rest (review)
+            const pick =
+              songs.find((x) => x.id === songId) ??
+              songs[0] ??
+              (songId != null ? { id: songId, stanza: undefined } : undefined);
             if (!pick) return;
             e.preventDefault();
             e.stopPropagation();
@@ -563,7 +568,7 @@ export function SongsPanel({
           </Tooltip>
         )}
       </Group>
-      {groupings.length > 1 && !debounced.trim() && (
+      {groupings.length > 1 && !query.trim() && (
         <SegmentedControl
           size="xs"
           mt="xs"

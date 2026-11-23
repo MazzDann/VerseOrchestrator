@@ -282,6 +282,7 @@ export function ControlNavbar({
                     e.preventDefault();
                     setHistoryQuery(meant);
                   } else if (e.key === 'Escape') {
+                    e.preventDefault();
                     e.stopPropagation();
                     setHistoryQuery(null);
                   }
@@ -291,7 +292,8 @@ export function ControlNavbar({
           )}
           <Box ref={recentBoxRef} style={{ height: layout.recentHeight }} data-history-list>
             <ScrollArea h="100%" scrollbars="y" className="vo-scroll-rows">
-              {isMeaningQuery(historyDebounced) ? (
+              {/* closed: no search, even while the debounced value still holds it (review) */}
+              {isMeaningQuery(historyQuery === null ? '' : historyDebounced) ? (
                 <HistoryMeaning
                   query={historyDebounced}
                   translationIds={
