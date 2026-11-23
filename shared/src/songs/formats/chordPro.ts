@@ -33,7 +33,7 @@ export function chordedLine(s: string): SongLine {
   const chords: { at: number; chord: string }[] = [];
   let text = '';
   let last = 0;
-  const re = /\[([^\]]*)\]/g;
+  const re = /\[([^[\]]*)\]/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(s)) !== null) {
     text += s.slice(last, m.index);

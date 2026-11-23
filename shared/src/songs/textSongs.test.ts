@@ -51,7 +51,7 @@ e|--0--1--|
 describe('songs in text formats (1.25.0-beta.7)', () => {
   it('OpenLyrics: the order it gives, the chorus labelled, chords over the words', () => {
     const [song] = read('x/Morning.xml', OPENLYRICS);
-    expect(song).toMatchObject({ key: 'Morning', number: 12, title: 'Morning song' });
+    expect(song).toMatchObject({ key: 'Morning.xml', number: 12, title: 'Morning song' });
     const t = song.slides.map((x) => x.text);
     expect(t).toEqual([
       'Morning song\nA. Writer',
@@ -84,7 +84,7 @@ describe('songs in text formats (1.25.0-beta.7)', () => {
 
   it('ChordPro: chords above, the chorus again, no tablature', () => {
     const [song] = read('5. Morning.cho', CHORDPRO);
-    expect(song).toMatchObject({ key: '5. Morning', number: 5, title: 'Morning song' });
+    expect(song).toMatchObject({ key: '5. Morning.cho', number: 5, title: 'Morning song' });
     const t = song.slides.map((x) => x.text);
     expect(t).toEqual([
       'Morning song\nA. Writer',
@@ -111,9 +111,9 @@ describe('songs in text formats (1.25.0-beta.7)', () => {
       '{t: One}\nla la\n{ns}\n{t: Two}\nlo lo\n{new_song}\n{t: One}\nlu lu',
     );
     expect(songs.map((s) => [s.key, s.title])).toEqual([
-      ['All – One', 'One'],
-      ['All – Two', 'Two'],
-      ['All – One (3)', 'One'],
+      ['All.chopro – One', 'One'],
+      ['All.chopro – Two', 'Two'],
+      ['All.chopro – One (3)', 'One'],
     ]);
   });
 
@@ -132,7 +132,7 @@ describe('songs in text formats (1.25.0-beta.7)', () => {
     expect(read('7) Назва файлу.txt', '№ 12. Ранкова\n\nсвіт')[0]).toMatchObject({
       number: 12,
       title: 'Ранкова',
-      key: '7) Назва файлу',
+      key: '7) Назва файлу.txt',
     });
     // no title of its own: the file's name; a label apart from its words; the words written again
     expect(
@@ -146,6 +146,17 @@ describe('songs in text formats (1.25.0-beta.7)', () => {
     expect(chords[1]).toBe('C  G7\nwords here');
     expect(screen(chords)[1]).toBe('words here');
     expect(read('empty.txt', ' \n\n')).toEqual([]);
+  });
+
+  it('found in the review (1.25.0-beta.7)', () => {
+    // lines that made the reading quadratic
+    const t = performance.now();
+    read('a.cho', `${'['.repeat(200_000)}x`);
+    read('a.cho', `a${' '.repeat(200_000)}b`);
+    read('a.txt', `a${' '.repeat(200_000)}b\n\nc`);
+    expect(performance.now() - t).toBeLessThan(2000);
+    // an order in other letters than the verses' names
+    expect(texts('a.xml', OPENLYRICS.replace('v1 c v2 c', 'V1 C V2'))).toHaveLength(4);
   });
 
   it('files by their names; a folder’s notes beside presentations are no songs', () => {

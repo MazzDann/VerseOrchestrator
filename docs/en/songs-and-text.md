@@ -178,6 +178,9 @@ not only the title, and lists the closest songs first. The dots to the right of 
 close the song is to the theme, and the line under the title is the stanza that fits best. When
 you open such a song, that stanza is marked with a grey line on its left.
 
+The name of a ready topic (“Christmas”, “Easter”, “Sabbath”, and others) is looked for by its words too:
+songs whose text holds them come higher.
+
 The theme search needs a model from **Search by meaning** in **Appearance settings → Data**. Once
 the model is downloaded, the app computes vectors for every presentation by itself, and later only
 for new and changed ones. While it works, a small ring turns in the header: hover over it to see

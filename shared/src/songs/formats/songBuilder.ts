@@ -60,7 +60,7 @@ export function chordLine(chords: { at: number; chord: string }[]): string {
 
 /** A line's words and, over them, its chords. */
 function linesOf(line: SongLine): string[] {
-  const text = line.text.replace(/\s+$/, '');
+  const text = line.text.trimEnd();
   const chords = line.chords?.length ? chordLine(line.chords) : '';
   return [...(chords ? [chords] : []), ...(text.trim() ? [text] : [])];
 }
@@ -98,7 +98,7 @@ export function buildSong(song: TextSong, fileName: string, more = ''): ParsedSo
   const named = songNumberTitle(file);
   const title = (song.title.trim() || named.title || file).slice(0, TITLE_MAX);
   return {
-    key: `${file}${more && ` – ${more}`}`.slice(0, TITLE_MAX).trim().normalize('NFC'),
+    key: keyOf(fileName, more),
     number: song.number ?? (more ? null : named.number),
     title,
     slides: [
@@ -111,6 +111,15 @@ export function buildSong(song: TextSong, fileName: string, more = ''): ParsedSo
       ...slides.map((text) => ({ text, style: null })),
     ],
   };
+}
+
+/**
+ * The song's key in its bundle: the file's name with its extension — the same song in a .pptx and in
+ * a .txt are two, neither takes the other's place — and which of the file's songs it is.
+ */
+function keyOf(fileName: string, more: string): string {
+  const name = fileName.replace(/^.*[\\/]/, '').normalize('NFC');
+  return `${name}${more && ` – ${more}`}`.slice(0, TITLE_MAX).trim();
 }
 
 /** The file's name without its extension, as `songKey` makes it for a .pptx. */

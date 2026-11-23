@@ -14,6 +14,8 @@ const VERSE =
 const LABEL_MAX = 40;
 
 export function sectionLabel(line: string): SectionLabel | null {
+  // a label is short: a long line is never searched for one
+  if (line.length > LABEL_MAX * 2) return null;
   const bare = line.trim().replace(/^\[\s*|\s*\]$/g, '');
   const s = bare.replace(/[:.\s]+$/, '');
   if (!s || s.length > LABEL_MAX) return null;

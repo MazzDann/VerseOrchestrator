@@ -46,7 +46,12 @@ export function readOpenLyrics(xml: string): TextSong {
     open(name, attrs, empty) {
       if (!empty) stack.push({ name, attrs });
       if (name === 'verse') {
-        verse = { name: attrs.name ?? '', lang: attrs.lang ?? '', chorus: false, lines: [] };
+        verse = {
+          name: (attrs.name ?? '').toLowerCase(),
+          lang: attrs.lang ?? '',
+          chorus: false,
+          lines: [],
+        };
         verse.chorus = /^c/i.test(verse.name);
         if (empty) verse = null;
       } else if (verse && UNSUNG.has(name)) unsung += empty ? 0 : 1;
@@ -79,7 +84,7 @@ export function readOpenLyrics(xml: string): TextSong {
       const words = squash(said).trim();
       if (name === 'title') song.title ||= words;
       else if (name === 'author' && words) song.authors.push(words);
-      else if (name === 'verseorder') order = words.split(' ').filter(Boolean);
+      else if (name === 'verseorder') order = words.toLowerCase().split(' ').filter(Boolean);
       else return;
       said = '';
     },
