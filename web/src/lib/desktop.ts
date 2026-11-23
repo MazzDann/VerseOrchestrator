@@ -13,6 +13,12 @@ export const inDesktop = (): boolean =>
  */
 export const outputAtStartOn = (choice: boolean | null): boolean => choice ?? inDesktop();
 
+/** Does the running shell put a reloaded full-screen output window back full screen (1.25.3)? */
+export const reloadKeepsFullscreen = (): boolean =>
+  typeof window !== 'undefined' &&
+  (window as unknown as { voDesktop?: { reloadKeepsFullscreen?: boolean } }).voDesktop
+    ?.reloadKeepsFullscreen === true;
+
 /**
  * Is there a second screen to open the presentation window on? On one screen it would cover the
  * control window (1.25.2, the author: «мало ж тільки на двох»). A browser that doesn't say

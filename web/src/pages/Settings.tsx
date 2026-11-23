@@ -11,6 +11,7 @@ import { SETTINGS_PANEL_KEY, SETTINGS_WINDOW_KEY, rememberPanelSize } from '../l
 import { useSettingsFind } from '../lib/settingsSearch';
 import { SETTINGS_FIND_EVENT } from '../openPresenter';
 import { inDesktop } from '../lib/desktop';
+import { useFollowVersion } from '../lib/followVersion';
 
 /**
  * Standalone settings window (`/settings`) — opened on a second monitor next to the
@@ -82,6 +83,7 @@ export function Settings() {
       window.removeEventListener(SETTINGS_FIND_EVENT, onFind);
     };
   }, []);
+  useFollowVersion(); // updated from here: this window too (1.25.3)
   const heading = versionHeading(devLabel, __APP_VERSION__);
   useEffect(() => {
     if (inDesktop()) document.title = `${tr('Налаштування вигляду')} — ${heading}`;

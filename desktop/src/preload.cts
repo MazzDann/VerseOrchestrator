@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('voDesktop', {
   shell: 'electron',
   version: process.versions.electron ?? '',
   platform: process.platform,
+  // 1.25.3: said by the running shell itself — after an update this file is new, the shell may be old
+  reloadKeepsFullscreen: process.argv.includes('--vo-reload-fullscreen'),
   // «Поступитися екраном» for a video (1.21.0-beta.7, F1024-08): an output window asks the shell to
   // drop its always-on-top (on = true) so the operator's own player can come forward, or restore it.
   outputYield: (on: boolean): void => {

@@ -123,7 +123,10 @@ describe('«Встановити застосунок» (1.18.0-beta.1)', () => 
       expect(fs.readFileSync(shellProgram(top, 'linux'), 'utf8')).toBe('electron');
       // nothing else of the archive stays
       expect(fs.existsSync(path.join(top, 'app'))).toBe(false);
-      expect(fs.existsSync(path.join(updatesDir, 'desktop'))).toBe(false);
+      // removed after «done» is said (an async rm): a busy runner sees it a moment later
+      await vi.waitFor(() => expect(fs.existsSync(path.join(updatesDir, 'desktop'))).toBe(false), {
+        timeout: 5000,
+      });
     },
   );
 

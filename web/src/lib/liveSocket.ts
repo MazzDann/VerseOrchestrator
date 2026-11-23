@@ -36,7 +36,7 @@ export const RETRY_CAP_MS = 2000;
  * from; an app the waiter didn't start (`npm run dev`) sends none. Once per version and build:
  * should the reload bring the same old page back (a cache), stay.
  */
-function followAppVersion(version: string, build?: string): void {
+export function followAppVersion(version: string, build?: string): void {
   if (typeof __APP_VERSION__ === 'undefined') return;
   const ownBuild = typeof __APP_BUILD__ === 'undefined' ? '' : __APP_BUILD__;
   const otherBuild = !!build && !!ownBuild && build !== ownBuild;
