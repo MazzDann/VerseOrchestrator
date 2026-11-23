@@ -19,7 +19,12 @@ export type SettingsSectionId =
   | 'passages'
   | 'highlight'
   | 'hotkeys'
+  | 'control'
+  | 'verses'
+  | 'outputs'
   | 'data'
+  | 'backup'
+  | 'updates'
   | 'app';
 
 /** The sections' titles, as the panel names them. */
@@ -38,9 +43,42 @@ export const SECTION_TITLES: Record<SettingsSectionId, string> = {
   passages: N_('Довгі уривки'),
   highlight: N_('Виділення'),
   hotkeys: N_('Гарячі клавіші'),
+  control: N_('Вікно керування'),
+  verses: N_('Список віршів'),
+  outputs: N_('Вікно показу'),
   data: N_('Дані'),
+  backup: N_('Резервні копії'),
+  updates: N_('Оновлення'),
   app: N_('Застосунок'),
 };
+
+export type SettingsThemeId = 'general' | 'slide' | 'screens' | 'program';
+
+/** The themes the sections stand under (1.25.4), in the panel's order. */
+export const SETTINGS_THEMES: {
+  id: SettingsThemeId;
+  title: string;
+  sections: SettingsSectionId[];
+}[] = [
+  { id: 'general', title: N_('Загальне'), sections: ['control', 'verses', 'search', 'hotkeys'] },
+  {
+    id: 'slide',
+    title: N_('Слайд'),
+    sections: ['presets', 'text', 'background', 'layout', 'passages', 'highlight', 'motion'],
+  },
+  {
+    id: 'screens',
+    title: N_('Екрани'),
+    sections: ['outputs', 'cover', 'countdown', 'video', 'stage', 'stageTimer'],
+  },
+  { id: 'program', title: N_('Програма'), sections: ['data', 'backup', 'updates', 'app'] },
+];
+
+export const isSection = (id: string): id is SettingsSectionId => Object.hasOwn(SECTION_TITLES, id);
+
+/** The theme a section stands under. */
+export const themeOf = (id: SettingsSectionId): SettingsThemeId =>
+  SETTINGS_THEMES.find((t) => t.sections.includes(id))!.id;
 
 /** One setting a search finds: its label (an interface key) and words people may type for it. */
 export interface SettingEntry {
@@ -142,19 +180,23 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   e('hotkeys', N_('Кнопки «Показ»'), 'running order buttons arrows стрілки кнопки далі назад'), // i18n-ignore: Ukrainian search words
   e('hotkeys', N_('Кілька віршів — на екран після Enter'), 'several verses pick ctrl shift вибір'), // i18n-ignore: Ukrainian search words
   e('hotkeys', N_('Безперервне читання'), 'continuous reading chapter cross next'),
-  e('app', N_('Простий вигляд'), 'simple view'),
-  e('app', N_('Вікна в одному меню'), 'windows menu вікна меню кнопки'), // i18n-ignore: Ukrainian search words
-  e('app', N_('Відкривати вікно показу автоматично'), 'output window auto second screen startup'),
-  e('app', N_('Налаштування — окремим вікном'), 'settings window separate panes'),
-  e('app', N_('Поле «Вірш» біля розділів'), 'verse field chapters place вірш поле розділи'), // i18n-ignore: Ukrainian search words
-  e('app', N_('Розмір розділів'), 'chapter size buttons розмір розділи глави'), // i18n-ignore: Ukrainian search words
-  e('app', N_('Підзаголовки над віршами'), 'subheadings titles sets заголовки набір'), // i18n-ignore: Ukrainian search words
-  e('app', N_('Підзаголовки на екрані'), 'subheadings output screen projected section title'),
-  e('app', N_('Коли другий екран під’єднано знову'), 'display reconnect монітор'), // i18n-ignore: Ukrainian search words
+  e('control', N_('Простий вигляд'), 'simple view'),
+  e('control', N_('Вікна в одному меню'), 'windows menu вікна меню кнопки'), // i18n-ignore: Ukrainian search words
+  e(
+    'outputs',
+    N_('Відкривати вікно показу автоматично'),
+    'output window auto second screen startup',
+  ),
+  e('control', N_('Налаштування — окремим вікном'), 'settings window separate panes'),
+  e('verses', N_('Поле «Вірш» біля розділів'), 'verse field chapters place вірш поле розділи'), // i18n-ignore: Ukrainian search words
+  e('verses', N_('Розмір розділів'), 'chapter size buttons розмір розділи глави'), // i18n-ignore: Ukrainian search words
+  e('verses', N_('Підзаголовки над віршами'), 'subheadings titles sets заголовки набір'), // i18n-ignore: Ukrainian search words
+  e('text', N_('Підзаголовки на екрані'), 'subheadings output screen projected section title'),
+  e('outputs', N_('Коли другий екран під’єднано знову'), 'display reconnect монітор'), // i18n-ignore: Ukrainian search words
   e('text', N_('Розмір тексту'), 'text size font scale smaller bigger шрифт менший більший'), // i18n-ignore: Ukrainian search words
-  e('app', N_('Перехресні посилання у списку віршів'), 'cross references xref links посилання'), // i18n-ignore: Ukrainian search words
-  e('app', N_('Мова інтерфейсу'), 'language english українська'), // i18n-ignore: Ukrainian search words
-  e('app', N_('Розташування панелі прев’ю'), 'preview panel bottom'),
+  e('verses', N_('Перехресні посилання у списку віршів'), 'cross references xref links посилання'), // i18n-ignore: Ukrainian search words
+  e('control', N_('Мова інтерфейсу'), 'language english українська'), // i18n-ignore: Ukrainian search words
+  e('control', N_('Розташування панелі прев’ю'), 'preview panel bottom'),
   e('data', N_('Бібліотека модулів'), 'library modules rescan пересканувати'), // i18n-ignore: Ukrainian search words
   e(
     'data',
@@ -168,16 +210,16 @@ export const SETTINGS_INDEX: SettingEntry[] = [
     N_('Статистика показу'),
     'statistics stats report songs books charts history звіт презентації графіки історія', // i18n-ignore: Ukrainian search words
   ),
-  e('app', N_('Оновлення'), 'update version release'),
-  e('app', N_('Перевіряти оновлення'), 'update check'),
-  e('app', N_('Канал оновлень'), 'channel beta stable'),
-  e('app', N_('Версія'), 'version rollback'),
-  e('app', N_('Резервна копія'), 'backup restore zip'),
-  e('app', N_('Автоматичні копії'), 'backup auto daily'),
-  e('app', N_('Робити копії автоматично')),
-  e('app', N_('Відновити з копії'), 'restore'),
-  e('app', N_('Інша копія'), 'other copy import'),
-  e('app', N_('Перенести з іншої копії'), 'import copy'),
+  e('updates', N_('Оновлення'), 'update version release'),
+  e('updates', N_('Перевіряти оновлення'), 'update check'),
+  e('updates', N_('Канал оновлень'), 'channel beta stable'),
+  e('updates', N_('Версія'), 'version rollback'),
+  e('backup', N_('Резервна копія'), 'backup restore zip'),
+  e('backup', N_('Автоматичні копії'), 'backup auto daily'),
+  e('backup', N_('Робити копії автоматично')),
+  e('backup', N_('Відновити з копії'), 'restore'),
+  e('backup', N_('Інша копія'), 'other copy import'),
+  e('backup', N_('Перенести з іншої копії'), 'import copy'),
   e('app', N_('Запуск за адресою'), 'standby port address'),
   e('app', N_('Порт'), 'port'),
   e('app', N_('Відкривати вікно керування в…'), 'browser chrome edge firefox'),

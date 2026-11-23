@@ -22,7 +22,7 @@ When the preview and the screen are the same, one monitor stays, with a red fram
 On screen monitor with the verse in one: what is prepared differs from what is on
 screen](../img/en/find-parallel.png)
 
-You can put the monitors below the verse list: **Settings** → **App** → **Preview panel
+You can put the monitors below the verse list: **Settings** → **Control window** → **Preview panel
 position** → **Bottom of the center**. Then **Preview** and **On screen** stand side by
 side, with the slide's text to their right when there is room. To change the panel's
 height, drag its top edge (or reach it with Tab and press ↑ and ↓); a double-click on the
@@ -270,7 +270,7 @@ only the stage. You can move a window in the **Output windows** panel.
 
 In the desktop app the presentation window opens by itself as the app starts — on the second
 screen and full-screen. To have it so in a browser too (or not in the app), turn **Settings** →
-**App** → **Open the presentation window automatically** on or off. In a browser the window then
+**Presentation window** → **Open the presentation window automatically** on or off. In a browser the window then
 opens after your first click in the control window.
 
 In an output window:
@@ -309,7 +309,7 @@ keyboard stays in the control window.
 
 If the second screen is unplugged, the app minimizes the presentation window, so it doesn't cover
 the control window. When the screen is plugged back in, the same window returns to it, full
-screen. What it shows then, choose in **Settings** → **App** → **When the second screen is
+screen. What it shows then, choose in **Settings** → **Presentation window** → **When the second screen is
 plugged back in**: what it showed (the default), a black screen, or nothing. If there was no
 presentation window and **Open the presentation window automatically** is on, one opens by itself.
 

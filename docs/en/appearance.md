@@ -16,9 +16,13 @@ above them stands the app's version.
 Below each section's name you see its current values; click the name to expand or
 collapse the section.
 
+The sections stand under four themes: **General** (the control window, the verse list, the search,
+the keys), **Slide** (the look of what is on screen), **Screens** (the presentation window, the
+cover, the countdown, video, the stage), and **Program** (data, backups, updates, the start).
+
 When the panel is wide — the separate settings window, say, or a panel stretched across — the
-sections stand in a list on the left and the chosen one shows on the right. Click a section's
-name in the list to go to it. A search in the settings shows every section with a match on
+themes stand in a list on the left and the chosen section shows on the right. Click a theme to see
+its sections, and a section's name to go to it. A search in the settings shows every section with a match on
 the right and marks them in the list.
 
 To find a setting, type a word in the **Search the settings** field at the top of the panel:

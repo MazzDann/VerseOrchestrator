@@ -246,7 +246,7 @@ function saveAs(blob: Blob, name: string) {
 }
 
 /**
- * «Резервна копія» (1.5.0, Налаштування вигляду → Застосунок): one .zip of the operator's own
+ * «Резервна копія» (1.5.0, Налаштування вигляду → Резервні копії): one .zip of the operator's own
  * things — the look, hotkeys, bookmarks and history, the running order and saved programs, the
  * song bundles and the pictures (server/src/backup.ts). «Відновити з копії…» first says what the
  * file holds; restoring keeps the state it replaces, and «Повернути як було» brings that back.

@@ -162,7 +162,7 @@ The app's interface is in Ukrainian and English. Until you choose a language, th
 in the browser's language: Ukrainian or English, whichever the browser ranks higher. If the
 browser asks for neither, for example only German, the app opens in English.
 
-To change the language, open **Settings** → **App** in the control window and in the
+To change the language, open **Settings** → **Control window** in the control window and in the
 **Interface language** field choose **Українська** or **English**. The choice is saved with
 the app's other settings.
 
@@ -269,7 +269,7 @@ starting with `start.cmd`, `start.command`, or `./start.sh`.
 
 The app finds out about new versions itself: every hour, and when you open **Updates**, it
 asks GitHub whether a newer one is out. When there is one, a dot appears on the **Settings** button, and in
-**Settings** → **App** → **Updates** you see the new version's number and a **What’s new**
+**Settings** → **Updates** you see the new version's number and a **What’s new**
 link. **Check now** asks at once. To keep the app from contacting GitHub, turn off
 **Check for updates**. The app downloads and installs a new version only when you click the
 button.
@@ -297,7 +297,7 @@ When a new version is out, the app says so as soon as you start it: “Version �
 
 To update an app installed from the archive:
 
-1. In **Settings** → **App** → **Updates**, click **Download the update**. The app downloads
+1. In **Settings** → **Updates**, click **Download the update**. The app downloads
    the new version's archive, checks its checksum, and extracts it next to the `app/`
    folder. The show goes on meanwhile.
 2. If output windows are open, close them: the app doesn't restart during a show.
@@ -328,7 +328,7 @@ If something is wrong with a new version, go back to the one you had before the 
 
 1. Close the output windows: the app doesn't restart during a show. If an update is
    unpacking, wait until it is ready. A download still under way stops.
-2. In **Settings** → **App** → **Updates**, click **Go back to version …** with the previous
+2. In **Settings** → **Updates**, click **Go back to version …** with the previous
    version's number, then **Bring back** in the confirmation.
 
 In a few seconds the app runs the previous version, and **Updates** says “Went back to
@@ -354,7 +354,7 @@ open, they can't update back.
 
 To switch to another version:
 
-1. In **Settings** → **App** → **Updates**, choose the version in the list next to the
+1. In **Settings** → **Updates**, choose the version in the list next to the
    download button. If there is no list yet, click **Check now**.
 2. Click **Download version …**. The app downloads its archive, checks the checksum, and
    unpacks it alongside, as for an update.
@@ -403,7 +403,7 @@ with the button failed:
 A clone of the repository started with the start file checks for new changes by itself and
 gets them when you ask:
 
-1. In **Settings** → **App** → **Updates**, click **Check now**. The app asks the remote
+1. In **Settings** → **Updates**, click **Check now**. The app asks the remote
    repository and says how many new changes are on the branch yours tracks (for example,
    `origin/main`). With **Check for updates** on, it also asks by itself twice a day.
 2. Click **Get the updates**. The app gets the changes (`git pull`) only when that needs no
@@ -429,7 +429,7 @@ and images, plus the start settings: the browser, the port, and updates. Modules
 library aren't in it: their large files are in the `modules/` folder. Neither are the speaker
 remotes or the choice of modules.
 
-To save a backup, in the control window open **Settings** → **App**, and in the **Backup**
+To save a backup, in the control window open **Settings** → **Backups**, and in the **Backup**
 section click **Save a backup**. The browser downloads a file such as
 `VerseOrchestrator-backup-2026-10-01-1405.zip`. Keep it outside the app's folder, for
 example on a flash drive. Safari on a Mac may unpack the downloaded file into a folder: then
@@ -498,7 +498,7 @@ itself and a new one unpacked next to it — carry over what you set up there. A
 with an empty `data/` folder, and without the carry-over it has no chosen browser, no
 remotes, and no presentations.
 
-1. In the new copy's control window, open **Settings** → **App**, and in the
+1. In the new copy's control window, open **Settings** → **Backups**, and in the
    **Another copy** section click **Carry over from another copy…**.
 2. Choose the copy from the list. The app shows the copy running at the same address and the
    copies in the folders next to this one, with the version, the time of the last change,

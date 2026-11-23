@@ -145,12 +145,12 @@ the chosen one in the middle. A verse picked in the search, the history, or the 
 passages takes you back to **Bible**; a running order item opens its mode.
 
 The **Windows** group's buttons are gathered into one **Windows** menu by default. To get
-the separate buttons back, turn off **Settings** → **App** → **Windows in one menu**.
+the separate buttons back, turn off **Settings** → **Control window** → **Windows in one menu**.
 
 **Notifications** (the bell) keeps the app's messages from this session — in case one
 flashed by while you looked at another window; a dot on the bell means new ones.
 
-In the **Simple view** (**Settings** → **App** → **Simple view**), the top keeps the modes,
+In the **Simple view** (**Settings** → **Control window** → **Simple view**), the top keeps the modes,
 **Presentation window**, the **Output to screen** group, **Settings**, and
 **Notifications**; **Stage**, **Output windows**, **Viewers**, **Speaker remote**,
 **Help**, and the theme go to the **More** menu. The right column then has only the

@@ -1,7 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { findSettings, SETTINGS_INDEX, textHolds } from './settingsSearch';
+import {
+  findSettings,
+  SECTION_TITLES,
+  SETTINGS_INDEX,
+  SETTINGS_THEMES,
+  textHolds,
+} from './settingsSearch';
 
 const read = (f: string) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
@@ -37,7 +43,7 @@ describe('the settings search knows every setting (1.13.0-beta.3, F1010-11)', ()
     expect(sections('без анімації')).toEqual(['motion']);
     expect(sections('наплив')).toContain('motion');
     expect(sections('шрифт')).toEqual(expect.arrayContaining(['text', 'countdown']));
-    expect(sections('backup')).toEqual(['app']);
+    expect(sections('backup')).toEqual(['backup']);
     expect(sections('Прев’ю: далі')).toContain('hotkeys');
     // F1114-10: the arrow scheme by what it does (1.23.0-beta.2)
     const arrows = (q: string) => findSettings(q).some((e) => e.label === 'Стрілки');
@@ -47,6 +53,13 @@ describe('the settings search knows every setting (1.13.0-beta.3, F1010-11)', ()
     expect(arrows('вліво')).toBe(true);
     expect(findSettings('q')).toEqual([]);
     expect(findSettings('щосьзовсімінше')).toEqual([]);
+  });
+
+  it('the themes hold every section once, in the panel’s order (1.25.4)', () => {
+    const themed = SETTINGS_THEMES.flatMap((t) => t.sections);
+    expect([...themed].sort()).toEqual(Object.keys(SECTION_TITLES).sort());
+    const panel = read('components/SettingsPanel.tsx');
+    expect([...panel.matchAll(/<Section\s+value="(\w+)"/g)].map((m) => m[1])).toEqual(themed);
   });
 
   it('marks text the way it finds it (case, apostrophes, й)', () => {

@@ -30,7 +30,7 @@ const markSeen = (v: string) => {
 /**
  * A new version said at the start (1.23.0-beta.5, the users' F1114-03: «Оновлюватись незручно,
  * потрібно аж у низ налаштувань лізти»; the author: only a notice at the start). One notice with
- * «Оновити»: it starts the download and opens «Налаштування вигляду» → «Застосунок» → «Оновлення»,
+ * «Оновити»: it starts the download and opens «Налаштування вигляду» → «Оновлення»,
  * where the progress and «Перезапустити й оновити» are. Only the control window that leads, only
  * a copy from a release (a copy of the repository updates by git), not a version chosen on purpose.
  */
