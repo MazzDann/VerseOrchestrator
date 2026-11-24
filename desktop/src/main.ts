@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -113,6 +113,15 @@ const launcherLines = (): string[] => {
   }
 };
 
+/** Why the start failed, in a line or two: the launcher's own words (✗ …), else the error's line. */
+function whyNot(): string {
+  const lines = launcherLines();
+  const said = lines.filter((l) => l.startsWith('✗')).slice(-2);
+  if (said.length) return said.join('\n');
+  const error = lines.find((l) => /^\w*Error\b/.test(l.trim()));
+  return error?.trim() ?? lines.slice(-2).join('\n');
+}
+
 /**
  * The first start may take minutes (the library, the parts) with nothing on the screen: a small
  * window says what is being done, once it takes longer than a moment.
@@ -158,6 +167,28 @@ let ownsApp = false;
 /** the app is being started (the start window may be open); the program is quitting */
 let starting = false;
 let quitting = false;
+let startWindow: BrowserWindow | null = null;
+let handoverWaits: string | undefined;
+
+/**
+ * The launcher with all it started: on Windows a killed process leaves its children — the builder went on
+ * writing the library, holding app/ against an update (4 processes seen). The builder writes in one transaction.
+ */
+function stopLauncher(): void {
+  if (!launcher) return;
+  if (process.platform === 'win32' && launcher.pid)
+    try {
+      execFileSync('taskkill', ['/pid', String(launcher.pid), '/t', '/f'], {
+        windowsHide: true,
+        stdio: 'ignore',
+        timeout: 5000,
+      });
+      return;
+    } catch {
+      /* gone already */
+    }
+  launcher.kill();
+}
 
 /** The app on PORT: the one already running, or the launcher started now (and waited for). */
 async function startApp(): Promise<void> {
@@ -456,7 +487,9 @@ function openControl(): BrowserWindow {
     // the output windows go with the control window
     for (const w of BrowserWindow.getAllWindows()) w.close();
   });
-  void win.loadURL(controlUrl(handoverOf(process.argv) ?? process.env.VO_HANDOVER));
+  void win.loadURL(
+    controlUrl(handoverWaits ?? handoverOf(process.argv) ?? process.env.VO_HANDOVER),
+  );
   return win;
 }
 
@@ -792,10 +825,15 @@ function showControl(): void {
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', (_e, argv) => {
-    if (!control) return;
-    showControl();
     // opened again from a browser's control window: this one takes charge (the token)
     const token = handoverOf(argv);
+    if (!control) {
+      // still starting: its window in front, the token kept for the control window
+      handoverWaits = token ?? handoverWaits;
+      if (startWindow && !startWindow.isDestroyed()) startWindow.focus();
+      return;
+    }
+    showControl();
     if (token) void control.loadURL(controlUrl(token));
   });
   app.on('window-all-closed', () => app.quit());
@@ -816,7 +854,7 @@ else {
   app.on('before-quit', () => {
     quitting = true;
     // closed while it was getting ready: nothing answers on the port yet
-    if (starting && launcher) launcher.kill();
+    if (starting) stopLauncher();
     // the app this shell started stops with it; one it found running stays
     if (ownsApp)
       void fetch(`${ORIGIN}/__standby/shutdown`, { method: 'POST', headers: HEADERS }).catch(
@@ -827,19 +865,18 @@ else {
     setMenu();
     grantPermissions();
     followDisplays();
-    let start: BrowserWindow | null = null;
     starting = true;
-    const timer = setTimeout(() => (start = openStart()), 1500);
+    const timer = setTimeout(() => (startWindow = openStart()), 1500);
     try {
       await startApp();
     } catch (e) {
       console.error(`[desktop] ${(e as Error).message}`);
-      const why = launcherLines().slice(-4).join('\n');
+      const why = whyNot();
       clearTimeout(timer);
       if (!quitting)
         dialog.showErrorBox(
           'VerseOrchestrator',
-          `${say('Застосунок не запустився.', 'The app did not start.')}\n\n${why}`,
+          `${say('Застосунок не запустився.', 'The app did not start.')}${why && `\n\n${why}`}\n\n${say('Журнал', 'Log')}: ${LAUNCHER_LOG()}`,
         );
       app.quit();
       return;
@@ -848,8 +885,12 @@ else {
     starting = false;
     if (quitting) return;
     control = openControl();
-    const opened = start as BrowserWindow | null;
-    if (opened && !opened.isDestroyed())
-      control.once('ready-to-show', () => !opened.isDestroyed() && opened.destroy());
+    // the start window goes when the control window is drawn — or can't be: it must not hold the app open
+    const drop = () => {
+      if (startWindow && !startWindow.isDestroyed()) startWindow.destroy();
+    };
+    control.once('ready-to-show', drop);
+    control.once('closed', drop);
+    control.webContents.once('did-fail-load', drop);
   });
 }
