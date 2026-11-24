@@ -158,7 +158,11 @@ export function howToStart(
     o.platform === 'win32'
       ? tr('двічі клацніть VerseOrchestrator.exe (або start.cmd, якщо її немає)', undefined, lang)
       : o.platform === 'darwin'
-        ? tr('двічі клацніть start.command', undefined, lang)
+        ? tr(
+            'двічі клацніть start.command — далі можна відкривати й VerseOrchestrator.app',
+            undefined,
+            lang,
+          )
         : tr('виконайте ./start.sh у терміналі', undefined, lang);
   const off =
     o.platform === 'win32'

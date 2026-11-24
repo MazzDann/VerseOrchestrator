@@ -8,6 +8,11 @@ if [ -f "$here/app/start.sh" ]; then
   if xattr -p com.apple.quarantine "$here/app/start.sh" >/dev/null 2>&1; then
     xattr -dr com.apple.quarantine "$here/app" 2>/dev/null
   fi
+  # …and the desktop app: still quarantined, macOS blocks it a second time and then runs it from a
+  # folder of its own (App Translocation), where app/ is not beside it
+  if xattr -p com.apple.quarantine "$here/VerseOrchestrator.app" >/dev/null 2>&1; then
+    xattr -dr com.apple.quarantine "$here/VerseOrchestrator.app" 2>/dev/null
+  fi
   exec sh "$here/app/start.sh" "$@"
 fi
 exec sh "$here/start.sh" "$@"
