@@ -329,6 +329,47 @@ export function createInstaller(o: InstallerOptions) {
   }
 
   /**
+   * What an update to `latest` is made of, when this copy and that release can both do parts: the
+   * release's `app/`-tree segments and the ones this copy says it has already. Null: the whole archive.
+   */
+  async function partsFor(
+    latest: LatestRelease,
+    asset: NonNullable<LatestRelease['asset']>,
+    signal?: AbortSignal,
+  ): Promise<{
+    base: string;
+    want: PartsManifest['segments'];
+    candidates: PartsManifest['segments'];
+  } | null> {
+    const local = readLocalParts();
+    if (!local || local.format !== PARTS_FORMAT || !latest.sums) return null;
+    // a copy with no desktop shell (a legacy one) takes the whole archive: the full path installs a
+    // shell when the copy has none (swap.ts), which this path doesn't; a parts-aware copy has one
+    if (!fs.existsSync(path.join(o.top, shellDir))) return null;
+    const slash = asset.url.lastIndexOf('/');
+    if (slash < 0) return null;
+    const base = asset.url.slice(0, slash); // the other assets sit next to the full archive
+    let manifest: PartsManifest;
+    try {
+      const res = await doFetch(`${base}/${manifestAsset(osName, arch)}`, {
+        redirect: 'follow',
+        ...(signal ? { signal } : {}),
+      });
+      if (!res.ok) return null;
+      manifest = JSON.parse(await res.text()) as PartsManifest;
+    } catch {
+      return null; // no manifest (an older release, a step down) → the whole archive
+    }
+    if (manifest?.format !== PARTS_FORMAT || !Array.isArray(manifest.segments)) return null;
+    // the `app/` tree only; the Electron shell segment is not reconstructed here
+    const want = manifest.segments.filter((s) => s.name !== 'shell');
+    if (want.length === 0 || want.some((s) => !s.file || typeof s.contentHash !== 'string'))
+      return null;
+    const localHash = new Map(local.segments.map((s) => [s.name, s.contentHash]));
+    return { base, want, candidates: want.filter((s) => localHash.get(s.name) === s.contentHash) };
+  }
+
+  /**
    * Build `unpacked/<release>/app` from parts instead of the whole archive (1.20.0-beta.2): the
    * app/-tree segments that haven't changed are copied from the running copy, only the changed ones
    * are downloaded. Returns true when it leaves a complete tree ready for the finalize; false — and
@@ -349,31 +390,11 @@ export function createInstaller(o: InstallerOptions) {
     unpacked: string,
     superseded: () => boolean,
   ): Promise<boolean> {
-    const local = readLocalParts();
-    if (!local || local.format !== PARTS_FORMAT || !latest.sums) return false;
-    // a copy with no desktop shell (a legacy one) takes the whole archive: the full path installs a
-    // shell when the copy has none (swap.ts), which this path doesn't; a parts-aware copy has one
-    if (!fs.existsSync(path.join(o.top, shellDir))) return false;
-    const slash = asset.url.lastIndexOf('/');
-    if (slash < 0) return false;
-    const base = asset.url.slice(0, slash); // the other assets sit next to the full archive
-    let manifest: PartsManifest;
-    try {
-      const res = await doFetch(`${base}/${manifestAsset(osName, arch)}`, { redirect: 'follow' });
-      if (!res.ok) return false;
-      manifest = JSON.parse(await res.text()) as PartsManifest;
-    } catch {
-      return false; // no manifest (an older release, a step down) → the whole archive
-    }
+    const parts = await partsFor(latest, asset);
     if (superseded()) return false; // a rollback / restart during the fetch sets its own state
-    if (manifest?.format !== PARTS_FORMAT || !Array.isArray(manifest.segments)) return false;
-    // the `app/` tree only; the Electron shell segment is not reconstructed here
-    const want = manifest.segments.filter((s) => s.name !== 'shell');
-    if (want.length === 0 || want.some((s) => !s.file || typeof s.contentHash !== 'string'))
-      return false;
-    const localHash = new Map(local.segments.map((s) => [s.name, s.contentHash]));
+    if (!parts || !latest.sums) return false;
     // the copy's parts.json is only a quick pre-filter of what might be reusable
-    const candidates = want.filter((s) => localHash.get(s.name) === s.contentHash);
+    const { base, want, candidates } = parts;
     const sums = await (await doFetch(latest.sums, { redirect: 'follow' })).text();
     if (superseded()) return false;
     const releaseDir = path.join(unpacked, `VerseOrchestrator-${latest.version}-${osName}-${arch}`);
@@ -652,6 +673,18 @@ export function createInstaller(o: InstallerOptions) {
     notNow(): string | null {
       if (state.phase === 'restarting') return N_('Застосунок уже перезапускається');
       return state.phase === 'unpack' ? N_('Зачекайте, доки оновлення розпакується') : null;
+    },
+    /**
+     * How many bytes a download of this release would really take here: the parts that changed, or
+     * the whole archive. By the copy's own parts.json (its files are hashed only at the download, so
+     * a drifted one may add its part then). The release's list of parts is 1.6 KB.
+     */
+    async downloadSize(latest: LatestRelease): Promise<number | null> {
+      if (!latest.asset) return null;
+      const parts = await partsFor(latest, latest.asset, AbortSignal.timeout(10_000));
+      if (!parts) return latest.asset.size;
+      const have = new Set(parts.candidates);
+      return parts.want.reduce((n, s) => (have.has(s) ? n : n + (Number(s.size) || 0)), 0);
     },
     /** Start downloading (the answer comes at once; the page follows the phases). */
     start(latest: LatestRelease, newest: string | null = null): boolean {

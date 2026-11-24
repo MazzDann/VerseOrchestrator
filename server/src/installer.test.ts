@@ -1054,6 +1054,8 @@ describe('installing from parts (1.20.0-beta.2)', () => {
     };
     put('app/node/node.bin', 'NODE-RUNTIME'); // runtime
     put('app/node_modules/dep/index.js', 'DEP'); // deps
+    // npm's record carries our version: it goes with app, so deps stays the same (the Mac, 1.25.4)
+    put('app/node_modules/.package-lock.json', JSON.stringify({ version })); // app
     put('app/web/dist/engine.wasm', 'WASM'); // engines
     put('app/web/dist/bundle.js', 'BUNDLE'); // app (non-wasm in dist)
     put('app/server/index.js', serverBody); // app, changes per version
@@ -1115,6 +1117,10 @@ describe('installing from parts (1.20.0-beta.2)', () => {
       fetch,
       current: '1.20.0-beta.1',
     });
+    // what the button says: the changed part alone, nothing of it fetched yet
+    const part = partAsset(OSN, ARCH, 'app', PLATFORM);
+    expect(await inst.downloadSize(latest)).toBe(fs.statSync(path.join(v2.outDir, part)).size);
+    expect(asked).not.toContain(`${base}/${part}`);
     expect(inst.start(latest)).toBe(true);
     await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 20_000 });
     expect(inst.state()).toMatchObject({ phase: 'ready' });
@@ -1181,6 +1187,7 @@ describe('installing from parts (1.20.0-beta.2)', () => {
       fetch,
       current: '1.19.0',
     });
+    expect(await inst.downloadSize(latest)).toBe(latest.asset?.size);
     expect(inst.start(latest)).toBe(true);
     await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), { timeout: 20_000 });
     expect(inst.state()).toMatchObject({ phase: 'ready' });
