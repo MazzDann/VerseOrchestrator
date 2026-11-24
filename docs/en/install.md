@@ -350,6 +350,9 @@ confirmation warns when the previous version is older than 1.8.8: before you upd
 close the browser completely. It also warns when the running order holds items the previous
 version doesn't know: [remove them](#install-another-version) before you go back.
 
+If the desktop app doesn't start at all, its error window offers **Go back to version …** when the
+previous version is still next to it. Settings, the library, and presentations stay.
+
 Versions before 1.4.0 can't go back to another version yet. If you went back to such a
 version, it has no **Go back to version …** button, and **Updates** says “Updated from … to
 …”. To switch to the newer version again, update the app as described above: this needs the

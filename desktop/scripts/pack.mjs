@@ -73,18 +73,76 @@ function missing(denied) {
   );
   app.quit();
 }
+// the app's code is lost or does not load (an antivirus, a swap cut short): the previous version, when there is
+// one that knows how (desktop/src/rescue.ts — the previous copy's own, else this one's); false: none
+async function offerPrevious(appRoot, why) {
+  await app.whenReady();
+  let rescue = null;
+  for (const dir of ['app.previous', 'app'])
+    try {
+      rescue ??= await import(
+        pathToFileURL(path.join(path.dirname(appRoot), dir, 'desktop', 'dist', 'rescue.js')).href
+      );
+    } catch {
+      /* the other one, or none */
+    }
+  const back = rescue?.rescueFor(appRoot) ?? null;
+  if (!back) return false;
+  const picked = dialog.showMessageBoxSync({
+    type: 'error',
+    title: 'VerseOrchestrator',
+    message: 'Застосунок не запустився. The app did not start.\\n\\n' + why,
+    buttons: ['Повернути версію ' + back.to + ' / Go back', 'Закрити / Close'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (picked === 0)
+    try {
+      rescue.bringPrevious(back);
+      app.releaseSingleInstanceLock();
+      app.relaunch();
+    } catch (err) {
+      dialog.showErrorBox('VerseOrchestrator', err.message);
+    }
+  app.quit();
+  return true;
+}
+async function start(main) {
+  try {
+    await import(pathToFileURL(main).href);
+  } catch (e) {
+    if (await offerPrevious(path.resolve(path.dirname(main), '..', '..'), e.message)) return;
+    dialog.showErrorBox('VerseOrchestrator', 'Застосунок не запустився. The app did not start.\\n\\n' + e.message);
+    app.quit();
+  }
+}
+/** The release's app/ by what an update left beside it, when its own code is not there. */
+function besidePrevious() {
+  let dir = path.dirname(process.execPath);
+  for (let i = 0; i < 7; i++) {
+    if (fs.existsSync(path.join(dir, 'app.previous', 'desktop', 'dist', 'rescue.js'))) return path.join(dir, 'app');
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+async function lost(denied) {
+  const at = denied ? null : besidePrevious();
+  if (at && (await offerPrevious(at, 'app/desktop/dist/main.js'))) return;
+  missing(denied);
+}
 if (process.platform === 'darwin') {
   // macOS asks for such a folder only once the app has launched — and awaiting «ready» here, at the
   // top, would hold «ready» back for good (the Mac check: the app bounced in the Dock and stopped)
   void app.whenReady().then(async () => {
     const found = look();
-    if (found.main) await import(pathToFileURL(found.main).href);
-    else missing(found.denied);
+    if (found.main) await start(found.main);
+    else await lost(found.denied);
   });
 } else {
   const found = look();
-  if (found.main) await import(pathToFileURL(found.main).href);
-  else void app.whenReady().then(() => missing(found.denied));
+  if (found.main) void start(found.main);
+  else void app.whenReady().then(() => lost(found.denied));
 }
 `;
 function putStub(resources) {
