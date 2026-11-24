@@ -390,11 +390,12 @@ export function TextPanel({ open, focusKey = 0, onProject, onPreview, onAddToPla
           onKeyDown={(e) => {
             // Ctrl/Cmd+B and +I: bold and italic, as in a text editor
             if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
-              const k = e.key.toLowerCase();
-              if (k === 'b' || k === 'i') {
+              // the key itself: on the Ukrainian layout it types «и» / «ш» (as hotkeys.ts does)
+              const k = e.code || `Key${e.key.toUpperCase()}`;
+              if (k === 'KeyB' || k === 'KeyI') {
                 e.preventDefault();
                 e.stopPropagation();
-                mark(k === 'b' ? '**' : '*');
+                mark(k === 'KeyB' ? '**' : '*');
                 return;
               }
             }

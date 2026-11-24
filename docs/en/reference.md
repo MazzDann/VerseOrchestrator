@@ -72,7 +72,9 @@ A few more keys a browser keeps for itself work in the separate app as in famili
 | Video muted / stop the video                    | Ctrl+M / Ctrl+Shift+M |
 
 In a browser these actions have no keys, but you can give them some in **Hotkeys**. On macOS
-⌥← and ⌥→ walk the preview, so back and forward have no key there.
+⌘ works beside ⌃: ⌘, ⌘O ⌘N ⌘D ⌘L ⌘G, ⌘“+” ⌘“−” ⌘0, **History** is ⌘Y, the control window in full screen ⌃⌘F, back and
+forward ⌘[ and ⌘] (⌥← and ⌥→ walk the preview). ⌘H, ⌘M, ⌘Q, and ⌘W stay macOS’s own: ⌘W closes the settings and
+other windows, but not the control window, nor a full-screen presentation window.
 
 A browser keeps Ctrl+1…4 and Ctrl+Tab for itself (they switch its tabs), so they work in the
 desktop app, and in a browser Alt+1…4 switch the modes: 1 — **Bible**, 2 — **Presentations**,

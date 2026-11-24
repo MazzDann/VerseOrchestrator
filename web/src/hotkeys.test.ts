@@ -178,7 +178,7 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
       // a browser: none of them bound
       for (const id of ids) expect(defaultKeymap(mac, false)[id], id).toBe('');
       // the search field: «/» everywhere, Ctrl+L too in the app
-      expect(app.searchFocus).toBe('slash,ctrl+l');
+      expect(app.searchFocus).toBe(mac ? 'slash,ctrl+l,meta+l' : 'slash,ctrl+l');
       expect(conflictsForAction(app, 'searchFocus')).toEqual([]);
     }
     const win = defaultKeymap(false, true);
@@ -194,8 +194,30 @@ describe('macOS (⌘ chords next to the F-keys)', () => {
       'ctrl+comma',
       'ctrl+o',
     ]);
-    // a Mac: ⌥← / ⌥→ are the preview's — back / forward have no key there
-    expect(defaultKeymap(true, true).placeBack).toBe('');
+    // a Mac: ⌥← is the preview's, and each has its ⌘ chord too (the Mac check of 1.25.4)
+    const app = defaultKeymap(true, true);
+    expect([app.placeBack, app.placeForward]).toEqual(['meta+bracketleft', 'meta+bracketright']);
+    expect([app.openSettings, app.newText, app.bookmarkAdd, app.searchFocus]).toEqual([
+      'ctrl+comma,meta+comma',
+      'ctrl+n,meta+n',
+      'ctrl+d,meta+d',
+      'slash,ctrl+l,meta+l',
+    ]);
+    // macOS's own stay macOS's
+    for (const id of Object.keys(app) as (keyof typeof app)[])
+      expect(conflictsForAction(app, id), id).toEqual([]);
+    for (const combo of Object.values(app))
+      for (const own of ['meta+h', 'meta+m', 'meta+q', 'meta+w', 'meta+tab'])
+        expect(combo.split(',')).not.toContain(own);
+    expect(sanitizeKeymap({ placeBack: '' }, true, true, false).placeBack).toBe('');
+    expect(sanitizeKeymap({ placeBack: '' }, true, true, false, true).placeBack).toBe(
+      'meta+bracketleft',
+    );
+    // a keymap kept from before gets them; one changed by hand stays
+    expect(sanitizeKeymap({ newText: 'ctrl+n', openFile: 'f9' }, true, true, false)).toMatchObject({
+      newText: 'ctrl+n,meta+n',
+      openFile: 'f9',
+    });
   });
 
   it('«Наживо» on N everywhere, clashing with nothing (1.23.0-beta.2, F1114-12)', () => {
@@ -348,6 +370,9 @@ describe('«/» on any layout (1.9.7, Mac check)', () => {
         ...o,
       }) as KeyboardEvent;
     expect(slashTyped(ev({}), km)).toBe(true); // ⇧ + another key types «/» (Ukrainian layout)
+    // the desktop app's default has ⌃L too (1.24.0-beta.3): «/» typed still counts
+    expect(slashTyped(ev({}), defaultKeymap(false, true))).toBe(true);
+    expect(slashTyped(ev({}), defaultKeymap(true, true))).toBe(true);
     expect(slashTyped(ev({ ctrlKey: true }), km)).toBe(false);
     expect(slashTyped(ev({}), { ...km, searchFocus: 'ctrl+l' })).toBe(false);
     expect(slashTyped(ev({ key: '.', code: 'Slash', shiftKey: false }), km)).toBe(false);

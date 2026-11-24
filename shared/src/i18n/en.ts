@@ -253,6 +253,15 @@ export const EN: Record<string, string> = {
   Скасувати: 'Cancel',
   'Так, перезапустити': 'Yes, restart',
   // desktop shortcut (web/src/components/ShortcutSection.tsx)
+  'У застосунку вікно на другому екрані відкривається на весь екран саме':
+    'In the app, a window on the second screen opens full screen by itself',
+  'Збій одного вікна виводу не зачепить вікно керування й інші вікна. Діє для нових вікон':
+    'A crash of one output window won’t affect the control window and the others. Applies to new windows',
+  'Застосунок у Dock': 'The app in the Dock',
+  'Щоб мати застосунок під рукою, клацніть його значок у Dock правою кнопкою → «Параметри» → «Тримати в Dock».':
+    'To keep the app at hand, right-click its icon in the Dock → “Options” → “Keep in Dock”.',
+  'Зараз застосунок працює на порту {now}; {port} — для звичайного запуску.':
+    'The app runs on port {now} now; {port} is for an ordinary start.',
   'Ярлик створено: {file}': 'Shortcut created: {file}',
   'Він відкриває застосунок.': 'It opens the app.',
   'Це вікно можна закрити.': 'You can close this window.',
@@ -1799,7 +1808,8 @@ export const EN: Record<string, string> = {
     '{node} is a Node.js that depends on libraries next to it (Homebrew installs it that way): it won’t start in a copy. Run npm run portable with Node.js from nodejs.org (or installed with fnm or nvm).',
   'двічі клацніть VerseOrchestrator.exe (або start.cmd, якщо її немає)':
     'double-click VerseOrchestrator.exe (or start.cmd if it isn’t there)',
-  'двічі клацніть start.command': 'double-click start.command',
+  'двічі клацніть start.command — далі можна відкривати й VerseOrchestrator.app':
+    'double-click start.command — after that you can open VerseOrchestrator.app too',
   'виконайте ./start.sh у терміналі': 'run ./start.sh in a terminal',
   'VerseOrchestrator {version} — портативна копія для {system} ({arch})':
     'VerseOrchestrator {version} — a portable copy for {system} ({arch})',

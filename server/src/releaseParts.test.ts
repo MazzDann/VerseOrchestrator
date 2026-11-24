@@ -25,6 +25,7 @@ function fakeTop(): string {
   put('app/node/bin/node');
   put('app/node_modules/onnxruntime-node/index.js');
   put('app/node_modules/@vo/server/index.js'); // our code → app, not deps
+  put('app/node_modules/.package-lock.json', '{"version":"1.20.0"}'); // our version in it → app
   put('app/web/dist/assets/ort.wasm');
   put('app/web/dist/assets/pglite.data');
   put('app/web/dist/assets/index-abc.js'); // our bundle → app, not engines

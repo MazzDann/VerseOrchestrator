@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -100,16 +100,106 @@ async function answers(): Promise<boolean> {
 }
 
 let launcher: ChildProcess | null = null;
+/** What the launcher says goes to a file, not a pipe: the app outlives a crashed shell. */
+const LAUNCHER_LOG = () => path.join(app.getPath('userData'), 'launcher.log');
+const launcherLines = (): string[] => {
+  try {
+    return fs
+      .readFileSync(LAUNCHER_LOG(), 'utf8')
+      .split(/\r?\n/)
+      .filter((l) => l.trim());
+  } catch {
+    return [];
+  }
+};
+
+/** Why the start failed, in a line or two: the launcher's own words (✗ …), else the error's line. */
+function whyNot(): string {
+  const lines = launcherLines();
+  const said = lines.filter((l) => l.startsWith('✗')).slice(-2);
+  if (said.length) return said.join('\n');
+  const error = lines.find((l) => /^\w*Error\b/.test(l.trim()));
+  return error?.trim() ?? lines.slice(-2).join('\n');
+}
+
+/**
+ * The first start may take minutes (the library, the parts) with nothing on the screen: a small
+ * window says what is being done, once it takes longer than a moment.
+ */
+function openStart(): BrowserWindow {
+  const w = new BrowserWindow({
+    width: 440,
+    height: 150,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    autoHideMenuBar: true,
+    backgroundColor: '#1e2025',
+    title: 'VerseOrchestrator',
+    icon,
+    webPreferences: { contextIsolation: true, sandbox: true },
+  });
+  const html =
+    '<meta charset="utf-8"><title>VerseOrchestrator</title><body style="margin:0;height:100vh;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:0 28px;box-sizing:border-box;background:#1e2025;color:#e9e9ea;font:15px system-ui,sans-serif;user-select:none">' +
+    `<div>${say('Готую застосунок…', 'Getting the app ready…')}</div>` +
+    '<div id="s" style="color:#9a9ca3;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">&nbsp;</div></body>';
+  void w.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  const timer = setInterval(() => {
+    const line = launcherLines()
+      .filter((l) => /^[…✓!]|^\[builder\] step/.test(l))
+      .at(-1);
+    if (!line || w.isDestroyed()) return;
+    // the folder's path is too long for it
+    const said = line.replace(/^\[builder\] step/, '…').replace(/\s*\([^)]*[\\/][^)]*\)/, '');
+    void w.webContents
+      .executeJavaScript(`document.getElementById('s').textContent = ${JSON.stringify(said)}`)
+      .catch(() => undefined);
+  }, 400);
+  w.on('closed', () => clearInterval(timer));
+  return w;
+}
 /**
  * The app on the port was started by this shell: it stops at quit — even after an update, when
  * the swap started a new waiter of its own (server/src/swap.ts) and `launcher` is gone.
  */
 let ownsApp = false;
+/** the app is being started (the start window may be open); the program is quitting */
+let starting = false;
+let quitting = false;
+let startWindow: BrowserWindow | null = null;
+let handoverWaits: string | undefined;
+
+/**
+ * The launcher with all it started: on Windows a killed process leaves its children — the builder went on
+ * writing the library, holding app/ against an update (4 processes seen). The builder writes in one transaction.
+ */
+function stopLauncher(): void {
+  if (!launcher) return;
+  if (process.platform === 'win32' && launcher.pid)
+    try {
+      execFileSync('taskkill', ['/pid', String(launcher.pid), '/t', '/f'], {
+        windowsHide: true,
+        stdio: 'ignore',
+        timeout: 5000,
+      });
+      return;
+    } catch {
+      /* gone already */
+    }
+  launcher.kill();
+}
 
 /** The app on PORT: the one already running, or the launcher started now (and waited for). */
 async function startApp(): Promise<void> {
   if (await answers()) return;
   ownsApp = true;
+  let log: number | 'ignore' = 'ignore';
+  try {
+    log = fs.openSync(LAUNCHER_LOG(), 'w');
+  } catch {
+    /* no log: the start window only says it is getting ready */
+  }
   launcher = spawn(
     nodeRuntime(),
     [
@@ -120,8 +210,9 @@ async function startApp(): Promise<void> {
       String(PORT),
     ],
     // from the home folder: a process sitting in app/ blocks an update's swap (EBUSY)
-    { cwd: os.homedir(), stdio: 'inherit', windowsHide: true },
+    { cwd: os.homedir(), stdio: ['ignore', log, log], windowsHide: true },
   );
+  if (typeof log === 'number') fs.closeSync(log);
   launcher.on('exit', (code) => {
     launcher = null;
     if (code) console.error(`[desktop] the launcher exited (${code})`);
@@ -174,6 +265,13 @@ function keepPlace(win: BrowserWindow): void {
 const outputs = new Set<BrowserWindow>();
 /** the output windows that were opened fullscreen (always-on-top): the ones «Поступитися» toggles */
 const fullscreenOutputs = new WeakSet<BrowserWindow>();
+/**
+ * The output windows a screen's unplug moved (1.24.0-beta.2): kept, so that the screen plugged back
+ * gets the same windows back, full screen, instead of new ones.
+ */
+const displaced = new Set<BrowserWindow>();
+/** …and on a Mac hidden: with Stage Manager on, macOS doesn't minimize a window for the program */
+const setAside = new WeakSet<BrowserWindow>();
 
 // «Поступитися екраном» for a video (1.21.0-beta.7, F1024-08): an output window (only a fullscreen
 // one — a windowed output never hogs the screen) drops its always-on-top so the operator's own
@@ -191,9 +289,13 @@ ipcMain.on('vo-output-yield', (e, on: unknown) => {
 // Win+M, Win+↓) it had no button to come back from — «треба закрити й відкрити». Minimized, it gets
 // one; and it comes back by itself (not taking the keyboard from the control window) when something
 // new goes on screen or «Вікно показу» is pressed: the page asks, `vo-output-restore`.
-ipcMain.on('vo-output-restore', (e) => {
+ipcMain.on('vo-output-restore', (e, asked: unknown) => {
   const w = BrowserWindow.fromWebContents(e.sender);
-  if (!w || !outputs.has(w) || !w.isMinimized()) return;
+  if (!w || !outputs.has(w) || !(w.isMinimized() || setAside.has(w))) return;
+  // put aside because its screen went: a new slide doesn't bring it over the operator, only
+  // «Вікно показу» does (an older page doesn't say which: it comes, as before)
+  if (displaced.has(w) && asked === false) return;
+  setAside.delete(w);
   w.showInactive();
   if (w.isMinimized()) w.restore();
   if (control && !control.isDestroyed() && control.isVisible()) control.focus();
@@ -355,9 +457,17 @@ function openControl(): BrowserWindow {
         })
         .catch(() => undefined);
     };
-    // as soon as there is a page: a framed window is in the hall's sight as short as can be
-    child.webContents.on('dom-ready', fullAgain);
-    child.webContents.on('did-finish-load', fullAgain);
+    if (process.platform === 'darwin') {
+      // a Mac's full screen is a Space, left with an animation (~0.6 s): asked for during it, the page
+      // hears «full screen» but the window stays framed in the hall's sight. So after its end — not in
+      // its event either, the window still counts as on its way there
+      child.on('leave-full-screen', () => setTimeout(fullAgain, 0));
+      child.webContents.on('did-finish-load', () => setTimeout(fullAgain, 2000));
+    } else {
+      // as soon as there is a page: a framed window is in the hall's sight as short as can be
+      child.webContents.on('dom-ready', fullAgain);
+      child.webContents.on('did-finish-load', fullAgain);
+    }
     const full = pendingFullscreen.get(url) ?? false;
     pendingFullscreen.delete(url);
     if (!full) return;
@@ -377,7 +487,9 @@ function openControl(): BrowserWindow {
     // the output windows go with the control window
     for (const w of BrowserWindow.getAllWindows()) w.close();
   });
-  void win.loadURL(controlUrl(handoverOf(process.argv) ?? process.env.VO_HANDOVER));
+  void win.loadURL(
+    controlUrl(handoverWaits ?? handoverOf(process.argv) ?? process.env.VO_HANDOVER),
+  );
   return win;
 }
 
@@ -494,25 +606,34 @@ async function updateNow(win: BrowserWindow, version: string): Promise<void> {
   win.reload();
 }
 
-/**
- * The output windows a screen's unplug moved (1.24.0-beta.2): kept, so that the screen plugged back
- * gets the same windows back, full screen, instead of new ones.
- */
-const displaced = new Set<BrowserWindow>();
-
 /** Back, full screen and on top, on `d` — as an output opened there would be. */
 function returnOutput(w: BrowserWindow, d: Electron.Display): void {
   // its place first, then back — the one fullscreen request below is made on that screen (review)
   w.setBounds({ ...d.bounds });
   if (w.isMinimized()) w.restore();
+  setAside.delete(w);
   w.showInactive();
   w.setAlwaysOnTop(true);
   w.setSkipTaskbar(true);
-  void w.webContents
+  void askFullscreen(w);
+  // a Mac: a window just shown again may not be drawn yet, and its page's request is then lost — until
+  // the window itself is full screen
+  if (process.platform === 'darwin')
+    for (const ms of [700, 2000, 4000])
+      setTimeout(() => {
+        if (w.isDestroyed() || w.isFullScreen() || displaced.has(w)) return;
+        void askFullscreen(w);
+      }, ms);
+}
+
+/** The page's own full screen, with no click first; whether it got it. */
+function askFullscreen(w: BrowserWindow): Promise<boolean> {
+  return w.webContents
     .executeJavaScript(
       'document.fullscreenElement ? true : document.documentElement.requestFullscreen().then(() => true, () => false)',
       true,
     )
+    .then((ok) => ok === true)
     .catch(() => false);
 }
 
@@ -564,15 +685,28 @@ function followDisplays(): void {
       w.setFullScreen(false);
       w.setAlwaysOnTop(false);
       w.setSkipTaskbar(false);
-      w.setBounds({ x: main.bounds.x + 80, y: main.bounds.y + 80, width: 960, height: 540 });
-      if (!wasOnTheOther) continue;
-      // out of the operator's way until its screen comes back (it has a taskbar button now); not
-      // full screen any more — its 'restore' must not ask for it on the control window's screen
-      fullscreenOutputs.delete(w);
-      lost = true;
-      displaced.add(w);
-      w.once('closed', () => displaced.delete(w));
-      w.minimize();
+      const place = () => {
+        // closed, or its screen is back already
+        if (w.isDestroyed() || (wasOnTheOther && !displaced.has(w))) return;
+        w.setBounds({ x: main.bounds.x + 80, y: main.bounds.y + 80, width: 960, height: 540 });
+        if (!wasOnTheOther) return;
+        if (process.platform !== 'darwin') return w.minimize();
+        setAside.add(w);
+        w.hide();
+      };
+      if (wasOnTheOther) {
+        // out of the operator's way until its screen comes back (it has a taskbar button now); not
+        // full screen any more — its 'restore' must not ask for it on the control window's screen
+        fullscreenOutputs.delete(w);
+        lost = true;
+        displaced.add(w);
+        w.once('closed', () => displaced.delete(w));
+      }
+      // a Mac's window leaves its full screen with an animation and gets a place of macOS's own at its
+      // end (it stood over the control window): ours after it
+      if (process.platform === 'darwin' && w.isFullScreen())
+        w.once('leave-full-screen', () => setTimeout(place, 0));
+      else place();
     }
   });
 }
@@ -602,27 +736,112 @@ function grantPermissions(): void {
 
 /**
  * No browser menu: its keys (Ctrl+F, Ctrl+R, Ctrl+W…) reach the app's own. A Mac keeps the menu
- * bar it can't do without — the app menu (⌘Q) and Edit (copy, paste in the fields).
+ * bar it can't do without — the app menu (⌘Q, «Налаштування…»), Edit (copy, paste in the fields) and
+ * Window (⌘M, ⌘W, the open windows). In the system's language: Electron's own labels are English.
  */
 function setMenu(): void {
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null);
     return;
   }
-  Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]));
+  const name = 'VerseOrchestrator';
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: name,
+        submenu: [
+          { role: 'about', label: say(`Про ${name}`, `About ${name}`) },
+          { type: 'separator' },
+          {
+            label: say('Налаштування…', 'Settings…'),
+            accelerator: 'Cmd+,',
+            // shown only: the key itself is the page's (a rebound one too)
+            registerAccelerator: false,
+            click: openSettings,
+          },
+          { type: 'separator' },
+          { role: 'services', label: say('Служби', 'Services') },
+          { type: 'separator' },
+          { role: 'hide', label: say(`Сховати ${name}`, `Hide ${name}`) },
+          { role: 'hideOthers', label: say('Сховати інші', 'Hide Others') },
+          { role: 'unhide', label: say('Показати всі', 'Show All') },
+          { type: 'separator' },
+          { role: 'quit', label: say(`Завершити ${name}`, `Quit ${name}`) },
+        ],
+      },
+      {
+        label: say('Редагування', 'Edit'),
+        submenu: [
+          { role: 'undo', label: say('Скасувати', 'Undo') },
+          { role: 'redo', label: say('Повторити', 'Redo') },
+          { type: 'separator' },
+          { role: 'cut', label: say('Вирізати', 'Cut') },
+          { role: 'copy', label: say('Скопіювати', 'Copy') },
+          { role: 'paste', label: say('Вставити', 'Paste') },
+          { role: 'delete', label: say('Видалити', 'Delete') },
+          { role: 'selectAll', label: say('Вибрати все', 'Select All') },
+        ],
+      },
+      {
+        role: 'window',
+        label: say('Вікно', 'Window'),
+        submenu: [
+          { role: 'minimize', label: say('Згорнути', 'Minimize') },
+          { role: 'zoom', label: say('Масштабувати', 'Zoom') },
+          {
+            label: say('Закрити вікно', 'Close Window'),
+            accelerator: 'Cmd+W',
+            // the control window (the show goes with it) and a full-screen output stay
+            click: (_item, w) => {
+              const win = w instanceof BrowserWindow ? w : null;
+              if (!win || win === control || win.isFullScreen()) shell.beep();
+              else win.close();
+            },
+          },
+          { type: 'separator' },
+          { role: 'front', label: say('На передній план усі', 'Bring All to Front') },
+        ],
+      },
+    ]),
+  );
+}
+
+/** «Налаштування…» of the Mac's app menu: the control window opens them (useAppSettingsOpener). */
+function openSettings(): void {
+  if (!control || control.isDestroyed()) return;
+  void control.webContents
+    .executeJavaScript(`window.dispatchEvent(new Event('vo:open-settings'))`)
+    .catch(() => undefined);
+}
+
+/** The control window in front: from the Dock (macOS), or the app started again. */
+function showControl(): void {
+  if (!control || control.isDestroyed()) return;
+  if (control.isMinimized()) control.restore();
+  control.show();
+  control.focus();
 }
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', (_e, argv) => {
-    if (!control) return;
-    if (control.isMinimized()) control.restore();
-    control.focus();
     // opened again from a browser's control window: this one takes charge (the token)
     const token = handoverOf(argv);
+    if (!control) {
+      // still starting: its window in front, the token kept for the control window
+      handoverWaits = token ?? handoverWaits;
+      if (startWindow && !startWindow.isDestroyed()) startWindow.focus();
+      return;
+    }
+    showControl();
     if (token) void control.loadURL(controlUrl(token));
   });
   app.on('window-all-closed', () => app.quit());
+  // a Mac's Dock: with the output shown on the other screen macOS takes the app for visible, and the
+  // minimized control window did not come back
+  app.on('activate', (_e, hasVisible) => {
+    if (!hasVisible || control?.isMinimized()) showControl();
+  });
   // no window of the app ever leaves the app's pages (F1017-03): a file dropped where no page took
   // it would open in its place; a web link goes to the system's browser
   app.on('web-contents-created', (_e, contents) => {
@@ -633,6 +852,9 @@ else {
     });
   });
   app.on('before-quit', () => {
+    quitting = true;
+    // closed while it was getting ready: nothing answers on the port yet
+    if (starting) stopLauncher();
     // the app this shell started stops with it; one it found running stays
     if (ownsApp)
       void fetch(`${ORIGIN}/__standby/shutdown`, { method: 'POST', headers: HEADERS }).catch(
@@ -643,13 +865,32 @@ else {
     setMenu();
     grantPermissions();
     followDisplays();
+    starting = true;
+    const timer = setTimeout(() => (startWindow = openStart()), 1500);
     try {
       await startApp();
     } catch (e) {
       console.error(`[desktop] ${(e as Error).message}`);
+      const why = whyNot();
+      clearTimeout(timer);
+      if (!quitting)
+        dialog.showErrorBox(
+          'VerseOrchestrator',
+          `${say('Застосунок не запустився.', 'The app did not start.')}${why && `\n\n${why}`}\n\n${say('Журнал', 'Log')}: ${LAUNCHER_LOG()}`,
+        );
       app.quit();
       return;
     }
+    clearTimeout(timer);
+    starting = false;
+    if (quitting) return;
     control = openControl();
+    // the start window goes when the control window is drawn — or can't be: it must not hold the app open
+    const drop = () => {
+      if (startWindow && !startWindow.isDestroyed()) startWindow.destroy();
+    };
+    control.once('ready-to-show', drop);
+    control.once('closed', drop);
+    control.webContents.once('did-fail-load', drop);
   });
 }

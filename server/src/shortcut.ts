@@ -5,7 +5,8 @@
  * desktop app in the release the Windows shortcut is that program itself (1.25.1): no start file, no
  * console window flashing.
  *   Windows: VerseOrchestrator.lnk on the desktop (filled in by PowerShell's Shell.Application),
- *   macOS: VerseOrchestrator.command on the desktop (a Finder alias needs the Finder),
+ *   macOS: a link to the release's desktop app — no Terminal window before it (the Mac, 1.25.5);
+ *     without it, VerseOrchestrator.command (a Finder alias needs the Finder),
  *   Linux: verseorchestrator.desktop on the desktop and in the applications menu.
  *
  * Only node: imports — the launcher runs before `npm ci` (like standby.ts).
@@ -223,6 +224,19 @@ export function createShortcut(
   }
   if (platform === 'darwin') {
     const file = path.join(desktop, 'VerseOrchestrator.command');
+    const top = path.dirname(root);
+    if (readLayout(root) && shellPresent(top, 'darwin')) {
+      const link = path.join(desktop, 'VerseOrchestrator.app');
+      const there = fs.lstatSync(link, { throwIfNoEntry: false });
+      // an app of that name moved there by hand stays: it opens the app itself
+      if (there && !there.isSymbolicLink()) return [link];
+      if (there) fs.rmSync(link);
+      fs.symlinkSync(shellProgram(top, 'darwin'), link);
+      // this copy's shortcut from before: it opened a Terminal window first
+      if (fs.existsSync(file) && fs.readFileSync(file, 'utf8') === macCommand(root))
+        fs.rmSync(file);
+      return [link];
+    }
     fs.writeFileSync(file, macCommand(root), { mode: 0o755 });
     return [file];
   }

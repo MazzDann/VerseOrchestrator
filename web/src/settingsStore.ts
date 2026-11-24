@@ -11,6 +11,7 @@ import {
 import {
   DEFAULT_KEYMAP,
   IS_DESKTOP,
+  IS_MAC,
   sanitizeKeymap,
   type Keymap,
   type HotkeyActionId,
@@ -477,8 +478,11 @@ interface SettingsState {
   motionDefaults?: 1;
   /** 1: the old default search scope «поточний» became «усі» once (1.23.0-beta.3) — not again after a choice */
   searchDefaults?: 1;
-  /** 1: this keymap was read in the desktop app — its browser defaults became the app's (1.24.0-beta.4) */
-  keymapApp?: 1;
+  /**
+   * 1: this keymap was read in the desktop app — its browser defaults became the app's (1.24.0-beta.4);
+   * 2: and on a Mac back / forward got their ⌘[ ⌘]
+   */
+  keymapApp?: 1 | 2;
   /**
    * «Кілька віршів — на екран після Enter» (1.13.0-beta.1, users' report F1010-05): while the
    * screen follows the selection, verses added with Ctrl / ⌘ / Shift gather in the preview and go
@@ -1131,8 +1135,14 @@ export const useSettings = create<SettingsState>()(
           // Backfill missing actions + drop any non-string/garbage values so every
           // consumer (.split in useHotkeys / settings UI) always gets a valid chord.
           // the browser's defaults become the app's once (1.24.0-beta.4: then «без клавіші» stays)
-          keymap: sanitizeKeymap(p.keymap, undefined, undefined, IS_DESKTOP && p.keymapApp !== 1),
-          ...(IS_DESKTOP ? { keymapApp: 1 as const } : {}),
+          keymap: sanitizeKeymap(
+            p.keymap,
+            undefined,
+            undefined,
+            IS_DESKTOP && p.keymapApp === undefined,
+            IS_DESKTOP && IS_MAC && p.keymapApp !== 2,
+          ),
+          ...(IS_DESKTOP ? { keymapApp: 2 as const } : {}),
           // the old default 170 grows to the new 240 with the history's text lines (1.13.0-beta.3)
           layout: clampLayout(
             p.layout?.recentHeight === 170 ? { ...p.layout, recentHeight: 240 } : p.layout,

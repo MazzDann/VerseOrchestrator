@@ -16,9 +16,10 @@ contextBridge.exposeInMainWorld('voDesktop', {
   outputYield: (on: boolean): void => {
     ipcRenderer.send('vo-output-yield', on === true);
   },
-  // F1107-03: a minimized output window asks to come back (something new on screen, «Вікно показу»)
-  outputRestore: (): void => {
-    ipcRenderer.send('vo-output-restore');
+  // F1107-03: a minimized output window asks to come back (something new on screen: asked = false,
+  // «Вікно показу»: true)
+  outputRestore: (asked?: boolean): void => {
+    ipcRenderer.send('vo-output-restore', asked);
   },
   // 1.24.0-beta.2: a 2nd screen plugged back in — the shell returned `n` output windows to it; the
   // control window does the operator's choice (leave it, black, clear) or opens one when none was

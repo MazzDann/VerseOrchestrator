@@ -164,6 +164,8 @@ export function useShowSteps({
   /** an own text shown in slides (useSongProjection, 1.22.0-beta.2): its next / previous slide */
   stepText: (dir: 1 | -1, from: number, total: number) => 'moved' | 'edge' | null;
 }) {
+  /** what the screen showed when this window opened (a restart): its first steps go along with it */
+  const sourceAtStart = useRef(liveSlideRef.current.source);
   /**
    * «Прев’ю: далі / назад» (Alt+arrows, 1.1.0): the preview walked ahead and the screen stays,
    * though «Наживо» is on — until «На екран», a plain step, or «Наживо» switched.
@@ -360,6 +362,28 @@ export function useShowSteps({
     held = false,
   ): Outcome | Promise<Outcome> => {
     if (primaryVerses.length === 0) return { ok: false, reason: tr('Спершу виберіть розділ') };
+    // the app started again with the passage still on screen: the screen goes along with the steps
+    // (it stood till «На екран» while only the preview moved — the Mac check of 1.25.4)
+    const shown = liveSlideRef.current;
+    const src = shown.source;
+    if (
+      !previewOnly &&
+      liveFollow &&
+      !live &&
+      leaderRef.current &&
+      // the slide the app started with — one a remote or the running order put there since is theirs
+      src !== undefined &&
+      src === sourceAtStart.current &&
+      shown.visible &&
+      !shown.blank &&
+      !shown.forceBlack &&
+      !shown.cover &&
+      src.kind === 'verses' &&
+      src.bookNumber === bookNumber &&
+      src.chapter === chapter &&
+      src.verses.join() === selectedVerses.join()
+    )
+      setLive(true);
     // a pick shown together: its verses one by one, then on after the last (1.13.0-beta.1)
     const w = walk.current;
     const inWalk = w && w.key === walkKey ? walkStep(w, selectedVerses, delta) : null;

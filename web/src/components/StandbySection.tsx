@@ -147,7 +147,7 @@ export function StandbySection({ active }: { active: boolean }) {
     notifications.show({
       message: r.relaunching
         ? tr('Перезапуск на новій адресі {url}', { url: r.urls.local })
-        : tr('Нова адреса: {url}', { url: r.urls.local }),
+        : tr('Нова адреса: {url}', { url: `http://localhost:${r.port}` }),
       color: 'green',
       autoClose: 2500,
     });
@@ -267,6 +267,14 @@ export function StandbySection({ active }: { active: boolean }) {
           </Popover.Dropdown>
         </Popover>
       </Group>
+      {s.runsOn !== undefined && s.runsOn !== s.port && (
+        <Text size="xs" c="dimmed">
+          {tr('Зараз застосунок працює на порту {now}; {port} — для звичайного запуску.', {
+            now: s.runsOn,
+            port: s.port,
+          })}
+        </Text>
+      )}
       <Text size="xs" c="dimmed" style={{ wordBreak: 'break-all' }}>
         {[s.urls.local, ...s.urls.lan].join(' · ')}
       </Text>

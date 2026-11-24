@@ -96,7 +96,7 @@ export function Presenter() {
   // by itself once something new goes on screen (the shell checks it is minimized)
   useEffect(() => {
     if (!inDesktop() || yielding || document.visibilityState !== 'hidden') return;
-    if (showsSomething(slide)) desktopOutputRestore();
+    if (showsSomething(slide)) desktopOutputRestore(false);
   }, [slide, yielding]);
 
   // The browser only grants fullscreen from a user gesture, so we can't do it on

@@ -45,6 +45,9 @@ export function assign(rel: string, shellDir: string = 'shell'): SegmentName | n
   if (rel.startsWith('data/') || rel.startsWith('modules/')) return null;
   // our code inside node_modules / the shell goes with `app`, so `deps` / `shell` stay static
   if (rel.startsWith('app/node_modules/@vo/')) return 'app';
+  // npm's record of what it installed carries OUR version: in `deps` it changed that part's hash in
+  // every release (35.6 of the 45.7 MB of an update, 2026-11-23), nothing else in it did
+  if (rel === 'app/node_modules/.package-lock.json') return 'app';
   if (rel.startsWith(shellAppDir(shellDir))) return 'app';
   if (rel.startsWith('app/node/')) return 'runtime';
   if (rel.startsWith('app/node_modules/')) return 'deps';

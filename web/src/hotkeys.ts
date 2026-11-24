@@ -242,6 +242,7 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
     default: 'slash',
     // and Ctrl+L, as a browser's address bar (1.24.0-beta.3, the desktop app)
     desktopInstead: 'slash,ctrl+l',
+    macDesktop: 'slash,ctrl+l,meta+l',
   },
   {
     id: 'palette',
@@ -301,21 +302,28 @@ HOTKEY_ACTIONS.push(
         N_('До «Історії»'),
         N_('Курсор у список «Історія»: ↑ ↓ вибрати, Enter відкрити'),
         'ctrl+h',
+        'ctrl+h,meta+y',
       ],
-      ['bookmarkAdd', N_('У «Збережене»'), N_('Вибране місце — у «Збережене»'), 'ctrl+d'],
+      [
+        'bookmarkAdd',
+        N_('У «Збережене»'),
+        N_('Вибране місце — у «Збережене»'),
+        'ctrl+d',
+        'ctrl+d,meta+d',
+      ],
       [
         'placeBack',
         N_('Назад по місцях'),
         N_('До місця, відкритого перед цим, — як «назад» у браузері'),
         'alt+left',
-        '',
+        'meta+bracketleft',
       ],
       [
         'placeForward',
         N_('Вперед по місцях'),
         N_('Знову до місця, з якого повернулися'),
         'alt+right',
-        '',
+        'meta+bracketright',
       ],
       ['helpKeys', N_('Підказка клавіш'), N_('Ця підказка (як «?»)'), 'f1'],
       [
@@ -323,16 +331,30 @@ HOTKEY_ACTIONS.push(
         N_('Вікно керування на весь екран'),
         N_('Вікно керування на весь екран і назад'),
         'f11',
+        'f11,ctrl+meta+f',
       ],
-      ['openSettings', N_('Налаштування'), N_('Відкрити налаштування вигляду'), 'ctrl+comma'],
+      [
+        'openSettings',
+        N_('Налаштування'),
+        N_('Відкрити налаштування вигляду'),
+        'ctrl+comma',
+        'ctrl+comma,meta+comma',
+      ],
       [
         'openFile',
         N_('Відкрити файл'),
         N_('Презентація, документ, картинка чи відео з диска — як перетягнуті у вікно'),
         'ctrl+o',
+        'ctrl+o,meta+o',
       ],
       // 1.24.0-beta.3 (the author's picks)
-      ['newText', N_('Новий «Текст на екран»'), N_('Курсор у поле «Текст на екран»'), 'ctrl+n'],
+      [
+        'newText',
+        N_('Новий «Текст на екран»'),
+        N_('Курсор у поле «Текст на екран»'),
+        'ctrl+n',
+        'ctrl+n,meta+n',
+      ],
       [
         'stageWindow',
         N_('Вікно «Сцена»'),
@@ -351,13 +373,21 @@ HOTKEY_ACTIONS.push(
         N_('Текст більший'),
         N_('Текст на екрані більший — до найбільшого, що вміщається'),
         'ctrl+equal,ctrl+add',
+        'ctrl+equal,ctrl+add,meta+equal,meta+add',
       ],
-      ['textSmaller', N_('Текст менший'), N_('Текст на екрані менший'), 'ctrl+minus,ctrl+subtract'],
+      [
+        'textSmaller',
+        N_('Текст менший'),
+        N_('Текст на екрані менший'),
+        'ctrl+minus,ctrl+subtract',
+        'ctrl+minus,ctrl+subtract,meta+minus,meta+subtract',
+      ],
       [
         'textReset',
         N_('Текст звичайний'),
         N_('Текст на екрані знову найбільший, що вміщається'),
         'ctrl+0',
+        'ctrl+0,meta+0',
       ],
       [
         'chapterPrev',
@@ -373,7 +403,13 @@ HOTKEY_ACTIONS.push(
       ],
       ['bookPrev', N_('Попередня книга'), N_('Відкрити попередню книгу'), 'ctrl+shift+pageup'],
       ['bookNext', N_('Наступна книга'), N_('Відкрити наступну книгу'), 'ctrl+shift+pagedown'],
-      ['verseField', N_('До поля «Вірш»'), N_('Курсор у поле «Вірш» біля розділів'), 'ctrl+g'],
+      [
+        'verseField',
+        N_('До поля «Вірш»'),
+        N_('Курсор у поле «Вірш» біля розділів'),
+        'ctrl+g',
+        'ctrl+g,meta+g',
+      ],
       ['qrToggle', N_('QR для глядачів'), N_('QR на екран і назад'), 'ctrl+q'],
       [
         'videoMute',
@@ -390,7 +426,8 @@ HOTKEY_ACTIONS.push(
       hint,
       default: '',
       desktopInstead: desktop,
-      // ⌥← / ⌥→ are the preview's keys on a Mac
+      // on a Mac in the app also the ⌘ chord it is known by there (the Mac check of 1.25.4: only ⌃ worked);
+      // ⌥← / ⌥→ are the preview's keys, so back / forward are ⌘[ ⌘]. Not ⌘H ⌘M ⌘Q ⌘W: macOS's own
       ...(macDesktop !== undefined ? { macDesktop } : {}),
     }),
   ),
@@ -711,7 +748,8 @@ export function matchesCombo(e: KeyChord, combo: string): boolean {
  */
 export function slashTyped(e: KeyChord & { key: string }, keymap: Keymap): boolean {
   return (
-    keymap.searchFocus === 'slash' &&
+    // the app's default has more than one key (1.24.0-beta.3)
+    keymap.searchFocus.split(',').includes('slash') &&
     e.key === '/' &&
     !e.ctrlKey &&
     !e.altKey &&
@@ -785,6 +823,8 @@ export function sanitizeKeymap(
    * cleared on purpose in the app («без клавіші») stays cleared
    */
   fromBrowser: boolean = desktop,
+  /** the app on a Mac, once (`keymapApp` 2): «назад / вперед по місцях» had no key there by default */
+  macBack: boolean = false,
 ): Keymap {
   const r = (raw ?? {}) as Record<string, unknown>;
   const keymap = Object.fromEntries(
@@ -801,6 +841,10 @@ export function sanitizeKeymap(
       return [a.id, v];
     }),
   ) as Keymap;
+  if (macBack)
+    for (const a of HOTKEY_ACTIONS)
+      if ((a.id === 'placeBack' || a.id === 'placeForward') && keymap[a.id] === '')
+        keymap[a.id] = defaultFor(a, mac, desktop);
   // an arrow scheme chosen on the other platform (1.9.7, Mac check: «← → екран, ↑ ↓ прев’ю» from
   // Windows kept ⌃→ / ⌃↓ on a Mac — Mission Control's): the same scheme in this platform's keys
   const theirs = arrowScheme(r as Keymap, !mac);

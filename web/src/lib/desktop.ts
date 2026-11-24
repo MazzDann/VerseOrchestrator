@@ -49,11 +49,13 @@ export function desktopOutputYield(on: boolean): void {
 /**
  * A minimized output window asks the desktop shell to come back (F1107-03): something new went on
  * screen, or «Вікно показу» was pressed. Restored without taking the keyboard from the control
- * window, full-screen again. A no-op in a browser and for a window that isn't minimized.
+ * window, full-screen again. A no-op in a browser and for a window that isn't minimized. `asked` =
+ * «Вікно показу»: a window put aside because its screen was unplugged comes back only then.
  */
-export function desktopOutputRestore(): void {
-  const d = (window as unknown as { voDesktop?: { outputRestore?: () => void } }).voDesktop;
-  d?.outputRestore?.();
+export function desktopOutputRestore(asked: boolean): void {
+  const d = (window as unknown as { voDesktop?: { outputRestore?: (asked: boolean) => void } })
+    .voDesktop;
+  d?.outputRestore?.(asked);
 }
 
 /**

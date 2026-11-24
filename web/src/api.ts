@@ -483,6 +483,8 @@ export type UiState = z.infer<typeof UiStateSchema>;
 export type UiEntry = z.infer<typeof UiEntrySchema>;
 
 const StandbySchema = z.object({
+  /** the port the app answers on now; `port` is the setting (absent: an older server) */
+  runsOn: z.number().optional(),
   enabled: z.boolean(),
   supported: z.boolean(),
   port: z.number(),

@@ -15,6 +15,9 @@ export interface ScreenInfo {
   y: number;
   w: number;
   h: number;
+  /** the whole screen, as people know its size */
+  fullW: number;
+  fullH: number;
   primary: boolean;
   internal: boolean;
 }
@@ -68,6 +71,8 @@ function toInfo(s: ScreenDetailed, i: number): ScreenInfo {
     y: s.availTop,
     w: s.availWidth,
     h: s.availHeight,
+    fullW: s.width,
+    fullH: s.height,
     primary: s.isPrimary,
     internal: s.isInternal,
   };
@@ -84,6 +89,8 @@ function currentScreen(): ScreenInfo {
     // a hidden or embedded page may report 0 — fall back to what else is known
     w: s.availWidth || s.width || window.outerWidth,
     h: s.availHeight || s.height || window.outerHeight,
+    fullW: s.width || window.outerWidth,
+    fullH: s.height || window.outerHeight,
     primary: true,
     internal: false,
   };
