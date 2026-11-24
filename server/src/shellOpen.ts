@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { shellDirName } from './layout.ts';
+import { placeShell, shellWork } from './shellSwap.ts';
 
 /**
  * Opening the desktop app next to app/ (1.18.0-beta.1, desktopShell.ts) — apart, with no
@@ -59,6 +60,9 @@ export function openShellCommand(
 }
 
 export function openShell(top: string, port: number, handover?: string): void {
+  // a new shell an update brought, or one that never opened (1.26.0-beta.3): as the start files do
+  if (process.platform !== 'darwin' && shellWork(top))
+    placeShell(top, { starting: true, tries: 1 });
   const [cmd, args, opts] = openShellCommand(top, port, process.platform, handover);
   const child = spawn(cmd, args, opts);
   child.on('error', (e) => console.warn(`[desktop] not opened: ${e.message}`));

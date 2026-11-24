@@ -20,6 +20,7 @@ import {
   unpackCommand,
 } from './installer';
 import { LAYOUT_MARKER, OS_NAME, shellDirName } from './layout';
+import { SHELL_ID } from './shellSwap';
 import { buildReleaseParts, partAsset, partExt, PARTS_FILE } from './releaseParts';
 import { runSwap, type SwapPlan, type SwapResult } from './swap';
 import type { LatestRelease } from './updates';
@@ -1044,7 +1045,11 @@ describe('installing from parts (1.20.0-beta.2)', () => {
   const sha256File = (p: string) => createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 
   /** A release top (the `app/` tree) with its parts, manifest and SHA256SUMS, built as CI does. */
-  async function builtRelease(version: string, serverBody = `SERVER ${version}`) {
+  async function builtRelease(
+    version: string,
+    serverBody = `SERVER ${version}`,
+    electron = 'ELECTRON',
+  ) {
     const work = tempDir();
     const top = path.join(work, `VerseOrchestrator-${version}-${OSN}-${ARCH}`);
     const put = (rel: string, body: string) => {
@@ -1061,7 +1066,7 @@ describe('installing from parts (1.20.0-beta.2)', () => {
     put('app/server/index.js', serverBody); // app, changes per version
     put('app/package.json', JSON.stringify({ version })); // app, the version always changes
     put(`app/${LAYOUT_MARKER}`, '{}'); // app (the marker)
-    put(`${shellDirName(PLATFORM)}/electron.bin`, 'ELECTRON'); // the shell segment
+    put(`${shellDirName(PLATFORM)}/electron.bin`, electron); // the shell segment
     put(`${shellDirName(PLATFORM)}/resources/app/main.js`, 'DESKTOP'); // our stub → the app segment
     put('ЯК ЗАПУСТИТИ.txt', version); // release-top loose: in no segment
     const outDir = tempDir();
@@ -1142,6 +1147,75 @@ describe('installing from parts (1.20.0-beta.2)', () => {
     expect(fs.readFileSync(path.join(next, 'web', 'dist', 'engine.wasm'), 'utf8')).toBe('WASM');
     // its own parts.json travels, so the next update can compare again
     expect(fs.existsSync(path.join(next, PARTS_FILE))).toBe(true);
+  });
+
+  it('another Electron comes whole and waits; the same or a failed one doesn’t (1.26.0-beta.3)', async () => {
+    const v1 = await builtRelease('1.26.0-beta.3');
+    const v2 = await builtRelease('1.26.0-beta.4', undefined, 'ELECTRON 2');
+    const top = v1.top;
+    const dataDir = path.join(top, 'data');
+    fs.mkdirSync(dataDir, { recursive: true });
+    const base = 'https://dl';
+    const full = `VerseOrchestrator-${OSN}-${ARCH}.${partExt(PLATFORM)}`;
+    const latest: LatestRelease = {
+      version: '1.26.0-beta.4',
+      url: '',
+      publishedAt: '',
+      prerelease: true,
+      asset: { name: full, url: `${base}/${full}`, size: 999 },
+      sums: `${base}/SHA256SUMS.txt`,
+    };
+    let asked: string[] = [];
+    let broken = false;
+    const shellPart = partAsset(OSN, ARCH, 'shell', PLATFORM);
+    const fetch = vi.fn(async (url: string | URL | Request) => {
+      const name = String(url).slice(base.length + 1);
+      asked.push(name);
+      if (name === 'SHA256SUMS.txt') return new Response(v2.sums);
+      if (name === full) throw new Error('the whole archive must not be fetched');
+      if (name === shellPart && broken) return new Response('cut');
+      return new Response(fs.readFileSync(path.join(v2.outDir, name)));
+    }) as unknown as typeof globalThis.fetch;
+    const inst = createInstaller({ top, dataDir, platform: PLATFORM, arch: ARCH, fetch });
+    const sizeOf = (seg: 'app' | 'shell') =>
+      fs.statSync(path.join(v2.outDir, partAsset(OSN, ARCH, seg, PLATFORM))).size;
+    const run = async () => {
+      asked = [];
+      expect(inst.start(latest)).toBe(true);
+      await vi.waitFor(() => expect(inst.state().phase).toMatch(/ready|error/), {
+        timeout: 20_000,
+      });
+      expect(inst.state()).toMatchObject({ phase: 'ready' });
+    };
+    const kept = path.join(dataDir, 'updates', TOP_FILES_DIR, '1.26.0-beta.4', 'shell');
+    // what the button says has it in
+    expect(await inst.downloadSize(latest)).toBe(sizeOf('app') + sizeOf('shell'));
+    // a part that comes broken doesn't hold the update
+    broken = true;
+    await run();
+    expect(fs.existsSync(kept)).toBe(false);
+    broken = false;
+    await run();
+    expect(asked).toContain(shellPart);
+    expect(fs.readFileSync(path.join(kept, 'electron.bin'), 'utf8')).toBe('ELECTRON 2');
+    expect(fs.readFileSync(path.join(kept, 'resources', 'app', 'main.js'), 'utf8')).toBe('DESKTOP');
+    const { hash } = JSON.parse(fs.readFileSync(path.join(kept, SHELL_ID), 'utf8')) as {
+      hash: string;
+    };
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    // the top files carry nothing of it, and app/ stays as it is made
+    expect(fs.existsSync(path.join(top, NEXT_DIR, 'resources'))).toBe(false);
+    for (const there of ['shell.next', 'shell.failed']) {
+      const dir = path.join(top, there);
+      fs.mkdirSync(dir);
+      fs.writeFileSync(path.join(dir, SHELL_ID), JSON.stringify({ hash }));
+      expect(await inst.downloadSize(latest)).toBe(sizeOf('app'));
+      fs.rmSync(dir, { recursive: true });
+    }
+    // put in place: it is the one now
+    fs.rmSync(path.join(top, 'shell'), { recursive: true });
+    fs.renameSync(kept, path.join(top, 'shell'));
+    expect(await inst.downloadSize(latest)).toBe(sizeOf('app'));
   });
 
   it('falls back to the whole archive when the copy has no parts.json', async () => {

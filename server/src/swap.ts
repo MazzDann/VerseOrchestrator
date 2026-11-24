@@ -173,12 +173,24 @@ const SHELL_DIRS = ['VerseOrchestrator.app', 'shell'];
 
 /** The release's top files replace the old ones (folders — data/, modules/ — are left alone). */
 export function copyTopFiles(from: string, top: string): void {
+  // a copy to another volume cut short
+  for (const d of [...SHELL_DIRS, 'shell.next'])
+    fs.rmSync(path.join(top, `${d}.part`), { recursive: true, force: true });
   for (const e of fs.readdirSync(from, { withFileTypes: true })) {
-    // the desktop app (1.18.0-beta.1, desktopShell.ts): brought once, when the copy has none — one already
-    // there may be running this very swap, and Electron itself changes with a new archive only
+    // the desktop app (1.18.0-beta.1, desktopShell.ts): brought when the copy has none. One already there may be
+    // running this very swap: another one (the installer named it, shellSwap.ts) waits beside it
     if (e.isDirectory() && SHELL_DIRS.includes(e.name)) {
-      const to = path.join(top, e.name);
-      if (fs.existsSync(to)) continue;
+      let to = path.join(top, e.name);
+      if (fs.existsSync(to)) {
+        if (e.name !== 'shell' || !fs.existsSync(path.join(from, e.name, '.vo-shell.json')))
+          continue;
+        to = path.join(top, 'shell.next');
+        try {
+          fs.rmSync(to, { recursive: true, force: true, maxRetries: 3 });
+        } catch {
+          continue; // held: the next update brings it
+        }
+      }
       // on its own: a shell that can't come leaves the start files to be replaced all the same
       try {
         fs.renameSync(path.join(from, e.name), to);

@@ -847,6 +847,47 @@ function openSettings(): void {
 }
 
 /** The control window in front: from the Dock (macOS), or the app started again. */
+/** The release's folder: app/ in it, this shell beside (a clone has none). */
+const releaseTop =
+  app.isPackaged && path.basename(appRoot) === 'app' ? path.dirname(appRoot) : null;
+
+/**
+ * A window of this shell has drawn: a new one (server/src/shellSwap.ts) is no longer on trial, the one
+ * before it goes.
+ */
+function shellOpened(): void {
+  if (!releaseTop || process.platform === 'darwin') return;
+  const dir = path.join(releaseTop, 'shell');
+  try {
+    if (!fs.existsSync(path.join(dir, '.vo-trial.json'))) return;
+    fs.rmSync(path.join(dir, '.vo-trial.json'), { force: true });
+    void fs.promises
+      .rm(path.join(releaseTop, 'shell.previous'), { recursive: true, force: true, maxRetries: 3 })
+      .catch(() => {});
+  } catch {
+    /* counted as not opened: at the worst the one before comes back */
+  }
+}
+
+/** A new shell waits (an update brought it): it takes this one's place once this one has gone. */
+function placeNextShell(): void {
+  if (!releaseTop || process.platform === 'darwin') return;
+  if (!fs.existsSync(path.join(releaseTop, 'shell.next', '.vo-shell.json'))) return;
+  const script = path.join(appRoot, 'server', 'src', 'shellSwap.ts');
+  if (!fs.existsSync(script)) return;
+  try {
+    const child = spawn(
+      nodeRuntime(),
+      ['--disable-warning=ExperimentalWarning', script, releaseTop, String(process.pid)],
+      { cwd: releaseTop, detached: true, stdio: 'ignore', windowsHide: true },
+    );
+    child.on('error', () => {});
+    child.unref();
+  } catch {
+    /* the next start puts it there */
+  }
+}
+
 function showControl(): void {
   if (!control || control.isDestroyed()) return;
   if (control.isMinimized()) control.restore();
@@ -886,6 +927,7 @@ else {
   // a quit waits for the app this shell started to stop: the system kills what a program started when it
   // ends, and the server was cut off in the middle whenever the word did not get out in time (1.26.0-beta.1)
   let told = false;
+  app.on('will-quit', placeNextShell);
   app.on('before-quit', (e) => {
     quitting = true;
     // closed while it was getting ready: nothing answers on the port yet
@@ -911,6 +953,8 @@ else {
     })();
   });
   void app.whenReady().then(async () => {
+    // a window that draws, the start window too: this shell works
+    app.on('browser-window-created', (_e, w) => w.once('ready-to-show', shellOpened));
     setMenu();
     grantPermissions();
     followDisplays();

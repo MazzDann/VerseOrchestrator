@@ -26,7 +26,6 @@ if (!fs.existsSync(electronDist) || !fs.existsSync(path.join(shellDist, 'main.js
   console.error('run `npm ci && npm run build` in desktop/ first');
   process.exit(2);
 }
-const version = JSON.parse(fs.readFileSync(path.join(desktop, 'package.json'), 'utf8')).version;
 
 // 1. the shell's code inside app/ (updated with app/)
 const code = path.join(top, 'app', 'desktop', 'dist');
@@ -101,7 +100,9 @@ function putStub(resources) {
       {
         name: 'verseorchestrator',
         productName: 'VerseOrchestrator',
-        version,
+        // not the release's: the .app's signature seals this file, and the 255 MB shell part changed with
+        // every release (1.26.0-beta.3); the code it runs has its own version in app/
+        version: '1.0.0',
         type: 'module',
         main: 'main.js',
       },

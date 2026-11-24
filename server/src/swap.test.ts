@@ -94,5 +94,25 @@ describe('the update swap (1.0.0)', () => {
     fs.writeFileSync(path.join(again, 'shell', 'verseorchestrator'), 'newer');
     copyTopFiles(again, top);
     expect(fs.readFileSync(path.join(top, 'shell', 'verseorchestrator'), 'utf8')).toBe('new');
+    expect(fs.existsSync(path.join(top, 'shell.next'))).toBe(false);
+  });
+
+  it('another desktop shell, named by the installer, waits beside the one there (1.26.0-beta.3)', () => {
+    const top = release({ app: '1.0.1' });
+    const bring = (body: string) => {
+      const from = release({});
+      fs.mkdirSync(path.join(from, 'shell'));
+      fs.writeFileSync(path.join(from, 'shell', 'verseorchestrator'), body);
+      fs.writeFileSync(path.join(from, 'shell', '.vo-shell.json'), '{"hash":"x"}');
+      copyTopFiles(from, top);
+    };
+    bring('one');
+    expect(fs.readFileSync(path.join(top, 'shell', 'verseorchestrator'), 'utf8')).toBe('one');
+    bring('two');
+    bring('three'); // one that still waits gives way
+    expect(fs.readFileSync(path.join(top, 'shell', 'verseorchestrator'), 'utf8')).toBe('one');
+    expect(fs.readFileSync(path.join(top, 'shell.next', 'verseorchestrator'), 'utf8')).toBe(
+      'three',
+    );
   });
 });
