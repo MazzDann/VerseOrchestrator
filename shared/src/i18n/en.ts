@@ -260,6 +260,8 @@ export const EN: Record<string, string> = {
   'Застосунок у Dock': 'The app in the Dock',
   'Щоб мати застосунок під рукою, клацніть його значок у Dock правою кнопкою → «Параметри» → «Тримати в Dock».':
     'To keep the app at hand, right-click its icon in the Dock → “Options” → “Keep in Dock”.',
+  'Зараз застосунок працює на порту {now}; {port} — для звичайного запуску.':
+    'The app runs on port {now} now; {port} is for an ordinary start.',
   'Ярлик створено: {file}': 'Shortcut created: {file}',
   'Він відкриває застосунок.': 'It opens the app.',
   'Це вікно можна закрити.': 'You can close this window.',
