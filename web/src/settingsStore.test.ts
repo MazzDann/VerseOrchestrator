@@ -18,6 +18,21 @@ beforeAll(async () => {
   store = await import('./settingsStore');
 });
 
+describe('«Архів» (1.26.0-beta.2)', () => {
+  it('names go in and out, each once', () => {
+    const s = () => store.useSettings.getState();
+    s().setArchived('translations', ['KJV', 'RST'], true);
+    s().setArchived('translations', ['KJV'], true);
+    expect(s().archivedTranslations).toEqual(['RST', 'KJV']);
+    s().setArchived('translations', ['RST', 'XYZ'], false);
+    expect(s().archivedTranslations).toEqual(['KJV']);
+    expect(s().archivedBundles).toEqual([]);
+    expect(store.sanitizeNames(['A', 'A', '', 5, null])).toEqual(['A']);
+    expect(store.sanitizeNames('A')).toEqual([]);
+    s().setArchived('translations', ['KJV'], false);
+  });
+});
+
 describe('«Заставка» and presets (1.4.0)', () => {
   it('a preset carries neither the cover’s text nor its image', () => {
     const p = store.coercePreset({

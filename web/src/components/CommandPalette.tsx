@@ -13,6 +13,7 @@ import {
 } from '@tabler/icons-react';
 import { api, type Book } from '../api';
 import { tr, trn, useLang } from '../i18n';
+import { useSettings } from '../settingsStore';
 import { findSettings, SECTION_TITLES } from '../lib/settingsSearch';
 
 /** A static operator action exposed in the palette. */
@@ -85,9 +86,11 @@ export function CommandPalette({
     }
   }, [open]);
 
+  // the archived bundles' songs come last (1.26.0-beta.2)
+  const archivedBundles = useSettings((s) => s.archivedBundles);
   const songsQuery = useQuery({
-    queryKey: ['palette-songs', debounced],
-    queryFn: () => api.songs(debounced),
+    queryKey: ['palette-songs', debounced, archivedBundles],
+    queryFn: () => api.songs(debounced, undefined, undefined, archivedBundles),
     enabled: open && debounced.trim().length >= 1,
   });
 

@@ -69,7 +69,8 @@ import {
   refreshAutostart,
   setAutostart,
 } from './autostart.js';
-import { getUiState, initUiState, isUiKey, saveUiEntry } from './uiState.js';
+import { getUiState, initUiState, isUiKey, operatorArchive, saveUiEntry } from './uiState.js';
+import { skipAsked } from './archive.js';
 import { parseSongImport, syncSongsAtStart } from './songs.js';
 import { converterFor, convertBytes, converters, type Converter } from './convert.js';
 import { createDocuments, openFolder } from './documents.js';
@@ -1210,7 +1211,12 @@ app.get(
 
 app.get(
   '/api/translations',
-  wrap(async (_req, res) => res.json(await library().getTranslations())),
+  wrap(async (_req, res) => {
+    // archived by the operator (1.26.0-beta.2): the phones and the desk fold them too
+    const archived = new Set(operatorArchive().translations);
+    const all = await library().getTranslations();
+    res.json(all.map((t) => (archived.has(t.abbr) ? { ...t, archived: true } : t)));
+  }),
 );
 
 app.get(
@@ -1334,6 +1340,7 @@ app.get(
         60,
         req.query.bundle ? String(req.query.bundle) : undefined,
         req.query.topic ? String(req.query.topic) : undefined,
+        skipAsked(req.query.skip) ?? operatorArchive().bundles,
       ),
     ),
   ),
@@ -1349,6 +1356,7 @@ app.get(
     const found = await library().searchSongsByMeaning(
       String(req.query.q ?? ''),
       req.query.bundle ? String(req.query.bundle) : undefined,
+      skipAsked(req.query.skip) ?? operatorArchive().bundles,
     );
     // being made, or about to be (waiting for another job, or a change just now): not all yet
     const coming = songVectors.running() || songsWaiting || songsTimer !== null;
@@ -2822,7 +2830,12 @@ app.get(
       .map(Number)
       .filter((n) => Number.isInteger(n) && n > 0);
     // «По порядку» (1.23.0-beta.4, F1114-14): the words in the order typed
-    res.json(await library().search(q, translations, { inOrder: req.query.order === '1' }));
+    res.json(
+      await library().search(q, translations, {
+        inOrder: req.query.order === '1',
+        skip: skipAsked(req.query.skip) ?? operatorArchive().translations,
+      }),
+    );
   }),
 );
 
@@ -3172,6 +3185,7 @@ async function openForJob(model: EmbedModelId) {
   return openChildEmbedder(dataDir, model, n ?? cap);
 }
 const vectors = createVectorJob({
+  archived: () => operatorArchive().translations,
   dataDir,
   libraryPath,
   open: openForJob,

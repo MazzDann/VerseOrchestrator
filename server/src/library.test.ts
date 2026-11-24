@@ -195,6 +195,18 @@ describe('library queries (shared, engine-agnostic)', () => {
     expect((await lib.getSong(1))?.slides).toEqual([{ text: 'Куплет', style: null }]);
   });
 
+  it('an archived translation is left out of «усі переклади», asked by id it answers (1.26.0-beta.2)', async () => {
+    const ids = (r: Awaited<ReturnType<Library['search']>>) =>
+      r.results.map((x) => x.translationId);
+    expect(ids(await lib.search('Ів 3:16', []))).toEqual([2, 1]);
+    expect(ids(await lib.search('Ів 3:16', [], { skip: ['KJV'] }))).toEqual([1]);
+    expect(ids(await lib.search('loved', [], { skip: ['KJV'] }))).toEqual([]);
+    expect(ids(await lib.search('loved', [2], { skip: ['KJV'] }))).toEqual([2]);
+    // every one archived, or a name the library hasn't: as if none were
+    expect(ids(await lib.search('loved', [], { skip: ['KJV', 'UKR'] }))).toEqual([2]);
+    expect(ids(await lib.search('loved', [], { skip: ['XYZ', "O'K"] }))).toEqual([2]);
+  });
+
   it('optional tables absent → empty, not an error', async () => {
     expect(await lib.getCrossrefs(500, 3, 16)).toEqual([]);
     expect(await lib.getChapterCrossrefs(500, 3)).toEqual([]); // no table: none, no error

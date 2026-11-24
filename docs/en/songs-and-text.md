@@ -93,6 +93,14 @@ To delete such a bundle for good, first remove the files from the folder. Once t
 has made its bundle again, **Cancel** doesn't bring the deleted one back: its presentations would be
 in the library twice.
 
+### Archive a bundle
+
+You don't have to delete a bundle you rarely need. In **Presentation bundles**, click the
+**Archive** icon in its row. The bundle goes last in the lists, and in the search its presentations
+come after the others, under the word **Archive**. Chosen in the filter, it shows everything as
+before, and running orders still find its presentations. To bring the bundle back, click **Bring
+back from the archive**.
+
 ## Add presentations from a folder
 
 You can also add presentations without the control window, through the app's `songs/` folder:

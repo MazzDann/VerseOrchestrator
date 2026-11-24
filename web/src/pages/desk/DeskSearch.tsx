@@ -2,7 +2,8 @@ import { useEffect, useState, type RefObject } from 'react';
 import { Kbd, Paper, Text, TextInput } from '@mantine/core';
 import { IconSearch } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { api, type SearchResult, type Translation } from '../../api';
+import { type SearchResult, type Translation } from '../../api';
+import { searchWide } from '../../lib/searchWide';
 import { useSearchRows } from '../../lib/useSearchRows';
 import { tr, useLang } from '../../i18n';
 
@@ -35,13 +36,7 @@ export function DeskSearch({
   const query = words === text.trim() && words.length >= 2 ? words : '';
   const found = useQuery({
     queryKey: ['desk-search', query, translationIds.join(',')],
-    queryFn: async () => {
-      const first = await api.search(query, translationIds);
-      if (first.results.length > 0 || translationIds.length === 0)
-        return { ...first, fallback: false };
-      const all = await api.search(query, []);
-      return { ...all, fallback: all.results.length > 0 };
-    },
+    queryFn: () => searchWide(query, translationIds),
     enabled: query.length > 0,
   });
   const rows = useSearchRows(found.data?.results, translationIds[0] ?? null, true).slice(0, 40);

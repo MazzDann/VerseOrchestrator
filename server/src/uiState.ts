@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import { type Archive, archiveIn, NO_ARCHIVE } from './archive.js';
 import { readJson, writeJson } from './jsonFile.js';
 
 /**
@@ -27,6 +29,16 @@ export function getUiState(): UiState {
 }
 
 export const isUiKey = (k: unknown): k is UiKey => UI_KEYS.includes(k as UiKey);
+
+let archive: { key: string; value: Archive } | null = null;
+/** The operator's archive (1.26.0-beta.2) — read again only when the file changed (it holds pictures too). */
+export function operatorArchive(): Archive {
+  const st = file ? fs.statSync(file, { throwIfNoEntry: false }) : undefined;
+  if (!st) return NO_ARCHIVE;
+  const key = `${file}|${st.size}|${st.mtimeMs}`;
+  if (archive?.key !== key) archive = { key, value: archiveIn(getUiState()['vo:settings']?.value) };
+  return archive.value;
+}
 
 /** Save one entry unless a later one is there already; says which one is kept. */
 export function saveUiEntry(

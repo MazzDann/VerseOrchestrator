@@ -332,6 +332,15 @@ export function sanitizeBroadcast(raw: unknown): BroadcastLook {
   };
 }
 
+/** Names kept in the settings (the archive): non-empty strings, each once. */
+export function sanitizeNames(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter((x): x is string => typeof x === 'string' && x !== ''))].slice(
+    0,
+    1000,
+  );
+}
+
 export function sanitizeOutputs(raw: unknown): OutputSettings {
   const r = (raw ?? {}) as Partial<Record<keyof OutputSettings, unknown>>;
   const layout = Array.isArray(r.layout)
@@ -511,6 +520,13 @@ interface SettingsState {
   /** Saved appearance presets (look + layout bundles). */
   presets: AppearancePreset[];
   outputs: OutputSettings;
+  /**
+   * «Архів» (1.26.0-beta.2, the author): translations (by their short names) and presentation bundles
+   * (by name) put out of the way — last in the lists, not searched by themselves; nothing is deleted.
+   */
+  archivedTranslations: string[];
+  archivedBundles: string[];
+  setArchived: (kind: 'translations' | 'bundles', names: string[], archived: boolean) => void;
   /** Interface language (0.11.0). */
   language: Lang;
   setLanguage: (lang: Lang) => void;
@@ -908,6 +924,14 @@ export const useSettings = create<SettingsState>()(
       slideTemplate: null,
       history: [],
       bookmarks: [],
+      archivedTranslations: [],
+      archivedBundles: [],
+      setArchived: (kind, names, archived) =>
+        set((s) => {
+          const key = kind === 'translations' ? 'archivedTranslations' : 'archivedBundles';
+          const rest = s[key].filter((n) => !names.includes(n));
+          return { [key]: archived ? [...rest, ...names] : rest };
+        }),
       recentTexts: [],
       savedTexts: [],
       setTextSaved: (item, saved) =>
@@ -1158,6 +1182,8 @@ export const useSettings = create<SettingsState>()(
           searchDefaults: 1,
           // saved before 0.11.0: the app was Ukrainian; nothing saved: the browser's language
           language: isLang(p.language) ? p.language : persisted ? 'uk' : current.language,
+          archivedTranslations: sanitizeNames(p.archivedTranslations),
+          archivedBundles: sanitizeNames(p.archivedBundles),
           simpleView: p.simpleView === true,
           crossRefsShown: asCrossRefsShown(p.crossRefsShown),
           displayBack: asDisplayBack(p.displayBack),

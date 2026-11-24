@@ -24,6 +24,11 @@ You choose translations in the **Translations** list at the top left:
   **Filter translations…** field.
 - Translations in the interface language come first in the list. While none is selected, the
   app selects the first of them itself.
+- Archive a translation you rarely need: point at its row and click the **Archive** icon (the one
+  in a group's heading archives the whole group). It goes into the folded **Archive** at the end of
+  the list, and a search of all translations leaves it out. If nothing else has a match, the app
+  searches the archive too and says so. No files move, and a running order that uses the
+  translation still works. To bring it back, click **Bring back from the archive**.
 - On a short screen (under 900 pixels) the list folds as soon as a translation is selected, so
   more books show under it. The folded heading names the selected translations; click it to
   unfold the list.

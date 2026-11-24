@@ -1347,6 +1347,19 @@ form.vo-remote-countdown {
     transition: none;
   }
 }
+/* «Архів» (1.26.0-beta.2): the row's button, with the row (a touch screen has it always) */
+.vo-archive-btn {
+  opacity: 0;
+}
+.vo-archive-row:hover .vo-archive-btn,
+.vo-archive-row:focus-within .vo-archive-btn {
+  opacity: 1;
+}
+@media (hover: none) {
+  .vo-archive-btn {
+    opacity: 1;
+  }
+}
 /* «Альбоми» (1.8.12): a row per album — open by the row, its own buttons on the right */
 .vo-album-row {
   display: flex;

@@ -21,7 +21,7 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { type Book, type Translation } from '../../api';
-import { type PanelLayout, type RefItem } from '../../settingsStore';
+import { useSettings, type PanelLayout, type RefItem } from '../../settingsStore';
 import { TranslationPicker } from '../../components/TranslationPicker';
 import { VirtualList } from '../../components/VirtualList';
 import { RefList } from '../../components/RefList';
@@ -99,6 +99,8 @@ export function ControlNavbar({
   onOpenSong: (songId: number) => void;
 }) {
   useLang();
+  const archived = useSettings((s) => s.archivedTranslations);
+  const setArchived = useSettings((s) => s.setArchived);
   // «Історія» searched (1.25.0-beta.3): words filter the places, «~ тема» every show by meaning
   const [historyQuery, setHistoryQuery] = useState<string | null>(null);
   const [historyDebounced] = useDebouncedValue(historyQuery ?? '', 250);
@@ -196,6 +198,8 @@ export function ControlNavbar({
           selectedIds={selectedIds}
           onChange={setTranslations}
           onMakePrimary={makePrimary}
+          archived={archived}
+          onArchive={(names, away) => setArchived('translations', names, away)}
           onEnter={showSelection}
         />
         <Divider />

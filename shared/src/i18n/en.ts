@@ -786,6 +786,20 @@ export const EN: Record<string, string> = {
   'Програму збережено: {name}': 'Program saved: {name}',
   'Відкрито програму: {name}': 'Program opened: {name}',
   // control window parts (ResizeHandle, FloatingPanel, RefList, TranslationPicker, lib/*, api.ts)
+  // the archive (1.26.0-beta.2)
+  Архів: 'Archive',
+  'Архів ({n})': 'Archive ({n})',
+  'В архіві': 'Archived',
+  'В архів': 'Archive',
+  'В архів: у кінці списків, без пошуку': 'Archive: last in the lists, not searched',
+  'В архів: у кінці списків і пошуку': 'Archive: last in the lists and in the search',
+  'В архів набір «{bundle}»': 'Archive the bundle “{bundle}”',
+  'Повернути з архіву': 'Bring back from the archive',
+  'Повернути з архіву набір «{bundle}»': 'Bring the bundle “{bundle}” back from the archive',
+  'Усю групу в архів': 'Archive the whole group',
+  'Усю групу «{name}» в архів': 'Archive the whole group “{name}”',
+  'У ваших перекладах нічого — знайдено в архіві.':
+    'Nothing in your translations — found in the archive.',
   '{handle}: тягніть; подвійний клік скидає': '{handle}: drag; double-click resets',
   Закрити: 'Close',
   'Змінити розмір панелі (стрілки; подвійний клік — типовий розмір)':

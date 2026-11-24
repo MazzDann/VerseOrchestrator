@@ -104,6 +104,11 @@ export function Desk() {
   const queryClient = useQueryClient();
 
   const translations = useQuery({ queryKey: ['translations'], queryFn: api.translations });
+  // the operator's archive (1.26.0-beta.2), as the server knows it: folded here too
+  const archived = useMemo(
+    () => (translations.data ?? []).filter((t) => t.archived).map((t) => t.abbr),
+    [translations.data],
+  );
   // The first visit: the translations on screen, else one in the interface's language, else the
   // library's first. A translation the library no longer has (a module removed) leaves the list.
   useEffect(() => {
@@ -115,7 +120,8 @@ export function Desk() {
     const src = live?.source;
     const fromScreen =
       src?.kind === 'verses' ? src.translationIds.filter((id) => all.some((t) => t.id === id)) : [];
-    const ours = all.find((t) => t.language === lang) ?? all[0];
+    const inUse = all.filter((t) => !t.archived);
+    const ours = inUse.find((t) => t.language === lang) ?? inUse[0] ?? all[0];
     set({ translationIds: fromScreen.length > 0 ? fromScreen.slice(0, 5) : [ours.id] });
   }, [ids, translations.data, live, set, lang]);
 
@@ -620,6 +626,7 @@ export function Desk() {
               <TranslationPicker
                 translations={translations.data ?? []}
                 selectedIds={ids}
+                archived={archived}
                 onChange={(next) => set({ translationIds: next })}
                 onMakePrimary={(id) =>
                   set({ translationIds: [id, ...ids.filter((x) => x !== id)] })
