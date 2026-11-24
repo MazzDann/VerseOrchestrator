@@ -60,6 +60,12 @@ export function useAppSettingsOpener({
 }) {
   /** The settings panel, opened on «Дані» (where «Джерело даних» is since 1.15.1). */
   const openAppSettings = () => openSettingsAt(setSettingsOpen, 'data');
+  // «Налаштування…» of the desktop app's menu on a Mac (desktop/src/main.ts)
+  useEffect(() => {
+    const onMenu = () => openSettingsAt(setSettingsOpen);
+    window.addEventListener('vo:open-settings', onMenu);
+    return () => window.removeEventListener('vo:open-settings', onMenu);
+  }, [setSettingsOpen]);
   // First run with no server and nothing loaded: the library can only come from the
   // browser engine — open the settings on «Джерело даних» and say why.
   useEffect(() => {
