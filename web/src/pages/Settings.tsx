@@ -64,16 +64,13 @@ export function Settings() {
     const anchor = params.get('anchor');
     const find = params.get('find');
     if (find) useSettingsFind.getState().setQuery(find);
-    const t = setTimeout(
-      () => {
-        if (at)
-          document
-            .querySelector(`[data-settings-section="${CSS.escape(at)}"]`)
-            ?.scrollIntoView({ block: 'start' });
-        if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: 'center' });
-      },
-      anchor ? 400 : 50,
-    );
+    const t = setTimeout(() => {
+      if (at)
+        document
+          .querySelector(`[data-settings-section="${CSS.escape(at)}"]`)
+          ?.scrollIntoView({ block: 'start' });
+      if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: 'center' });
+    }, 50);
     // words sent while the window is open (openSettingsWindow)
     const onFind = (e: Event) =>
       useSettingsFind.getState().setQuery((e as CustomEvent<string>).detail);
@@ -84,6 +81,27 @@ export function Settings() {
     };
   }, []);
   useFollowVersion(); // updated from here: this window too (1.25.3)
+  // the desktop app shows the window when it is whole: drawn, in its fonts (1.25.6, desktop/src/main.ts)
+  useEffect(() => {
+    const drawn = () => {
+      (window as unknown as { voDrawn?: boolean }).voDrawn = true;
+      window.dispatchEvent(new Event('vo:drawn'));
+    };
+    const latest = setTimeout(drawn, 900); // fonts that don't come (no network) hold nothing
+    const t = setTimeout(() => {
+      void document.body.offsetHeight; // laid out: its fonts are asked for
+      void document.fonts?.ready.then(() =>
+        setTimeout(() => {
+          clearTimeout(latest);
+          drawn();
+        }, 30),
+      );
+    }, 30);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(latest);
+    };
+  }, []);
   const heading = versionHeading(devLabel, __APP_VERSION__);
   useEffect(() => {
     if (inDesktop()) document.title = `${tr('Налаштування вигляду')} — ${heading}`;

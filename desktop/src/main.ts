@@ -330,8 +330,6 @@ function openControl(): BrowserWindow {
   win.once('ready-to-show', () => {
     if (!kept || kept.maximized) win.maximize();
     win.show();
-    // a moment for the page to settle before a question over it
-    setTimeout(() => void offerUpdate(win), 2500);
   });
   win.on('close', () => keepPlace(win));
   // the settings come back with the control window, above it
@@ -406,12 +404,16 @@ function openControl(): BrowserWindow {
         child.show();
         child.focus();
       };
-      child.once('ready-to-show', reveal);
+      // whole (1.25.6, the author: it opened empty and put itself together in sight): the first paint is
+      // an empty page, so the page says when it is drawn (Settings.tsx); one that doesn't is shown all the same
       child.webContents.once('did-finish-load', () => {
-        reveal();
-        if (!child.isDestroyed()) child.focus();
+        void child.webContents
+          .executeJavaScript(
+            "window.voDrawn ? true : new Promise((r) => addEventListener('vo:drawn', () => r(true), { once: true }))",
+          )
+          .then(reveal, reveal);
       });
-      // a page that never finishes is shown all the same
+      child.webContents.once('did-fail-load', reveal);
       setTimeout(reveal, 3000);
       return;
     }
@@ -509,102 +511,10 @@ const controlUrl = (handover: string | undefined) =>
 /** the fullscreen decided for an output window between its handler and its creation */
 const pendingFullscreen = new Map<string, boolean>();
 
-// ── a new version offered at the start (the author: «при знайдені нового пропонувати при запуску») ──
+// ── the shell’s own few words, in the system’s language ──
 
 const uk = () => app.getLocale().toLowerCase().startsWith('uk');
 const say = (ua: string, en: string) => (uk() ? ua : en);
-
-interface UpdateAnswer {
-  current?: string;
-  available?: boolean;
-  enabled?: boolean;
-  pinned?: boolean;
-  latest?: { version?: string } | null;
-  installer?: { phase?: string; received?: number; total?: number; error?: unknown } | null;
-}
-
-async function updateState(fresh = false): Promise<UpdateAnswer | null> {
-  try {
-    const r = await fetch(`${ORIGIN}/api/update${fresh ? '?fresh=1' : ''}`, { headers: HEADERS });
-    return r.ok ? ((await r.json()) as UpdateAnswer) : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * At the start: a newer version on the chosen channel (Налаштування → Оновлення) is offered in a
- * dialog of the app's own — «Оновити зараз» downloads it, swaps app/ (the shell's code with it) and
- * the windows come back on the new version. Not for a version chosen to stay on (pinned), nor
- * with the checks off, nor in a repository copy (it updates by git).
- */
-async function offerUpdate(win: BrowserWindow): Promise<void> {
-  const u = await updateState(true);
-  const version = u?.latest?.version;
-  if (!u?.available || !version || u.pinned || u.enabled === false || !u.installer) return;
-  const { response } = await dialog.showMessageBox(win, {
-    type: 'info',
-    title: 'VerseOrchestrator',
-    message: say(`Вийшла нова версія — ${version}`, `A new version is out — ${version}`),
-    detail: say(
-      `Зараз у вас ${u.current}. Оновлення займе хвилину; дані й налаштування лишаються, а попередню версію можна повернути в «Оновлення».`,
-      `You have ${u.current}. The update takes a minute; your data and settings stay, and the previous version can be brought back in «Оновлення».`,
-    ),
-    buttons: [say('Оновити зараз', 'Update now'), say('Пізніше', 'Later')],
-    defaultId: 0,
-    cancelId: 1,
-    noLink: true,
-  });
-  if (response === 0) await updateNow(win, version);
-}
-
-async function updateNow(win: BrowserWindow, version: string): Promise<void> {
-  const post = (p: string, body?: object) =>
-    fetch(`${ORIGIN}${p}`, {
-      method: 'POST',
-      headers: { ...HEADERS, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body ?? {}),
-    });
-  const fail = (why: string) => {
-    win.setProgressBar(-1);
-    dialog.showErrorBox(
-      'VerseOrchestrator',
-      say(
-        `Не вдалося оновити: ${why}\nСпробуйте ще раз у «Оновлення».`,
-        `The update failed: ${why}\nTry again in «Оновлення».`,
-      ),
-    );
-  };
-  const started = await post('/api/update/download').catch(() => null);
-  if (!started?.ok)
-    return fail(started ? await started.text() : say('немає зв’язку', 'no connection'));
-  // the download's progress on the taskbar / Dock icon
-  for (let i = 0; i < 1800; i++) {
-    const s = await updateState();
-    const phase = s?.installer?.phase;
-    if (phase === 'ready') break;
-    if (phase === 'error') return fail(JSON.stringify(s?.installer?.error ?? ''));
-    const { received = 0, total = 0 } = s?.installer ?? {};
-    win.setProgressBar(total > 0 ? received / total : 2); // 2: «working», no share known
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  win.setProgressBar(2);
-  const restarted = await post('/api/update/restart').catch(() => null);
-  if (!restarted?.ok)
-    return fail(restarted ? await restarted.text() : say('немає зв’язку', 'no connection'));
-  // the new version answers: the windows show it
-  for (let i = 0; i < 360; i++) {
-    try {
-      const h = (await (await fetch(`${ORIGIN}/api/health`)).json()) as { version?: string };
-      if (h.version === version) break;
-    } catch {
-      /* restarting */
-    }
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  win.setProgressBar(-1);
-  win.reload();
-}
 
 /** Back, full screen and on top, on `d` — as an output opened there would be. */
 function returnOutput(w: BrowserWindow, d: Electron.Display): void {

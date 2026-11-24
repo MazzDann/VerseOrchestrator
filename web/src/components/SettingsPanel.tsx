@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -116,6 +117,9 @@ const settingsSizes = createTheme({
   ),
 });
 
+const inSettingsPage = () =>
+  typeof window !== 'undefined' && window.location.pathname === '/settings';
+
 const SECTIONS_KEY = 'vo:settingsSections';
 /** «Відкрийте цей розділ» from outside the panel (lib: openSettingsAt) — the event's detail is the section */
 export const OPEN_SECTION_EVENT = 'vo:open-settings-section';
@@ -216,6 +220,9 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
   const twoPane = useWideEnough(rootRef, TWO_PANE_MIN);
   const [pane, setPaneState] = useState<SettingsSectionId>(() => {
     try {
+      // the window opened at a section (`?at=`): that one from the first moment
+      const at = inSettingsPage() ? new URLSearchParams(location.search).get('at') : null;
+      if (at && isSection(at)) return at;
       const kept = localStorage.getItem(PANE_KEY);
       return kept && isSection(kept) ? kept : 'control';
     } catch {
@@ -230,6 +237,9 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
       /* storage unavailable */
     }
   };
+  // two panes draw the chosen section (and keep the ones seen): all 21 at once took the first paint (1.25.6)
+  const [seen, setSeen] = useState(() => new Set<string>([pane]));
+  if (twoPane && !seen.has(pane)) setSeen(new Set([...seen, pane]));
   /** is a section in sight: the chosen one in two panes, an unfolded one in the accordion */
   const isOpen = (section: string) => (twoPane ? pane === section : openSections.includes(section));
   // a section asked for while the panel is already open (openSettingsAt, 1.23.0-beta.5): unfold it
@@ -295,8 +305,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
     />
   );
 
-  const inSettingsWindow =
-    typeof window !== 'undefined' && window.location.pathname === '/settings';
+  const inSettingsWindow = inSettingsPage();
   // the desktop app's settings window: the keyboard is in its search whenever the window comes
   // forward with nothing else focused (the shell keeps it above the control window)
   useEffect(() => {
@@ -374,7 +383,7 @@ export function SettingsPanel({ onDetach }: { onDetach?: () => void } = {}) {
             {tr('Нічого не знайдено. Спробуйте інше слово.')}
           </Text>
         )}
-        <FindContext.Provider value={shown}>
+        <FindContext.Provider value={shown ?? (twoPane ? seen : null)}>
           <div
             className={twoPane ? 'vo-settings-two' : undefined}
             data-pane={twoPane && !shown ? '' : undefined}
@@ -1605,9 +1614,13 @@ const TWO_PANE_MIN = 640;
 /** Is the element at least `min` px wide — measured as it changes. */
 function useWideEnough(ref: React.RefObject<HTMLElement>, min: number): boolean {
   const [wide, setWide] = useState(false);
-  useEffect(() => {
+  // measured before the first paint: the narrow accordion flashed up first (1.25.6, the author)
+  useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
+    if (!el) return;
+    const s = getComputedStyle(el);
+    setWide(el.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight) >= min);
+    if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(([e]) => setWide(e.contentRect.width >= min));
     ro.observe(el);
     return () => ro.disconnect();
@@ -1619,7 +1632,7 @@ function useWideEnough(ref: React.RefObject<HTMLElement>, min: number): boolean 
 const HIGHLIGHTS =
   typeof CSS !== 'undefined' && 'highlights' in CSS && typeof Highlight === 'function';
 
-/** The sections a settings search keeps (null: no search — all of them). */
+/** The sections drawn: a search’s finds, in two panes the ones seen (null: all of them). */
 const FindContext = createContext<Set<string> | null>(null);
 
 /**
