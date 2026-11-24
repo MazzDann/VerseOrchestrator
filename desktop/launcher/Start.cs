@@ -30,12 +30,37 @@ static class Start
         return s.Append('\\', slashes * 2).Append('"').ToString();
     }
 
+    // a new shell an update brought waits in shell.next\, or one that never opened is on trial: shellSwap.ts
+    // puts the right one in place before it is started (0.1 s; nothing to do — not even asked)
+    static void PlaceShell(string top, string shell)
+    {
+        try
+        {
+            if (!Directory.Exists(Path.Combine(top, "shell.next")) &&
+                !Directory.Exists(Path.Combine(top, "shell.lock")) &&
+                !File.Exists(Path.Combine(top, "shell", ".vo-trial.json")) &&
+                (File.Exists(shell) || !Directory.Exists(Path.Combine(top, "shell.previous")))) return;
+            string node = Path.Combine(top, "app", "node", "node.exe");
+            string code = Path.Combine(top, "app", "server", "src", "shellSwap.ts");
+            if (!File.Exists(node) || !File.Exists(code)) return;
+            var p = new ProcessStartInfo(node);
+            p.UseShellExecute = false;
+            p.CreateNoWindow = true;
+            p.WorkingDirectory = top;
+            // a quoted path must not end with a backslash
+            p.Arguments = "--disable-warning=ExperimentalWarning " + Quote(code) + " " + Quote(top.TrimEnd('\\'));
+            using (var run = Process.Start(p)) run.WaitForExit(20000);
+        }
+        catch (Exception) { }
+    }
+
     [STAThread]
     static int Main(string[] args)
     {
         string top = AppDomain.CurrentDomain.BaseDirectory;
         string shell = Path.Combine(top, "shell", "VerseOrchestrator.exe");
         string script = Path.Combine(top, "app", "start.cmd");
+        PlaceShell(top, shell);
         bool app = File.Exists(shell);
         if (!app && !File.Exists(script))
         {

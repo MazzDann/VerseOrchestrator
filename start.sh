@@ -11,6 +11,10 @@ if [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = --app ]; }; then
   if [ "$(uname)" = Darwin ] && [ -d ../VerseOrchestrator.app ]; then exec open ../VerseOrchestrator.app; fi
   # --no-sandbox: a system without unprivileged user namespaces (Ubuntu 24.04's AppArmor) gives
   # Chromium no sandbox without a setuid helper; the pages are the app's own (localhost) only
+  # a new shell an update brought, or one that never opened (server/src/shellSwap.ts)
+  if [ -x ./node/bin/node ] && { [ -d ../shell.next ] || [ -f ../shell/.vo-trial.json ] || [ -d ../shell.lock ] || [ ! -d ../shell ]; }; then
+    ./node/bin/node --disable-warning=ExperimentalWarning server/src/shellSwap.ts "$(cd .. && pwd)" || true
+  fi
   if [ -x ../shell/verseorchestrator ]; then exec ../shell/verseorchestrator --no-sandbox; fi
 fi
 # a portable copy (npm run portable) carries its own Node, npm included

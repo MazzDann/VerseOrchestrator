@@ -52,6 +52,8 @@ export function assign(rel: string, shellDir: string = 'shell'): SegmentName | n
   if (rel.startsWith('app/node/')) return 'runtime';
   if (rel.startsWith('app/node_modules/')) return 'deps';
   if (rel.startsWith('app/web/dist/') && /\.(wasm|data)$/.test(rel)) return 'engines';
+  // what shellSwap.ts keeps in a shell's folder is no part of it
+  if (rel.startsWith(`${shellDir}/.vo-`)) return null;
   if (rel.startsWith(`${shellDir}/`)) return 'shell';
   if (rel.startsWith('app/')) return 'app';
   return null;
@@ -126,6 +128,17 @@ export async function contentHashAsync(top: string, files: string[]): Promise<st
   for (const rel of [...files].sort()) {
     const h = createHash('sha256');
     h.update(await fs.promises.readFile(path.join(top, ...rel.split('/'))));
+    lines.push(`${rel}\0${h.digest('hex')}`);
+  }
+  return sha256(lines.join('\n'));
+}
+
+/** The same again, a file read in pieces: for files too big to hash in one go while the server works. */
+export async function contentHashStream(top: string, files: string[]): Promise<string> {
+  const lines: string[] = [];
+  for (const rel of [...files].sort()) {
+    const h = createHash('sha256');
+    for await (const part of fs.createReadStream(path.join(top, ...rel.split('/')))) h.update(part);
     lines.push(`${rel}\0${h.digest('hex')}`);
   }
   return sha256(lines.join('\n'));

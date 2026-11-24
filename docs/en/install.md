@@ -329,6 +329,11 @@ GitHub answers a limited number of checks an hour from one network.
 An update doesn't touch the `data/` and `modules/` folders: settings, the library, presentations,
 and modules carry over to the new version.
 
+On Windows and Linux, a version may bring a new engine of the desktop app too (the `shell` folder,
+about 145 MB; this is rare). While the app is open, it waits next to it in the `shell.next` folder
+and takes its place after the app is closed or before its next start. If the app didn't open twice
+with the new engine, the third start brings the one before back.
+
 ### Go back to the previous version
 
 If something is wrong with a new version, go back to the one you had before the update:

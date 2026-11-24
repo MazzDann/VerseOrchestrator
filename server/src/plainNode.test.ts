@@ -17,6 +17,7 @@ describe('plain Node entry points', () => {
       'standby.ts',
       'portable.ts',
       'swap.ts',
+      'shellSwap.ts',
       'uiStamp.ts',
       'versionLabel.ts',
       'browsers.ts',

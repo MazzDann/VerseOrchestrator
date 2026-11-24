@@ -6,9 +6,11 @@ import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { N_ } from '@vo/shared';
 import { LAYOUT_MARKER, OS_NAME, shellDirName } from './layout.js';
+import { SHELL_FAILED, SHELL_ID, SHELL_NEXT, shellId, waitingShell } from './shellSwap.js';
 import {
   assign,
   contentHashAsync,
+  contentHashStream,
   manifestAsset,
   PARTS_FILE,
   PARTS_FORMAT,
@@ -320,6 +322,50 @@ export function createInstaller(o: InstallerOptions) {
     }
   }
 
+  /**
+   * The desktop shell's files in a folder that holds it, as the release counts them (the stub inside is
+   * the app part's).
+   */
+  const shellFiles = (folder: string): string[] =>
+    walkFiles(path.join(folder, shellDir))
+      .map((rel) => `${shellDir}/${rel}`)
+      .filter((rel) => assign(rel, shellDir) === 'shell');
+
+  /**
+   * Which shell this copy has (1.26.0-beta.3): what its folder says, else counted once (320 MB) and noted there
+   * — null when it can't be. Not app/parts.json: an update by the whole archive brought its line while the
+   * shell stayed.
+   */
+  let installed: Promise<string | null> | null = null;
+  async function installedShell(): Promise<string | null> {
+    const dir = path.join(o.top, shellDir);
+    const told = shellId(dir);
+    if (told) return told;
+    try {
+      const hash = await contentHashStream(o.top, shellFiles(o.top));
+      try {
+        fs.writeFileSync(path.join(dir, SHELL_ID), JSON.stringify({ hash }));
+      } catch {
+        /* counted again the next time */
+      }
+      return hash;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Is this shell one to bring? Not the one there, nor the one that waits (shellSwap.ts), nor the one that
+   * would not open here. macOS keeps its own (its .app: 1.26.0-beta.4).
+   */
+  async function shellWanted(hash: string | undefined): Promise<boolean> {
+    if (!hash || platform === 'darwin' || !fs.existsSync(path.join(o.top, shellDir))) return false;
+    if (hash === waitingShell(o.top) || hash === shellId(path.join(o.top, SHELL_FAILED)))
+      return false;
+    const have = await (installed ??= installedShell().finally(() => (installed = null)));
+    return have !== null && have !== hash;
+  }
+
   /** Copy one entry of the running copy into the new tree, keeping a symlink a symlink (modes and
    * exec bits survive a copyFile — libuv copies the source mode). */
   async function copyEntry(from: string, to: string): Promise<void> {
@@ -340,6 +386,10 @@ export function createInstaller(o: InstallerOptions) {
     base: string;
     want: PartsManifest['segments'];
     candidates: PartsManifest['segments'];
+    /** another Electron than this copy's (1.26.0-beta.3) */
+    shell: PartsManifest['segments'][number] | null;
+    /** the Electron the release has */
+    shellHash: string | null;
   } | null> {
     const local = readLocalParts();
     if (!local || local.format !== PARTS_FORMAT || !latest.sums) return null;
@@ -361,12 +411,19 @@ export function createInstaller(o: InstallerOptions) {
       return null; // no manifest (an older release, a step down) → the whole archive
     }
     if (manifest?.format !== PARTS_FORMAT || !Array.isArray(manifest.segments)) return null;
-    // the `app/` tree only; the Electron shell segment is not reconstructed here
+    // the `app/` tree; the Electron shell apart: it waits beside (shellSwap.ts)
     const want = manifest.segments.filter((s) => s.name !== 'shell');
     if (want.length === 0 || want.some((s) => !s.file || typeof s.contentHash !== 'string'))
       return null;
     const localHash = new Map(local.segments.map((s) => [s.name, s.contentHash]));
-    return { base, want, candidates: want.filter((s) => localHash.get(s.name) === s.contentHash) };
+    const shell = manifest.segments.find((s) => s.name === 'shell' && !!s.file) ?? null;
+    return {
+      base,
+      want,
+      candidates: want.filter((s) => localHash.get(s.name) === s.contentHash),
+      shell: shell && (await shellWanted(shell.contentHash)) ? shell : null,
+      shellHash: shell?.contentHash ?? null,
+    };
   }
 
   /**
@@ -376,9 +433,9 @@ export function createInstaller(o: InstallerOptions) {
    * leaves nothing of its own to matter — when the copy or the release can't do parts, or a part is
    * missing / corrupt / won't unpack, so the caller takes the whole archive.
    *
-   * The desktop shell is NOT reconstructed here: for a copy that already has one, swap.ts keeps it
-   * (as a full update does); a copy with no shell takes the whole archive instead, so the full path
-   * installs the shell for it (the «Окремий застосунок» adoption). A release's loose top files are
+   * The desktop shell comes whole when the release has another one (1.26.0-beta.3) and waits beside the
+   * copy's (shellSwap.ts); one that can't come doesn't hold the update. A copy with no shell takes the
+   * whole archive, so the full path installs it (the «Окремий застосунок» adoption). A release's loose top files are
    * carried over from the running copy (a parts release doesn't ship them; the launcher is stable).
    * Trusts the copy's parts.json hashes to say what's unchanged — a drifted local file would be
    * copied in, but the swap's own answer-check reverts a copy that then won't start (re-hashing the
@@ -394,7 +451,7 @@ export function createInstaller(o: InstallerOptions) {
     if (superseded()) return false; // a rollback / restart during the fetch sets its own state
     if (!parts || !latest.sums) return false;
     // the copy's parts.json is only a quick pre-filter of what might be reusable
-    const { base, want, candidates } = parts;
+    const { base, want, candidates, shell, shellHash } = parts;
     const sums = await (await doFetch(latest.sums, { redirect: 'follow' })).text();
     if (superseded()) return false;
     const releaseDir = path.join(unpacked, `VerseOrchestrator-${latest.version}-${osName}-${arch}`);
@@ -432,8 +489,41 @@ export function createInstaller(o: InstallerOptions) {
       phase: 'download',
       version: latest.version,
       received: 0,
-      total: want.reduce((n, s) => (reuse.has(s.name) ? n : n + (Number(s.size) || 0)), 0),
+      total: want.reduce(
+        (n, s) => (reuse.has(s.name) ? n : n + (Number(s.size) || 0)),
+        Number(shell?.size) || 0,
+      ),
       error: null,
+    };
+    /** Download a part, check its SHA-256, unpack it into the tree. */
+    const fetchPart = async (seg: { file: string }): Promise<boolean> => {
+      const want256 = checksumFor(sums, seg.file);
+      if (!want256) return false;
+      const pf = path.join(partsDir, seg.file);
+      const res = await doFetch(`${base}/${seg.file}`, { redirect: 'follow' });
+      if (!res.ok || !res.body) return false;
+      const count = new Transform({
+        transform: (chunk: Buffer, _enc, done) => {
+          state.received += chunk.length;
+          done(null, chunk);
+        },
+      });
+      await pipeline(
+        Readable.fromWeb(res.body as import('node:stream/web').ReadableStream),
+        count,
+        fs.createWriteStream(pf),
+      );
+      if (superseded()) return false;
+      const hash = createHash('sha256');
+      await pipeline(fs.createReadStream(pf), hash);
+      if (superseded()) return false; // before touching state after the awaited hash
+      if (hash.digest('hex') !== want256) return false;
+      state.phase = 'unpack';
+      const [cmd, args] = unpackCommand(platform, pf, releaseDir);
+      await exec(cmd, args);
+      if (superseded()) return false; // before touching state after the awaited unpack
+      state.phase = 'download'; // a further part may yet download
+      return true;
     };
 
     for (const seg of want) {
@@ -448,39 +538,33 @@ export function createInstaller(o: InstallerOptions) {
           await copyEntry(path.join(o.top, ...rel.split('/')), to);
         }
       } else {
-        // changed: download the part, check its SHA-256, unpack it into the tree
-        const want256 = checksumFor(sums, seg.file);
-        if (!want256) return false;
-        const pf = path.join(partsDir, seg.file);
-        const res = await doFetch(`${base}/${seg.file}`, { redirect: 'follow' });
-        if (!res.ok || !res.body) return false;
-        const count = new Transform({
-          transform: (chunk: Buffer, _enc, done) => {
-            state.received += chunk.length;
-            done(null, chunk);
-          },
-        });
-        await pipeline(
-          Readable.fromWeb(res.body as import('node:stream/web').ReadableStream),
-          count,
-          fs.createWriteStream(pf),
-        );
-        if (superseded()) return false;
-        const hash = createHash('sha256');
-        await pipeline(fs.createReadStream(pf), hash);
-        if (superseded()) return false; // before touching state after the awaited hash
-        if (hash.digest('hex') !== want256) return false;
-        state.phase = 'unpack';
-        const [cmd, args] = unpackCommand(platform, pf, releaseDir);
-        await exec(cmd, args);
-        if (superseded()) return false; // before touching state after the awaited unpack
-        state.phase = 'download'; // a further part may yet download
+        // changed: another
+        if (!(await fetchPart(seg))) return false;
       }
     }
     if (superseded()) return false;
-    // the `app` part also carries the shell's inner app → a partial shell in the tree; drop it so
-    // the finalize doesn't move an incomplete desktop app over (the copy's real shell stays)
-    fs.rmSync(path.join(releaseDir, shellDir), { recursive: true, force: true });
+    // another Electron: whole with the stub the `app` part brought, checked as it lies — else a partial
+    // shell is all there is in the tree: it goes, the copy's own stays
+    let whole = false;
+    if (shell) {
+      try {
+        whole =
+          (await fetchPart(shell)) &&
+          (await contentHashStream(releaseDir, shellFiles(releaseDir))) === shell.contentHash;
+      } catch {
+        whole = false;
+      }
+      if (superseded()) return false;
+    }
+    if (whole)
+      fs.writeFileSync(
+        path.join(releaseDir, shellDir, SHELL_ID),
+        JSON.stringify({ hash: shell!.contentHash }),
+      );
+    else fs.rmSync(path.join(releaseDir, shellDir), { recursive: true, force: true });
+    // another one waits, and this release has the one in place: it waits no more
+    if (shellHash && waitingShell(o.top) && shellId(path.join(o.top, shellDir)) === shellHash)
+      fs.rmSync(path.join(o.top, SHELL_NEXT), { recursive: true, force: true, maxRetries: 3 });
     // the release-top loose files (start.*, the readmes, the marker): a parts release doesn't carry
     // them, so bring the running copy's over — the finalize moves them to top/ as the full path does
     for (const e of fs.readdirSync(o.top, { withFileTypes: true }))
@@ -618,6 +702,19 @@ export function createInstaller(o: InstallerOptions) {
       // …and the desktop app (1.18.0-beta.1): swap.ts brings it next to app/ when the copy has none
       // (optional: a shell that won't move leaves the update as it is — review)
       const shell = path.join(release, shellDirName(platform));
+      // the whole archive's: kept when it is another one than this copy's (1.26.0-beta.3)
+      if (!viaParts && fs.existsSync(shell) && fs.existsSync(path.join(o.top, shellDir)))
+        try {
+          const told = JSON.parse(fs.readFileSync(path.join(next, PARTS_FILE), 'utf8')) as {
+            segments?: { name: string; contentHash: string }[];
+          };
+          const hash = told.segments?.find((x) => x.name === 'shell')?.contentHash;
+          if (await shellWanted(hash))
+            fs.writeFileSync(path.join(shell, SHELL_ID), JSON.stringify({ hash }));
+        } catch {
+          /* a release before the parts: its shell stays out */
+        }
+      if (superseded()) return abandon(file, unpacked, partsDir);
       if (fs.existsSync(shell))
         try {
           renameSoon(shell, path.join(topFiles, shellDirName(platform)));
@@ -684,7 +781,10 @@ export function createInstaller(o: InstallerOptions) {
       const parts = await partsFor(latest, latest.asset, AbortSignal.timeout(10_000));
       if (!parts) return latest.asset.size;
       const have = new Set(parts.candidates);
-      return parts.want.reduce((n, s) => (have.has(s) ? n : n + (Number(s.size) || 0)), 0);
+      return parts.want.reduce(
+        (n, s) => (have.has(s) ? n : n + (Number(s.size) || 0)),
+        Number(parts.shell?.size) || 0,
+      );
     },
     /** Start downloading (the answer comes at once; the page follows the phases). */
     start(latest: LatestRelease, newest: string | null = null): boolean {
