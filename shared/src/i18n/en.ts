@@ -2228,6 +2228,14 @@ export const EN: Record<string, string> = {
     'Stable versions only: each one gathers several tested betas.',
   'Доступна версія {version} — див. «Програма» → «Оновлення»':
     'Version {version} is available — see “Program” → “Updates”',
+  'Застосунок із цієї папки вже працює на :{port} — відкриваю його, другий не запускаю.':
+    'The app in this folder already runs on :{port} — opening it, not starting a second one.',
+  'Не вдалося замінити папку app/: застосунок із цієї папки запущено ще раз, на іншій адресі. Закрийте його й спробуйте ще раз. Працює попередня версія':
+    'Couldn’t replace the app/ folder: the app in this folder runs a second time, at another address. Close it and try again. The previous version is running',
+  'GitHub просить зачекати: з цієї мережі забагато перевірок за годину':
+    'GitHub asks to wait: too many checks from this network in an hour',
+  'GitHub просить зачекати до {time}: з цієї мережі забагато перевірок за годину.':
+    'GitHub asks to wait until {time}: too many checks from this network in an hour.',
   'Не вдалося перевірити оновлення: немає зв’язку з GitHub':
     'Couldn’t check for updates: no connection to GitHub',
   // 1.0.0 installing updates

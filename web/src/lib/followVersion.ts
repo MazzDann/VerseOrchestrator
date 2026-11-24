@@ -6,14 +6,14 @@ import { followAppVersion } from './liveSocket';
 const ASK_MS = 5000;
 
 /** The app's version at this address; null when it doesn't answer as the app (a static build). */
-async function servedVersion(): Promise<string | null> {
+async function served(): Promise<{ version: string; boot: string } | null> {
   try {
     const r = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(2000) });
     const j: unknown = r.ok ? await r.json() : null;
     // the app's own answer (index.ts): not whatever else says a version at this address
     const h = j as { ok?: unknown; version?: unknown; boot?: unknown } | null;
     return h?.ok === true && typeof h.boot === 'string' && typeof h.version === 'string'
-      ? h.version
+      ? { version: h.version, boot: h.boot }
       : null;
   } catch {
     return null; // stopped, restarting: the next time
@@ -27,17 +27,24 @@ async function servedVersion(): Promise<string | null> {
  * comes back full screen by itself — the desktop app's shell that can put it back. `hold`: not now (the
  * screen yielded to the operator's player); it loads once that is over.
  */
-export function useFollowVersion(hold = false): void {
+export function useFollowVersion(hold = false, onRestart?: () => void): void {
   const held = useRef(hold);
   held.current = hold;
+  const restarted = useRef(onRestart);
+  restarted.current = onRestart;
   useEffect(() => {
     // the development server's pages are its own business
     if (import.meta.env.DEV) return;
+    let boot = '';
     const t = window.setInterval(() => {
-      void servedVersion().then((v) => {
-        if (!v || held.current) return;
+      void served().then((a) => {
+        if (!a) return;
+        // the app started again — the same version, say after an update that failed (1.26.0-beta.1)
+        if (boot && a.boot !== boot) restarted.current?.();
+        boot = a.boot;
+        if (held.current) return;
         if (document.fullscreenElement && !reloadKeepsFullscreen()) return;
-        followAppVersion(v);
+        followAppVersion(a.version);
       });
     }, ASK_MS);
     return () => window.clearInterval(t);

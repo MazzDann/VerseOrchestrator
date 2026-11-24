@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollArea, Box, Title, Group, Text } from '@mantine/core';
 import { IconAdjustments } from '@tabler/icons-react';
 import { ModulesFloating } from '../components/ModulesPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { tr, useLang } from '../i18n';
 import { useUiMotion } from '../lib/uiMotion';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSettings } from '../settingsStore';
 import { probeServer, useServer, versionHeading } from '../serverStore';
 import { useSettingsSaveNotice } from '../lib/settingsSaveNotice';
 import { SETTINGS_PANEL_KEY, SETTINGS_WINDOW_KEY, rememberPanelSize } from '../lib/panelBox';
@@ -80,7 +82,31 @@ export function Settings() {
       window.removeEventListener(SETTINGS_FIND_EVENT, onFind);
     };
   }, []);
-  useFollowVersion(); // updated from here: this window too (1.25.3)
+  const queryClient = useQueryClient();
+  const [turn, setTurn] = useState(0);
+  // updated from here: this window too (1.25.3); the app started again — what the server says, anew
+  useFollowVersion(false, () => void queryClient.invalidateQueries());
+  // the desktop app hides this window at its close (1.26.0-beta.1): it opens as a new one would — no
+  // search left, from the top, the server asked again — with the section it was left at
+  useEffect(() => {
+    const onHidden = () => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      useSettingsFind.getState().setQuery('');
+      // as a window opened anew: no key being caught, no question left open
+      setTurn((n) => n + 1);
+      document.querySelector('.mantine-ScrollArea-viewport')?.scrollTo({ top: 0 });
+    };
+    const onShown = () => {
+      void queryClient.invalidateQueries();
+      void useSettings.persist.rehydrate();
+    };
+    window.addEventListener('vo:settings-hidden', onHidden);
+    window.addEventListener('vo:settings-shown', onShown);
+    return () => {
+      window.removeEventListener('vo:settings-hidden', onHidden);
+      window.removeEventListener('vo:settings-shown', onShown);
+    };
+  }, [queryClient]);
   // the desktop app shows the window when it is whole: drawn, in its fonts (1.25.6, desktop/src/main.ts)
   useEffect(() => {
     const drawn = () => {
@@ -122,7 +148,7 @@ export function Settings() {
             </Text>
           </Group>
         )}
-        <SettingsPanel />
+        <SettingsPanel key={turn} />
       </Box>
       <ModulesFloating />
     </ScrollArea>

@@ -257,6 +257,41 @@ describe('update check (1.0.0)', () => {
     expect(off.fetch).not.toHaveBeenCalled();
   });
 
+  it('waits when GitHub asks to, and says till when (1.26.0-beta.1)', async () => {
+    let t = 1_000_000;
+    const fetch = vi.fn(
+      async () =>
+        new Response('{}', {
+          status: 403,
+          headers: {
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': String((t + 600_000) / 1000),
+          },
+        }),
+    );
+    const c = createUpdateChecker({
+      current: '1.0.0',
+      install: 'release',
+      isEnabled: () => true,
+      now: () => t,
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    });
+    const s = await c.check();
+    expect(s.waitUntil).toBe(t + 600_000);
+    expect(s.error).toContain('зачекати');
+    // «Перевірити зараз» meanwhile: refused again by GitHub, so not asked
+    await c.check(true);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    t += 600_000;
+    fetch.mockImplementation(async () => new Response('[]', { status: 200 }));
+    expect(await c.check(true)).toMatchObject({ waitUntil: null, error: null });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    // a 403 of another kind is an error like any other
+    fetch.mockImplementation(async () => new Response('{}', { status: 403 }));
+    expect((await c.check(true)).waitUntil).toBeNull();
+    expect(await c.check(true)).toMatchObject({ waitUntil: null });
+  });
+
   it('asks «changed since?» with the last ETag; a 304 keeps the list (1.12.3)', async () => {
     let t = 0;
     const seen: (string | null)[] = [];

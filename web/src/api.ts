@@ -560,6 +560,8 @@ const UpdateStateSchema = z.object({
    */
   pinned: z.boolean().optional(),
   error: z.string().nullable(),
+  /** GitHub asked to wait till then (1.26.0-beta.1) */
+  waitUntil: z.number().nullable().optional(),
   /** installing (server/src/installer.ts) — only a copy from a release archive */
   installer: z
     .object({

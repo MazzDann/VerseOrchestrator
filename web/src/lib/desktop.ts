@@ -35,6 +35,19 @@ export const hasSecondScreen = (): boolean =>
 export const settingsWindowOn = (choice: boolean | null): boolean => choice ?? inDesktop();
 
 /**
+ * The desktop shell that keeps the settings window hidden (1.26.0-beta.1) shows it again; null elsewhere — a
+ * browser, an older shell — where a closed window is gone.
+ */
+export const showKeptSettings = ():
+  | ((box: { x: number; y: number; width: number; height: number }) => Promise<boolean>)
+  | null =>
+  (
+    window as unknown as {
+      voDesktop?: { showSettings?: (box: object) => Promise<boolean> };
+    }
+  ).voDesktop?.showSettings ?? null;
+
+/**
  * «Поступитися екраном» for a video (1.21.0-beta.7, F1024-08): ask the desktop shell to drop this
  * output window's always-on-top (on = true) so the operator's own player can come forward on the
  * 2nd screen, or take the screen back (on = false). The page stays fullscreen; only the always-on-top

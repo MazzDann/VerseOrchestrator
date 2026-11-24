@@ -44,6 +44,7 @@ import {
   readControlWindows,
   type ControlWindows,
 } from './shortcut.ts';
+import { runningElsewhere } from './runningFile.ts';
 import {
   appProcess,
   buildUi,
@@ -695,7 +696,16 @@ async function main(argv: string[]): Promise<number> {
   const label = versionLabel(root, version);
   say(headerLine(label, opts));
   const settings = readStandbySettings(dataDir);
-  const port = opts.port ?? settings.port;
+  let port = opts.port ?? settings.port;
+  // this folder's app at another address (1.26.0-beta.1): that one is opened (or switched off), no second
+  const elsewhere = opts.check ? null : await runningElsewhere(dataDir, root, port);
+  if (elsewhere !== null && !(await waiterAt(port))) {
+    if (!opts.off)
+      say(
+        `! ${tr('Застосунок із цієї папки вже працює на :{port} — відкриваю його, другий не запускаю.', { port: elsewhere })}`,
+      );
+    port = elsewhere;
+  }
   const local = `http://localhost:${port}`;
   // an app already there: the header named these files, so say when another copy (its waiter
   // names its folder) or another build is serving (only a running app is asked — the question
@@ -993,6 +1003,9 @@ if (invokedDirectly) {
     process.exit(1);
   }
   void main(process.argv.slice(2)).then((code) => {
-    if (code >= 0) process.exit(code);
+    if (code < 0) return;
+    // not at once: on Windows, Node fails an assertion when it exits while a fetch's connection closes
+    process.exitCode = code;
+    setTimeout(() => process.exit(code), 500).unref();
   });
 }
