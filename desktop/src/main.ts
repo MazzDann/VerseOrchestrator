@@ -24,6 +24,7 @@ import {
   returnDisplay,
   type Display,
 } from './displays.js';
+import { bringPrevious, rescueFor } from './rescue.js';
 
 /**
  * VerseOrchestrator as a desktop app (feat/desktop, the user's ask 2026-10-13: the dependence on
@@ -888,6 +889,50 @@ function placeNextShell(): void {
   }
 }
 
+/** The app does not start: why — and the previous version, when an update left one (rescue.ts). */
+async function failedStart(why: string, ended: boolean): Promise<void> {
+  const text = `${say('Застосунок не запустився.', 'The app did not start.')}${why && `\n\n${why}`}\n\n${say('Журнал', 'Log')}: ${LAUNCHER_LOG()}`;
+  // not the version's doing: a port another program has (the launcher names --port), a start still going; and
+  // with an app of this folder still answering nothing may be renamed
+  const ours =
+    ended && !/--port \d/.test(why) && !(await answers()) && (await runsElsewhere()) === null;
+  const back = ours && app.isPackaged ? rescueFor(appRoot) : null;
+  if (!back) return dialog.showErrorBox('VerseOrchestrator', text);
+  const picked = dialog.showMessageBoxSync({
+    type: 'error',
+    title: 'VerseOrchestrator',
+    message: text,
+    detail: say(
+      `Можна повернути попередню версію, ${back.to}. Налаштування, бібліотека й презентації лишаються.`,
+      `You can go back to the previous version, ${back.to}. Settings, the library, and presentations stay.`,
+    ),
+    buttons: [
+      say(`Повернути версію ${back.to}`, `Go back to version ${back.to}`),
+      say('Закрити', 'Close'),
+    ],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (picked !== 0) return;
+  // nothing of this app may run while its folder is renamed
+  stopLauncher();
+  try {
+    bringPrevious(back);
+    // the new one must find the lock free
+    app.releaseSingleInstanceLock();
+    app.relaunch();
+  } catch (e) {
+    dialog.showErrorBox(
+      'VerseOrchestrator',
+      say(
+        `Не вдалося повернути попередню версію: папку app тримає інша програма. Перезапустіть комп’ютер і спробуйте ще раз.\n\n${(e as Error).message}`,
+        `The previous version could not be brought back: another program holds the app folder. Restart the computer and try again.\n\n${(e as Error).message}`,
+      ),
+    );
+  }
+}
+
 function showControl(): void {
   if (!control || control.isDestroyed()) return;
   if (control.isMinimized()) control.restore();
@@ -966,11 +1011,7 @@ else {
       console.error(`[desktop] ${(e as Error).message}`);
       const why = whyNot();
       clearTimeout(timer);
-      if (!quitting)
-        dialog.showErrorBox(
-          'VerseOrchestrator',
-          `${say('Застосунок не запустився.', 'The app did not start.')}${why && `\n\n${why}`}\n\n${say('Журнал', 'Log')}: ${LAUNCHER_LOG()}`,
-        );
+      if (!quitting) await failedStart(why, launcher === null);
       app.quit();
       return;
     }

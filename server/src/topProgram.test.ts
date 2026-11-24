@@ -23,6 +23,16 @@ describe('the program beside app/ after an update in parts (1.25.3)', () => {
     fs.writeFileSync(at, 'old');
     expect(bringTopFiles(app)).toEqual(['VerseOrchestrator.exe']);
     expect(fs.readdirSync(top).sort()).toEqual(['VerseOrchestrator.exe', 'app']);
+    // Electron's stub, in a copy with a shell (1.26.0-beta.4)
+    fs.mkdirSync(path.join(app, 'top', 'stub'));
+    fs.writeFileSync(path.join(app, 'top', 'stub', 'main.js'), 'stub 2');
+    expect(bringTopFiles(app)).toEqual([]);
+    const inShell = path.join(top, 'shell', 'resources', 'app');
+    fs.mkdirSync(inShell, { recursive: true });
+    fs.writeFileSync(path.join(inShell, 'main.js'), 'stub 1');
+    expect(bringTopFiles(app)).toEqual(['main.js']);
+    expect(fs.readFileSync(path.join(inShell, 'main.js'), 'utf8')).toBe('stub 2');
+    expect(bringTopFiles(app)).toEqual([]);
     // a copy of another system carries none
     fs.rmSync(path.join(app, 'top'), { recursive: true });
     expect(bringTopFiles(app)).toEqual([]);
