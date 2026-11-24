@@ -291,6 +291,8 @@ describe('screens', () => {
     h: 900,
     primary: true,
     internal: true,
+    fullW: 1440,
+    fullH: 900,
   };
   const right: ScreenInfo = {
     ...left,
