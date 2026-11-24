@@ -162,6 +162,27 @@ describe('the songs’ vectors and «~ …»', { timeout: 20_000 }, () => {
     });
     const b = await l.searchSongsByMeaning('~ спасіння', 'B');
     expect(b.results.map((r) => r.id)).toEqual([103]);
+    // an archived bundle's songs come after the rest (1.26.0-beta.2), however near they are
+    const away = await l.searchSongsByMeaning('~ спасіння', undefined, ['A']);
+    expect(away.results[0]).toMatchObject({ id: 103 });
+    expect(away.results.find((r) => r.id === 101)).toMatchObject({ archived: true, closeness: 3 });
+    expect((await l.searchSongsByMeaning('~ спасіння', 'A', ['A'])).results[0]).not.toHaveProperty(
+      'archived',
+    );
+    expect((await l.searchSongs('', 60, undefined, undefined, ['A'])).map((s) => s.id)).toEqual([
+      103, 101, 102,
+    ]);
+    expect(await l.searchSongs('1', 60, undefined, undefined, ['A'])).toMatchObject([
+      { id: 101, archived: true },
+    ]);
+    expect((await l.searchSongs('', 60, 'A', undefined, ['A'])).map((s) => s.archived)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    // the limit counts the others first
+    expect((await l.searchSongs('', 1, undefined, undefined, ['A'])).map((s) => s.id)).toEqual([
+      103,
+    ]);
     // no vectors file: says what is missing
     const bare = createLibrary(
       betterSqliteDriver(() => c2),

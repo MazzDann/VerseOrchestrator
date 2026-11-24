@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   TextInput,
@@ -15,6 +15,7 @@ import {
   TagsInput,
   Tooltip,
   Button,
+  UnstyledButton,
 } from '@mantine/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
@@ -150,6 +151,12 @@ export function SongsPanel({
    */
   const [grouping, setGrouping] = useState<Grouping>(readGrouping);
   const [unfolded, setUnfolded] = useState<Set<string>>(() => new Set());
+  const unfold = (key: string) =>
+    setUnfolded((u) => {
+      const next = new Set(u);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
   /** the song whose topics field was opened by «Додати тему» (1.25.0-beta.5) */
   const [topicsFor, setTopicsFor] = useState<number | null>(null);
   /** «Теми набору» open for this bundle (1.25.0-beta.2), instead of the bundles' list */
@@ -187,7 +194,15 @@ export function SongsPanel({
     queryFn: api.songBundles,
     enabled: open,
   });
-  const bundles = [...(bundlesQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+  // «Архів» (1.26.0-beta.2): those bundles last everywhere, their songs after the others'
+  const archived = useSettings((s) => s.archivedBundles);
+  const bundles = [...(bundlesQuery.data ?? [])].sort(
+    (a, b) =>
+      Number(archived.includes(a.name)) - Number(archived.includes(b.name)) ||
+      a.name.localeCompare(b.name, 'uk'),
+  );
+  const inUse = bundles.filter((b) => !archived.includes(b.name));
+  const away = bundles.filter((b) => archived.includes(b.name));
   // with one bundle its name says nothing: no filter, no name on the rows
   const several = bundles.length > 1;
   const inBundle = several && bundles.some((b) => b.name === bundle) ? bundle : '';
@@ -209,13 +224,13 @@ export function SongsPanel({
   // the field typed into: a plain list at once, not after the debounce (Enter must find a song)
   const groupedBy: Grouping = !query.trim() && groupings.includes(grouping) ? grouping : 'none';
   const listQuery = useQuery({
-    queryKey: ['songs', debounced, inBundle],
-    queryFn: () => api.songs(debounced, inBundle || undefined),
+    queryKey: ['songs', debounced, inBundle, archived],
+    queryFn: () => api.songs(debounced, inBundle || undefined, undefined, archived),
     enabled: open && !meaning && groupedBy === 'none',
   });
   const meaningQuery = useQuery({
-    queryKey: ['songs-meaning', debounced, inBundle],
-    queryFn: () => api.songsByMeaning(debounced, inBundle || undefined),
+    queryKey: ['songs-meaning', debounced, inBundle, archived],
+    queryFn: () => api.songsByMeaning(debounced, inBundle || undefined, archived),
     enabled: open && meaning,
     // still being computed: look again as more songs get their vectors
     refetchInterval: (q) => (q.state.data?.pending ? 5000 : false),
@@ -515,6 +530,25 @@ export function SongsPanel({
     </Box>
   );
 
+  const ofBundle = (b: { name: string; count: number }): GroupOf => ({
+    key: `b:${b.name}`,
+    name: b.name,
+    count: b.count,
+    bundle: b.name,
+  });
+  const group = (g: GroupOf) => (
+    <SongGroup
+      key={g.key}
+      name={g.name}
+      count={g.count}
+      open={unfolded.has(g.key)}
+      onToggle={() => unfold(g.key)}
+      bundle={g.bundle || undefined}
+      topic={g.topic}
+      row={row}
+    />
+  );
+
   // the left column: the search, the bundles, the list (a portal into the navbar's slot)
   const list = (
     <Box p="xs" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -559,7 +593,15 @@ export function SongsPanel({
             aria-label={tr('Набір презентацій')}
             data={[
               { value: '', label: tr('Усі набори') },
-              ...bundles.map((b) => ({ value: b.name, label: `${b.name} (${b.count})` })),
+              ...inUse.map((b) => ({ value: b.name, label: `${b.name} (${b.count})` })),
+              ...(away.length
+                ? [
+                    {
+                      group: tr('Архів'),
+                      items: away.map((b) => ({ value: b.name, label: `${b.name} (${b.count})` })),
+                    },
+                  ]
+                : []),
             ]}
             value={inBundle}
             onChange={(v) => setBundle(v ?? '')}
@@ -651,44 +693,49 @@ export function SongsPanel({
       )}
       <ScrollArea style={{ flex: 1 }} mt="xs" scrollbars="y" className="vo-scroll-rows">
         <Stack gap={0}>
-          {groupedBy !== 'none' &&
-            (groupedBy === 'bundles'
-              ? bundles.map(
-                  (b): GroupOf => ({
-                    key: `b:${b.name}`,
-                    name: b.name,
-                    count: b.count,
-                    bundle: b.name,
-                  }),
-                )
-              : topicList.map(
-                  (t): GroupOf => ({
-                    key: `t:${t.name}`,
-                    name: t.name,
-                    count: t.count,
-                    bundle: inBundle,
-                    topic: t.name,
-                  }),
-                )
-            ).map((g) => (
-              <SongGroup
-                key={g.key}
-                name={g.name}
-                count={g.count}
-                open={unfolded.has(g.key)}
-                onToggle={() =>
-                  setUnfolded((u) => {
-                    const next = new Set(u);
-                    if (!next.delete(g.key)) next.add(g.key);
-                    return next;
-                  })
-                }
-                bundle={g.bundle || undefined}
-                topic={g.topic}
-                row={row}
-              />
+          {groupedBy === 'topics' &&
+            topicList.map((t) =>
+              group({
+                key: `t:${t.name}`,
+                name: t.name,
+                count: t.count,
+                bundle: inBundle,
+                topic: t.name,
+              }),
+            )}
+          {groupedBy === 'bundles' && inUse.map((b) => group(ofBundle(b)))}
+          {groupedBy === 'bundles' && away.length > 0 && (
+            <>
+              <UnstyledButton
+                p="xs"
+                aria-expanded={unfolded.has(ARCHIVE_GROUP)}
+                data-songs-archive
+                onClick={() => unfold(ARCHIVE_GROUP)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                {unfolded.has(ARCHIVE_GROUP) ? (
+                  <IconChevronDown size={14} />
+                ) : (
+                  <IconChevronRight size={14} />
+                )}
+                <Text size="sm" c="dimmed">
+                  {tr('Архів ({n})', { n: away.length })}
+                </Text>
+              </UnstyledButton>
+              {unfolded.has(ARCHIVE_GROUP) && away.map((b) => group(ofBundle(b)))}
+            </>
+          )}
+          {groupedBy === 'none' &&
+            songs.map((s, i) => (
+              <Fragment key={s.id}>
+                {s.archived && !songs[i - 1]?.archived && (
+                  <Text size="xs" c="dimmed" px="sm" pt="xs" data-archive-from>
+                    {tr('Архів')}
+                  </Text>
+                )}
+                {row(s)}
+              </Fragment>
             ))}
-          {groupedBy === 'none' && songs.map((s) => row(s))}
           {/* the songs' vectors still being made (1.25.0-beta.1): what is found is not all yet */}
           {meaning && found?.pending && (
             <Text size="xs" c="dimmed" p="sm">
@@ -967,6 +1014,8 @@ function SongTopicsInput({
   );
 }
 
+/** the archived bundles' own fold in the list by bundles (1.26.0-beta.2) */
+const ARCHIVE_GROUP = 'archive:';
 type Grouping = 'none' | 'bundles' | 'topics';
 /** A group of the songs list: a bundle, or a topic (of the bundle chosen, if one is). */
 interface GroupOf {
@@ -1013,9 +1062,10 @@ function SongGroup({
   row: (s: SongRow) => ReactNode;
 }) {
   useLang();
+  const archived = useSettings((s) => s.archivedBundles);
   const songs = useQuery({
-    queryKey: ['songs', '', bundle ?? '', topic ?? ''],
-    queryFn: () => api.songs('', bundle, topic),
+    queryKey: ['songs', '', bundle ?? '', topic ?? '', archived],
+    queryFn: () => api.songs('', bundle, topic, archived),
     enabled: open,
   });
   return (

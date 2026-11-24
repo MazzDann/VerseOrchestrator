@@ -198,7 +198,8 @@ export function useJumps({
     try {
       // the main translation first; with nothing there, the others (the author's call, 1.8.12-beta.4)
       let res = await api.search(query, [primaryId]);
-      if (res.results.length === 0) res = await api.search(query, []);
+      if (res.results.length === 0)
+        res = await api.search(query, [], { skip: useSettings.getState().archivedTranslations });
       if (res.results.length > 0) {
         // ⌘↩ / Ctrl+Enter on words found elsewhere: there, as from the results (1.13.0-beta.2)
         jumpTo(res.results[0], {

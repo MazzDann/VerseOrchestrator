@@ -33,6 +33,7 @@ import { byMeaning, searchEnter } from '../lib/quickRef';
 import { splitPlaces } from '../lib/places';
 import { isScrolling } from '../lib/scrolling';
 import { useSearchRows } from '../lib/useSearchRows';
+import { searchWide } from '../lib/searchWide';
 import { useSettings } from '../settingsStore';
 import { N_, tr, useLang } from '../i18n';
 
@@ -131,17 +132,11 @@ export function SearchPanel({
   // «По порядку» (1.23.0-beta.4, F1114-14): the words in the order typed — remembered
   const inOrder = useSettings((s) => s.search.inOrder);
   const setSearchPrefs = useSettings((s) => s.setSearch);
+  const archived = useSettings((s) => s.archivedTranslations);
   const { data, isFetching, error, refetch } = useQuery({
-    queryKey: ['search', debounced, scope, primaryId, inOrder],
-    queryFn: async () => {
-      const first = await api.search(debounced, current ? [primaryId] : [], { inOrder });
-      // nothing in the main translation: the others (the author's call)
-      if (current && first.results.length === 0) {
-        const all = await api.search(debounced, [], { inOrder });
-        return { ...all, fallback: all.results.length > 0 };
-      }
-      return { ...first, fallback: false };
-    },
+    queryKey: ['search', debounced, scope, primaryId, inOrder, archived],
+    // nothing in the main translation: the others (the author's call), then the archived
+    queryFn: () => searchWide(debounced, current ? [primaryId] : [], { inOrder, skip: archived }),
     // «Ів 3:16; Рим 5:8» (1.23.0-beta.7, F1114-07): no search — Enter puts the places on one slide
     enabled: open && debounced.trim().length >= 2 && !splitPlaces(debounced),
   });
@@ -350,12 +345,14 @@ export function SearchPanel({
       </Group>
       {data?.fallback && (
         <Text size="xs" c="dimmed" mt={6}>
-          {data.kind === 'meaning'
-            ? // one translation's vectors serve every other (1.15.1): the place opens in the main one
-              tr(
-                'Для поточного перекладу векторів немає — знайдено за іншим перекладом. Enter відкриє це місце в поточному.',
-              )
-            : tr('У поточному перекладі нічого — знайдено в інших.')}
+          {data.archive
+            ? tr('У ваших перекладах нічого — знайдено в архіві.')
+            : data.kind === 'meaning'
+              ? // one translation's vectors serve every other (1.15.1): the place opens in the main one
+                tr(
+                  'Для поточного перекладу векторів немає — знайдено за іншим перекладом. Enter відкриє це місце в поточному.',
+                )
+              : tr('У поточному перекладі нічого — знайдено в інших.')}
         </Text>
       )}
       {suggestions.length > 0 && (

@@ -14,6 +14,8 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import {
+  IconArchive,
+  IconArchiveOff,
   IconArrowBackUp,
   IconArrowsLeftRight,
   IconCheck,
@@ -27,6 +29,7 @@ import { api } from '../api';
 import { sameBundleName } from '@vo/shared';
 import { tr, useLang } from '../i18n';
 import { SONG_KEYS } from '../lib/songKeys';
+import { useSettings } from '../settingsStore';
 
 /** What the library shows of songs after a bundle changed. */
 
@@ -62,7 +65,13 @@ export function SongBundles({
   const [busy, setBusy] = useState(false);
   const undoRef = useRef<HTMLButtonElement>(null);
   const editRef = useRef<HTMLInputElement>(null);
-  const bundles = [...(files.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+  // «Архів» (1.26.0-beta.2): those go to the end of the list, under their word
+  const archived = useSettings((s) => s.archivedBundles);
+  const setArchived = useSettings((s) => s.setArchived);
+  const isAway = (name: string) => archived.includes(name);
+  const bundles = [...(files.data ?? [])].sort(
+    (a, b) => Number(isAway(a.name)) - Number(isAway(b.name)) || a.name.localeCompare(b.name, 'uk'),
+  );
 
   const refresh = () => {
     for (const key of SONG_KEYS) void queryClient.invalidateQueries({ queryKey: [key] });
@@ -89,7 +98,13 @@ export function SongBundles({
       return setEditing({ ...editing, error: tr('Набір із такою назвою вже є') });
     setBusy(true);
     try {
+      const was = bundles.find((b) => b.id === editing.id)?.name;
       await api.renameSongBundle(editing.id, name);
+      // the archive knows a bundle by its name
+      if (was && isAway(was)) {
+        setArchived('bundles', [was], false);
+        setArchived('bundles', [name], true);
+      }
       setEditing(null);
       refresh();
     } catch (e) {
@@ -221,12 +236,23 @@ export function SongBundles({
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Box style={{ minWidth: 0 }}>
             <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-              <Text size="sm" truncate title={b.name} style={{ minWidth: 0 }}>
+              <Text
+                size="sm"
+                truncate
+                title={b.name}
+                c={isAway(b.name) ? 'dimmed' : undefined}
+                style={{ minWidth: 0 }}
+              >
                 {b.name}
               </Text>
               <Badge size="xs" variant="light" color="gray">
                 {b.count}
               </Badge>
+              {isAway(b.name) && (
+                <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                  {tr('В архіві')}
+                </Text>
+              )}
             </Group>
             {b.pair && bundles.some((x) => x.id === b.pair) && (
               <Text size="xs" c="dimmed" truncate>
@@ -286,6 +312,29 @@ export function SongBundles({
                 <IconTags size={16} />
               </ActionIcon>
             </Tooltip>
+            {(bundles.length > 1 || isAway(b.name)) && (
+              <Tooltip
+                label={
+                  isAway(b.name)
+                    ? tr('Повернути з архіву')
+                    : tr('В архів: у кінці списків і пошуку')
+                }
+                withArrow
+              >
+                <ActionIcon
+                  variant="subtle"
+                  color={isAway(b.name) ? 'brand' : 'gray'}
+                  onClick={() => setArchived('bundles', [b.name], !isAway(b.name))}
+                  aria-label={
+                    isAway(b.name)
+                      ? tr('Повернути з архіву набір «{bundle}»', { bundle: b.name })
+                      : tr('В архів набір «{bundle}»', { bundle: b.name })
+                  }
+                >
+                  {isAway(b.name) ? <IconArchiveOff size={16} /> : <IconArchive size={16} />}
+                </ActionIcon>
+              </Tooltip>
+            )}
             <Tooltip label={tr('Перейменувати')} withArrow>
               <ActionIcon
                 variant="subtle"

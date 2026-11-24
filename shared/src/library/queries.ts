@@ -82,6 +82,8 @@ export interface SongInfo {
   title: string;
   /** The song bundle's name (0.10.0); '' in a library built before bundles. */
   bundle: string;
+  /** its bundle is in the archive (1.26.0-beta.2) */
+  archived?: boolean;
 }
 /** A song found by meaning (1.25.0-beta.1): how close (1–3), its nearest slide and that slide's first line. */
 export interface SongMeaningHit extends SongInfo {
@@ -427,6 +429,14 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     }));
   }
 
+  /** Every translation but the archived (1.26.0-beta.2) — all of them when all are archived. */
+  async function translationsToSearch(skip: readonly string[] = []): Promise<number[]> {
+    const all = await getTranslations();
+    const out = new Set(skip);
+    const kept = all.filter((t) => !out.has(t.abbr));
+    return (kept.length ? kept : all).map((t) => t.id);
+  }
+
   async function getBooks(translationId: number): Promise<Book[]> {
     const rows = await db.all<AnyRow>(
       'SELECT book_number, short_name, long_name, color FROM books WHERE translation_id = ? ORDER BY book_number',
@@ -736,13 +746,15 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
   /**
    * Search songs by number (prefix) or title (diacritic-insensitive); an empty query lists
    * them by number. `bundle` narrows the search to one bundle, `topic` to the songs of one topic
-   * (1.25.0-beta.2: all of them, not the first `limit`).
+   * (1.25.0-beta.2: all of them, not the first `limit`). `skip`: the archived bundles (1.26.0-beta.2)
+   * — their songs after the others', unless one bundle is asked for.
    */
   async function searchSongs(
     q: string,
     limit = 60,
     bundle?: string,
     topic?: string,
+    skip: readonly string[] = [],
   ): Promise<SongInfo[]> {
     if (!(await tableExists('songs'))) return [];
     const cols = await songColumns();
@@ -756,25 +768,29 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       ...(bundle && cols.endsWith(', bundle') ? [bundle] : []),
       ...(byTopic ? [topic!] : []),
     ];
+    const archived = new Set(cols.endsWith(', bundle') && !bundle ? skip.slice(0, 200) : []);
+    const order = archived.size
+      ? `CASE WHEN bundle IN (${placeholders(archived.size)}) THEN 1 ELSE 0 END, number, bundle`
+      : 'number, bundle';
     const query = q.trim();
     let rows: AnyRow[];
     if (/^\d+$/.test(query)) {
       rows = await db.all(
         `SELECT ${cols} FROM songs
          WHERE (number = ? OR CAST(number AS TEXT) LIKE ?)${inBundle}
-         ORDER BY number, bundle LIMIT ?`,
-        [Number(query), `${query}%`, ...bundleArg, limit],
+         ORDER BY ${order} LIMIT ?`,
+        [Number(query), `${query}%`, ...bundleArg, ...archived, limit],
       );
     } else if (query) {
       rows = await db.all(
         `SELECT ${cols} FROM songs WHERE title_norm LIKE ?${inBundle}
-         ORDER BY number, bundle LIMIT ?`,
-        [`%${normalizeForSearch(query)}%`, ...bundleArg, limit],
+         ORDER BY ${order} LIMIT ?`,
+        [`%${normalizeForSearch(query)}%`, ...bundleArg, ...archived, limit],
       );
     } else {
       rows = await db.all(
-        `SELECT ${cols} FROM songs WHERE 1 = 1${inBundle} ORDER BY number, bundle LIMIT ?`,
-        [...bundleArg, limit],
+        `SELECT ${cols} FROM songs WHERE 1 = 1${inBundle} ORDER BY ${order} LIMIT ?`,
+        [...bundleArg, ...archived, limit],
       );
     }
     return rows.map((r) => ({
@@ -782,6 +798,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       number: r.number,
       title: r.title,
       bundle: r.bundle ?? '',
+      ...(archived.has(r.bundle) ? { archived: true } : {}),
     }));
   }
 
@@ -815,7 +832,11 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     return out;
   }
 
-  async function searchSongsByMeaning(text: string, bundle?: string): Promise<SongMeaningResponse> {
+  async function searchSongsByMeaning(
+    text: string,
+    bundle?: string,
+    skip: readonly string[] = [],
+  ): Promise<SongMeaningResponse> {
     const words = text.replace(MEANING_PREFIX, '').trim();
     if (!words) return { results: [] };
     if (pg) return { results: [], missing: 'server' };
@@ -876,7 +897,23 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       ).map((r) => [Number(r.id), r]),
     );
     const mine = songVecCache.rows.filter((r) => songs.has(r.book));
-    const hits = nearest(mine, q, SONG_MEANING_POOL);
+    // the archived bundles' songs (1.26.0-beta.2) have a pool of their own, shown after the rest
+    const skipped = new Set(inBundle ? [] : skip);
+    const isArchived = (id: number) => skipped.has(String(songs.get(id)?.bundle ?? ''));
+    const hits = skipped.size
+      ? [
+          ...nearest(
+            mine.filter((r) => !isArchived(r.book)),
+            q,
+            SONG_MEANING_POOL,
+          ),
+          ...nearest(
+            mine.filter((r) => isArchived(r.book)),
+            q,
+            SONG_MEANING_POOL,
+          ),
+        ]
+      : nearest(mine, q, SONG_MEANING_POOL);
     const ownWords = topic ? await songsWithWords(topic) : new Map<number, number>();
     if (ownWords.size) {
       // those with the topic's words further than the pool reaches are weighed too
@@ -910,12 +947,19 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     });
     scored.sort((x, y) => y.score - x.score || x.id - y.id);
     if (!scored.length) return { results: [] };
-    const top = scored[0].score;
+    // the archived ones are weighed against the nearest of the others, so they never push those out
+    const own = scored.filter((h) => !isArchived(h.id));
+    const late = scored.filter((h) => isArchived(h.id));
+    const top = (own[0] ?? late[0]).score;
     // a topic's words in the first song must not cut those that are as close without them
     const far = cut + (ownWords.size ? TOPIC_WORD_BOOST : 0);
-    const kept = scored
-      .filter((h, i) => i < MEANING_MIN || top - h.score <= far)
-      .slice(0, SONG_MEANING_LIMIT);
+    const ownKept = own.filter((h, i) => i < MEANING_MIN || top - h.score <= far);
+    const lateKept = late.filter(
+      (h, i) => (!own.length && i < MEANING_MIN) || top - h.score <= far,
+    );
+    // a few archived always have room after the rest
+    const room = SONG_MEANING_LIMIT - Math.min(lateKept.length, 10);
+    const kept = [...ownKept.slice(0, room), ...lateKept].slice(0, SONG_MEANING_LIMIT);
     // each song's best passage, as a line to show under its title
     const lines = new Map<number, string>();
     if (kept.length) {
@@ -942,7 +986,8 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
           number: r.number,
           title: r.title,
           bundle: r.bundle ?? '',
-          closeness: closenessOf(top - h.score, cut),
+          ...(isArchived(h.id) ? { archived: true } : {}),
+          closeness: closenessOf(Math.max(0, top - h.score), cut),
           stanza: h.best,
           line,
         };
@@ -1950,11 +1995,15 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
     return rows.map((r) => ({ verse: Number(r.verse), title: String(r.title) }));
   }
 
-  /** `inOrder`: «По порядку» (1.23.0-beta.4) — the words in the order typed (`keepsWordOrder`) */
+  /**
+   * `inOrder`: «По порядку» (1.23.0-beta.4) — the words in the order typed (`keepsWordOrder`);
+   * `skip`: the archived translations' names (1.26.0-beta.2) — left out when none are asked for by
+   * id, unless nothing else is there.
+   */
   async function search(
     query: string,
     translationIds: number[],
-    opts: { inOrder?: boolean } = {},
+    opts: { inOrder?: boolean; skip?: readonly string[] } = {},
   ): Promise<SearchResponse> {
     const inOrder = !!opts.inOrder && orderMatters(query);
     // more places read when the order sifts them, so the ones in order past the first 300 aren't lost
@@ -1963,7 +2012,7 @@ export function createLibrary(db: SqlDriver, opts: LibraryOptions = {}) {
       inOrder
         ? rows.filter((r) => keepsWordOrder(String(r.text ?? ''), query)).slice(0, TEXT_LIMIT)
         : rows;
-    const ids = translationIds.length ? translationIds : (await getTranslations()).map((t) => t.id);
+    const ids = translationIds.length ? translationIds : await translationsToSearch(opts.skip);
     if (ids.length === 0) return { kind: 'empty', results: [] };
 
     const meaning = MEANING_PREFIX.exec(query);

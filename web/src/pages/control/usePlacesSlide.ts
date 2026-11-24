@@ -2,7 +2,7 @@ import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAc
 import { type QueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { api, type Translation } from '../../api';
-import { type Appearance } from '../../settingsStore';
+import { type Appearance, useSettings } from '../../settingsStore';
 import { type Slide, type SlideLine, type SlideStyle } from '../../presenterBus';
 import { passageLines } from '../../lib/passageLines';
 import { formatReference } from '../../lib/reference';
@@ -60,7 +60,7 @@ export function usePlacesSlide({
     const main = selectedIds[0];
     let res = main != null ? await api.search(ref, [main]) : null;
     if (!res || res.kind !== 'reference' || res.results.length === 0)
-      res = await api.search(ref, []);
+      res = await api.search(ref, [], { skip: useSettings.getState().archivedTranslations });
     if (res.kind !== 'reference' || res.results.length === 0) return null;
     const f = res.results[0];
     const verses = res.results

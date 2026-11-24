@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, type SearchResult } from '../api';
+import { searchWide } from '../lib/searchWide';
 import { useSearchRows } from '../lib/useSearchRows';
 import { onlyChapter, stepBackFromVerses, stepOverChapters } from '../lib/bookPick';
 import type { RemoteTarget } from '../lib/commands';
@@ -140,12 +141,7 @@ export function RemotePicker({
   const words = step === 'books' && versesAllowed && songQuery === filter.trim() ? songQuery : '';
   const found = useQuery({
     queryKey: ['remote-search', words, ids.join(',')],
-    queryFn: async () => {
-      const first = await api.search(words, ids);
-      if (first.results.length > 0 || ids.length === 0) return { ...first, fallback: false };
-      const all = await api.search(words, []);
-      return { ...all, fallback: all.results.length > 0 };
-    },
+    queryFn: () => searchWide(words, ids),
     enabled: words.length >= 2,
   });
   const foundRows = useSearchRows(found.data?.results, primary, true).slice(0, 40);
@@ -179,10 +175,12 @@ export function RemotePicker({
   );
   const shownTranslations = useMemo(
     () =>
-      (translations.data ?? []).filter(
-        (t) => !q || t.abbr.toLowerCase().includes(q) || t.title.toLowerCase().includes(q),
-      ),
-    [translations.data, q],
+      (translations.data ?? [])
+        .filter((t) => !q || t.abbr.toLowerCase().includes(q) || t.title.toLowerCase().includes(q))
+        // the operator's archive (1.26.0-beta.2) after the rest; a ticked one stays in its place
+        .map((t) => ({ ...t, away: !!t.archived && !ids.includes(t.id) }))
+        .sort((a, b) => Number(a.away) - Number(b.away)),
+    [translations.data, q, ids],
   );
 
   /** the step was reached with «←»: a one-chapter book's grid then leads on to the books */
@@ -379,25 +377,29 @@ export function RemotePicker({
 
       <div className="vo-remote-sheet-body">
         {step === 'translations' &&
-          shownTranslations.map((t) => {
+          shownTranslations.map((t, i) => {
             const on = ids.includes(t.id);
             return (
-              <button
-                key={t.id}
-                type="button"
-                className="vo-remote-item"
-                aria-pressed={on}
-                data-selected={on ? 'true' : undefined}
-                disabled={!on && ids.length >= MAX_TRANSLATIONS}
-                onClick={() => toggleTranslation(t.id)}
-              >
-                <span aria-hidden className="vo-remote-check">
-                  {on ? '✓' : ''}
-                </span>
-                <span>
-                  <strong>{t.abbr}</strong> <span style={{ opacity: 0.65 }}>{t.title}</span>
-                </span>
-              </button>
+              <Fragment key={t.id}>
+                {t.away && !shownTranslations[i - 1]?.away && (
+                  <p className="vo-remote-found-head">{tr('Архів')}</p>
+                )}
+                <button
+                  type="button"
+                  className="vo-remote-item"
+                  aria-pressed={on}
+                  data-selected={on ? 'true' : undefined}
+                  disabled={!on && ids.length >= MAX_TRANSLATIONS}
+                  onClick={() => toggleTranslation(t.id)}
+                >
+                  <span aria-hidden className="vo-remote-check">
+                    {on ? '✓' : ''}
+                  </span>
+                  <span>
+                    <strong>{t.abbr}</strong> <span style={{ opacity: 0.65 }}>{t.title}</span>
+                  </span>
+                </button>
+              </Fragment>
             );
           })}
 

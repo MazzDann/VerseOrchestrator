@@ -157,6 +157,8 @@ export function createVectorJob(d: {
   onChange?: (s: VectorJobState) => void;
   /** a translation got all its vectors */
   onSet?: () => void;
+  /** the archived translations (1.26.0-beta.2): computed after the others */
+  archived?: () => string[];
 }) {
   let s: VectorJobState = {
     phase: 'idle',
@@ -195,6 +197,8 @@ export function createVectorJob(d: {
       const todo = all.filter(
         (t) => t.source_hash && (!ids || ids.includes(t.id)) && !sets.get(t.source_hash)?.done,
       );
+      const last = new Set(d.archived?.() ?? []);
+      todo.sort((a, b) => Number(last.has(a.abbr)) - Number(last.has(b.abbr)));
       embedder = await d.open(model);
       // the speed counts from here: opening may first measure the cores (index.ts)
       const began = Date.now();

@@ -20,6 +20,8 @@ const TranslationSchema = z.object({
   language: str(),
   rtl: z.boolean(),
   hasStrong: z.boolean(),
+  // archived by the operator (1.26.0-beta.2) — for the pages that have no store of theirs
+  archived: z.boolean().optional(),
 });
 export type Translation = z.infer<typeof TranslationSchema>;
 
@@ -92,6 +94,8 @@ const SongInfoSchema = z.object({
     .string()
     .nullish()
     .transform((v) => v ?? ''),
+  /** its bundle is in the archive (1.26.0-beta.2) */
+  archived: z.boolean().optional(),
 });
 /** Songs found by meaning (1.25.0-beta.1). */
 const SongMeaningSchema = z.object({
@@ -851,6 +855,14 @@ export interface CopyParts {
   pairings: boolean;
 }
 
+/**
+ * The archived names a search leaves out or puts last (1.26.0-beta.2): the control window says its own
+ * (an empty list too); a page that says none gets the operator's, from the server's copy of the settings.
+ */
+const skipParam = (skip?: readonly string[]): string =>
+  // one value: Express makes an object of more than 20 repeated ones
+  skip ? `&skip=${encodeURIComponent(JSON.stringify(skip))}` : '';
+
 export const api = {
   // --- Library reads: server or browser engine (see fromLibrary) ---
   translations: () =>
@@ -915,11 +927,15 @@ export const api = {
       `/api/translations/${id}/books/${book}/chapters/${chapter}/verses`,
     ),
   /** `inOrder`: «По порядку» (1.23.0-beta.4) — the words in the order typed */
-  search: (q: string, translationIds: number[], opts: { inOrder?: boolean } = {}) =>
+  search: (
+    q: string,
+    translationIds: number[],
+    opts: { inOrder?: boolean; skip?: readonly string[] } = {},
+  ) =>
     fromLibrary(
       SearchResponseSchema,
       (l) => l.search(q, translationIds, opts),
-      `/api/search?q=${encodeURIComponent(q)}&translations=${translationIds.join(',')}${opts.inOrder ? '&order=1' : ''}`,
+      `/api/search?q=${encodeURIComponent(q)}&translations=${translationIds.join(',')}${opts.inOrder ? '&order=1' : ''}${skipParam(opts.skip)}`,
     ),
   strong: (num: string, book?: number) =>
     fromLibrary(
@@ -970,11 +986,11 @@ export const api = {
       (l) => l.getCommentary(book, chapter, verse),
       `/api/commentary?book=${book}&chapter=${chapter}&verse=${verse}`,
     ),
-  songs: (q: string, bundle?: string, topic?: string) =>
+  songs: (q: string, bundle?: string, topic?: string, skip?: readonly string[]) =>
     fromLibrary(
       z.array(SongInfoSchema),
-      (l) => l.searchSongs(q, 60, bundle, topic),
-      `/api/songs?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`,
+      (l) => l.searchSongs(q, 60, bundle, topic, skip),
+      `/api/songs?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}${topic ? `&topic=${encodeURIComponent(topic)}` : ''}${skipParam(skip)}`,
     ),
   /** The topics the songs hold (1.25.0-beta.2), of one bundle or all, with their song counts. */
   songTopics: (bundle?: string) =>
@@ -987,11 +1003,11 @@ export const api = {
    * Songs by meaning (1.25.0-beta.1): «~ спасіння» in «Презентації». The browser engines have no
    * song vectors (`missing: 'server'`); `pending`: the server is still making them.
    */
-  songsByMeaning: (q: string, bundle?: string) =>
+  songsByMeaning: (q: string, bundle?: string, skip?: readonly string[]) =>
     fromLibrary(
       SongMeaningSchema,
-      (l) => l.searchSongsByMeaning(q, bundle),
-      `/api/songs/meaning?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}`,
+      (l) => l.searchSongsByMeaning(q, bundle, skip),
+      `/api/songs/meaning?q=${encodeURIComponent(q)}${bundle ? `&bundle=${encodeURIComponent(bundle)}` : ''}${skipParam(skip)}`,
     ),
   /**
    * «~ тема» in «Історія» (1.25.0-beta.3): the passages and songs ever shown, the nearest first —

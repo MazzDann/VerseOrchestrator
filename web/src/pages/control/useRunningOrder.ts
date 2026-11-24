@@ -213,7 +213,8 @@ export function useRunningOrder({
       const s = await findSong(it.songId, it.label, it.bundle, {
         song: (id) =>
           queryClient.fetchQuery({ queryKey: ['song', id], queryFn: () => api.song(id) }),
-        search: (q) => api.songs(q),
+        // an item made before its bundle was archived still finds its song (1.26.0-beta.2)
+        search: (q) => api.songs(q, undefined, undefined, []),
       });
       if (!s) return;
       if (s.id !== it.songId) {

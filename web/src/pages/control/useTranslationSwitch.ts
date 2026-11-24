@@ -34,7 +34,9 @@ export function useTranslationSwitch(): (ids: number[]) => void {
     if (seeded.current || !all.data?.length) return;
     seeded.current = true;
     if (useStore.getState().selectedTranslationIds.length > 0) return;
-    const t = defaultTranslation(all.data, lang);
+    const away = useSettings.getState().archivedTranslations;
+    const inUse = all.data.filter((x) => !away.includes(x.abbr));
+    const t = defaultTranslation(inUse.length ? inUse : all.data, lang);
     if (t) useStore.setState({ selectedTranslationIds: [t.id] });
   }, [all.data, lang]);
   useEffect(() => {
