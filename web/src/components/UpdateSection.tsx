@@ -233,10 +233,7 @@ export function UpdateSection() {
     // a check that failed: no time it was checked, and why
     status =
       state.error || state.checkedAt === null
-        ? [
-            tr('Ви вибрали версію {current}; поточний реліз — {version}.', vars),
-            state.error && tr(state.error),
-          ]
+        ? [tr('Ви вибрали версію {current}; поточний реліз — {version}.', vars), failedCheck(state)]
             .filter(Boolean)
             .join(' ')
         : tr('Ви вибрали версію {current}; поточний реліз — {version}. Перевірено {when}.', {
@@ -248,7 +245,7 @@ export function UpdateSection() {
       version: state.latest.version,
       current: shownVersion(devLabel, state.current),
     });
-  else if (state.error) status = tr(state.error);
+  else if (state.error) status = failedCheck(state);
   else if (state.checkedAt === null) status = tr('Ще не перевіряли.');
   // a copy of the repository: about releases only — its branch has a line of its own (1.6.1)
   else if (state.install === 'source' && code?.git?.upstream)
@@ -390,6 +387,19 @@ export function UpdateSection() {
       </Text>
     </div>
   );
+}
+
+/** Why the last look failed; till when, if GitHub asked to wait (its limit of questions an hour). */
+function failedCheck(state: UpdateState): string {
+  if (!state.error) return '';
+  return state.waitUntil && state.waitUntil > Date.now()
+    ? tr('GitHub просить зачекати до {time}: з цієї мережі забагато перевірок за годину.', {
+        time: new Date(state.waitUntil).toLocaleTimeString(currentLocale(), {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      })
+    : tr(state.error);
 }
 
 /**

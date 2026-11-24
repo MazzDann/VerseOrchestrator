@@ -36,6 +36,7 @@ import { liveNode } from './autostart.ts';
 import { readLaunchSettings } from './browsers.ts';
 import { KeyedError, N_, requestLang, tr, trError, type Lang } from './lang.ts';
 import { applyLayout } from './layout.ts';
+import { clearRunning, runningElsewhere, writeRunning } from './runningFile.ts';
 import { needsBuild } from './uiStamp.ts';
 
 export interface RunningApp {
@@ -321,10 +322,14 @@ export function createStandby(o: StandbyOptions) {
   }, o.checkMs ?? 10_000);
 
   let closed = false;
+  /** the address listened on: noted in the data folder while it is (runningFile.ts) */
+  let heldPort: number | null = null;
   async function shutdown(why: ShutdownReason): Promise<void> {
     if (closed) return;
     closed = true;
     clearInterval(idle);
+    // first: one started while this one stops is not turned away by it (review)
+    if (o.dataDir && heldPort !== null) clearRunning(o.dataDir, process.pid, heldPort);
     for (const s of tunnels) s.destroy();
     await stopApp('shutdown');
     await new Promise<void>((r) => {
@@ -342,7 +347,12 @@ export function createStandby(o: StandbyOptions) {
     listen: () =>
       new Promise<number>((resolve, reject) => {
         server.once('error', reject);
-        server.listen(o.port, o.host, () => resolve((server.address() as net.AddressInfo).port));
+        server.listen(o.port, o.host, () => {
+          heldPort = (server.address() as net.AddressInfo).port;
+          if (o.root && o.dataDir)
+            writeRunning(o.dataDir, { port: heldPort, pid: process.pid, root: o.root });
+          resolve(heldPort);
+        });
       }),
     status,
     /** Turned off: exit as soon as the app isn't running (at once if it's waiting). */
@@ -550,6 +560,14 @@ async function main(): Promise<void> {
   // after an update the new waiter takes the port the old one had (swap.ts) — this
   // once: a relaunch (the port changed in the settings) must read the settings again
   const listen = Number(process.env.VO_STANDBY_LISTEN) || settings.port;
+  // started with the computer while this folder's app runs at another address: one is enough
+  const elsewhere = process.env.VO_STANDBY_LISTEN
+    ? null
+    : await runningElsewhere(dataDir, repoRoot, listen);
+  if (elsewhere !== null) {
+    log(`not started: this folder's app runs on :${elsewhere}`);
+    process.exit(0);
+  }
   delete process.env.VO_STANDBY_LISTEN;
   const standby = createStandby({
     port: listen,

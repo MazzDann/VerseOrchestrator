@@ -15,7 +15,7 @@ import {
   type ScreenInfo,
 } from './lib/screens';
 import { delegateFullscreen } from './lib/fullscreen';
-import { inDesktop } from './lib/desktop';
+import { inDesktop, showKeptSettings } from './lib/desktop';
 import { watchOpenedAsTab } from './lib/tabNotice';
 import { useSettings } from './settingsStore';
 import { SETTINGS_WINDOW_KEY, settingsWindowBox } from './lib/panelBox';
@@ -360,13 +360,10 @@ export async function openSettingsWindow(
   at?: string,
   more: { anchor?: string; find?: string } = {},
 ): Promise<Window | null> {
+  const box = from ? screenBox(from) : ownSettingsBox();
   if (settingsWin && !settingsWin.closed) {
     const w = settingsWin;
-    if (from) {
-      const b = screenBox(from);
-      w.moveTo(b.left, b.top);
-    }
-    w.focus();
+    const keep = showKeptSettings();
     // the same origin: its page takes the events as the panel does (SettingsPanel, Settings.tsx)
     try {
       if (at) w.dispatchEvent(new CustomEvent('vo:open-settings-section', { detail: at }));
@@ -376,47 +373,27 @@ export async function openSettingsWindow(
       if (anchor)
         window.setTimeout(() => {
           try {
-            w.document
-              .getElementById(anchor)
-              ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            w.document.getElementById(anchor)?.scrollIntoView({ block: 'center' });
           } catch {
             /* closed meanwhile */
           }
-        }, 400);
+        }, 20);
     } catch {
       /* the window went away meanwhile */
     }
-    return w;
-  }
-  let features: string;
-  const query = new URLSearchParams();
-  if (from) {
-    const b = screenBox(from);
-    features = `popup,width=${b.width},height=${b.height},left=${b.left},top=${b.top}`;
-    // the window's size goes back to the panel's (Settings.tsx)
-    query.set('from', 'panel');
-  } else {
-    let stored: unknown = null;
-    try {
-      stored = JSON.parse(localStorage.getItem(SETTINGS_WINDOW_KEY) ?? 'null');
-    } catch {
-      /* none kept */
+    // the desktop app: hidden at its close, shown again drawn (1.26.0-beta.1)
+    const { left: x, top: y, width, height } = box;
+    if (keep) {
+      if (await keep({ x, y, width, height }).catch(() => false)) return w;
+    } else {
+      if (from) w.moveTo(x, y);
+      w.focus();
+      return w;
     }
-    const s = window.screen as Screen & { availLeft?: number; availTop?: number };
-    const b = settingsWindowBox(stored, {
-      screenX: window.screenX,
-      screenY: window.screenY,
-      outerWidth: window.outerWidth,
-      outerHeight: window.outerHeight,
-      avail: {
-        left: s.availLeft ?? 0,
-        top: s.availTop ?? 0,
-        width: s.availWidth,
-        height: s.availHeight,
-      },
-    });
-    features = `popup,width=${b.width},height=${b.height},left=${b.left},top=${b.top}`;
   }
+  const query = new URLSearchParams();
+  // the window's size goes back to the panel's (Settings.tsx)
+  if (from) query.set('from', 'panel');
   // `at`: the section to show first — the one the panel was showing, or the one asked for
   if (at) query.set('at', at);
   if (more.anchor) query.set('anchor', more.anchor);
@@ -425,7 +402,30 @@ export async function openSettingsWindow(
   settingsWin = window.open(
     `${location.origin}/settings${q ? `?${q}` : ''}`,
     'vo-settings',
-    features,
+    `popup,${showKeptSettings() ? 'vokeep=1,' : ''}width=${box.width},height=${box.height},left=${box.left},top=${box.top}`,
   );
   return settingsWin;
+}
+
+/** Where the settings window opens by itself: the size kept, centred over this window (lib/panelBox.ts). */
+function ownSettingsBox() {
+  let stored: unknown = null;
+  try {
+    stored = JSON.parse(localStorage.getItem(SETTINGS_WINDOW_KEY) ?? 'null');
+  } catch {
+    /* none kept */
+  }
+  const s = window.screen as Screen & { availLeft?: number; availTop?: number };
+  return settingsWindowBox(stored, {
+    screenX: window.screenX,
+    screenY: window.screenY,
+    outerWidth: window.outerWidth,
+    outerHeight: window.outerHeight,
+    avail: {
+      left: s.availLeft ?? 0,
+      top: s.availTop ?? 0,
+      width: s.availWidth,
+      height: s.availHeight,
+    },
+  });
 }

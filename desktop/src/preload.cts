@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld('voDesktop', {
   outputRestore: (asked?: boolean): void => {
     ipcRenderer.send('vo-output-restore', asked);
   },
+  // 1.26.0-beta.1: the settings window is hidden at its close, not gone — shown again at a place
+  ...(process.argv.includes('--vo-keeps-settings')
+    ? {
+        showSettings: (box: unknown): Promise<boolean> =>
+          ipcRenderer.invoke('vo-show-settings', box) as Promise<boolean>,
+      }
+    : {}),
   // 1.24.0-beta.2: a 2nd screen plugged back in — the shell returned `n` output windows to it; the
   // control window does the operator's choice (leave it, black, clear) or opens one when none was
   onDisplayBack: (cb: (n: number) => void): (() => void) => {

@@ -322,6 +322,10 @@ Explorer window, a terminal, or a browser that the app itself opened when the br
 running yet (in versions before 1.8.8). If it's a browser, quit it completely (in Chrome and Edge, also its icon by the clock, if it
 stays there), open it yourself, and go to the app's address. The previous version keeps running meanwhile.
 
+One copy of the app runs from a folder: started again with another port, it opens the one that
+runs already. If **Updates** says that GitHub asks to wait, try again after the time it names:
+GitHub answers a limited number of checks an hour from one network.
+
 An update doesn't touch the `data/` and `modules/` folders: settings, the library, presentations,
 and modules carry over to the new version.
 

@@ -66,6 +66,8 @@ export interface UpdateState {
   available: boolean;
   /** a dictionary key: the last check failed */
   error: string | null;
+  /** GitHub asked to wait till then (ms; its limit of questions an hour, 1.26.0-beta.1) */
+  waitUntil: number | null;
 }
 
 /** A version, maybe with a pre-release part (semver): `1.8.12`, `v1.8.12`, `1.8.12-beta.1`. */
@@ -225,6 +227,21 @@ export interface CheckerOptions {
   arch?: string;
 }
 
+/** 60 questions an hour from one address (every copy behind the same router): until when GitHub won't answer. */
+function waitAsked(res: Response, now: number): number | null {
+  if (res.status !== 403 && res.status !== 429) return null;
+  const after = Number(res.headers.get('retry-after'));
+  const reset = Number(res.headers.get('x-ratelimit-reset'));
+  const until =
+    after > 0
+      ? now + after * 1000
+      : res.headers.get('x-ratelimit-remaining') === '0' && reset > 0
+        ? reset * 1000
+        : null;
+  // a clock that is off, a strange answer: never longer than its own hour
+  return until !== null && until > now ? Math.min(until, now + 3_600_000) : null;
+}
+
 export function createUpdateChecker(o: CheckerOptions) {
   const now = o.now ?? Date.now;
   const doFetch = o.fetch ?? fetch;
@@ -236,6 +253,7 @@ export function createUpdateChecker(o: CheckerOptions) {
   // …and its ETag: the next request asks «changed since?» (1.12.3)
   let etag: string | null = null;
   let error: string | null = null;
+  let waitUntil: number | null = null;
   let inflight: Promise<void> | null = null;
 
   const state = (): UpdateState => {
@@ -251,10 +269,14 @@ export function createUpdateChecker(o: CheckerOptions) {
       releases,
       available: !!latest && compareVersions(latest.version, o.current) > 0,
       error,
+      waitUntil,
     };
   };
 
   async function ask(): Promise<void> {
+    // asked to wait: another question would only be refused again
+    if (waitUntil !== null && now() < waitUntil && waitUntil - now() <= 3_600_000) return;
+    waitUntil = null;
     try {
       const res = await doFetch(o.url ?? RELEASES_URL, {
         headers: {
@@ -265,6 +287,7 @@ export function createUpdateChecker(o: CheckerOptions) {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (res.status !== 304) {
+        waitUntil = waitAsked(res, now());
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         answer = await res.json();
         etag = res.headers.get('etag');
@@ -272,7 +295,10 @@ export function createUpdateChecker(o: CheckerOptions) {
       error = null;
     } catch {
       // offline, GitHub down or rate-limited: say so, keep what the last answer said
-      error = N_('Не вдалося перевірити оновлення: немає зв’язку з GitHub');
+      error =
+        waitUntil !== null
+          ? N_('GitHub просить зачекати: з цієї мережі забагато перевірок за годину')
+          : N_('Не вдалося перевірити оновлення: немає зв’язку з GitHub');
     }
     checkedAt = now();
   }

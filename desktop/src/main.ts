@@ -59,9 +59,11 @@ function findAppRoot(): string {
   return path.resolve(here, '..', '..');
 }
 const appRoot = findAppRoot();
-const PORT = Number(process.env.VO_PORT ?? 4747);
-const ORIGIN = `http://localhost:${PORT}`;
+let PORT = Number(process.env.VO_PORT ?? 4747);
+let ORIGIN = `http://localhost:${PORT}`;
 const HEADERS = { 'X-VO-Control': '1' };
+/** server/src/layout.ts */
+const LAYOUT_MARKER = '.vo-portable';
 const PRELOAD = path.join(here, 'preload.cjs');
 
 /** The app's icon on its windows and the taskbar (the .exe keeps Electron's: no tool for it here). */
@@ -80,7 +82,7 @@ const PAGE = {
   preload: PRELOAD,
   autoplayPolicy: 'no-user-gesture-required' as const,
   // this shell puts a reloaded full-screen window back full screen (1.25.3, preload.cts)
-  additionalArguments: ['--vo-reload-fullscreen'],
+  additionalArguments: ['--vo-reload-fullscreen', '--vo-keeps-settings'],
 };
 
 /** Node for the launcher: the release's own (app/node), VO_NODE, else the one on PATH. */
@@ -167,6 +169,7 @@ let ownsApp = false;
 /** the app is being started (the start window may be open); the program is quitting */
 let starting = false;
 let quitting = false;
+let sessionEnds = false;
 let startWindow: BrowserWindow | null = null;
 let handoverWaits: string | undefined;
 
@@ -190,9 +193,56 @@ function stopLauncher(): void {
   launcher.kill();
 }
 
+/** The port this folder's app runs at, as its waiter noted in the data folder and says itself; or null. */
+async function runsElsewhere(): Promise<number | null> {
+  const same = (a: string, b: string) => {
+    const norm = (s: string) =>
+      process.platform === 'linux' ? path.resolve(s) : path.resolve(s).toLowerCase();
+    return norm(a) === norm(b);
+  };
+  try {
+    let data = process.env.VO_DATA_DIR;
+    if (!data) {
+      data = path.join(appRoot, 'data');
+      try {
+        // a release: data/ beside app/ (server layout.ts)
+        const m = JSON.parse(fs.readFileSync(path.join(appRoot, LAYOUT_MARKER), 'utf8')) as {
+          data?: unknown;
+        };
+        if (typeof m.data === 'string') data = path.resolve(appRoot, m.data);
+      } catch {
+        /* a copy of the repository */
+      }
+    }
+    const r = JSON.parse(fs.readFileSync(path.join(data, 'running.json'), 'utf8')) as {
+      port?: unknown;
+      root?: unknown;
+    };
+    if (typeof r.port !== 'number' || r.port === PORT) return null;
+    if (typeof r.root !== 'string' || !same(r.root, appRoot)) return null;
+    const res = await fetch(`http://127.0.0.1:${r.port}/__standby`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    const s = (res.ok ? await res.json() : null) as { root?: unknown } | null;
+    return typeof s?.root === 'string' && same(s.root, appRoot) ? r.port : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The app on PORT: the one already running, or the launcher started now (and waited for). */
 async function startApp(): Promise<void> {
   if (await answers()) return;
+  // this folder's app at another address (1.26.0-beta.1, server runningFile.ts): that one, no second
+  const elsewhere = await runsElsewhere();
+  if (elsewhere !== null) {
+    const asked = PORT;
+    PORT = elsewhere;
+    ORIGIN = `http://localhost:${PORT}`;
+    if (await answers()) return;
+    PORT = asked; // it went away meanwhile
+    ORIGIN = `http://localhost:${PORT}`;
+  }
   ownsApp = true;
   let log: number | 'ignore' = 'ignore';
   try {
@@ -315,6 +365,48 @@ function followOutputs(win: BrowserWindow): void {
 
 let control: BrowserWindow | null = null;
 let settings: BrowserWindow | null = null;
+/** the settings window is kept at its close: the control page that opened it knows to have it shown again */
+let keepSettings = false;
+/** it was drawn and shown once: till then nothing but its own drawing shows it */
+let settingsSeen = false;
+
+/**
+ * The settings window shown again (1.26.0-beta.1, the author: made anew at every opening). Its page has the
+ * section and words asked for already (openPresenter.ts) and draws them hidden; then it is shown.
+ */
+ipcMain.handle('vo-show-settings', async (e, box: unknown) => {
+  if (!control || e.sender !== control.webContents) return false;
+  const w = settings;
+  if (!w || w.isDestroyed()) return false;
+  if (w.webContents.isCrashed()) {
+    w.destroy();
+    return false;
+  }
+  if (!settingsSeen) return true; // on its way: it shows itself when it is drawn
+  if (!w.isVisible()) {
+    const b = box as Partial<Rectangle> | null;
+    const whole = [b?.x, b?.y, b?.width, b?.height].every((n) => Number.isFinite(n));
+    // the page's sizes are its inside (window.open's width), the frame comes on top
+    if (b && whole) {
+      w.setContentSize(Math.round(b.width!), Math.round(b.height!));
+      w.setPosition(Math.round(b.x!), Math.round(b.y!));
+    }
+    // a page that is busy or loading anew is shown all the same
+    await Promise.race([
+      w.webContents
+        .executeJavaScript(
+          // two turns of the page's queue, not a timer: a hidden page's timers run once a second
+          "new Promise((r) => { window.dispatchEvent(new Event('vo:settings-shown')); const c = new MessageChannel(); let n = 0; c.port1.onmessage = () => (++n < 2 ? c.port2.postMessage(0) : r(true)); c.port2.postMessage(0); })",
+        )
+        .catch(() => false),
+      new Promise((r) => setTimeout(r, 800)),
+    ]);
+    if (w.isDestroyed()) return false;
+    w.show();
+  } else if (w.isMinimized()) w.restore();
+  w.focus();
+  return true;
+});
 
 function openControl(): BrowserWindow {
   const kept = keptPlace();
@@ -332,11 +424,25 @@ function openControl(): BrowserWindow {
     win.show();
   });
   win.on('close', () => keepPlace(win));
+  // Windows logs off or shuts down: nothing is kept or waited for
+  const ending = () => {
+    quitting = true;
+    sessionEnds = true;
+  };
+  win.on('query-session-end', ending);
+  win.on('session-end', ending);
   // the settings come back with the control window, above it
   win.on('focus', () => {
     if (settings && !settings.isDestroyed() && settings.isVisible()) settings.moveTop();
   });
 
+  // a control page loaded anew knows no settings window of before: a hidden one goes (opened by name it
+  // would load unseen), one in sight stays
+  win.webContents.on('did-start-navigation', (d) => {
+    if (!d.isMainFrame || d.isSameDocument || !settings || settings.isDestroyed()) return;
+    if (settings.isVisible()) keepSettings = false;
+    else settings.destroy();
+  });
   win.webContents.setWindowOpenHandler(({ url, features }) => {
     const kind = pageKind(url, ORIGIN);
     if (kind === 'external') {
@@ -352,12 +458,15 @@ function openControl(): BrowserWindow {
     }
     if (kind === 'settings') {
       const f = featureRect(features);
+      keepSettings = /(^|,)vokeep=1(,|$)/.test(features);
+      if (settings && !settings.isDestroyed()) settings.destroy();
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
           ...(f.width ? { width: f.width, height: f.height } : { width: 960, height: 720 }),
           ...(f.x !== undefined ? { x: f.x, y: f.y } : {}),
           parent: win, // above the control window always, minimized with it
+          useContentSize: true, // the sizes asked for and kept are the page’s: it shrank by the frame each time
           show: false, // drawn first: it opened as an empty dark rectangle (1.25.2)
           autoHideMenuBar: true,
           backgroundColor: '#1e2025',
@@ -392,6 +501,17 @@ function openControl(): BrowserWindow {
     const kind = pageKind(url, ORIGIN);
     if (kind === 'settings') {
       settings = child;
+      settingsSeen = false;
+      // hidden, not gone (1.26.0-beta.1): opened again it is there at once, as it was left
+      child.on('close', (e) => {
+        if (!keepSettings || quitting || win.isDestroyed() || child.webContents.isCrashed()) return;
+        e.preventDefault();
+        child.hide();
+        void child.webContents
+          .executeJavaScript("window.dispatchEvent(new Event('vo:settings-hidden'))")
+          .catch(() => undefined);
+        if (!win.isMinimized()) win.focus();
+      });
       child.on('closed', () => {
         if (settings === child) settings = null;
         // Windows may hand the keyboard to another program when an owned window closes: the control
@@ -400,7 +520,8 @@ function openControl(): BrowserWindow {
       });
       // the keyboard goes there: the settings' search field takes it (SettingsPanel)
       const reveal = () => {
-        if (child.isDestroyed() || child.isVisible()) return;
+        if (child.isDestroyed() || settingsSeen || settings !== child) return;
+        settingsSeen = true;
         child.show();
         child.focus();
       };
@@ -486,7 +607,8 @@ function openControl(): BrowserWindow {
   });
   win.on('closed', () => {
     control = null;
-    // the output windows go with the control window
+    // the settings, hidden or not, and the output windows go with the control window
+    if (settings && !settings.isDestroyed()) settings.destroy();
     for (const w of BrowserWindow.getAllWindows()) w.close();
   });
   void win.loadURL(
@@ -761,15 +883,32 @@ else {
       if (/^https?:\/\//.test(url)) void shell.openExternal(url);
     });
   });
-  app.on('before-quit', () => {
+  // a quit waits for the app this shell started to stop: the system kills what a program started when it
+  // ends, and the server was cut off in the middle whenever the word did not get out in time (1.26.0-beta.1)
+  let told = false;
+  app.on('before-quit', (e) => {
     quitting = true;
     // closed while it was getting ready: nothing answers on the port yet
-    if (starting) stopLauncher();
+    if (starting) return stopLauncher();
     // the app this shell started stops with it; one it found running stays
-    if (ownsApp)
-      void fetch(`${ORIGIN}/__standby/shutdown`, { method: 'POST', headers: HEADERS }).catch(
-        () => {},
-      );
+    if (!ownsApp || told || sessionEnds) return;
+    told = true;
+    e.preventDefault();
+    void (async () => {
+      try {
+        await fetch(`${ORIGIN}/__standby/shutdown`, {
+          method: 'POST',
+          headers: HEADERS,
+          signal: AbortSignal.timeout(2000),
+        });
+        // gone when its address is: the launcher, or the waiter an update left in its place
+        for (let i = 0; i < 30 && (launcher || (await answers())); i++)
+          await new Promise((r) => setTimeout(r, 100));
+      } catch {
+        /* it does not answer: nothing to wait for */
+      }
+      app.quit();
+    })();
   });
   void app.whenReady().then(async () => {
     setMenu();
