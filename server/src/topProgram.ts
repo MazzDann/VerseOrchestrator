@@ -28,6 +28,15 @@ const same = (a: string, b: string) => {
 export function bringTopFiles(appRoot: string): string[] {
   const from = path.join(appRoot, TOP_DIR);
   const top = path.dirname(appRoot);
+  return [
+    ...bring(from, top),
+    // the stub Electron starts with (1.26.0-beta.4), where there is a shell: it is read once, at the start
+    ...bring(path.join(from, 'stub'), path.join(top, 'shell', 'resources', 'app')),
+  ];
+}
+
+function bring(from: string, top: string): string[] {
+  if (!fs.existsSync(top)) return [];
   let names: string[];
   try {
     names = fs

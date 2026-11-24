@@ -168,6 +168,13 @@ function putStub(resources) {
       2,
     ),
   );
+  // inside app/ too (Windows, Linux): a copy keeps its shell while Electron is the same, and so its old stub — the
+  // server puts this one there (server/src/topProgram.ts). macOS: the .app's signature seals its own
+  if (process.platform !== 'darwin') {
+    const inApp = path.join(top, 'app', 'top', 'stub');
+    fs.mkdirSync(inApp, { recursive: true });
+    fs.copyFileSync(path.join(to, 'main.js'), path.join(inApp, 'main.js'));
+  }
   // Electron's own sample app goes
   fs.rmSync(path.join(resources, 'default_app.asar'), { force: true });
 }
