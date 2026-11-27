@@ -46,12 +46,18 @@ import { bringPrevious, rescueFor } from './rescue.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 /**
+ * A release's program, not `electron .` from the repository. Electron's own `app.isPackaged` asks the
+ * program's NAME — the .app's is still «Electron» (desktop/scripts/pack.mjs), so on a Mac it said «no»
+ * and the error window never offered «Повернути версію» (the Mac check of 1.26.0-beta.4).
+ */
+const PACKAGED = app.isPackaged || !process.defaultApp;
+/**
  * Where server/src/launcher.ts is: the repository (dev), or the release's app/ folder — found up
  * from the shell (desktop/VerseOrchestrator.exe, VerseOrchestrator.app/Contents/MacOS/…).
  */
 function findAppRoot(): string {
   if (process.env.VO_APP_ROOT) return process.env.VO_APP_ROOT;
-  let dir = app.isPackaged ? path.dirname(process.execPath) : path.resolve(here, '..', '..');
+  let dir = PACKAGED ? path.dirname(process.execPath) : path.resolve(here, '..', '..');
   for (let i = 0; i < 7; i++) {
     for (const at of [dir, path.join(dir, 'app')])
       if (fs.existsSync(path.join(at, 'server', 'src', 'launcher.ts'))) return at;
@@ -849,8 +855,7 @@ function openSettings(): void {
 
 /** The control window in front: from the Dock (macOS), or the app started again. */
 /** The release's folder: app/ in it, this shell beside (a clone has none). */
-const releaseTop =
-  app.isPackaged && path.basename(appRoot) === 'app' ? path.dirname(appRoot) : null;
+const releaseTop = PACKAGED && path.basename(appRoot) === 'app' ? path.dirname(appRoot) : null;
 
 /**
  * A window of this shell has drawn: a new one (server/src/shellSwap.ts) is no longer on trial, the one
@@ -896,7 +901,7 @@ async function failedStart(why: string, ended: boolean): Promise<void> {
   // with an app of this folder still answering nothing may be renamed
   const ours =
     ended && !/--port \d/.test(why) && !(await answers()) && (await runsElsewhere()) === null;
-  const back = ours && app.isPackaged ? rescueFor(appRoot) : null;
+  const back = ours && PACKAGED ? rescueFor(appRoot) : null;
   if (!back) return dialog.showErrorBox('VerseOrchestrator', text);
   const picked = dialog.showMessageBoxSync({
     type: 'error',
