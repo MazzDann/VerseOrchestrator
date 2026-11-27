@@ -153,12 +153,15 @@ export function OutputsPanel() {
       if (!windowsRef.current.some((w) => w.id === o.id)) return;
       // one already closed by hand that went without a word: gone from the list, nothing to say
       await checkOutputs();
-      if (currentOutputs().some((w) => w.id === o.id)) {
+      const still = currentOutputs().find((w) => w.id === o.id);
+      if (still) {
         notifications.show({
-          message: tr(
-            '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну',
-            { window: label },
-          ),
+          message: still.silent
+            ? tr('{window} не відповідає — закрийте його кнопкою самого вікна', { window: label })
+            : tr(
+                '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну',
+                { window: label },
+              ),
           color: 'orange',
         });
       }
@@ -327,14 +330,14 @@ export function OutputsPanel() {
               const state = [
                 on?.label ?? tr('екран невідомий'),
                 o.fullscreen ? tr('на весь екран') : `${o.bounds.w}×${o.bounds.h}`,
-                o.visible ? null : tr('приховане'),
+                o.silent ? tr('не відповідає') : o.visible ? null : tr('приховане'),
               ].filter(Boolean);
               return (
                 <Group key={o.id} gap={6} wrap="nowrap">
                   <Icon size={14} style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <Text size="sm">{label}</Text>
-                    <Text size="xs" c={o.visible ? 'dimmed' : 'orange'} truncate>
+                    <Text size="xs" c={o.visible && !o.silent ? 'dimmed' : 'orange'} truncate>
                       {state.join(' · ')}
                     </Text>
                     {o.pinned != null && (

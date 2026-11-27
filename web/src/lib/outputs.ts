@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { onSlideError } from './slideErrors';
 import { onFullscreenRefused } from './fullscreen';
 import { createPeekGuardPoke } from './peekGuard';
-import { desktopOutputRestore } from './desktop';
+import { desktopOutputRestore, inDesktop } from './desktop';
 
 /**
  * Output windows registry (0.4.2): every output window (presenter, stage) announces itself
@@ -79,6 +79,11 @@ export interface OutputChannel {
 
 export interface TrackedOutput extends OutputInfo {
   lastSeen: number;
+  /**
+   * Silent past its time but not closed (1.26.0): only where closing is told for sure — the desktop
+   * app names the window that closed — so a silent one is frozen, «не відповідає», and stays listed.
+   */
+  silent?: boolean;
 }
 
 export const OUTPUT_KIND_LABEL: Record<OutputKind, string> = {
@@ -111,7 +116,12 @@ export const STALE_MS = 3 * HEARTBEAT_MS;
  */
 export const STALE_HIDDEN_MS = 75_000;
 
-export function createOutputs(channel: OutputChannel, now: () => number = Date.now) {
+export function createOutputs(
+  channel: OutputChannel,
+  now: () => number = Date.now,
+  /** closing is told (the desktop app): a silent window is marked, not dropped */
+  closingTold: () => boolean = () => false,
+) {
   /** Output side: announce `info()` now, on `changed()`, on request and as a heartbeat. */
   function announce(
     info: () => OutputInfo,
@@ -172,7 +182,9 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
       let gone = false;
       for (const [id, o] of map) {
         if (now() - o.lastSeen > (o.visible ? STALE_MS : STALE_HIDDEN_MS)) {
-          map.delete(id);
+          if (!closingTold()) map.delete(id);
+          else if (o.silent) continue;
+          else map.set(id, { ...o, silent: true });
           gone = true;
         }
       }
@@ -191,8 +203,9 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
         setTimeout(() => {
           let gone = false;
           for (const [id, o] of map)
-            if (o.lastSeen < asked) {
-              map.delete(id);
+            if (o.lastSeen < asked && !o.silent) {
+              if (closingTold()) map.set(id, { ...o, silent: true });
+              else map.delete(id);
               gone = true;
             }
           if (gone) emit();
@@ -246,7 +259,7 @@ const channel: OutputChannel | null =
       })()
     : null;
 
-export const outputs = channel ? createOutputs(channel) : null;
+export const outputs = channel ? createOutputs(channel, Date.now, inDesktop) : null;
 
 /**
  * This control page (a new id on every load). An output window reports the page that

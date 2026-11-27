@@ -1305,6 +1305,9 @@ export const EN: Record<string, string> = {
   'екран невідомий': 'screen unknown',
   'на весь екран': 'full screen',
   приховане: 'hidden',
+  'не відповідає': 'not responding',
+  '{window} не відповідає — закрийте його кнопкою самого вікна':
+    '{window} is not responding — close it with the window’s own button',
   'Показати номер на цьому вікні': 'Show the number on this window',
   'Показати номер: {window}': 'Show the number: {window}',
   'Вийти з повного екрана': 'Exit full screen',
