@@ -363,3 +363,66 @@ describe('screens', () => {
     ).toBeUndefined();
   });
 });
+
+describe('a window gone without its bye (1.26.0)', () => {
+  it('drops from the list once it does not answer who', async () => {
+    vi.useFakeTimers();
+    const h = hub();
+    const control = createOutputs(h.endpoint(), () => Date.now());
+    let list: { id: string }[] = [];
+    const stop = control.track((l) => (list = l));
+    const live = createOutputs(h.endpoint()).announce(
+      () => info('live'),
+      () => undefined,
+    );
+    // a window that stops answering, with no bye (closed by its own button in the desktop app)
+    const ep = h.endpoint();
+    let muted = false;
+    createOutputs({ post: (m) => void (muted || ep.post(m)), listen: ep.listen }).announce(
+      () => info('ghost'),
+      () => undefined,
+    );
+    await vi.advanceTimersByTimeAsync(10);
+    expect(list.map((o) => o.id).sort()).toEqual(['ghost', 'live']);
+    await vi.advanceTimersByTimeAsync(10);
+    muted = true;
+    const done = stop.probe(500);
+    await vi.advanceTimersByTimeAsync(600);
+    await done;
+    expect(list.map((o) => o.id)).toEqual(['live']);
+    live.stop();
+    vi.useRealTimers();
+  });
+});
+
+describe('a silent window where closing is told (the desktop app, 1.26.0)', () => {
+  it('is marked as not responding, not dropped, and comes back when it answers', async () => {
+    vi.useFakeTimers();
+    const h = hub();
+    const control = createOutputs(
+      h.endpoint(),
+      () => Date.now(),
+      () => true,
+    );
+    let list: { id: string; silent?: boolean }[] = [];
+    const stop = control.track((l) => (list = l));
+    const ep = h.endpoint();
+    let muted = false;
+    createOutputs({ post: (m) => void (muted || ep.post(m)), listen: ep.listen }).announce(
+      () => info('frozen'),
+      () => undefined,
+    );
+    await vi.advanceTimersByTimeAsync(10);
+    muted = true;
+    const done = stop.probe(500);
+    await vi.advanceTimersByTimeAsync(600);
+    await done;
+    expect(list).toMatchObject([{ id: 'frozen', silent: true }]);
+    muted = false;
+    await vi.advanceTimersByTimeAsync(HEARTBEAT_MS + 10);
+    expect(list[0].silent).toBeUndefined();
+    stop.forget('vo-presenter');
+    expect(list).toEqual([]);
+    vi.useRealTimers();
+  });
+});

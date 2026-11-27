@@ -36,6 +36,8 @@ import {
   useOutputWindows,
   type OutputKind,
   type TrackedOutput,
+  checkOutputs,
+  currentOutputs,
 } from '../lib/outputs';
 import {
   listScreens,
@@ -92,6 +94,8 @@ export function OutputsPanel() {
   };
   useEffect(() => {
     void refresh();
+    // opened: the windows closed meanwhile without a word go from the list at once
+    void checkOutputs();
   }, []);
   useEffect(
     () => (access === 'granted' ? onScreensChange(() => void refresh()) : undefined),
@@ -145,13 +149,19 @@ export function OutputsPanel() {
   // The window closes itself; one that isn't a pop-up (opened by hand in a tab) may not.
   const close = (o: TrackedOutput, label: string) => {
     closeOutput(o);
-    window.setTimeout(() => {
-      if (windowsRef.current.some((w) => w.id === o.id)) {
+    window.setTimeout(async () => {
+      if (!windowsRef.current.some((w) => w.id === o.id)) return;
+      // one already closed by hand that went without a word: gone from the list, nothing to say
+      await checkOutputs();
+      const still = currentOutputs().find((w) => w.id === o.id);
+      if (still) {
         notifications.show({
-          message: tr(
-            '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну',
-            { window: label },
-          ),
+          message: still.silent
+            ? tr('{window} не відповідає — закрийте його кнопкою самого вікна', { window: label })
+            : tr(
+                '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну',
+                { window: label },
+              ),
           color: 'orange',
         });
       }
@@ -320,14 +330,14 @@ export function OutputsPanel() {
               const state = [
                 on?.label ?? tr('екран невідомий'),
                 o.fullscreen ? tr('на весь екран') : `${o.bounds.w}×${o.bounds.h}`,
-                o.visible ? null : tr('приховане'),
+                o.silent ? tr('не відповідає') : o.visible ? null : tr('приховане'),
               ].filter(Boolean);
               return (
                 <Group key={o.id} gap={6} wrap="nowrap">
                   <Icon size={14} style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <Text size="sm">{label}</Text>
-                    <Text size="xs" c={o.visible ? 'dimmed' : 'orange'} truncate>
+                    <Text size="xs" c={o.visible && !o.silent ? 'dimmed' : 'orange'} truncate>
                       {state.join(' · ')}
                     </Text>
                     {o.pinned != null && (

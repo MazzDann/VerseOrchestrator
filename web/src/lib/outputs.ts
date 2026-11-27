@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { onSlideError } from './slideErrors';
 import { onFullscreenRefused } from './fullscreen';
 import { createPeekGuardPoke } from './peekGuard';
-import { desktopOutputRestore } from './desktop';
+import { desktopOutputRestore, inDesktop } from './desktop';
 
 /**
  * Output windows registry (0.4.2): every output window (presenter, stage) announces itself
@@ -79,6 +79,11 @@ export interface OutputChannel {
 
 export interface TrackedOutput extends OutputInfo {
   lastSeen: number;
+  /**
+   * Silent past its time but not closed (1.26.0): only where closing is told for sure — the desktop
+   * app names the window that closed — so a silent one is frozen, «не відповідає», and stays listed.
+   */
+  silent?: boolean;
 }
 
 export const OUTPUT_KIND_LABEL: Record<OutputKind, string> = {
@@ -111,7 +116,12 @@ export const STALE_MS = 3 * HEARTBEAT_MS;
  */
 export const STALE_HIDDEN_MS = 75_000;
 
-export function createOutputs(channel: OutputChannel, now: () => number = Date.now) {
+export function createOutputs(
+  channel: OutputChannel,
+  now: () => number = Date.now,
+  /** closing is told (the desktop app): a silent window is marked, not dropped */
+  closingTold: () => boolean = () => false,
+) {
   /** Output side: announce `info()` now, on `changed()`, on request and as a heartbeat. */
   function announce(
     info: () => OutputInfo,
@@ -147,11 +157,17 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
     onRefused: (id: string, message: string) => void = () => undefined,
   ) {
     const map = new Map<string, TrackedOutput>();
+    let hiddenCheck: ReturnType<typeof setTimeout> | undefined;
     const emit = () => cb([...map.values()].sort((a, b) => a.openedAt - b.openedAt));
     const off = channel.listen((m) => {
       if (m.t === 'win') {
         const prev = map.get(m.info.id);
         map.set(m.info.id, { ...m.info, lastSeen: now() });
+        // gone hidden: closing says so first and then may say nothing more — ask who is there
+        if (prev?.visible && !m.info.visible) {
+          clearTimeout(hiddenCheck);
+          hiddenCheck = setTimeout(() => void probe(), 1000);
+        }
         // a heartbeat with nothing new doesn't re-render the control window
         if (
           !prev ||
@@ -166,17 +182,56 @@ export function createOutputs(channel: OutputChannel, now: () => number = Date.n
       let gone = false;
       for (const [id, o] of map) {
         if (now() - o.lastSeen > (o.visible ? STALE_MS : STALE_HIDDEN_MS)) {
-          map.delete(id);
+          if (!closingTold()) map.delete(id);
+          else if (o.silent) continue;
+          else map.set(id, { ...o, silent: true });
           gone = true;
         }
       }
       if (gone) emit();
     }, HEARTBEAT_MS);
     channel.post({ t: 'who' }); // windows opened before us answer at once
-    return () => {
-      off();
-      clearInterval(prune);
-    };
+    /**
+     * Who is really there (1.26.0, the author): a window closed by its own button may go without its
+     * `bye` (the desktop app on a Mac: it stayed listed as «приховане» for 75 s, and «Закрити» on it
+     * said the browser refused). Every window answers `who` at once; one that doesn't within `ms` is gone.
+     */
+    const probe = (ms = 1500) =>
+      new Promise<void>((resolve) => {
+        const asked = now();
+        channel.post({ t: 'who' });
+        setTimeout(() => {
+          let gone = false;
+          for (const [id, o] of map)
+            if (o.lastSeen < asked && !o.silent) {
+              if (closingTold()) map.set(id, { ...o, silent: true });
+              else map.delete(id);
+              gone = true;
+            }
+          if (gone) emit();
+          resolve();
+        }, ms);
+      });
+    return Object.assign(
+      () => {
+        off();
+        clearInterval(prune);
+        clearTimeout(hiddenCheck);
+      },
+      {
+        probe,
+        /** the desktop app saw the window of this name close: no question needed (desktop/src/main.ts) */
+        forget(name: string) {
+          let gone = false;
+          for (const [id, o] of map)
+            if (name && o.name === name) {
+              map.delete(id);
+              gone = true;
+            }
+          if (gone) emit();
+        },
+      },
+    );
   }
 
   return {
@@ -204,7 +259,7 @@ const channel: OutputChannel | null =
       })()
     : null;
 
-export const outputs = channel ? createOutputs(channel) : null;
+export const outputs = channel ? createOutputs(channel, Date.now, inDesktop) : null;
 
 /**
  * This control page (a new id on every load). An output window reports the page that
@@ -355,6 +410,8 @@ function announceWindow(
   document.addEventListener('visibilitychange', shown);
   const bye = () => a.stop();
   window.addEventListener('pagehide', bye);
+  // also as the window starts to close: by `pagehide` a closing window may no longer get it out
+  window.addEventListener('beforeunload', bye);
   return {
     failed: a.failed,
     refused: a.refused,
@@ -368,6 +425,7 @@ function announceWindow(
       document.removeEventListener('fullscreenchange', changed);
       document.removeEventListener('visibilitychange', shown);
       window.removeEventListener('pagehide', bye);
+      window.removeEventListener('beforeunload', bye);
       a.stop();
     },
   };
@@ -427,11 +485,25 @@ const errorSubs = new Set<(id: string, message: string) => void>();
 const refusedSubs = new Set<(id: string, message: string) => void>();
 let tracking = false;
 
+let probeOutputs: ((ms?: number) => Promise<void>) | null = null;
+let tracked: ReturnType<NonNullable<typeof outputs>['track']> | null = null;
+/** For the control window: drop the listed windows that no longer answer (closed without saying so). */
+export function checkOutputs(): Promise<void> {
+  startTracking();
+  return probeOutputs?.() ?? Promise.resolve();
+}
+
 function startTracking(): void {
   if (tracking || !outputs) return;
   tracking = true;
   window.__voControlPage = CONTROL_PAGE_ID; // windows opened from here report it
-  outputs.track(
+  // the desktop app says when one of its output windows closed (desktop/src/main.ts)
+  window.addEventListener('vo:output-closed', (e) => {
+    const name = (e as CustomEvent<unknown>).detail;
+    if (typeof name === 'string' && name) tracked?.forget(name);
+    else void tracked?.probe();
+  });
+  tracked = outputs.track(
     (list) => {
       known = list;
       for (const cb of knownSubs) cb(list);
@@ -443,6 +515,7 @@ function startTracking(): void {
       for (const cb of refusedSubs) cb(id, message);
     },
   );
+  probeOutputs = tracked.probe;
 }
 
 /** For the control window: an output window couldn't draw a slide (0.13.0). */

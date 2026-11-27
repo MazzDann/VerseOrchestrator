@@ -41,4 +41,14 @@ export function presenterRatio(list: readonly OutputInfo[]): number | null {
  * The open presentation window's shape, width / height, as the control window sees it (F1107-12):
  * null — none open. Only the control window fills it (AspectFrame's `PresenterShape`); elsewhere null.
  */
-export const usePresenterShape = create<{ ratio: number | null }>(() => ({ ratio: null }));
+export const usePresenterShape = create<{ ratio: number | null; width: number | null }>(() => ({
+  ratio: null,
+  width: null,
+}));
+
+/** The first presentation window's page width in px — null: none open (the monitors draw at it). */
+export function presenterWidth(list: readonly OutputInfo[]): number | null {
+  const o = list.find((x) => x.kind === 'presenter');
+  const w = o ? (o.view?.w ?? o.bounds.w) : 0;
+  return w > 0 ? w : null;
+}
