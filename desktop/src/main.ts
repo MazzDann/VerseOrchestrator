@@ -358,11 +358,19 @@ ipcMain.on('vo-output-restore', (e, asked: unknown) => {
   if (control && !control.isDestroyed() && control.isVisible()) control.focus();
 });
 let awake: number | null = null;
-function followOutputs(win: BrowserWindow): void {
+function followOutputs(win: BrowserWindow, name = ''): void {
   outputs.add(win);
   if (awake === null) awake = powerSaveBlocker.start('prevent-display-sleep');
   win.on('closed', () => {
     outputs.delete(win);
+    // the control window's «Вікна виводу» drops it now, by its name: a closing page may not get its
+    // own word out
+    if (control && !control.isDestroyed())
+      void control.webContents
+        .executeJavaScript(
+          `window.dispatchEvent(new CustomEvent('vo:output-closed', { detail: ${JSON.stringify(name)} }))`,
+        )
+        .catch(() => undefined);
     if (outputs.size === 0 && awake !== null) {
       powerSaveBlocker.stop(awake);
       awake = null;
@@ -504,7 +512,7 @@ function openControl(): BrowserWindow {
     return { action: 'allow', overrideBrowserWindowOptions: options };
   });
 
-  win.webContents.on('did-create-window', (child, { url }) => {
+  win.webContents.on('did-create-window', (child, { url, frameName }) => {
     const kind = pageKind(url, ORIGIN);
     if (kind === 'settings') {
       settings = child;
@@ -546,7 +554,7 @@ function openControl(): BrowserWindow {
       return;
     }
     if (kind !== 'output') return;
-    followOutputs(child);
+    followOutputs(child, frameName);
     // «Поступитися екраном» (1.21.0-beta.7, F1024-08): track the output's REAL html-fullscreen state,
     // so a window that left fullscreen (the F key, a screen unplugged, a reload) drops out of the set
     // and is never forced always-on-top on un-yield. The initial requestFullscreen below adds it.

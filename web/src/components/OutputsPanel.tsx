@@ -36,6 +36,8 @@ import {
   useOutputWindows,
   type OutputKind,
   type TrackedOutput,
+  checkOutputs,
+  currentOutputs,
 } from '../lib/outputs';
 import {
   listScreens,
@@ -92,6 +94,8 @@ export function OutputsPanel() {
   };
   useEffect(() => {
     void refresh();
+    // opened: the windows closed meanwhile without a word go from the list at once
+    void checkOutputs();
   }, []);
   useEffect(
     () => (access === 'granted' ? onScreensChange(() => void refresh()) : undefined),
@@ -145,8 +149,11 @@ export function OutputsPanel() {
   // The window closes itself; one that isn't a pop-up (opened by hand in a tab) may not.
   const close = (o: TrackedOutput, label: string) => {
     closeOutput(o);
-    window.setTimeout(() => {
-      if (windowsRef.current.some((w) => w.id === o.id)) {
+    window.setTimeout(async () => {
+      if (!windowsRef.current.some((w) => w.id === o.id)) return;
+      // one already closed by hand that went without a word: gone from the list, nothing to say
+      await checkOutputs();
+      if (currentOutputs().some((w) => w.id === o.id)) {
         notifications.show({
           message: tr(
             '{window} не закрилося — браузер не дозволяє закрити його звідси. Закрийте вручну',
