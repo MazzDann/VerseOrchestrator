@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { presenterRatio } from './aspect';
+import { presenterRatio, presenterWidth } from './aspect';
 import { type OutputInfo } from './outputs';
 
 const out = (kind: OutputInfo['kind'], w: number, h: number, view?: { w: number; h: number }) =>
@@ -23,5 +23,8 @@ describe('the monitors take the presentation window’s shape (F1107-12)', () =>
     expect(presenterRatio([out('presenter', 1280, 760, { w: 1264, h: 685 })])).toBe(1.845);
     expect(presenterRatio([out('stage', 800, 600), out('presenter', 1024, 768)])).toBe(1.333);
     expect(presenterRatio([out('presenter', 0, 0)])).toBeNull();
+    // the monitors draw at the window's page width (1.26.0)
+    expect(presenterWidth([out('presenter', 1280, 760, { w: 1264, h: 685 })])).toBe(1264);
+    expect(presenterWidth([out('stage', 800, 600)])).toBeNull();
   });
 });
