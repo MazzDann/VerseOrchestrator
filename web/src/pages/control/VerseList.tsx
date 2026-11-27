@@ -159,6 +159,23 @@ export function VerseList({
     d.to = verse;
     setDragged(d.from === verse ? null : [Math.min(d.from, verse), Math.max(d.from, verse)]);
   };
+  // the keyboard's focus goes with the selection: a search left it on the verse found, ↓ moved the selection,
+  // and Enter there showed the found verse again instead of the one in the preview (the Mac's UX walk of 1.26.0)
+  useEffect(() => {
+    const at = document.activeElement;
+    const view = verseViewport.current;
+    if (
+      !(at instanceof HTMLElement) ||
+      !view?.contains(at) ||
+      !at.classList.contains('vo-verse-row')
+    )
+      return;
+    if (selectedVerses.includes(Number(at.dataset.verse))) return;
+    const to = view.querySelector<HTMLElement>(
+      `.vo-verse-row[data-verse="${Math.min(...selectedVerses)}"]`,
+    );
+    to?.focus({ preventScroll: true });
+  }, [selectedVerses]);
   const latest = useRef({ pickRange, primaryVerses, dragTo });
   latest.current = { pickRange, primaryVerses, dragTo };
   useEffect(() => {
