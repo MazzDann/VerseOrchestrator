@@ -175,7 +175,7 @@ export function VerseList({
       `.vo-verse-row[data-verse="${Math.min(...selectedVerses)}"]`,
     );
     to?.focus({ preventScroll: true });
-  }, [selectedVerses]);
+  }, [selectedVerses, verseViewport]);
   const latest = useRef({ pickRange, primaryVerses, dragTo });
   latest.current = { pickRange, primaryVerses, dragTo };
   useEffect(() => {
